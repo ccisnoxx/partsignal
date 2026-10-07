@@ -1,0 +1,11 @@
+{
+  "changed_paths_since_start": [
+    "backend/app/services/geo_catalog.py",
+    "backend/tests/integration/test_geo_catalog_concurrency.py"
+  ],
+  "root_mutations_after_review_completion": [
+    "backend/app/services/geo_catalog.py",
+    "backend/tests/integration/test_geo_catalog_concurrency.py"
+  ],
+  "observed_reviewer_write_paths": []
+}

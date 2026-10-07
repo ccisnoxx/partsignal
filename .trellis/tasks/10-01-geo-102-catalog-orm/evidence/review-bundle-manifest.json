@@ -1,0 +1,127 @@
+{
+  "bundle_type": "MULTI_AGENT_AUDIT_BUNDLE",
+  "bundle_version": 1,
+  "audit_id": "20261002T043424Z-geo-102-catalog-review-69b7db5d",
+  "status": "closed",
+  "created_at": "2026-10-02T04:34:24Z",
+  "updated_at": "2026-10-02T04:43:26Z",
+  "closed_at": "2026-10-02T04:43:26Z",
+  "skill_release": "1.6.0",
+  "planner_version": "1.5.1",
+  "repository": {
+    "root": "/Users/sc/PycharmProjects/partsignal",
+    "name": "partsignal",
+    "key": "partsignal-2069b161"
+  },
+  "task": {
+    "name": "geo-102-catalog-review",
+    "slug": "geo-102-catalog-review",
+    "risk": "high"
+  },
+  "retention": {
+    "days": 90,
+    "keep": false,
+    "delete_after": "2026-12-31T04:34:24Z",
+    "extended_for_attention": false
+  },
+  "paths": {
+    "digest_json": "SUBAGENT_EXECUTION_DIGEST.json",
+    "digest_markdown": "SUBAGENT_EXECUTION_DIGEST.md"
+  },
+  "stages": [
+    {
+      "sequence": 1,
+      "name": "review",
+      "slug": "review",
+      "prefix": "01-review",
+      "plan_id": "geo102-review",
+      "paths": {
+        "draft": "01-review.draft.json",
+        "plan": "01-review.plan.json",
+        "dispatch_dir": "01-review.dispatches",
+        "execution": "01-review.execution.json",
+        "summary_json": "01-review.summary.json",
+        "summary_text": "01-review.summary.txt"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "01-review.dispatches/geo102-review-a1.json",
+      "kind": "dispatch_json",
+      "size_bytes": 176,
+      "sha256": "92768c8738c7c8e7eabb910449baaccf4d44edd59ecfdb16ddd2496748ca4159",
+      "task_name": "geo102_catalog_review",
+      "agent_type": "critical_reviewer"
+    },
+    {
+      "path": "01-review.draft.json",
+      "kind": "draft_plan_json",
+      "size_bytes": 1913,
+      "sha256": "888f145ddc22540abcd5385c5ce599c771c14ebf428c205d188c6db9087b694d",
+      "schema_version": 5,
+      "plan_id": "geo102-review"
+    },
+    {
+      "path": "01-review.execution.json",
+      "kind": "execution_json",
+      "size_bytes": 1663,
+      "sha256": "ea843c12457a52c8f2ff80852a56a80d1e37b51e5a5278432a6b2ed1694849a3",
+      "schema_version": 6,
+      "plan_id": "geo102-review"
+    },
+    {
+      "path": "01-review.plan.json",
+      "kind": "generated_plan_json",
+      "size_bytes": 2928,
+      "sha256": "be691ccd14ee58243964a15bd9980ca71525145e62cfb7a9798faab0e0475a67",
+      "schema_version": 5,
+      "planner_version": "1.5.1",
+      "plan_id": "geo102-review"
+    },
+    {
+      "path": "01-review.summary.json",
+      "kind": "summary_json",
+      "size_bytes": 2992,
+      "sha256": "03edccbc45f5b13e8d4d21c821a8823c07ffb37b66651836a155fdcd8f65e333",
+      "schema_version": 3,
+      "plan_id": "geo102-review"
+    },
+    {
+      "path": "01-review.summary.txt",
+      "kind": "summary_text",
+      "size_bytes": 2471,
+      "sha256": "1fd231c6f8c96e53235825753bda10937624a8e4b066b783acdaae39b8198536"
+    },
+    {
+      "path": "SUBAGENT_EXECUTION_DIGEST.json",
+      "kind": "digest_json",
+      "size_bytes": 1745,
+      "sha256": "b21dda3fe7443ab68a052bfc11dc888428cfc94b683538a2fba7718ebefce25c",
+      "schema_version": 3,
+      "plan_ids": [
+        "geo102-review"
+      ]
+    },
+    {
+      "path": "SUBAGENT_EXECUTION_DIGEST.md",
+      "kind": "digest_markdown",
+      "size_bytes": 865,
+      "sha256": "1eab8fbaf41bba3e218faa891162786919184531bd5c40f46e69077e6f0c435b"
+    }
+  ],
+  "summary": {
+    "plan_count": 1,
+    "executed_attempt_count": 1,
+    "accepted_attempt_count": 1,
+    "independent_review_count": 1,
+    "attention_required": false,
+    "anomaly_count": 0
+  },
+  "verification": {
+    "status": "passed",
+    "verified_at": "2026-10-02T04:43:26Z",
+    "errors": [],
+    "warnings": []
+  }
+}

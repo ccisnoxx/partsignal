@@ -1,0 +1,2857 @@
+{
+  "paths": {
+    "/api/v1/geo/opportunities": {
+      "get": {
+        "tags": [
+          "geo-opportunities"
+        ],
+        "summary": "List Opportunities",
+        "operationId": "listGeoOpportunities",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200,
+                  "pattern": "^[^\\x00]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "created_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Created From"
+            }
+          },
+          {
+            "name": "created_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Created To"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                10,
+                20,
+                50
+              ],
+              "type": "integer",
+              "default": 20,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "PRIORITY_DESC",
+                "CREATED_DESC",
+                "LAST_SEEN_DESC"
+              ],
+              "type": "string",
+              "default": "PRIORITY_DESC",
+              "title": "Sort"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/GeoOpportunityStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/GeoOpportunityPriority"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Priority"
+            }
+          },
+          {
+            "name": "rule_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/GeoRuleCode"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Rule Code"
+            }
+          },
+          {
+            "name": "subject_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Subject Id"
+            }
+          },
+          {
+            "name": "product_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Product Id"
+            }
+          },
+          {
+            "name": "query_topic_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Query Topic Id"
+            }
+          },
+          {
+            "name": "prompt_variant_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Prompt Variant Id"
+            }
+          },
+          {
+            "name": "collection_profile_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Collection Profile Id"
+            }
+          },
+          {
+            "name": "engine_surface_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Engine Surface Id"
+            }
+          },
+          {
+            "name": "collection_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/GeoCollectionMode"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Collection Mode"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoOpportunityListPage"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/geo/opportunities/{opportunity_id}": {
+      "get": {
+        "tags": [
+          "geo-opportunities"
+        ],
+        "summary": "Get Opportunity",
+        "operationId": "getGeoOpportunity",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "opportunity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Opportunity Id"
+            }
+          },
+          {
+            "name": "source_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Source Page"
+            }
+          },
+          {
+            "name": "source_page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                10,
+                20,
+                50
+              ],
+              "type": "integer",
+              "default": 20,
+              "title": "Source Page Size"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoOpportunityDetail"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "503": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/geo/opportunities/{opportunity_id}/acknowledge": {
+      "post": {
+        "tags": [
+          "geo-opportunities"
+        ],
+        "summary": "Acknowledge Opportunity",
+        "operationId": "acknowledgeGeoOpportunity",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "opportunity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Opportunity Id"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 32,
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GeoOpportunityRevisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoOpportunityListItem"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/geo/opportunities/{opportunity_id}/dismiss": {
+      "post": {
+        "tags": [
+          "geo-opportunities"
+        ],
+        "summary": "Dismiss Opportunity",
+        "operationId": "dismissGeoOpportunity",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "opportunity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Opportunity Id"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 32,
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GeoOpportunityDismissRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoOpportunityListItem"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/geo/opportunities/{opportunity_id}/actions/fact-revision": {
+      "post": {
+        "tags": [
+          "geo-opportunities"
+        ],
+        "summary": "startFactRevisionFromGeoOpportunity",
+        "operationId": "startFactRevisionFromGeoOpportunity",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "opportunity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Opportunity Id"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 32,
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "pattern": "^[\\x21-\\x7E]+$",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GeoOpportunityFactRevisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoOpportunityActionResult"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/geo/opportunities/{opportunity_id}/actions/content-task": {
+      "post": {
+        "tags": [
+          "geo-opportunities"
+        ],
+        "summary": "createContentTaskFromGeoOpportunity",
+        "operationId": "createContentTaskFromGeoOpportunity",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "opportunity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Opportunity Id"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 32,
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "pattern": "^[\\x21-\\x7E]+$",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GeoOpportunityContentTaskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoOpportunityActionResult"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/geo/opportunities/{opportunity_id}/actions/publication-repair": {
+      "post": {
+        "tags": [
+          "geo-opportunities"
+        ],
+        "summary": "createPublicationRepairFromGeoOpportunity",
+        "operationId": "createPublicationRepairFromGeoOpportunity",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "opportunity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Opportunity Id"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 32,
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "pattern": "^[\\x21-\\x7E]+$",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "discriminator": {
+                  "mapping": {
+                    "CREATE_REPAIR": "#/components/schemas/GeoOpportunityCreateRepairRequest",
+                    "LINK_ISSUE": "#/components/schemas/GeoOpportunityLinkIssueRequest",
+                    "OPEN_ISSUE": "#/components/schemas/GeoOpportunityOpenIssueRequest"
+                  },
+                  "propertyName": "mode"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/GeoOpportunityOpenIssueRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GeoOpportunityLinkIssueRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GeoOpportunityCreateRepairRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoOpportunityActionResult"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/geo/opportunities/{opportunity_id}/retest-preview": {
+      "get": {
+        "tags": [
+          "geo-opportunities"
+        ],
+        "summary": "Preview Retest",
+        "operationId": "previewGeoOpportunityRetest",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "opportunity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Opportunity Id"
+            }
+          },
+          {
+            "name": "baseline_batch_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Baseline Batch Id"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoRetestPreview"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/geo/opportunities/{opportunity_id}/retest": {
+      "post": {
+        "tags": [
+          "geo-opportunities"
+        ],
+        "summary": "Create Retest",
+        "operationId": "createGeoOpportunityRetest",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "opportunity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Opportunity Id"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 32,
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128,
+              "pattern": "^[\\x21-\\x7E]+$",
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GeoRetestRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "422": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoRetestCreated"
+                }
+              }
+            },
+            "headers": {
+              "X-Request-ID": {
+                "$ref": "#/components/headers/RequestIdResponseHeader"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "schemas": {
+    "GeoRuleRecovery": {
+      "properties": {
+        "minimum_runs": {
+          "type": "integer",
+          "maximum": 10000.0,
+          "minimum": 1.0,
+          "title": "Minimum Runs",
+          "default": 5
+        },
+        "visibility_drop_max_points": {
+          "type": "number",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Visibility Drop Max Points",
+          "default": 0.0
+        },
+        "recommendation_drop_max_points": {
+          "type": "number",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Recommendation Drop Max Points",
+          "default": 0.0
+        },
+        "competitor_surge_max_points": {
+          "type": "number",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Competitor Surge Max Points",
+          "default": 0.0
+        },
+        "topic_visibility_minimum_rate": {
+          "type": "number",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Topic Visibility Minimum Rate",
+          "default": 0.6
+        },
+        "owned_citation_minimum_count": {
+          "type": "integer",
+          "maximum": 10000.0,
+          "minimum": 1.0,
+          "title": "Owned Citation Minimum Count",
+          "default": 1
+        },
+        "stability_minimum_rate": {
+          "type": "number",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Stability Minimum Rate",
+          "default": 0.67
+        },
+        "fact_error_max_count": {
+          "type": "integer",
+          "const": 0,
+          "title": "Fact Error Max Count",
+          "default": 0
+        },
+        "strict_comparability_required": {
+          "type": "boolean",
+          "const": true,
+          "title": "Strict Comparability Required",
+          "default": true
+        },
+        "manual_confirmation_required": {
+          "type": "boolean",
+          "const": true,
+          "title": "Manual Confirmation Required",
+          "default": true
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "title": "GeoRuleRecovery"
+    },
+    "GeoOpportunityPriority": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ],
+      "title": "GeoOpportunityPriority",
+      "type": "string"
+    },
+    "GeoOpportunityScope": {
+      "additionalProperties": false,
+      "properties": {
+        "subject_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Subject Id"
+        },
+        "query_topic_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Query Topic Id"
+        },
+        "prompt_variant_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Prompt Variant Id"
+        },
+        "collection_profile_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Collection Profile Id"
+        },
+        "engine_surface_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Engine Surface Id"
+        },
+        "batch_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Batch Id"
+        },
+        "environment_key": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Environment Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject_id",
+        "query_topic_id",
+        "prompt_variant_id",
+        "collection_profile_id",
+        "engine_surface_id",
+        "batch_id",
+        "environment_key"
+      ],
+      "title": "GeoOpportunityScope",
+      "type": "object"
+    },
+    "GeoOpportunitySourceRole": {
+      "enum": [
+        "TRIGGER",
+        "SUPPORTING",
+        "BASELINE",
+        "RETEST"
+      ],
+      "title": "GeoOpportunitySourceRole",
+      "type": "string"
+    },
+    "GeoOpportunitySourceSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "analysis_revision_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Analysis Revision Id"
+        },
+        "review_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Review Id"
+        },
+        "source_role": {
+          "$ref": "#/components/schemas/GeoOpportunitySourceRole"
+        }
+      },
+      "required": [
+        "run_id",
+        "analysis_revision_id",
+        "review_id",
+        "source_role"
+      ],
+      "title": "GeoOpportunitySourceSnapshot",
+      "type": "object"
+    },
+    "GeoOpportunityTriggerSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "rule_snapshot": {
+          "$ref": "#/components/schemas/GeoRuleSnapshot"
+        },
+        "rule_code": {
+          "$ref": "#/components/schemas/GeoRuleCode"
+        },
+        "scope": {
+          "$ref": "#/components/schemas/GeoOpportunityScope"
+        },
+        "source_date_from": {
+          "format": "date-time",
+          "title": "Source Date From",
+          "type": "string"
+        },
+        "source_date_to": {
+          "format": "date-time",
+          "title": "Source Date To",
+          "type": "string"
+        },
+        "triggered": {
+          "title": "Triggered",
+          "type": "boolean"
+        },
+        "priority": {
+          "$ref": "#/components/schemas/GeoOpportunityPriority"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Threshold"
+        },
+        "numerator": {
+          "minimum": 0,
+          "title": "Numerator",
+          "type": "integer"
+        },
+        "denominator": {
+          "minimum": 0,
+          "title": "Denominator",
+          "type": "integer"
+        },
+        "unavailable_reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unavailable Reasons",
+          "type": "array"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/components/schemas/GeoOpportunitySourceSnapshot"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "details": {
+          "additionalProperties": true,
+          "title": "Details",
+          "type": "object"
+        }
+      },
+      "required": [
+        "schema_version",
+        "rule_snapshot",
+        "rule_code",
+        "scope",
+        "source_date_from",
+        "source_date_to",
+        "triggered",
+        "priority",
+        "value",
+        "threshold",
+        "numerator",
+        "denominator",
+        "unavailable_reasons",
+        "sources",
+        "details"
+      ],
+      "title": "GeoOpportunityTriggerSnapshot",
+      "type": "object"
+    },
+    "GeoOpportunityStatus": {
+      "enum": [
+        "OPEN",
+        "ACKNOWLEDGED",
+        "IN_PROGRESS",
+        "RESOLVED",
+        "DISMISSED"
+      ],
+      "title": "GeoOpportunityStatus",
+      "type": "string"
+    },
+    "GeoOpportunityActionType": {
+      "enum": [
+        "FACT_REVISION",
+        "CONTENT_TASK",
+        "PUBLICATION_REPAIR",
+        "ADDITIONAL_MONITORING",
+        "OTHER"
+      ],
+      "title": "GeoOpportunityActionType",
+      "type": "string"
+    },
+    "GeoOpportunityAction": {
+      "type": "string",
+      "enum": [
+        "ACKNOWLEDGE",
+        "DISMISS"
+      ],
+      "title": "GeoOpportunityAction"
+    },
+    "GeoOpportunityActionRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "action_type": {
+          "$ref": "#/components/schemas/GeoOpportunityActionType"
+        },
+        "target_type": {
+          "title": "Target Type",
+          "type": "string"
+        },
+        "target_id": {
+          "format": "uuid",
+          "title": "Target Id",
+          "type": "string"
+        },
+        "status_snapshot": {
+          "title": "Status Snapshot",
+          "type": "string"
+        },
+        "created_by": {
+          "format": "uuid",
+          "title": "Created By",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "source_snapshot": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/GeoOpportunityActionSourceSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "navigation_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Navigation Path"
+        },
+        "target_available": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Target Available"
+        }
+      },
+      "required": [
+        "id",
+        "action_type",
+        "target_type",
+        "target_id",
+        "status_snapshot",
+        "created_by",
+        "created_at"
+      ],
+      "title": "GeoOpportunityActionRecord",
+      "type": "object"
+    },
+    "GeoOpportunityDetail": {
+      "additionalProperties": false,
+      "properties": {
+        "opportunity": {
+          "$ref": "#/components/schemas/GeoOpportunityListItem"
+        },
+        "trigger_snapshot": {
+          "$ref": "#/components/schemas/GeoOpportunityTriggerSnapshot"
+        },
+        "latest_evaluation": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/GeoOpportunityLinkedEvaluation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sources": {
+          "$ref": "#/components/schemas/GeoOpportunitySourcePage"
+        },
+        "actions": {
+          "items": {
+            "$ref": "#/components/schemas/GeoOpportunityActionRecord"
+          },
+          "title": "Actions",
+          "type": "array"
+        },
+        "available_action_types": {
+          "items": {
+            "$ref": "#/components/schemas/GeoOpportunityActionType"
+          },
+          "title": "Available Action Types",
+          "type": "array"
+        },
+        "as_of": {
+          "format": "date-time",
+          "title": "As Of",
+          "type": "string"
+        }
+      },
+      "required": [
+        "opportunity",
+        "trigger_snapshot",
+        "latest_evaluation",
+        "sources",
+        "actions",
+        "available_action_types",
+        "as_of"
+      ],
+      "title": "GeoOpportunityDetail",
+      "type": "object"
+    },
+    "GeoOpportunityDismissRequest": {
+      "properties": {
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 1.0,
+          "title": "Expected Revision"
+        },
+        "resolution_code": {
+          "type": "string",
+          "maxLength": 40,
+          "minLength": 1,
+          "pattern": "^[^\\x00]*$",
+          "title": "Resolution Code"
+        },
+        "resolution_comment": {
+          "type": "string",
+          "maxLength": 2000,
+          "minLength": 1,
+          "pattern": "^[^\\x00]*$",
+          "title": "Resolution Comment"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "expected_revision",
+        "resolution_code",
+        "resolution_comment"
+      ],
+      "title": "GeoOpportunityDismissRequest"
+    },
+    "GeoOpportunityFilterOption": {
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "title": "Id"
+        },
+        "name": {
+          "type": "string",
+          "title": "Name"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "id",
+        "name"
+      ],
+      "title": "GeoOpportunityFilterOption"
+    },
+    "GeoOpportunityFilterOptions": {
+      "properties": {
+        "subjects": {
+          "items": {
+            "$ref": "#/components/schemas/GeoOpportunityFilterOption"
+          },
+          "type": "array",
+          "title": "Subjects"
+        },
+        "products": {
+          "items": {
+            "$ref": "#/components/schemas/GeoOpportunityFilterOption"
+          },
+          "type": "array",
+          "title": "Products"
+        },
+        "query_topics": {
+          "items": {
+            "$ref": "#/components/schemas/GeoOpportunityFilterOption"
+          },
+          "type": "array",
+          "title": "Query Topics"
+        },
+        "prompt_variants": {
+          "items": {
+            "$ref": "#/components/schemas/GeoOpportunityFilterOption"
+          },
+          "type": "array",
+          "title": "Prompt Variants"
+        },
+        "collection_profiles": {
+          "items": {
+            "$ref": "#/components/schemas/GeoOpportunityFilterOption"
+          },
+          "type": "array",
+          "title": "Collection Profiles"
+        },
+        "engine_surfaces": {
+          "items": {
+            "$ref": "#/components/schemas/GeoOpportunityFilterOption"
+          },
+          "type": "array",
+          "title": "Engine Surfaces"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "subjects",
+        "products",
+        "query_topics",
+        "prompt_variants",
+        "collection_profiles",
+        "engine_surfaces"
+      ],
+      "title": "GeoOpportunityFilterOptions"
+    },
+    "GeoOpportunityLinkedEvaluation": {
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "title": "Id"
+        },
+        "rule_set_revision": {
+          "type": "integer",
+          "minimum": 1.0,
+          "title": "Rule Set Revision"
+        },
+        "evaluated_as_of": {
+          "type": "string",
+          "format": "date-time",
+          "title": "Evaluated As Of"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "title": "Created At"
+        },
+        "disposition": {
+          "type": "string",
+          "enum": [
+            "CREATED",
+            "UPDATED",
+            "UNCHANGED"
+          ],
+          "title": "Disposition"
+        },
+        "result_snapshot": {
+          "$ref": "#/components/schemas/GeoOpportunityTriggerSnapshot"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "id",
+        "rule_set_revision",
+        "evaluated_as_of",
+        "created_at",
+        "disposition",
+        "result_snapshot"
+      ],
+      "title": "GeoOpportunityLinkedEvaluation"
+    },
+    "GeoOpportunityListItem": {
+      "properties": {
+        "workflow_stage": {
+          "$ref": "#/components/schemas/GeoOpportunityWorkflowStage"
+        },
+        "primary_task": {
+          "type": "string",
+          "enum": [
+            "ACKNOWLEDGE",
+            "VIEW_EVIDENCE"
+          ],
+          "title": "Primary Task"
+        },
+        "available_actions": {
+          "items": {
+            "$ref": "#/components/schemas/GeoOpportunityAction"
+          },
+          "type": "array",
+          "title": "Available Actions"
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "title": "Id"
+        },
+        "rule_code": {
+          "$ref": "#/components/schemas/GeoRuleCode"
+        },
+        "priority": {
+          "$ref": "#/components/schemas/GeoOpportunityPriority"
+        },
+        "status": {
+          "$ref": "#/components/schemas/GeoOpportunityStatus"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1.0,
+          "title": "Revision"
+        },
+        "scope": {
+          "$ref": "#/components/schemas/GeoOpportunityScope"
+        },
+        "title": {
+          "type": "string",
+          "title": "Title"
+        },
+        "description": {
+          "type": "string",
+          "title": "Description"
+        },
+        "subject_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Subject Name"
+        },
+        "product_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Product Id"
+        },
+        "query_topic_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Query Topic Name"
+        },
+        "prompt_variant_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Prompt Variant Name"
+        },
+        "collection_profile_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Collection Profile Name"
+        },
+        "engine_surface_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Engine Surface Name"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Threshold"
+        },
+        "numerator": {
+          "type": "integer",
+          "minimum": 0.0,
+          "title": "Numerator"
+        },
+        "denominator": {
+          "type": "integer",
+          "minimum": 0.0,
+          "title": "Denominator"
+        },
+        "source_date_from": {
+          "type": "string",
+          "format": "date-time",
+          "title": "Source Date From"
+        },
+        "source_date_to": {
+          "type": "string",
+          "format": "date-time",
+          "title": "Source Date To"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "title": "Created At"
+        },
+        "last_seen_at": {
+          "type": "string",
+          "format": "date-time",
+          "title": "Last Seen At"
+        },
+        "acknowledged_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Acknowledged At"
+        },
+        "acknowledged_by": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Acknowledged By"
+        },
+        "resolved_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Resolved At"
+        },
+        "resolved_by": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Resolved By"
+        },
+        "resolution_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Resolution Code"
+        },
+        "resolution_comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Resolution Comment"
+        },
+        "source_count": {
+          "type": "integer",
+          "minimum": 0.0,
+          "title": "Source Count"
+        },
+        "action_count": {
+          "type": "integer",
+          "minimum": 0.0,
+          "title": "Action Count"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "workflow_stage",
+        "primary_task",
+        "available_actions",
+        "id",
+        "rule_code",
+        "priority",
+        "status",
+        "revision",
+        "scope",
+        "title",
+        "description",
+        "subject_name",
+        "product_id",
+        "query_topic_name",
+        "prompt_variant_name",
+        "collection_profile_name",
+        "engine_surface_name",
+        "value",
+        "threshold",
+        "numerator",
+        "denominator",
+        "source_date_from",
+        "source_date_to",
+        "created_at",
+        "last_seen_at",
+        "acknowledged_at",
+        "acknowledged_by",
+        "resolved_at",
+        "resolved_by",
+        "resolution_code",
+        "resolution_comment",
+        "source_count",
+        "action_count"
+      ],
+      "title": "GeoOpportunityListItem"
+    },
+    "GeoOpportunityListPage": {
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/components/schemas/GeoOpportunityListItem"
+          },
+          "type": "array",
+          "title": "Items"
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0.0,
+          "title": "Total"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1.0,
+          "title": "Page"
+        },
+        "page_size": {
+          "type": "integer",
+          "enum": [
+            10,
+            20,
+            50
+          ],
+          "title": "Page Size"
+        },
+        "as_of": {
+          "type": "string",
+          "format": "date-time",
+          "title": "As Of"
+        },
+        "filter_options": {
+          "$ref": "#/components/schemas/GeoOpportunityFilterOptions"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "items",
+        "total",
+        "page",
+        "page_size",
+        "as_of",
+        "filter_options"
+      ],
+      "title": "GeoOpportunityListPage"
+    },
+    "GeoOpportunityRevisionRequest": {
+      "properties": {
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 1.0,
+          "title": "Expected Revision"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "expected_revision"
+      ],
+      "title": "GeoOpportunityRevisionRequest"
+    },
+    "GeoOpportunitySourceEvidence": {
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "title": "Id"
+        },
+        "run_id": {
+          "type": "string",
+          "format": "uuid",
+          "title": "Run Id"
+        },
+        "analysis_revision_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Analysis Revision Id"
+        },
+        "review_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Review Id"
+        },
+        "source_role": {
+          "$ref": "#/components/schemas/GeoOpportunitySourceRole"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "title": "Created At"
+        },
+        "run": {
+          "$ref": "#/components/schemas/GeoObservationRunOut"
+        },
+        "answer": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/GeoAnswerSnapshotOut"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "citations": {
+          "items": {
+            "$ref": "#/components/schemas/GeoAnswerCitationOut"
+          },
+          "type": "array",
+          "title": "Citations"
+        },
+        "evidence_files": {
+          "items": {
+            "$ref": "#/components/schemas/GeoRunEvidenceFile"
+          },
+          "type": "array",
+          "title": "Evidence Files"
+        },
+        "analysis": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/GeoAnalysisResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "review": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/GeoRunReviewOut"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "effective_results": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/GeoReviewedResults"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "id",
+        "run_id",
+        "analysis_revision_id",
+        "review_id",
+        "source_role",
+        "created_at",
+        "run",
+        "answer",
+        "citations",
+        "evidence_files",
+        "analysis",
+        "review",
+        "effective_results"
+      ],
+      "title": "GeoOpportunitySourceEvidence"
+    },
+    "GeoOpportunitySourcePage": {
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/components/schemas/GeoOpportunitySourceEvidence"
+          },
+          "type": "array",
+          "title": "Items"
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0.0,
+          "title": "Total"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1.0,
+          "title": "Page"
+        },
+        "page_size": {
+          "type": "integer",
+          "enum": [
+            10,
+            20,
+            50
+          ],
+          "title": "Page Size"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "items",
+        "total",
+        "page",
+        "page_size"
+      ],
+      "title": "GeoOpportunitySourcePage"
+    },
+    "GeoOpportunityWorkflowStage": {
+      "type": "string",
+      "enum": [
+        "OPEN",
+        "ACKNOWLEDGED",
+        "IN_PROGRESS",
+        "CLOSED"
+      ],
+      "title": "GeoOpportunityWorkflowStage"
+    },
+    "GeoOpportunityFactRevisionRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "product_id": {
+          "format": "uuid",
+          "title": "Product Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expected_revision",
+        "product_id"
+      ],
+      "title": "GeoOpportunityFactRevisionRequest",
+      "type": "object"
+    },
+    "GeoOpportunityContentTaskRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "product_id": {
+          "format": "uuid",
+          "title": "Product Id",
+          "type": "string"
+        },
+        "fact_version_id": {
+          "format": "uuid",
+          "title": "Fact Version Id",
+          "type": "string"
+        },
+        "platform_profile_id": {
+          "format": "uuid",
+          "title": "Platform Profile Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expected_revision",
+        "product_id",
+        "fact_version_id",
+        "platform_profile_id"
+      ],
+      "title": "GeoOpportunityContentTaskRequest",
+      "type": "object"
+    },
+    "GeoOpportunityActionSourceSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "opportunity_id": {
+          "format": "uuid",
+          "title": "Opportunity Id",
+          "type": "string"
+        },
+        "opportunity_revision": {
+          "minimum": 1,
+          "title": "Opportunity Revision",
+          "type": "integer"
+        },
+        "trigger_snapshot": {
+          "$ref": "#/components/schemas/GeoOpportunityTriggerSnapshot"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/components/schemas/GeoOpportunitySourceSnapshot"
+          },
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array"
+        },
+        "product_id": {
+          "format": "uuid",
+          "title": "Product Id",
+          "type": "string"
+        },
+        "query_topic_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Query Topic Id"
+        },
+        "fact_version_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Fact Version Id"
+        },
+        "platform_profile_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Platform Profile Id"
+        },
+        "published_article_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Published Article Id"
+        },
+        "published_content_issue_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Published Content Issue Id"
+        },
+        "request_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "^[\\x20-\\x7E]+$",
+          "title": "Request Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "opportunity_id",
+        "opportunity_revision",
+        "trigger_snapshot",
+        "sources",
+        "product_id",
+        "query_topic_id",
+        "fact_version_id",
+        "platform_profile_id",
+        "published_article_id",
+        "published_content_issue_id",
+        "request_id"
+      ],
+      "title": "GeoOpportunityActionSourceSnapshot",
+      "type": "object"
+    },
+    "GeoOpportunityActionResult": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "$ref": "#/components/schemas/GeoOpportunityActionRecord"
+        },
+        "opportunity_revision": {
+          "minimum": 1,
+          "title": "Opportunity Revision",
+          "type": "integer"
+        },
+        "replayed": {
+          "title": "Replayed",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "action",
+        "opportunity_revision",
+        "replayed"
+      ],
+      "title": "GeoOpportunityActionResult",
+      "type": "object"
+    },
+    "GeoOpportunityCreateRepairRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "published_content_issue_id": {
+          "format": "uuid",
+          "title": "Published Content Issue Id",
+          "type": "string"
+        },
+        "expected_issue_revision": {
+          "minimum": 0,
+          "title": "Expected Issue Revision",
+          "type": "integer"
+        },
+        "mode": {
+          "const": "CREATE_REPAIR",
+          "title": "Mode",
+          "type": "string"
+        },
+        "fact_version_id": {
+          "format": "uuid",
+          "title": "Fact Version Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expected_revision",
+        "published_content_issue_id",
+        "expected_issue_revision",
+        "mode",
+        "fact_version_id"
+      ],
+      "title": "GeoOpportunityCreateRepairRequest",
+      "type": "object"
+    },
+    "GeoOpportunityLinkIssueRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "published_content_issue_id": {
+          "format": "uuid",
+          "title": "Published Content Issue Id",
+          "type": "string"
+        },
+        "expected_issue_revision": {
+          "minimum": 0,
+          "title": "Expected Issue Revision",
+          "type": "integer"
+        },
+        "mode": {
+          "const": "LINK_ISSUE",
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expected_revision",
+        "published_content_issue_id",
+        "expected_issue_revision",
+        "mode"
+      ],
+      "title": "GeoOpportunityLinkIssueRequest",
+      "type": "object"
+    },
+    "GeoOpportunityOpenIssueRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "OPEN_ISSUE",
+          "title": "Mode",
+          "type": "string"
+        },
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "published_article_id": {
+          "format": "uuid",
+          "title": "Published Article Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/components/schemas/PublishedContentIssueKind"
+        },
+        "description": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "pattern": "^[^\\x00]*\\S[^\\x00]*$",
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "expected_revision",
+        "published_article_id",
+        "kind",
+        "description"
+      ],
+      "title": "GeoOpportunityOpenIssueRequest",
+      "type": "object"
+    },
+    "GeoRetestRequest": {
+      "properties": {
+        "expected_revision": {
+          "type": "integer",
+          "minimum": 1.0,
+          "title": "Expected Revision"
+        },
+        "baseline_batch_id": {
+          "type": "string",
+          "format": "uuid",
+          "title": "Baseline Batch Id"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "expected_revision",
+        "baseline_batch_id"
+      ],
+      "title": "GeoRetestRequest"
+    },
+    "GeoRetestBaselineSnapshot": {
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "const": 1,
+          "title": "Schema Version"
+        },
+        "opportunity_id": {
+          "type": "string",
+          "format": "uuid",
+          "title": "Opportunity Id"
+        },
+        "baseline_batch_id": {
+          "type": "string",
+          "format": "uuid",
+          "title": "Baseline Batch Id"
+        },
+        "trigger_snapshot": {
+          "$ref": "#/components/schemas/GeoOpportunityTriggerSnapshot"
+        },
+        "plan_snapshot": {
+          "$ref": "#/components/schemas/GeoBatchPlanSnapshot"
+        },
+        "rule_snapshot": {
+          "anyOf": [
+            {
+              "$ref": "#/components/schemas/GeoBatchRuleSnapshot"
+            },
+            {
+              "$ref": "#/components/schemas/GeoBatchRuleSnapshotV2"
+            }
+          ],
+          "title": "Rule Snapshot"
+        },
+        "cells": {
+          "items": {
+            "$ref": "#/components/schemas/GeoRetestCell"
+          },
+          "type": "array",
+          "minItems": 1,
+          "title": "Cells"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "schema_version",
+        "opportunity_id",
+        "baseline_batch_id",
+        "trigger_snapshot",
+        "plan_snapshot",
+        "rule_snapshot",
+        "cells"
+      ],
+      "title": "GeoRetestBaselineSnapshot"
+    },
+    "GeoRetestCell": {
+      "properties": {
+        "root_run_id": {
+          "type": "string",
+          "format": "uuid",
+          "title": "Root Run Id"
+        },
+        "repeat_index": {
+          "type": "integer",
+          "maximum": 10.0,
+          "minimum": 1.0,
+          "title": "Repeat Index"
+        },
+        "input_snapshot": {
+          "$ref": "#/components/schemas/GeoRunInputSnapshot"
+        },
+        "answer_snapshot_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Answer Snapshot Id"
+        },
+        "source_product": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Source Product"
+        },
+        "source_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Source Model"
+        },
+        "source_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Source Version"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "root_run_id",
+        "repeat_index",
+        "input_snapshot",
+        "answer_snapshot_id",
+        "source_product",
+        "source_model",
+        "source_version"
+      ],
+      "title": "GeoRetestCell"
+    },
+    "GeoRetestDifference": {
+      "properties": {
+        "code": {
+          "$ref": "#/components/schemas/GeoRetestDifferenceCode"
+        },
+        "resource_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Resource Id"
+        },
+        "field": {
+          "type": "string",
+          "title": "Field"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reason"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "code",
+        "resource_id",
+        "field"
+      ],
+      "title": "GeoRetestDifference"
+    },
+    "GeoRetestDifferenceCode": {
+      "type": "string",
+      "enum": [
+        "OPPORTUNITY_NOT_IN_PROGRESS",
+        "BASELINE_NOT_SOURCE",
+        "BASELINE_NOT_FINISHED",
+        "MATRIX_INVALID",
+        "VARIANT_UNAVAILABLE",
+        "VARIANT_CHANGED",
+        "TOPIC_CHANGED",
+        "PROFILE_UNAVAILABLE",
+        "PROFILE_CHANGED",
+        "SURFACE_CHANGED",
+        "SUBJECT_UNAVAILABLE",
+        "SUBJECT_CHANGED",
+        "MODEL_VERSION_CHANGED",
+        "MODEL_VERSION_UNKNOWN"
+      ],
+      "title": "GeoRetestDifferenceCode"
+    },
+    "GeoRetestPreview": {
+      "properties": {
+        "opportunity_id": {
+          "type": "string",
+          "format": "uuid",
+          "title": "Opportunity Id"
+        },
+        "opportunity_revision": {
+          "type": "integer",
+          "minimum": 1.0,
+          "title": "Opportunity Revision"
+        },
+        "baseline_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Baseline Id"
+        },
+        "baseline_batch_id": {
+          "type": "string",
+          "format": "uuid",
+          "title": "Baseline Batch Id"
+        },
+        "snapshot": {
+          "$ref": "#/components/schemas/GeoRetestBaselineSnapshot"
+        },
+        "comparable": {
+          "type": "boolean",
+          "title": "Comparable"
+        },
+        "requires_new_baseline": {
+          "type": "boolean",
+          "title": "Requires New Baseline"
+        },
+        "differences": {
+          "items": {
+            "$ref": "#/components/schemas/GeoRetestDifference"
+          },
+          "type": "array",
+          "title": "Differences"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "opportunity_id",
+        "opportunity_revision",
+        "baseline_id",
+        "baseline_batch_id",
+        "snapshot",
+        "comparable",
+        "requires_new_baseline",
+        "differences"
+      ],
+      "title": "GeoRetestPreview"
+    },
+    "GeoRetestCreated": {
+      "properties": {
+        "baseline_id": {
+          "type": "string",
+          "format": "uuid",
+          "title": "Baseline Id"
+        },
+        "batch_id": {
+          "type": "string",
+          "format": "uuid",
+          "title": "Batch Id"
+        },
+        "requested_run_count": {
+          "type": "integer",
+          "minimum": 1.0,
+          "title": "Requested Run Count"
+        },
+        "opportunity_revision": {
+          "type": "integer",
+          "minimum": 1.0,
+          "title": "Opportunity Revision"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "title": "Created At"
+        },
+        "replayed": {
+          "type": "boolean",
+          "title": "Replayed"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "baseline_id",
+        "batch_id",
+        "requested_run_count",
+        "opportunity_revision",
+        "created_at",
+        "replayed"
+      ],
+      "title": "GeoRetestCreated"
+    }
+  }
+}

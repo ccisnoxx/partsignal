@@ -1,0 +1,176 @@
+[
+  {
+    "file": "backend/app/audit_types.py",
+    "added_lines": 5,
+    "removed_lines": 0,
+    "new_file": false
+  },
+  {
+    "file": "backend/app/main.py",
+    "added_lines": 6,
+    "removed_lines": 0,
+    "new_file": false
+  },
+  {
+    "file": "backend/app/models/__init__.py",
+    "added_lines": 1,
+    "removed_lines": 0,
+    "new_file": false
+  },
+  {
+    "file": "backend/app/models/geo_manual_collection.py",
+    "added_lines": 108,
+    "removed_lines": 0,
+    "new_file": true
+  },
+  {
+    "file": "backend/app/routers/geo_manual_collection.py",
+    "added_lines": 79,
+    "removed_lines": 0,
+    "new_file": true
+  },
+  {
+    "file": "backend/app/schemas/geo_manual_collection.py",
+    "added_lines": 92,
+    "removed_lines": 0,
+    "new_file": true
+  },
+  {
+    "file": "backend/app/services/file_records.py",
+    "added_lines": 3,
+    "removed_lines": 0,
+    "new_file": false
+  },
+  {
+    "file": "backend/app/services/geo_manual_collection.py",
+    "added_lines": 464,
+    "removed_lines": 0,
+    "new_file": true
+  },
+  {
+    "file": "backend/app/services/identity.py",
+    "added_lines": 3,
+    "removed_lines": 0,
+    "new_file": false
+  },
+  {
+    "file": "backend/alembic/sql/0051_geo_manual_collection.sql",
+    "added_lines": 177,
+    "removed_lines": 0,
+    "new_file": true
+  },
+  {
+    "file": "backend/alembic/versions/0051_geo_manual_collection.py",
+    "added_lines": 22,
+    "removed_lines": 0,
+    "new_file": true
+  },
+  {
+    "file": "backend/tests/integration/test_geo_answer_migration.py",
+    "added_lines": 4,
+    "removed_lines": 4,
+    "new_file": false
+  },
+  {
+    "file": "backend/tests/integration/test_geo_manual_collection.py",
+    "added_lines": 434,
+    "removed_lines": 0,
+    "new_file": true
+  },
+  {
+    "file": "backend/tests/integration/test_geo_manual_collection_boundaries.py",
+    "added_lines": 320,
+    "removed_lines": 0,
+    "new_file": true
+  },
+  {
+    "file": "backend/tests/integration/test_geo_manual_migration.py",
+    "added_lines": 95,
+    "removed_lines": 0,
+    "new_file": true
+  },
+  {
+    "file": "backend/tests/integration/test_migrations.py",
+    "added_lines": 3,
+    "removed_lines": 3,
+    "new_file": false
+  },
+  {
+    "file": "backend/tests/unit/test_contract.py",
+    "added_lines": 8,
+    "removed_lines": 5,
+    "new_file": false
+  },
+  {
+    "file": "backend/tests/unit/test_geo_manual_collection_contract.py",
+    "added_lines": 87,
+    "removed_lines": 0,
+    "new_file": true
+  },
+  {
+    "file": "backend/tests/unit/test_platform_logo_cleanup.py",
+    "added_lines": 5,
+    "removed_lines": 3,
+    "new_file": false
+  },
+  {
+    "file": "backend/tests/unit/test_runtime_response_metadata.py",
+    "added_lines": 13,
+    "removed_lines": 6,
+    "new_file": false
+  },
+  {
+    "file": "contracts/database.md",
+    "added_lines": 30,
+    "removed_lines": 0,
+    "new_file": false
+  },
+  {
+    "file": "contracts/openapi.yaml",
+    "added_lines": 500,
+    "removed_lines": 0,
+    "new_file": false
+  },
+  {
+    "file": "docs/geo-monitoring/03-technical/02-data-architecture.md",
+    "added_lines": 10,
+    "removed_lines": 0,
+    "new_file": false
+  },
+  {
+    "file": "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+    "added_lines": 26,
+    "removed_lines": 12,
+    "new_file": false
+  },
+  {
+    "file": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "added_lines": 2,
+    "removed_lines": 1,
+    "new_file": false
+  },
+  {
+    "file": "docs/geo-monitoring/CHANGELOG.md",
+    "added_lines": 9,
+    "removed_lines": 0,
+    "new_file": false
+  },
+  {
+    "file": "docs/geo-monitoring/README.md",
+    "added_lines": 3,
+    "removed_lines": 1,
+    "new_file": false
+  },
+  {
+    "file": "docs/geo-monitoring/SHA256SUMS",
+    "added_lines": 5,
+    "removed_lines": 5,
+    "new_file": false
+  },
+  {
+    "file": "frontend/src/shared/api/generated/schema.d.ts",
+    "added_lines": 332,
+    "removed_lines": 0,
+    "new_file": false
+  }
+]

@@ -1,0 +1,25 @@
+{
+  "baseline": "baseline-files.json",
+  "write_paths": [
+    "backend/app/services/geo_reports.py",
+    "backend/app/services/geo_report_csv.py",
+    "backend/app/services/geo_report_formulas.py",
+    "backend/app/services/geo_overview_queries.py",
+    "backend/app/routers/geo_reports.py",
+    "backend/tests/unit/test_geo_reports.py",
+    "backend/tests/integration/test_geo_reports.py",
+    ".trellis/tasks/10-04-geo-606-reports/evidence/backend-target.log",
+    ".trellis/tasks/10-04-geo-606-reports/evidence/backend-target.json"
+  ],
+  "current_sha256": {
+    "backend/app/services/geo_reports.py": "1bc2d5c3b12b7f99b9bd82b8e03fc2b7f823c13dd1da6d048096a2d3214d23e2",
+    "backend/app/services/geo_report_csv.py": "066e0014df1d2e21be6c09d192104a7e975a6bb886926471285c46ffa6d9eea9",
+    "backend/app/services/geo_report_formulas.py": "bdf0460a2fc5811a0ab489008c038c315242054dac30680060d491c2cf0ce44d",
+    "backend/app/services/geo_overview_queries.py": "9b01cd52bf526864bece7e9e3bfbf399c5b77cadd9a064e9f6c95cf70b770573",
+    "backend/app/routers/geo_reports.py": "fefa1ffc631aa5ec60e1dbb54550059e16d1cdd75ec6dd66c5a498283cfe7b19",
+    "backend/tests/unit/test_geo_reports.py": "6ed240a643004b7f2672a0fcb904bd039c163e34a2fda4cd2d5c87b746674c2d",
+    "backend/tests/integration/test_geo_reports.py": "4985cf0fab1c3a8fe96a68a13e122cf3c62eb7bfc594bac81263b05d0598dbf9",
+    ".trellis/tasks/10-04-geo-606-reports/evidence/backend-target.log": "3de231a8abc273b0316476a7f68ef7bea96f440bb07061cd4b73111ce51e4ffc",
+    ".trellis/tasks/10-04-geo-606-reports/evidence/backend-target.json": "98a187e118e466c8b4d169f7bf599b8016acf1d7209a0ae26464a458a507b8d0"
+  }
+}

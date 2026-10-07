@@ -1,0 +1,20 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_surface_contract.py",
+    "backend/tests/unit/test_geo_collector_registry.py",
+    "backend/tests/unit/test_geo_configuration.py",
+    "backend/tests/unit/test_contract.py",
+    "backend/tests/unit/test_request_context.py",
+    "backend/tests/unit/test_audit.py",
+    "backend/tests/unit/test_configuration_audit.py",
+    "backend/tests/unit/test_validation_error_safety.py",
+    "backend/tests/unit/test_geo_surface_management_errors.py"
+  ],
+  "exit_code": 1,
+  "seconds": 15.650638166989665
+}

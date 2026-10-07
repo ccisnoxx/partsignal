@@ -1,0 +1,86 @@
+{
+  "version": 5,
+  "planner_version": "1.5.1",
+  "plan_id": "geo104-error-guard-review",
+  "max_concurrent_workers": 1,
+  "effective_capacity": 1,
+  "open_workers": 0,
+  "available_slots": 1,
+  "role_profiles": {
+    "critical_reviewer": {
+      "name": "critical_reviewer",
+      "model": "gpt-6.1-sol",
+      "model_reasoning_effort": "xhigh",
+      "sandbox_mode": "read-only",
+      "profile_source": "agent_toml",
+      "config_file": "critical_reviewer.toml",
+      "config_sha256": "30f4b4654e23415c7723b0d6ec7625b2020f13c51c5714a37c80feb53c7e4118"
+    }
+  },
+  "codex_config_evidence": {
+    "config_file": "config.toml",
+    "config_sha256": "641b7c480070418f46b56d34883478a880504024e3ebe937b7454bac94f0f7aa",
+    "configured_max_concurrent_threads_per_session": 4,
+    "capacity_source": "codex_config"
+  },
+  "runtime_workers": [],
+  "prior_tasks": [
+    {
+      "task_id": "geo104-root-error-guard-fix",
+      "attempt": 1,
+      "status": "accepted",
+      "worker_id": "root-error-guard-fix"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "geo104-error-review",
+      "task_name": "geo104_error_guard_review",
+      "agent_type": "critical_reviewer",
+      "attempt": 1,
+      "replaces_task_id": null,
+      "depends_on": [],
+      "read_paths": [
+        "AGENTS.md",
+        "backend",
+        "contracts",
+        ".trellis/spec",
+        ".trellis/tasks/10-02-geo-104-catalog-api"
+      ],
+      "write_paths": [],
+      "independent_review": true,
+      "review_of_task_ids": [
+        "geo104-root-error-guard-fix"
+      ],
+      "reuse_worker_id": null,
+      "accounting_scope": "not_available",
+      "dispatch_method": "spawn_agent",
+      "fork_turns": "none",
+      "delivery_mode": "complete_task",
+      "progress_policy": "blocker_or_final",
+      "deliverable": "只读独立复核failed flush后的过期ORM身份错误映射修正及真实23505创建/启用原子性证据。",
+      "acceptance_criteria": [
+        "确认不在failed Session中读取过期ORM字段",
+        "精确SQLSTATE/constraint白名单及unknown保持",
+        "检查实际DB guard反例与回滚/错误details合同",
+        "不修改任何文件"
+      ],
+      "assigned_wave": 1
+    }
+  ],
+  "waves": [
+    {
+      "wave": 1,
+      "task_ids": [
+        "geo104-error-review"
+      ]
+    }
+  ],
+  "ready_task_ids": [
+    "geo104-error-review"
+  ],
+  "deferred_task_ids": [],
+  "blocked_task_ids": [],
+  "blocked_reasons": {},
+  "superseded_worker_ids": []
+}

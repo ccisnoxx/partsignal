@@ -1,0 +1,344 @@
+docker compose -p partsignal-geo203-validation -f /tmp/geo203-compose.yaml run --rm backend-test
+ Container partsignal-geo203-validation-redis-1 Running 
+ Container partsignal-geo203-validation-fake-oss-1 Running 
+ Container partsignal-geo203-validation-postgres-1 Running 
+ Container partsignal-geo203-validation-postgres-1 Waiting 
+ Container partsignal-geo203-validation-postgres-1 Healthy 
+ Container partsignal-geo203-validation-backend-test-run-a0427430f76c Creating 
+ Container partsignal-geo203-validation-backend-test-run-a0427430f76c Created 
+........................................................................ [ 13%]
+........................................................................ [ 26%]
+........................................................................ [ 39%]
+........................................................................ [ 53%]
+............F........................................................... [ 66%]
+........................................................................ [ 79%]
+........................................................................ [ 93%]
+.....................................                                    [100%]
+=================================== FAILURES ===================================
+___________ test_topic_and_user_deletion_respect_variant_references ____________
+
+self = <sqlalchemy.engine.base.Connection object at 0xe0c074b25c10>
+dialect = <sqlalchemy.dialects.postgresql.psycopg.PGDialect_psycopg object at 0xe0c065036030>
+context = <sqlalchemy.dialects.postgresql.psycopg.PGExecutionContext_psycopg object at 0xe0c067c1dd90>
+statement = <sqlalchemy.dialects.postgresql.psycopg.PGCompiler_psycopg object at 0xe0c0660c4d70>
+parameters = [{'actor_id_1_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'actor_id_2_1': UUID('9d429ab1-9900-49d1-97cf-65950994...3_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'actor_id_4_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), ...}]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+    
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+    
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+    
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+    
+        effective_parameters: Optional[_AnyExecuteParams]
+    
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+    
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+    
+        if self._echo:
+            self._log_info(str_statement)
+    
+            stats = context._get_cache_stats()
+    
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+    
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Cursor [closed] [BAD] at 0xe0c074758a10>
+query = 'SELECT anon_1.user_id, count(*) AS count_1 \nFROM (SELECT ai_channels.created_by AS user_id \nFROM ai_channels \nWHER..._issues \nWHERE published_content_issues.resolved_by IN (%(resolved_by_1_1)s::UUID)) AS anon_1 GROUP BY anon_1.user_id'
+params = {'actor_id_1_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'actor_id_2_1': UUID('9d429ab1-9900-49d1-97cf-659509944..._3_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'actor_id_4_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), ...}
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool | None = None,
+    ) -> Self:
+        """
+        Execute a query or command to the database.
+        """
+        try:
+            with self._conn.lock:
+                self._conn.wait(
+                    self._execute_gen(query, params, prepare=prepare, binary=binary)
+                )
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           psycopg.errors.UndefinedTable: relation "geo_engine_surfaces" does not exist
+E           LINE 27: FROM geo_engine_surfaces 
+E                         ^
+
+/opt/venv/lib/python3.12/site-packages/psycopg/cursor.py:117: UndefinedTable
+
+The above exception was the direct cause of the following exception:
+
+variant_database = VariantDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal_geo201_19dc626557', env={'PATH': ...D', 'canonical_name': '原品牌', 'normalized_name': '原品牌', 'parent_subject_id': None, 'parent_subject_type': None},)], []])
+
+    def test_topic_and_user_deletion_respect_variant_references(
+        variant_database: VariantDatabase,
+    ) -> None:
+        database = variant_database
+        with psycopg.connect(database.url) as connection:
+            variant = insert_variant(connection, database, is_active=False)
+        engine = create_engine(database.url.replace("postgresql://", "postgresql+psycopg://", 1))
+        try:
+            with Session(engine) as session:
+                topic, actor, admin = (
+                    session.get(QueryTopic, database.topic),
+                    session.get(User, database.actor),
+                    session.get(User, database.admin),
+                )
+                assert topic and actor and admin
+                projection = query_topics_out(session, [topic], can_delete=True)[0]
+                assert "DELETE" not in projection.available_actions
+                assert (
+                    projection.deletion and projection.deletion.blockers[0].type == "GEO_PROMPT_VARIANT"
+                )
+>               assert "DELETE" not in users_out(session, [actor], actor=admin)[0].available_actions
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/integration/test_geo_prompt_variants.py:354: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+app/services/identity.py:157: in users_out
+    reference_counts = _user_business_reference_counts(db, [user.id for user in users])
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/services/identity.py:114: in _user_business_reference_counts
+    for user_id, count in db.execute(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2373: in execute
+    return self._execute_internal(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2271: in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/context.py:306: in orm_execute_statement
+    result = conn.execute(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Cursor [closed] [BAD] at 0xe0c074758a10>
+query = 'SELECT anon_1.user_id, count(*) AS count_1 \nFROM (SELECT ai_channels.created_by AS user_id \nFROM ai_channels \nWHER..._issues \nWHERE published_content_issues.resolved_by IN (%(resolved_by_1_1)s::UUID)) AS anon_1 GROUP BY anon_1.user_id'
+params = {'actor_id_1_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'actor_id_2_1': UUID('9d429ab1-9900-49d1-97cf-659509944..._3_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'actor_id_4_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), ...}
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool | None = None,
+    ) -> Self:
+        """
+        Execute a query or command to the database.
+        """
+        try:
+            with self._conn.lock:
+                self._conn.wait(
+                    self._execute_gen(query, params, prepare=prepare, binary=binary)
+                )
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           sqlalchemy.exc.ProgrammingError: (psycopg.errors.UndefinedTable) relation "geo_engine_surfaces" does not exist
+E           LINE 27: FROM geo_engine_surfaces 
+E                         ^
+E           [SQL: SELECT anon_1.user_id, count(*) AS count_1 
+E           FROM (SELECT ai_channels.created_by AS user_id 
+E           FROM ai_channels 
+E           WHERE ai_channels.created_by IN (%(created_by_1_1)s::UUID) UNION ALL SELECT ai_models.created_by AS user_id 
+E           FROM ai_models 
+E           WHERE ai_models.created_by IN (%(created_by_2_1)s::UUID) UNION ALL SELECT generation_jobs.created_by AS user_id 
+E           FROM generation_jobs 
+E           WHERE generation_jobs.created_by IN (%(created_by_3_1)s::UUID) UNION ALL SELECT platform_types.created_by AS user_id 
+E           FROM platform_types 
+E           WHERE platform_types.created_by IN (%(created_by_4_1)s::UUID) UNION ALL SELECT platform_prompts.updated_by AS user_id 
+E           FROM platform_prompts 
+E           WHERE platform_prompts.updated_by IN (%(updated_by_1_1)s::UUID) UNION ALL SELECT content_humanization_prompts.updated_by AS user_id 
+E           FROM content_humanization_prompts 
+E           WHERE content_humanization_prompts.updated_by IN (%(updated_by_2_1)s::UUID) UNION ALL SELECT content_tasks.created_by AS user_id 
+E           FROM content_tasks 
+E           WHERE content_tasks.created_by IN (%(created_by_5_1)s::UUID) UNION ALL SELECT content_versions.created_by AS user_id 
+E           FROM content_versions 
+E           WHERE content_versions.created_by IN (%(created_by_6_1)s::UUID) UNION ALL SELECT content_review_records.actor_id AS user_id 
+E           FROM content_review_records 
+E           WHERE content_review_records.actor_id IN (%(actor_id_1_1)s::UUID) UNION ALL SELECT geo_observations.tested_by AS user_id 
+E           FROM geo_observations 
+E           WHERE geo_observations.tested_by IN (%(tested_by_1_1)s::UUID) UNION ALL SELECT geo_subjects.created_by AS user_id 
+E           FROM geo_subjects 
+E           WHERE geo_subjects.created_by IN (%(created_by_7_1)s::UUID) UNION ALL SELECT geo_prompt_variants.created_by AS user_id 
+E           FROM geo_prompt_variants 
+E           WHERE geo_prompt_variants.created_by IN (%(created_by_8_1)s::UUID) UNION ALL SELECT geo_engine_surfaces.created_by AS user_id 
+E           FROM geo_engine_surfaces 
+E           WHERE geo_engine_surfaces.created_by IN (%(created_by_9_1)s::UUID) UNION ALL SELECT geo_collection_profiles.created_by AS user_id 
+E           FROM geo_collection_profiles 
+E           WHERE geo_collection_profiles.created_by IN (%(created_by_10_1)s::UUID) UNION ALL SELECT file_records.uploader_id AS user_id 
+E           FROM file_records 
+E           WHERE file_records.uploader_id IN (%(uploader_id_1_1)s::UUID) UNION ALL SELECT fact_versions.created_by AS user_id 
+E           FROM fact_versions 
+E           WHERE fact_versions.created_by IN (%(created_by_11_1)s::UUID) UNION ALL SELECT fact_versions.approved_by AS user_id 
+E           FROM fact_versions 
+E           WHERE fact_versions.approved_by IN (%(approved_by_1_1)s::UUID) UNION ALL SELECT fact_review_records.actor_id AS user_id 
+E           FROM fact_review_records 
+E           WHERE fact_review_records.actor_id IN (%(actor_id_2_1)s::UUID) UNION ALL SELECT publication_works.created_by AS user_id 
+E           FROM publication_works 
+E           WHERE publication_works.created_by IN (%(created_by_12_1)s::UUID) UNION ALL SELECT publication_works.closed_by AS user_id 
+E           FROM publication_works 
+E           WHERE publication_works.closed_by IN (%(closed_by_1_1)s::UUID) UNION ALL SELECT publication_work_events.actor_id AS user_id 
+E           FROM publication_work_events 
+E           WHERE publication_work_events.actor_id IN (%(actor_id_3_1)s::UUID) UNION ALL SELECT publication_verifications.actor_id AS user_id 
+E           FROM publication_verifications 
+E           WHERE publication_verifications.actor_id IN (%(actor_id_4_1)s::UUID) UNION ALL SELECT published_content_issues.opened_by AS user_id 
+E           FROM published_content_issues 
+E           WHERE published_content_issues.opened_by IN (%(opened_by_1_1)s::UUID) UNION ALL SELECT published_content_issues.resolved_by AS user_id 
+E           FROM published_content_issues 
+E           WHERE published_content_issues.resolved_by IN (%(resolved_by_1_1)s::UUID)) AS anon_1 GROUP BY anon_1.user_id]
+E           [parameters: {'created_by_1_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'created_by_2_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'created_by_3_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'created_by_4_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'updated_by_1_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'updated_by_2_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'created_by_5_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'created_by_6_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'actor_id_1_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'tested_by_1_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'created_by_7_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'created_by_8_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'created_by_9_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'created_by_10_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'uploader_id_1_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'created_by_11_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'approved_by_1_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'actor_id_2_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'created_by_12_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'closed_by_1_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'actor_id_3_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'actor_id_4_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'opened_by_1_1': UUID('9d429ab1-9900-49d1-97cf-659509944222'), 'resolved_by_1_1': UUID('9d429ab1-9900-49d1-97cf-659509944222')}]
+E           (Background on this error at: https://sqlalche.me/e/20/f405)
+
+/opt/venv/lib/python3.12/site-packages/psycopg/cursor.py:117: ProgrammingError
+=============================== warnings summary ===============================
+tests/integration/test_geo_catalog.py::test_catalog_metadata_matches_migrated_postgresql
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_catalog.py:187: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_catalog.py::test_catalog_metadata_matches_migrated_postgresql
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_catalog.py:187: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_prompt_variants.py::test_additive_migration_metadata_and_safe_stop
+  /app/tests/integration/test_geo_prompt_variants.py:160: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_prompt_variants.py::test_additive_migration_metadata_and_safe_stop
+  /app/tests/integration/test_geo_prompt_variants.py:160: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_surfaces_profiles.py::test_old_head_forward_preserves_rows_metadata_and_downgrade_stops
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surfaces_profiles.py:188: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_surfaces_profiles.py::test_old_head_forward_preserves_rows_metadata_and_downgrade_stops
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surfaces_profiles.py:188: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_prompt_variants.py::test_topic_and_user_deletion_respect_variant_references
+1 failed, 540 passed, 6 warnings in 320.99s (0:05:20)
+
+make: *** [test-integration] Error 1

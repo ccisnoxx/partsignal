@@ -1,0 +1,11 @@
+{
+  "compose_down_exit": 0,
+  "running_containers_after_down": 0,
+  "baseline_oss_pid": 8829,
+  "baseline_oss_exit": 143,
+  "baseline_oss_exit_reason": "task-owned SIGTERM; graceful shutdown confirmed",
+  "baseline_storage_existed": true,
+  "baseline_storage_removed": true,
+  "port_19008_released": true,
+  "colima_restored_to_initial_stopped": true
+}

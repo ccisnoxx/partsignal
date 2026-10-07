@@ -1,0 +1,110 @@
+[
+  {
+    "name": "fixture-cli",
+    "command": "make test-geo-fixtures",
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "started_at": "2026-10-01T22:04:25.063350+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 0.084,
+    "log": ".trellis/tasks/10-01-geo-005-fixtures-gold/evidence/fixture-cli.log"
+  },
+  {
+    "name": "fixture-pytest",
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_fixtures.py",
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "started_at": "2026-10-01T22:04:25.147655+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 0.979,
+    "log": ".trellis/tasks/10-01-geo-005-fixtures-gold/evidence/fixture-pytest.log"
+  },
+  {
+    "name": "fixture-frontend",
+    "command": "npm --prefix frontend run test -- src/test/geo-fixtures.test.ts",
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "started_at": "2026-10-01T22:04:26.126979+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 0.719,
+    "log": ".trellis/tasks/10-01-geo-005-fixtures-gold/evidence/fixture-frontend.log"
+  },
+  {
+    "name": "fixture-script-lint",
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend ruff check deploy/scripts/check-geo-fixtures.py",
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "started_at": "2026-10-01T22:04:26.846306+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 0.028,
+    "log": ".trellis/tasks/10-01-geo-005-fixtures-gold/evidence/fixture-script-lint.log"
+  },
+  {
+    "name": "diff-check",
+    "command": "git diff --check",
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "started_at": "2026-10-01T22:04:26.874661+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 0.01,
+    "log": ".trellis/tasks/10-01-geo-005-fixtures-gold/evidence/diff-check.log"
+  },
+  {
+    "name": "contract-check",
+    "command": "make contract-check",
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "started_at": "2026-10-01T22:04:26.884987+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 1.975,
+    "log": ".trellis/tasks/10-01-geo-005-fixtures-gold/evidence/contract-check.log"
+  },
+  {
+    "name": "lint",
+    "command": "make lint",
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "started_at": "2026-10-01T22:04:28.860320+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 6.183,
+    "log": ".trellis/tasks/10-01-geo-005-fixtures-gold/evidence/lint.log"
+  },
+  {
+    "name": "typecheck",
+    "command": "make typecheck",
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "started_at": "2026-10-01T22:04:35.043667+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 5.628,
+    "log": ".trellis/tasks/10-01-geo-005-fixtures-gold/evidence/typecheck.log"
+  },
+  {
+    "name": "test-unit",
+    "command": "make test-unit",
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "started_at": "2026-10-01T22:04:40.671508+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 34.492,
+    "log": ".trellis/tasks/10-01-geo-005-fixtures-gold/evidence/test-unit.log"
+  },
+  {
+    "name": "frontend-test",
+    "command": "npm --prefix frontend run test",
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "started_at": "2026-10-01T22:05:15.163930+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 18.877,
+    "log": ".trellis/tasks/10-01-geo-005-fixtures-gold/evidence/frontend-test.log"
+  },
+  {
+    "name": "frontend-typecheck",
+    "command": "npm --prefix frontend run typecheck",
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "started_at": "2026-10-01T22:05:34.040966+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 5.607,
+    "log": ".trellis/tasks/10-01-geo-005-fixtures-gold/evidence/frontend-typecheck.log"
+  },
+  {
+    "name": "test-deploy-scripts",
+    "command": "make test-deploy-scripts",
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "started_at": "2026-10-01T22:05:39.648263+00:00",
+    "exit_code": 2,
+    "elapsed_seconds": 0.163,
+    "log": ".trellis/tasks/10-01-geo-005-fixtures-gold/evidence/test-deploy-scripts.log"
+  }
+]

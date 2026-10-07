@@ -1,0 +1,85 @@
+{
+  "digest_type": "SUBAGENT_EXECUTION_DIGEST",
+  "digest_version": 3,
+  "profile_evidence": {
+    "source": "agent_toml",
+    "runtime_verified": false
+  },
+  "outcome_evidence": {
+    "source": "execution_record.task_outcome",
+    "runtime_status_is_not_acceptance": true
+  },
+  "plan_count": 2,
+  "validated_plan_count": 2,
+  "plan_ids": [
+    "geo407-research",
+    "geo407-review"
+  ],
+  "executed_attempt_count": 2,
+  "accepted_attempt_count": 2,
+  "independent_review_count": 1,
+  "runtime_status_counts": {
+    "completed": 2
+  },
+  "task_outcome_counts": {
+    "accepted": 2
+  },
+  "agent_profiles": [
+    {
+      "agent_type": "analyst",
+      "configured_model": "gpt-6.1-sol",
+      "configured_model_reasoning_effort": "xhigh",
+      "configured_sandbox_mode": "read-only",
+      "profile_source": "agent_toml",
+      "profile_file": "analyst.toml",
+      "profile_sha256": "11a5566815e907861a028ea693250ea792a5f6d1d6ce8410d97ca19d4540e827",
+      "executed_attempt_count": 1,
+      "accepted_attempt_count": 1,
+      "independent_review_count": 0,
+      "runtime_status_counts": {
+        "completed": 1
+      },
+      "task_outcome_counts": {
+        "accepted": 1
+      }
+    },
+    {
+      "agent_type": "critical_reviewer",
+      "configured_model": "gpt-6.1-sol",
+      "configured_model_reasoning_effort": "xhigh",
+      "configured_sandbox_mode": "read-only",
+      "profile_source": "agent_toml",
+      "profile_file": "critical_reviewer.toml",
+      "profile_sha256": "30f4b4654e23415c7723b0d6ec7625b2020f13c51c5714a37c80feb53c7e4118",
+      "executed_attempt_count": 1,
+      "accepted_attempt_count": 1,
+      "independent_review_count": 1,
+      "runtime_status_counts": {
+        "completed": 1
+      },
+      "task_outcome_counts": {
+        "accepted": 1
+      }
+    }
+  ],
+  "dispatch_and_communication": {
+    "fresh_spawn_count": 2,
+    "reused_followup_count": 0,
+    "isolated_fork_count": 2,
+    "parent_followup_count": 0,
+    "worker_intermediate_message_count": 6,
+    "wait_call_count": 0,
+    "wait_timeout_count": 0,
+    "status_poll_count": 1
+  },
+  "not_executed_ready_task_ids": [],
+  "superseded_worker_ids": [],
+  "active_worker_ids_after_execution": [],
+  "unknown_write_path_task_ids": [],
+  "writes_observed": {
+    "observed_true": 0,
+    "observed_false": 2,
+    "unknown": 0
+  },
+  "anomalies": []
+}

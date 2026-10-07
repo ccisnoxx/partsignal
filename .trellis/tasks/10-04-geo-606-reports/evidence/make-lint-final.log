@@ -1,0 +1,14 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+E501 Line too long (107 > 100)
+   --> backend/tests/unit/test_contract.py:192:101
+    |
+190 |         ),
+191 |         ("200", "401", "403", "409", "422", "501"): (
+192 |             "exportGeoRunsCsv", "exportGeoCitationsCsv", "exportGeoClaimsCsv", "exportGeoOpportunitiesCsv",
+    |                                                                                                     ^^^^^^^
+193 |         ),
+194 |         ("200", "401", "403", "409", "422"): (
+    |
+
+Found 1 error.
+make: *** [lint] Error 1

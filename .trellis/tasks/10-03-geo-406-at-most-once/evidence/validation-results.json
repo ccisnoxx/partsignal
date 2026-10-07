@@ -1,0 +1,50 @@
+{
+  "git diff --check": {
+    "exit_code": 0,
+    "log": "git-diff-check.log"
+  },
+  "make lint": {
+    "exit_code": 0,
+    "log": "make-lint-final.log"
+  },
+  "make typecheck": {
+    "exit_code": 0,
+    "log": "make-typecheck-final.log"
+  },
+  "make test-unit": {
+    "exit_code": 0,
+    "backend_passed": 2999,
+    "frontend_passed": 1125,
+    "log": "make-test-unit-final.log"
+  },
+  "make test-integration COMPOSE='docker --context colima compose -p partsignal-geo406 -f .trellis/tasks/10-03-geo-406-at-most-once/evidence/validation-compose.yaml'": {
+    "exit_code": 0,
+    "passed": 860,
+    "warnings": 18,
+    "log": "make-test-integration.log",
+    "candidate": "复核修正前，受影响范围随后80项重验"
+  },
+  "final targeted integration": {
+    "exit_code": 0,
+    "passed": 80,
+    "log": "target-accepted.log"
+  },
+  "make contract-check": {
+    "exit_code": 0,
+    "log": "contract-check-final.log"
+  },
+  "alembic upgrade head": {
+    "exit_code": 0,
+    "head": "0052_geo_profile_tests",
+    "log": "alembic-upgrade-head.log"
+  },
+  "alembic current": {
+    "exit_code": 0,
+    "head": "0052_geo_profile_tests",
+    "log": "alembic-current.log"
+  },
+  "docs sha256": {
+    "exit_code": 0,
+    "log": "docs-sha256-check.log"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "id": "branch-blocker-remediation",
+  "name": "branch-blocker-remediation",
+  "title": "整分支已确认阻断修复与候选验证",
+  "description": "修复固定整分支审查确认的测试夹具、缓存竞态与能力说明；复用证据，候选仅一次完整门禁与独立复审",
+  "status": "completed",
+  "dev_type": null,
+  "scope": "known_branch_blockers",
+  "package": null,
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-06",
+  "completedAt": "2026-10-07",
+  "branch": "geo/GEO-906",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": "d43695e5e5eac3ba8babdea22092cfcb2097144c",
+  "pr_url": "https://github.com/ccisnoxx/partsignal/pull/1",
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "docs/geo-monitoring/06-reviews/2026-10-06-v1-post-recovery-blocker-audit.md"
+  ],
+  "notes": "六类确认finding修复且aa增量独立APPROVE；clean aa完整verify一次exit0。aa远端CI实际FAILURE：54对象存储、6合同挂载、6恢复工具setup错误；d43695e5已改为现有权威集成入口，配置/dry-run通过；新SHA fresh独立入口复审APPROVE，新SHA远端CI尚未执行。不重跑完整本地门禁，PR继续Draft，其他task/main/RC/生产准入不推进。 2026-10-07：0b成功前序输入未变，GNU修复28/staging自检00/Production自检bd6与E2E时序0b6及详情locator b254分别freshAPPROVE；固定8d2 delivery37598569164成功，组合关闭代码准入。0b/c6/d0/135d/0475原FAILURE保留；main完整门禁、RC/生产另行。",
+  "meta": {
+    "independent_review_ref": "evidence/independent-review-aa7f3db8.md",
+    "ci_run_id": 37525885249,
+    "ci_pending": false,
+    "local_full_verify_exit": 0,
+    "ci_last_conclusion": "failure",
+    "ci_run_sha": "aa7f3db8c222cd8b9a48bffbf24884c4c34e8151",
+    "ci_remediation_commit": "d43695e5e5eac3ba8babdea22092cfcb2097144c",
+    "ci_remediation_remote_verified": true,
+    "local_full_verify_commit": "aa7f3db8c222cd8b9a48bffbf24884c4c34e8151",
+    "ci_independent_review_ref": "evidence/independent-review-d43695e5.md",
+    "accepted_source_commit": "8d2e528cce0f804b224bf9b78e02bb2651f6ac62",
+    "acceptance_record": "docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md",
+    "delivery_run_id": 37598569164
+  }
+}

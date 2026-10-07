@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "docker",
+    "compose",
+    "-p",
+    "partsignal-geo605",
+    "-f",
+    ".trellis/tasks/10-04-geo-605-insights-ui/evidence/validation-compose.yaml",
+    "down",
+    "-v"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-04T10:04:52.890520+00:00",
+  "finished_at": "2026-10-04T10:04:53.231700+00:00"
+}

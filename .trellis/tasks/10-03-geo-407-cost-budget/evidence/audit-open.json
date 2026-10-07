@@ -1,0 +1,14 @@
+MULTI_AGENT_AUDIT
+audit_id: 20261003T114539Z-geo-407-b80a27dc
+bundle_version: 1
+skill_release: 1.6.0
+planner_version: 1.5.1
+status: open
+task: GEO-407
+repository: /Users/sc/PycharmProjects/partsignal
+created_at: 2026-10-03T11:45:39Z
+closed_at: None
+delete_after: 2027-01-01T11:45:39Z
+size_bytes: 5138
+summary: {}
+audit_dir: /Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T114539Z-geo-407-b80a27dc

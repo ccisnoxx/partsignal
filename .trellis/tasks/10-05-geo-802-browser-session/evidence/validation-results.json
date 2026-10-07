@@ -1,0 +1,57 @@
+[
+  {
+    "command": "git diff --check",
+    "status": "passed",
+    "log": "git-diff-check.log"
+  },
+  {
+    "command": "make lint",
+    "status": "passed",
+    "log": "make-lint.log"
+  },
+  {
+    "command": "make typecheck",
+    "status": "passed",
+    "log": "make-typecheck.log"
+  },
+  {
+    "command": "make test-unit",
+    "status": "passed",
+    "counts": {
+      "collector": 13,
+      "backend": 3725,
+      "frontend": 1285
+    },
+    "log": "make-test-unit.log",
+    "followup": "serializer/AAD定向126项通过；不将新测试算入此前全量统计"
+  },
+  {
+    "command": "make test-integration",
+    "status": "failed_then_targeted_repair_verified",
+    "initial_passed": 1082,
+    "initial_failed": 59,
+    "initial_environment_failures": 54,
+    "initial_expectation_failures": 5,
+    "log": "make-test-integration.log",
+    "followup": "完整59节点exit0，integration-explicit-followup-result.json；未重复全量make"
+  },
+  {
+    "command": "make contract-check",
+    "status": "passed",
+    "log": "contract-check.log"
+  },
+  {
+    "command": "docker compose --env-file .env -f deploy/compose.dev.yaml run --rm backend-test pytest tests/integration/test_geo_browser_sessions.py tests/integration/test_geo_browser_session_migration.py -q",
+    "status": "passed",
+    "selected": 20,
+    "log": "session-final-20-integration.log"
+  },
+  {
+    "command": "PARTSIGNAL_E2E_SPEC=tests/e2e/browser-session-real-stack.spec.ts deploy/scripts/e2e-local.sh",
+    "status": "passed",
+    "selected": 1,
+    "log": "browser-session-e2e.log",
+    "environment": "临时独占本地Redis16479/15；独占PG与虚构state；trace/video/screenshots关闭",
+    "secret_scan": "clean"
+  }
+]

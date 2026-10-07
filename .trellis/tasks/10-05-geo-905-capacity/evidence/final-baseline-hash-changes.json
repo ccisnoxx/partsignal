@@ -1,0 +1,20 @@
+[
+  ".env.example",
+  ".env.production.example",
+  "Makefile",
+  "docs/production-configuration.md",
+  "docs/geo-monitoring/SHA256SUMS",
+  "deploy/compose.staging.yaml",
+  "docs/geo-monitoring/README.md",
+  "docs/geo-monitoring/CHANGELOG.md",
+  "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+  "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+  "deploy/compose.prod.yaml",
+  "deploy/compose.dev.yaml",
+  "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+  "backend/tests/performance/README.md",
+  "backend/tests/unit/test_geo_worker_configuration.py",
+  "backend/app/services/geo_read_queries.py",
+  "backend/app/config.py",
+  "backend/app/worker.py"
+]

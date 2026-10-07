@@ -1,0 +1,41 @@
+# GEO-802 仅供非 production 的显式安全卷 overlay；生产部署入口和 Settings 拒绝会话材料。
+# 不加入默认部署，不打开 browser 网络或采集开关。
+services:
+  api:
+    environment:
+      GEO_BROWSER_SESSION_ROOT: /run/geo-browser-sessions
+      GEO_BROWSER_SESSION_PUBLIC_KEY_FILE: /run/geo-browser-session-public.pem
+      GEO_BROWSER_SESSION_SERVICE_KEY_FILE: /run/geo-browser-service.key
+      GEO_BROWSER_SESSION_SERVICE_USER_ID: ${PARTSIGNAL_GEO_BROWSER_SESSION_SERVICE_USER_ID:?必须指定已批准ADMIN服务账号}
+    volumes:
+      - type: bind
+        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_ROOT:?必须指定独立受保护会话目录}
+        target: /run/geo-browser-sessions
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_PUBLIC_KEY_FILE:?必须指定RSA公钥文件}
+        target: /run/geo-browser-session-public.pem
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_SERVICE_KEY_FILE:?必须指定服务能力文件}
+        target: /run/geo-browser-service.key
+        read_only: true
+        bind:
+          create_host_path: false
+  browser-collector:
+    volumes:
+      - type: bind
+        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_PRIVATE_KEY_FILE:?必须指定Collector私钥文件}
+        target: /run/geo-browser-session-private.pem
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_SERVICE_KEY_FILE:?必须指定服务能力文件}
+        target: /run/geo-browser-service.key
+        read_only: true
+        bind:
+          create_host_path: false

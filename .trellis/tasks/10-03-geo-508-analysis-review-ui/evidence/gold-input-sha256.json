@@ -1,0 +1,11 @@
+{
+  "backend/tests/fixtures/geo_analysis/mentions-v1.schema.json": "6655e9f49d6b5d8141aa66423a31b8bae600676c2e5862f8a2d7e4327ede908a",
+  "backend/tests/fixtures/geo_analysis/recommendations-v1.schema.json": "f068e5da17481ea35d67f95f91794e6073d168a2777387134511e458298d31ac",
+  "backend/tests/fixtures/geo_analysis/recommendations-v1.json": "c1f2cf89f9f5239eff4ad4779fd5ee40e2a2112669a0efac708ca34f098a7d61",
+  "backend/tests/fixtures/geo_analysis/claims-v1.schema.json": "83bf7f1367173bee7a3cb2a97064be1811631437b83199e83f825ced8b5cc266",
+  "backend/tests/fixtures/geo_analysis/claims-v1.json": "12a58092e3d642ca2b17161b2842185513b8b47f4ac57ac903d87e76108ddd99",
+  "backend/tests/fixtures/geo_analysis/mentions-v1.json": "ec7e00f32468c26223c09a2860c46a5edb279396b547f3fbfeb73e964fc9d09d",
+  "backend/tests/fixtures/geo_analysis/v1/corpus.json": "4c7207c9117387f4462d5e6bd4df22c2e3b71578f2ef2db94dabf48e569b2b8c",
+  "backend/tests/fixtures/geo_analysis/v1/schema.json": "f5affb24b63c6dd58fb0babc09f218b47756c83104ab88132971abe1d3da7ca9",
+  "backend/tests/fixtures/geo_analysis/v1/gold/analysis.json": "95c6fbcf07e0d54999f6e4b5d10ccb6fa341c72a5b8691f12a14e578f7951c40"
+}

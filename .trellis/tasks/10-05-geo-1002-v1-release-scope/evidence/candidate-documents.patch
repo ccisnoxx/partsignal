@@ -1,0 +1,1140 @@
+--- before/docs/geo-monitoring/00-governance/01-document-governance.md
++++ docs/geo-monitoring/00-governance/01-document-governance.md
+@@ -77,6 +77,7 @@
+ | `GEO-700`～`GEO-799` | 机会、任务和复测 |
+ | `GEO-800`～`GEO-899` | 浏览器采集试点 |
+ | `GEO-900`～`GEO-999` | 生产硬化和上线验收 |
++| `GEO-1000`～`GEO-1099` | 候选完整性审计、范围冻结及 R9A 发布阻断闭合 |
+ 
+ ### 3.4 测试 ID
+ 
+--- before/docs/geo-monitoring/01-product/02-geo-core-prd.md
++++ docs/geo-monitoring/01-product/02-geo-core-prd.md
+@@ -3,7 +3,8 @@
+ | 项目 | 内容 |
+ |---|---|
+ | 文档版本 | V1.0 |
+-| 文档状态 | 产品评审稿 |
++| 文档状态 | V1.0 发布范围已冻结（ADR-007）；详细目标设计与当前实现区分 |
++| 范围冻结日期 | 2026-10-05 |
+ | 编制日期 | 2026-10-01 |
+ | 产品形态 | 公司内部单租户系统 |
+ | 核心定位 | 电子元器件与国产替代业务的 GEO 情报与运营平台 |
+@@ -171,12 +172,14 @@
+ 
+ ## 6. 核心版范围
+ 
++[ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md)冻结 V1.0 人工优先发布范围；[统一能力矩阵](./05-v1-release-capability-matrix.md)区分 available / manual-only / disabled / deferred / not implemented 及当前实现。后文保留领域模型和完整目标设计；与首发不一致的自动化、完整页面/导出、公开操作要求不作为 V1.0 已交付承诺。当前 NO-GO，R9A 门禁满足后才可发布。
++
+ ### 6.1 P0 必须交付
+ 
+ 1. 公司品牌、产品、竞品、参考型号和别名的监测登记；
+ 2. 问题主题、问题变体、意图、点名属性、语言、地区和优先级；
+ 3. GEO 观测平台与采集方式配置；
+-4. 手动、定时和立即执行的监测计划；
++4. 人工启动计划或创建完整观测批次；CRON 自动到期创建不属 V1.0，必须防止假 ACTIVE；
+ 5. 同问题重复采样；
+ 6. 批次、单次运行和重试记录；
+ 7. 原始答案、截图、引用、采集环境和分析版本；
+@@ -185,10 +188,12 @@
+ 10. 关键产品声明准确性评估；
+ 11. 可见率、推荐率、首位推荐率、SOV、引用和准确性指标；
+ 12. 监测总览、运行中心、观测详情和洞察页面；
+-13. 规则驱动的告警与机会；
+-14. 从机会创建内容任务、事实修订入口、发布修复或补充观测；
+-15. 周报/打印报告和 CSV 导出；
++13. 管理员显式触发的确定性 Opportunity 评估及现有工作台；自动周期评估不属 V1.0，生产管理员入口由 GEO-1006 交付；
++14. 现有 Action/Retest API 支持事实、内容、发布和同口径复测；完整页面操作不属 V1.0；
++15. 现有打印报告和 runs/citations/claims CSV；Opportunity CSV 当前 not implemented，不属 V1.0；
+ 16. 权限、审计、敏感配置保护和数据质量提示。
++
++V1.0 明确范围外：Browser 真实界面 Adapter、生产会话/证据采集；CRON 到期自动建批次；Opportunity 自动周期评估/CSV；Action/Retest 完整页面操作；公共管理员重分析入口；不可观测的“无引用”自动推断。内部服务、seed、占位或固定 501 不能当作公开可用入口。
+ 
+ ### 6.2 P1 后续增强
+ 
+@@ -209,8 +214,8 @@
+ | 模式 | 说明 | 核心版要求 |
+ |---|---|---|
+ | MANUAL | 人工在目标平台提问并登记完整答案、截图、引用和环境 | 核心版正式采集方式，进入统一分析、复核和复测闭环 |
+-| API | 通过经批准的模型或搜索 API 批量运行 | 保留已有能力，按批准与部署范围启用；不以新增两个自动化观测面作为核心上线门禁 |
+-| BROWSER | 通过真实产品界面采集可见答案和引用 | post-core 可选扩展；保留目标设计和801～803基础设施，804～807 deferred，不阻断核心发布 |
++| API | 通过经批准的模型或搜索 API 批量运行 | 初始 MANUAL 试运行默认关闭；保留已有能力，后续启用另需批准和验收 |
++| BROWSER | 通过真实产品界面采集可见答案和引用 | deferred/post-core；V1.0 production 必须硬禁止，不启用生产会话/证据采集；801～803 历史保留 |
+ 
+ 任何浏览器自动化必须经过公司合规确认，并只使用已获授权的账号、会话和网络环境。未获批准的平台只能使用人工观测。
+ 
+@@ -428,6 +433,8 @@
+ ---
+ 
+ ## 9.3 监测计划
++
++V1.0 只承诺人工启动/创建批次。以下调度字段保留目标设计和既有配置模型，当前协议以 OpenAPI 为准；CRON 在 V1.0 禁止 activate/resume 或通过 ACTIVE update 绕过，既存 ACTIVE 必须按 GEO-1005 治理并披露，不能把未来运行时间当作已接线 Scheduler。
+ 
+ ### 计划字段
+ 
+@@ -489,6 +496,8 @@
+ 
+ ## 9.4 运行中心
+ 
++下列完整目标动作不代表全部已有公开入口。V1.0 不承诺公共取消或管理员重分析入口；内部追加 revision 不构成可执行页面操作。现有人工批次、录入与采集 retry API 的真实边界见能力矩阵，未实现动作不投影为可用。
++
+ ### 批次列表字段
+ 
+ - 批次 ID；
+@@ -729,6 +738,8 @@
+ 
+ ## 9.7 机会与告警
+ 
++V1.0 由 ADMIN 通过显式入口执行现有确定性评估，GEO-1006 补齐当前入口缺口；关闭自动周期/提交后隐式评估。下面类型和规则保留领域设计，实际规则/阈值以当前规则快照为准；没有可观测“无引用”依据时不得自动推断自有引用丢失。Action/Retest 采用现有 API 与页面组合操作，不承诺全程页面。
++
+ ### 机会类型
+ 
+ ```text
+@@ -806,6 +817,8 @@
+ ---
+ 
+ ## 9.8 报告
++
++V1.0 保留已有打印和三类 CSV。下列完整报告结构中的机会整合仍有占位，不作为当前已实现内容；Opportunity CSV 固定 501 必须明确不可用，不能生成空成功导出。
+ 
+ ### 报告类型
+ 
+@@ -1058,7 +1071,7 @@
+ - 未被人工标记为无效样本；
+ - 满足对应指标的适用范围。
+ 
+-聚合完成后，系统执行确定性规则并生成或更新机会。
++V1.0 聚合读取不自动触发评估；管理员显式执行确定性规则后生成或更新机会。自动周期入口延期，现有内部 evaluator 必须经 GEO-1006 的真实管理员入口调用并验收。
+ 
+ ## 11.7 行动与复测
+ 
+@@ -1210,7 +1223,8 @@
+ | 管理 GEO 平台、凭据和浏览器会话 | 是 | 否 |
+ | 管理竞品主数据和别名冲突 | 是 | 否或受限编辑 |
+ | 管理规则与阈值 | 是 | 否 |
+-| 重新分析历史数据 | 是 | 否，除非显式授权 |
++| 显式 Opportunity 评估（GEO-1006 待交付） | 是 | 否 |
++| 重新分析历史数据 | 内部能力保留；公共入口不属 V1.0 | 否，除非后续显式授权 |
+ 
+ ## 14.2 审计
+ 
+@@ -1311,6 +1325,8 @@
+ ---
+ 
+ ## 16. 验收标准
++
++本节保留领域验收与原始能力 ID；V1.0 适用边界由 §6/能力矩阵限定。自动 CRON、自动 evaluator、Browser、Opportunity CSV、完整 Action/Retest 页面和公共重分析不作为首发执行验收；其未实现/延期状态必须披露。AC-ANA-07 验证内部追加 revision 保证，不要求新增公共入口；现有 Action/Retest 条目以 API 及已有页面验证，不伪称全 UI。
+ 
+ ## 16.1 监测对象与问题库
+ 
+@@ -1408,18 +1424,17 @@
+ 
+ ## 17. 上线判定
+ 
+-核心版只有在以下条件全部满足后才可视为“公司可用的 GEO 监测平台”：
+-
+-1. MANUAL 回答级观测在批准的人工访问范围内正式可用，目标平台的完整回答、引用/缺失说明、截图和冻结环境可追溯；已有 API 按实际批准范围验收，不要求先新增两个自动化观测面；
+-2. R6 直接进入并完成 R8 核心硬化；R7 延期不阻断上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false，Browser 服务/profile 未启用且无生产会话；
+-3. 定时计划可持续创建完整批次/Run 待办，由员工按计划领取并完成人工采样；计划生成不代表已向平台提问或已采集成功；
+-4. 每个汇总指标都能回到原始答案、引用和截图；
+-5. 公司产品与竞品可以在同一问题和平台下比较；
+-6. 严重事实错误能够进入人工复核和事实修订闭环；
+-7. 内容缺口能够创建现有 PartSignal 内容任务；
+-8. 发布后可以按相同条件复测；
+-9. 报告展示分子、分母、样本、环境和限制；
+-10. 敏感凭据、浏览器会话和非公开事实满足安全要求。
++V1.0 Go/No-Go 以 [rollout runbook](../03-technical/10-core-rollout-runbook.md)和 ADR-007 为准，必须同时满足：
++
++1. GEO-1002～1009 的范围/修复/固定候选已人工接受，候选完整门禁通过，历史 R0—R8 done 不代替本次证据。
++2. MANUAL 真实环境完成原文/引用/证据→确定性分析→必要复核→指标/洞察/现有报告，并取得内部试运行范围、反馈和业务签署。
++3. 管理员经真实显式评估入口产生可解释机会，现有 Action/Retest API 完成冻结口径比较及显式解决；AI 仍只能创建草稿。
++4. API 初始关闭，production Browser 硬禁止且三进程 false、服务/profile/会话/材料零启用有实际证据；CRON 不留假 ACTIVE，Opportunity 自动调度关闭。
++5. Catalog 当前身份权限、证据不可变、null/UNKNOWN、分母资格、模式/环境隔离和外发安全保持。
++6. 升级候选 artifact 失败后可安全恢复/前向修复；目标备份、停止/恢复、容量、监控观察期和页面安全证据完整。
++7. 同目标/同候选的 GEO-1010 必需门禁 MET，业务/运维签署和 expand/deploy/enable 等对应授权齐全。
++
++任何必需项未满足或未知为 NO-GO。R7、CRON 自动创建、Opportunity 自动周期及范围外 UI/导出不再独立阻断 V1.0，但其边界不能被写成可用。当前审计 NO-GO 和 production NOT_STARTED/NOT_VERIFIED 原文保留；本次仅范围冻结，不作生产放行。
+ 
+ ---
+ 
+--- before/docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md
++++ docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md
+@@ -0,0 +1,62 @@
++# GEO Core V1.0 发布能力矩阵
++
++- 冻结日期：2026-10-05
++- 范围依据：[Accepted ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md)
++- 实现证据：[GEO-1001 审计](../06-reviews/GEO-1001-release-readiness-audit.md)
++- 发布结论：**NO-GO**；以下政策不证明运行配置、修复或生产启用已完成。
++
++## 状态含义
++
++| 状态 | 含义 |
++|---|---|
++| available | 仓库已有可用实现；具体公开 API、页面和本地验证边界须明确，生产仍受发布门禁约束 |
++| manual-only | V1.0 只允许人工采集、触发或显式操作；生产入口是否已经存在另列，不暗示自动调度 |
++| disabled | V1.0 初始发布配置关闭，或 V1.0/production 明确禁止；关闭策略与硬禁止实现分别核实 |
++| deferred | 本版本范围之外，后续需重新排期与验收；不是 done，也不承诺版本或日期 |
++| not implemented | 指定公开入口或操作目前没有实现，不能以内部服务、测试 seed 或占位代替 |
++
++同一业务能力可拆成“执行方式”“公开入口”“后续自动化”分别分类，避免一个 available 掩盖其他缺口。以下是当前首发承诺与当前实现的唯一能力矩阵；PRD 和 runbook 引用本表，旧阶段记录只作历史。
++
++## 能力矩阵
++
++| 能力/边界 | V1.0 状态 | 当前实现与证据边界 | 后续任务/发布条件 |
++|---|---|---|---|
++| MANUAL 回答级观测 | manual-only | 真实 Batch/Run→Answer/Citation/Evidence 链路已实现 | 按 SOP；GEO-1010 正式环境验收 |
++| 人工启动计划/创建观测批次 | manual-only | 人工批次工厂、公开命令、运行中心已实现 | 明确人工触发；GEO-1005/1010 |
++| 原始回答、引用和证据登记 | manual-only | 草稿、原子提交、受控文件和不可变原始证据已实现 | 引用来自实际观测，未知不猜测 |
++| 确定性分析 | available | Worker 扫描/补投递及追加 AnalysisRevision 已接线 | 不因遗留回执 NOT_IMPLEMENTED 字段误判缺失 |
++| 人工复核 | available | confirm/correct、追加历史、当前有效结果已实现 | 严重错误/歧义保持复核门禁 |
++| 指标与洞察 | available | 回答级 Overview、趋势、SOV、引用、风险/质量及下钻已实现 | 分母零 null、失败排除、模式/环境不混算 |
++| 现有报告 | available | 现有打印及 runs/citations/claims CSV 已实现 | CSV 权限、低敏、注入边界保持；GEO-1007/1010 |
++| Opportunity 管理员显式评估方式 | manual-only | 内部 evaluator 已实现，生产管理员操作入口尚缺 | GEO-1006 为阻断；不能让 seed 代替操作 |
++| Opportunity 管理员生产评估入口 | not implemented | 目前未接线 Router/运维命令；本次不新增协议 | GEO-1006 必须先交付并验收；V1.0 必需 |
++| Opportunity 列表/详情、确认/忽略 | available | 现有工作台与服务端状态/证据已实现 | 机会需显式评估产生；保持来源历史 |
++| 现有 Action API | available | 事实/内容/发布/补测应用服务协调及公共 API 已实现 | 人工调用；AI 仅草稿；GEO-1007/1010 |
++| 现有 Retest API 与比较/解决 | available | preview/create、冻结基线、可比性门禁及显式解决已实现 | 不可比/未知版本阻断；不承诺因果 |
++| MANUAL 内部试运行 | manual-only | 本地真实栈有证据，生产试用未执行 | GEO-1010；负责人、范围、时长、反馈需签署 |
++| API Collection 初始试运行 | disabled | 采集/Worker/发送恢复已有实现，生产供应商批准与验收未取得 | 默认 false；后续启用需单独批准与验收 |
++| Browser production Collection/会话 | disabled | 默认 false，仍可被 production Settings 接受 true；现场未知 | GEO-1003 硬禁止＋GEO-1010 零启用/零材料证据 |
++| Browser 真实界面 Adapter/生产证据采集 | deferred | GEO-804～807 延期；真实 Adapter/证据路径未实现 | ADR-006；801～803 done 保留 |
++| CRON 到期自动创建批次 | disabled | 内部 scheduled factory 存在，生产扫描未接线；可能假 ACTIVE | GEO-1005 禁止 ACTIVE/resume/绕过并治理既存状态 |
++| CRON 生产自动调度交付 | deferred | not implemented：无生产到期入口 | 后续重新排期；V1.0 不以自动执行为门禁 |
++| Opportunity 自动调度 | disabled | 开关是评估资格，不证明自动调度；当前无生产周期入口 | GEO-1006/1007 保持无周期/隐式触发 |
++| Opportunity 自动周期评估交付 | deferred | not implemented：只有内部 evaluator 与测试/seed 调用 | 后续重新排期；V1.0 不以周期执行为门禁 |
++| Opportunity CSV | not implemented | 当前固定 501，三类已有 CSV 不受影响 | 首发之外；GEO-1007 明确不可用，不伪装空导出 |
++| Action/Retest 完整页面操作 | not implemented | 现有 API 可用，完整创建 action、retest preview/create UI 未交付 | 首发之外；明确页面与 API 组合操作边界 |
++| 公共管理员重分析入口 | not implemented | 内部可追加 revision，无生产公共 Router/CLI 操作入口 | 首发之外；不回退 FAILED Run，不承诺指标资格恢复 |
++| Overview/报告机会整合、Run Detail 指标资格占位 | not implemented | 开放机会等仍占位；详情资格字段不能代替洞察权威计算 | 首发不承诺完整整合；GEO-1007 披露边界 |
++| 不可观测的“无引用”自动推断 | disabled | citation_absence_observable=False；零引用不能证明引用丢失 | 保持 UNKNOWN/不适用，不触发无依据自动机会 |
++
++## 初始发布配置
++
++| 项目 | prepare/expand/deploy | 获批 MANUAL enable/试运行 | 当前保证 |
++|---|---|---|---|
++| GEO_MONITORING_ENABLED | false | 按环境批准设 true | API/Worker/Beat 启动后核对实际值 |
++| MANUAL Collection | 随总开关不开放新写入 | 启用；没有独立 MANUAL 环境键 | 人工采集/创建，确定性分析和复核继续执行 |
++| GEO_API_COLLECTION_ENABLED | false | false（初始默认） | 保留已有代码，不自动回退到 API |
++| GEO_BROWSER_COLLECTION_ENABLED | false | production **硬禁止 true** | 硬禁止尚缺：GEO-1003；现场 GEO-1010 |
++| CRON Plan | 不启用 | 不得 ACTIVE/resume，既存 ACTIVE 必须治理 | 防假 ACTIVE 尚缺：GEO-1005；不新增 Schema 状态 |
++| GEO_OPPORTUNITY_EVALUATION_ENABLED | false | 显式评估获批时 true | 这是资格开关；入口尚缺：GEO-1006 |
++| Opportunity 自动调度 | 无周期注册/隐式触发 | 关闭 | 不虚构新的已实现环境键；保持人工评估与自动调度分开 |
++
++GEO_RETENTION_DRY_RUN=true、CELERY_CONCURRENCY=1 及既有数据/外发/备份安全条件按 runbook 保留。当前 production readiness 原文为 NOT_STARTED/NOT_VERIFIED，GEO-1002 不将策略值写成已观测事实。
+--- before/docs/geo-monitoring/02-business/01-business-architecture.md
++++ docs/geo-monitoring/02-business/01-business-architecture.md
+@@ -35,6 +35,12 @@
+ ```
+ 
+ 当前核心采集策略由[ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)批准：MANUAL 回答级观测是正式入口，员工按[人工观测 SOP](./05-manual-geo-observation-sop.md)执行并录入真实证据；已有 API 保留，Browser 为 post-core 自动化扩展。核心在 R6 后直接进入 R8，不等待真实界面 Adapter；以下三模式领域设计保留。
++
++### V1.0 发布适用范围
++
++[ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md)细化上述人工优先策略；当前首发能力见[能力矩阵](../01-product/05-v1-release-capability-matrix.md)。观测价值流由人工启动/创建批次，优化价值流由管理员显式评估开始；不承诺 CRON 到期或自动周期 evaluator。Action/Retest 用现有 API/页面组合，完整页面和机会 CSV、公共重分析不属首发。
++
++下列能力地图/事件/成熟路径是领域目标，不代表每个入口已接线。production Browser 硬禁止、CRON 防假 ACTIVE、Catalog 当前权限与管理员评估入口由 R9A 收口；本次不改变状态/公式/权限或不可变历史，当前仍 NO-GO。
+ 
+ ## 2. 核心能力地图
+ 
+--- before/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
++++ docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
+@@ -5,6 +5,14 @@
+ | 文档版本 | V1.0 |
+ | 文档状态 | 目标设计 |
+ | 规则 | 状态由服务端应用服务唯一拥有，前端只消费 typed stage/action |
++
++## V1.0 执行范围裁决
++
++依据 [ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md)，下列图和状态集合保留原始领域设计，本次不改 Schema/OpenAPI 或运行状态机。V1.0 只承诺人工启动/创建批次；CRON 自动到期创建延期，GEO-1005 必须在命令权威边界禁止 CRON activate/resume、ACTIVE 更新绕过，并治理既存假 ACTIVE，保留历史快照和审计。页面隐藏不构成服务端禁止。
++
++Opportunity 由 ADMIN 显式评估（生产入口待 GEO-1006），不由周期、提交或指标读请求自动触发。Action/Retest 采用现有 API；公开管理员重分析入口不属于 V1.0。确定性分析扫描、租约恢复和 PENDING 补投递继续执行，不能因为禁用业务 CRON 而停整个 Beat。
++
++实际能力与未实施入口见[矩阵](../01-product/05-v1-release-capability-matrix.md)。production Browser 硬禁止由 GEO-1003 实现，旧历史接受及 GEO-1001 NO-GO 不改。
+ 
+ ## 1. 监测计划流程
+ 
+@@ -398,6 +406,8 @@
+ 
+ ## 13. 调度与暂停
+ 
++以下是后续自动调度合同，V1.0 不接入到期 CRON 或周期机会评估；ACTIVE MANUAL 可以由人工启动，不暗示自动到期。既有采集/分析恢复扫描与补投递独立于业务计划自动调度，继续受各自开关和数据库资格裁决。
++
+ - Scheduler 只为 ACTIVE 计划创建批次；
+ - 同一计划同一调度窗口必须有幂等 identity；
+ - 计划暂停后不再创建新批次，不取消已存在批次；
+--- before/docs/geo-monitoring/03-technical/01-technical-architecture.md
++++ docs/geo-monitoring/03-technical/01-technical-architecture.md
+@@ -33,6 +33,14 @@
+ 8. 指标从原始运行与当前有效分析计算，不维护可写的第二份指标事实；
+ 9. 复杂页面由服务端读模型提供，不在浏览器 join；
+ 10. 所有公共接口继续契约优先。
++
++### V1.0 发布约束
++
++[ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md)与[能力矩阵](../01-product/05-v1-release-capability-matrix.md)冻结首发执行范围。现有 API 采集保留，初始试运行默认关闭；production Browser 必须硬禁止（当前尚缺，GEO-1003），不启动服务/profile/会话。CRON 到期入口和 Opportunity 自动周期评估延期，服务端禁止 CRON 假 ACTIVE（GEO-1005），管理员显式评估入口待 GEO-1006。
++
++GEO_OPPORTUNITY_EVALUATION_ENABLED 控制评估资格：获批 MANUAL enable 后可 true，但不授权自动调度，不新增虚构的 MANUAL/自动调度环境键。现有确定性分析、租约恢复、补投递及保留扫描继续按资格执行。下面任务名称、容器和监控列表保留完整目标设计，不代表 `partsignal.geo_evaluate_opportunities` 已注册或生产 Scheduler 可创建 CRON 批次。
++
++安全/候选/升级恢复/现场证据按 R9A 收口；配置值不证明进程实际加载，本次无代码/部署/协议修改。
+ 
+ ## 3. C4 系统上下文
+ 
+@@ -341,7 +349,7 @@
+ 
+ ## 14. 功能开关
+ 
+-GEO-004 / R0 已实现以下部署配置及 Settings 校验，当前交付状态为 review：
++GEO-004 / R0 已实现以下部署配置及 Settings 校验，已人工接受 done；生产 Browser 硬禁止并非该历史交付已实现的保证，需 GEO-1003：
+ 
+ ```text
+ GEO_MONITORING_ENABLED
+--- before/docs/geo-monitoring/03-technical/07-testing-and-quality.md
++++ docs/geo-monitoring/03-technical/07-testing-and-quality.md
+@@ -587,7 +587,7 @@
+ - 稳定JSON/Prometheus标签白名单与secret canary；Worker/Beat故障用本地进程、PG与独立Redis，不访问真实provider或Browser。
+ - 观测短事务并发累计不丢更新、不提交业务事务；0064→0065加法前滚和空库head初始化，零回填。
+ - Prometheus实际promtool检查与阈值/持续时间模拟；低表现、人工待录入、关闭能力和预算拒绝不触发技术故障。
+-- 原子textfile在失败/超时时撤销旧成功，指标未知值不补零。指定仓库门禁与实际状态见[任务实施证据](../../../../.trellis/tasks/10-05-geo-902-observability/implement.md)。
++- 原子textfile在失败/超时时撤销旧成功，指标未知值不补零。指定仓库门禁与实际状态见[任务实施证据](../../../.trellis/tasks/10-05-geo-902-observability/implement.md)。
+ 
+ 不将离线规则测试写成生产告警演练；不以Grafana JSON可解析证明实际服务器导入/渲染。
+ 
+--- before/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
++++ docs/geo-monitoring/03-technical/08-deployment-and-operations.md
+@@ -515,10 +515,10 @@
+ 真实登录探针仍NOT_IMPLEMENTED，ADR-006延期不变。
+ 
+ 稳定GEO JSON字段、有限指标标签、NULL/NaN、原子textfile采集、dashboard/rules导入、
+-告警起始阈值与排障步骤以[运维资产说明](../../../../deploy/observability/geo/README.md)为当前实现入口。
++告警起始阈值与排障步骤以[运维资产说明](../../../deploy/observability/geo/README.md)为当前实现入口。
+ 监控与业务低表现分开；生产监控接入和阈值校准尚未执行。Task Brief与实际证据见
+-[902任务](../../../../.trellis/tasks/10-05-geo-902-observability/prd.md)及
+-[实施记录](../../../../.trellis/tasks/10-05-geo-902-observability/implement.md)。
++[902任务](../../../.trellis/tasks/10-05-geo-902-observability/prd.md)及
++[实施记录](../../../.trellis/tasks/10-05-geo-902-observability/implement.md)。
+ 
+ 
+ ## 当前 R8：GEO-903 一致性集合和隔离恢复
+--- before/docs/geo-monitoring/03-technical/10-core-rollout-runbook.md
++++ docs/geo-monitoring/03-technical/10-core-rollout-runbook.md
+@@ -1,8 +1,35 @@
+-# GEO-906：核心版渐进发布 Runbook
++# GEO Core V1.0：人工优先渐进发布 Runbook（GEO-906 历史 / R9A）
+ 
+ 本文是 GEO R8 的执行与验收补充。生产发布所有者仍为[Production Runbook](../../Hostdzire部署上线流程.md)、[部署附录](../../Hostdzire部署附录.md)及仓库 `deploy/scripts/deploy.sh`、`activate-production.sh`、`prepare-production-data.py`。本文不授权远端操作，不另建发布执行器。当前生产阶段 **NOT_STARTED**；缺目标、固定候选及人工批准时停止在发布准备。
+ 
+ 范围依据 [ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)：R6 → R8，以 [MANUAL SOP](../02-business/05-manual-geo-observation-sop.md)完成回答级观测；804～807 deferred/post-core，不阻断核心。不把真实 Browser Adapter、截图或登录探针写成已实现。Browser 必须持续 false，服务/profile 不启用且无生产会话。
++
++## 0. V1.0 Go / No-Go
++
++首发范围现由 [Accepted ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md) 和 [统一能力矩阵](../01-product/05-v1-release-capability-matrix.md)冻结；ADR-006 的 Browser 延期继续有效。GEO-1001 NO-GO、R0—R8 的人工接受和 GEO-906 原始生产证据保留。当前生产 NOT_STARTED，必需现场项 NOT_VERIFIED；本次文档冻结不产生新的现场结果。
++
++**进入生产 prepare 的前提是 R9A 修复与固定候选闭合；进入 expand/deploy/enable 还必须分别满足其阶段输入和授权。Go 是实际证据判定，不是任务计数或开关值推断。**
++
++| 门禁 | Go 所需证据 | 当前结论/收口任务 |
++|---|---|---|
++| 范围与任务接受 | ADR-007 Accepted；1002～1009 已人工接受，候选包含全部修复；范围外能力披露 | GEO-1002 交付 review；后续 planned，当前 NOT_MET |
++| Browser production 硬禁止 | Settings/启动预检/profile-overlay 明确拒绝 true/显式启动，负例通过且独立复核；现场三进程 false、零服务/profile/会话/材料 | NOT_MET / NOT_VERIFIED；1003/1010 |
++| Catalog 当前身份 | 正确锁序及锁内 active/ADMIN/改密重验；真实 PG 角色变化竞态拒绝且零业务写入，独立复核 | NOT_MET；1004 |
++| CRON 禁用与既存治理 | 不可 activate/resume 或通过 ACTIVE 更新绕过；既存 ACTIVE CRON 安全治理、审计与明确说明；MANUAL 入口正常 | NOT_MET；1005/1010；不要求自动到期入口 |
++| Opportunity 显式评估 | ADMIN 经实际受保护入口评估，非管理员/资格关闭拒绝，重复触发去重、来源可追溯；无周期或隐式触发 | NOT_MET；1006/1010；测试 seed 不替代入口 |
++| 能力真实性 | 现有报告/三类 CSV/API 与页面说明一致；未实现 CSV/UI/重分析/占位明确不可用，无依据无引用不推断 | NOT_VERIFIED；1007 |
++| 升级失败恢复 | 未 initialized 的 UPGRADE_DEPLOYING/PREPARED artifact 失败可安全前向/阶段恢复；身份/兼容/维护锁/再次失败拒绝演练和独立复核 | NOT_MET；1008；旧同候选重入不足以覆盖新 artifact |
++| 固定候选 | clean main=origin/main；commit/archive/release manifest/images/schema/tracked hashes 一致；同候选完整 make verify exit 0，失败/skip/限制明列 | NOT_VERIFIED；1009；旧本地成功日志不替代新候选 |
++| 目标配置与安全 | 精确目标/入口/权限，API/Worker/Beat 重建实际值一致；API 初始 false、显式评估资格准确；CSRF/SSRF/secret/页面安全及全应用 AI/OSS Gate | NOT_VERIFIED；1010；不输出秘密 |
++| 目标备份/容量/监控/恢复 | DB/OSS/适用密钥成套备份与隔离扫描；目标规格/代表负载/冻结阈值及告警观察期；目标安全停止、升级失败恢复与恢复后对账 | NOT_VERIFIED；1010；904/905/906 done 不证明现场 |
++| 正式 MANUAL 与内部试运行 | 真实批准样本→原文/引用/证据→确定性分析→必要复核→指标/现有报告→管理员显式评估→Action/Retest API→严格比较/显式解决；人群/时长/反馈与业务签署 | NOT_VERIFIED；1010；不把 API 操作写成全程页面 |
++| 阶段批准与最终签署 | 同候选/目标 expand/deploy/enable、访问开放及停止/恢复所需批准；GEO-1010 必需门禁全部 MET，业务/运维签署 | NOT_VERIFIED；当前 NO-GO；未具名者不得补造 |
++
++任何必需项 NOT_MET、NOT_VERIFIED、缺失、失败或缺批准均 No-Go，并保存失败/未知和具体恢复输入。Go 不授权超出已批准范围的公开流量、API 启用、实际材料删除或 Browser 试点。GEO-1010 完成先 review；done 需用户接受，阶段操作仍遵守相应授权。
++
++V1.0 不要求真实 Browser Adapter、CRON 到期自动创建、Opportunity 自动周期评估、Opportunity CSV、完整 Action/Retest 页面或公共管理员重分析；这些排除项不单独阻断，但“未实现能力被描述为可用”、CRON 假 ACTIVE 或缺手动评估入口仍阻断。没有可观测依据时“无引用”推断禁止，UNKNOWN/不适用不能变成零表现。现有分析/补投递/租约恢复扫描继续执行，不能关闭整个 Beat 来冒充业务调度禁用。
++
++GEO-1010 必须另建绑定目标/候选/时间的低敏 readiness 和 Go/No-Go 记录，引用阶段批准、1003～1009 修复/候选证据、现场检查和签署。[旧 production-readiness](../../../.trellis/tasks/10-05-geo-906-rollout/evidence/production-readiness.yaml)是原始历史证据，不改 null/NOT_VERIFIED 或旧缺口来制造通过；模板和策略值不是现场事实。
+ 
+ ## 1. 入场与证据
+ 
+@@ -10,7 +37,7 @@
+ 
+ | 门禁 | 进入下一阶段所需证据 |
+ |---|---|
+-| 依赖 | manifest 的 903/904/905 done 与人工接受记录；保留 904 现场及 905 容量未验证限制 |
++| 依赖 | manifest 的 903/904/905/906 历史 done 与接受记录保留；V1.0 还需 1002～1009 done，不能豁免 904 现场及 905 容量未验证项 |
+ | 目标 | 精确环境、获准访问入口、运行 project/网络 owner、配置与数据归属；SSH 身份冲突即停止 |
+ | 候选 | clean main = origin/main = 完整 commit；确定性 git archive；不可覆盖 release ID、manifest、镜像 ID/RepoDigest 与 tracked-file 校验和 |
+ | 备份 | GEO-903 同一静默窗口的 DB/对象/适用密钥/运行配置成套备份，摘要和隔离恢复扫描；密钥另存受保护通道 |
+@@ -61,12 +88,17 @@
+ |---|---|---|
+ | GEO_MONITORING_ENABLED | false | true，实际三进程一致 |
+ | GEO_API_COLLECTION_ENABLED | false | false；API 必须另有平台/输入/合规批准，不能作为 MANUAL 的兜底 |
+-| GEO_BROWSER_COLLECTION_ENABLED | **false** | **false** |
+-| GEO_OPPORTUNITY_EVALUATION_ENABLED | false | 仅在批准既有手工评估范围时 true；不代表自动 evaluator 已接线 |
++| GEO_BROWSER_COLLECTION_ENABLED | **false；production 硬禁止 true** | **false；production 硬禁止 true** |
++| GEO_OPPORTUNITY_EVALUATION_ENABLED | false | GEO-1006 显式入口验收且批准后 true；只授权管理员评估，无自动周期/隐式触发 |
++| MANUAL Collection | 随总开关不开放新写入 | 启用；无独立 MANUAL 配置键 |
++| CRON Plan | 不启用 | 禁止 ACTIVE/resume/更新绕过并治理既存 ACTIVE；不实现到期调度 |
++| Opportunity 自动调度 | 不注册周期/隐式触发 | 关闭；不把评估资格开关当自动调度开关 |
+ | GEO_RETENTION_DRY_RUN | true | true；实际删除与期限另需数据负责人批准 |
+ | CELERY_CONCURRENCY | 1 | 1；提升需目标容量证据和批准 |
+ 
+ API/Worker/Beat 从 runtime env_file 读取共享 Settings，设置在启动时生效；编辑文件不证明运行进程已改变。Compose 的 Browser profile/开关还受部署 shell/`--env-file` 影响，必须同时核对实际启动 argv/profile、容器、overlay/mount 与进程配置。仅记录四个布尔值/摘要，不输出完整 `docker compose config`、inspect/env 或秘密路径。
++
++GEO-1003 必须先交付 production 硬禁止的负例和启动边界证据；当前默认 false 尚不足。GEO-1005 必须证明 CRON 非 ACTIVE、不能 resume/更新绕过及既存状态治理；GEO-1006 必须证明评估资格仅经显式管理员入口消费，没有自动周期/隐式触发。
+ 
+ 生产负证据必须绑定同一目标/候选/时点并包含：
+ 
+@@ -88,13 +120,13 @@
+ | 录入/提交 | 真实问题和非空回答、引用来源/采集环境准确；草稿保存后正式提交；提交证据不可原地修改，unknown usage/cost 不补零 |
+ | 分析/复核 | Worker 处理已提交观察并形成当前 revision；需复核样本由人工追加有效复核；旧 revision 的复核不挪作当前资格 |
+ | 指标/下钻 | Overview/Insights/Report 按已验收分母、时间、模式和证据来源计算；失败不当未提及；报告/CSV 权限、低敏和公式注入边界不变 |
+-| 机会/行动 | 既有显式 evaluate 产生可解释机会，人工选择事实/内容/发布行动并查看结果；AI 仅草稿，不直接发布 |
++| 机会/行动 | ADMIN 经 GEO-1006 的真实受保护入口显式 evaluate 产生可解释机会，人工使用现有 Action API 并查看结果；AI 仅草稿，不直接发布；入口当前尚缺 |
+ | 同口径复测 | 既有公共 API 创建 action/retest（创建 UI 未完整接线时不伪称页面完成）；保存冻结 baseline 和 comparability，完整结果后显式 resolve |
+ | 拒绝/恢复 | 错角色、CSRF、stale revision、重复提交保留既有错误；未知外发结果不自动重发；安全停止后能恢复 MANUAL 分析，无历史修改 |
+ 
+ 至少一批实际生产 MANUAL 闭环及内部使用者反馈，由业务验收人签署；冻结试用人群/问题样本/时长/缺陷处理负责人。本地假数据 E2E 只证明实现边界，不证明正式试用或真实采集质量。外部人工采集仍须遵守平台许可，不要求普通测试访问真实外部 AI。
+ 
+-当前生产 Plan cron 批次扫描和自动 opportunity evaluator **未接线**，Beat tick/健康或手工 evaluate 不能替代这两项执行证据。ADR-006 仅延期 Browser，不延期这两项。与原 PRD 的自动运行承诺有缺口，须在验收矩阵保留 NOT_MET；不能在 906 补新功能、静默缩范围或宣布全部核心验收通过。
++当前生产 Plan cron 批次扫描和自动 opportunity evaluator **未接线**。ADR-007 明确将它们移出 V1.0，能力矩阵保留 deferred/not implemented 的事实；首发改为 GEO-1005 的 CRON 禁用/既存治理与 GEO-1006 的管理员显式评估门禁。Beat tick/健康不能证明业务执行，手工评估也不证明周期执行；旧 906 NOT_MET 原文保留，本次不改写其历史。
+ 
+ ## 5. 监控与停止
+ 
+@@ -135,4 +167,4 @@
+ 
+ 快照之后发生的外部请求不可随 DB 恢复回退；须先对账发送事实，SENT/UNKNOWN 不自动重发，存在未覆盖外发即暂停 consumer。实际切换/停止/恢复后再运行 smoke 和正式 MANUAL 分析验收，形成前后材料，恢复失败继续维护状态，不宣称 rollback 成功。
+ 
+-最终证据进入[验收报告](../04-delivery/13-r8-core-release-acceptance.md)：candidate、前滚、Browser 负证据、MANUAL 闭环、内部试用、监控观察期、目标恢复/停止与所有开放缺口。全项满足且本地验证完成才将 GEO-906 改 review；人工接受后才能 done。缺必须输入/授权则 blocked，保留本地通过与失败证据、生产 NOT_STARTED，不改变已 done 依赖和 deferred 状态。
++V1.0 最终证据进入 GEO-1010 新 readiness/Go-No-Go 记录：candidate、前滚、Browser 硬禁止/现场负证据、CRON 治理、真实管理员评估、MANUAL 闭环/内部试用、监控容量/观察期、目标恢复/停止与全部开放缺口。按 §0 逐项判定，必需证据不足即 NO-GO；完成先 review，人工接受才 done。缺必需输入/授权时 blocked，不填造证据。GEO-906 已人工接受 done，但其[原验收报告](../04-delivery/13-r8-core-release-acceptance.md)和生产未知保留，不再修改历史状态；R0—R8 done/deferred 不改。
+--- before/docs/geo-monitoring/04-delivery/01-implementation-roadmap.md
++++ docs/geo-monitoring/04-delivery/01-implementation-roadmap.md
+@@ -30,10 +30,14 @@
+     R4 --> R5[R5 指标与洞察]
+     R5 --> R6[R6 机会与复测]
+     R6 --> R8[R8 核心生产硬化]
+-    R8 -. 产品重新排期及合规门禁 .-> R7[R7 可选后续浏览器扩展]
++    R8 --> R9A[R9A Release Blocker Closure]
++    R9A --> V1[V1.0 MANUAL 内部试运行与发布裁决]
++    V1 -. 产品重新排期及合规门禁 .-> R7[R7 可选后续浏览器扩展]
+ ```
+ 
+ 当前范围依据[ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)：MANUAL 是正式回答级采集方式，R6 直接进入 R8；R7 不再是核心前置门禁。801～803 保留 done，804～807 deferred/post-core，恢复条件以 manifest 和 ADR 为准。
++
++V1.0 的细目由 [ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md) 和[能力矩阵](../01-product/05-v1-release-capability-matrix.md)冻结：R8 后增加 R9A；R0—R8 原交付/接受记录保留，以下阶段目标不等于首发每个入口已实现。
+ 
+ ## 3. R0：文档、决策和当前基线
+ 
+@@ -261,6 +265,32 @@
+ 实际验证、最终验收缺口和恢复条件见[验收记录](./13-r8-core-release-acceptance.md)。
+ 生产Browser事实未验证，清理/会话恢复不能写N/A；Plan cron与自动evaluator未接线不从ADR-006获得延期。
+ R7延期不是核心阻断原因；生产输入缺失与上述核心缺口不能被本地通过或依赖done消除。
++
++## 11A. R9A Release Blocker Closure
++
++### 目标
++
++按 [GEO-1001 NO-GO 审计](../06-reviews/GEO-1001-release-readiness-audit.md) 闭合 V1.0 人工优先首发阻断，保留历史任务状态与接受记录。GEO-1002 只冻结范围，完工 review；后续任务本次只 planned。
++
++### 交付与顺序
++
++| 步骤 | 任务与边界 |
++|---|---|
++| 范围裁决 | GEO-1002：Accepted ADR-007、能力矩阵、任务/门禁；不修改代码/协议/部署 |
++| 首发修复 | GEO-1003 production Browser 硬禁止；1004 Catalog 当前身份；1005 CRON 禁用/既存状态治理；1006 管理员显式评估；1008 升级失败安全恢复 |
++| 能力真实性 | GEO-1007：依赖 1005/1006，校准页面和操作说明，不实现范围外自动化/UI/CSV |
++| 候选冻结 | GEO-1009：1003～1008 全部人工接受后，在获准 clean main 冻结同一完整候选并通过 make verify |
++| 现场裁决 | GEO-1010：同候选/目标的配置、MANUAL 闭环/内部试用、监控/容量/停止/恢复与 Go/No-Go 签署 |
++
++每项完整依赖、交付物、测试及验收以 [WBS](./02-work-breakdown-structure.md) 和 [manifest](./task-manifest.yaml) 为准。GEO-1001 作为审计输入，不补造任务状态；R9A 不依赖 deferred R7。CRON 自动建批次、周期 evaluator、完整 Action/Retest UI、Opportunity CSV、公共重分析另行排期，不纳入本阶段实现。
++
++### 退出门禁
++
++- GEO-1002～1009 已人工接受；不通过旧 done 或范围裁决跳过新增修复。
++- Browser production 硬禁止＋现场零启用，Catalog 权限竞态闭合，CRON 无假 ACTIVE，管理员经真实入口评估；现有分析/补投递继续工作。
++- 升级 artifact 失败安全恢复演练通过；候选 commit/archive/manifest/images/schema/hashes 一致且完整门禁通过。
++- GEO-1010 所有必需现场门禁 MET，业务/运维签署及对应阶段授权齐全；未知或缺批准即 NO-GO。
++- 阶段完成与任务接受、生产批准分别记录；任务交付先 review，人工接受才 done。
+ 
+ ## 12. 关键路径
+ 
+@@ -276,7 +306,7 @@
+ → GEO-901/902/903/906
+ ```
+ 
+-核心关键路径为 R6 → R8。R7 是 post-core 可选扩展，deferred 不阻断核心发布；API 能力仍按原依赖和批准范围保留，不更改 MANUAL/API 行为。人工操作见[观测 SOP](../02-business/05-manual-geo-observation-sop.md)。
++V1.0 当前关键路径为 R6 → R8 → R9A（1002 → 1003/1004/1005/1006/1008 → 1007 → 1009 → 1010）。以上 R0—R8 编号路径为历史交付链，状态不改。R7 是 post-core 可选扩展，deferred 不阻断核心发布；API 能力仍按原依赖和批准范围保留，不更改 MANUAL/API 行为。人工操作见[观测 SOP](../02-business/05-manual-geo-observation-sop.md)。
+ 
+ ## 13. Codex 执行节奏
+ 
+--- before/docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md
++++ docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md
+@@ -135,6 +135,24 @@
+ | `GEO-905` | 完成大数据量性能和容量硬化 | GEO-607, GEO-902 | 100k+ runs、1000 run batch、流式导出、并发 Worker、必要索引/物化策略。 | 性能门禁和查询计划。；达到目标环境阈值，缓存可重建且不成为权威。 |
+ | `GEO-906` | 执行生产渐进上线、最终验收和文档状态更新 | GEO-903, GEO-904, GEO-905 | 核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。 | make verify、生产 smoke、恢复/停止演练。；核心版正式可用；GEO_BROWSER_COLLECTION_ENABLED=false、Browser 服务/profile 未启用且无生产会话；R7 deferred 不阻断，延期项不标已实现，核心与延期证据分别保留。 |
+ 
++## R9A Release Blocker Closure：V1.0 人工优先发布阻断闭合
++
++依据 [ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md) 和 [GEO-1001](../06-reviews/GEO-1001-release-readiness-audit.md) 追加。R0—R8 表格为原始交付/接受范围，不将历史 done 等同于当前首发完整性。新增任务的当前状态以 manifest 为准，GEO-1002 完成只进入 review，1003～1010 本次仅 planned；依赖全部 done 后才能 ready。
++
++| ID | 任务 | 依赖 | 主要交付 | 测试 | 验收 |
++|---|---|---|---|---|---|
++| `GEO-1002` | 冻结 GEO Core V1.0 人工优先发布范围和发布门禁 | GEO-906 | 新增 Accepted ADR-007 与统一能力矩阵；冻结首发范围、配置和 Go/No-Go；追加 GEO-1002～1010 与 R9A 路线图/WBS，不改 R0—R8 历史。 | 离线 Markdown 路径/锚点检查、YAML/依赖无环/任务字段校验、历史任务逐字/结构比对、受保护范围指纹与 git diff --check。 | 范围支持项/排除项和五类状态准确；每项后续任务有依赖/交付/测试/验收；运行代码/Schema/OpenAPI/部署脚本与历史证据不变；GEO-1002 仅 review，不自行 done。 |
++| `GEO-1003` | production Browser Collection 硬禁止 | GEO-1002, GEO-004 | 由配置、启动预检和生产 profile/overlay 边界硬拒绝 Browser=true 或显式 geo-browser 启用；保留非生产隔离骨架和默认 false。 | production Settings 与启动预检开启负例、显式 profile/overlay 启用负例、false 正例、API/Worker/Beat 启动配置一致性；不访问真实平台。 | production 不能接受 Browser=true 或绕过预检启动 Browser；拒绝先于服务/会话/网络副作用，错误原因明确；三进程 false 与后续现场零部署证据分开；独立只读复核通过。 |
++| `GEO-1004` | Catalog 写命令锁内重验当前管理员身份 | GEO-1002, GEO-104 | 修复 Subject/Alias/Domain 写命令的旧 ADMIN 身份竞态，沿正确锁序重读 active/role/首次改密状态并处理认证 heartbeat；授权与资源写入同一事务。 | 真实 PG 双事务：认证后等待资源锁时发生 ADMIN→ENGINEER、停用、首次改密要求变化；断言拒绝、零业务/审计写入；合法 ADMIN 正例和锁序/heartbeat 回归。 | 身份变化已提交后旧 actor 不得完成 Catalog 写入；没有锁序反转或丢失原 CAS/CSRF/不可变边界；各类 Catalog 写路径共用权威裁决；独立只读复核通过。 |
++| `GEO-1005` | V1.0 禁止 CRON 假 ACTIVE 并治理既存计划 | GEO-1002, GEO-208, GEO-303 | 服务端禁止 CRON activate/resume 和通过 ACTIVE update/copy 绕过；读模型/页面披露 V1.0 不自动调度；定义并执行获批的既存 ACTIVE CRON 安全停用/审计路径，历史快照保留。 | 策略及 PG API 定向：创建/启用/恢复、ACTIVE MANUAL 改 CRON、复制、并发与既存 ACTIVE 治理；目标计划页面 E2E；证明无到期调度副作用，MANUAL 人工创建正常。 | 没有可达的 CRON 看似 ACTIVE 但不执行；服务端拒绝与动作投影一致，既存 ACTIVE 不留假运行承诺、不静默改成人工类型或删除历史；不实现 CRON Scheduler；独立只读复核通过。 |
++| `GEO-1006` | 交付管理员显式 Opportunity 评估入口 | GEO-1002, GEO-702, GEO-703 | 复用现有 evaluator，提供受保护管理员显式操作入口和低敏回执/审计，明确输入窗口/规则/模式/来源与评估资格；选 Router 或受保护 CLI 时在 Task Brief 冻结合同，若新增 HTTP 必须先更新 OpenAPI。 | 入口级真实评估：ADMIN 正例、ENGINEER/停用/资格关闭拒绝、重复触发 identity 去重、低样本/不可比/无引用依据不造机会、来源可追溯；由实际入口触发，不能由 seed 代替。 | 管理员能显式评估并解释结果与未生成原因；权限/事务/历史来源及幂等保留；总开关/评估开关关闭拒绝；不登记自动周期任务、不在提交或聚合读取时隐式执行；独立只读复核通过。 |
++| `GEO-1007` | V1.0 页面/API 能力真实性与操作说明对齐 | GEO-1002, GEO-1005, GEO-1006, GEO-606, GEO-707 | 将页面入口、能力说明、管理员评估操作指南与首发矩阵对齐；对 Opportunity CSV、完整 Action/Retest UI、公共重分析、跨页机会/资格占位明确不可用，保留现有 API 组合操作说明。 | 相关页面组件或目标浏览器验收，核对可达入口与权限/错误/空态；三类现有 CSV 成功及 Opportunity CSV 501 说明；人工评估入口和 Action/Retest API 组合说明可复现；文档链接检查。 | 用户看不到可点击但未实现的成功承诺；占位/501 不能当空结果；现有指标/报告/API 边界准确且可操作；不顺带补 CSV、完整 UI、公共重分析或无引用推断；实际检查与未检查范围明列。 |
++| `GEO-1008` | 闭合升级候选 artifact 失败安全恢复 | GEO-1002, GEO-903, GEO-906 | 由现有发布状态所有者提供 UPGRADE_DEPLOYING/UPGRADE_PREPARED、未 initialized 时候选无法启动且需新 artifact 的安全前向恢复或阶段恢复路径；维护锁、候选身份、schema 兼容及授权可审查。 | 发布状态集成/隔离演练：前滚后候选 readiness 失败、同候选环境修正重入、修正 artifact 接管、错误身份/旧镜像/并发恢复拒绝、恢复再次失败保持维护；保留业务数据与历史。 | 不通过先 activate、手改/删除状态、覆盖 artifact、直接 Compose up 或 schema downgrade 解锁；能在阶段失败后验证恢复/前向修复并保持公开维护隔离；恢复输入与安全停止明确；独立只读复核通过。 |
++| `GEO-1009` | 冻结 V1.0 候选与完整性验证证据 | GEO-1003, GEO-1004, GEO-1005, GEO-1006, GEO-1007, GEO-1008 | 收集已人工接受修复的 diff/独立复核记录；在已批准且已推送 clean main=origin/main 上冻结 commit/archive/release manifest/镜像身份/schema head/tracked-file hashes；记录同一候选完整门禁。 | 既有 candidate producer/consumer 完整性检查；同一固定候选 make verify 全门禁、Markdown/manifest/hash 检查与 git diff --check；历史日志仅在输入相同且证据适用时复用。 | 候选覆盖全部首发修复且可重现，完整门禁 exit 0；dirty 工作区不代替候选；缺 commit/push/candidate 权限或身份输入时 blocked，不擅自提交/推送；不使用测试绕过；不宣称生产已部署。 |
++| `GEO-1010` | V1.0 生产 readiness 与 MANUAL 试运行 Go/No-Go | GEO-1009, GEO-904, GEO-905, GEO-906 | 在分别获批目标/阶段收集同候选三进程配置、Browser 硬禁止与零部署/会话/材料、既存 CRON 治理、备份/恢复/停止、容量/监控观察期、正式 MANUAL 闭环及使用者反馈；新建本轮 readiness 记录，不改写旧现场未知。 | 获批目标定向 smoke/页面安全/权限；MANUAL 正式提交→真实分析→必要复核→指标/现有报告→管理员入口评估→Action/Retest API→比较/显式解决；实际负证据、告警、冻结容量和停止/恢复演练。 | 所有必需门禁及业务/运维签署 MET 才 Go；任何 NOT_MET/NOT_VERIFIED/缺授权均 No-Go，保留原始失败/未知；自动 CRON/evaluator 和 R7/未实现页面不作首发必需；完成先 review，done 需用户接受，生产启用仍需相应授权。 |
++
++GEO-1001 是审计输入，不在本轮补登记接受状态。R9A 无直接或隐式 R7 依赖；1003～1008 可按依赖分别交付，1009 冻结候选，1010 收口现场。范围冻结不授权实施后续任务、提交/推送或生产操作。
++
+ ## 3. 任务状态
+ 
+ 推荐状态：
+--- before/docs/geo-monitoring/04-delivery/04-codex-execution-guide.md
++++ docs/geo-monitoring/04-delivery/04-codex-execution-guide.md
+@@ -20,6 +20,8 @@
+ - 当前仓库基线可运行或已记录阻断。
+ 
+ 当前核心路径为 R6 → R8；MANUAL 是正式采集方式，R7 为 post-core 扩展，依据[ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)。deferred 是交付治理状态，不修改业务状态机，也不满足依赖的 done 条件。
++
++V1.0 当前路径由 [ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md)细化为 R6 → R8 → R9A；新任务 1002～1010 以 manifest/WBS 的依赖、测试和验收为准。旧提示词保留历史阶段任务范围，不自动授权本次后续实现/提交/上线；首发能力和未实施入口见[矩阵](../01-product/05-v1-release-capability-matrix.md)。
+ 
+ ## 2. 必读顺序
+ 
+--- before/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -1650,3 +1650,254 @@
+   execution_note: "2026-10-05：903/904/905 done及人工接受记录已核对，按ADR006开始核心发布准备；生产现场、固定候选与阶段人工批准未提供，本地证据不作上线证明。"
+   blocked_note: "2026-10-05：本地发布准备已交付；必需目标入口、固定candidate、阶段人工批准、试用/容量/观察期输入缺失，生产NOT_STARTED。保留完整verify原失败和定向补验证，不以依赖done/本地证据宣称上线；prepared阶段artifact失败恢复和生产cron/自动evaluator缺口保留，恢复条件见13-r8-core-release-acceptance.md。未进入review，不自行done。"
+   review_note: "2026-10-05 本会话用户已人工审查并接受 GEO-906 的实现与测试证据；本次仅记录验收完成，manifest=done、Trellis=completed，保留原完整verify失败、生产NOT_STARTED/NOT_VERIFIED及既有恢复/功能缺口，不修改其他任务状态、不实施后续任务，不提交、推送或归档。实际入场状态为blocked，本次依据用户明确接受指示记录blocked→done，不虚构review过渡或新增生产验证结果。 2026-10-05 用户再次明确人工审查并接受 GEO-906 的实现与测试证据，包含入口修正后的新完整 make verify 退出0；实际入场已为done/completed，本次保持终态并补记验收，不虚构review→done。最新本地证据见Trellis implement.md第9节及10-05-verify-entrypoint/validation-results.json；生产状态与历史限制保留，其他任务状态不变。"
++- id: GEO-1002
++  phase: R9A
++  release: V1.0-manual-first
++  title: 冻结 GEO Core V1.0 人工优先发布范围和发布门禁
++  status: review
++  dependencies:
++  - GEO-906
++  areas:
++  - docs/geo-monitoring
++  - .trellis/tasks/10-05-geo-1002-v1-release-scope
++  deliverables: 新增 Accepted ADR-007 与统一能力矩阵；冻结首发范围、配置和 Go/No-Go；追加 GEO-1002～1010 与 R9A 路线图/WBS，不改 R0—R8 历史。
++  tests: 离线 Markdown 路径/锚点检查、YAML/依赖无环/任务字段校验、历史任务逐字/结构比对、受保护范围指纹与 git diff --check。
++  acceptance: 范围支持项/排除项和五类状态准确；每项后续任务有依赖/交付/测试/验收；运行代码/Schema/OpenAPI/部署脚本与历史证据不变；GEO-1002 仅 review，不自行 done。
++  required_docs:
++  - 01-product/02-geo-core-prd.md
++  - 01-product/05-v1-release-capability-matrix.md
++  - 02-business/01-business-architecture.md
++  - 02-business/03-workflows-and-state-machines.md
++  - 03-technical/01-technical-architecture.md
++  - 03-technical/10-core-rollout-runbook.md
++  - 05-decisions/ADR-007-manual-first-v1-release-scope.md
++  - 06-reviews/GEO-1001-release-readiness-audit.md
++  audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
++  trellis_task: .trellis/tasks/10-05-geo-1002-v1-release-scope
++  validation_record: .trellis/tasks/10-05-geo-1002-v1-release-scope/implement.md
++  execution_note: 2026-10-05：用户明确授权范围冻结；只实施 GEO-1002 文档与任务治理，其余新增任务仅计划。
++  review_note: 2026-10-05：ADR-007、能力矩阵、R9A 和发布门禁已交付；离线链接/manifest/历史/保护指纹校验通过，独立只读复核无确认发现；完整 git diff --check 保留未改 GEO-1001 审计的 12 处既存 Markdown 尾空格，本次文档差异无空白错误；仅 review，生产仍 NO-GO，不自行 done。
++- id: GEO-1003
++  phase: R9A
++  release: V1.0-manual-first
++  title: production Browser Collection 硬禁止
++  status: planned
++  dependencies:
++  - GEO-1002
++  - GEO-004
++  areas:
++  - backend/app/config.py
++  - deploy/production preflight and Compose
++  - configuration tests
++  - docs
++  deliverables: 由配置、启动预检和生产 profile/overlay 边界硬拒绝 Browser=true 或显式 geo-browser 启用；保留非生产隔离骨架和默认 false。
++  tests: production Settings 与启动预检开启负例、显式 profile/overlay 启用负例、false 正例、API/Worker/Beat 启动配置一致性；不访问真实平台。
++  acceptance: production 不能接受 Browser=true 或绕过预检启动 Browser；拒绝先于服务/会话/网络副作用，错误原因明确；三进程 false 与后续现场零部署证据分开；独立只读复核通过。
++  required_docs:
++  - 01-product/02-geo-core-prd.md
++  - 01-product/05-v1-release-capability-matrix.md
++  - 02-business/01-business-architecture.md
++  - 02-business/03-workflows-and-state-machines.md
++  - 03-technical/01-technical-architecture.md
++  - 03-technical/10-core-rollout-runbook.md
++  - 05-decisions/ADR-007-manual-first-v1-release-scope.md
++  - 06-reviews/GEO-1001-release-readiness-audit.md
++  audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
++  scope_note: 后续独立任务；本次 GEO-1002 只登记范围、依赖与验收，不开始实现或生产操作。
++- id: GEO-1004
++  phase: R9A
++  release: V1.0-manual-first
++  title: Catalog 写命令锁内重验当前管理员身份
++  status: planned
++  dependencies:
++  - GEO-1002
++  - GEO-104
++  areas:
++  - backend/app/services/geo_catalog.py
++  - identity lock contract
++  - PostgreSQL integration tests
++  - docs
++  deliverables: 修复 Subject/Alias/Domain 写命令的旧 ADMIN 身份竞态，沿正确锁序重读 active/role/首次改密状态并处理认证 heartbeat；授权与资源写入同一事务。
++  tests: 真实 PG 双事务：认证后等待资源锁时发生 ADMIN→ENGINEER、停用、首次改密要求变化；断言拒绝、零业务/审计写入；合法 ADMIN 正例和锁序/heartbeat 回归。
++  acceptance: 身份变化已提交后旧 actor 不得完成 Catalog 写入；没有锁序反转或丢失原 CAS/CSRF/不可变边界；各类 Catalog 写路径共用权威裁决；独立只读复核通过。
++  required_docs:
++  - 01-product/02-geo-core-prd.md
++  - 01-product/05-v1-release-capability-matrix.md
++  - 02-business/01-business-architecture.md
++  - 02-business/03-workflows-and-state-machines.md
++  - 03-technical/01-technical-architecture.md
++  - 03-technical/10-core-rollout-runbook.md
++  - 05-decisions/ADR-007-manual-first-v1-release-scope.md
++  - 06-reviews/GEO-1001-release-readiness-audit.md
++  audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
++  scope_note: 后续独立任务；本次 GEO-1002 只登记范围、依赖与验收，不开始实现或生产操作。
++- id: GEO-1005
++  phase: R9A
++  release: V1.0-manual-first
++  title: V1.0 禁止 CRON 假 ACTIVE 并治理既存计划
++  status: planned
++  dependencies:
++  - GEO-1002
++  - GEO-208
++  - GEO-303
++  areas:
++  - backend GEO plan policy and commands
++  - frontend plan actions
++  - targeted tests
++  - docs
++  deliverables: 服务端禁止 CRON activate/resume 和通过 ACTIVE update/copy 绕过；读模型/页面披露 V1.0 不自动调度；定义并执行获批的既存 ACTIVE CRON 安全停用/审计路径，历史快照保留。
++  tests: 策略及 PG API 定向：创建/启用/恢复、ACTIVE MANUAL 改 CRON、复制、并发与既存 ACTIVE 治理；目标计划页面 E2E；证明无到期调度副作用，MANUAL 人工创建正常。
++  acceptance: 没有可达的 CRON 看似 ACTIVE 但不执行；服务端拒绝与动作投影一致，既存 ACTIVE 不留假运行承诺、不静默改成人工类型或删除历史；不实现 CRON Scheduler；独立只读复核通过。
++  required_docs:
++  - 01-product/02-geo-core-prd.md
++  - 01-product/05-v1-release-capability-matrix.md
++  - 02-business/01-business-architecture.md
++  - 02-business/03-workflows-and-state-machines.md
++  - 03-technical/01-technical-architecture.md
++  - 03-technical/10-core-rollout-runbook.md
++  - 05-decisions/ADR-007-manual-first-v1-release-scope.md
++  - 06-reviews/GEO-1001-release-readiness-audit.md
++  audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
++  scope_note: 后续独立任务；本次 GEO-1002 只登记范围、依赖与验收，不开始实现或生产操作。
++- id: GEO-1006
++  phase: R9A
++  release: V1.0-manual-first
++  title: 交付管理员显式 Opportunity 评估入口
++  status: planned
++  dependencies:
++  - GEO-1002
++  - GEO-702
++  - GEO-703
++  areas:
++  - backend opportunity application service and protected operator entry
++  - evaluation tests
++  - docs
++  deliverables: 复用现有 evaluator，提供受保护管理员显式操作入口和低敏回执/审计，明确输入窗口/规则/模式/来源与评估资格；选 Router 或受保护 CLI 时在 Task Brief 冻结合同，若新增 HTTP 必须先更新 OpenAPI。
++  tests: 入口级真实评估：ADMIN 正例、ENGINEER/停用/资格关闭拒绝、重复触发 identity 去重、低样本/不可比/无引用依据不造机会、来源可追溯；由实际入口触发，不能由 seed 代替。
++  acceptance: 管理员能显式评估并解释结果与未生成原因；权限/事务/历史来源及幂等保留；总开关/评估开关关闭拒绝；不登记自动周期任务、不在提交或聚合读取时隐式执行；独立只读复核通过。
++  required_docs:
++  - 01-product/02-geo-core-prd.md
++  - 01-product/05-v1-release-capability-matrix.md
++  - 02-business/01-business-architecture.md
++  - 02-business/03-workflows-and-state-machines.md
++  - 03-technical/01-technical-architecture.md
++  - 03-technical/10-core-rollout-runbook.md
++  - 05-decisions/ADR-007-manual-first-v1-release-scope.md
++  - 06-reviews/GEO-1001-release-readiness-audit.md
++  audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
++  scope_note: 后续独立任务；本次 GEO-1002 只登记范围、依赖与验收，不开始实现或生产操作。
++- id: GEO-1007
++  phase: R9A
++  release: V1.0-manual-first
++  title: V1.0 页面/API 能力真实性与操作说明对齐
++  status: planned
++  dependencies:
++  - GEO-1002
++  - GEO-1005
++  - GEO-1006
++  - GEO-606
++  - GEO-707
++  areas:
++  - frontend GEO availability presentation
++  - docs/geo-monitoring
++  - targeted UI and API checks
++  deliverables: 将页面入口、能力说明、管理员评估操作指南与首发矩阵对齐；对 Opportunity CSV、完整 Action/Retest UI、公共重分析、跨页机会/资格占位明确不可用，保留现有 API 组合操作说明。
++  tests: 相关页面组件或目标浏览器验收，核对可达入口与权限/错误/空态；三类现有 CSV 成功及 Opportunity CSV 501 说明；人工评估入口和 Action/Retest API 组合说明可复现；文档链接检查。
++  acceptance: 用户看不到可点击但未实现的成功承诺；占位/501 不能当空结果；现有指标/报告/API 边界准确且可操作；不顺带补 CSV、完整 UI、公共重分析或无引用推断；实际检查与未检查范围明列。
++  required_docs:
++  - 01-product/02-geo-core-prd.md
++  - 01-product/05-v1-release-capability-matrix.md
++  - 02-business/01-business-architecture.md
++  - 02-business/03-workflows-and-state-machines.md
++  - 03-technical/01-technical-architecture.md
++  - 03-technical/10-core-rollout-runbook.md
++  - 05-decisions/ADR-007-manual-first-v1-release-scope.md
++  - 06-reviews/GEO-1001-release-readiness-audit.md
++  audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
++  scope_note: 后续独立任务；本次 GEO-1002 只登记范围、依赖与验收，不开始实现或生产操作。
++- id: GEO-1008
++  phase: R9A
++  release: V1.0-manual-first
++  title: 闭合升级候选 artifact 失败安全恢复
++  status: planned
++  dependencies:
++  - GEO-1002
++  - GEO-903
++  - GEO-906
++  areas:
++  - deploy/scripts release state owner
++  - deployment integration tests
++  - operations runbook
++  deliverables: 由现有发布状态所有者提供 UPGRADE_DEPLOYING/UPGRADE_PREPARED、未 initialized 时候选无法启动且需新 artifact 的安全前向恢复或阶段恢复路径；维护锁、候选身份、schema 兼容及授权可审查。
++  tests: 发布状态集成/隔离演练：前滚后候选 readiness 失败、同候选环境修正重入、修正 artifact 接管、错误身份/旧镜像/并发恢复拒绝、恢复再次失败保持维护；保留业务数据与历史。
++  acceptance: 不通过先 activate、手改/删除状态、覆盖 artifact、直接 Compose up 或 schema downgrade 解锁；能在阶段失败后验证恢复/前向修复并保持公开维护隔离；恢复输入与安全停止明确；独立只读复核通过。
++  required_docs:
++  - 01-product/02-geo-core-prd.md
++  - 01-product/05-v1-release-capability-matrix.md
++  - 02-business/01-business-architecture.md
++  - 02-business/03-workflows-and-state-machines.md
++  - 03-technical/01-technical-architecture.md
++  - 03-technical/10-core-rollout-runbook.md
++  - 05-decisions/ADR-007-manual-first-v1-release-scope.md
++  - 06-reviews/GEO-1001-release-readiness-audit.md
++  audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
++  scope_note: 后续独立任务；本次 GEO-1002 只登记范围、依赖与验收，不开始实现或生产操作。
++- id: GEO-1009
++  phase: R9A
++  release: V1.0-manual-first
++  title: 冻结 V1.0 候选与完整性验证证据
++  status: planned
++  dependencies:
++  - GEO-1003
++  - GEO-1004
++  - GEO-1005
++  - GEO-1006
++  - GEO-1007
++  - GEO-1008
++  areas:
++  - release candidate evidence
++  - clean authorized main checkout
++  - validation records
++  - docs
++  deliverables: 收集已人工接受修复的 diff/独立复核记录；在已批准且已推送 clean main=origin/main 上冻结 commit/archive/release manifest/镜像身份/schema head/tracked-file hashes；记录同一候选完整门禁。
++  tests: 既有 candidate producer/consumer 完整性检查；同一固定候选 make verify 全门禁、Markdown/manifest/hash 检查与 git diff --check；历史日志仅在输入相同且证据适用时复用。
++  acceptance: 候选覆盖全部首发修复且可重现，完整门禁 exit 0；dirty 工作区不代替候选；缺 commit/push/candidate 权限或身份输入时 blocked，不擅自提交/推送；不使用测试绕过；不宣称生产已部署。
++  required_docs:
++  - 01-product/02-geo-core-prd.md
++  - 01-product/05-v1-release-capability-matrix.md
++  - 02-business/01-business-architecture.md
++  - 02-business/03-workflows-and-state-machines.md
++  - 03-technical/01-technical-architecture.md
++  - 03-technical/10-core-rollout-runbook.md
++  - 05-decisions/ADR-007-manual-first-v1-release-scope.md
++  - 06-reviews/GEO-1001-release-readiness-audit.md
++  audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
++  scope_note: 后续独立任务；本次 GEO-1002 只登记范围、依赖与验收，不开始实现或生产操作。
++- id: GEO-1010
++  phase: R9A
++  release: V1.0-manual-first
++  title: V1.0 生产 readiness 与 MANUAL 试运行 Go/No-Go
++  status: planned
++  dependencies:
++  - GEO-1009
++  - GEO-904
++  - GEO-905
++  - GEO-906
++  areas:
++  - production acceptance evidence
++  - rollout runbook
++  - MANUAL internal trial
++  deliverables: 在分别获批目标/阶段收集同候选三进程配置、Browser 硬禁止与零部署/会话/材料、既存 CRON 治理、备份/恢复/停止、容量/监控观察期、正式 MANUAL 闭环及使用者反馈；新建本轮 readiness 记录，不改写旧现场未知。
++  tests: 获批目标定向 smoke/页面安全/权限；MANUAL 正式提交→真实分析→必要复核→指标/现有报告→管理员入口评估→Action/Retest API→比较/显式解决；实际负证据、告警、冻结容量和停止/恢复演练。
++  acceptance: 所有必需门禁及业务/运维签署 MET 才 Go；任何 NOT_MET/NOT_VERIFIED/缺授权均 No-Go，保留原始失败/未知；自动 CRON/evaluator 和 R7/未实现页面不作首发必需；完成先 review，done 需用户接受，生产启用仍需相应授权。
++  required_docs:
++  - 01-product/02-geo-core-prd.md
++  - 01-product/05-v1-release-capability-matrix.md
++  - 02-business/01-business-architecture.md
++  - 02-business/03-workflows-and-state-machines.md
++  - 03-technical/01-technical-architecture.md
++  - 03-technical/10-core-rollout-runbook.md
++  - 05-decisions/ADR-007-manual-first-v1-release-scope.md
++  - 06-reviews/GEO-1001-release-readiness-audit.md
++  audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
++  scope_note: 后续独立任务；本次 GEO-1002 只登记范围、依赖与验收，不开始实现或生产操作。
+--- before/docs/geo-monitoring/05-decisions/ADR-007-manual-first-v1-release-scope.md
++++ docs/geo-monitoring/05-decisions/ADR-007-manual-first-v1-release-scope.md
+@@ -0,0 +1,38 @@
++# ADR-007：GEO Core V1.0 人工优先发布范围与发布门禁
++
++- 状态：Accepted
++- 日期：2026-10-05
++- 接受日期：2026-10-05
++- 接受依据：用户本次明确要求正式冻结下列 V1.0 范围并新增、接受本 ADR；未提供具名签署人，不补造身份。
++- 适用范围：GEO Core V1.0 人工优先发布范围、初始配置、R9A Release Blocker Closure 和 Go/No-Go。
++- 替代范围：明确修订现有 PRD 的定时执行、自动 Opportunity 评估和完整页面/导出承诺；延续 ADR-006 对 Browser 的延期。ADR-005/006、R0—R8 接受记录及 GEO-1001 审计保留原文。
++
++## 背景
++
++[GEO-1001 审计](../06-reviews/GEO-1001-release-readiness-audit.md)结论为 NO-GO。MANUAL 回答级观测、确定性分析、复核、指标、现有报告和行动/复测 API 有真实实现；内部批次工厂/evaluator 不证明存在生产 CRON 或自动评估入口，API 组合验收不证明全程页面操作。ADR-006 仅延期 Browser，未裁决其余首发范围冲突。
++
++生产仍接受 Browser=true、Catalog 仍有旧 ADMIN 身份竞态、升级阶段候选 artifact 失败缺少安全恢复。工作区实现尚未冻结为候选，目标生产、正式试运行、监控/容量/恢复证据缺失。缩减产品范围不能豁免这些安全与发布缺口。
++
++## 决策
++
++1. V1.0 支持 MANUAL 回答级观测；人工启动或创建批次；原始回答、引用和证据登记；确定性分析；人工复核；指标、洞察和现有报告；Opportunity 管理员手动评估；现有 Action 和 Retest API；MANUAL 内部试运行。
++2. V1.0 不包含 Browser 真实界面 Adapter、Browser 生产会话/证据采集、CRON 到期自动创建批次、Opportunity 自动周期评估、Opportunity CSV、Action/Retest 完整页面操作、公共管理员重分析入口，以及不可观测的“无引用”自动推断。
++3. [能力矩阵](../01-product/05-v1-release-capability-matrix.md)区分 available、manual-only、disabled、deferred、not implemented，并单列当前实现。available 只表示仓库已有实现，manual-only 限定人工触发；二者均不代表生产已启用。未实现的手动评估入口必须由 GEO-1006 交付后才可作为正式操作入口。
++4. GEO Monitoring 按环境启用；MANUAL 初始试运行启用且不新增独立 MANUAL 开关；API Collection 初始试运行默认关闭。生产必须硬拒绝 Browser Collection 启用，同时核实服务/profile 未启用，且无生产会话/会话材料；模板默认 false 不足以放行。
++5. CRON 自动到期执行延期，V1.0 服务端必须禁止 CRON Plan 进入看似 ACTIVE 但不执行的状态；既存 ACTIVE CRON 要有明确治理路径、用户说明和审计，不删除历史或自动转成手动语义。保存停用配置可以保留；人工执行只允许现有明确人工创建入口，不能伪装为调度成功。GEO-1005 交付前该保证 NOT_MET。
++6. Opportunity 自动调度关闭；允许管理员显式评估。已有 GEO_OPPORTUNITY_EVALUATION_ENABLED 是评估资格开关，不能当作独立的自动调度开关：MANUAL enable 获批后可设 true，以支持显式评估，但不得登记周期任务或以提交/聚合读请求自动触发。总开关关闭或评估资格关闭时明确拒绝，ENGINEER 不得触发管理员评估。
++7. 零引用且缺少可观测依据不等于“确定无引用”。不更改指标分母、current/review 资格、null/UNKNOWN、不可变历史、权限、数据分级、API 外发批准或 at-most-once；内部重分析能力不构成公共入口，分析失败 Run 不因内部重分析成功而回退终态。
++8. 增加 R9A 与 GEO-1002～1010，依次闭合范围、安全、能力真实性、升级恢复、候选和现场证据。任务细目及依赖以 [manifest](../04-delivery/task-manifest.yaml) 为准。GEO-1001 是已完成审计输入，不在本轮补造任务接受状态；R0—R8 全部原状态和记录保留。
++
++## 发布条件
++
++[Rollout runbook](../03-technical/10-core-rollout-runbook.md)的 V1.0 Go/No-Go 为执行权威。Go 必须同时满足：GEO-1002～1009 已人工接受；Browser 硬禁止与现场零启用；Catalog 当前身份裁决；CRON 禁用保证；真实管理员评估入口和能力披露；升级 artifact 失败安全恢复；同一固定候选的完整验证；目标生产配置/备份/恢复/容量/监控；正式 MANUAL 闭环和内部试运行；GEO-1010 的业务/运维签署与相应阶段授权。
++
++任何必需项 NOT_MET、NOT_VERIFIED、缺失或未批准都为 NO-GO。R7 延期、首发范围外自动化和未实现页面不构成独立阻断，但不得把它们写成可用。旧任务 done、本地 make verify 成功或本 ADR Accepted 均不能替代发布证据。当前仍为 NO-GO。
++
++## 后果、恢复与后续范围
++
++- 员工负责按 [MANUAL SOP](../02-business/05-manual-geo-observation-sop.md)采样、补证和复核；批次创建不代表平台返回回答，单次变化不构成因果。
++- 真实 Browser 按 ADR-006 恢复条件另行排期；CRON、自动 evaluator、Opportunity CSV、完整 Action/Retest UI、公共重分析需后续明确范围、合同和验收，当前无承诺日期或具名责任人。
++- R9A 只修复 V1.0 必需边界，不趁机实施上述延期功能。资料或代码变更使冻结范围/候选不再成立时，重新评估受影响门禁；不复用失效证据。
++- 本次 GEO-1002 仅修改文档和任务治理，不修改运行时代码、Schema、OpenAPI、部署脚本，不访问生产、不提交/推送。ADR Accepted 与 GEO-1002 review 是不同治理事实。
+--- before/docs/geo-monitoring/CHANGELOG.md
++++ docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,12 @@
+ # 文档包变更记录
++
++## GEO-1002 / R9A V1.0 范围冻结 — 2026-10-05（review）
++
++- 用户明确接受 ADR-007 的人工优先首发范围和配置；能力矩阵区分政策/实现与五类状态，管理员显式评估入口仍待 GEO-1006。
++- Manifest/WBS 追加 1002～1010，路线图增加 R9A Release Blocker Closure，runbook 增加 V1.0 Go/No-Go。
++- PRD 与业务/状态机/技术架构标明首发执行范围，README 区分当前能力和历史阶段记录，修复四处已确认断链。
++- R0—R8 原任务全文/状态与接受记录、ADR-005/006、GEO-1001 和原 production-readiness 保留；运行源码/Schema/OpenAPI/部署脚本不变。
++- 当前仍 NO-GO；1002 只交付 review，1003～1010 仅 planned；未生产操作、提交或推送。实际文档验证与独立复核见 GEO-1002 Trellis implement。
+ 
+ ## GEO-906 / R8 核心渐进发布准备 — 2026-10-05（blocked）
+ 
+--- before/docs/geo-monitoring/README.md
++++ docs/geo-monitoring/README.md
+@@ -10,6 +10,18 @@
+ | 仓库文档根路径 | `docs/geo-monitoring/` |
+ | 纳入仓库状态 | GEO-001 已于 2026-10-01 完成人工验收 |
+ 
++## 当前 V1.0 发布冻结（ADR-007 / GEO-1002）
++
++2026-10-05 用户正式接受 [ADR-007](./05-decisions/ADR-007-manual-first-v1-release-scope.md)：V1.0 以 MANUAL 回答级观测、人工批次、证据、确定性分析/复核、指标/现有报告、管理员显式机会评估和现有 Action/Retest API 为范围。完整能力与当前实现统一见 [V1.0 能力矩阵](./01-product/05-v1-release-capability-matrix.md)。
++
++**当前仍为 NO-GO。** [GEO-1001 审计](./06-reviews/GEO-1001-release-readiness-audit.md)记录的 Browser 硬禁止、Catalog 竞态、CRON 假 ACTIVE、管理员评估入口、升级恢复、候选和生产证据由新增 R9A / GEO-1003～1010 收口；范围批准不代表修复或现场验收。API 初始关闭，Browser production 硬禁止，CRON 到期执行和 Opportunity 自动周期评估不属首发。机会 CSV、完整 Action/Retest 页面、公共管理员重分析及无依据无引用推断不能宣称可用。
++
++R0—R8 的 67 done＋4 deferred 和历史接受记录保持；任务状态以 manifest 为准，旧 done 不替代本次发布门禁。GEO-1002 交付只进入 review，后续新增任务本次只定义，不执行。
++
++## 历史阶段交付记录与目标设计导航
++
++以下各 GEO 段落记录该阶段交付时的范围和限制；早期“未实施”或“review/blocked”不是当前全系统状态。当前实现参见能力矩阵/审计，当前任务治理状态参见 manifest，生产未知仍保留未知。
++
+ 本文档包描述目标设计，纳入仓库不代表功能已实现。2026-10-01 用户接受五份初始 ADR 及 GEO-002 评审修订，ADR 状态均为 `Accepted`，GEO-002 状态为 `done`。接受范围、历史评审与后续合同对齐要求见 [架构评审记录](./05-decisions/GEO-002-architecture-review.md)。文档按 [文档治理规则](./00-governance/01-document-governance.md) 和对应任务管理；任务状态与依赖以 [任务清单](./04-delivery/task-manifest.yaml) 为准。
+ 
+ GEO-003 已冻结当前文章关系级 GEO 实现、契约和迁移源码基线，并于 2026-10-01 经用户接受，状态为 `done`。后续开发先查阅 [当前实现基线](./04-delivery/06-current-geo-baseline.md) 与 [本轮验证证据](./04-delivery/geo-003-baseline/validation.md)，区分现有 GeoObservation/GeoInsights 和尚未实现的回答级 Batch/Run；完整 `make verify` 的 Docker 环境阻断已记录，不代表全栈门禁通过。
+@@ -74,7 +86,7 @@
+ 
+ GEO-705 / R6 已新增严格复测预览和创建 API、不可变基线及幂等回执。显式选中首次触发来源批次，完整复制原矩阵/输入/规则，Profile、Variant 或已观测模型版本不可比（含版本未知）时给出差异并阻断。本地实现与验证完成，状态review，等待人工接受；实际门禁见 [Task Brief](../../.trellis/tasks/10-04-geo-705-retest-planner/prd.md) 和 [实施证据](../../.trellis/tasks/10-04-geo-705-retest-planner/implement.md)。0061 为加法迁移，无历史回填；未迁移生产。GEO-706 的结果比较、恢复裁决、解决机会及页面继续由后续任务实施。
+ 
+-## 当前核心发布范围（ADR-006）
++## 历史核心范围调整（ADR-006，V1.0 细目由 ADR-007 冻结）
+ 
+ 2026-10-05 用户接受[人工优先、浏览器延期决策](./05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)：MANUAL 回答级观测是核心版正式采集方式，操作见[人工观测 SOP](./02-business/05-manual-geo-observation-sop.md)。核心路径为 R6 → R8，R7 是 post-core 可选扩展；旧 ADR-005/GEO-002 的自动化及真实界面首发门禁由 ADR-006 显式替代，安全与平台批准条件保留。
+ 
+@@ -140,6 +152,7 @@
+    ├─ ADR-004-no-unified-geo-score.md
+    ├─ ADR-005-staged-collector-rollout.md
+    ├─ ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
++   ├─ ADR-007-manual-first-v1-release-scope.md
+    └─ GEO-002-architecture-review.md
+ ```
+ 
+@@ -155,6 +168,7 @@
+ | 产品 | [GEO 核心版 PRD](./01-product/02-geo-core-prd.md) |
+ | 产品 | [信息架构与页面需求](./01-product/03-information-architecture-and-page-spec.md) |
+ | 产品 | [Catalog 使用指南（当前 R1）](./01-product/04-catalog-user-guide.md) |
++| 产品 | [V1.0 发布能力矩阵](./01-product/05-v1-release-capability-matrix.md) |
+ | 业务 | [业务架构](./02-business/01-business-architecture.md) |
+ | 业务 | [领域模型](./02-business/02-domain-model.md) |
+ | 业务 | [人工 GEO 观测 SOP](./02-business/05-manual-geo-observation-sop.md) |
+@@ -187,9 +201,13 @@
+ | 决策 | [ADR-004：不提供统一 GEO 总分](./05-decisions/ADR-004-no-unified-geo-score.md) |
+ | 决策 | [ADR-005：分阶段启用采集](./05-decisions/ADR-005-staged-collector-rollout.md) |
+ | 决策 | [ADR-006：人工优先、浏览器延期](./05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md) |
++| 决策 | [ADR-007：V1.0 人工优先发布范围和门禁](./05-decisions/ADR-007-manual-first-v1-release-scope.md) |
++| 评审 | [GEO-1001：发布候选完整性审计（NO-GO）](./06-reviews/GEO-1001-release-readiness-audit.md) |
+ | 决策 | [GEO-002：架构评审记录](./05-decisions/GEO-002-architecture-review.md) |
+ 
+ 校验命令从本目录执行：`shasum -a 256 -c SHA256SUMS`。清单覆盖本目录其余全部文件，不包含 `SHA256SUMS` 自身；修改文件后应同步更新对应哈希。
++
++R9A Release Blocker Closure 追加在 R8 之后；具体依赖/交付/测试/验收见路线图、WBS 和 manifest。GEO-1001 / production-readiness 原始记录保持，新的首发证据由 GEO-1010 另行收集。
+ 
+ ## 3. 推荐阅读顺序
+ 
+--- before/docs/geo-monitoring/SHA256SUMS
++++ docs/geo-monitoring/SHA256SUMS
+@@ -1,127 +1,131 @@
+-0ec5e67515fa5c383612130415bfc70185a607ac65006fcc932dd750c137bbde  ./00-governance/01-document-governance.md
+-b5906690eb04c8d27911a09722761e7cf4c244ecab2fbe39a55d94c794ee8728  ./00-governance/02-glossary.md
+-c2712f08697489a04597c9c8da1bc87b0316a6dad321b36bbc2d850377ca63c8  ./01-product/01-product-vision-and-scope.md
+-337f59ee0b3faf2cf8071af040271c7f8494ac667b555d6108edbaae9703ce5a  ./01-product/02-geo-core-prd.md
+-95637e55031a56bf3e70073207439e2d7cd6f879be9ddaefa1b7edc3192d7751  ./01-product/03-information-architecture-and-page-spec.md
+-36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+-5bf57905d842c611ca8a7f3fb5997a8756f5c77c20830c5f4296d2f0e56b0ec8  ./02-business/01-business-architecture.md
+-140e16f4dc3d712628c4cbba8bab938848f24c2bf8e0b530fd52b4de5c6c4ec1  ./02-business/02-domain-model.md
+-f53755381def49bb2b0f6d03c02f7e14f201ccee71aae937f8a75bc3f0e1414b  ./02-business/03-workflows-and-state-machines.md
+-aeec9d65d22cc1f2640c46968e1923d328ed842bbc086f18e5dc4bd376a4bb02  ./02-business/04-monitoring-methodology-and-metrics.md
+-8d89a0c8e2f1b4051595c5b303a2bfb16bc45d6cffb912ada4a34ad69293d3a5  ./03-technical/01-technical-architecture.md
+-dfa99da7fce0e0ab5678cff7f0aa722565dba13514bf770efceeacdc812de817  ./03-technical/02-data-architecture.md
+-22f8976a569a88800331d5f8ad54a83d753450f469bd30b70e4ac79a8f18c2e9  ./03-technical/03-api-contract-design.md
+-a0291d4a77609a1db741e3adc84d19ab712ac3ffff8c49f8572ac09b1c5327eb  ./03-technical/04-frontend-architecture.md
+-daf8f8cec2dfb8996c316ca259ae6eea161d944337f340ce9c6180bc9c87c0f5  ./03-technical/05-worker-and-collector-architecture.md
+-596532a0304d246a9051872ebed910156983b9fd2cd146ef234fd6700e07c1eb  ./03-technical/06-security-and-compliance.md
+-351dc8f784a3f84f8a844e2cb3f2d67c9cd77852159eb8690b19e66cd758d4b6  ./03-technical/07-testing-and-quality.md
+-8715207eb88a82ab72d6565f880d871e5e4356b26fe3948cb8eb98e50d15ca2d  ./03-technical/08-deployment-and-operations.md
+-80dff21fd8daca7754f9a02a6b5b5a5d6bd43a2705ede0b88c9e2b07cd05b014  ./04-delivery/01-implementation-roadmap.md
+-eee6ed49f55846ab63c464b2696112b270572e050b43195bdb2a9fddb8122613  ./04-delivery/02-work-breakdown-structure.md
+-ff9c5c9426eadc2f53c9df96daccba3761c8a736d1c7c4feb547f39f2b58adbc  ./04-delivery/03-requirement-traceability-matrix.md
+-1224ffc2606ab412e8c2f886b10b6cd57e520006b7229c754f866c674bcf4a26  ./04-delivery/04-codex-execution-guide.md
+-63659ee9c39988256052cd75d8fe0e15213daea802f76b2a1481520ee0aac45e  ./04-delivery/05-task-template.md
+-0ec18f9ce8589f4c8e222fddc6d15853c949ad2b227381b584e2c81c4c4e47b0  ./04-delivery/06-current-geo-baseline.md
+-04c45f4f7f95f5fc4efd7b288b06921bb58d6fcede6e5682e7c9434aac0b7c9a  ./04-delivery/06-r5-insight-performance-acceptance.md
+-a80ebe00c833b45a53bf82b140a84b9bb1a20a49bb37688cb233ef6d5e818782  ./04-delivery/07-r2-acceptance.md
+-c2bb63a4bde8702dc9e2c8dc62867cc2ad99a56c7a9253b7159778a92c29aec3  ./04-delivery/08-r3-api-acceptance.md
+-448418c5f27b85d1256941e9e7d63a22d9e8c048474af22a4f7507488b6911e9  ./04-delivery/codex-prompts/ALL_PROMPTS.md
+-a7878ed45c976a5dfd81ddb04f7bdbd829e972019cd996d018a876f4dd4ca815  ./04-delivery/codex-prompts/EXECUTION_ORDER.md
+-309a28ec2c3d1a2d0964aab459c55fa263241fb4768705530eb6c3cc84b3f8db  ./04-delivery/codex-prompts/R0/GEO-003.md
+-3145395361e8db816e2e1dfc46a08d2499b2f3b79f96c531d6be5cb53b640ebd  ./04-delivery/codex-prompts/R0/GEO-004.md
+-9e83b500edf67553f832ebac65a01b527f6b3ba2466da00930de752b58898295  ./04-delivery/codex-prompts/R0/GEO-005.md
+-d438cf73ecda695387222c656139b6a82f12c0d97ed3eda30164eec7c8f2ce8e  ./04-delivery/codex-prompts/R1/GEO-101.md
+-385689f59d347b6dd2863a6ebec12929aeec69b5bac07c0df9a873b8a64416da  ./04-delivery/codex-prompts/R1/GEO-102.md
+-95b347b85749286254bcfaf4c65e36bf71fbf82b6ac3d002af255e3f597dbb8a  ./04-delivery/codex-prompts/R1/GEO-103.md
+-f63408859a3a4658fe92a78323449c297f6c9d3aa66b82532874856458895268  ./04-delivery/codex-prompts/R1/GEO-104.md
+-de09cff97ae75cc0b3029f76ac955df84d5a18af0f4155137b0142e03dd01a9d  ./04-delivery/codex-prompts/R1/GEO-105.md
+-f6db61d61587848f795ba7e66b8b4bf6ee6e57d56038dacf19221e69a47b713d  ./04-delivery/codex-prompts/R1/GEO-106.md
+-0c9de524ab5f8924384ea7925011b25f263a0aae75de10fc8e5a2f939ce35bd8  ./04-delivery/codex-prompts/R1/GEO-201.md
+-52118f365b65a0d4bee9ce220d1bd8155a7b5c78b30258abbc70dec8e9a5861a  ./04-delivery/codex-prompts/R1/GEO-202.md
+-006266a0391679dcbe23a48f959628581808d3b0ceb79be88b0989af486456c3  ./04-delivery/codex-prompts/R1/GEO-203.md
+-1006ac753629e71b91fa3fd11e71a4c7ef61629fca936934439c3414703d8670  ./04-delivery/codex-prompts/R1/GEO-204.md
+-ee81be915f1a244b7cd16d1e16cbcb8acd2046c88d8bda5262ebbb58bd7f25b6  ./04-delivery/codex-prompts/R1/GEO-205.md
+-45a5ac79be1630f76c8a7e03f955aeb2d07569c679eedd6dcc449e974c386441  ./04-delivery/codex-prompts/R1/GEO-206.md
+-ef1d051e67ddbd089e5bfb70c2b834395733c2b2537a5981cae2b3cf50b368b0  ./04-delivery/codex-prompts/R1/GEO-207.md
+-1ddfbd119a759f403011def033b9f7da7a7dd5a3e9c7e73744ad2dff64b9734c  ./04-delivery/codex-prompts/R1/GEO-208.md
+-0e2f4b674ea80662f7fb4b4bbdb6ddaa377de4419f4713baea8788a8b9cba6ad  ./04-delivery/codex-prompts/R1/GEO-209.md
+-29821b936851791ac7eabe958e81e228142ffbba53d3d0f078f6ccac5219b68f  ./04-delivery/codex-prompts/R2/GEO-301.md
+-e1733f0699211e4d4f064227d6cd3f71945c89a8153b6dd5c52c42ca155a48e1  ./04-delivery/codex-prompts/R2/GEO-302.md
+-ae08b2e4180a8bd1ff81ee162db4c45d33e73fe13f6775dc7502cd24ab9bfcef  ./04-delivery/codex-prompts/R2/GEO-303.md
+-2470a89a9f38bf1e948397a751cfb6dfac7a10cc5f51e3a396ef9ec901bad944  ./04-delivery/codex-prompts/R2/GEO-304.md
+-c98a7d4973213d256d4e7184119b02233384b0db503bff58114dd2c783ced6a3  ./04-delivery/codex-prompts/R2/GEO-305.md
+-436438b47a259d67b460af0fc286142ebd8c9176aee191fe63f3cb976f7ca115  ./04-delivery/codex-prompts/R2/GEO-306.md
+-1f4a799e4ab085d2c36222651fbb28892ff69a87ab0ecd6be2580b5fc52d2b5a  ./04-delivery/codex-prompts/R2/GEO-307.md
+-8600c3f3cad2a10a14f7a0b5f1bda3f43ef4d16d312e504710648c33e14097d7  ./04-delivery/codex-prompts/R2/GEO-308.md
+-6e41191751cf89c20d79b7d0311c11f9b55937eed7f367bf5f3087d3fbfdfc45  ./04-delivery/codex-prompts/R3/GEO-401.md
+-05fee6d21e7cd196fba739e40fbbbb1b934594516218f23fc2b26a0024926cfa  ./04-delivery/codex-prompts/R3/GEO-402.md
+-f4e0560cb358b8b2e1fcfdad783ae45d7e5869192f55d36f684b11f466b9614f  ./04-delivery/codex-prompts/R3/GEO-403.md
+-e133551e7f80f8624cfd78320dc9e0b78dd834d5faa3d1cea1e216ead0eee2aa  ./04-delivery/codex-prompts/R3/GEO-404.md
+-75c8677e4fb2a050431b1f8086bc7eeda4307852d6dcbdec48de3420b12102a0  ./04-delivery/codex-prompts/R3/GEO-405.md
+-2240f6b1ac5f59aa9308ff9d52474b2039c3561a10a6609f17661672af56c1ba  ./04-delivery/codex-prompts/R3/GEO-406.md
+-e475cc0badd059a3ccb4a1fc3f15de8c6252aebde3a4ffbb607b04f1770f59d8  ./04-delivery/codex-prompts/R3/GEO-407.md
+-3c61208e1bbc3415d238ba97402a946723584ce185743aa583d7f9cfa4086f03  ./04-delivery/codex-prompts/R3/GEO-408.md
+-02b07c69a6a7ecb5e0c7b29d5783d53cafa5145e9ef8abd2221e06a016cc2d7e  ./04-delivery/codex-prompts/R4/GEO-501.md
+-d979864b69ca692e3220a268f5bb86a47cd8012fad726d08cc4e932103db7f02  ./04-delivery/codex-prompts/R4/GEO-502.md
+-54b75c59b8729e89ff34dc4ea8fc945d72350e35dfb886d56f4ef46cd4aa8de1  ./04-delivery/codex-prompts/R4/GEO-503.md
+-de3cb3cd9ed4d7824aa44133e7dcb2fc2fac023400b3439f01cc41f3046aac8a  ./04-delivery/codex-prompts/R4/GEO-504.md
+-bf39f47d08a6c2c8416a0f89c040d8c5692ca7fa000888d494df2de2b93a3ed2  ./04-delivery/codex-prompts/R4/GEO-505.md
+-773b749daf88bac39fe74fd8389944d0570600274855fd08b1333d0d7af4d8b3  ./04-delivery/codex-prompts/R4/GEO-506.md
+-9dd9de227bb9241577935b6214cf689b22b84967acaf7a77b0ecdc6a18eaf64e  ./04-delivery/codex-prompts/R4/GEO-507.md
+-c1581d7f686e959c898541a3228d5c954cde6f5d8b66baca63bcd78fc0d013fe  ./04-delivery/codex-prompts/R4/GEO-508.md
+-522bcb5686d6a42a96fbbc3c95871b8ebe48dbd088536d253304394ffa948a3a  ./04-delivery/codex-prompts/R5/GEO-601.md
+-f52d269647e1da7291c37112412f7d101817e5543afd6b91ff53dda10dba51f2  ./04-delivery/codex-prompts/R5/GEO-602.md
+-3043e4a793257f6012838878514dd1286aac7d2733698d9f45243f4e674a74ff  ./04-delivery/codex-prompts/R5/GEO-603.md
+-674d113d8cd611df404360c4e5c915497e539a7af6605a08fa443e425eb76c4b  ./04-delivery/codex-prompts/R5/GEO-604.md
+-3eeb35d81c01ce422276e00f517bf70379596005ba834519c7b8935eb16a5205  ./04-delivery/codex-prompts/R5/GEO-605.md
+-2a6334f1a7287ff94f496a41008a72d80f128e728e73fa9cb09e8c53d0fad408  ./04-delivery/codex-prompts/R5/GEO-606.md
+-97ebbb7c0ff7a0470ce7000a658737fbe7cee294a9a8ff83de1252c957675c5f  ./04-delivery/codex-prompts/R5/GEO-607.md
+-567a88a715c5a9f8fd347360ed4f0a751e9dbfe66b69e82ab6529756798448f8  ./04-delivery/codex-prompts/R6/GEO-701.md
+-0e4f1ff03db648e62d9c72f7747b7a72a45e172a89431097fc1a80170704a136  ./04-delivery/codex-prompts/R6/GEO-702.md
+-891a0e4ed48d095a2a2b8a409ad4a87df4d1b4285f6ce0ef33e931caaf29ed77  ./04-delivery/codex-prompts/R6/GEO-703.md
+-2d98c080962b89d82636ec3ce1a3ba632cc3b49d5bf4d511a81499448c39cc4b  ./04-delivery/codex-prompts/R6/GEO-704.md
+-5f8d93f9d7ea77400fe5c52cae552d60b26bd3d29763f34219de8ee9ad1280d5  ./04-delivery/codex-prompts/R6/GEO-705.md
+-2382d0444fd6ba100f30f6ee1c75b5c3ff70ad6f7a39ae544a635e33bfcfd9e5  ./04-delivery/codex-prompts/R6/GEO-706.md
+-5a598b48ad7f17c2362818e14d26032ac296116a0dfc511a8c49ed59479e0906  ./04-delivery/codex-prompts/R6/GEO-707.md
+-da0aac6864477e358700408604d14f98c71621770b4b8794f182622899c20fad  ./04-delivery/codex-prompts/R7/GEO-801.md
+-08557f4cf022395568dc618a6ed7883081234c526482c1fe3fea80347fa852de  ./04-delivery/codex-prompts/R7/GEO-802.md
+-b2c486dca40af59fc83c46db20d9e0345f1be62d4fe3c285032236b3592b083d  ./04-delivery/codex-prompts/R7/GEO-803.md
+-d6d2c449629df016740e40676a2934bb48473e7090d66b6b268928e49ad702ca  ./04-delivery/codex-prompts/R7/GEO-804.md
+-6a20f363d3d8c40fa72ba99816aab64e404e3d50db55c96d2fa5e0beb91d7bcb  ./04-delivery/codex-prompts/R7/GEO-805.md
+-80e7acd68f08d8343282d01067956a54631c90df40c05f974ee12d90bbec6de6  ./04-delivery/codex-prompts/R7/GEO-806.md
+-26b484479e084fe9f64eb608163808691ecfbb391ab903a9a15e315039fd1f69  ./04-delivery/codex-prompts/R7/GEO-807.md
+-d412b36ee034536c129eae3ce8a743182eed1bd1176955e96820595ae15521a8  ./04-delivery/codex-prompts/R8/GEO-901.md
+-b3f07f590fa1d9b8b1e756d96369bb8b8c9ce358df20e5327f6b706973ed81cb  ./04-delivery/codex-prompts/R8/GEO-902.md
+-45bc216adbb41aa39eb8aa3493e34b0f56f5e05d24cef10b2c62375d2d254dc6  ./04-delivery/codex-prompts/R8/GEO-903.md
+-726ec9997566f5d80a2a0a7db6b739dbbde78dee286132e334b892eadc90af88  ./04-delivery/codex-prompts/R8/GEO-904.md
+-d0b186c6a54563ed88861a227d0b561a6cf6806afe3a2ca39109a61875f7f9e8  ./04-delivery/codex-prompts/R8/GEO-905.md
+-37dc7798806968c2b48d512dae1dbb5c0158d7883c6172e7712de9cea4ba8bcf  ./04-delivery/codex-prompts/R8/GEO-906.md
+-e4e9bfe0fa2b9e8aea25923b09082faa67798333e64c348f37ef6fd133c79662  ./04-delivery/codex-prompts/README.md
+-67c5dbafec435bf273cfc1120b66794acda0546474bdaabbdb4a11d59693cccf  ./04-delivery/codex-prompts/REVIEW_CHECKLIST.md
+-8368cd3eb300c09ca6777f3f45f92965582e16c02c0a0d40a4debfa0aeeabe0b  ./04-delivery/geo-003-baseline/database.json
+-2827163319c486c46eb08491c739e9cc0361e2e6c3ee1733d4eed11bd9ed5a89  ./04-delivery/geo-003-baseline/migrations.json
+-9b31da7e55eede8c908723d540a5ba0857f92fd1ff72f99ac59819d4ad016f36  ./04-delivery/geo-003-baseline/openapi.json
+-9338f3e4c95d5d8db4569d1a1e512f6bcdd258291b426defdaa94abc63cf2f8a  ./04-delivery/geo-003-baseline/queries.json
+-e2cf12f6dc9813a256f321aa56f899ee25a6572bcf8f3c8aa968451a7a65e558  ./04-delivery/geo-003-baseline/routes.json
+-7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+-316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+-9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-e86092eabe3c54e22c40d94cc83307464ae90eb5781996011ce1659cc6f534e2  ./04-delivery/task-manifest.yaml
+-2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+-4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+-00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+-8f4f24331d4ea91574e5a4a56c3eacd9d89e193011c48f8d9f5e413198793909  ./05-decisions/ADR-004-no-unified-geo-score.md
+-6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+-c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-aeef3d825462dd415ac5cd166df0cc518fc8ee0e8ee26d9dd497d100b098189b  ./CHANGELOG.md
+-851d7b2e0ca91c115a1c2b2071557ffaaaa59568f5301c3dfef8e263c49ccaa6  ./README.md
+-670f9d9e94e3a36b849691f8531a30433ea0253f234b855d08331b6d2b1905cd  ./04-delivery/10-r6-opportunity-acceptance.md
+-2ecb8425899de5f1ae4f6a1f0b130f93aba201fbc9c084856d6893835d0484e9  ./02-business/05-manual-geo-observation-sop.md
+-063efdbae17e86fc90ff7e6cff80ecdfdb6eee1e37416e5e3179531c7260a7cd  ./04-delivery/09-r4-analysis-acceptance.md
+-2fbec827c69bc5ed179ee8752b252ef1419f97392c38b6770c9184fa9ba641ba  ./05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
+-48ee02798a720cd1c74067e040677bf18947e56933521c2d409b4feb81cc4c0e  ./03-technical/09-backup-recovery-runbook.md
+-8701bf8f2226438836d4977f1e75de52e18fbfae1100865984ca02f55e596380  ./04-delivery/11-r8-security-review.md
+-7f8a497ed5d19102cdeab9d30fec7e6939e0db185bd82f8dfe3431c835f4cd13  ./04-delivery/12-r8-capacity-hardening.md
+-47a1e976142dbd806847f9218b28e624f4aa015eeec8f4d766f33718f71eb931  ./03-technical/10-core-rollout-runbook.md
+-f1d1d321c67e2d64f77be8960858dd1b63ed35ddcbd6c2af7c97e5f057308938  ./04-delivery/13-r8-core-release-acceptance.md
+-e047efc782933053f13f46e205e6aff331b4d3e2f8574a1c6857c97d426115cc  ./04-delivery/geo-906-release-record.template.yaml
++a13698828ce6facd07deb3b789e9134d363ea26af1e05918a63f1603477bd4fa  00-governance/01-document-governance.md
++b5906690eb04c8d27911a09722761e7cf4c244ecab2fbe39a55d94c794ee8728  00-governance/02-glossary.md
++c2712f08697489a04597c9c8da1bc87b0316a6dad321b36bbc2d850377ca63c8  01-product/01-product-vision-and-scope.md
++dcb2e50c723df8758173ba472a63a6a12b51eed074b2e82a408e56f78980b5f2  01-product/02-geo-core-prd.md
++95637e55031a56bf3e70073207439e2d7cd6f879be9ddaefa1b7edc3192d7751  01-product/03-information-architecture-and-page-spec.md
++36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  01-product/04-catalog-user-guide.md
++2548ec477ef6e9c8c4c81d437156b06df4a75a3dce3ae39702b21bda2fd79706  01-product/05-v1-release-capability-matrix.md
++45b864ba43a27d184a5161086b4a8332615fd831ec1aad4f908d1705e6bb3594  02-business/01-business-architecture.md
++140e16f4dc3d712628c4cbba8bab938848f24c2bf8e0b530fd52b4de5c6c4ec1  02-business/02-domain-model.md
++c0957fde7fb609dd1746d4d29e4a3f8e14129e685787bf4046c8d8941a314054  02-business/03-workflows-and-state-machines.md
++aeec9d65d22cc1f2640c46968e1923d328ed842bbc086f18e5dc4bd376a4bb02  02-business/04-monitoring-methodology-and-metrics.md
++2ecb8425899de5f1ae4f6a1f0b130f93aba201fbc9c084856d6893835d0484e9  02-business/05-manual-geo-observation-sop.md
++841a96a93eac6837f9c7829e707331f69eb314be63e1a0538ff76d5a3864b491  03-technical/01-technical-architecture.md
++dfa99da7fce0e0ab5678cff7f0aa722565dba13514bf770efceeacdc812de817  03-technical/02-data-architecture.md
++22f8976a569a88800331d5f8ad54a83d753450f469bd30b70e4ac79a8f18c2e9  03-technical/03-api-contract-design.md
++a0291d4a77609a1db741e3adc84d19ab712ac3ffff8c49f8572ac09b1c5327eb  03-technical/04-frontend-architecture.md
++daf8f8cec2dfb8996c316ca259ae6eea161d944337f340ce9c6180bc9c87c0f5  03-technical/05-worker-and-collector-architecture.md
++596532a0304d246a9051872ebed910156983b9fd2cd146ef234fd6700e07c1eb  03-technical/06-security-and-compliance.md
++10e3e60c5885c23cd36e941d0d46dc2d1e30a01d3b7817b2f1ecf6700151f654  03-technical/07-testing-and-quality.md
++95ff451b9d6927240bbf19ba157f22952212178b52089f4053f6644c889fa7b7  03-technical/08-deployment-and-operations.md
++48ee02798a720cd1c74067e040677bf18947e56933521c2d409b4feb81cc4c0e  03-technical/09-backup-recovery-runbook.md
++df13d35d50290528c9561531c8f62740d5990e8735dee8d36ce0a95f635e757c  03-technical/10-core-rollout-runbook.md
++9edd3f79af2d9f91932e9e668b41c6f3e9a38ebe781ec9dc8b6517c135f3ee49  04-delivery/01-implementation-roadmap.md
++0c43e4072efeb3b4271cbad3f6e7ff896dcc075530e73f2e98bf2d74c0c48e19  04-delivery/02-work-breakdown-structure.md
++ff9c5c9426eadc2f53c9df96daccba3761c8a736d1c7c4feb547f39f2b58adbc  04-delivery/03-requirement-traceability-matrix.md
++ee94f29a2283194d65b6b3d6655b982440f553c270aac484eeec3a0eeee43dc3  04-delivery/04-codex-execution-guide.md
++63659ee9c39988256052cd75d8fe0e15213daea802f76b2a1481520ee0aac45e  04-delivery/05-task-template.md
++0ec18f9ce8589f4c8e222fddc6d15853c949ad2b227381b584e2c81c4c4e47b0  04-delivery/06-current-geo-baseline.md
++04c45f4f7f95f5fc4efd7b288b06921bb58d6fcede6e5682e7c9434aac0b7c9a  04-delivery/06-r5-insight-performance-acceptance.md
++a80ebe00c833b45a53bf82b140a84b9bb1a20a49bb37688cb233ef6d5e818782  04-delivery/07-r2-acceptance.md
++c2bb63a4bde8702dc9e2c8dc62867cc2ad99a56c7a9253b7159778a92c29aec3  04-delivery/08-r3-api-acceptance.md
++063efdbae17e86fc90ff7e6cff80ecdfdb6eee1e37416e5e3179531c7260a7cd  04-delivery/09-r4-analysis-acceptance.md
++670f9d9e94e3a36b849691f8531a30433ea0253f234b855d08331b6d2b1905cd  04-delivery/10-r6-opportunity-acceptance.md
++8701bf8f2226438836d4977f1e75de52e18fbfae1100865984ca02f55e596380  04-delivery/11-r8-security-review.md
++7f8a497ed5d19102cdeab9d30fec7e6939e0db185bd82f8dfe3431c835f4cd13  04-delivery/12-r8-capacity-hardening.md
++f1d1d321c67e2d64f77be8960858dd1b63ed35ddcbd6c2af7c97e5f057308938  04-delivery/13-r8-core-release-acceptance.md
++448418c5f27b85d1256941e9e7d63a22d9e8c048474af22a4f7507488b6911e9  04-delivery/codex-prompts/ALL_PROMPTS.md
++a7878ed45c976a5dfd81ddb04f7bdbd829e972019cd996d018a876f4dd4ca815  04-delivery/codex-prompts/EXECUTION_ORDER.md
++309a28ec2c3d1a2d0964aab459c55fa263241fb4768705530eb6c3cc84b3f8db  04-delivery/codex-prompts/R0/GEO-003.md
++3145395361e8db816e2e1dfc46a08d2499b2f3b79f96c531d6be5cb53b640ebd  04-delivery/codex-prompts/R0/GEO-004.md
++9e83b500edf67553f832ebac65a01b527f6b3ba2466da00930de752b58898295  04-delivery/codex-prompts/R0/GEO-005.md
++d438cf73ecda695387222c656139b6a82f12c0d97ed3eda30164eec7c8f2ce8e  04-delivery/codex-prompts/R1/GEO-101.md
++385689f59d347b6dd2863a6ebec12929aeec69b5bac07c0df9a873b8a64416da  04-delivery/codex-prompts/R1/GEO-102.md
++95b347b85749286254bcfaf4c65e36bf71fbf82b6ac3d002af255e3f597dbb8a  04-delivery/codex-prompts/R1/GEO-103.md
++f63408859a3a4658fe92a78323449c297f6c9d3aa66b82532874856458895268  04-delivery/codex-prompts/R1/GEO-104.md
++de09cff97ae75cc0b3029f76ac955df84d5a18af0f4155137b0142e03dd01a9d  04-delivery/codex-prompts/R1/GEO-105.md
++f6db61d61587848f795ba7e66b8b4bf6ee6e57d56038dacf19221e69a47b713d  04-delivery/codex-prompts/R1/GEO-106.md
++0c9de524ab5f8924384ea7925011b25f263a0aae75de10fc8e5a2f939ce35bd8  04-delivery/codex-prompts/R1/GEO-201.md
++52118f365b65a0d4bee9ce220d1bd8155a7b5c78b30258abbc70dec8e9a5861a  04-delivery/codex-prompts/R1/GEO-202.md
++006266a0391679dcbe23a48f959628581808d3b0ceb79be88b0989af486456c3  04-delivery/codex-prompts/R1/GEO-203.md
++1006ac753629e71b91fa3fd11e71a4c7ef61629fca936934439c3414703d8670  04-delivery/codex-prompts/R1/GEO-204.md
++ee81be915f1a244b7cd16d1e16cbcb8acd2046c88d8bda5262ebbb58bd7f25b6  04-delivery/codex-prompts/R1/GEO-205.md
++45a5ac79be1630f76c8a7e03f955aeb2d07569c679eedd6dcc449e974c386441  04-delivery/codex-prompts/R1/GEO-206.md
++ef1d051e67ddbd089e5bfb70c2b834395733c2b2537a5981cae2b3cf50b368b0  04-delivery/codex-prompts/R1/GEO-207.md
++1ddfbd119a759f403011def033b9f7da7a7dd5a3e9c7e73744ad2dff64b9734c  04-delivery/codex-prompts/R1/GEO-208.md
++0e2f4b674ea80662f7fb4b4bbdb6ddaa377de4419f4713baea8788a8b9cba6ad  04-delivery/codex-prompts/R1/GEO-209.md
++29821b936851791ac7eabe958e81e228142ffbba53d3d0f078f6ccac5219b68f  04-delivery/codex-prompts/R2/GEO-301.md
++e1733f0699211e4d4f064227d6cd3f71945c89a8153b6dd5c52c42ca155a48e1  04-delivery/codex-prompts/R2/GEO-302.md
++ae08b2e4180a8bd1ff81ee162db4c45d33e73fe13f6775dc7502cd24ab9bfcef  04-delivery/codex-prompts/R2/GEO-303.md
++2470a89a9f38bf1e948397a751cfb6dfac7a10cc5f51e3a396ef9ec901bad944  04-delivery/codex-prompts/R2/GEO-304.md
++c98a7d4973213d256d4e7184119b02233384b0db503bff58114dd2c783ced6a3  04-delivery/codex-prompts/R2/GEO-305.md
++436438b47a259d67b460af0fc286142ebd8c9176aee191fe63f3cb976f7ca115  04-delivery/codex-prompts/R2/GEO-306.md
++1f4a799e4ab085d2c36222651fbb28892ff69a87ab0ecd6be2580b5fc52d2b5a  04-delivery/codex-prompts/R2/GEO-307.md
++8600c3f3cad2a10a14f7a0b5f1bda3f43ef4d16d312e504710648c33e14097d7  04-delivery/codex-prompts/R2/GEO-308.md
++6e41191751cf89c20d79b7d0311c11f9b55937eed7f367bf5f3087d3fbfdfc45  04-delivery/codex-prompts/R3/GEO-401.md
++05fee6d21e7cd196fba739e40fbbbb1b934594516218f23fc2b26a0024926cfa  04-delivery/codex-prompts/R3/GEO-402.md
++f4e0560cb358b8b2e1fcfdad783ae45d7e5869192f55d36f684b11f466b9614f  04-delivery/codex-prompts/R3/GEO-403.md
++e133551e7f80f8624cfd78320dc9e0b78dd834d5faa3d1cea1e216ead0eee2aa  04-delivery/codex-prompts/R3/GEO-404.md
++75c8677e4fb2a050431b1f8086bc7eeda4307852d6dcbdec48de3420b12102a0  04-delivery/codex-prompts/R3/GEO-405.md
++2240f6b1ac5f59aa9308ff9d52474b2039c3561a10a6609f17661672af56c1ba  04-delivery/codex-prompts/R3/GEO-406.md
++e475cc0badd059a3ccb4a1fc3f15de8c6252aebde3a4ffbb607b04f1770f59d8  04-delivery/codex-prompts/R3/GEO-407.md
++3c61208e1bbc3415d238ba97402a946723584ce185743aa583d7f9cfa4086f03  04-delivery/codex-prompts/R3/GEO-408.md
++02b07c69a6a7ecb5e0c7b29d5783d53cafa5145e9ef8abd2221e06a016cc2d7e  04-delivery/codex-prompts/R4/GEO-501.md
++d979864b69ca692e3220a268f5bb86a47cd8012fad726d08cc4e932103db7f02  04-delivery/codex-prompts/R4/GEO-502.md
++54b75c59b8729e89ff34dc4ea8fc945d72350e35dfb886d56f4ef46cd4aa8de1  04-delivery/codex-prompts/R4/GEO-503.md
++de3cb3cd9ed4d7824aa44133e7dcb2fc2fac023400b3439f01cc41f3046aac8a  04-delivery/codex-prompts/R4/GEO-504.md
++bf39f47d08a6c2c8416a0f89c040d8c5692ca7fa000888d494df2de2b93a3ed2  04-delivery/codex-prompts/R4/GEO-505.md
++773b749daf88bac39fe74fd8389944d0570600274855fd08b1333d0d7af4d8b3  04-delivery/codex-prompts/R4/GEO-506.md
++9dd9de227bb9241577935b6214cf689b22b84967acaf7a77b0ecdc6a18eaf64e  04-delivery/codex-prompts/R4/GEO-507.md
++c1581d7f686e959c898541a3228d5c954cde6f5d8b66baca63bcd78fc0d013fe  04-delivery/codex-prompts/R4/GEO-508.md
++522bcb5686d6a42a96fbbc3c95871b8ebe48dbd088536d253304394ffa948a3a  04-delivery/codex-prompts/R5/GEO-601.md
++f52d269647e1da7291c37112412f7d101817e5543afd6b91ff53dda10dba51f2  04-delivery/codex-prompts/R5/GEO-602.md
++3043e4a793257f6012838878514dd1286aac7d2733698d9f45243f4e674a74ff  04-delivery/codex-prompts/R5/GEO-603.md
++674d113d8cd611df404360c4e5c915497e539a7af6605a08fa443e425eb76c4b  04-delivery/codex-prompts/R5/GEO-604.md
++3eeb35d81c01ce422276e00f517bf70379596005ba834519c7b8935eb16a5205  04-delivery/codex-prompts/R5/GEO-605.md
++2a6334f1a7287ff94f496a41008a72d80f128e728e73fa9cb09e8c53d0fad408  04-delivery/codex-prompts/R5/GEO-606.md
++97ebbb7c0ff7a0470ce7000a658737fbe7cee294a9a8ff83de1252c957675c5f  04-delivery/codex-prompts/R5/GEO-607.md
++567a88a715c5a9f8fd347360ed4f0a751e9dbfe66b69e82ab6529756798448f8  04-delivery/codex-prompts/R6/GEO-701.md
++0e4f1ff03db648e62d9c72f7747b7a72a45e172a89431097fc1a80170704a136  04-delivery/codex-prompts/R6/GEO-702.md
++891a0e4ed48d095a2a2b8a409ad4a87df4d1b4285f6ce0ef33e931caaf29ed77  04-delivery/codex-prompts/R6/GEO-703.md
++2d98c080962b89d82636ec3ce1a3ba632cc3b49d5bf4d511a81499448c39cc4b  04-delivery/codex-prompts/R6/GEO-704.md
++5f8d93f9d7ea77400fe5c52cae552d60b26bd3d29763f34219de8ee9ad1280d5  04-delivery/codex-prompts/R6/GEO-705.md
++2382d0444fd6ba100f30f6ee1c75b5c3ff70ad6f7a39ae544a635e33bfcfd9e5  04-delivery/codex-prompts/R6/GEO-706.md
++5a598b48ad7f17c2362818e14d26032ac296116a0dfc511a8c49ed59479e0906  04-delivery/codex-prompts/R6/GEO-707.md
++da0aac6864477e358700408604d14f98c71621770b4b8794f182622899c20fad  04-delivery/codex-prompts/R7/GEO-801.md
++08557f4cf022395568dc618a6ed7883081234c526482c1fe3fea80347fa852de  04-delivery/codex-prompts/R7/GEO-802.md
++b2c486dca40af59fc83c46db20d9e0345f1be62d4fe3c285032236b3592b083d  04-delivery/codex-prompts/R7/GEO-803.md
++d6d2c449629df016740e40676a2934bb48473e7090d66b6b268928e49ad702ca  04-delivery/codex-prompts/R7/GEO-804.md
++6a20f363d3d8c40fa72ba99816aab64e404e3d50db55c96d2fa5e0beb91d7bcb  04-delivery/codex-prompts/R7/GEO-805.md
++80e7acd68f08d8343282d01067956a54631c90df40c05f974ee12d90bbec6de6  04-delivery/codex-prompts/R7/GEO-806.md
++26b484479e084fe9f64eb608163808691ecfbb391ab903a9a15e315039fd1f69  04-delivery/codex-prompts/R7/GEO-807.md
++d412b36ee034536c129eae3ce8a743182eed1bd1176955e96820595ae15521a8  04-delivery/codex-prompts/R8/GEO-901.md
++b3f07f590fa1d9b8b1e756d96369bb8b8c9ce358df20e5327f6b706973ed81cb  04-delivery/codex-prompts/R8/GEO-902.md
++45bc216adbb41aa39eb8aa3493e34b0f56f5e05d24cef10b2c62375d2d254dc6  04-delivery/codex-prompts/R8/GEO-903.md
++726ec9997566f5d80a2a0a7db6b739dbbde78dee286132e334b892eadc90af88  04-delivery/codex-prompts/R8/GEO-904.md
++d0b186c6a54563ed88861a227d0b561a6cf6806afe3a2ca39109a61875f7f9e8  04-delivery/codex-prompts/R8/GEO-905.md
++37dc7798806968c2b48d512dae1dbb5c0158d7883c6172e7712de9cea4ba8bcf  04-delivery/codex-prompts/R8/GEO-906.md
++e4e9bfe0fa2b9e8aea25923b09082faa67798333e64c348f37ef6fd133c79662  04-delivery/codex-prompts/README.md
++67c5dbafec435bf273cfc1120b66794acda0546474bdaabbdb4a11d59693cccf  04-delivery/codex-prompts/REVIEW_CHECKLIST.md
++fa21adfdf2be966d837cad23cbb3e316736c6557c629ca2c00e78ac97911a745  04-delivery/codex-prompts/SHA256SUMS
++8368cd3eb300c09ca6777f3f45f92965582e16c02c0a0d40a4debfa0aeeabe0b  04-delivery/geo-003-baseline/database.json
++2827163319c486c46eb08491c739e9cc0361e2e6c3ee1733d4eed11bd9ed5a89  04-delivery/geo-003-baseline/migrations.json
++9b31da7e55eede8c908723d540a5ba0857f92fd1ff72f99ac59819d4ad016f36  04-delivery/geo-003-baseline/openapi.json
++9338f3e4c95d5d8db4569d1a1e512f6bcdd258291b426defdaa94abc63cf2f8a  04-delivery/geo-003-baseline/queries.json
++e2cf12f6dc9813a256f321aa56f899ee25a6572bcf8f3c8aa968451a7a65e558  04-delivery/geo-003-baseline/routes.json
++7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  04-delivery/geo-003-baseline/sources.json
++316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  04-delivery/geo-003-baseline/tests.json
++9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  04-delivery/geo-003-baseline/validation.md
++e047efc782933053f13f46e205e6aff331b4d3e2f8574a1c6857c97d426115cc  04-delivery/geo-906-release-record.template.yaml
++071605483ab5b6a63cf7405245672a018ce414fbbebf07fe2aaefb146ae0cfd3  04-delivery/task-manifest.yaml
++2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  05-decisions/ADR-001-extend-modular-monolith.md
++4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  05-decisions/ADR-002-unified-observation-run-model.md
++00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  05-decisions/ADR-003-separate-collection-analysis-review.md
++8f4f24331d4ea91574e5a4a56c3eacd9d89e193011c48f8d9f5e413198793909  05-decisions/ADR-004-no-unified-geo-score.md
++6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  05-decisions/ADR-005-staged-collector-rollout.md
++2fbec827c69bc5ed179ee8752b252ef1419f97392c38b6770c9184fa9ba641ba  05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
++4029e4be716aff7605368c51df6b797b55bb5fa9aba293c75a0e76b3943c2259  05-decisions/ADR-007-manual-first-v1-release-scope.md
++c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  05-decisions/GEO-002-architecture-review.md
++b949243cf6b9715e2ecad7c36bee3d9e094d76ed9f50dca1bc365da77c956fb3  06-reviews/GEO-1001-release-readiness-audit.md
++42592d2a3f686cf87b6d40196c95a4d79430d8fe8efe6a858dc22b430a9d685b  CHANGELOG.md
++8cbc60f79a6d232f0504175d9221678ec5b8881849957ddad395fe249c312f58  README.md

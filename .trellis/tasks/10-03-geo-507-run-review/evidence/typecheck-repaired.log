@@ -1,0 +1,4 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+backend/app/services/geo_analysis_queries.py:91: error: "Base" has no attribute "analysis_revision_id"  [attr-defined]
+Found 1 error in 1 file (checked 177 source files)
+make: *** [typecheck] Error 1

@@ -1,0 +1,25 @@
+{
+  "manifest": {
+    "tasks": 71,
+    "statuses": [
+      "planned",
+      "ready",
+      "in_progress",
+      "review",
+      "done",
+      "blocked",
+      "deferred"
+    ],
+    "acyclic": true
+  },
+  "links": {
+    "checked": 608,
+    "broken": [],
+    "new_broken": []
+  },
+  "protected": {
+    "unchanged_existing_source_config_files": 1295,
+    "browser_defaults_false": true,
+    "production_runtime_verified": false
+  }
+}

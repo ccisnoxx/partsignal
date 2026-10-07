@@ -1,0 +1,54 @@
+name: partsignal-geo305-validation
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: partsignal
+      POSTGRES_USER: partsignal
+      POSTGRES_PASSWORD: geo305-local-test-only
+    ports: ['127.0.0.1:55455:5432']
+    volumes: [geo305-postgres:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U partsignal -d partsignal]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+  redis:
+    image: redis:7.4-alpine
+    ports: ['127.0.0.1:56395:6379']
+  fake-oss:
+    image: partsignal-geo304-backend-test:latest
+    command: [python, -m, app.files.fake_server]
+    volumes:
+      - /Users/sc/PycharmProjects/partsignal/backend:/app
+      - geo305-oss:/data
+    ports: ['127.0.0.1:19015:9000']
+    environment:
+      APP_ENV: test
+      UPLOAD_SIGNING_SECRET: geo305-local-upload-signing-test-only
+  backend-test:
+    image: partsignal-geo304-backend-test:latest
+    command: [pytest, tests/integration]
+    volumes:
+      - /Users/sc/PycharmProjects/partsignal/backend:/app
+      - /Users/sc/PycharmProjects/partsignal/contracts:/contracts:ro
+    environment:
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg://partsignal:geo305-local-test-only@postgres:5432/partsignal
+      REDIS_URL: redis://redis:6379/15
+      SESSION_SECRET: geo305-local-session-secret-at-least-32-bytes
+      PARTSIGNAL_SEED_ADMIN_PASSWORD: geo305-local-admin-test-only
+      PARTSIGNAL_SEED_ENGINEER_PASSWORD: geo305-local-engineer-test-only
+      CONTENT_GENERATOR: openai-compatible
+      AI_CREDENTIAL_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      AI_ALLOW_LOCAL_HTTP: 'true'
+      OBJECT_STORAGE_BACKEND: development
+      OBJECT_STORAGE_ENDPOINT: http://fake-oss:9000
+      UPLOAD_SIGNING_SECRET: geo305-local-upload-signing-test-only
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_started}
+      fake-oss: {condition: service_started}
+volumes:
+  geo305-postgres:
+  geo305-oss:

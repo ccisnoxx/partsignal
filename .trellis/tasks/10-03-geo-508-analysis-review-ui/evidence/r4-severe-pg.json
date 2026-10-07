@@ -1,0 +1,16 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "-p",
+    "partsignal-geo508-validation",
+    "-f",
+    ".trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/validation-compose.yaml",
+    "run",
+    "--rm",
+    "backend-test",
+    "pytest",
+    "tests/integration/test_geo_r4_acceptance.py"
+  ],
+  "exit_code": 0
+}

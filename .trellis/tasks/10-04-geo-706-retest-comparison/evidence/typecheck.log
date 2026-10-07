@@ -1,0 +1,4 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+backend/app/services/geo_retest_comparison_metrics.py:304: error: Missing type arguments for generic type "tuple"  [type-arg]
+Found 1 error in 1 file (checked 233 source files)
+make: *** [typecheck] Error 1

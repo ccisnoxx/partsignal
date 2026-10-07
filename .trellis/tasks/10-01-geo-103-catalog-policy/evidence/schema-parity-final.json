@@ -1,0 +1,15 @@
+{
+  "schemas": [
+    "GeoSubjectCreate",
+    "GeoSubjectUpdate",
+    "GeoSubjectAliasCreate",
+    "GeoSubjectAliasUpdate",
+    "GeoSubjectDomainCreate",
+    "GeoSubjectOut",
+    "GeoSubjectListPage",
+    "GeoSubjectRevisionRequest",
+    "GeoSubjectInUseDetails"
+  ],
+  "generated_component_count": 30,
+  "failures": []
+}

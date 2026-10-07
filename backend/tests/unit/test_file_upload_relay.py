@@ -29,6 +29,7 @@ from app.services.storage import ObjectMetadata, StorageObjectMissing, StorageUn
 
 CSRF_TOKEN = "relay-test-csrf-token-more-than-32-characters"
 SESSION_TOKEN = "relay-test-session-token"
+SESSION_ID = uuid.UUID("3ba07d28-c95e-4de5-9d4c-3eac2f61cd52")
 CONTENT = b"relay-file-content"
 
 
@@ -82,6 +83,7 @@ class UploadHarness:
             created_at=datetime.now(UTC),
         )
         self.current = SimpleNamespace(
+            id=SESSION_ID,
             user=self.actor,
             revoked_at=None,
             expires_at=datetime.now(UTC) + timedelta(hours=1),
@@ -90,6 +92,7 @@ class UploadHarness:
         )
         self.storage = MemoryStorage()
         self.db = Mock(spec=Session)
+        self.db.info = {}
         self.db.get.side_effect = lambda _model, file_id: (
             self.file if file_id == self.file.id else None
         )

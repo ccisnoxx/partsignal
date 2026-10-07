@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/10-01-geo-004-safe-configuration/prd.md", "reason": "本任务验收与明确范围外"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "复核测试的真实可观察合同"}
+{"file": ".trellis/spec/infra/production-image-delivery.md", "reason": "生产配置兼容、安全与验证限制"}
+{"file": "docs/geo-monitoring/03-technical/07-testing-and-quality.md", "reason": "GEO fake provider、no-egress 与边界证据"}
+{"file": "docs/geo-monitoring/04-delivery/task-manifest.yaml", "reason": "依赖、状态与任务指定验证"}

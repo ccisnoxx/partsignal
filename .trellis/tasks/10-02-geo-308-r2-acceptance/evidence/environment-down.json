@@ -1,0 +1,14 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "-f",
+    ".trellis/tasks/10-02-geo-308-r2-acceptance/evidence/compose.validation.yaml",
+    "down",
+    "--volumes"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-03T07:06:34.008627+00:00",
+  "seconds": 0.42,
+  "log": "environment-down.log"
+}

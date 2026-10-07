@@ -1,0 +1,10 @@
+{
+  "backend/app/schemas/geo_monitoring_plans.py": "af72627c78e9f9506b75ae0ddfef96baa314a982398bd9a59cf1b48a8a819701",
+  "contracts/openapi.yaml": "c6223cf6368118c71d56b0d9a6fc75e6c7a670f9208932c2831bbe0d1379b19e",
+  "contracts/database.md": "f8c118fbd9db3bac1072976eff0533158ea08333b67e71dde3af5a774e7c6e46",
+  "backend/tests/unit/test_geo_monitoring_plan_contract.py": "6867297f5aaff741ba3fd11301fa16736f4f431f0f91738ed6fd507f562dd7f1",
+  "backend/tests/integration/test_geo_plan_reference_api.py": "bfbf48c9c3c96076c294e24969db03f78f9bd148fadeed5484614a8053d06cbd",
+  "backend/tests/integration/test_geo_questions_api.py": "08867649b7f77f844a218d331f7fcdd96bd45d5b31090fb657eb1161ee0d255e",
+  "backend/tests/integration/test_migrations.py": "69f58aabf8e1d8a914b97d6b218c6b739cd4d70214c1679aa291ed6155ebd90a",
+  "frontend/src/shared/api/generated/schema.d.ts": "aeb3e204575f0209cc73b780009836c147c365674bf3ab18419c077b88660eb3"
+}

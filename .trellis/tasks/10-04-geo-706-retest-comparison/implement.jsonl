@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/10-04-geo-706-retest-comparison/design.md", "reason": "按权威段落读取，避免大文件注入截断"}
+{"file": "docs/geo-monitoring/02-business/03-workflows-and-state-machines.md", "reason": "显式关闭及不可自动解决"}
+{"file": ".trellis/spec/backend/available-actions-contract.md", "reason": "服务端动作与最终权限"}
+{"file": ".trellis/spec/frontend/visual-system.md", "reason": "canonical UI与可访问性"}

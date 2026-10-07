@@ -14,6 +14,8 @@ from app.audit import append_audit
 from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.errors import AppError, in_use, not_found
 from app.models.content import ContentTask, ContentVersion
+from app.models.geo_analysis import GeoAnalysisFactVersion
+from app.models.geo_catalog import GeoSubject
 from app.models.geo_files import GeoObservation
 from app.models.identity import User
 from app.models.product_facts import (
@@ -140,6 +142,10 @@ def products_out(
             GeoObservation.product_id.label("resource_id"),
             literal("GEO_OBSERVATION").label("blocker_type"),
         ).where(GeoObservation.product_id.in_(product_ids)),
+        select(
+            GeoSubject.product_id.label("resource_id"),
+            literal("GEO_SUBJECT").label("blocker_type"),
+        ).where(GeoSubject.product_id.in_(product_ids)),
     ).subquery()
     reference_counts = {
         (resource_id, blocker_type): int(count)
@@ -181,7 +187,7 @@ def products_out(
     for product in products:
         blockers = [
             {"type": blocker_type, "count": count}
-            for blocker_type in ("FACT_VERSION", "CONTENT_TASK", "GEO_OBSERVATION")
+            for blocker_type in ("FACT_VERSION", "CONTENT_TASK", "GEO_OBSERVATION", "GEO_SUBJECT")
             if (count := reference_counts.get((product.id, blocker_type), 0))
         ]
         actions = ["UPDATE"]
@@ -547,6 +553,11 @@ def delete_product(
                 or 0
             ),
         ),
+        (
+            "GEO_SUBJECT", "GEO 监测对象",
+            db.execute(select(func.count()).select_from(GeoSubject)
+                       .where(GeoSubject.product_id == product.id)).scalar_one(),
+        ),
     ]
     if any(count for _, _, count in references):
         raise in_use("PRODUCT_IN_USE", "产品", references)
@@ -571,7 +582,7 @@ def delete_product(
 def delete_fact_version(
     *, db: Session, fact_version_id: uuid.UUID, actor: User, request_id: str
 ) -> None:
-    """删除无内容引用的事实版本，并在同一事务清理其审核记录。"""
+    """删除无业务引用的事实版本，并在同一事务清理其审核记录。"""
     version = db.scalar(
         select(FactVersion).where(FactVersion.id == fact_version_id).with_for_update()
     )
@@ -601,6 +612,12 @@ def delete_fact_version(
                 )
                 or 0
             ),
+        ),
+        (
+            "GEO_ANALYSIS",
+            "GEO 分析历史",
+            int(db.scalar(select(func.count()).select_from(GeoAnalysisFactVersion)
+                .where(GeoAnalysisFactVersion.fact_version_id == version.id)) or 0),
         ),
     ]
     if any(count for _, _, count in references):
@@ -686,12 +703,15 @@ def submit_fact_review(
         raise AppError("REVISION_CONFLICT", "事实工作区已被其他请求修改", 409)
     if not product.facts_body_markdown.strip():
         raise AppError("VALIDATION_ERROR", "产品事实 Markdown 不能为空", 422)
-    if db.scalar(
-        select(FactVersion.id).where(
-            FactVersion.product_id == product.id,
-            FactVersion.status == "PENDING_REVIEW",
+    if (
+        db.scalar(
+            select(FactVersion.id).where(
+                FactVersion.product_id == product.id,
+                FactVersion.status == "PENDING_REVIEW",
+            )
         )
-    ) is not None:
+        is not None
+    ):
         raise AppError("FACT_REVIEW_PENDING", "该产品已有待审核事实版本", 409)
     next_version = (
         int(
@@ -732,3 +752,18 @@ def submit_fact_review(
             raise AppError("FACT_REVIEW_PENDING", "该产品已有待审核事实版本", 409) from error
         raise
     return version
+
+
+def start_fact_revision_context(*, db: Session, product_id: uuid.UUID) -> ProductFactsDraft:
+    """取得现有事实修订入口；保持唯一工作区与批准历史原样。"""
+    product = db.scalar(
+        select(Product)
+        .where(Product.id == product_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if product is None:
+        raise not_found("产品")
+    if product.status != "ACTIVE":
+        raise AppError("INVALID_STATE_TRANSITION", "已停用产品不能开始事实修订", 409)
+    return product_facts_draft_out(db, product)

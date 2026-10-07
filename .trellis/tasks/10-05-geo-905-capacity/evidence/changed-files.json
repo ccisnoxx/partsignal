@@ -1,0 +1,23 @@
+[
+  ".env.example",
+  ".env.production.example",
+  "Makefile",
+  "backend/app/config.py",
+  "backend/app/services/geo_read_queries.py",
+  "backend/app/worker.py",
+  "backend/tests/performance/README.md",
+  "backend/tests/performance/test_geo_capacity.py",
+  "backend/tests/performance/test_geo_worker_capacity.py",
+  "backend/tests/unit/test_geo_worker_configuration.py",
+  "deploy/compose.dev.yaml",
+  "deploy/compose.prod.yaml",
+  "deploy/compose.staging.yaml",
+  "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+  "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+  "docs/geo-monitoring/04-delivery/12-r8-capacity-hardening.md",
+  "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+  "docs/geo-monitoring/CHANGELOG.md",
+  "docs/geo-monitoring/README.md",
+  "docs/geo-monitoring/SHA256SUMS",
+  "docs/production-configuration.md"
+]

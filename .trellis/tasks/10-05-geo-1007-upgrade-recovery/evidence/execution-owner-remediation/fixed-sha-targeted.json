@@ -1,0 +1,15 @@
+{
+  "name": "fixed-sha-targeted",
+  "command": [
+    "make",
+    "test-upgrade-recovery"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "sha": "baea420fb8a479d66d578d3f4fd91d38086b8c29",
+  "dirty": false,
+  "started_at": "2026-10-06T19:13:47.682246+00:00",
+  "ended_at": "2026-10-06T19:15:14.135200+00:00",
+  "exit_code": 0,
+  "log": "/Users/sc/.codex/reviews/partsignal/geo1007-owner-remediation-20261006T190127Z/logs/fixed-sha-targeted.log",
+  "log_sha256": "9cb80a1004fd199c197fbf393b469341030974858a46bdccb937a94c0cf09934"
+}

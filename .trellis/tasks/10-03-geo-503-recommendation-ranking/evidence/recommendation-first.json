@@ -1,0 +1,13 @@
+{
+  "command": [
+    "env",
+    "UV_CACHE_DIR=.cache/uv",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_recommendations.py"
+  ],
+  "exit_code": 1
+}

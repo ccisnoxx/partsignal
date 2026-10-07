@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    ".trellis/scripts/task.py",
+    "validate",
+    ".trellis/tasks/10-03-geo-506-analysis-worker"
+  ],
+  "exit_code": 0
+}

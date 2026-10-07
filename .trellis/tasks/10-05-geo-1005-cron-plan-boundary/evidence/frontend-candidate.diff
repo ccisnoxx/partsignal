@@ -1,0 +1,674 @@
+--- a/frontend/tests/e2e/plans-real-stack.spec.ts
++++ b/frontend/tests/e2e/plans-real-stack.spec.ts
+@@ -1,4 +1,4 @@
+-/** GEO-209：向导与生命周期使用真实 API，所有业务写入经过 UI。 */
++/** GEO-209 / GEO-1005：MANUAL 向导与生命周期使用真实 API，所有业务写入经过 UI。 */
+ import { randomInt, randomUUID } from 'node:crypto';
+ import { defaultStringifySearch } from '@tanstack/react-router';
+ import { expect, test, type APIResponse, type Page, type Response } from '@playwright/test';
+@@ -37,7 +37,7 @@
+   else { await detail.getByRole('button', { name: '更多操作：当前计划' }).click(); await page.getByRole('menuitem', { name: label, exact: true }).click(); }
+ }
+ 
+-test('工程师八步创建、服务端预览、dirty、URL、启停修订复制归档与删除持久化', async ({ page, browser }, testInfo) => {
++test('工程师 MANUAL 八步创建、CRON 不可选、服务端预览、启停修订复制归档与删除持久化', async ({ page, browser }, testInfo) => {
+   // 数字形文本必须经 Router 序列化，避免原始 q 被 JSON 解析成 number 后丢失。
+   const suffix = String(randomInt(10_000_000, 100_000_000));
+   const adminPassword = process.env.PARTSIGNAL_SEED_ADMIN_PASSWORD;
+@@ -144,8 +144,12 @@
+     await engineer.getByRole('button', { name: '下一步', exact: true }).click();
+     await expect(engineer.getByRole('spinbutton', { name: '重复次数' })).toHaveValue('3');
+     await engineer.getByRole('button', { name: '下一步', exact: true }).click();
+-    await choose(engineer, '调度方式', '定时配置');
+-    await engineer.getByRole('textbox', { name: 'Cron 表达式' }).fill('0 9 * * *');
++    await expect(engineer.getByRole('combobox', { name: '调度方式', exact: true })).toContainText('手动触发');
++    await engineer.getByRole('combobox', { name: '调度方式', exact: true }).click();
++    await expect(engineer.getByRole('option')).toHaveCount(1);
++    await expect(engineer.getByRole('option', { name: '定时配置', exact: true })).toHaveCount(0);
++    await engineer.getByRole('option', { name: '手动触发', exact: true }).click();
++    await expect(engineer.getByRole('textbox', { name: 'Cron 表达式' })).toHaveCount(0);
+     await engineer.getByRole('button', { name: '下一步', exact: true }).click();
+     const serverPreview = await mutate<components['schemas']['GeoMonitoringPlanPreview']>('preview', 'POST', `${plans}/preview`, () => engineer.getByRole('button', { name: '预览当前配置' }).click());
+     expect(serverPreview).toMatchObject({ run_count: 3, manual_run_count: 3, estimated_cost: { value: null }, blockers: [] });
+@@ -167,7 +171,7 @@
+     await engineer.screenshot({ path: testInfo.outputPath('geo209-wizard-preview.png'), fullPage: true });
+     await engineer.getByRole('button', { name: '下一步', exact: true }).click();
+     const created = await mutate<Plan>('create', 'POST', plans, () => engineer.getByRole('button', { name: '创建监测计划', exact: true }).click(), 201);
+-    expect(created).toMatchObject({ status: 'DISABLED', revision: 0, prompt_variant_ids: [variant.id], collection_profile_ids: [profile.summary.id], subjects: [{ subject_id: subject.id, role: 'PRIMARY' }], cron_expression: '0 9 * * *' });
++    expect(created).toMatchObject({ status: 'DISABLED', revision: 0, prompt_variant_ids: [variant.id], collection_profile_ids: [profile.summary.id], subjects: [{ subject_id: subject.id, role: 'PRIMARY' }], schedule_kind: 'MANUAL_ONLY', cron_expression: null });
+     await expect(engineer).toHaveURL(new RegExp(`selected=${created.id}`));
+     const detail = engineer.getByRole('region', { name: '监测计划详情' });
+     await expect(detail.getByText(/NOT_IMPLEMENTED/)).toBeVisible();
+@@ -196,7 +200,7 @@
+     await mutate('delete', 'DELETE', `${plans}/${copied.id}`, () => engineer.getByRole('dialog', { name: '确认删除计划' }).getByRole('button', { name: '确认操作' }).click(), 204);
+     await expect(engineer.getByRole('dialog', { name: '监测计划工作区' })).toBeHidden();
+     await engineer.waitForLoadState('networkidle');
+-    await engineer.goto(`/geo/plans${defaultStringifySearch({ selected: created.id, q: suffix, schedule_kind: 'CRON', sort: 'NAME_ASC' })}`);
++    await engineer.goto(`/geo/plans${defaultStringifySearch({ selected: created.id, q: suffix, schedule_kind: 'MANUAL_ONLY', sort: 'NAME_ASC' })}`);
+     await planAction(engineer, '归档计划');
+     const archived = await mutate<Plan>('archive', 'POST', `${plans}/${created.id}/archive`, () => engineer.getByRole('dialog', { name: '确认归档计划' }).getByRole('button', { name: '确认操作' }).click());
+     expect(archived).toMatchObject({ status: 'ARCHIVED', revision: 5, available_actions: ['COPY'] });
+@@ -204,7 +208,7 @@
+     expect(await body<Plan>(await engineer.request.get(`${api}${plans}/${created.id}`))).toMatchObject({ status: 'ARCHIVED', revision: 5, name: `${planName} 已修订` });
+     await engineer.getByRole('button', { name: '关闭', exact: true }).click();
+     await expect(engineer.getByRole('textbox', { name: '搜索计划名称' })).toHaveValue(suffix);
+-    await expect(engineer.getByRole('combobox', { name: '筛选调度' })).toContainText('定时配置');
++    await expect(engineer.getByRole('combobox', { name: '筛选调度' })).toContainText('手动触发');
+     expect(trafficExpectationErrors(audit.attempts, audit.responses, expectations, createAuthTrafficScope(apiOrigin))).toEqual([]);
+     expect(audit.errors).toEqual([]);
+     expect(audit.attempts.some((item) => /\/(run|runs|batches)(\/|$)/.test(item.pathname))).toBe(false);
+--- a/frontend/src/domains/geo-runs/batch-create.test.tsx
++++ b/frontend/src/domains/geo-runs/batch-create.test.tsx
+@@ -44,6 +44,24 @@
+   await userEvent.click(await screen.findByRole('button', { name: /原始监测计划 · Revision 7/ }));
+ }
+ describe('批次创建的快照与幂等身份', () => {
++  it('向服务端仅查询人工计划，历史 CRON 投影不可选且没有写请求', async () => {
++    const get = vi.spyOn(api, 'GET').mockResolvedValue(response({ items: [plan({
++      schedule_kind: 'CRON', cron_expression: '0 * * * *', status: 'ACTIVE',
++      workflow_stage: 'UNSUPPORTED_SCHEDULE', primary_task: 'VIEW_HISTORY', available_actions: [],
++      deletion: { blockers: ['SCHEDULE_UNSUPPORTED'] },
++      run_entry: { available: false, reason_code: 'GEO_PLAN_CRON_UNSUPPORTED' },
++    })], total: 1, page: 1, page_size: 20 }));
++    const post = vi.spyOn(api, 'POST');
++    setup();
++    const historical = await screen.findByRole('button', { name: /原始监测计划 · Revision 7/ });
++    expect(get).toHaveBeenCalledWith('/api/v1/geo/monitoring-plans', expect.objectContaining({
++      params: { query: expect.objectContaining({ schedule_kind: 'MANUAL_ONLY' }) },
++    }));
++    expect(historical).toBeDisabled();
++    await userEvent.click(historical);
++    expect(screen.getByRole('button', { name: '确认创建批次' })).toBeDisabled();
++    expect(post).not.toHaveBeenCalled();
++  });
+   it('未知结果保留原计划修订和同键，显式重试后采用canonical batch ID', async () => {
+     vi.spyOn(api, 'GET').mockResolvedValue(response({ items: [plan()], total: 1, page: 1, page_size: 20 }));
+     const post = vi
+--- a/frontend/src/domains/geo-runs/batch-create.tsx
++++ b/frontend/src/domains/geo-runs/batch-create.tsx
+@@ -23,8 +23,9 @@
+   const [q, setQ] = useState('');
+   const [filter, setFilter] = useState('');
+   const [page, setPage] = useState(1);
+-  const plans = useQuery(planListOptions({ q: filter || undefined, page: page > 1 ? page : undefined }));
++  const plans = useQuery(planListOptions({ schedule_kind: 'MANUAL_ONLY', q: filter || undefined, page: page > 1 ? page : undefined }));
+   const [selected, setSelected] = useState<Plan>();
++  const unsupported = selected?.workflow_stage === 'UNSUPPORTED_SCHEDULE';
+   const [pending, setPending] = useState(false);
+   const [error, setError] = useState<unknown>();
+   const [held, setHeld] = useState(false);
+@@ -38,7 +39,7 @@
+     };
+   }, []);
+   async function create() {
+-    if (working.current || !selected || held || !csrfToken) return;
++    if (working.current || !selected || unsupported || held || !csrfToken) return;
+     const continuation = capturePrincipalContinuation(client);
+     working.current = true;
+     setPending(true);
+@@ -114,7 +115,7 @@
+         </Button>
+       </header>
+       <p className="text-sm text-text-secondary">
+-        创建时冻结当前计划和全部运行输入。人工模式等待录入；API 模式由 Worker 执行，服务端会重新检查开关、批准、预算和当前配置资格。
++        V1.0 仅从人工计划创建批次；历史 CRON 计划只读，不支持调度，不能从该计划创建批次。创建时冻结当前计划和全部运行输入。人工模式等待录入；API 模式由 Worker 执行，服务端会重新检查开关、批准、预算和当前配置资格。
+       </p>
+       <form
+         className="flex flex-wrap items-end gap-2"
+@@ -147,7 +148,7 @@
+             <Button
+               aria-pressed={selected?.id === plan.id}
+               className="h-auto w-full justify-start whitespace-normal text-left"
+-              disabled={pending || Boolean(request)}
++              disabled={pending || Boolean(request) || plan.workflow_stage === 'UNSUPPORTED_SCHEDULE'}
+               onClick={() => {
+                 setSelected(plan);
+                 setRequest(undefined);
+@@ -158,6 +159,7 @@
+               variant={selected?.id === plan.id ? 'secondary' : 'outline'}
+             >
+               {plan.name} · Revision {plan.revision} · {plan.preview.run_count} 次运行
++              {plan.workflow_stage === 'UNSUPPORTED_SCHEDULE' && ' · 历史只读，V1.0 不支持调度'}
+             </Button>
+           </li>
+         ))}
+@@ -189,6 +191,7 @@
+           ))}
+         </div>
+       )}
++      {unsupported && <p role="status">该计划为历史 CRON，只读且不能从该计划创建批次，请选择人工计划。</p>}
+       {Boolean(error) && (
+         <p className="text-sm text-danger" role="alert">
+           {message(error)}
+@@ -202,7 +205,7 @@
+           重新读取计划并确认
+         </Button>
+       )}
+-      <Button disabled={!selected || pending || held || !csrfToken} onClick={() => void create()} type="button">
++      <Button disabled={!selected || unsupported || pending || held || !csrfToken} onClick={() => void create()} type="button">
+         {pending ? '创建中…' : request ? '确认原批次创建结果' : '确认创建批次'}
+       </Button>
+     </section>
+--- a/frontend/src/domains/geo-plans/plans.test-support.tsx
++++ b/frontend/src/domains/geo-plans/plans.test-support.tsx
+@@ -19,6 +19,9 @@
+ }
+ function plan(overrides: Partial<PlanDetail> = {}): PlanDetail {
+   return { id: planId, name: '原始监测计划', description: '计划说明', subjects: [{ subject_id: subjectId, role: 'PRIMARY' }], prompt_variant_ids: [promptId], collection_profile_ids: [profileId], repeat_count: 3, schedule_kind: 'MANUAL_ONLY', cron_expression: null, timezone: 'Asia/Shanghai', budget_limit: null, rule_set_revision: 1, status: 'DISABLED', revision: 7, created_by: user.id, updated_by: user.id, created_at: '2026-10-02T08:00:00Z', updated_at: '2026-10-02T08:00:00Z', preview: preview(), workflow_stage: 'READY', primary_task: 'ACTIVATE', available_actions: ['UPDATE', 'PREVIEW', 'ACTIVATE', 'ARCHIVE', 'COPY', 'DELETE'], deletion: { blockers: [] }, run_entry: { available: false, reason_code: 'UI_NOT_IMPLEMENTED' }, ...overrides };
++}
++function unsupportedPlan(overrides: Partial<PlanDetail> = {}): PlanDetail {
++  return plan({ schedule_kind: 'CRON', cron_expression: '0 9 * * *', status: 'ACTIVE', workflow_stage: 'UNSUPPORTED_SCHEDULE', primary_task: 'VIEW_HISTORY', available_actions: [], deletion: { blockers: ['SCHEDULE_UNSUPPORTED'] }, run_entry: { available: false, reason_code: 'GEO_PLAN_CRON_UNSUPPORTED' }, ...overrides });
+ }
+ function response<T>(data: T) { return { data, response: Response.json(data) } as never; }
+ function failure(code = 'REVISION_CONFLICT', status = 409) {
+@@ -43,4 +46,4 @@
+   const view = render(<QueryClientProvider client={client}><TooltipProvider><RouterProvider router={router} context={{ queryClient: client, auth }} /></TooltipProvider></QueryClientProvider>);
+   return { client, router, view };
+ }
+-export { failure, mockReads, plan, planId, preview, profileId, promptId, renderPlans, response, subjectId };
++export { failure, mockReads, plan, planId, preview, profileId, promptId, renderPlans, response, subjectId, unsupportedPlan };
+--- a/frontend/src/domains/geo-plans/plans-page.test.tsx
++++ b/frontend/src/domains/geo-plans/plans-page.test.tsx
+@@ -4,7 +4,7 @@
+ import { invalidatePrincipalEpoch } from '@/app/auth/principal-epoch';
+ import { api } from '@/shared/api/client';
+ import { planKeys } from './plans.api';
+-import { failure, mockReads, plan, planId, renderPlans, response } from './plans.test-support';
++import { failure, mockReads, plan, planId, renderPlans, response, unsupportedPlan } from './plans.test-support';
+ 
+ afterEach(() => vi.restoreAllMocks());
+ async function action(label: string) {
+@@ -14,6 +14,62 @@
+   return driver;
+ }
+ describe('计划真实路由与状态工作区', () => {
++  it.each([['DISABLED', '未启用'], ['ACTIVE', '已启用'], ['PAUSED', '已暂停'], ['ARCHIVED', '已归档']] as const)('历史 CRON %s 只读，保留配置与真实历史状态且不发送写请求', async (status, label) => {
++    const historical = unsupportedPlan({ status });
++    mockReads(() => historical);
++    const post = vi.spyOn(api, 'POST'); const patch = vi.spyOn(api, 'PATCH'); const remove = vi.spyOn(api, 'DELETE');
++    renderPlans(); const driver = userEvent.setup();
++    const detail = await screen.findByRole('region', { name: '监测计划详情' });
++    expect(within(detail).getByText(/此历史计划只读/)).toHaveTextContent('不会自动创建批次');
++    expect(within(detail).getByText(/历史状态：/)).toHaveTextContent(`${label}（${status}）`);
++    expect(within(detail).getByText('Revision 7')).toBeVisible();
++    expect(within(detail).getByText(/0 9 \* \* \*/)).toHaveTextContent('Asia/Shanghai');
++    expect(within(detail).queryByRole('link', { name: '运行中心' })).not.toBeInTheDocument();
++    const history = within(detail).getByRole('link', { name: '查看批次历史' });
++    expect(history.getAttribute('href')).toContain(`plan_id=${planId}`);
++    expect(history.getAttribute('href')).not.toContain('create=');
++    await driver.click(within(detail).getByRole('button', { name: '更多操作：当前计划' }));
++    expect((await screen.findAllByRole('menuitem')).map((item) => item.textContent)).toEqual(['查看删除条件']);
++    await driver.click(screen.getByRole('menuitem', { name: '查看删除条件' }));
++    expect(within(detail).getByRole('region', { name: '删除条件' })).toHaveTextContent('历史计划只读，不能删除');
++    await driver.click(screen.getByRole('button', { name: '关闭' }));
++    const list = await screen.findByRole('region', { name: '监测计划列表' });
++    expect(within(list).getByText('调度不支持')).toBeVisible();
++    expect(within(list).getByText(`历史状态：${label}`)).toBeVisible();
++    expect(post).not.toHaveBeenCalled(); expect(patch).not.toHaveBeenCalled(); expect(remove).not.toHaveBeenCalled();
++  });
++  it.each(['DISABLED', 'ACTIVE', 'PAUSED', 'ARCHIVED'] as const)('直接访问历史 CRON %s 编辑 URL 仍只读，无表单、预览或保存请求', async (status) => {
++    mockReads(() => unsupportedPlan({ status }));
++    const post = vi.spyOn(api, 'POST'); const patch = vi.spyOn(api, 'PATCH'); const remove = vi.spyOn(api, 'DELETE');
++    const { router } = renderPlans(`/geo/plans?selected=${planId}&edit=1`);
++    const readonly = await screen.findByRole('region', { name: '历史计划只读配置' });
++    expect(readonly).toHaveTextContent(`（${status}）`);
++    expect(readonly).toHaveTextContent('Revision 7');
++    expect(readonly).toHaveTextContent('0 9 * * *');
++    expect(screen.queryByRole('form', { name: '编辑监测计划' })).not.toBeInTheDocument();
++    expect(within(readonly).queryByRole('textbox')).not.toBeInTheDocument();
++    expect(within(readonly).queryByRole('button', { name: /预览|保存/ })).not.toBeInTheDocument();
++    await userEvent.setup().click(within(readonly).getByRole('button', { name: '关闭向导' }));
++    await waitFor(() => expect(router.state.location.search.selected).toBeUndefined());
++    expect(post).not.toHaveBeenCalled(); expect(patch).not.toHaveBeenCalled(); expect(remove).not.toHaveBeenCalled();
++  });
++  it('稳定 CRON 错误码展示版本限制和请求 ID，重新读取历史后不能重放旧启用命令', async () => {
++    let current = plan(); mockReads(() => current);
++    const post = vi.spyOn(api, 'POST').mockResolvedValue(failure('GEO_PLAN_CRON_UNSUPPORTED'));
++    const driver = userEvent.setup(); renderPlans();
++    const detail = await screen.findByRole('region', { name: '监测计划详情' });
++    await driver.click(within(detail).getByRole('button', { name: '启用计划' }));
++    const dialog = await screen.findByRole('dialog', { name: '确认启用计划' });
++    await driver.click(within(dialog).getByRole('button', { name: '确认操作' }));
++    expect(await within(dialog).findByText(/GEO_PLAN_CRON_UNSUPPORTED/)).toHaveTextContent('V1.0 不支持定时调度');
++    expect(within(dialog).getByText(/GEO_PLAN_CRON_UNSUPPORTED/)).toHaveTextContent('plan-test-request');
++    expect(within(dialog).getByRole('button', { name: '确认操作' })).toBeDisabled();
++    current = unsupportedPlan();
++    await driver.click(within(dialog).getByRole('button', { name: '重新读取计划' }));
++    await waitFor(() => expect(within(detail).getByText(/历史状态：/)).toHaveTextContent('ACTIVE'));
++    expect(within(dialog).getByRole('button', { name: '确认操作' })).toBeDisabled();
++    expect(post).toHaveBeenCalledOnce();
++  });
+   it('URL 恢复筛选和详情，直接显示服务端矩阵值', async () => {
+     const get = mockReads(() => plan({ preview: { ...plan().preview, run_count: 97 } }));
+     const { router } = renderPlans(`/geo/plans?selected=${planId}&q=原始&status=DISABLED&schedule_kind=MANUAL_ONLY&page=2&page_size=10&sort=NAME_ASC`);
+--- a/frontend/src/domains/geo-plans/plan-detail.tsx
++++ b/frontend/src/domains/geo-plans/plan-detail.tsx
+@@ -14,7 +14,7 @@
+ import { changePlanStatus, copyPlan, deletePlan, PlanRequestError, planKeys, type PlanStatusCommand } from './plans.api';
+ import { actionLabels, assertNever, planFormSchema, roleLabels, scheduleLabels, shouldBlockPlanNavigation, stageLabels, type PlanDetail } from './plans.model';
+ import { parsePlanCommand, planOverflow, planPrimary } from './plan-actions';
+-import { PlanNotice, planErrorMessage } from './plan-controls';
++import { PlanNotice, UnsupportedPlanNotice, planErrorMessage } from './plan-controls';
+ import { PlanPreviewPanel } from './plan-preview';
+ 
+ type Command = PlanStatusCommand | 'COPY' | 'DELETE';
+@@ -26,7 +26,7 @@
+   onSaved: (plan: PlanDetail) => void; onDeleted: (id: string) => void; onReload: () => Promise<PlanDetail>; onEdit: (step?: number) => void; readBlocked?: boolean; ref?: Ref<PlanDetailHandle>;
+ }) {
+   const client = useQueryClient();
+-  const [intent, setIntent] = useState<Intent | undefined>(() => initialAction && ['ACTIVATE', 'PAUSE', 'RESUME', 'ARCHIVE', 'COPY', 'DELETE'].includes(initialAction) ? { action: initialAction as Command, revision: plan.revision } : undefined);
++  const [intent, setIntent] = useState<Intent | undefined>(() => initialAction && initialAction !== 'VIEW_DELETION_CONDITIONS' && plan.available_actions.includes(initialAction) && ['ACTIVATE', 'PAUSE', 'RESUME', 'ARCHIVE', 'COPY', 'DELETE'].includes(initialAction) ? { action: initialAction as Command, revision: plan.revision } : undefined);
+   const copyForm = useForm<{ name: string }>({ defaultValues: { name: `${plan.name.slice(0, 195)} 副本` }, resolver: zodResolver(copySchema), mode: 'onChange' });
+   const { isValid: copyValid, errors: copyErrors, isDirty: copyDirty } = copyForm.formState;
+   const [error, setError] = useState<unknown>();
+@@ -50,8 +50,9 @@
+       default: return assertNever(target.action);
+     }
+   } });
++  const unsupportedScheduleError = error instanceof PlanRequestError && error.detail?.code === 'GEO_PLAN_CRON_UNSUPPORTED';
+   const held = conflicted;
+-  const canConfirm = Boolean(!readBlocked && intent && plan.available_actions.includes(intent.action) && plan.revision === intent.revision);
++  const canConfirm = Boolean(!readBlocked && !unsupportedScheduleError && intent && plan.available_actions.includes(intent.action) && plan.revision === intent.revision);
+   function begin(action: ReturnType<typeof parsePlanCommand>, focus?: HTMLElement | null) {
+     if (readBlocked || inFlight.current || refreshing) return;
+     finalFocus.current = focus ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+@@ -97,22 +98,22 @@
+   return <section aria-label="监测计划详情" className="min-w-0 space-y-5">
+     <DirtyGuard shouldBlockNavigation={({ current, next }) => shouldBlockPlanNavigation(current, next)} when={busy || Boolean(intent?.action === 'COPY' && copyDirty)} />
+     <header className="flex flex-wrap items-center justify-between gap-3"><div className="flex flex-wrap items-center gap-2"><Badge variant={plan.workflow_stage === 'ACTIVE' ? 'success' : 'secondary'}>{stageLabels[plan.workflow_stage]}</Badge><span className="text-sm">Revision {plan.revision}</span></div><RowActions objectLabel="当前计划" onCommand={(action, focus) => begin(parsePlanCommand(action), focus)} overflow={planOverflow(plan, busy || readBlocked)} primary={primary ? { ...primary, enabled: primary.enabled && !busy && !readBlocked } : undefined} /></header>
++    {plan.workflow_stage === 'UNSUPPORTED_SCHEDULE' && <UnsupportedPlanNotice plan={plan} />}
+     {message && <PlanNotice>{message}</PlanNotice>}
+     <dl className="grid min-w-0 gap-3 text-sm sm:grid-cols-2"><div className="sm:col-span-2"><dt className="text-text-muted">计划名称</dt><dd className="break-words">{plan.name}</dd></div><div className="sm:col-span-2"><dt className="text-text-muted">说明</dt><dd className="whitespace-pre-wrap break-words">{plan.description || '未填写说明'}</dd></div><div><dt className="text-text-muted">调度配置</dt><dd className="break-words">{scheduleLabels[plan.schedule_kind]} · {plan.cron_expression ?? '按需触发'} · {plan.timezone}</dd></div><div><dt className="text-text-muted">预算上限</dt><dd>{plan.budget_limit ?? '未设置'}</dd></div><div className="sm:col-span-2"><dt className="text-text-muted">监测对象与角色</dt><dd className="space-y-1">{plan.subjects.map((item) => <p className="break-all" key={item.subject_id}>{roleLabels[item.role]} · {item.subject_id}</p>)}</dd></div><div className="sm:col-span-2"><dt className="text-text-muted">问题变体</dt><dd className="space-y-1">{plan.prompt_variant_ids.map((id) => <p className="break-all" key={id}><a className="text-interaction-primary underline" href={`/geo/questions?selected=${id}`} rel="noopener noreferrer" target="_blank">{id}</a></p>)}</dd></div><div className="sm:col-span-2"><dt className="text-text-muted">采集配置</dt><dd className="space-y-1">{plan.collection_profile_ids.map((id) => <p className="break-all" key={id}>{id}</p>)}</dd></div></dl>
+     <section className="min-w-0 space-y-3" ref={preview} tabIndex={-1}><PlanPreviewPanel onFix={plan.available_actions.includes('UPDATE') || plan.available_actions.includes('CREATE_REVISION') ? (step) => onEdit(step) : undefined} preview={plan.preview} /></section>
+-    <PlanNotice>当前页面提供配置与预览。人工批次可在 <Link className="text-primary underline" to="/geo/runs" search={{ plan_id: plan.id, create: 1 }}>运行中心</Link> 创建并录入；计划内运行入口（{plan.run_entry.reason_code}）和定时执行尚未开放。</PlanNotice>
++    {plan.workflow_stage !== 'UNSUPPORTED_SCHEDULE' && <PlanNotice>当前页面提供配置与预览。人工批次可在 <Link className="text-primary underline" to="/geo/runs" search={{ plan_id: plan.id, create: 1 }}>运行中心</Link> 创建并录入；计划内运行入口（{plan.run_entry.reason_code}）和定时执行尚未开放。</PlanNotice>}
+     {plan.deletion.blockers.length > 0 && <section aria-label="删除条件" className="space-y-2 border-t border-border-subtle pt-3" ref={conditions} tabIndex={-1}><h3 className="type-section-title">删除条件</h3>{plan.deletion.blockers.map((code) => <p className="text-sm" key={code}>{deletionReason(code)}</p>)}</section>}
+     <Dialog onOpenChange={(open) => { if (!open && !busy) setIntent(undefined); }} open={Boolean(intent)}><DialogContent finalFocus={() => finalFocus.current?.isConnected ? finalFocus.current : null} showCloseButton={!busy}><DialogHeader><DialogTitle>确认{intent ? actionLabels[intent.action] : '操作'}</DialogTitle><DialogDescription>{intent ? confirmationText(intent.action) : ''} Revision {intent?.revision}。</DialogDescription></DialogHeader>
+       {intent?.action === 'COPY' && <div className="space-y-1 text-sm"><label htmlFor="plan-copy-name">新计划名称</label><Input {...copyForm.register('name')} aria-describedby={copyErrors.name ? 'plan-copy-error' : undefined} aria-invalid={Boolean(copyErrors.name)} disabled={busy} id="plan-copy-name" maxLength={200} />{copyErrors.name && <span className="text-danger" id="plan-copy-error">{copyErrors.name.message}</span>}</div>}
+       {Boolean(error) && <PlanNotice error>{planErrorMessage(error)}</PlanNotice>}
+-      {held && <p role="alert">此前操作返回409，本地输入保留。请显式重新读取并核对后再次确认。</p>}
+-      {!canConfirm && <p role="alert">当前版本或服务端动作已变化，请重新读取并核对。</p>}
+-      {(held || !canConfirm) && <Button disabled={busy} onClick={() => void reloadIntent()} type="button" variant="outline">重新读取并重新确认</Button>}
++      {unsupportedScheduleError ? <p role="alert">此调度在 V1.0 中不受支持，不能重试操作。请重新读取计划以查看历史。</p> : <>{held && <p role="alert">此前操作返回409，本地输入保留。请显式重新读取并核对后再次确认。</p>}{!canConfirm && <p role="alert">当前版本或服务端动作已变化，请重新读取并核对。</p>}</>}
++      {(held || !canConfirm) && <Button disabled={busy} onClick={() => void reloadIntent()} type="button" variant="outline">{unsupportedScheduleError ? '重新读取计划' : '重新读取并重新确认'}</Button>}
+       <DialogFooter><Button disabled={busy} onClick={() => setIntent(undefined)} type="button" variant="outline">取消</Button><Button disabled={!canConfirm || held || busy || !csrfToken || intent?.action === 'COPY' && !copyValid} onClick={() => void confirm()} type="button" variant={intent?.action === 'DELETE' || intent?.action === 'ARCHIVE' ? 'destructive' : 'default'}>{busy ? '提交中…' : '确认操作'}</Button></DialogFooter>
+     </DialogContent></Dialog>
+   </section>;
+ }
+-function deletionReason(code: PlanDetail['deletion']['blockers'][number]) { switch (code) { case 'PLAN_NOT_DISABLED': return '当前计划不是未启用状态，服务端不允许删除；可按可用动作归档。'; case 'HAS_BATCH_HISTORY': return '计划已有批次历史，请归档以保留执行记录。'; case 'ARCHIVED': return '归档计划只读，不能删除；可复制为新计划。'; default: return assertNever(code); } }
++function deletionReason(code: PlanDetail['deletion']['blockers'][number]) { switch (code) { case 'PLAN_NOT_DISABLED': return '当前计划不是未启用状态，服务端不允许删除；可按可用动作归档。'; case 'HAS_BATCH_HISTORY': return '计划已有批次历史，请归档以保留执行记录。'; case 'ARCHIVED': return '归档计划只读，不能删除。'; case 'SCHEDULE_UNSUPPORTED': return 'V1.0 不支持定时调度，历史计划只读，不能删除。'; default: return assertNever(code); } }
+ function confirmationText(action: Command) { switch (action) {
+   case 'ACTIVATE': return '服务端会重新检查当前资源资格。启用仅保存计划状态，R1 尚未执行调度或采集。';
+   case 'PAUSE': return '暂停计划，不改变已保存的配置或历史。';
+--- a/frontend/src/domains/geo-plans/plan-wizard-steps.tsx
++++ b/frontend/src/domains/geo-plans/plan-wizard-steps.tsx
+@@ -1,4 +1,3 @@
+-import { useFormContext, useWatch } from 'react-hook-form';
+ import { FormField } from '@/design-system/forms/form-field';
+ import { Input } from '@/design-system/primitives/input';
+ import { Textarea } from '@/design-system/primitives/textarea';
+@@ -8,22 +7,20 @@
+ 
+ const planStepLabels = ['基本信息', '监测对象', '问题变体', '采集配置', '重复和预算', '调度', '服务端预览', '保存'] as const;
+ const stepFields: (keyof PlanValues)[][] = [
+-  ['name', 'description'], ['subjects'], ['prompt_variant_ids'], ['collection_profile_ids'], ['repeat_count', 'budget_limit', 'rule_set_revision'], ['schedule_kind', 'cron_expression', 'timezone'], [], [],
++  ['name', 'description'], ['subjects'], ['prompt_variant_ids'], ['collection_profile_ids'], ['repeat_count', 'budget_limit', 'rule_set_revision'], ['schedule_kind', 'timezone'], [], [],
+ ];
+ function TextField({ name, label, description, required, number = false, maxLength }: {
+-  name: 'name' | 'budget_limit' | 'repeat_count' | 'rule_set_revision' | 'cron_expression' | 'timezone'; label: string; description?: string; required?: boolean; number?: boolean; maxLength?: number;
++  name: 'name' | 'budget_limit' | 'repeat_count' | 'rule_set_revision' | 'timezone'; label: string; description?: string; required?: boolean; number?: boolean; maxLength?: number;
+ }) {
+   return <FormField<PlanValues, typeof name> description={description} id={`plan-${name}`} label={label} name={name} required={required} render={({ field, inputId, ...aria }) => <Input {...field} aria-describedby={aria['aria-describedby']} aria-invalid={aria['aria-invalid']} aria-required={aria['aria-required']} id={inputId} inputMode={name === 'budget_limit' ? 'decimal' : undefined} maxLength={maxLength} min={number ? 1 : undefined} onChange={(event) => field.onChange(number ? (event.currentTarget.value === '' ? NaN : Number(event.currentTarget.value)) : event.currentTarget.value)} step={number ? 1 : undefined} type={number ? 'number' : 'text'} value={typeof field.value === 'number' && Number.isNaN(field.value) ? '' : field.value} />} />;
+ }
+ function PlanWizardStep({ step, disabled }: { step: number; disabled: boolean }) {
+-  const { control } = useFormContext<PlanValues>();
+-  const schedule = useWatch({ control, name: 'schedule_kind' });
+   if (step === 0) return <div className="space-y-4"><TextField label="计划名称" maxLength={200} name="name" required /><FormField<PlanValues, 'description'> id="plan-description" label="计划说明" name="description" render={({ field, inputId, ...aria }) => <Textarea {...field} aria-describedby={aria['aria-describedby']} aria-invalid={aria['aria-invalid']} id={inputId} rows={4} />} /></div>;
+   if (step === 1) return <FormField<PlanValues, 'subjects'> description="每个对象必须显式选择角色，至少一个主要监测对象。角色独立于对象类型。" id="plan-subjects-label" label="监测对象与角色" name="subjects" required render={({ field, ...aria }) => <PlanOptions describedBy={aria['aria-describedby']} disabled={disabled} invalid={aria['aria-invalid']} kind="subjects" onChange={() => {}} onSubjectsChange={field.onChange} selected={field.value.map((item) => item.subject_id)} subjects={field.value} />} />;
+   if (step === 2) return <FormField<PlanValues, 'prompt_variant_ids'> id="plan-prompt_variant_ids-label" label="问题变体" name="prompt_variant_ids" required render={({ field, ...aria }) => <PlanOptions describedBy={aria['aria-describedby']} disabled={disabled} invalid={aria['aria-invalid']} kind="prompts" onChange={field.onChange} selected={field.value} />} />;
+   if (step === 3) return <FormField<PlanValues, 'collection_profile_ids'> description="同一观测面的不同配置独立选择。这里只展示非敏感摘要，运行资格以服务端预览为准。" id="plan-collection_profile_ids-label" label="采集配置" name="collection_profile_ids" required render={({ field, ...aria }) => <PlanOptions describedBy={aria['aria-describedby']} disabled={disabled} invalid={aria['aria-invalid']} kind="profiles" onChange={field.onChange} selected={field.value} />} />;
+   if (step === 4) return <div className="space-y-4"><TextField description="每个问题与采集配置组合的重复次数，范围 1–10。" label="重复次数" name="repeat_count" number required /><TextField description="可留空；填写非负十进制金额。币种与是否超限由服务端估价裁决，未知费用不会按零补齐。" label="预算上限" name="budget_limit" /><TextField description="保存适用规则集的修订号。" label="规则集修订号" name="rule_set_revision" number required /></div>;
+-  if (step === 5) return <div className="space-y-4"><FormField<PlanValues, 'schedule_kind'> id="plan-schedule_kind" label="调度方式" name="schedule_kind" required render={({ field, inputId, ...aria }) => <PlanSelect choices={Object.entries(scheduleLabels).map(([value, label]) => ({ value, label }))} describedBy={aria['aria-describedby']} id={inputId} invalid={aria['aria-invalid']} label="调度方式" onChange={field.onChange} required value={field.value} />} />{schedule === 'CRON' && <TextField description="五字段 Cron，例如 0 9 * * *。当前保存调度配置，实际调度执行尚未实施。" label="Cron 表达式" maxLength={120} name="cron_expression" required />}<TextField description="IANA 时区，例如 Asia/Shanghai；服务端验证时区与 Cron。" label="时区" maxLength={64} name="timezone" required /></div>;
++  if (step === 5) return <div className="space-y-4"><FormField<PlanValues, 'schedule_kind'> description="V1.0 只支持手动触发，定时调度尚未开放。" id="plan-schedule_kind" label="调度方式" name="schedule_kind" required render={({ field, inputId, ...aria }) => <PlanSelect choices={[{ value: 'MANUAL_ONLY', label: scheduleLabels.MANUAL_ONLY }]} describedBy={aria['aria-describedby']} id={inputId} invalid={aria['aria-invalid']} label="调度方式" onChange={field.onChange} required value={field.value} />} /><TextField description="IANA 时区，例如 Asia/Shanghai；服务端验证时区。" label="时区" maxLength={64} name="timezone" required /></div>;
+   return null;
+ }
+ function PlanConfigurationSummary({ values }: { values: PlanValues }) {
+--- a/frontend/src/domains/geo-plans/plans.model.ts
++++ b/frontend/src/domains/geo-plans/plans.model.ts
+@@ -8,7 +8,7 @@
+ type PlanListParams = NonNullable<operations['listGeoMonitoringPlans']['parameters']['query']>;
+ type PlanAction = PlanDetail['available_actions'][number];
+ const statusLabels = { DISABLED: '未启用', ACTIVE: '已启用', PAUSED: '已暂停', ARCHIVED: '已归档' } satisfies Record<PlanDetail['status'], string>;
+-const stageLabels = { CONFIGURATION_REQUIRED: '配置待修正', READY: '可以启用', ACTIVE: '已启用', PAUSED: '已暂停', ARCHIVED: '已归档' } satisfies Record<PlanDetail['workflow_stage'], string>;
++const stageLabels = { UNSUPPORTED_SCHEDULE: '调度不支持', CONFIGURATION_REQUIRED: '配置待修正', READY: '可以启用', ACTIVE: '已启用', PAUSED: '已暂停', ARCHIVED: '已归档' } satisfies Record<PlanDetail['workflow_stage'], string>;
+ const scheduleLabels = { MANUAL_ONLY: '手动触发', CRON: '定时配置' } satisfies Record<PlanDetail['schedule_kind'], string>;
+ const actionLabels = { UPDATE: '编辑计划', PREVIEW: '预览配置', ACTIVATE: '启用计划', PAUSE: '暂停计划', RESUME: '恢复计划', ARCHIVE: '归档计划', COPY: '复制为新计划', CREATE_REVISION: '修订配置', DELETE: '删除计划' } satisfies Record<PlanAction, string>;
+ const roleLabels = { PRIMARY: '主要监测对象', COMPETITOR: '竞品', REFERENCE: '参考对象' } satisfies Record<components['schemas']['GeoPlanSubjectRole'], string>;
+@@ -47,18 +47,19 @@
+   subjects: z.array(z.object({ subject_id: canonicalUuidSchema, role: z.enum(['PRIMARY', 'COMPETITOR', 'REFERENCE']) })).min(1, '请选择监测对象').refine((items) => items.some((item) => item.role === 'PRIMARY'), '请至少选择一个主要监测对象').refine((items) => new Set(items.map((item) => item.subject_id)).size === items.length, '监测对象不能重复'),
+   prompt_variant_ids: idsSchema, collection_profile_ids: idsSchema,
+   repeat_count: z.number().int('重复次数必须为整数').min(1, '至少重复 1 次').max(10, '最多重复 10 次'),
+-  schedule_kind: schedules, cron_expression: z.string().max(120, 'Cron 最多 120 字符'),
++  schedule_kind: schedules.refine((value) => value === 'MANUAL_ONLY', 'V1.0 不支持定时调度，请使用手动触发'), cron_expression: z.string().max(120, 'Cron 最多 120 字符'),
+   timezone: z.string().min(1, '请填写 IANA 时区').max(64, '时区最多 64 字符'),
+   budget_limit: z.string().refine((value) => value === '' || /^(?:0|[1-9][0-9]{0,7})(?:\.[0-9]{1,6})?$/.test(value), '预算为非负十进制，最多 8 位整数、6 位小数'),
+   rule_set_revision: z.number().int().min(1),
+-}).superRefine((value, context) => {
+-  if (value.schedule_kind === 'CRON' && value.cron_expression.trim().split(/\s+/).length !== 5) context.addIssue({ code: 'custom', path: ['cron_expression'], message: '请填写五字段 Cron；服务端会校验其执行语义' });
+ });
+ type PlanValues = z.input<typeof planFormSchema>;
+ function planValues(plan?: PlanDetail): PlanValues { return plan ? {
+   name: plan.name, description: plan.description, subjects: plan.subjects.map((item) => ({ ...item })), prompt_variant_ids: [...plan.prompt_variant_ids], collection_profile_ids: [...plan.collection_profile_ids], repeat_count: plan.repeat_count, schedule_kind: plan.schedule_kind, cron_expression: plan.cron_expression ?? '', timezone: plan.timezone, budget_limit: plan.budget_limit ?? '', rule_set_revision: plan.rule_set_revision,
+ } : { name: '', description: '', subjects: [], prompt_variant_ids: [], collection_profile_ids: [], repeat_count: 3, schedule_kind: 'MANUAL_ONLY', cron_expression: '', timezone: 'Asia/Shanghai', budget_limit: '', rule_set_revision: 1 }; }
+-function planCreate(values: PlanValues): PlanCreate { return { ...values, cron_expression: values.schedule_kind === 'CRON' ? values.cron_expression : null, budget_limit: values.budget_limit === '' ? null : values.budget_limit }; }
++function planCreate(values: PlanValues): PlanCreate {
++  const configuration = planFormSchema.parse(values);
++  return { ...configuration, cron_expression: null, budget_limit: configuration.budget_limit === '' ? null : configuration.budget_limit };
++}
+ function planUpdate(values: PlanValues, revision: number): components['schemas']['GeoMonitoringPlanUpdate'] { return { ...planCreate(values), expected_revision: revision }; }
+ function assertNever(value: never): never { throw new Error(`计划返回未知合同值：${String(value)}`); }
+ export { actionLabels, assertNever, isCanonicalPlanSearch, planCreate, planEditorIdentity, planFormSchema, planSearchSchema, planSearchToParams, planUpdate, planValues, roleLabels, scheduleLabels, shouldBlockPlanNavigation, stageLabels, statusLabels };
+--- a/frontend/src/domains/geo-plans/plan-wizard.test.tsx
++++ b/frontend/src/domains/geo-plans/plan-wizard.test.tsx
+@@ -93,6 +93,10 @@
+     await user.click(await screen.findByRole('button', { name: '选择采集配置：工程师采集摘要' }));
+     await user.click(screen.getByRole('button', { name: '下一步' }));
+     await user.click(screen.getByRole('button', { name: '下一步' }));
++    await user.click(screen.getByRole('combobox', { name: '调度方式' }));
++    expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual(['手动触发']);
++    await user.click(screen.getByRole('option', { name: '手动触发' }));
++    expect(screen.queryByRole('textbox', { name: 'Cron 表达式' })).not.toBeInTheDocument();
+     await user.click(screen.getByRole('button', { name: '下一步' }));
+     expect(post).not.toHaveBeenCalled();
+     await user.click(screen.getByRole('button', { name: '预览当前配置' }));
+@@ -102,8 +106,20 @@
+     await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+     expect(post.mock.calls.map((call) => call[0])).toEqual(['/api/v1/geo/monitoring-plans/preview', '/api/v1/geo/monitoring-plans']);
+     const create = post.mock.calls[1]![1] as { body: components['schemas']['GeoMonitoringPlanCreate']; params: { header: Record<string, string> } };
+-    expect(create.body).toMatchObject({ name: '新监测计划', subjects: [{ subject_id: subjectId, role: 'PRIMARY' }], prompt_variant_ids: [promptId], collection_profile_ids: [profileId], repeat_count: 3, cron_expression: null, budget_limit: null });
++    expect(create.body).toMatchObject({ name: '新监测计划', subjects: [{ subject_id: subjectId, role: 'PRIMARY' }], prompt_variant_ids: [promptId], collection_profile_ids: [profileId], repeat_count: 3, schedule_kind: 'MANUAL_ONLY', cron_expression: null, budget_limit: null });
+     expect(create.params.header['X-CSRF-Token']).toBe('wizard-csrf');
++  });
++  it('MANUAL 编辑仅有手动触发选项且没有 Cron 输入，不能切换到定时调度', async () => {
++    const post = vi.spyOn(api, 'POST'); const patch = vi.spyOn(api, 'PATCH');
++    renderWizard({ initialStep: 5 }); const user = userEvent.setup();
++    const schedule = await screen.findByRole('combobox', { name: '调度方式' });
++    expect(schedule).toHaveTextContent('手动触发');
++    await user.click(schedule);
++    expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual(['手动触发']);
++    await user.click(screen.getByRole('option', { name: '手动触发' }));
++    expect(screen.queryByRole('textbox', { name: 'Cron 表达式' })).not.toBeInTheDocument();
++    expect(screen.getByText('V1.0 只支持手动触发，定时调度尚未开放。')).toBeVisible();
++    expect(post).not.toHaveBeenCalled(); expect(patch).not.toHaveBeenCalled();
+   });
+   it('409 保留全部输入与 preview，显式重读只更新 revision，必须重新预览且无自动重放', async () => {
+     const post = vi.spyOn(api, 'POST').mockResolvedValue(response(preview()));
+@@ -125,8 +141,8 @@
+     await serverPreview(user); await user.click(screen.getByRole('button', { name: '8. 保存' })); await user.click(screen.getByRole('button', { name: '保存计划配置' }));
+     await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+     expect(post).toHaveBeenCalledTimes(2);
+-    expect((patch.mock.calls[0]![1] as { body: object }).body).toMatchObject({ expected_revision: 7, name: '本地名称', description: '本地说明' });
+-    expect((patch.mock.calls[1]![1] as { body: object }).body).toMatchObject({ expected_revision: 9, name: '本地名称', description: '本地说明' });
++    expect((patch.mock.calls[0]![1] as { body: object }).body).toMatchObject({ expected_revision: 7, name: '本地名称', description: '本地说明', schedule_kind: 'MANUAL_ONLY', cron_expression: null });
++    expect((patch.mock.calls[1]![1] as { body: object }).body).toMatchObject({ expected_revision: 9, name: '本地名称', description: '本地说明', schedule_kind: 'MANUAL_ONLY', cron_expression: null });
+   });
+   it('新建 409 后可修正草稿，显式重新 preview 后手动创建，不能陷入不可恢复冲突', async () => {
+     reads(); let createAttempts = 0;
+--- a/frontend/src/domains/geo-plans/plan-list.tsx
++++ b/frontend/src/domains/geo-plans/plan-list.tsx
+@@ -24,7 +24,7 @@
+     const helper = createColumnHelper<typeof features, PlanDetail>();
+     return helper.columns([
+       helper.accessor('name', { header: '计划名称', meta: { role: 'primary' }, cell: ({ row }) => <div className="min-w-0 max-w-md space-y-1"><Button className="h-auto w-full min-w-0 justify-start p-0 text-left" onClick={(event) => onOpen(row.original, undefined, event.currentTarget)} type="button" variant="link"><span className="table-cell-ellipsis">{row.original.name}</span></Button><p className="table-cell-ellipsis text-xs text-text-muted">Revision {row.original.revision}</p></div> }),
+-      helper.accessor('workflow_stage', { header: '状态', meta: { role: 'status' }, cell: ({ row, getValue }) => <div className="space-y-1"><Badge variant={getValue() === 'ACTIVE' ? 'success' : 'secondary'}>{stageLabels[getValue()]}</Badge><p className="text-xs">{statusLabels[row.original.status]}</p></div> }),
++      helper.accessor('workflow_stage', { header: '状态', meta: { role: 'status' }, cell: ({ row, getValue }) => <div className="space-y-1"><Badge variant={getValue() === 'ACTIVE' ? 'success' : 'secondary'}>{stageLabels[getValue()]}</Badge><p className="text-xs">{getValue() === 'UNSUPPORTED_SCHEDULE' ? '历史状态：' : ''}{statusLabels[row.original.status]}</p></div> }),
+       helper.display({ id: 'matrix', header: '单次运行预览', meta: { role: 'metadata' }, cell: ({ row }) => <div className="text-sm"><p>{row.original.preview.run_count} 次运行</p><p className="text-xs text-text-muted">{row.original.preview.prompt_count} 个变体 · {row.original.preview.profile_count} 个配置 · {row.original.preview.repeat_count} 次重复</p>{row.original.preview.blockers.length > 0 && <p className="text-xs text-danger">存在运行阻断</p>}</div> }),
+       helper.accessor('schedule_kind', { header: '调度配置', meta: { role: 'metadata' }, cell: ({ row, getValue }) => <div className="text-sm"><p>{scheduleLabels[getValue()]}</p><p className="text-xs text-text-muted">{row.original.cron_expression ?? '按需触发'} · {row.original.timezone}</p></div> }),
+       helper.accessor('updated_at', { header: '更新时间', meta: { role: 'date' }, cell: ({ getValue }) => <time dateTime={getValue()}>{new Date(getValue()).toLocaleString('zh-CN')}</time> }),
+--- a/frontend/src/domains/geo-plans/plans.api.ts
++++ b/frontend/src/domains/geo-plans/plans.api.ts
+@@ -68,7 +68,11 @@
+   const body = result.error;
+   if (isRecord(body) && isRecord(body.error)) {
+     const detail = body.error;
+-    if (typeof detail.code === 'string' && typeof detail.message === 'string' && typeof detail.request_id === 'string' && isRecord(detail.details)) return new PlanRequestError(`${detail.message}（请求 ID：${detail.request_id}）`, result.response.status, detail as ErrorDetail);
++    if (typeof detail.code === 'string' && typeof detail.message === 'string' && typeof detail.request_id === 'string' && isRecord(detail.details)) {
++      const message = detail.code === 'GEO_PLAN_CRON_UNSUPPORTED' ? 'V1.0 不支持定时调度（CRON），历史计划只读，不能修改或运行。' : detail.message;
++      const code = detail.code === 'GEO_PLAN_CRON_UNSUPPORTED' ? `${detail.code}；` : '';
++      return new PlanRequestError(`${message}（${code}请求 ID：${detail.request_id}）`, result.response.status, detail as ErrorDetail);
++    }
+   }
+   return new PlanRequestError(`${action}失败（HTTP ${result.response.status}）`, result.response.status);
+ }
+--- a/frontend/src/domains/geo-plans/plan-controls.tsx
++++ b/frontend/src/domains/geo-plans/plan-controls.tsx
+@@ -1,5 +1,7 @@
+ import type { ReactNode } from 'react';
++import { Link } from '@tanstack/react-router';
+ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/design-system/primitives/select';
++import { statusLabels, type PlanDetail } from './plans.model';
+ function PlanSelect({ label, value, choices, onChange, disabled, id, describedBy, invalid, required }: {
+   label: string; value: string; choices: readonly { value: string; label: string }[]; onChange: (value: string) => void;
+   disabled?: boolean; id?: string; describedBy?: string; invalid?: boolean; required?: boolean;
+@@ -7,5 +9,12 @@
+   return <Select disabled={disabled} items={choices} onValueChange={(next) => { if (next !== null) onChange(next); }} value={value}><SelectTrigger aria-describedby={describedBy} aria-invalid={invalid} aria-label={label} aria-required={required} className="w-full min-w-0" id={id}><SelectValue /></SelectTrigger><SelectContent>{choices.map((choice) => <SelectItem key={choice.value} value={choice.value}>{choice.label}</SelectItem>)}</SelectContent></Select>;
+ }
+ function PlanNotice({ children, error = false }: { children: ReactNode; error?: boolean }) { return <div className={`space-y-2 rounded-lg border p-3 text-sm ${error ? 'border-danger/30 bg-danger/5 text-danger' : 'border-border-default bg-surface-raised text-text-secondary'}`} role={error ? 'alert' : 'status'}>{children}</div>; }
++function UnsupportedPlanNotice({ plan }: { plan: PlanDetail }) {
++  return <PlanNotice>
++    <p>V1.0 不支持定时调度（CRON）。此历史计划只读，不能编辑、复制、删除或运行，不会自动创建批次（Batch）。</p>
++    <p>历史状态：{statusLabels[plan.status]}（{plan.status}）。原配置与历史记录保留；历史状态不表示当前正在调度。</p>
++    <p>运行入口不可用（{plan.run_entry.reason_code}）。<Link className="text-interaction-primary underline" to="/geo/runs" search={{ plan_id: plan.id }}>查看批次历史</Link></p>
++  </PlanNotice>;
++}
+ function planErrorMessage(error: unknown) { return error instanceof Error ? error.message : '监测计划请求发生未知错误'; }
+-export { PlanNotice, PlanSelect, planErrorMessage };
++export { PlanNotice, PlanSelect, UnsupportedPlanNotice, planErrorMessage };
+--- a/frontend/src/domains/geo-plans/plans.model.test.ts
++++ b/frontend/src/domains/geo-plans/plans.model.test.ts
+@@ -1,7 +1,7 @@
+ import { describe, expect, it } from 'vitest';
+-import { planCreate, planFormSchema, planSearchSchema, planSearchToParams, planValues, shouldBlockPlanNavigation } from './plans.model';
++import { planCreate, planFormSchema, planSearchSchema, planSearchToParams, planUpdate, planValues, shouldBlockPlanNavigation } from './plans.model';
+ import { planOverflow, planPrimary } from './plan-actions';
+-import { plan, planId } from './plans.test-support';
++import { plan, planId, unsupportedPlan } from './plans.test-support';
+ 
+ describe('计划 URL 与 generated 配置边界', () => {
+   it('规范筛选、分页和单一编辑身份；列表请求不携带工作区状态', () => {
+@@ -25,10 +25,26 @@
+     expect(planFormSchema.safeParse({ ...values, prompt_variant_ids: [...values.prompt_variant_ids, ...values.prompt_variant_ids] }).success).toBe(false);
+     for (const budget_limit of ['1e3', '-1', '100000000', '0.0000001']) expect(planFormSchema.safeParse({ ...values, budget_limit }).success).toBe(false);
+   });
++  it('CRON 保留读取值，但不能通过表单或创建、更新载荷转换提交，也不静默改成手动', () => {
++    const values = planValues(plan({ schedule_kind: 'CRON', cron_expression: '0 9 * * *' }));
++    expect(values).toMatchObject({ schedule_kind: 'CRON', cron_expression: '0 9 * * *' });
++    const result = planFormSchema.safeParse(values);
++    expect(result.success).toBe(false);
++    if (!result.success) expect(result.error.issues).toContainEqual(expect.objectContaining({ path: ['schedule_kind'], message: expect.stringContaining('V1.0') }));
++    expect(() => planCreate(values)).toThrow();
++    expect(() => planUpdate(values, 7)).toThrow();
++  });
+   it('动作只来自服务端，归档仅提供 COPY，缺少 ACTIVATE 时主动作禁用', () => {
+     const archived = plan({ status: 'ARCHIVED', workflow_stage: 'ARCHIVED', primary_task: 'VIEW_HISTORY', available_actions: ['COPY'], deletion: { blockers: ['ARCHIVED'] } });
+     expect(planPrimary(archived)).toBeUndefined();
+     expect(planOverflow(archived).map((item) => item.key)).toEqual(['COPY', 'VIEW_DELETION_CONDITIONS']);
+     expect(planPrimary(plan({ available_actions: [] }))).toMatchObject({ key: 'ACTIVATE', enabled: false });
+   });
++  it.each(['DISABLED', 'ACTIVE', 'PAUSED', 'ARCHIVED'] as const)('历史 CRON 的 %s 状态不补充写动作，只呈现删除阻断说明', (status) => {
++    const historical = unsupportedPlan({ status });
++    expect(planPrimary(historical)).toBeUndefined();
++    expect(planOverflow(historical).map((item) => item.key)).toEqual(['VIEW_DELETION_CONDITIONS']);
++    expect(planValues(historical)).toMatchObject({ schedule_kind: 'CRON', cron_expression: '0 9 * * *' });
++    expect(historical.status).toBe(status);
++  });
+ });
+--- a/frontend/src/domains/geo-plans/plan-wizard.tsx
++++ b/frontend/src/domains/geo-plans/plan-wizard.tsx
+@@ -5,7 +5,7 @@
+ import { capturePrincipalContinuation, type PrincipalContinuation } from '@/app/auth/principal-epoch';
+ import { DirtyGuard } from '@/design-system/forms/dirty-guard';
+ import { Button } from '@/design-system/primitives/button';
+-import { PlanNotice, planErrorMessage } from './plan-controls';
++import { PlanNotice, UnsupportedPlanNotice, planErrorMessage } from './plan-controls';
+ import { planFieldStep } from './plan-preview.model';
+ import { PlanPreviewPanel } from './plan-preview';
+ import { PlanConfigurationSummary, PlanWizardStep, planStepLabels, stepFields } from './plan-wizard-steps';
+@@ -86,6 +86,7 @@
+   function recordFailure(failure: unknown) {
+     setError(failure);
+     if (!(failure instanceof PlanRequestError)) return;
++    if (failure.detail?.code === 'GEO_PLAN_CRON_UNSUPPORTED') { setWriteBlocked(true); return; }
+     if (failure.status === 403 || failure.status === 404) setWriteBlocked(true);
+     if (failure.status === 409) setConflict(true);
+     if (failure.status !== 422 || !failure.detail) return;
+@@ -189,6 +190,13 @@
+     }
+   }
+   const issues = formIssues(errors);
++  const unsupportedPlan = plan?.workflow_stage === 'UNSUPPORTED_SCHEDULE' ? plan : baseline?.workflow_stage === 'UNSUPPORTED_SCHEDULE' ? baseline : undefined;
++  if (unsupportedPlan) return <section aria-label="历史计划只读配置" className="min-w-0 space-y-4">
++    <UnsupportedPlanNotice plan={unsupportedPlan} />
++    <p className="text-sm text-text-muted">Revision {unsupportedPlan.revision}</p>
++    <PlanConfigurationSummary values={planValues(unsupportedPlan)} />
++    <Button onClick={onCancel} type="button" variant="outline">关闭向导</Button>
++  </section>;
+   return <FormProvider {...form}>
+     <DirtyGuard shouldBlockNavigation={({ current, next: destination }) => shouldBlockPlanNavigation(current, destination)} when={isDirty || busy} />
+     <form aria-label={plan ? '编辑监测计划' : '新建监测计划'} className="min-w-0 space-y-4" noValidate onSubmit={(event) => {
+--- a/frontend/src/shared/api/generated/schema.d.ts
++++ b/frontend/src/shared/api/generated/schema.d.ts
+@@ -2488,8 +2488,10 @@
+             path?: never;
+             cookie?: never;
+         };
++        /** @description 支持按 CRON 查询只读历史；其存储 ACTIVE 不表示 V1.0 调度可用，读模型投影为 UNSUPPORTED_SCHEDULE 且无写动作。 */
+         get: operations["listGeoMonitoringPlans"];
+         put?: never;
++        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+         post: operations["createGeoMonitoringPlan"];
+         delete?: never;
+         options?: never;
+@@ -2520,12 +2522,15 @@
+             path?: never;
+             cookie?: never;
+         };
++        /** @description 历史 CRON 保留原始 status，workflow_stage 为 UNSUPPORTED_SCHEDULE，primary_task 为 VIEW_HISTORY，available_actions 为空；run_entry.reason_code 为 GEO_PLAN_CRON_UNSUPPORTED。不承诺自动运行。 */
+         get: operations["getGeoMonitoringPlan"];
+         put?: never;
+         post?: never;
++        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+         delete: operations["deleteGeoMonitoringPlan"];
+         options?: never;
+         head?: never;
++        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+         patch: operations["updateGeoMonitoringPlan"];
+         trace?: never;
+     };
+@@ -2538,6 +2543,7 @@
+         };
+         get?: never;
+         put?: never;
++        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+         post: operations["activateGeoMonitoringPlan"];
+         delete?: never;
+         options?: never;
+@@ -2554,6 +2560,7 @@
+         };
+         get?: never;
+         put?: never;
++        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+         post: operations["pauseGeoMonitoringPlan"];
+         delete?: never;
+         options?: never;
+@@ -2570,6 +2577,7 @@
+         };
+         get?: never;
+         put?: never;
++        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+         post: operations["resumeGeoMonitoringPlan"];
+         delete?: never;
+         options?: never;
+@@ -2586,6 +2594,7 @@
+         };
+         get?: never;
+         put?: never;
++        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+         post: operations["archiveGeoMonitoringPlan"];
+         delete?: never;
+         options?: never;
+@@ -2602,6 +2611,7 @@
+         };
+         get?: never;
+         put?: never;
++        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+         post: operations["copyGeoMonitoringPlan"];
+         delete?: never;
+         options?: never;
+@@ -2618,7 +2628,10 @@
+         };
+         get?: never;
+         put?: never;
+-        /** Run Now */
++        /**
++         * Run Now
++         * @description V1.0 首次运行仅支持 MANUAL_ONLY；历史 CRON 首次 run 返回 409 GEO_PLAN_CRON_UNSUPPORTED，配置与快照只读保留。已有幂等回执只读重放，不创建 Batch/Run 或重新投递。
++         */
+         post: operations["runGeoMonitoringPlanNow"];
+         delete?: never;
+         options?: never;
+@@ -2636,7 +2649,10 @@
+         /** listGeoObservationBatches */
+         get: operations["listGeoObservationBatches"];
+         put?: never;
+-        /** Create Batch */
++        /**
++         * Create Batch
++         * @description V1.0 首次 PLAN 批次仅接受 MANUAL_ONLY，历史 CRON 返回 409 GEO_PLAN_CRON_UNSUPPORTED；AD_HOC 仅人工配置。已提交幂等回执只读重放，不创建或重新投递。
++         */
+         post: operations["createGeoObservationBatch"];
+         delete?: never;
+         options?: never;
+@@ -3220,7 +3236,10 @@
+         };
+         get?: never;
+         put?: never;
+-        /** Create Retest */
++        /**
++         * Create Retest
++         * @description 人工独立复测从已提交的不可变基线复制严格矩阵并创建 RETEST；历史 plan_id/CRON 快照仅作来源追溯，不执行或修改当前 Plan，继续受可比性、权限与外发门禁约束。
++         */
+         post: operations["createGeoOpportunityRetest"];
+         delete?: never;
+         options?: never;
+@@ -8180,7 +8199,7 @@
+          * GeoPlanWorkflowStage
+          * @enum {string}
+          */
+-        GeoPlanWorkflowStage: "CONFIGURATION_REQUIRED" | "READY" | "ACTIVE" | "PAUSED" | "ARCHIVED";
++        GeoPlanWorkflowStage: "UNSUPPORTED_SCHEDULE" | "CONFIGURATION_REQUIRED" | "READY" | "ACTIVE" | "PAUSED" | "ARCHIVED";
+         /**
+          * GeoPlanPrimaryTask
+          * @enum {string}
+@@ -8189,7 +8208,7 @@
+         /** GeoPlanDeletion */
+         GeoPlanDeletion: {
+             /** Blockers */
+-            blockers: ("PLAN_NOT_DISABLED" | "ARCHIVED" | "HAS_BATCH_HISTORY")[];
++            blockers: ("PLAN_NOT_DISABLED" | "ARCHIVED" | "HAS_BATCH_HISTORY" | "SCHEDULE_UNSUPPORTED")[];
+         };
+         /** GeoPlanRunEntry */
+         GeoPlanRunEntry: {
+@@ -8200,9 +8219,9 @@
+             available: false;
+             /**
+              * Reason Code
+-             * @constant
+-             */
+-            reason_code: "UI_NOT_IMPLEMENTED";
++             * @enum {string}
++             */
++            reason_code: "UI_NOT_IMPLEMENTED" | "GEO_PLAN_CRON_UNSUPPORTED";
+         };
+         /** GeoMonitoringPlanCopy */
+         GeoMonitoringPlanCopy: {

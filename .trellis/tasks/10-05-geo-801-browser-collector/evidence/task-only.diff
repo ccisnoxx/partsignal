@@ -1,0 +1,1897 @@
+--- a/Makefile
++++ b/Makefile
+@@ -3,12 +3,13 @@
+ UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
+ UV := UV_CACHE_DIR=$(UV_CACHE_DIR) uv
+ 
+-.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate initialize-accounts lint typecheck test-unit test-integration e2e build build-frontend verify test-deploy-scripts test-frontend-container staging-redeploy-fast down test-geo-fixtures test-geo-collector-contract test-geo-performance
++.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate initialize-accounts lint typecheck test-unit test-integration e2e build build-frontend verify test-deploy-scripts test-frontend-container staging-redeploy-fast down test-geo-fixtures test-geo-collector-contract test-geo-performance test-geo-browser
+ 
+ bootstrap:
+ 	@test -f .env || cp .env.example .env
+ 	$(UV) sync --project backend --all-extras
+ 	npm --prefix frontend ci
++	npm --prefix browser-collector ci
+ 
+ contract-generate:
+ 	npm --prefix frontend run api:generate
+@@ -34,14 +35,17 @@
+ 	$(COMPOSE) run --rm api python -m app.cli initialize-accounts
+ 
+ lint:
++	npm --prefix browser-collector run lint
+ 	$(UV) run --project backend ruff check backend
+ 	npm --prefix frontend run lint
+ 
+ typecheck:
++	npm --prefix browser-collector run typecheck
+ 	$(UV) run --project backend mypy --config-file backend/pyproject.toml backend/app
+ 	npm --prefix frontend run typecheck
+ 
+ test-unit:
++	npm --prefix browser-collector test
+ 	$(UV) run --project backend pytest backend/tests/unit
+ 	npm --prefix frontend run test
+ 
+@@ -69,10 +73,14 @@
+ test-geo-collector-contract:
+ 	$(UV) run --project backend python deploy/scripts/test-geo-collector-contract.py
+ 
++test-geo-browser:
++	$(UV) run --project backend python deploy/scripts/test-geo-browser.py --runtime
++
+ test-geo-performance:
+ 	$(COMPOSE) run --rm -e GEO_PERF_PHASE=candidate -e GEO_PERF_OUTPUT=/app/tests/performance/.results/candidate backend-test pytest -s tests/performance/test_geo_insight_performance.py
+ 
+ test-deploy-scripts: test-frontend-container
++	$(UV) run --project backend python deploy/scripts/test-geo-browser.py
+ 	$(UV) run --project backend python deploy/scripts/test-geo-collector-contract.py
+ 	$(UV) run --project backend python deploy/scripts/check-geo-fixtures.py
+ 	$(UV) run --project backend python deploy/scripts/test-geo-configuration.py
+--- a/deploy/compose.dev.yaml
++++ b/deploy/compose.dev.yaml
+@@ -1,4 +1,7 @@
+ name: partsignal-dev
++
++include:
++  - compose.geo-browser.yaml
+ 
+ x-backend: &backend
+   build:
+--- a/deploy/compose.prod.yaml
++++ b/deploy/compose.prod.yaml
+@@ -1,5 +1,8 @@
+ # 当前 Production 原地接管既有运行时；历史项目标识保留到独立迁移窗口。
+ name: partsignal-staging
++
++include:
++  - compose.geo-browser.yaml
+ 
+ x-backend: &backend
+   image: ${PARTSIGNAL_BACKEND_IMAGE:?必须指定 PARTSIGNAL_BACKEND_IMAGE}:${PARTSIGNAL_VERSION:?必须指定 PARTSIGNAL_VERSION}
+--- a/deploy/compose.staging.yaml
++++ b/deploy/compose.staging.yaml
+@@ -1,4 +1,7 @@
+ name: partsignal-staging
++
++include:
++  - compose.geo-browser.yaml
+ 
+ x-backend: &backend
+   image: ${PARTSIGNAL_BACKEND_IMAGE:-partsignal-backend}:${PARTSIGNAL_VERSION:?必须指定 PARTSIGNAL_VERSION}
+--- a/deploy/scripts/test-geo-configuration.py
++++ b/deploy/scripts/test-geo-configuration.py
+@@ -47,6 +47,10 @@
+         owner = Path(temporary)
+         project = owner / "deploy"
+         project.mkdir()
++        # --project-directory 决定 include 的相对路径；保留真实共享 profile 来源。
++        (project / "compose.geo-browser.yaml").write_text(
++            (ROOT / "deploy/compose.geo-browser.yaml").read_text()
++        )
+         probe = owner / "probe"
+         probe.mkdir()  # 启动检查不能额外读取 .env，配置只能来自 Compose 解析结果。
+         base = dict(
+--- a/backend/app/services/geo_runs.py
++++ b/backend/app/services/geo_runs.py
+@@ -63,7 +63,8 @@
+         run = db.get(GeoObservationRun, run_id)
+         if run is None or run.status != "PENDING":
+             return None
+-        if run.input_snapshot["profile"]["collection_mode"] == "MANUAL":
++        # 普通 Worker 只拥有 API 领取权；误投的 BROWSER ID 不得被写成 API 失败。
++        if run.input_snapshot["profile"]["collection_mode"] != "API":
+             return None
+         snapshot = GeoRunInputSnapshot.model_validate(run.input_snapshot)
+         request = CollectionRequest.from_snapshot(
+--- a/docs/geo-monitoring/CHANGELOG.md
++++ b/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,12 @@
+ # 文档包变更记录
++
++## GEO-801 / R7 独立 Browser Collector 骨架 — 2026-10-05（review）
++
++- 独立package/锁文件/镜像与三环境共享geo-browser profile，默认关闭并保留默认STOP。
++- 非root Chromium sandbox、只读根、资源限额和network_mode none；真实离线DOM健康与会话NOT_IMPLEMENTED区分。
++- 稳定UUID内部入口显式拒绝，普通API Worker忽略误投非API Run，不创建lease或改写历史。
++- 无新OpenAPI/DDL/Alembic、会话/真实平台/截图/管理UI。实际验证与独立复核见[实施记录](../../.trellis/tasks/10-05-geo-801-browser-collector/implement.md)；仅review等待人工接受，不实施802/803。
++
+ 
+ ## GEO-707 / R6 机会闭环 E2E、审计与验收 — 2026-10-04（review）
+ 
+--- a/docs/geo-monitoring/README.md
++++ b/docs/geo-monitoring/README.md
+@@ -375,3 +375,13 @@
+ 
+ 
+ GEO-707 / R6 收口 TOPIC_COVERAGE_GAP → ContentTask → RETEST → 显式解决纵向验收，并补首次机会创建审计和已存在复测审计的前端消费者。当前状态以 manifest 为准，交付仅 review，待人工接受。实际验证、页面/API 覆盖边界与限制见 [R6 机会闭环验收](./04-delivery/10-r6-opportunity-acceptance.md)、[Task Brief](../../.trellis/tasks/10-04-geo-707-r6-acceptance/prd.md) 与 [实施证据](../../.trellis/tasks/10-04-geo-707-r6-acceptance/implement.md)。无新 OpenAPI wire shape、Alembic revision、历史回填或生产上线，GEO-901/902 未实施。
++
++
++GEO-801 / R7 提供独立 Browser Collector package/image、三个环境共享的 `geo-browser`
++Compose profile、真实离线 Chromium 健康、资源/网络隔离与默认 STOP kill switch。
++默认不启动，不接 Broker/数据库；UUID 入口在关闭时拒绝，开启后仍显式未实现。
++普通 API Worker 忽略误投非 API Run，普通镜像没有浏览器依赖。运行合同见
++[部署文档](./03-technical/08-deployment-and-operations.md#当前-r7geo-801-独立-browser-骨架)，
++范围与实际验证见 [Task Brief](../../.trellis/tasks/10-05-geo-801-browser-collector/prd.md) 和
++[实施证据](../../.trellis/tasks/10-05-geo-801-browser-collector/implement.md)。
++状态以 manifest 为准；无新 API/数据库迁移，不实现802会话、803模拟站或真实平台采集/生产启用。
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -15,7 +15,7 @@
+ daf8f8cec2dfb8996c316ca259ae6eea161d944337f340ce9c6180bc9c87c0f5  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+ e3cd97b554baca18dfd3cdde4b5576dcfbcff79babd330065ee0f93633245826  ./03-technical/07-testing-and-quality.md
+-803f4e35ce311156cb74a7d728732dc4b315c49d41cc3b2825aff669684468a9  ./03-technical/08-deployment-and-operations.md
++3d41844cfd1b12b913959de4440a0d2c036551476bc410520c0a40b4e6113bcf  ./03-technical/08-deployment-and-operations.md
+ f8c643e46c1159c51bd2e271e87de1d0e5a0448e2845af01f33bef5e4e1d411b  ./04-delivery/01-implementation-roadmap.md
+ acf0bde87ddfc34ebbc09543c1f2c2c1f496d48f330727b5e943807267eed41c  ./04-delivery/02-work-breakdown-structure.md
+ 15ed858bbf2d48fc2801530b6e09a598e805905bbf21734f9b29f1d1b86401c8  ./04-delivery/03-requirement-traceability-matrix.md
+@@ -106,13 +106,13 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-435b3407e7cce93655b3b65d2d5de80fbb21950d0d1e38e390aa3b5363312478  ./04-delivery/task-manifest.yaml
++88593f2098e78e4d8c4d33151f99d06522ab3b717aca7e19cfce60d496d83373  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 8f4f24331d4ea91574e5a4a56c3eacd9d89e193011c48f8d9f5e413198793909  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-23fe61fc45923d0b9c0e19dec3ab411635e2481db73124cb8d665437dc18a79f  ./CHANGELOG.md
+-48a8fd5630e6936288bad8e0cfbd76820f904a45c70238bb20e940c7c22c50a3  ./README.md
++d148f8a67d48a0f7a934b15161da3d7b8fba2b56020ed70e5b2970a9ded4950d  ./CHANGELOG.md
++e10659031b65ef258296af72094004ee1e33e2123b460b6b011a9c6eb568008d  ./README.md
+ 670f9d9e94e3a36b849691f8531a30433ea0253f234b855d08331b6d2b1905cd  ./04-delivery/10-r6-opportunity-acceptance.md
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -1314,7 +1314,7 @@
+   phase: R7
+   release: R7
+   title: 建立独立 Browser Collector 服务骨架和 Compose profile
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-408
+   - GEO-002
+@@ -1331,6 +1331,9 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  trellis_task: .trellis/tasks/10-05-geo-801-browser-collector
++  execution_note: "2026-10-05：GEO-408/GEO-002 done与人工接受已核对；相关104项单元与18组Compose基线通过，开始独立服务骨架实施。"
++  review_note: "2026-10-05：独立Browser package/image/geo-browser profile、非root sandbox与network none/只读/资源限额、真实DOM健康、默认STOP与热kill、稳定UUID显式拒绝和API非API早退完成。lint/typecheck/unit（3 Collector+3660 backend+1266 frontend）/contract/部署/真实runtime通过；19项既有Worker通过，新PG夹具修正后1项边界定向通过。普通production镜像真实探针无浏览器依赖。独立复核空值插值P2已修正并复验，Audit Bundle校验通过。无OpenAPI/DDL/new revision或历史迁移；head0062。仅review等待人工接受，不实现802/803、不提交/上线。文档包原有核心PRD摘要不一致已确认任务前存在，未改业务文档；详情见Trellis implement/evidence。"
+ - id: GEO-802
+   phase: R7
+   release: R7
+--- a/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
++++ b/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
+@@ -409,3 +409,57 @@
+ [R3 API 使用与验收指南](../04-delivery/08-r3-api-acceptance.md)。
+ 无新环境业务参数、公共合同、数据回填或 Alembic revision；head 仍为 0053。
+ 本地 fake 验收不授予生产 adapter 批准或 INTERNAL 外发授权，不代表生产发布完成。
++
++
++## 当前 R7：GEO-801 独立 Browser 骨架
++
++`browser-collector/` 拥有独立 package、lockfile 与 Dockerfile，固定 Playwright 1.61.1；
++API/Worker/Scheduler 继续使用原 backend 镜像。dev/staging/prod Compose 通过
++`compose.geo-browser.yaml` include 共享 `geo-browser` profile，默认服务集合不包含该服务。
++GEO-801 不接 Broker/数据库、不注册可用 Browser adapter；普通 API Worker 对非 API Run
++在资格、锁和写入前返回，不把误投 Browser UUID 改成 API 失败。
++
++仅启动本地骨架（保留两个业务开关关闭和默认 STOP）：
++
++```bash
++docker compose -f deploy/compose.geo-browser.yaml --profile geo-browser up --build -d --wait
++docker compose -f deploy/compose.geo-browser.yaml --profile geo-browser exec -T browser-collector node src/healthcheck.mjs
++docker compose -f deploy/compose.geo-browser.yaml --profile geo-browser down
++```
++
++已有环境使用对应 Compose 加 `--profile geo-browser`；服务不依赖核心服务。
++默认镜像 `partsignal-browser-collector:geo801`，可分别覆盖
++`PARTSIGNAL_BROWSER_COLLECTOR_IMAGE` / `PARTSIGNAL_BROWSER_COLLECTOR_VERSION`。
++这是独立构建交付，尚未纳入生产发布镜像推送或批准真实平台运行。
++
++两个采集开关由 Compose shell / `--env-file` 插值读取，默认 false；不加载后端的
++`PARTSIGNAL_RUNTIME_ENV_FILE` 或通用 `env_file`，避免数据库、AI、会话凭据进入浏览器容器。
++不要以“后端 runtime 文件已开启”推断 Browser 当前进程配置。显式空值/非法值、
++Browser 开启但 monitoring 关闭均启动失败。开关变化需 recreate；profile 只是启动选择。
++
++只读控制目录默认 `deploy/geo-browser-control`，其中默认存在 `STOP`。
++需要临时控制目录时设置 `PARTSIGNAL_GEO_BROWSER_CONTROL_DIR` 为已存在目录的绝对路径；
++缺目录不自动创建。安全热停止是在宿主控制目录创建 `STOP`，每次内部入口与健康探测
++重新检查；任意类型的 STOP（含断开的 symlink）、目录缺失或访问错误均拒绝。
++移除 STOP 也仅得到 `BROWSER_ADAPTER_NOT_IMPLEMENTED`，不获得会话/平台/采集授权。
++容器只读挂载该目录；没有业务凭据、会话卷或 socket。紧急进程停止用上述 `down`
++（需带 profile），SIGTERM 关闭上下文/浏览器，10秒容器停止期限，无自动重启。
++
++资源：1 CPU、1 GiB 内存、128 PID、128 MiB `/tmp` tmpfs 与128 MiB shm；
++非 root `pwuser`、init、只读根、cap_drop ALL、no-new-privileges，
++`network_mode: none`，无端口、业务网络、外部 DNS/代理/egress。
++健康只访问容器回环，真实 Chromium 在 offline context 内完成内存 DOM 探测；
++采集关闭仍可健康，会话探测明确 `NOT_IMPLEMENTED`。日志仅固定 code，无 SDK异常、正文、secret。
++
++`deploy/geo-browser-seccomp.json` 来源是
++[官方 Playwright v1.61.1 seccomp](https://github.com/microsoft/playwright/blob/v1.61.1/utils/docker/seccomp_profile.json)，
++默认 syscall 拒绝。保留官方 user namespace 的 clone/setns/unshare 放行，并允许 chroot
++进入 syscall 的内核权限检查：cap_drop ALL 时官方基于初始 CAP_SYS_CHROOT 的条件规则
++会阻止 Chromium 子命名空间的 sandbox chroot。服务不获得宿主 CAP_SYS_CHROOT/SYS_ADMIN，
++内核仍要求调用者在所属 user namespace 拥有对应能力；Chromium sandbox 显式开启。
++该规则已在本地 Docker Linux runtime 验证；不以 privileged、unconfined 或关闭 sandbox
++替代。这里只渲染可信内存页，后续真实平台需要其任务建立批准网络、会话和安全验收。
++
++`make test-geo-browser` 运行三环境 Compose、默认 up 零容器、实际健康/隔离、
++开关/热 STOP/未实现拒绝和停止清理。GEO-802 的加密会话/撤销、GEO-803 的模拟站和
++adapter suite、真实平台/截图/管理 UI 均未实施。无新 OpenAPI/DDL/Alembic/历史回填。
+--- /dev/null
++++ b/backend/tests/integration/test_geo_browser_boundary.py
+@@ -0,0 +1,101 @@
++"""真实 PostgreSQL：API 消费误投 Browser UUID 不领取、不更改历史和派发元数据。"""
++
++from datetime import UTC, datetime, timedelta
++from uuid import uuid4
++
++import pytest
++from sqlalchemy import text
++
++from app.models.geo_batch_creation import GeoBatchSubject
++from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
++from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
++from app.services import geo_dispatch, geo_runs
++from tests.integration.geo_plans_support import plans_api as plans_api
++from tests.integration.geo_plans_support import questions_api as questions_api
++from tests.integration.geo_plans_support import questions_engine as questions_engine
++from tests.unit.test_geo_run_contract import input_snapshot, plan_snapshot
++from tests.unit.test_geo_surface_contract import capabilities
++
++pytestmark = pytest.mark.integration
++
++
++def test_browser_run_is_unchanged_by_api_claim_and_dispatch(plans_api, monkeypatch):
++    factory = plans_api.api.factory
++    monkeypatch.setattr(geo_runs, "SessionLocal", factory)
++    monkeypatch.setattr(geo_dispatch, "SessionLocal", factory)
++    with factory.begin() as db:
++        surface = GeoEngineSurface(
++            name="虚构未批准Browser",
++            slug=f"geo801-{uuid4()}",
++            surface_kind="CONSUMER_UI",
++            provider_brand="CUSTOM",
++            capabilities=capabilities(),
++            created_by=plans_api.api.admin_id,
++        )
++        db.add(surface)
++        db.flush()
++        profile = GeoCollectionProfile(
++            engine_surface_id=surface.id,
++            name="虚构Browser骨架",
++            collection_mode="BROWSER",
++            adapter_key="fictional-adapter",
++            language_code="zh-hans",
++            region_code="CN",
++            login_state="ANONYMOUS",
++            web_search_policy="UNKNOWN",
++            settings_json={},
++            created_by=plans_api.api.admin_id,
++        )
++        db.add(profile)
++        db.flush()
++        value = input_snapshot("BROWSER")
++        value["prompt"].update(id=str(plans_api.prompt), query_topic_id=str(plans_api.api.topic))
++        value["profile"]["id"] = str(profile.id)
++        value["profile"]["surface"]["id"] = str(surface.id)
++        value["subjects"][0]["id"] = str(plans_api.subject)
++        batch = GeoObservationBatch(
++            trigger_type="MANUAL",
++            created_by=plans_api.api.engineer_id,
++            requested_run_count=1,
++            plan_snapshot=plan_snapshot(value),
++            rule_snapshot={"schema_version": 1, "rule_set_revision": 1},
++        )
++        db.add(batch)
++        db.flush()
++        db.add(GeoBatchSubject(batch_id=batch.id, subject_id=plans_api.subject, role="PRIMARY"))
++        run = GeoObservationRun(
++            batch_id=batch.id,
++            prompt_variant_id=plans_api.prompt,
++            collection_profile_id=profile.id,
++            repeat_index=1,
++            input_snapshot=value,
++        )
++        db.add(run)
++        db.flush()
++        run_id, batch_id = run.id, batch.id
++
++    def rows():
++        with factory() as db:
++            return [
++                db.scalar(text(f"SELECT to_jsonb(t) FROM {table} t WHERE id=:id"), {"id": identity})
++                for table, identity in (
++                    ("geo_observation_batches", batch_id),
++                    ("geo_observation_runs", run_id),
++                )
++            ]
++
++    before = rows()
++    for _ in range(2):
++        assert geo_runs.claim_collection_run(run_id) is None
++        geo_runs.process_collection_run(run_id)
++    published = []
++    with factory() as db:
++        assert geo_dispatch.dispatch_batch(db, batch_id, published.append) == 0
++    assert (
++        geo_dispatch.redispatch_pending_collection_runs(
++            published.append, now=datetime.now(UTC) + timedelta(days=1)
++        )
++        == 0
++    )
++    assert not published
++    assert rows() == before
+--- /dev/null
++++ b/backend/tests/unit/test_geo_browser_boundary.py
+@@ -0,0 +1,30 @@
++"""误投稳定 ID 不能让普通 API Worker 改写 Browser 或人工 Run。"""
++
++from types import SimpleNamespace
++from uuid import uuid4
++
++import pytest
++
++from app.services import geo_runs
++
++
++@pytest.mark.parametrize("mode", ["BROWSER", "MANUAL"])
++def test_non_api_message_is_not_claimed_or_mutated(monkeypatch, mode):
++    run = SimpleNamespace(
++        status="PENDING", revision=0, input_snapshot={"profile": {"collection_mode": mode}}
++    )
++
++    class ReadSession:
++        def __enter__(self):
++            return self
++
++        def __exit__(self, *args):
++            pass
++
++        def get(self, *args):
++            return run
++
++    # 若进入第二段事务/资格读取即失败；不靠 mock 成功返回来证明未写。
++    monkeypatch.setattr(geo_runs, "SessionLocal", ReadSession)
++    assert geo_runs.claim_collection_run(uuid4()) is None
++    assert run.status == "PENDING" and run.revision == 0
+--- /dev/null
++++ b/browser-collector/.dockerignore
+@@ -0,0 +1,2 @@
++node_modules
++.git
+--- /dev/null
++++ b/browser-collector/.gitignore
+@@ -0,0 +1 @@
++node_modules/
+--- /dev/null
++++ b/browser-collector/Dockerfile
+@@ -0,0 +1,9 @@
++FROM mcr.microsoft.com/playwright:v1.61.1-noble
++
++ENV NODE_ENV=production HOME=/tmp/collector
++WORKDIR /opt/collector
++COPY package.json package-lock.json ./
++RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
++COPY src ./src
++USER pwuser
++CMD ["node", "src/main.mjs"]
+--- /dev/null
++++ b/browser-collector/README.md
+@@ -0,0 +1,22 @@
++# Browser Collector：GEO-801 骨架
++
++独立 Node/Playwright 包与镜像；版本锁定为 1.61.1，浏览器由同版本官方镜像提供。
++普通 backend 镜像不安装本包。服务只探测内存中的离线 DOM，不打开外部 URL。
++运行方式、资源隔离、开关和安全停止以
++[部署文档](../docs/geo-monitoring/03-technical/08-deployment-and-operations.md#当前-r7geo-801-独立-browser-骨架)为准。
++
++`node src/main.mjs claim <run-uuid>` 是内部边界验证入口：只接受稳定 UUID，
++不连接 PostgreSQL/Redis、不创建 lease、不消费或确认消息。
++关闭或 STOP 存在时退出 1 / `COLLECTOR_DISABLED`；其他情况退出 1 /
++`BROWSER_ADAPTER_NOT_IMPLEMENTED`；非法输入退出 1 / `BROWSER_TASK_INVALID`。
++这两个拒绝结果不是业务 Run 的 error code，也不写入业务状态。
++后续 adapter 必须通过现有 Application Service 建立领取、发送授权和结果事务，
++不能在这里新增独立业务状态来源。
++
++回环 `GET /health` 要求 Chromium 完成实际 DOM 探测；运行时失败返回固定 503，
++采集被停用不影响容器健康。`session_probe=NOT_IMPLEMENTED` 明确区分运行时与会话健康。
++不提供 HTTP 领取、调试、登录或导航入口；不保存浏览器会话、截图、视频或 trace。
++
++本地 `npm ci` 后运行 `npm run lint`、`npm run typecheck` 和 `npm test`。
++`make test-geo-browser` 验证三个环境配置及独立真实容器，自动清理本轮随机项目/tag。
++该检查只使用本地内存页，不实现 GEO-803 的模拟 AI 站或 adapter 合同套件。
+--- /dev/null
++++ b/browser-collector/package-lock.json
+@@ -0,0 +1,97 @@
++{
++  "name": "partsignal-browser-collector",
++  "version": "0.1.0",
++  "lockfileVersion": 3,
++  "requires": true,
++  "packages": {
++    "": {
++      "name": "partsignal-browser-collector",
++      "version": "0.1.0",
++      "dependencies": {
++        "playwright": "1.61.1"
++      },
++      "devDependencies": {
++        "@types/node": "22.20.1",
++        "typescript": "5.9.3"
++      },
++      "engines": {
++        "node": ">=22"
++      }
++    },
++    "node_modules/@types/node": {
++      "version": "22.20.1",
++      "resolved": "https://registry.npmmirror.com/@types/node/-/node-22.20.1.tgz",
++      "integrity": "sha512-EANqOCF9QFyra+4pfxUcX9STKJpCLjMbObVzljIJomAWSnuSIEAvyzEU53GaajbXJEgdh0iEcPL+DGvpUd4k1Q==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "undici-types": "~6.21.0"
++      }
++    },
++    "node_modules/fsevents": {
++      "version": "2.3.2",
++      "resolved": "https://registry.npmmirror.com/fsevents/-/fsevents-2.3.2.tgz",
++      "integrity": "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==",
++      "hasInstallScript": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "engines": {
++        "node": "^8.16.0 || ^10.6.0 || >=11.0.0"
++      }
++    },
++    "node_modules/playwright": {
++      "version": "1.61.1",
++      "resolved": "https://registry.npmmirror.com/playwright/-/playwright-1.61.1.tgz",
++      "integrity": "sha512-DWnY5o3YbLWK4GovuAVwpqL+1VwGNdUGrRr++8j8PtQQzvAVZUIMjKQ90fY689sEJZJBbZVw1rXaOKSTitkzPQ==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "playwright-core": "1.61.1"
++      },
++      "bin": {
++        "playwright": "cli.js"
++      },
++      "engines": {
++        "node": ">=18"
++      },
++      "optionalDependencies": {
++        "fsevents": "2.3.2"
++      }
++    },
++    "node_modules/playwright-core": {
++      "version": "1.61.1",
++      "resolved": "https://registry.npmmirror.com/playwright-core/-/playwright-core-1.61.1.tgz",
++      "integrity": "sha512-h7Qlt6m4REp25qvIdvbDtVmD4LqVXfpRxhORv9L0jzETM05p4fuPJ3dKyuSXQxDSbXnmS79HAgi9589lGSpLkg==",
++      "license": "Apache-2.0",
++      "bin": {
++        "playwright-core": "cli.js"
++      },
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/typescript": {
++      "version": "5.9.3",
++      "resolved": "https://registry.npmmirror.com/typescript/-/typescript-5.9.3.tgz",
++      "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
++      "dev": true,
++      "license": "Apache-2.0",
++      "bin": {
++        "tsc": "bin/tsc",
++        "tsserver": "bin/tsserver"
++      },
++      "engines": {
++        "node": ">=14.17"
++      }
++    },
++    "node_modules/undici-types": {
++      "version": "6.21.0",
++      "resolved": "https://registry.npmmirror.com/undici-types/-/undici-types-6.21.0.tgz",
++      "integrity": "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==",
++      "dev": true,
++      "license": "MIT"
++    }
++  }
++}
+--- /dev/null
++++ b/browser-collector/package.json
+@@ -0,0 +1,15 @@
++{
++  "name": "partsignal-browser-collector",
++  "version": "0.1.0",
++  "private": true,
++  "type": "module",
++  "engines": { "node": ">=22" },
++  "scripts": {
++    "start": "node src/main.mjs",
++    "lint": "node --check src/service.mjs && node --check src/main.mjs && node --check src/healthcheck.mjs && node --check tests/service.test.mjs",
++    "typecheck": "tsc",
++    "test": "node --test tests/*.test.mjs"
++  },
++  "dependencies": { "playwright": "1.61.1" },
++  "devDependencies": { "@types/node": "22.20.1", "typescript": "5.9.3" }
++}
+--- /dev/null
++++ b/browser-collector/src/healthcheck.mjs
+@@ -0,0 +1,12 @@
++try {
++  const response = await fetch('http://127.0.0.1:8090/health', {
++    signal: AbortSignal.timeout(4000),
++  });
++  const health = await response.json();
++  if (!response.ok || health.status !== 'ok' || typeof health.browser_runtime !== 'string') {
++    throw new Error('BROWSER_RUNTIME_UNAVAILABLE');
++  }
++} catch {
++  console.error('BROWSER_RUNTIME_UNAVAILABLE');
++  process.exitCode = 1;
++}
+--- /dev/null
++++ b/browser-collector/src/main.mjs
+@@ -0,0 +1,72 @@
++import { chromium } from 'playwright';
++import { claimRun, createHealthServer, readConfiguration } from './service.mjs';
++
++async function main() {
++  const configuration = readConfiguration(process.env);
++  if (process.argv[2] === 'claim' && process.argv.length === 4) {
++    claimRun(process.argv[3], configuration);
++  }
++  if (process.argv.length !== 2) throw new Error('BROWSER_TASK_INVALID');
++  const browser = await chromium.launch({ headless: true, chromiumSandbox: true, timeout: 10000 });
++  let probing = false;
++  const server = createHealthServer(configuration, async () => {
++    if (probing || !browser.isConnected()) throw new Error('BROWSER_RUNTIME_UNAVAILABLE');
++    probing = true;
++    try {
++      const context = await browser.newContext({ offline: true, serviceWorkers: 'block' });
++      try {
++        const page = await context.newPage();
++        await page.setContent('<p>GEO801_RUNTIME_PROBE</p>', { timeout: 2000 });
++        if (await page.textContent('p', { timeout: 2000 }) !== 'GEO801_RUNTIME_PROBE') {
++          throw new Error('BROWSER_RUNTIME_UNAVAILABLE');
++        }
++        return browser.version();
++      } finally {
++        await context.close();
++      }
++    } finally {
++      probing = false;
++    }
++  });
++  try {
++    await new Promise((resolve, reject) => {
++      server.once('error', reject);
++      server.listen(8090, '127.0.0.1', () => resolve(undefined));
++    });
++  } catch (error) {
++    await browser.close();
++    throw error;
++  }
++  console.log('BROWSER_SKELETON_STARTED');
++  let closing = false;
++  const close = async () => {
++    if (closing) return;
++    closing = true;
++    const deadline = setTimeout(() => process.exit(1), 5000);
++    try {
++      server.close();
++      server.closeAllConnections();
++      await browser.close();
++      clearTimeout(deadline);
++    } catch {
++      process.exitCode = 1;
++    }
++  };
++  process.once('SIGTERM', close);
++  process.once('SIGINT', close);
++  browser.on('disconnected', () => {
++    if (!closing) {
++      server.close();
++      server.closeAllConnections();
++      process.exitCode = 1;
++    }
++  });
++}
++
++main().catch((error) => {
++  const safeCodes = ['BROWSER_CONFIGURATION_INVALID', 'BROWSER_TASK_INVALID',
++    'COLLECTOR_DISABLED', 'BROWSER_ADAPTER_NOT_IMPLEMENTED'];
++  console.error(error instanceof Error && safeCodes.includes(error.message)
++    ? error.message : 'BROWSER_STARTUP_FAILED');
++  process.exitCode = 1;
++});
+--- /dev/null
++++ b/browser-collector/src/service.mjs
+@@ -0,0 +1,91 @@
++import { lstatSync, statSync } from 'node:fs';
++import { createServer } from 'node:http';
++import { dirname } from 'node:path';
++
++/** @param {NodeJS.ProcessEnv} environment */
++export function readConfiguration(environment) {
++  /** @param {string} key */
++  const flag = (key) => {
++    const value = environment[key] ?? 'false';
++    // 对齐后端 Pydantic bool 输入；显式空值与未知值不得退回默认。
++    if (/^(1|true|on|yes|y|t)$/i.test(value)) return true;
++    if (/^(0|false|off|no|n|f)$/i.test(value)) return false;
++    throw new Error('BROWSER_CONFIGURATION_INVALID');
++  };
++  const monitoring = flag('GEO_MONITORING_ENABLED');
++  const enabled = flag('GEO_BROWSER_COLLECTION_ENABLED');
++  if (enabled && !monitoring) throw new Error('BROWSER_CONFIGURATION_INVALID');
++  const controlFile = environment.GEO_BROWSER_KILL_SWITCH_FILE ?? '/run/control/STOP';
++  if (!controlFile.startsWith('/')) throw new Error('BROWSER_CONFIGURATION_INVALID');
++  return Object.freeze({ monitoring, enabled, controlFile });
++}
++
++/** @param {string} controlFile */
++function stopped(controlFile) {
++  try {
++    // 控制目录缺失或不可读不能等同于“允许”；每次入口与健康请求均重新检查。
++    const directory = statSync(dirname(controlFile));
++    if (!directory.isDirectory()) return true;
++    lstatSync(controlFile);
++    return true;
++  } catch (error) {
++    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
++      try {
++        return !statSync(dirname(controlFile)).isDirectory();
++      } catch {
++        return true;
++      }
++    }
++    return true;
++  }
++}
++
++/** @param {ReturnType<typeof readConfiguration>} configuration */
++export function admissionCode(configuration) {
++  if (!configuration.monitoring || !configuration.enabled || stopped(configuration.controlFile)) {
++    return 'COLLECTOR_DISABLED';
++  }
++  return 'BROWSER_ADAPTER_NOT_IMPLEMENTED';
++}
++
++/**
++ * 内部任务入口只接收稳定 Run UUID。GEO-801 没有批准 adapter/会话/发送授权，
++ * 必须在取得业务 lease、读取问题或连接 Broker 之前拒绝，不消费或确认现有任务。
++ * @param {unknown} runId
++ * @param {ReturnType<typeof readConfiguration>} configuration
++ */
++export function claimRun(runId, configuration) {
++  if (typeof runId !== 'string' || !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(runId)) {
++    throw new Error('BROWSER_TASK_INVALID');
++  }
++  throw new Error(admissionCode(configuration));
++}
++
++/**
++ * @param {ReturnType<typeof readConfiguration>} configuration
++ * @param {() => Promise<string>} probeRuntime
++ */
++export function createHealthServer(configuration, probeRuntime) {
++  // 仅容器回环健康端点；不暴露领取、登录、调试或任意 URL 导航 API。
++  const server = createServer(async (request, response) => {
++    if (request.method !== 'GET' || request.url !== '/health') {
++      response.writeHead(404).end();
++      return;
++    }
++    try {
++      const version = await probeRuntime();
++      response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
++      response.end(JSON.stringify({
++        status: 'ok', browser_runtime: version, collection: admissionCode(configuration),
++        session_probe: 'NOT_IMPLEMENTED',
++      }));
++    } catch {
++      // 浏览器异常可包含路径/正文；只返回固定失败，不打印第三方异常或 traceback。
++      response.writeHead(503, { 'Content-Type': 'application/json' });
++      response.end(JSON.stringify({ status: 'error', code: 'BROWSER_RUNTIME_UNAVAILABLE' }));
++    }
++  });
++  server.requestTimeout = 5000;
++  server.headersTimeout = 5000;
++  return server;
++}
+--- /dev/null
++++ b/browser-collector/tests/service.test.mjs
+@@ -0,0 +1,70 @@
++import assert from 'node:assert/strict';
++import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
++import { tmpdir } from 'node:os';
++import { join } from 'node:path';
++import { test } from 'node:test';
++import { admissionCode, claimRun, createHealthServer, readConfiguration } from '../src/service.mjs';
++
++const runId = '7fca3868-ad19-44ef-9d81-deb3d595ed29';
++
++test('默认关闭与父子配置拒绝；未知值不回退', () => {
++  assert.equal(admissionCode(readConfiguration({})), 'COLLECTOR_DISABLED');
++  for (const value of ['', 'unknown', 'false ']) {
++    assert.throws(() => readConfiguration({ GEO_MONITORING_ENABLED: value }),
++      /BROWSER_CONFIGURATION_INVALID/);
++  }
++  assert.throws(() => readConfiguration({ GEO_BROWSER_COLLECTION_ENABLED: 'true' }),
++    /BROWSER_CONFIGURATION_INVALID/);
++  assert.throws(() => readConfiguration({ GEO_BROWSER_KILL_SWITCH_FILE: 'relative' }),
++    /BROWSER_CONFIGURATION_INVALID/);
++});
++
++test('仅 UUID 入口；开关和热停止不领取 lease；未实现采集显式拒绝', () => {
++  const directory = mkdtempSync(join(tmpdir(), 'geo801-'));
++  const marker = join(directory, 'STOP');
++  const configuration = readConfiguration({
++    GEO_MONITORING_ENABLED: 'true', GEO_BROWSER_COLLECTION_ENABLED: 'true',
++    GEO_BROWSER_KILL_SWITCH_FILE: marker,
++  });
++  try {
++    assert.throws(() => claimRun(runId, configuration), /BROWSER_ADAPTER_NOT_IMPLEMENTED/);
++    for (const value of [null, { run_id: runId, prompt: '禁止正文' }, runId + '?secret=canary']) {
++      assert.throws(() => claimRun(value, configuration), /BROWSER_TASK_INVALID/);
++    }
++    writeFileSync(marker, '');
++    assert.throws(() => claimRun(runId, configuration), /COLLECTOR_DISABLED/);
++    rmSync(marker);
++    assert.throws(() => claimRun(runId, configuration), /BROWSER_ADAPTER_NOT_IMPLEMENTED/);
++    symlinkSync(join(directory, 'missing'), marker);
++    assert.throws(() => claimRun(runId, configuration), /COLLECTOR_DISABLED/);
++    rmSync(marker);
++    rmSync(directory, { recursive: true });
++    assert.throws(() => claimRun(runId, configuration), /COLLECTOR_DISABLED/);
++  } finally {
++    rmSync(directory, { recursive: true, force: true });
++  }
++});
++
++test('健康需要实际 runtime 结果；失败摘要不暴露异常；无任务 HTTP 入口', async () => {
++  let unavailable = false;
++  const server = createHealthServer(readConfiguration({}), async () => {
++    if (unavailable) throw new Error('Cookie canary /secret/path');
++    return 'unit-runtime-version';
++  });
++  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
++  const url = `http://127.0.0.1:${server.address().port}`;
++  try {
++    const health = await (await fetch(url + '/health')).json();
++    assert.equal(health.collection, 'COLLECTOR_DISABLED');
++    assert.equal(health.session_probe, 'NOT_IMPLEMENTED');
++    assert.equal(health.browser_runtime, 'unit-runtime-version');
++    assert.equal((await fetch(url + '/claim', { method: 'POST' })).status, 404);
++    unavailable = true;
++    const failure = await fetch(url + '/health');
++    assert.equal(failure.status, 503);
++    assert.deepEqual(await failure.json(), { status: 'error', code: 'BROWSER_RUNTIME_UNAVAILABLE' });
++  } finally {
++    server.closeAllConnections();
++    await new Promise((resolve) => server.close(resolve));
++  }
++});
+--- /dev/null
++++ b/browser-collector/tsconfig.json
+@@ -0,0 +1,8 @@
++{
++  "compilerOptions": {
++    "allowJs": true, "checkJs": true, "noEmit": true, "strict": true,
++    "target": "ES2022", "module": "NodeNext", "moduleResolution": "NodeNext",
++    "skipLibCheck": true
++  },
++  "include": ["src/**/*.mjs"]
++}
+--- /dev/null
++++ b/deploy/compose.geo-browser.yaml
+@@ -0,0 +1,45 @@
++# GEO-801 仅运行隔离骨架；后续 adapter 的批准 egress 必须在对应任务中单独建立。
++services:
++  browser-collector:
++    image: ${PARTSIGNAL_BROWSER_COLLECTOR_IMAGE:-partsignal-browser-collector}:${PARTSIGNAL_BROWSER_COLLECTOR_VERSION:-geo801}
++    build:
++      context: ../browser-collector
++    profiles: [geo-browser]
++    init: true
++    user: pwuser
++    network_mode: none
++    read_only: true
++    cap_drop: [ALL]
++    security_opt:
++      - no-new-privileges:true
++      - seccomp=./geo-browser-seccomp.json
++    environment:
++      GEO_MONITORING_ENABLED: ${GEO_MONITORING_ENABLED-false}
++      GEO_BROWSER_COLLECTION_ENABLED: ${GEO_BROWSER_COLLECTION_ENABLED-false}
++      GEO_BROWSER_KILL_SWITCH_FILE: /run/control/STOP
++    volumes:
++      - type: bind
++        source: ${PARTSIGNAL_GEO_BROWSER_CONTROL_DIR:-./geo-browser-control}
++        target: /run/control
++        read_only: true
++        bind:
++          create_host_path: false
++    tmpfs:
++      - /tmp:size=128m,nosuid,nodev,mode=1777
++    shm_size: 128m
++    mem_limit: 1g
++    cpus: 1.0
++    pids_limit: 128
++    restart: 'no'
++    stop_grace_period: 10s
++    healthcheck:
++      test: [CMD, node, src/healthcheck.mjs]
++      interval: 10s
++      timeout: 5s
++      start_period: 15s
++      retries: 3
++    logging:
++      driver: json-file
++      options:
++        max-size: 10m
++        max-file: '3'
+--- /dev/null
++++ b/deploy/geo-browser-control/STOP
+@@ -0,0 +1 @@
++GEO-801 默认停止领取新浏览器任务。移除此标记不授予 adapter 或平台批准。
+--- /dev/null
++++ b/deploy/geo-browser-seccomp.json
+@@ -0,0 +1,832 @@
++{
++	"defaultAction": "SCMP_ACT_ERRNO",
++	"archMap": [
++		{
++			"architecture": "SCMP_ARCH_X86_64",
++			"subArchitectures": [
++				"SCMP_ARCH_X86",
++				"SCMP_ARCH_X32"
++			]
++		},
++		{
++			"architecture": "SCMP_ARCH_AARCH64",
++			"subArchitectures": [
++				"SCMP_ARCH_ARM"
++			]
++		},
++		{
++			"architecture": "SCMP_ARCH_MIPS64",
++			"subArchitectures": [
++				"SCMP_ARCH_MIPS",
++				"SCMP_ARCH_MIPS64N32"
++			]
++		},
++		{
++			"architecture": "SCMP_ARCH_MIPS64N32",
++			"subArchitectures": [
++				"SCMP_ARCH_MIPS",
++				"SCMP_ARCH_MIPS64"
++			]
++		},
++		{
++			"architecture": "SCMP_ARCH_MIPSEL64",
++			"subArchitectures": [
++				"SCMP_ARCH_MIPSEL",
++				"SCMP_ARCH_MIPSEL64N32"
++			]
++		},
++		{
++			"architecture": "SCMP_ARCH_MIPSEL64N32",
++			"subArchitectures": [
++				"SCMP_ARCH_MIPSEL",
++				"SCMP_ARCH_MIPSEL64"
++			]
++		},
++		{
++			"architecture": "SCMP_ARCH_S390X",
++			"subArchitectures": [
++				"SCMP_ARCH_S390"
++			]
++		}
++	],
++	"syscalls": [
++		{
++			"comment": "Chromium sandbox: user namespaces and chroot inside the child namespace; kernel capability checks remain enforced",
++			"names": [
++				"clone",
++				"setns",
++				"unshare",
++				"chroot"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [],
++			"includes": {},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"accept",
++				"accept4",
++				"access",
++				"adjtimex",
++				"alarm",
++				"bind",
++				"brk",
++				"capget",
++				"capset",
++				"chdir",
++				"chmod",
++				"chown",
++				"chown32",
++				"clock_adjtime",
++				"clock_adjtime64",
++				"clock_getres",
++				"clock_getres_time64",
++				"clock_gettime",
++				"clock_gettime64",
++				"clock_nanosleep",
++				"clock_nanosleep_time64",
++				"close",
++				"connect",
++				"copy_file_range",
++				"creat",
++				"dup",
++				"dup2",
++				"dup3",
++				"epoll_create",
++				"epoll_create1",
++				"epoll_ctl",
++				"epoll_ctl_old",
++				"epoll_pwait",
++				"epoll_wait",
++				"epoll_wait_old",
++				"eventfd",
++				"eventfd2",
++				"execve",
++				"execveat",
++				"exit",
++				"exit_group",
++				"faccessat",
++				"fadvise64",
++				"fadvise64_64",
++				"fallocate",
++				"fanotify_mark",
++				"fchdir",
++				"fchmod",
++				"fchmodat",
++				"fchown",
++				"fchown32",
++				"fchownat",
++				"fcntl",
++				"fcntl64",
++				"fdatasync",
++				"fgetxattr",
++				"flistxattr",
++				"flock",
++				"fork",
++				"fremovexattr",
++				"fsetxattr",
++				"fstat",
++				"fstat64",
++				"fstatat64",
++				"fstatfs",
++				"fstatfs64",
++				"fsync",
++				"ftruncate",
++				"ftruncate64",
++				"futex",
++				"futex_time64",
++				"futimesat",
++				"getcpu",
++				"getcwd",
++				"getdents",
++				"getdents64",
++				"getegid",
++				"getegid32",
++				"geteuid",
++				"geteuid32",
++				"getgid",
++				"getgid32",
++				"getgroups",
++				"getgroups32",
++				"getitimer",
++				"getpeername",
++				"getpgid",
++				"getpgrp",
++				"getpid",
++				"getppid",
++				"getpriority",
++				"getrandom",
++				"getresgid",
++				"getresgid32",
++				"getresuid",
++				"getresuid32",
++				"getrlimit",
++				"get_robust_list",
++				"getrusage",
++				"getsid",
++				"getsockname",
++				"getsockopt",
++				"get_thread_area",
++				"gettid",
++				"gettimeofday",
++				"getuid",
++				"getuid32",
++				"getxattr",
++				"inotify_add_watch",
++				"inotify_init",
++				"inotify_init1",
++				"inotify_rm_watch",
++				"io_cancel",
++				"ioctl",
++				"io_destroy",
++				"io_getevents",
++				"io_pgetevents",
++				"io_pgetevents_time64",
++				"ioprio_get",
++				"ioprio_set",
++				"io_setup",
++				"io_submit",
++				"io_uring_enter",
++				"io_uring_register",
++				"io_uring_setup",
++				"ipc",
++				"kill",
++				"lchown",
++				"lchown32",
++				"lgetxattr",
++				"link",
++				"linkat",
++				"listen",
++				"listxattr",
++				"llistxattr",
++				"_llseek",
++				"lremovexattr",
++				"lseek",
++				"lsetxattr",
++				"lstat",
++				"lstat64",
++				"madvise",
++				"membarrier",
++				"memfd_create",
++				"mincore",
++				"mkdir",
++				"mkdirat",
++				"mknod",
++				"mknodat",
++				"mlock",
++				"mlock2",
++				"mlockall",
++				"mmap",
++				"mmap2",
++				"mprotect",
++				"mq_getsetattr",
++				"mq_notify",
++				"mq_open",
++				"mq_timedreceive",
++				"mq_timedreceive_time64",
++				"mq_timedsend",
++				"mq_timedsend_time64",
++				"mq_unlink",
++				"mremap",
++				"msgctl",
++				"msgget",
++				"msgrcv",
++				"msgsnd",
++				"msync",
++				"munlock",
++				"munlockall",
++				"munmap",
++				"nanosleep",
++				"newfstatat",
++				"_newselect",
++				"open",
++				"openat",
++				"pause",
++				"pipe",
++				"pipe2",
++				"poll",
++				"ppoll",
++				"ppoll_time64",
++				"prctl",
++				"pread64",
++				"preadv",
++				"preadv2",
++				"prlimit64",
++				"pselect6",
++				"pselect6_time64",
++				"pwrite64",
++				"pwritev",
++				"pwritev2",
++				"read",
++				"readahead",
++				"readlink",
++				"readlinkat",
++				"readv",
++				"recv",
++				"recvfrom",
++				"recvmmsg",
++				"recvmmsg_time64",
++				"recvmsg",
++				"remap_file_pages",
++				"removexattr",
++				"rename",
++				"renameat",
++				"renameat2",
++				"restart_syscall",
++				"rmdir",
++				"rseq",
++				"rt_sigaction",
++				"rt_sigpending",
++				"rt_sigprocmask",
++				"rt_sigqueueinfo",
++				"rt_sigreturn",
++				"rt_sigsuspend",
++				"rt_sigtimedwait",
++				"rt_sigtimedwait_time64",
++				"rt_tgsigqueueinfo",
++				"sched_getaffinity",
++				"sched_getattr",
++				"sched_getparam",
++				"sched_get_priority_max",
++				"sched_get_priority_min",
++				"sched_getscheduler",
++				"sched_rr_get_interval",
++				"sched_rr_get_interval_time64",
++				"sched_setaffinity",
++				"sched_setattr",
++				"sched_setparam",
++				"sched_setscheduler",
++				"sched_yield",
++				"seccomp",
++				"select",
++				"semctl",
++				"semget",
++				"semop",
++				"semtimedop",
++				"semtimedop_time64",
++				"send",
++				"sendfile",
++				"sendfile64",
++				"sendmmsg",
++				"sendmsg",
++				"sendto",
++				"setfsgid",
++				"setfsgid32",
++				"setfsuid",
++				"setfsuid32",
++				"setgid",
++				"setgid32",
++				"setgroups",
++				"setgroups32",
++				"setitimer",
++				"setpgid",
++				"setpriority",
++				"setregid",
++				"setregid32",
++				"setresgid",
++				"setresgid32",
++				"setresuid",
++				"setresuid32",
++				"setreuid",
++				"setreuid32",
++				"setrlimit",
++				"set_robust_list",
++				"setsid",
++				"setsockopt",
++				"set_thread_area",
++				"set_tid_address",
++				"setuid",
++				"setuid32",
++				"setxattr",
++				"shmat",
++				"shmctl",
++				"shmdt",
++				"shmget",
++				"shutdown",
++				"sigaltstack",
++				"signalfd",
++				"signalfd4",
++				"sigprocmask",
++				"sigreturn",
++				"socket",
++				"socketcall",
++				"socketpair",
++				"splice",
++				"stat",
++				"stat64",
++				"statfs",
++				"statfs64",
++				"statx",
++				"symlink",
++				"symlinkat",
++				"sync",
++				"sync_file_range",
++				"syncfs",
++				"sysinfo",
++				"tee",
++				"tgkill",
++				"time",
++				"timer_create",
++				"timer_delete",
++				"timer_getoverrun",
++				"timer_gettime",
++				"timer_gettime64",
++				"timer_settime",
++				"timer_settime64",
++				"timerfd_create",
++				"timerfd_gettime",
++				"timerfd_gettime64",
++				"timerfd_settime",
++				"timerfd_settime64",
++				"times",
++				"tkill",
++				"truncate",
++				"truncate64",
++				"ugetrlimit",
++				"umask",
++				"uname",
++				"unlink",
++				"unlinkat",
++				"utime",
++				"utimensat",
++				"utimensat_time64",
++				"utimes",
++				"vfork",
++				"vmsplice",
++				"wait4",
++				"waitid",
++				"waitpid",
++				"write",
++				"writev"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [],
++			"comment": "",
++			"includes": {},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"ptrace"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": null,
++			"comment": "",
++			"includes": {
++				"minKernel": "4.8"
++			},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"personality"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [
++				{
++					"index": 0,
++					"value": 0,
++					"valueTwo": 0,
++					"op": "SCMP_CMP_EQ"
++				}
++			],
++			"comment": "",
++			"includes": {},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"personality"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [
++				{
++					"index": 0,
++					"value": 8,
++					"valueTwo": 0,
++					"op": "SCMP_CMP_EQ"
++				}
++			],
++			"comment": "",
++			"includes": {},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"personality"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [
++				{
++					"index": 0,
++					"value": 131072,
++					"valueTwo": 0,
++					"op": "SCMP_CMP_EQ"
++				}
++			],
++			"comment": "",
++			"includes": {},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"personality"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [
++				{
++					"index": 0,
++					"value": 131080,
++					"valueTwo": 0,
++					"op": "SCMP_CMP_EQ"
++				}
++			],
++			"comment": "",
++			"includes": {},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"personality"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [
++				{
++					"index": 0,
++					"value": 4294967295,
++					"valueTwo": 0,
++					"op": "SCMP_CMP_EQ"
++				}
++			],
++			"comment": "",
++			"includes": {},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"sync_file_range2"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [],
++			"comment": "",
++			"includes": {
++				"arches": [
++					"ppc64le"
++				]
++			},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"arm_fadvise64_64",
++				"arm_sync_file_range",
++				"sync_file_range2",
++				"breakpoint",
++				"cacheflush",
++				"set_tls"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [],
++			"comment": "",
++			"includes": {
++				"arches": [
++					"arm",
++					"arm64"
++				]
++			},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"arch_prctl"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [],
++			"comment": "",
++			"includes": {
++				"arches": [
++					"amd64",
++					"x32"
++				]
++			},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"modify_ldt"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [],
++			"comment": "",
++			"includes": {
++				"arches": [
++					"amd64",
++					"x32",
++					"x86"
++				]
++			},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"s390_pci_mmio_read",
++				"s390_pci_mmio_write",
++				"s390_runtime_instr"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [],
++			"comment": "",
++			"includes": {
++				"arches": [
++					"s390",
++					"s390x"
++				]
++			},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"open_by_handle_at"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [],
++			"comment": "",
++			"includes": {
++				"caps": [
++					"CAP_DAC_READ_SEARCH"
++				]
++			},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"bpf",
++				"clone",
++				"fanotify_init",
++				"lookup_dcookie",
++				"mount",
++				"name_to_handle_at",
++				"perf_event_open",
++				"quotactl",
++				"setdomainname",
++				"sethostname",
++				"setns",
++				"syslog",
++				"umount",
++				"umount2",
++				"unshare"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [],
++			"comment": "",
++			"includes": {
++				"caps": [
++					"CAP_SYS_ADMIN"
++				]
++			},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"clone"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [
++				{
++					"index": 0,
++					"value": 2114060288,
++					"valueTwo": 0,
++					"op": "SCMP_CMP_MASKED_EQ"
++				}
++			],
++			"comment": "",
++			"includes": {},
++			"excludes": {
++				"caps": [
++					"CAP_SYS_ADMIN"
++				],
++				"arches": [
++					"s390",
++					"s390x"
++				]
++			}
++		},
++		{
++			"names": [
++				"clone"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [
++				{
++					"index": 1,
++					"value": 2114060288,
++					"valueTwo": 0,
++					"op": "SCMP_CMP_MASKED_EQ"
++				}
++			],
++			"comment": "s390 parameter ordering for clone is different",
++			"includes": {
++				"arches": [
++					"s390",
++					"s390x"
++				]
++			},
++			"excludes": {
++				"caps": [
++					"CAP_SYS_ADMIN"
++				]
++			}
++		},
++		{
++			"names": [
++				"reboot"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [],
++			"comment": "",
++			"includes": {
++				"caps": [
++					"CAP_SYS_BOOT"
++				]
++			},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"chroot"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [],
++			"comment": "",
++			"includes": {
++				"caps": [
++					"CAP_SYS_CHROOT"
++				]
++			},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"delete_module",
++				"init_module",
++				"finit_module"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [],
++			"comment": "",
++			"includes": {
++				"caps": [
++					"CAP_SYS_MODULE"
++				]
++			},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"acct"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [],
++			"comment": "",
++			"includes": {
++				"caps": [
++					"CAP_SYS_PACCT"
++				]
++			},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"kcmp",
++				"process_vm_readv",
++				"process_vm_writev",
++				"ptrace"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [],
++			"comment": "",
++			"includes": {
++				"caps": [
++					"CAP_SYS_PTRACE"
++				]
++			},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"iopl",
++				"ioperm"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [],
++			"comment": "",
++			"includes": {
++				"caps": [
++					"CAP_SYS_RAWIO"
++				]
++			},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"settimeofday",
++				"stime",
++				"clock_settime"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [],
++			"comment": "",
++			"includes": {
++				"caps": [
++					"CAP_SYS_TIME"
++				]
++			},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"vhangup"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [],
++			"comment": "",
++			"includes": {
++				"caps": [
++					"CAP_SYS_TTY_CONFIG"
++				]
++			},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"get_mempolicy",
++				"mbind",
++				"set_mempolicy"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [],
++			"comment": "",
++			"includes": {
++				"caps": [
++					"CAP_SYS_NICE"
++				]
++			},
++			"excludes": {}
++		},
++		{
++			"names": [
++				"syslog"
++			],
++			"action": "SCMP_ACT_ALLOW",
++			"args": [],
++			"comment": "",
++			"includes": {
++				"caps": [
++					"CAP_SYSLOG"
++				]
++			},
++			"excludes": {}
++		}
++	]
++}
+--- /dev/null
++++ b/deploy/scripts/test-geo-browser.py
+@@ -0,0 +1,192 @@
++#!/usr/bin/env python3
++"""独立 Browser Compose/镜像边界与可选真实 runtime 验收；只使用本地内存页面。"""
++
++import argparse
++import json
++import os
++from pathlib import Path
++import subprocess
++import tempfile
++import time
++from uuid import uuid4
++
++ROOT = Path(__file__).resolve().parents[2]
++RUN_ID = "7fca3868-ad19-44ef-9d81-deb3d595ed29"
++
++
++def execute(command, *, env=None, expected=0):
++    result = subprocess.run(
++        command, cwd=ROOT, env=env, capture_output=True, text=True, timeout=180
++    )
++    if result.returncode != expected:
++        # 此入口只接收自行构造的无secret环境，不输出完整Compose配置。
++        raise AssertionError(f"命令失败：{command[0:3]}\n{result.stdout}\n{result.stderr}")
++    return result.stdout
++
++
++def configuration_checks(owner):
++    runtime = owner / ".env"
++    runtime.write_text((ROOT / ".env.example").read_text())
++    deploy = owner / "deploy"
++    deploy.mkdir()
++    (owner / ".env.staging").write_text(runtime.read_text())
++    for name in ("dev", "staging", "prod", "geo-browser"):
++        (deploy / f"compose.{name}.yaml").write_text(
++            (ROOT / f"deploy/compose.{name}.yaml").read_text()
++        )
++    env = {
++        "PATH": os.environ["PATH"], "PARTSIGNAL_VERSION": "geo801-test",
++        "PARTSIGNAL_BACKEND_IMAGE": "partsignal-backend",
++        "PARTSIGNAL_FRONTEND_IMAGE": "partsignal-frontend-v2",
++        "PARTSIGNAL_RUNTIME_ENV_FILE": str(runtime), "PARTSIGNAL_DATA_ROOT": str(owner / "data"),
++    }
++    for environment in ("dev", "staging", "prod"):
++        base = ["docker", "compose", "--env-file", str(runtime),
++                "-f", str(deploy / f"compose.{environment}.yaml")]
++        default = json.loads(execute(base + ["config", "--format", "json"], env=env))
++        assert "browser-collector" not in default["services"]
++        configured = json.loads(execute(
++            base + ["--profile", "geo-browser", "config", "--format", "json"], env=env
++        ))
++        service = configured["services"]["browser-collector"]
++        assert service["profiles"] == ["geo-browser"]
++        assert service["network_mode"] == "none" and not service.get("networks")
++        assert not service.get("ports") and not service.get("depends_on")
++        assert service["read_only"] and service["init"] and service["user"] == "pwuser"
++        assert service["cap_drop"] == ["ALL"] and not service.get("cap_add")
++        assert service["pids_limit"] == 128 and service["cpus"] == 1
++        assert int(service["mem_limit"]) == 1024**3
++        assert service["restart"] == "no"
++        assert "no-new-privileges:true" in service["security_opt"]
++        assert any(value.startswith("seccomp=") for value in service["security_opt"])
++        assert service["environment"] == {
++            "GEO_MONITORING_ENABLED": "false", "GEO_BROWSER_COLLECTION_ENABLED": "false",
++            "GEO_BROWSER_KILL_SWITCH_FILE": "/run/control/STOP",
++        }
++        assert len(service["volumes"]) == 1
++        assert service["volumes"][0]["target"] == "/run/control"
++        assert service["volumes"][0]["read_only"]
++        empty = json.loads(execute(
++            base + ["--profile", "geo-browser", "config", "--format", "json"],
++            env={**env, "GEO_MONITORING_ENABLED": "", "GEO_BROWSER_COLLECTION_ENABLED": ""}
++        ))["services"]["browser-collector"]["environment"]
++        assert empty["GEO_MONITORING_ENABLED"] == empty["GEO_BROWSER_COLLECTION_ENABLED"] == ""
++        for role in ("api", "worker", "scheduler"):
++            # production-async 本来默认不包含Worker/Beat，按其原profile单独解析。
++            selected = configured if role in configured["services"] else json.loads(execute(
++                base + ["--profile", "production-async", "config", "--format", "json"], env=env
++            ))
++            ordinary = selected["services"][role]
++            if "image" in ordinary:
++                assert ordinary["image"] != service["image"]
++            assert all(v.get("target") != "/run/control" for v in ordinary.get("volumes", []))
++    seccomp = json.loads((ROOT / "deploy/geo-browser-seccomp.json").read_text())
++    assert seccomp["defaultAction"] == "SCMP_ACT_ERRNO"
++    assert set(seccomp["syscalls"][0]["names"]) == {"clone", "setns", "unshare", "chroot"}
++    print("Compose dev/staging/prod：默认无Browser；profile/资源/网络/凭据隔离通过")
++
++
++def runtime_checks(owner):
++    project = f"partsignal-geo801-{uuid4().hex[:12]}"
++    image = f"partsignal-browser-collector:{project}"
++    control = owner / "control"
++    control.mkdir()
++    marker = control / "STOP"
++    marker.touch()
++    env = {"PATH": os.environ["PATH"], "HOME": os.environ["HOME"],
++           "PARTSIGNAL_BROWSER_COLLECTOR_VERSION": project,
++           "PARTSIGNAL_GEO_BROWSER_CONTROL_DIR": str(control)}
++    base = ["docker", "compose", "-p", project,
++            "-f", str(ROOT / "deploy/compose.geo-browser.yaml")]
++    active = base + ["--profile", "geo-browser"]
++    built = False
++    try:
++        # 真正执行默认up，不能只拿config中缺少service当未启动证据。
++        execute(base + ["up", "-d", "--no-build", "--pull", "never"], env=env, expected=1)
++        assert not execute(base + ["ps", "--all", "-q"], env=env).strip()
++        execute(["docker", "build", "-t", image, str(ROOT / "browser-collector")], env=env)
++        built = True
++        env.update(GEO_MONITORING_ENABLED="", GEO_BROWSER_COLLECTION_ENABLED="")
++        execute(active + ["up", "-d", "--no-build", "--pull", "never",
++                          "--wait", "--wait-timeout", "40"], env=env, expected=1)
++        logs = execute(active + ["logs", "--no-log-prefix", "browser-collector"], env=env)
++        assert logs.strip() == "BROWSER_CONFIGURATION_INVALID"
++        env.update(GEO_MONITORING_ENABLED="false", GEO_BROWSER_COLLECTION_ENABLED="false")
++        execute(active + ["up", "-d", "--no-build", "--pull", "never",
++                          "--wait", "--wait-timeout", "40"], env=env)
++        container = execute(active + ["ps", "-q", "browser-collector"], env=env).strip()
++        inspected = json.loads(execute(["docker", "inspect", container], env=env))[0]
++        assert inspected["State"]["Health"]["Status"] == "healthy"
++        config = inspected["HostConfig"]
++        assert config["NetworkMode"] == "none" and config["ReadonlyRootfs"]
++        assert config["CapDrop"] == ["ALL"] and not config["CapAdd"]
++        assert config["Memory"] == 1024**3 and config["PidsLimit"] == 128
++        assert config["NanoCpus"] == 10**9 and not config["PortBindings"]
++        assert not any(value.split("=", 1)[0] in {"DATABASE_URL", "REDIS_URL", "SESSION_SECRET",
++                         "AI_CREDENTIAL_ENCRYPTION_KEY"} for value in inspected["Config"]["Env"])
++        execute(active + ["exec", "-T", "browser-collector", "node", "-e",
++                "const n=require('node:os').networkInterfaces();"
++                "if(Object.keys(n).some(k=>k!=='lo')||process.getuid()===0)process.exit(1)"], env=env)
++
++        def health():
++            return json.loads(execute(active + ["exec", "-T", "browser-collector", "node", "-e",
++                "fetch('http://127.0.0.1:8090/health').then(r=>r.json()).then(h=>console.log(JSON.stringify(h)))"], env=env))
++
++        def refused(code):
++            output = subprocess.run(active + ["exec", "-T", "browser-collector", "node",
++                    "src/main.mjs", "claim", RUN_ID], cwd=ROOT, env=env,
++                    capture_output=True, text=True, timeout=10)
++            assert output.returncode == 1 and output.stderr.strip() == code
++
++        def admission(code):
++            # Desktop bind 的宿主写入可短暂延迟可见；只等观测状态，超过5秒即失败。
++            deadline = time.monotonic() + 5
++            while True:
++                result = health()
++                if result["collection"] == code:
++                    return
++                assert time.monotonic() < deadline, result
++                time.sleep(0.1)
++
++        assert health()["collection"] == "COLLECTOR_DISABLED"
++        refused("COLLECTOR_DISABLED")
++        env.update(GEO_MONITORING_ENABLED="true", GEO_BROWSER_COLLECTION_ENABLED="true")
++        execute(active + ["up", "-d", "--force-recreate", "--no-build", "--pull", "never",
++                          "--wait", "--wait-timeout", "40"], env=env)
++        refused("COLLECTOR_DISABLED")
++        marker.unlink()
++        admission("BROWSER_ADAPTER_NOT_IMPLEMENTED")
++        refused("BROWSER_ADAPTER_NOT_IMPLEMENTED")
++        marker.touch()
++        admission("COLLECTOR_DISABLED")
++        refused("COLLECTOR_DISABLED")
++        assert health()["session_probe"] == "NOT_IMPLEMENTED"
++        execute(active + ["stop", "-t", "10"], env=env)
++        container = execute(active + ["ps", "--all", "-q", "browser-collector"], env=env).strip()
++        state = json.loads(execute(["docker", "inspect", container], env=env))[0]["State"]
++        assert state["ExitCode"] == 0 and not state["Running"]
++        print("真实容器：sandbox离线DOM健康、默认up零容器、非root/资源/网络、热kill、显式拒绝、正常停止通过")
++    finally:
++        execute(active + ["down", "--volumes", "--remove-orphans"], env=env)
++        assert not execute(active + ["ps", "--all", "-q"], env=env).strip()
++        # 只删除本轮随机tag，不清理共享镜像/其他项目。
++        if built:
++            execute(["docker", "image", "rm", image], env=env)
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--runtime", action="store_true")
++    args = parser.parse_args()
++    # Docker Desktop 未必共享系统临时目录；仓库已共享路径用于实际 bind 验证。
++    cache = ROOT / ".cache"
++    cache.mkdir(exist_ok=True)
++    with tempfile.TemporaryDirectory(prefix="geo801-", dir=cache) as temporary:
++        owner = Path(temporary)
++        configuration_checks(owner)
++        if args.runtime:
++            runtime_checks(owner)
++
++
++if __name__ == "__main__":
++    main()

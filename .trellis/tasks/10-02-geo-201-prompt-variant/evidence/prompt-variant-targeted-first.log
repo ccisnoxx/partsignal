@@ -1,0 +1,69 @@
+F......................F.F.                                              [100%]
+=================================== FAILURES ===================================
+_______________ test_normalization_preserves_question_semantics ________________
+
+    def test_normalization_preserves_question_semantics() -> None:
+        model = GeoPromptVariantCreate.model_validate(payload())
+>       assert model.prompt_text == "PS-10A 替代？"
+E       AssertionError: assert 'PS-10A 替代?' == 'PS-10A 替代？'
+E         
+E         - PS-10A 替代？
+E         ?          ^
+E         + PS-10A 替代?
+E         ?          ^
+
+backend/tests/unit/test_geo_prompt_variant_contract.py:43: AssertionError
+_____________ test_history_only_allows_disable_and_mark_rolls_back _____________
+
+connection = <psycopg.Connection [INTRANS] (host=localhost port=55441 user=partsignal database=partsignal_geo201_5b7a7c3971) at 0x10e94cad0>
+variant_database = VariantDatabase(url='postgresql://partsignal:partsignal_dev@localhost:55441/partsignal_geo201_5b7a7c3971', env={'ATUIN...D', 'canonical_name': '原品牌', 'normalized_name': '原品牌', 'parent_subject_id': None, 'parent_subject_type': None},)], []])
+
+>   ???
+E   AttributeError: 'Transaction' object has no attribute 'rollback'
+
+backend/tests/integration/test_geo_prompt_variants.py:194: AttributeError
+___________ test_topic_and_user_deletion_respect_variant_references ____________
+
+variant_database = VariantDatabase(url='postgresql://partsignal:partsignal_dev@localhost:55441/partsignal_geo201_5b7a7c3971', env={'ATUIN...D', 'canonical_name': '原品牌', 'normalized_name': '原品牌', 'parent_subject_id': None, 'parent_subject_type': None},)], []])
+
+                "id": topic,
+                "canonical_question": "另一个主题",
+                "intent_type": "REPLACEMENT",
+                "variants": [],
+                "revision": 0,
+            },
+        )
+        insert_variant(connection, variant_database, prompt_text="PS-10A?", query_topic_id=topic)
+    
+    
+    @pytest.mark.parametrize(
+        "patch,constraint",
+        [
+            ({"prompt_text": "  未规范  "}, "ck_geo_prompt_variants_prompt"),
+>           ({"prompt_text": "   "}, "ck_geo_prompt_variants_prompt"),
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            ({"mention_mode": "AUTO"}, "ck_geo_prompt_variants_mention_mode"),
+            ({"language_code": "ZH"}, "ck_geo_prompt_variants_language"),
+            ({"region_code": "cn"}, "ck_geo_prompt_variants_region"),
+            ({"priority": "P0"}, "ck_geo_prompt_variants_priority"),
+            ({"revision": 1}, "ck_geo_prompt_variants_initial"),
+        ],
+    )
+E   TypeError: delete_query_topic() takes 0 positional arguments but 3 positional arguments (and 1 keyword-only argument) were given
+
+backend/tests/integration/test_geo_prompt_variants.py:248: TypeError
+=============================== warnings summary ===============================
+tests/integration/test_geo_prompt_variants.py::test_additive_migration_metadata_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_prompt_variants.py:119: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    "prompt_text": f"虚构问题 {uuid.uuid4()}",
+
+tests/integration/test_geo_prompt_variants.py::test_additive_migration_metadata_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_prompt_variants.py:119: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    "prompt_text": f"虚构问题 {uuid.uuid4()}",
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_prompt_variant_contract.py::test_normalization_preserves_question_semantics
+FAILED backend/tests/integration/test_geo_prompt_variants.py::test_history_only_allows_disable_and_mark_rolls_back
+FAILED backend/tests/integration/test_geo_prompt_variants.py::test_topic_and_user_deletion_respect_variant_references
+3 failed, 24 passed, 2 warnings in 2.24s

@@ -1,0 +1,80 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+E501 Line too long (112 > 100)
+  --> backend/tests/integration/test_geo_r2_immutability.py:33:101
+   |
+31 |         "geo_batch_subjects": "batch_id=:batch",
+32 |         "geo_answer_snapshots": "run_id=:run",
+33 |         "geo_answer_citations": "answer_snapshot_id IN (SELECT id FROM geo_answer_snapshots WHERE run_id=:run)",
+   |                                                                                                     ^^^^^^^^^^^^
+34 |         "geo_manual_submissions": "run_id=:run",
+35 |         "geo_manual_drafts": "run_id=:run",
+   |
+
+E501 Line too long (101 > 100)
+  --> backend/tests/integration/test_geo_r2_immutability.py:45:101
+   |
+43 |                 db.scalars(
+44 |                     text(
+45 |                         f"SELECT to_jsonb(t) FROM {table} t WHERE {where} ORDER BY to_jsonb(t)::text"
+   |                                                                                                     ^
+46 |                     ),
+47 |                     {
+   |
+
+E501 Line too long (101 > 100)
+  --> backend/tests/integration/test_geo_r2_immutability.py:96:101
+   |
+94 |         ),
+95 |         (
+96 |             "UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch",
+   |                                                                                                     ^
+97 |             "ck_geo_creation_immutable",
+98 |         ),
+   |
+
+E501 Line too long (104 > 100)
+   --> backend/tests/integration/test_geo_r2_immutability.py:106:101
+    |
+104 |         ("DELETE FROM geo_observation_runs WHERE id=:run", "ck_geo_runs_immutable"),
+105 |         (
+106 |             "UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch",
+    |                                                                                                     ^^^^
+107 |             "ck_geo_batches_immutable",
+108 |         ),
+    |
+
+E501 Line too long (104 > 100)
+   --> backend/tests/integration/test_geo_r2_immutability.py:142:97
+    |
+140 |         db.execute(
+141 |             text(
+142 |                 "UPDATE query_topics SET canonical_question='必须回滚',revision=revision+1 WHERE id=:id"
+    |                                                                                                     ^^^^
+143 |             ),
+144 |             {"id": api.api.topic},
+    |
+
+E501 Line too long (101 > 100)
+   --> backend/tests/integration/test_geo_r2_immutability.py:188:101
+    |
+186 |                         "INSERT INTO geo_answer_snapshots SELECT "
+187 |                         "(jsonb_populate_record(NULL::geo_answer_snapshots, to_jsonb(a) || "
+188 |                         "jsonb_build_object('id',CAST(:id AS text),'run_id',CAST(:run AS text)))).* "
+    |                                                                                                     ^
+189 |                         "FROM geo_answer_snapshots a WHERE run_id=:source"
+190 |                     ),
+    |
+
+E501 Line too long (109 > 100)
+   --> backend/tests/integration/test_geo_r2_immutability.py:196:101
+    |
+194 |                 db.execute(
+195 |                     text(
+196 |                         "UPDATE geo_observation_runs SET status='COLLECTED',revision=revision+1 WHERE id=:id"
+    |                                                                                                     ^^^^^^^^^
+197 |                     ),
+198 |                     {"id": cancelled.id},
+    |
+
+Found 7 errors.
+make: *** [lint] Error 1

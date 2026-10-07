@@ -1,0 +1,18 @@
+{
+  "argv": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_opportunity_policy.py",
+    "backend/tests/unit/test_geo_opportunity_workbench.py",
+    "backend/tests/unit/test_runtime_response_metadata.py",
+    "-q"
+  ],
+  "environment": {
+    "UV_CACHE_DIR": ".cache/uv"
+  },
+  "exit_code": 0,
+  "passed": 389
+}

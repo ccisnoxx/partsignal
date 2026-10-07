@@ -1,0 +1,22 @@
+time="2026-10-02T14:01:57-07:00" level=info msg="stopping colima"
+time="2026-10-02T14:01:58-07:00" level=info msg="stopping ..." context=docker
+Stopping 'docker.service', but its triggering units are still active:
+docker.socket
+colima
+time="2026-10-02T14:01:58-07:00" level=info msg="stopping ..." context=vm
+time="2026-10-02T14:01:58-07:00" level=info msg="Sending SIGINT to hostagent process 75827"
+time="2026-10-02T14:01:58-07:00" level=info msg="Waiting for the host agent and the driver processes to shut down"
+time="2026-10-02T14:01:58-07:00" level=info msg="[hostagent] Received SIGINT, shutting down the host agent"
+time="2026-10-02T14:01:58-07:00" level=info msg="[hostagent] Shutting down the host agent"
+time="2026-10-02T14:01:58-07:00" level=info msg="[hostagent] Stopping forwarding \"/var/run/docker.sock\" (guest) to \"/Users/sc/.colima/default/docker.sock\" (host)"
+time="2026-10-02T14:01:58-07:00" level=info msg="[hostagent] Stopping forwarding \"/var/run/containerd/containerd.sock\" (guest) to \"/Users/sc/.colima/default/containerd.sock\" (host)"
+time="2026-10-02T14:01:58-07:00" level=info msg="[hostagent] Stopping forwarding \"/var/run/docker.sock\" (guest) to \"/Users/sc/.colima/docker.sock\" (host)"
+time="2026-10-02T14:01:58-07:00" level=info msg="[hostagent] Unmounting disk \"colima\""
+time="2026-10-02T14:01:58-07:00" level=info msg="[hostagent] Shutting down VZ"
+time="2026-10-02T14:01:58-07:00" level=info msg="[hostagent] [VZ] - vm state change: stopped"
+time="2026-10-02T14:01:58-07:00" level=info msg="Waiting for the instance to shut down"
+time="2026-10-02T14:01:59-07:00" level=info msg="The instance colima has shut down"
+time="2026-10-02T14:01:59-07:00" level=info msg=done
+default
+Current context is now "default"
+time="2026-10-02T14:02:24-07:00" level=fatal msg="colima is not running"

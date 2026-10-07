@@ -1,0 +1,17 @@
+{
+  "name": "fourth-ci-image-readiness-boundary",
+  "command": [
+    "node",
+    "--experimental-strip-types",
+    "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/image-readiness-boundary.mjs"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "8fd843471de6d455cafba20da11d81a82b7dd305",
+  "dirty": true,
+  "started_at": "2026-10-07T08:07:25.680953+00:00",
+  "ended_at": "2026-10-07T08:07:26.266617+00:00",
+  "exit_code": 0,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/fourth-ci-image-readiness-boundary.log",
+  "log_sha256": "6211acd04b2f9e346fc3dd6f769621e7f283feb56cebdb30ab815ea8298e029c"
+}

@@ -1,0 +1,16 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+Success: no issues found in 177 source files
+npm --prefix frontend run typecheck
+
+> partsignal-frontend-v2@0.1.0 typecheck
+> tsc -b --pretty false
+
+src/domains/geo-runs/run-review.test.tsx(13,75): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined, waitForElementOptions?: waitForOptions | undefined): Promise<HTMLElement>', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined, waitForElementOptions?: waitForOptions | undefined): Promise<HTMLElement>', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+src/domains/geo-runs/run-review.test.tsx(49,117): error TS2339: Property 'body' does not exist on type 'never'.
+src/domains/geo-runs/run-review.test.tsx(63,37): error TS2339: Property 'body' does not exist on type 'never'.
+src/domains/geo-runs/run-review.test.tsx(87,37): error TS2339: Property 'body' does not exist on type 'never'.
+make: *** [typecheck] Error 2

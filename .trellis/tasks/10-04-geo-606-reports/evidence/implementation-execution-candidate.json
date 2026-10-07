@@ -1,0 +1,56 @@
+{
+  "version": 6,
+  "plan_id": "geo606-backend",
+  "plan_command": [
+    "work-plan",
+    "plan",
+    "01-implementation.draft.json"
+  ],
+  "validate_command": [
+    "work-plan",
+    "validate",
+    "01-implementation.plan.json"
+  ],
+  "validate_status": "passed",
+  "workers": [
+    {
+      "task_id": "backend-reports",
+      "agent_type": "deep_engineer",
+      "worker_id": "geo606-backend-worker",
+      "runtime_ref": "/root/backend_reports",
+      "runtime_ref_source": "spawn_metadata",
+      "final_status": "completed",
+      "task_outcome": "accepted",
+      "active_after_close": false,
+      "retired_from_followup": false,
+      "retirement_source": "unknown",
+      "observed_dispatch": {
+        "method": "spawn_agent",
+        "task_name": "backend_reports",
+        "fork_turns": "none",
+        "model_override": null,
+        "reasoning_effort_override": null
+      },
+      "observed_write_paths": [
+        "backend/app/services/geo_reports.py",
+        "backend/app/services/geo_report_csv.py",
+        "backend/app/services/geo_report_formulas.py",
+        "backend/app/services/geo_overview_queries.py",
+        "backend/app/routers/geo_reports.py",
+        "backend/tests/unit/test_geo_reports.py",
+        "backend/tests/integration/test_geo_reports.py",
+        ".trellis/tasks/10-04-geo-606-reports/evidence/backend-target.log",
+        ".trellis/tasks/10-04-geo-606-reports/evidence/backend-target.json"
+      ],
+      "parent_followup_count": 0,
+      "worker_intermediate_message_count": 4
+    }
+  ],
+  "active_worker_ids_after_execution": [],
+  "writes_observed": true,
+  "communication": {
+    "wait_call_count": 0,
+    "wait_timeout_count": 0,
+    "status_poll_count": 0
+  }
+}

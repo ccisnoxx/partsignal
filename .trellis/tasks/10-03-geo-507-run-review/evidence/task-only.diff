@@ -1,0 +1,2807 @@
+--- a/backend/app/audit_types.py
++++ b/backend/app/audit_types.py
+@@ -79,6 +79,7 @@
+         "geo_observation_batch.created",
+         "geo_observation_run.retried",
+         "geo_observation_run.reanalyzed",
++        "geo_observation_run.reviewed",
+         "geo_manual_draft.saved",
+         "geo_manual_observation.submitted",
+         "geo_monitoring_plan.created",
+@@ -178,6 +179,8 @@
+         {
+             "run_id",
+             "analysis_revision_id",
++            "review_id",
++            "decision",
+             "reason_code",
+             "previous_attempt_id",
+             "attempt_no",
+--- a/backend/app/main.py
++++ b/backend/app/main.py
+@@ -32,6 +32,7 @@
+ from app.routers.geo_monitoring_plans import router as geo_monitoring_plans_router
+ from app.routers.geo_questions import router as geo_questions_router
+ from app.routers.geo_reads import router as geo_reads_router
++from app.routers.geo_reviews import router as geo_reviews_router
+ from app.routers.geo_run_commands import router as geo_run_commands_router
+ from app.routers.geo_surface_management import router as geo_surface_management_router
+ from app.routers.identity import router as identity_router
+@@ -337,6 +338,7 @@
+ app.include_router(geo_batches_router)
+ app.include_router(geo_reads_router)
+ app.include_router(geo_run_commands_router)
++app.include_router(geo_reviews_router)
+ app.include_router(geo_manual_collection_router)
+ app.include_router(geo_surface_management_router)
+ app.include_router(configuration_router)
+--- a/backend/app/schemas/geo_analysis.py
++++ b/backend/app/schemas/geo_analysis.py
+@@ -444,13 +444,20 @@
+ 
+     @model_validator(mode="after")
+     def decision_payload(self) -> Self:
+-        if self.decision == GeoReviewDecision.CONFIRMED and self.correction_payload is not None:
+-            raise ValueError("确认不得携带修正")
+-        if self.decision == GeoReviewDecision.CORRECTED and (
+-            self.correction_payload is None or not self.comment.strip()
+-        ):
+-            raise ValueError("修正必须携带非空结构化结果和说明")
+-        return self
++        validate_review_decision(self.decision, self.correction_payload, self.comment)
++        return self
++
++
++def validate_review_decision(
++    decision: GeoReviewDecision, correction_payload: GeoReviewCorrectionPayload | None, comment: str
++) -> None:
++    """命令与历史响应共享决定和修正的业务合同。"""
++    if decision == GeoReviewDecision.CONFIRMED and correction_payload is not None:
++        raise ValueError("确认不得携带修正")
++    if decision == GeoReviewDecision.CORRECTED and (
++        correction_payload is None or not comment.strip()
++    ):
++        raise ValueError("修正必须携带非空结构化结果和说明")
+ 
+ 
+ class GeoAnalysisSelection(ContractModel):
+--- a/backend/app/schemas/geo_read_models.py
++++ b/backend/app/schemas/geo_read_models.py
+@@ -1,14 +1,15 @@
+ """Batch/Run稳定读模型；尚未实现的分析与指标明确不可用。"""
+ 
+-from typing import Annotated, Literal
++from typing import Annotated, Literal, Self
+ from uuid import UUID
+ 
+-from pydantic import AwareDatetime, Field
++from pydantic import AwareDatetime, Field, model_validator
+ 
+ from app.schemas.base import ContractModel
+ from app.schemas.common import SignedUrl
+ from app.schemas.geo_answers import GeoAnswerCitationOut, GeoAnswerSnapshotOut
+ from app.schemas.geo_plan_preview import GeoKnownCostTotal
++from app.schemas.geo_reviews import GeoRunAnalysisDetail
+ from app.schemas.geo_run_workflow import GeoBatchWorkflowProjection, GeoRunWorkflowProjection
+ from app.schemas.geo_runs import (
+     GeoBatchTriggerType,
+@@ -128,9 +129,15 @@
+ 
+ class GeoRunDataQuality(ContractModel):
+     assessment: Literal["NOT_IMPLEMENTED"]
+-    metric_eligible: None
+-    reason_code: Literal["METRIC_ELIGIBILITY_NOT_IMPLEMENTED"]
++    metric_eligible: Literal[False] | None
++    reason_code: Literal["METRIC_ELIGIBILITY_NOT_IMPLEMENTED", "GEO_REVIEW_REQUIRED"]
+     unavailable_sections: list[Literal["ANALYSIS", "REVIEW", "METRICS", "OPPORTUNITIES", "RETEST"]]
++
++    @model_validator(mode="after")
++    def review_gate(self) -> Self:
++        if (self.metric_eligible is False) != (self.reason_code == "GEO_REVIEW_REQUIRED"):
++            raise ValueError("仅未完成必要复核时明确阻断指标；完整指标资格仍未实现")
++        return self
+ 
+ 
+ class GeoRunDetail(ContractModel):
+@@ -142,4 +149,5 @@
+     attempts: list[GeoRunAttemptSummary]
+     timeline: list[GeoRunTimelineEvent]
+     data_quality: GeoRunDataQuality
++    analysis: GeoRunAnalysisDetail
+     as_of: AwareDatetime
+--- a/backend/app/services/geo_read_queries.py
++++ b/backend/app/services/geo_read_queries.py
+@@ -37,6 +37,7 @@
+ )
+ from app.schemas.geo_runs import GeoObservationBatchOut, GeoObservationRunOut
+ from app.services import geo_read_projections as projection
++from app.services.geo_analysis_queries import analysis_detail, review_required_expression
+ from app.services.geo_batch_policy import BATCH_STATUS_RULES
+ from app.services.geo_collection_profiles import ProfileFacts, load_profile_facts
+ from app.services.storage import StorageUnavailable, get_evidence_storage
+@@ -86,6 +87,8 @@
+         Run.input_snapshot["profile"]["ai_channel_id"].as_string().label("ai_channel_id"),
+         Run.input_snapshot["profile"]["ai_model_id"].as_string().label("ai_model_id"),
+         GeoAnswerSnapshot.id.label("answer_snapshot_id"),
++        Run.current_analysis_revision_id,
++        review_required_expression().label("analysis_needs_review"),
+         select(successor.id)
+         .where(successor.previous_attempt_id == Run.id)
+         .exists()
+@@ -254,11 +257,8 @@
+         if value is not None:
+             query = query.where(getattr(Run, field) == value)
+     if filters.needs_review is not None:
+-        query = query.where(
+-            (Run.status == "NEEDS_REVIEW")
+-            if filters.needs_review
+-            else (Run.status != "NEEDS_REVIEW")
+-        )
++        required = review_required_expression()
++        query = query.where(required if filters.needs_review else ~required)
+     for value, expression in (
+         (filters.query_topic_id, Run.input_snapshot["prompt"]["query_topic_id"].as_string()),
+         (filters.engine_surface_id, Run.input_snapshot["profile"]["surface"]["id"].as_string()),
+@@ -399,6 +399,15 @@
+     ):
+         raise projection.incomplete()
+     attempts, timeline = _attempts_and_timeline(grouped[batch.id], row["run_cell_key"])
++    analysis = analysis_detail(
++        db,
++        run_id=run_id,
++        current_analysis_id=row["current_analysis_revision_id"],
++        run_status=row["status"],
++        answer_id=answer.id if answer else None,
++        citation_count=answer.citation_count if answer else 0,
++        actor=actor,
++    )
+     return GeoRunDetail(
+         run=projection.run_item(dict(row), profiles, actor),
+         batch=batch_value,
+@@ -407,11 +416,14 @@
+         evidence_files=_evidence_files(db, answer, as_of),
+         attempts=attempts,
+         timeline=timeline,
++        analysis=analysis,
+         data_quality=GeoRunDataQuality(
+             assessment="NOT_IMPLEMENTED",
+-            metric_eligible=None,
+-            reason_code="METRIC_ELIGIBILITY_NOT_IMPLEMENTED",
+-            unavailable_sections=["ANALYSIS", "REVIEW", "METRICS", "OPPORTUNITIES", "RETEST"],
++            metric_eligible=False if analysis.review_required else None,
++            reason_code="GEO_REVIEW_REQUIRED"
++            if analysis.review_required
++            else "METRIC_ELIGIBILITY_NOT_IMPLEMENTED",
++            unavailable_sections=["METRICS", "OPPORTUNITIES", "RETEST"],
+         ),
+         as_of=as_of,
+     )
+--- a/backend/app/services/geo_read_projections.py
++++ b/backend/app/services/geo_read_projections.py
+@@ -21,7 +21,11 @@
+     GeoRunListItem,
+     GeoRunStatusCounts,
+ )
+-from app.schemas.geo_run_workflow import GeoBatchWorkflowProjection
++from app.schemas.geo_run_workflow import (
++    GeoBatchWorkflowProjection,
++    GeoRunPrimaryTask,
++    GeoRunWorkflowStage,
++)
+ from app.schemas.geo_runs import GeoObservationRunOut
+ from app.schemas.geo_surface_management import GeoProfileActivationBlocker
+ from app.schemas.geo_surfaces import GeoCollectionMode
+@@ -90,6 +94,21 @@
+         collection_eligible=eligible,
+         commands=COMMANDS,
+     )
++    if row["analysis_needs_review"]:
++        workflow = workflow.model_copy(
++            update={
++                "workflow_stage": GeoRunWorkflowStage.REVIEW_REQUIRED,
++                "primary_task": GeoRunPrimaryTask.VIEW_REVIEW,
++            }
++        )
++    elif row["status"] == "NEEDS_REVIEW" and row["current_analysis_revision_id"] is not None:
++        # 重分析不改首轮Run历史；当前分析已放行时，不继续展示旧复核待办。
++        workflow = workflow.model_copy(
++            update={
++                "workflow_stage": GeoRunWorkflowStage.COMPLETED,
++                "primary_task": GeoRunPrimaryTask.VIEW_OBSERVATION,
++            }
++        )
+     return GeoRunListItem.model_validate(
+         {name: row[name] for name in GeoObservationRunOut.model_fields}
+         | workflow.model_dump()
+--- a/backend/tests/integration/test_migrations.py
++++ b/backend/tests/integration/test_migrations.py
+@@ -326,7 +326,7 @@
+ 
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0055_geo_analysis_worker",)
++            assert cursor.fetchone() == ("0056_geo_run_review",)
+             cursor.execute(
+                 "SELECT tablename FROM pg_tables "
+                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
+@@ -484,10 +484,10 @@
+             text=True,
+         )
+         assert downgrade.returncode != 0
+-        assert "0055 分析执行与引用历史必须保留" in downgrade.stdout + downgrade.stderr
++        assert "0056人工复核历史必须保留" in downgrade.stdout + downgrade.stderr
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0055_geo_analysis_worker",)
++            assert cursor.fetchone() == ("0056_geo_run_review",)
+ 
+ 
+ @pytest.mark.integration
+--- a/backend/tests/integration/test_geo_read_consistency.py
++++ b/backend/tests/integration/test_geo_read_consistency.py
+@@ -70,7 +70,8 @@
+         batch_run(api)
+     rich_detail, rich_count = capture(api, prefix(run))
+     assert len(rich_detail["citations"]) == 40 and small_detail["answer"] is None
+-    assert rich_count == detail_count == 9
++    # GEO-507固定增加6次批量历史/结果读取，不能随run、引用或review数增长。
++    assert rich_count == detail_count == 15
+     assert capture(api, f"{BATCHES}/{dense[0].batch_id}")[1] == batch_count == 5
+     assert capture(api, BATCHES, {"q": api.name})[1] == list_count == 6
+     assert capture(api, RUNS, {"subject_id": str(api.subject)})[1] == run_count == 5
+--- a/backend/tests/unit/test_contract.py
++++ b/backend/tests/unit/test_contract.py
+@@ -53,9 +53,9 @@
+     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+     document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+     operations = operation_map(document)
+-    assert len(operations) == 220
+-    assert len({operation["operationId"] for operation in operations.values()}) == 220
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1416
++    assert len(operations) == 221
++    assert len({operation["operationId"] for operation in operations.values()}) == 221
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1423
+ 
+     expected_parameter = {
+         "name": "X-Request-ID",
+@@ -316,6 +316,7 @@
+             "createGeoObservationBatch",
+             "runGeoMonitoringPlanNow",
+             "retryGeoObservationRun",
++            "reviewGeoObservationRun",
+         ),
+         ("201", "401", "403", "409", "422", "503"): (
+             "createPlatformLogoCandidate",
+@@ -373,7 +374,7 @@
+         if isinstance(operation, dict) and "operationId" in operation
+     }
+ 
+-    assert len(expected) == 220
++    assert len(expected) == 221
+     assert set(operations) == set(expected)
+     for operation_id, operation in operations.items():
+         responses = operation["responses"]
+@@ -401,7 +402,7 @@
+         "getWorkbench",
+     }
+     assert len(validation_free) == 14
+-    assert sum("422" in statuses for statuses in expected.values()) == 206
++    assert sum("422" in statuses for statuses in expected.values()) == 207
+     assert {
+         operation_id for operation_id, statuses in expected.items() if "422" not in statuses
+     } == validation_free
+--- a/contracts/openapi.yaml
++++ b/contracts/openapi.yaml
+@@ -7718,6 +7718,79 @@
+       - ENGINEER
+       description: 显式追加同输入采集 attempt；required expected_revision。原尝试不变，已有后继返回409 GEO_RUN_HAS_SUCCESSOR；无自动命令重放。提交后投递稳定Run
+         ID，Broker失败由PENDING扫描恢复。
++  /api/v1/geo/observation-runs/{run_id}/review:
++    post:
++      tags:
++      - geo-run-reviews
++      summary: Review Run
++      operationId: reviewGeoObservationRun
++      security:
++      - sessionCookie: []
++      x-required-account-types:
++      - ADMIN
++      - ENGINEER
++      description: 复核只追加到当前成功分析；expected_run_revision 必填。CONFIRMED 无修正，CORRECTED 有说明与四栏结构化修正。latest Review 整体替换旧修正，原始证据与机器结果保留。
++      x-error-codes:
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '404':
++        - NOT_FOUND
++        '409':
++        - REVISION_CONFLICT
++        - GEO_REVIEW_STALE_ANALYSIS
++        - GEO_ANALYSIS_NOT_AVAILABLE
++        - INVALID_STATE_TRANSITION
++        '422':
++        - VALIDATION_ERROR
++      parameters:
++      - name: run_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Run Id
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - $ref: '#/components/parameters/RequestIdHeader'
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoRunReviewRequest'
++      responses:
++        '201':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoRunReviewCreated'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++
+ components:
+   securitySchemes:
+     sessionCookie:
+@@ -18562,10 +18635,15 @@
+           title: Assessment
+           type: string
+         metric_eligible:
++          anyOf:
++          - const: false
++            type: boolean
++          - type: 'null'
+           title: Metric Eligible
+-          type: 'null'
+         reason_code:
+-          const: METRIC_ELIGIBILITY_NOT_IMPLEMENTED
++          enum:
++          - METRIC_ELIGIBILITY_NOT_IMPLEMENTED
++          - GEO_REVIEW_REQUIRED
+           title: Reason Code
+           type: string
+         unavailable_sections:
+@@ -18586,6 +18664,7 @@
+       - unavailable_sections
+       title: GeoRunDataQuality
+       type: object
++
+     GeoRunEvidenceFile:
+       additionalProperties: false
+       properties:
+@@ -18691,6 +18770,8 @@
+           type: array
+         data_quality:
+           $ref: '#/components/schemas/GeoRunDataQuality'
++        analysis:
++          $ref: '#/components/schemas/GeoRunAnalysisDetail'
+         as_of:
+           format: date-time
+           title: As Of
+@@ -18704,6 +18785,7 @@
+       - attempts
+       - timeline
+       - data_quality
++      - analysis
+       - as_of
+       title: GeoRunDetail
+       type: object
+@@ -19646,3 +19728,216 @@
+             type: 'null'
+       title: GeoAnalysisSelection
+       type: object
++    GeoAnalysisResult:
++      additionalProperties: false
++      properties:
++        analysis:
++          $ref: '#/components/schemas/GeoAnalysisRevisionOut'
++        mentions:
++          items:
++            $ref: '#/components/schemas/GeoEntityMentionOut'
++          title: Mentions
++          type: array
++        recommendations:
++          items:
++            $ref: '#/components/schemas/GeoRecommendationOut'
++          title: Recommendations
++          type: array
++        claims:
++          items:
++            $ref: '#/components/schemas/GeoClaimAssessmentOut'
++          title: Claims
++          type: array
++        citations:
++          items:
++            $ref: '#/components/schemas/GeoCitationClassificationOut'
++          title: Citations
++          type: array
++        citation_classification_complete:
++          title: Citation Classification Complete
++          type: boolean
++      required:
++      - analysis
++      - mentions
++      - recommendations
++      - claims
++      - citations
++      - citation_classification_complete
++      title: GeoAnalysisResult
++      type: object
++    GeoCitationClassificationOut:
++      additionalProperties: false
++      properties:
++        analysis_revision_id:
++          format: uuid
++          title: Analysis Revision Id
++          type: string
++        citation_id:
++          format: uuid
++          title: Citation Id
++          type: string
++        source_category:
++          $ref: '#/components/schemas/GeoSourceCategory'
++        subject_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Subject Id
++      required:
++      - analysis_revision_id
++      - citation_id
++      - source_category
++      - subject_id
++      title: GeoCitationClassificationOut
++      type: object
++    GeoReviewHistoryItem:
++      additionalProperties: false
++      properties:
++        review:
++          $ref: '#/components/schemas/GeoRunReviewOut'
++        is_current:
++          title: Is Current
++          type: boolean
++      required:
++      - review
++      - is_current
++      title: GeoReviewHistoryItem
++      type: object
++    GeoReviewedResults:
++      additionalProperties: false
++      description: 不借用机器行身份表示新增/移除的人工提及。
++      properties:
++        mentions:
++          items:
++            $ref: '#/components/schemas/GeoMentionCorrection'
++          title: Mentions
++          type: array
++        recommendations:
++          items:
++            $ref: '#/components/schemas/GeoRecommendationCorrection'
++          title: Recommendations
++          type: array
++        claims:
++          items:
++            $ref: '#/components/schemas/GeoClaimAssessmentOut'
++          title: Claims
++          type: array
++        citations:
++          items:
++            $ref: '#/components/schemas/GeoCitationClassificationOut'
++          title: Citations
++          type: array
++        citation_classification_complete:
++          title: Citation Classification Complete
++          type: boolean
++      required:
++      - mentions
++      - recommendations
++      - claims
++      - citations
++      - citation_classification_complete
++      title: GeoReviewedResults
++      type: object
++    GeoRunAnalysisDetail:
++      additionalProperties: false
++      properties:
++        selection:
++          $ref: '#/components/schemas/GeoAnalysisSelection'
++        revisions:
++          items:
++            $ref: '#/components/schemas/GeoAnalysisResult'
++          title: Revisions
++          type: array
++        reviews:
++          items:
++            $ref: '#/components/schemas/GeoReviewHistoryItem'
++          title: Reviews
++          type: array
++        effective_results:
++          anyOf:
++          - $ref: '#/components/schemas/GeoReviewedResults'
++          - type: 'null'
++        review_required:
++          title: Review Required
++          type: boolean
++        review_gate_passed:
++          title: Review Gate Passed
++          type: boolean
++        available_actions:
++          items:
++            const: REVIEW
++            type: string
++          title: Available Actions
++          type: array
++      required:
++      - selection
++      - revisions
++      - reviews
++      - effective_results
++      - review_required
++      - review_gate_passed
++      - available_actions
++      title: GeoRunAnalysisDetail
++      type: object
++    GeoRunReviewRequest:
++      additionalProperties: false
++      else:
++        properties:
++          correction_payload:
++            type: object
++          comment:
++            minLength: 1
++            pattern: \S
++      if:
++        properties:
++          decision:
++            const: CONFIRMED
++      properties:
++        analysis_revision_id:
++          format: uuid
++          title: Analysis Revision Id
++          type: string
++        expected_run_revision:
++          maximum: 2147483647
++          minimum: 0
++          title: Expected Run Revision
++          type: integer
++        decision:
++          $ref: '#/components/schemas/GeoReviewDecision'
++        correction_payload:
++          anyOf:
++          - $ref: '#/components/schemas/GeoReviewCorrectionPayload'
++          - type: 'null'
++        comment:
++          maxLength: 2000
++          pattern: ^[^\x00]*$
++          title: Comment
++          type: string
++      required:
++      - analysis_revision_id
++      - expected_run_revision
++      - decision
++      - correction_payload
++      - comment
++      then:
++        properties:
++          correction_payload:
++            type: 'null'
++      title: GeoRunReviewRequest
++      type: object
++    GeoRunReviewCreated:
++      additionalProperties: false
++      properties:
++        review:
++          $ref: '#/components/schemas/GeoRunReviewOut'
++        run_revision:
++          maximum: 2147483647
++          minimum: 0
++          title: Run Revision
++          type: integer
++      required:
++      - review
++      - run_revision
++      title: GeoRunReviewCreated
++      type: object
+--- a/contracts/database.md
++++ b/contracts/database.md
+@@ -1137,3 +1137,19 @@
+ 
+ 0055先迁移再部署新Worker/beat；本地只验证隔离数据库，不操作生产。downgrade显式55000安全停止，
+ 停新Worker/beat、保留表和历史并前向修复；无破坏性数据迁移。
++
++## GEO-507 人工复核命令与当前结果（R4）
++
++`0056_geo_run_review` 只扩展 Run 的受控复核发布分支，不增加表/列，不回填、不改变旧 Answer、Analysis、Review 或 current pointer；旧迁移保持冻结。Review 数据结构及不可变/归属约束仍由0054拥有。
++
++Application Service 使用 READ COMMITTED、User→Batch→Run→Analysis 锁序，锁后重新验证当前启用账号、改密门禁、ADMIN/ENGINEER、当前成功 analysis、expected_run_revision 和 correction scope。若 analysis 不是 current，409 GEO_REVIEW_STALE_ANALYSIS；Run revision 不同，409 REVISION_CONFLICT；无当前成功分析，409 GEO_ANALYSIS_NOT_AVAILABLE。命令仅处理已结束首轮且有答案的 NEEDS_REVIEW/COMPLETED/FAILED；失败采集历史不能靠复核变成成功。
++
++每次成功追加 Review、Run.revision+1、受控审计同一事务。首次 NEEDS_REVIEW→COMPLETED 仅额外设置 finished_at，并重建 Batch；已完成或首次分析失败后重分析的 Run 保持采集 status/时间/费用/外部请求/证据。0056 guard 要求存在本事务新增的本 Run/current analysis Review（xmin=pg_current_xact_id()::xid）；旧 Review 不能授权新的终态 revision 更新，也不能夹带采集字段。无 Idempotency-Key 或自动重放；同 Run revision 并发命令最多一个成功。旧直接 SQL Review 数据装配仍按0054保存，不推测历史 Run 生命周期。
++
++CONFIRMED 无修正；CORRECTED 有说明及至少一项闭合四栏修正。Subject 必须在本 analysis snapshot；Claim 必须属于本 analysis、无事实仍只能 UNJUDGEABLE；Citation 必须属于本 answer，Subject 可清空。原始回答、引用、机器子结果与旧复核不更新。只映射已登记精确23514/constraint：current_analysis→GEO_REVIEW_STALE_ANALYSIS，correction_scope/decision/comment→VALIDATION_ERROR；其他错误原样失败并回滚，既有安全错误边界不泄露SQL/正文。
++
++读取在原 Run Detail 的同一 REPEATABLE READ 快照中装配机器结果、所有 revision/review 历史、current selection 和有效结果。唯一 review 选择仍是 current pointer 内 created_at DESC,id DESC。最新 Review 是整体替换：CONFIRMED 使用机器结果，CORRECTED 只叠加该记录的明确字段；不累计旧修正。机器结果始终独立返回。没有可核验的旧引用分类时返回实际空集合及 completeness=false，不把未知填成已完成。
++
++当前 analysis 有 review_required_reasons 且无当前 Review 时，review_required=true、review_gate_passed=false、metric_eligible=false/GEO_REVIEW_REQUIRED；通过门禁不宣称完整指标资格，metric_eligible仍null/METRIC_ELIGIBILITY_NOT_IMPLEMENTED。列表needs_review按相同 current analysis与Review存在性筛选，不按终态采集status推断。新成功pointer使旧review自然只作历史；失败不影响既有选择。GEO-601继续拥有全部MetricEligibility/公式。
++
++审计 action=`geo_observation_run.reviewed`，仅run_id、analysis_revision_id、review_id和decision，不保存comment/correction/答案/事实。0056先迁移再部署新API；downgrade显式55000安全停止，关闭复核写入口、保留历史并前向修复，不操作生产数据。
+--- a/frontend/src/shared/api/generated/schema.d.ts
++++ b/frontend/src/shared/api/generated/schema.d.ts
+@@ -2797,6 +2797,26 @@
+          * @description 显式追加同输入采集 attempt；required expected_revision。原尝试不变，已有后继返回409 GEO_RUN_HAS_SUCCESSOR；无自动命令重放。提交后投递稳定Run ID，Broker失败由PENDING扫描恢复。
+          */
+         post: operations["retryGeoObservationRun"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/observation-runs/{run_id}/review": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /**
++         * Review Run
++         * @description 复核只追加到当前成功分析；expected_run_revision 必填。CONFIRMED 无修正，CORRECTED 有说明与四栏结构化修正。latest Review 整体替换旧修正，原始证据与机器结果保留。
++         */
++        post: operations["reviewGeoObservationRun"];
+         delete?: never;
+         options?: never;
+         head?: never;
+@@ -8842,12 +8862,12 @@
+              */
+             assessment: "NOT_IMPLEMENTED";
+             /** Metric Eligible */
+-            metric_eligible: null;
++            metric_eligible: false | null;
+             /**
+              * Reason Code
+-             * @constant
+-             */
+-            reason_code: "METRIC_ELIGIBILITY_NOT_IMPLEMENTED";
++             * @enum {string}
++             */
++            reason_code: "METRIC_ELIGIBILITY_NOT_IMPLEMENTED" | "GEO_REVIEW_REQUIRED";
+             /** Unavailable Sections */
+             unavailable_sections: ("ANALYSIS" | "REVIEW" | "METRICS" | "OPPORTUNITIES" | "RETEST")[];
+         };
+@@ -8910,6 +8930,7 @@
+             /** Timeline */
+             timeline: components["schemas"]["GeoRunTimelineEvent"][];
+             data_quality: components["schemas"]["GeoRunDataQuality"];
++            analysis: components["schemas"]["GeoRunAnalysisDetail"];
+             /**
+              * As Of
+              * Format: date-time
+@@ -9313,6 +9334,93 @@
+             /** Current Review Id */
+             current_review_id: string | null;
+         };
++        /** GeoAnalysisResult */
++        GeoAnalysisResult: {
++            analysis: components["schemas"]["GeoAnalysisRevisionOut"];
++            /** Mentions */
++            mentions: components["schemas"]["GeoEntityMentionOut"][];
++            /** Recommendations */
++            recommendations: components["schemas"]["GeoRecommendationOut"][];
++            /** Claims */
++            claims: components["schemas"]["GeoClaimAssessmentOut"][];
++            /** Citations */
++            citations: components["schemas"]["GeoCitationClassificationOut"][];
++            /** Citation Classification Complete */
++            citation_classification_complete: boolean;
++        };
++        /** GeoCitationClassificationOut */
++        GeoCitationClassificationOut: {
++            /**
++             * Analysis Revision Id
++             * Format: uuid
++             */
++            analysis_revision_id: string;
++            /**
++             * Citation Id
++             * Format: uuid
++             */
++            citation_id: string;
++            source_category: components["schemas"]["GeoSourceCategory"];
++            /** Subject Id */
++            subject_id: string | null;
++        };
++        /** GeoReviewHistoryItem */
++        GeoReviewHistoryItem: {
++            review: components["schemas"]["GeoRunReviewOut"];
++            /** Is Current */
++            is_current: boolean;
++        };
++        /**
++         * GeoReviewedResults
++         * @description 不借用机器行身份表示新增/移除的人工提及。
++         */
++        GeoReviewedResults: {
++            /** Mentions */
++            mentions: components["schemas"]["GeoMentionCorrection"][];
++            /** Recommendations */
++            recommendations: components["schemas"]["GeoRecommendationCorrection"][];
++            /** Claims */
++            claims: components["schemas"]["GeoClaimAssessmentOut"][];
++            /** Citations */
++            citations: components["schemas"]["GeoCitationClassificationOut"][];
++            /** Citation Classification Complete */
++            citation_classification_complete: boolean;
++        };
++        /** GeoRunAnalysisDetail */
++        GeoRunAnalysisDetail: {
++            selection: components["schemas"]["GeoAnalysisSelection"];
++            /** Revisions */
++            revisions: components["schemas"]["GeoAnalysisResult"][];
++            /** Reviews */
++            reviews: components["schemas"]["GeoReviewHistoryItem"][];
++            effective_results: components["schemas"]["GeoReviewedResults"] | null;
++            /** Review Required */
++            review_required: boolean;
++            /** Review Gate Passed */
++            review_gate_passed: boolean;
++            /** Available Actions */
++            available_actions: "REVIEW"[];
++        };
++        /** GeoRunReviewRequest */
++        GeoRunReviewRequest: {
++            /**
++             * Analysis Revision Id
++             * Format: uuid
++             */
++            analysis_revision_id: string;
++            /** Expected Run Revision */
++            expected_run_revision: number;
++            decision: components["schemas"]["GeoReviewDecision"];
++            correction_payload: components["schemas"]["GeoReviewCorrectionPayload"] | null;
++            /** Comment */
++            comment: string;
++        };
++        /** GeoRunReviewCreated */
++        GeoRunReviewCreated: {
++            review: components["schemas"]["GeoRunReviewOut"];
++            /** Run Revision */
++            run_revision: number;
++        };
+     };
+     responses: {
+         /** @description 业务或校验错误 */
+@@ -16641,4 +16749,40 @@
+             422: components["responses"]["ErrorResponse"];
+         };
+     };
++    reviewGeoObservationRun: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                run_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoRunReviewRequest"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            201: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoRunReviewCreated"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
+ }
+--- a/frontend/src/domains/geo-runs/runs.test-support.ts
++++ b/frontend/src/domains/geo-runs/runs.test-support.ts
+@@ -220,11 +220,20 @@
+       { run_id: runId, attempt_no: 1, event: 'CREATED', occurred_at: asOf },
+       { run_id: runId, attempt_no: 1, event: 'COLLECTED', occurred_at: asOf },
+     ],
++    analysis: {
++      selection: { run_id: runId, current_analysis_revision_id: null, current_review_id: null },
++      revisions: [],
++      reviews: [],
++      effective_results: null,
++      review_required: false,
++      review_gate_passed: false,
++      available_actions: [],
++    },
+     data_quality: {
+       assessment: 'NOT_IMPLEMENTED',
+       metric_eligible: null,
+       reason_code: 'METRIC_ELIGIBILITY_NOT_IMPLEMENTED',
+-      unavailable_sections: ['ANALYSIS', 'REVIEW', 'METRICS', 'OPPORTUNITIES', 'RETEST'],
++      unavailable_sections: ['METRICS', 'OPPORTUNITIES', 'RETEST'],
+     },
+     as_of: asOf,
+   };
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -958,7 +958,7 @@
+   phase: R4
+   release: R4
+   title: 实现人工复核策略、API 和当前结果选择
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-506
+   areas:
+@@ -973,6 +973,7 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  review_note: "2026-10-03：GEO-506依赖done已核对；confirm/correct、stale analysis/revision、追加Review和current reviewed投影完成。0056受控发布无历史回填；原机器结果/旧Review保留，必要复核未完成明确阻断业务指标。六项最低检查通过：unit后端3341/前端1141、完整PG972；权限/并发/supersede/correction schema、读RR/固定查询/原子回滚及非空前滚通过。独立只读复核P2已修复并先红后绿，审计校验完成。精确命令与初次失败修正见GEO-507 Task Brief/implement.md。仅review，待人工接受；508页面/601完整指标未实施，未迁移生产数据库。"
+ - id: GEO-508
+   phase: R4
+   release: R4
+--- a/backend/app/schemas/geo_reviews.py
++++ b/backend/app/schemas/geo_reviews.py
+@@ -0,0 +1,84 @@
++"""人工复核命令与机器/当前结果的独立读模型。"""
++
++from typing import Annotated, Literal, Self
++from uuid import UUID
++
++from pydantic import Field, model_validator
++
++from app.schemas.base import ContractModel
++from app.schemas.geo_analysis import (
++    GeoAnalysisRevisionOut,
++    GeoAnalysisSelection,
++    GeoClaimAssessmentOut,
++    GeoEntityMentionOut,
++    GeoMentionCorrection,
++    GeoRecommendationCorrection,
++    GeoRecommendationOut,
++    GeoReviewCorrectionPayload,
++    GeoReviewDecision,
++    GeoRunReviewOut,
++    GeoSourceCategory,
++    NonNegative,
++    validate_review_decision,
++)
++
++
++class GeoRunReviewRequest(ContractModel):
++    model_config = GeoRunReviewOut.model_config
++
++    analysis_revision_id: UUID
++    expected_run_revision: NonNegative
++    decision: GeoReviewDecision
++    correction_payload: GeoReviewCorrectionPayload | None
++    comment: Annotated[str, Field(strict=True, max_length=2000, pattern=r"^[^\x00]*$")]
++
++    @model_validator(mode="after")
++    def decision_payload(self) -> Self:
++        validate_review_decision(self.decision, self.correction_payload, self.comment)
++        return self
++
++
++class GeoRunReviewCreated(ContractModel):
++    review: GeoRunReviewOut
++    run_revision: NonNegative
++
++
++class GeoCitationClassificationOut(ContractModel):
++    analysis_revision_id: UUID
++    citation_id: UUID
++    source_category: GeoSourceCategory
++    subject_id: UUID | None
++
++
++class GeoAnalysisResult(ContractModel):
++    analysis: GeoAnalysisRevisionOut
++    mentions: list[GeoEntityMentionOut]
++    recommendations: list[GeoRecommendationOut]
++    claims: list[GeoClaimAssessmentOut]
++    citations: list[GeoCitationClassificationOut]
++    citation_classification_complete: bool
++
++
++class GeoReviewedResults(ContractModel):
++    """不借用机器行身份表示新增/移除的人工提及。"""
++
++    mentions: list[GeoMentionCorrection]
++    recommendations: list[GeoRecommendationCorrection]
++    claims: list[GeoClaimAssessmentOut]
++    citations: list[GeoCitationClassificationOut]
++    citation_classification_complete: bool
++
++
++class GeoReviewHistoryItem(ContractModel):
++    review: GeoRunReviewOut
++    is_current: bool
++
++
++class GeoRunAnalysisDetail(ContractModel):
++    selection: GeoAnalysisSelection
++    revisions: list[GeoAnalysisResult]
++    reviews: list[GeoReviewHistoryItem]
++    effective_results: GeoReviewedResults | None
++    review_required: bool
++    review_gate_passed: bool
++    available_actions: list[Literal["REVIEW"]]
+--- a/backend/app/services/geo_reviews.py
++++ b/backend/app/services/geo_reviews.py
+@@ -0,0 +1,170 @@
++"""人工复核应用服务：当前账号、Run串行化、追加历史与原子审计。"""
++
++from uuid import UUID
++
++from sqlalchemy import select
++from sqlalchemy.exc import IntegrityError
++from sqlalchemy.orm import Session
++
++from app.audit import append_audit
++from app.audit_types import AuditEntry, AuditModule, AuditOutcome
++from app.errors import AppError, not_found
++from app.models.geo_analysis import GeoAnalysisRevision, GeoClaimAssessment, GeoRunReview
++from app.models.geo_answers import GeoAnswerCitation
++from app.models.identity import User
++from app.schemas.geo_analysis import GeoReviewCorrectionPayload, GeoRunReviewOut
++from app.schemas.geo_reviews import GeoRunReviewCreated, GeoRunReviewRequest
++from app.schemas.geo_runs import GeoRunStatus
++from app.services.geo_plan_locks import command
++from app.services.geo_run_lifecycle import database_now, lock_run, refresh_batch, run_state
++from app.services.geo_run_policy import run_transition
++
++
++def invalid_correction() -> AppError:
++    return AppError(
++        "VALIDATION_ERROR",
++        "复核修正必须属于当前分析并保留事实依据",
++        422,
++        {
++            "errors": [
++                {
++                    "loc": ["body", "correction_payload"],
++                    "msg": "修正目标或事实依据无效",
++                    "type": "geo_review_correction_invalid",
++                }
++            ]
++        },
++    )
++
++
++def stale_analysis() -> AppError:
++    return AppError("GEO_REVIEW_STALE_ANALYSIS", "当前分析已变更，请重新读取后复核", 409)
++
++
++def validate_correction_scope(
++    db: Session, analysis: GeoAnalysisRevision, payload: GeoReviewCorrectionPayload | None
++) -> None:
++    if payload is None:
++        return
++    subjects = {UUID(row["id"]) for row in analysis.input_snapshot["subjects"]}
++    if any(row.subject_id not in subjects for row in payload.mentions) or any(
++        row.subject_id not in subjects for row in payload.recommendations
++    ):
++        raise invalid_correction()
++    claims = {
++        identity: fact
++        for identity, fact in db.execute(
++            select(GeoClaimAssessment.id, GeoClaimAssessment.fact_version_id).where(
++                GeoClaimAssessment.analysis_revision_id == analysis.id
++            )
++        ).all()
++    }
++    if any(
++        row.claim_assessment_id not in claims
++        or (claims[row.claim_assessment_id] is None and row.verdict != "UNJUDGEABLE")
++        for row in payload.claims
++    ):
++        raise invalid_correction()
++    citations = set(
++        db.scalars(
++            select(GeoAnswerCitation.id).where(
++                GeoAnswerCitation.answer_snapshot_id == analysis.answer_snapshot_id
++            )
++        )
++    )
++    if any(
++        row.citation_id not in citations
++        or (row.subject_id is not None and row.subject_id not in subjects)
++        for row in payload.citations
++    ):
++        raise invalid_correction()
++
++
++def review_run(
++    db: Session, *, run_id: UUID, payload: GeoRunReviewRequest, actor: User, request_id: str
++) -> GeoRunReviewCreated:
++    try:
++        with command(db, actor) as current:
++            locked = lock_run(db, run_id)
++            if locked is None:
++                raise not_found("GEO 运行")
++            batch, run = locked
++            if run.current_analysis_revision_id is None:
++                raise AppError("GEO_ANALYSIS_NOT_AVAILABLE", "尚无当前成功分析可复核", 409)
++            if run.current_analysis_revision_id != payload.analysis_revision_id:
++                raise stale_analysis()
++            if run.revision != payload.expected_run_revision:
++                raise AppError("REVISION_CONFLICT", "运行已变更，请重新读取", 409)
++            analysis = db.scalar(
++                select(GeoAnalysisRevision)
++                .where(GeoAnalysisRevision.id == run.current_analysis_revision_id)
++                .with_for_update()
++                .execution_options(populate_existing=True)
++            )
++            if analysis is None or analysis.status != "COMPLETED" or analysis.run_id != run.id:
++                raise AppError("GEO_ANALYSIS_NOT_AVAILABLE", "尚无当前成功分析可复核", 409)
++            if (
++                run.status not in {"NEEDS_REVIEW", "COMPLETED", "FAILED"}
++                or not run_state(db, run).has_answer
++            ):
++                raise AppError("INVALID_STATE_TRANSITION", "首次分析尚未结束，不能提交复核", 409)
++            validate_correction_scope(db, analysis, payload.correction_payload)
++            review = GeoRunReview(
++                run_id=run.id,
++                analysis_revision_id=analysis.id,
++                decision=payload.decision.value,
++                correction_payload=payload.correction_payload.model_dump(mode="json")
++                if payload.correction_payload
++                else None,
++                comment=payload.comment,
++                reviewer_id=current.id,
++            )
++            db.add(review)
++            db.flush()
++            # created_at由数据库强制产生；不能使用客户端排序时间。
++            db.refresh(review)
++            now = database_now(db)
++            if run.status == "NEEDS_REVIEW":
++                run.status = run_transition(run_state(db, run), GeoRunStatus.COMPLETED).value
++                run.finished_at = now
++            run.revision += 1
++            refresh_batch(db, batch, now)
++            append_audit(
++                db,
++                AuditEntry(
++                    actor_id=current.id,
++                    business_module=AuditModule.GEO_OBSERVATION,
++                    action="geo_observation_run.reviewed",
++                    target_type="GeoRunReview",
++                    target_id=review.id,
++                    request_id=request_id,
++                    outcome=AuditOutcome.SUCCESS,
++                    result_message="已追加人工复核，原始证据与机器结果保留",
++                    details={
++                        "facts": {
++                            "run_id": str(run.id),
++                            "analysis_revision_id": str(analysis.id),
++                            "review_id": str(review.id),
++                            "decision": review.decision,
++                        }
++                    },
++                ),
++            )
++            receipt = GeoRunReviewCreated(
++                review=GeoRunReviewOut.model_validate(review), run_revision=run.revision
++            )
++            db.commit()
++            return receipt
++    except IntegrityError as error:
++        db.rollback()
++        constraint = getattr(getattr(error.orig, "diag", None), "constraint_name", None)
++        if getattr(error.orig, "sqlstate", None) == "23514":
++            if constraint == "ck_geo_reviews_current_analysis":
++                raise stale_analysis() from None
++            if constraint in {
++                "ck_geo_reviews_correction_scope",
++                "ck_geo_reviews_decision",
++                "ck_geo_reviews_comment",
++            }:
++                raise invalid_correction() from None
++        raise
+--- a/backend/app/services/geo_review_projection.py
++++ b/backend/app/services/geo_review_projection.py
+@@ -0,0 +1,79 @@
++"""最新有效 Review 对机器结果的纯投影；历史修正不会累计。"""
++
++from app.schemas.geo_analysis import (
++    GeoMentionCorrection,
++    GeoRecommendationCorrection,
++    GeoReviewDecision,
++    GeoRunReviewOut,
++)
++from app.schemas.geo_reviews import (
++    GeoAnalysisResult,
++    GeoCitationClassificationOut,
++    GeoReviewedResults,
++)
++
++
++def reviewed_results(
++    machine: GeoAnalysisResult, review: GeoRunReviewOut | None, *, citation_count: int
++) -> GeoReviewedResults:
++    mentions = {
++        row.subject_id: GeoMentionCorrection(
++            subject_id=row.subject_id,
++            mention_count=row.mention_count,
++            first_character_offset=row.first_character_offset,
++            matched_aliases=row.matched_aliases,
++        )
++        for row in machine.mentions
++    }
++    recommendations = {
++        row.subject_id: GeoRecommendationCorrection(
++            subject_id=row.subject_id,
++            recommendation=row.recommendation,
++            rank=row.rank,
++            rationale_excerpt=row.rationale_excerpt,
++        )
++        for row in machine.recommendations
++    }
++    claims = {row.id: row for row in machine.claims}
++    citations = {row.citation_id: row for row in machine.citations}
++    if review is not None:
++        if (
++            review.analysis_revision_id != machine.analysis.id
++            or review.run_id != machine.analysis.run_id
++        ):
++            raise ValueError("有效复核必须属于当前机器分析")
++        if review.decision == GeoReviewDecision.CORRECTED:
++            payload = review.correction_payload
++            assert payload is not None
++            mentions.update((row.subject_id, row) for row in payload.mentions)
++            recommendations.update((row.subject_id, row) for row in payload.recommendations)
++            for row in payload.claims:
++                original = claims[row.claim_assessment_id]
++                claims[original.id] = original.model_copy(
++                    update={
++                        "verdict": row.verdict,
++                        "severity": row.severity,
++                        "explanation": row.explanation,
++                        # 人工结论不沿用机器对原判断的置信度。
++                        "confidence": None,
++                    }
++                )
++            citations.update(
++                (
++                    row.citation_id,
++                    GeoCitationClassificationOut(
++                        analysis_revision_id=machine.analysis.id,
++                        citation_id=row.citation_id,
++                        source_category=row.source_category,
++                        subject_id=row.subject_id,
++                    ),
++                )
++                for row in payload.citations
++            )
++    return GeoReviewedResults(
++        mentions=sorted(mentions.values(), key=lambda row: str(row.subject_id)),
++        recommendations=sorted(recommendations.values(), key=lambda row: str(row.subject_id)),
++        claims=sorted(claims.values(), key=lambda row: str(row.id)),
++        citations=sorted(citations.values(), key=lambda row: str(row.citation_id)),
++        citation_classification_complete=len(citations) == citation_count,
++    )
+--- a/backend/app/services/geo_analysis_queries.py
++++ b/backend/app/services/geo_analysis_queries.py
+@@ -0,0 +1,175 @@
++"""Run 详情同一快照内批量读取机器历史、复核历史和当前有效结果。"""
++
++from typing import cast
++from uuid import UUID
++
++from sqlalchemy import ColumnElement, func, select
++from sqlalchemy.orm import Session
++
++from app.models.geo_analysis import (
++    GeoAnalysisRevision,
++    GeoClaimAssessment,
++    GeoEntityMention,
++    GeoRecommendation,
++    GeoRunReview,
++)
++from app.models.geo_analysis_worker import GeoCitationClassification
++from app.models.geo_runs import GeoObservationRun
++from app.models.identity import User
++from app.schemas.base import ContractModel
++from app.schemas.geo_analysis import (
++    GeoAnalysisRevisionOut,
++    GeoAnalysisSelection,
++    GeoClaimAssessmentOut,
++    GeoEntityMentionOut,
++    GeoRecommendationOut,
++    GeoRunReviewOut,
++)
++from app.schemas.geo_reviews import (
++    GeoAnalysisResult,
++    GeoCitationClassificationOut,
++    GeoReviewHistoryItem,
++    GeoRunAnalysisDetail,
++)
++from app.services.geo_read_projections import incomplete
++from app.services.geo_review_projection import reviewed_results
++
++
++def analysis_detail(
++    db: Session,
++    *,
++    run_id: UUID,
++    run_status: str,
++    current_analysis_id: UUID | None,
++    answer_id: UUID | None,
++    citation_count: int,
++    actor: User,
++) -> GeoRunAnalysisDetail:
++    if (
++        db.connection().get_isolation_level() not in {"REPEATABLE READ", "SERIALIZABLE"}
++        or db.autoflush
++    ):
++        raise ValueError("分析详情必须在禁止autoflush的一致快照内读取")
++    revisions = list(
++        db.scalars(
++            select(GeoAnalysisRevision)
++            .where(GeoAnalysisRevision.run_id == run_id)
++            .order_by(GeoAnalysisRevision.revision.desc())
++            .execution_options(populate_existing=True)
++        )
++    )
++    results = {
++        row.id: GeoAnalysisResult(
++            analysis=GeoAnalysisRevisionOut.model_validate(row),
++            mentions=[],
++            recommendations=[],
++            claims=[],
++            citations=[],
++            citation_classification_complete=False,
++        )
++        for row in revisions
++    }
++    # 四种子结果按完整revision集合各一次加载，没有逐版本查询。
++    models: tuple[
++        tuple[
++            type[GeoEntityMention]
++            | type[GeoRecommendation]
++            | type[GeoClaimAssessment]
++            | type[GeoCitationClassification],
++            type[ContractModel],
++            str,
++        ],
++        ...,
++    ] = (
++        (GeoEntityMention, GeoEntityMentionOut, "mentions"),
++        (GeoRecommendation, GeoRecommendationOut, "recommendations"),
++        (GeoClaimAssessment, GeoClaimAssessmentOut, "claims"),
++        (GeoCitationClassification, GeoCitationClassificationOut, "citations"),
++    )
++    for model, schema, field in models:
++        rows = db.scalars(select(model).where(model.analysis_revision_id.in_(results)))
++        for raw in rows:
++            row = cast(
++                GeoEntityMention
++                | GeoRecommendation
++                | GeoClaimAssessment
++                | GeoCitationClassification,
++                raw,
++            )
++            getattr(results[row.analysis_revision_id], field).append(schema.model_validate(row))
++    for result in results.values():
++        result.mentions.sort(key=lambda row: str(row.subject_id))
++        result.recommendations.sort(key=lambda row: str(row.subject_id))
++        result.claims.sort(key=lambda row: str(row.id))
++        result.citations.sort(key=lambda row: str(row.citation_id))
++        result.citation_classification_complete = (
++            result.analysis.status == "COMPLETED" and len(result.citations) == citation_count
++        )
++    reviews = [
++        GeoRunReviewOut.model_validate(row)
++        for row in db.scalars(
++            select(GeoRunReview)
++            .where(GeoRunReview.run_id == run_id)
++            .order_by(GeoRunReview.created_at.desc(), GeoRunReview.id.desc())
++            .execution_options(populate_existing=True)
++        )
++    ]
++    current = results.get(current_analysis_id) if current_analysis_id is not None else None
++    if current_analysis_id is not None and (
++        current is None
++        or current.analysis.status != "COMPLETED"
++        or current.analysis.answer_snapshot_id != answer_id
++    ):
++        raise incomplete()
++    selected = next(
++        (row for row in reviews if row.analysis_revision_id == current_analysis_id), None
++    )
++    required = (
++        current is not None and bool(current.analysis.review_required_reasons) and selected is None
++    )
++    can_review = (
++        current is not None
++        and run_status in {"NEEDS_REVIEW", "COMPLETED", "FAILED"}
++        and actor.is_active
++        and not actor.must_change_password
++        and actor.account_type in {"ADMIN", "ENGINEER"}
++    )
++    return GeoRunAnalysisDetail(
++        selection=GeoAnalysisSelection(
++            run_id=run_id,
++            current_analysis_revision_id=current_analysis_id,
++            current_review_id=selected.id if selected else None,
++        ),
++        revisions=list(results.values()),
++        reviews=[
++            GeoReviewHistoryItem(
++                review=row, is_current=selected is not None and row.id == selected.id
++            )
++            for row in reviews
++        ],
++        effective_results=reviewed_results(current, selected, citation_count=citation_count)
++        if current
++        else None,
++        review_required=required,
++        review_gate_passed=current is not None and not required,
++        available_actions=["REVIEW"] if can_review else [],
++    )
++
++
++def review_required_expression() -> ColumnElement[bool]:
++    """列表与筛选共用当前pointer内的人工门禁，不从采集终态反推。"""
++    return (
++        select(GeoAnalysisRevision.id)
++        .where(
++            GeoAnalysisRevision.id == GeoObservationRun.current_analysis_revision_id,
++            GeoAnalysisRevision.status == "COMPLETED",
++            func.jsonb_array_length(GeoAnalysisRevision.review_required_reasons) > 0,
++            ~select(GeoRunReview.id)
++            .where(
++                GeoRunReview.run_id == GeoAnalysisRevision.run_id,
++                GeoRunReview.analysis_revision_id == GeoAnalysisRevision.id,
++            )
++            .exists(),
++        )
++        .exists()
++    )
+--- a/backend/app/routers/geo_reviews.py
++++ b/backend/app/routers/geo_reviews.py
+@@ -0,0 +1,32 @@
++"""复核 HTTP 边界；事务与 ORM 写入只属于应用服务。"""
++
++from uuid import UUID
++
++from fastapi import APIRouter, Request
++
++from app.deps import CsrfProtected, DbSession, EngineerUser
++from app.errors import error_responses
++from app.schemas.geo_reviews import GeoRunReviewCreated, GeoRunReviewRequest
++from app.services.geo_reviews import review_run
++
++router = APIRouter(prefix="/api/v1/geo/observation-runs", tags=["geo-run-reviews"])
++
++
++@router.post(
++    "/{run_id}/review",
++    status_code=201,
++    response_model=GeoRunReviewCreated,
++    operation_id="reviewGeoObservationRun",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def review_run_http(
++    run_id: UUID,
++    payload: GeoRunReviewRequest,
++    request: Request,
++    db: DbSession,
++    user: EngineerUser,
++    _csrf: CsrfProtected,
++) -> GeoRunReviewCreated:
++    return review_run(
++        db, run_id=run_id, payload=payload, actor=user, request_id=request.state.request_id
++    )
+--- a/backend/alembic/sql/0056_geo_run_review.sql
++++ b/backend/alembic/sql/0056_geo_run_review.sql
+@@ -0,0 +1,106 @@
++-- 冻结0054指针与采集防线；追加受控人工复核revision发布。
++CREATE OR REPLACE FUNCTION geo_guard_observation_run() RETURNS trigger LANGUAGE plpgsql AS $$
++DECLARE parent geo_observation_runs%ROWTYPE; batch_state text; target geo_analysis_revisions%ROWTYPE; previous integer;
++BEGIN
++    IF TG_OP = 'DELETE' THEN
++        RAISE EXCEPTION '运行历史必须保留'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_immutable';
++    END IF;
++    IF TG_OP = 'UPDATE' THEN
++        -- 唯一终态例外是独立发布成功指针，不能夹带采集状态、费用或证据字段。
++        IF NEW.current_analysis_revision_id IS DISTINCT FROM OLD.current_analysis_revision_id THEN
++            IF NEW.current_analysis_revision_id IS NULL OR NEW.revision <> OLD.revision + 1 OR
++                (to_jsonb(NEW) - ARRAY['run_cell_key','revision','current_analysis_revision_id']) IS DISTINCT FROM
++                (to_jsonb(OLD) - ARRAY['run_cell_key','revision','current_analysis_revision_id']) THEN
++                RAISE EXCEPTION '当前分析发布只能前进指针并递增运行 revision'
++                    USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_analysis_publication';
++            END IF;
++            SELECT * INTO target FROM geo_analysis_revisions WHERE id=NEW.current_analysis_revision_id;
++            SELECT revision INTO previous FROM geo_analysis_revisions WHERE id=OLD.current_analysis_revision_id;
++            IF target.id IS NULL OR target.run_id <> OLD.id OR target.status <> 'COMPLETED'
++                OR target.revision <= COALESCE(previous,0) OR target.revision <
++                    (SELECT max(revision) FROM geo_analysis_revisions WHERE run_id=OLD.id AND status='COMPLETED') THEN
++                RAISE EXCEPTION '当前分析必须是本运行最新成功版本，不得倒退'
++                    USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_current_analysis';
++            END IF;
++            RETURN NEW;
++        END IF;
++        -- 复核只发布revision；仅首轮NEEDS_REVIEW额外完成，不能重写采集历史。
++        IF OLD.status IN ('NEEDS_REVIEW','COMPLETED','FAILED') AND
++            NEW.status = (CASE WHEN OLD.status='NEEDS_REVIEW' THEN 'COMPLETED' ELSE OLD.status END) THEN
++            IF NEW.revision = OLD.revision + 1 AND EXISTS (
++                SELECT 1 FROM geo_run_reviews review WHERE review.run_id=OLD.id
++                    AND review.analysis_revision_id=OLD.current_analysis_revision_id
++                    AND review.xmin=pg_current_xact_id()::xid
++            ) AND (
++                (OLD.status='NEEDS_REVIEW' AND NEW.finished_at IS NOT NULL AND
++                    (to_jsonb(NEW)-ARRAY['run_cell_key','revision','status','finished_at']) IS NOT DISTINCT FROM
++                    (to_jsonb(OLD)-ARRAY['run_cell_key','revision','status','finished_at'])) OR
++                (OLD.status<>'NEEDS_REVIEW' AND
++                    (to_jsonb(NEW)-ARRAY['run_cell_key','revision']) IS NOT DISTINCT FROM
++                    (to_jsonb(OLD)-ARRAY['run_cell_key','revision']))
++            ) THEN RETURN NEW; END IF;
++            -- 同值锁定仍保留；需要完成或终态实际修改却没有新Review时拒绝。
++            IF OLD.status='NEEDS_REVIEW' OR
++                (to_jsonb(NEW)-'run_cell_key') IS DISTINCT FROM (to_jsonb(OLD)-'run_cell_key') THEN
++                RAISE EXCEPTION '复核发布必须同事务追加当前分析Review且只更新允许字段'
++                    USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_review_publication';
++            END IF;
++        END IF;
++        IF ROW(NEW.id,NEW.batch_id,NEW.prompt_variant_id,NEW.collection_profile_id,
++                NEW.repeat_index,NEW.attempt_no,NEW.previous_attempt_id,NEW.input_snapshot,NEW.created_at)
++            IS DISTINCT FROM ROW(OLD.id,OLD.batch_id,OLD.prompt_variant_id,OLD.collection_profile_id,
++                OLD.repeat_index,OLD.attempt_no,OLD.previous_attempt_id,OLD.input_snapshot,OLD.created_at) THEN
++            RAISE EXCEPTION '运行输入和身份不可变'
++                USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_immutable';
++        END IF;
++        -- generated 列在 BEFORE 阶段尚未计算，比较所有其余维护列。
++        IF to_jsonb(NEW) - 'run_cell_key' IS NOT DISTINCT FROM to_jsonb(OLD) - 'run_cell_key'
++            THEN RETURN NEW; END IF;
++        IF OLD.status IN ('COMPLETED','FAILED','CANCELLED','BUDGET_BLOCKED') THEN
++            RAISE EXCEPTION '终态运行不可修改'
++                USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_terminal';
++        END IF;
++        IF NEW.revision <> OLD.revision + 1 THEN
++            RAISE EXCEPTION '运行实际更新必须递增 revision'
++                USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_revision';
++        END IF;
++        IF (OLD.external_call_state <> 'NOT_STARTED' AND NEW.external_call_state = 'NOT_STARTED')
++            OR (OLD.external_call_state = 'COMPLETED' AND NEW.external_call_state <> 'COMPLETED') THEN
++            RAISE EXCEPTION '已发送或未知请求不可恢复为未发送'
++                USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_external_progress';
++        END IF;
++        RETURN NEW;
++    END IF;
++    IF NEW.current_analysis_revision_id IS NOT NULL OR NEW.status <> 'PENDING' OR NEW.revision <> 0 OR NEW.external_call_state <> 'NOT_STARTED'
++        OR NEW.lease_token IS NOT NULL OR NEW.lease_expires_at IS NOT NULL
++        OR NEW.started_at IS NOT NULL OR NEW.collected_at IS NOT NULL OR NEW.finished_at IS NOT NULL
++        OR NEW.error_stage IS NOT NULL OR NEW.error_code IS NOT NULL OR NEW.error_summary IS NOT NULL
++        OR NEW.provider_request_id IS NOT NULL OR NEW.duration_ms IS NOT NULL
++        OR NEW.cost_amount IS NOT NULL OR NEW.cost_currency IS NOT NULL
++        OR NEW.prompt_tokens IS NOT NULL OR NEW.completion_tokens IS NOT NULL OR NEW.total_tokens IS NOT NULL
++        OR NEW.dispatch_attempt_count <> 0 OR NEW.last_dispatch_attempt_at IS NOT NULL THEN
++        RAISE EXCEPTION '新尝试必须是未发送的 PENDING revision 0'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_initial';
++    END IF;
++    SELECT status INTO batch_state FROM geo_observation_batches WHERE id=NEW.batch_id FOR UPDATE;
++    -- 写父行使 RR 的旧快照不能绕过集合提交约束；不更改逻辑 revision。
++    UPDATE geo_observation_batches SET revision=revision WHERE id=NEW.batch_id;
++    IF NEW.attempt_no=1 AND batch_state <> 'PLANNED' THEN
++        RAISE EXCEPTION '初始矩阵已封存'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_initial_matrix';
++    END IF;
++    IF NEW.previous_attempt_id IS NOT NULL THEN
++        SELECT * INTO parent FROM geo_observation_runs WHERE id=NEW.previous_attempt_id FOR KEY SHARE;
++        IF NOT FOUND OR (parent.batch_id <> NEW.batch_id
++            OR parent.prompt_variant_id <> NEW.prompt_variant_id
++            OR parent.collection_profile_id <> NEW.collection_profile_id
++            OR parent.repeat_index <> NEW.repeat_index OR parent.attempt_no + 1 <> NEW.attempt_no
++            OR parent.input_snapshot IS DISTINCT FROM NEW.input_snapshot
++            OR parent.status NOT IN ('FAILED','BUDGET_BLOCKED') OR parent.error_stage IS DISTINCT FROM 'COLLECTION') THEN
++            RAISE EXCEPTION '新尝试必须继承同采样单元的失败采集与完整输入'
++                USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_attempt_chain';
++        END IF;
++    END IF;
++    RETURN NEW;
++END $$;
+--- a/backend/alembic/versions/0056_geo_run_review.py
++++ b/backend/alembic/versions/0056_geo_run_review.py
+@@ -0,0 +1,22 @@
++"""受控人工复核发布；历史机器结果与Review不回填、不改写。"""
++
++from pathlib import Path
++
++from alembic import op
++
++revision = "0056_geo_run_review"
++down_revision = "0055_geo_analysis_worker"
++branch_labels = None
++depends_on = None
++
++
++def upgrade() -> None:
++    source = Path(__file__).resolve().parents[1] / "sql" / "0056_geo_run_review.sql"
++    op.execute(source.read_text())
++
++
++def downgrade() -> None:
++    op.execute("""DO $$ BEGIN
++        RAISE EXCEPTION '0056人工复核历史必须保留；关闭复核写入口并前向修复'
++            USING ERRCODE='55000';
++    END $$;""")
+--- a/backend/tests/integration/geo_reviews_support.py
++++ b/backend/tests/integration/geo_reviews_support.py
+@@ -0,0 +1,150 @@
++"""复核真实HTTP会话与PG分析夹具，数据均为虚构。"""
++
++from dataclasses import dataclass
++from datetime import UTC, datetime, timedelta
++from uuid import UUID, uuid4
++
++import pytest
++from fastapi.testclient import TestClient
++from sqlalchemy import select, text
++
++from app.config import settings
++from app.db import get_db
++from app.main import app
++from app.models.geo_catalog import GeoSubjectAlias
++from app.models.identity import SessionRecord, User
++from app.security import hash_token
++from app.services import geo_analysis_runs as runs
++from app.services.geo_catalog_normalization import catalog_text_key
++from tests.integration.geo_analysis_worker_support import AnalysisHarness
++from tests.integration.geo_analysis_worker_support import analysis_engine as analysis_engine
++from tests.integration.geo_analysis_worker_support import answer_database as answer_database
++from tests.integration.geo_analysis_worker_support import harness as harness
++from tests.integration.geo_analysis_worker_support import plan_database as plan_database
++from tests.integration.geo_analysis_worker_support import run_database as run_database
++
++__all__ = ["analysis_engine", "answer_database", "harness", "plan_database", "run_database"]
++CSRF = "geo507-fake-csrf-at-least-32-bytes-long"
++RUNS = "/api/v1/geo/observation-runs"
++
++
++@dataclass
++class ReviewAPI:
++    harness: AnalysisHarness
++    admin: TestClient
++    engineer: TestClient
++    anonymous: TestClient
++    engineer_id: UUID
++
++    def create(self, *, review_required=True, products=1):
++        case = self.harness.create(
++            products=products,
++            answer_text="推荐 GEO501-0，供电电压为 5 V。" if review_required else "虚构资料。",
++            citation_urls=("https://example.com/geo507",),
++        )
++        runs.process_analysis_run(case.run_id)
++        return case
++
++    def detail(self, case):
++        response = self.engineer.get(f"{RUNS}/{case.run_id}")
++        assert response.status_code == 200, response.text
++        return response.json()
++
++    def payload(self, case, **patch):
++        run = self.harness.run(case.run_id)
++        return {
++            "analysis_revision_id": str(run.current_analysis_revision_id),
++            "expected_run_revision": run.revision,
++            "decision": "CONFIRMED",
++            "correction_payload": None,
++            "comment": "虚构人工确认",
++            **patch,
++        }
++
++    def submit(self, case, **patch):
++        return self.engineer.post(f"{RUNS}/{case.run_id}/review", json=self.payload(case, **patch))
++
++    def reanalyze(self, case):
++        # 实际增加字典revision，避免同hash复用被误当作新版本。
++        with self.harness.factory.begin() as db:
++            subject = case.input["subjects"][0]["id"]
++            alias = f"虚构别名-{uuid4()}"
++            db.add(
++                GeoSubjectAlias(
++                    subject_id=subject,
++                    alias=alias,
++                    normalized_alias=alias,
++                    alias_kind="NAME",
++                    is_active=True,
++                )
++            )
++            # 原始回答中的虚构产品名保留为当前字典别名，保证重分析仍有同一待复核证据。
++            for frozen in case.input["subjects"]:
++                key = catalog_text_key(frozen["canonical_name"])
++                exists = db.scalar(
++                    select(GeoSubjectAlias.id).where(
++                        GeoSubjectAlias.subject_id == frozen["id"],
++                        GeoSubjectAlias.normalized_alias == key,
++                    )
++                )
++                if exists is None:
++                    db.add(
++                        GeoSubjectAlias(
++                            subject_id=frozen["id"],
++                            alias=frozen["canonical_name"],
++                            normalized_alias=key,
++                            alias_kind="NAME",
++                            is_active=True,
++                        )
++                    )
++
++            db.execute(
++                text("UPDATE geo_subjects SET revision=revision+1 WHERE id=:id"), {"id": subject}
++            )
++        identity = self.harness.reanalyze(case.run_id)
++        runs.process_analysis_revision(identity)
++        return identity
++
++
++@pytest.fixture
++def review_api(harness):
++    with harness.factory.begin() as db:
++        admin = db.get(User, harness.database.runs.plan.actor)
++        engineer = User(
++            username=f"geo507-{uuid4()}",
++            display_name="虚构复核员",
++            password_hash="unused",
++            account_type="ENGINEER",
++            is_active=True,
++            must_change_password=False,
++            revision=0,
++        )
++        db.add(engineer)
++        db.flush()
++        tokens = []
++        for user in (admin, engineer):
++            token = f"geo507-session-{uuid4()}"
++            tokens.append(token)
++            db.add(
++                SessionRecord(
++                    user_id=user.id,
++                    token_hash=hash_token(token),
++                    csrf_hash=hash_token(CSRF),
++                    expires_at=datetime.now(UTC) + timedelta(hours=1),
++                )
++            )
++        engineer_id = engineer.id
++
++    def request_db():
++        with harness.factory() as db:
++            yield db
++
++    app.dependency_overrides[get_db] = request_db
++    try:
++        with TestClient(app) as admin, TestClient(app) as engineer, TestClient(app) as anonymous:
++            for client, token in zip((admin, engineer), tokens, strict=True):
++                client.cookies.set(settings.session_cookie_name, token)
++                client.headers["X-CSRF-Token"] = CSRF
++            yield ReviewAPI(harness, admin, engineer, anonymous, engineer_id)
++    finally:
++        app.dependency_overrides.pop(get_db, None)
+--- a/backend/tests/integration/test_geo_reviews.py
++++ b/backend/tests/integration/test_geo_reviews.py
+@@ -0,0 +1,341 @@
++"""人工复核真实HTTP/PG：权限、schema、当前投影、历史与原子性。"""
++
++import json
++from uuid import uuid4
++
++import pytest
++from sqlalchemy import func, select, text
++
++from app.models.geo_analysis import GeoRunReview
++from app.models.identity import AuditLog, User
++from app.services import geo_reviews as service
++from tests.integration.geo_reviews_support import (
++    RUNS,
++    analysis_engine,
++    answer_database,
++    harness,
++    plan_database,
++    review_api,
++    run_database,
++)
++from tests.unit.test_geo_run_contract import contract as contract
++
++pytestmark = pytest.mark.integration
++__all__ = [
++    "analysis_engine",
++    "answer_database",
++    "harness",
++    "plan_database",
++    "review_api",
++    "run_database",
++]
++
++
++def empty_correction(**patch):
++    return {
++        "schema_version": 1,
++        "mentions": [],
++        "recommendations": [],
++        "claims": [],
++        "citations": [],
++        **patch,
++    }
++
++
++def rows(api, case):
++    with api.harness.factory() as db:
++        return {
++            name: db.execute(
++                text(
++                    f"SELECT to_jsonb(t) FROM {name} t WHERE "
++                    + (
++                        "run_id=:id"
++                        if name in {"geo_answer_snapshots", "geo_analysis_revisions"}
++                        else "analysis_revision_id IN "
++                        "(SELECT id FROM geo_analysis_revisions WHERE run_id=:id)"
++                    )
++                ),
++                {"id": case.run_id},
++            ).all()
++            for name in (
++                "geo_answer_snapshots",
++                "geo_analysis_revisions",
++                "geo_entity_mentions",
++                "geo_recommendations",
++                "geo_claim_assessments",
++                "geo_citation_classifications",
++            )
++        }
++
++
++def test_confirm_completes_first_review_without_mutating_machine(review_api, contract):
++    api = review_api
++    case = api.create()
++    before = api.detail(case)
++    assert before["run"]["status"] == "NEEDS_REVIEW"
++    assert before["analysis"]["review_required"]
++    assert before["analysis"]["review_gate_passed"] is False
++    assert before["data_quality"]["metric_eligible"] is False
++    frozen = rows(api, case)
++    response = api.submit(case)
++    assert response.status_code == 201, response.text
++    receipt = response.json()
++    assert receipt["run_revision"] == before["run"]["revision"] + 1
++    assert receipt["review"]["reviewer_id"] == str(api.engineer_id)
++    current = api.detail(case)
++    assert current["run"]["status"] == "COMPLETED"
++    assert current["batch"]["status"] == "COMPLETED"
++    assert current["analysis"]["selection"]["current_review_id"] == receipt["review"]["id"]
++    assert current["analysis"]["review_gate_passed"] and not current["analysis"]["review_required"]
++    assert current["data_quality"]["metric_eligible"] is None
++    assert current["data_quality"]["unavailable_sections"] == ["METRICS", "OPPORTUNITIES", "RETEST"]
++    assert rows(api, case) == frozen
++    from app.main import app
++    from tests.unit.test_geo_run_contract import validate
++
++    for document in (contract, app.openapi()):
++        validate(document, "GeoRunReviewCreated", receipt)
++        validate(document, "GeoRunDetail", current)
++    with api.harness.factory() as db:
++        audit = db.scalar(select(AuditLog).where(AuditLog.target_id == receipt["review"]["id"]))
++        assert audit.action == "geo_observation_run.reviewed"
++        assert audit.details["facts"] == {
++            "run_id": str(case.run_id),
++            "analysis_revision_id": receipt["review"]["analysis_revision_id"],
++            "review_id": receipt["review"]["id"],
++            "decision": "CONFIRMED",
++        }
++        assert "虚构人工确认" not in json.dumps(audit.details, ensure_ascii=False)
++
++
++def test_four_correction_kinds_and_latest_review_replaces_previous(review_api):
++    api = review_api
++    case = api.create()
++    before = api.detail(case)
++    machine = before["analysis"]["revisions"][0]
++    subject = machine["mentions"][0]["subject_id"]
++    claim = machine["claims"][0]
++    citation = before["citations"][0]["id"]
++    correction = empty_correction(
++        mentions=[
++            {
++                "subject_id": subject,
++                "mention_count": 0,
++                "first_character_offset": None,
++                "matched_aliases": [],
++            }
++        ],
++        recommendations=[
++            {
++                "subject_id": subject,
++                "recommendation": "NOT_RECOMMENDED",
++                "rank": None,
++                "rationale_excerpt": "虚构人工判定",
++            }
++        ],
++        claims=[
++            {
++                "claim_assessment_id": claim["id"],
++                "verdict": "PARTIAL",
++                "severity": "LOW",
++                "explanation": "虚构核验说明",
++            }
++        ],
++        citations=[
++            {"citation_id": citation, "source_category": "INDUSTRY_MEDIA", "subject_id": None}
++        ],
++    )
++    first = api.submit(
++        case, decision="CORRECTED", correction_payload=correction, comment="虚构人工修正"
++    )
++    assert first.status_code == 201, first.text
++    after = api.detail(case)
++    effective = after["analysis"]["effective_results"]
++    assert effective["mentions"][0]["mention_count"] == 0
++    assert effective["recommendations"][0]["recommendation"] == "NOT_RECOMMENDED"
++    assert (
++        effective["claims"][0]["verdict"] == "PARTIAL"
++        and effective["claims"][0]["confidence"] is None
++    )
++    assert effective["citations"][0]["source_category"] == "INDUSTRY_MEDIA"
++    assert after["analysis"]["revisions"] == before["analysis"]["revisions"]
++    # 后一次只修引用，其余恢复机器值，不叠加第一条review。
++    second = api.submit(
++        case,
++        decision="CORRECTED",
++        correction_payload=empty_correction(
++            citations=[
++                {"citation_id": citation, "source_category": "COMMUNITY", "subject_id": None}
++            ],
++        ),
++        comment="只复核引用",
++    )
++    assert second.status_code == 201, second.text
++    latest = api.detail(case)
++    assert (
++        latest["analysis"]["effective_results"]["mentions"][0]["mention_count"]
++        == machine["mentions"][0]["mention_count"]
++    )
++    assert latest["analysis"]["effective_results"]["claims"][0]["verdict"] == claim["verdict"]
++    assert api.submit(case).status_code == 201
++    confirmed = api.detail(case)
++    assert len(confirmed["analysis"]["reviews"]) == 3
++    assert sum(row["is_current"] for row in confirmed["analysis"]["reviews"]) == 1
++    assert confirmed["analysis"]["effective_results"]["citations"] == machine["citations"]
++    assert confirmed["run"]["finished_at"] == after["run"]["finished_at"]
++
++
++def test_stale_run_analysis_and_superseded_history(review_api):
++    api = review_api
++    case = api.create()
++    payload = api.payload(case)
++    accepted = api.submit(case)
++    assert accepted.status_code == 201
++    stale = api.engineer.post(f"{RUNS}/{case.run_id}/review", json=payload)
++    assert stale.status_code == 409 and stale.json()["error"]["code"] == "REVISION_CONFLICT"
++    newer = api.reanalyze(case)
++    current = api.detail(case)
++    assert current["analysis"]["selection"]["current_analysis_revision_id"] == str(newer)
++    assert current["run"]["status"] == "COMPLETED"
++    assert current["analysis"]["selection"]["current_review_id"] is None
++    assert (
++        current["analysis"]["review_required"]
++        and current["data_quality"]["metric_eligible"] is False
++    )
++    assert current["analysis"]["reviews"][0]["is_current"] is False
++    assert len(current["analysis"]["revisions"]) == 2
++    # analysis和run都过期时优先说明旧分析，不能悄悄迁移review。
++    stale = api.engineer.post(f"{RUNS}/{case.run_id}/review", json=payload)
++    assert stale.status_code == 409 and stale.json()["error"]["code"] == "GEO_REVIEW_STALE_ANALYSIS"
++    needs = api.engineer.get(RUNS, params={"needs_review": True}).json()
++    assert str(case.run_id) in {row["id"] for row in needs["items"]}
++    assert current["run"]["workflow_stage"] == "REVIEW_REQUIRED"
++    assert api.submit(case).status_code == 201
++    completed = api.detail(case)
++    assert len(completed["analysis"]["reviews"]) == 2
++    assert completed["analysis"]["reviews"][0]["is_current"]
++    assert not completed["analysis"]["reviews"][1]["is_current"]
++    assert not completed["analysis"]["review_required"]
++
++
++@pytest.mark.parametrize("field", ["mentions", "recommendations", "claims", "citations"])
++def test_foreign_correction_target_rejected_without_side_effects(review_api, field):
++    api = review_api
++    case = api.create()
++    old = api.harness.run(case.run_id)
++    value = {
++        "mentions": {
++            "subject_id": str(uuid4()),
++            "mention_count": 0,
++            "first_character_offset": None,
++            "matched_aliases": [],
++        },
++        "recommendations": {
++            "subject_id": str(uuid4()),
++            "recommendation": "UNKNOWN",
++            "rank": None,
++            "rationale_excerpt": None,
++        },
++        "claims": {
++            "claim_assessment_id": str(uuid4()),
++            "verdict": "ACCURATE",
++            "severity": "LOW",
++            "explanation": "虚构说明",
++        },
++        "citations": {"citation_id": str(uuid4()), "source_category": "OTHER", "subject_id": None},
++    }[field]
++    response = api.submit(
++        case,
++        decision="CORRECTED",
++        correction_payload=empty_correction(**{field: [value]}),
++        comment="虚构拒绝",
++    )
++    assert response.status_code == 422 and response.json()["error"]["code"] == "VALIDATION_ERROR"
++    assert api.harness.run(case.run_id).revision == old.revision
++    with api.harness.factory() as db:
++        assert (
++            db.scalar(
++                select(func.count())
++                .select_from(GeoRunReview)
++                .where(GeoRunReview.run_id == case.run_id)
++            )
++            == 0
++        )
++
++
++@pytest.mark.parametrize(
++    "mode,expected",
++    [
++        ("anonymous", 401),
++        ("csrf", 403),
++        ("missing-csrf", 422),
++        ("disabled", 401),
++        ("password", 403),
++    ],
++)
++def test_permissions_and_csrf_are_real(review_api, mode, expected):
++    api = review_api
++    case = api.create()
++    client = api.anonymous if mode == "anonymous" else api.engineer
++    if mode == "csrf":
++        client.headers["X-CSRF-Token"] = "invalid-token-with-32-characters-long"
++    elif mode == "missing-csrf":
++        del client.headers["X-CSRF-Token"]
++    elif mode in {"disabled", "password"}:
++        with api.harness.factory.begin() as db:
++            user = db.get(User, api.engineer_id)
++            user.is_active = mode != "disabled"
++            user.must_change_password = mode == "password"
++            user.revision += 1
++    response = client.post(f"{RUNS}/{case.run_id}/review", json=api.payload(case))
++    assert response.status_code == expected, response.text
++    with api.harness.factory() as db:
++        assert not db.scalar(select(GeoRunReview.id).where(GeoRunReview.run_id == case.run_id))
++
++
++def test_admin_can_review_and_no_current_analysis_is_explicit(review_api):
++    api = review_api
++    case = api.create(review_required=False)
++    response = api.admin.post(f"{RUNS}/{case.run_id}/review", json=api.payload(case))
++    assert response.status_code == 201, response.text
++    pending = api.harness.create()
++    response = api.engineer.post(
++        f"{RUNS}/{pending.run_id}/review",
++        json={**api.payload(pending), "analysis_revision_id": str(uuid4())},
++    )
++    assert (
++        response.status_code == 409
++        and response.json()["error"]["code"] == "GEO_ANALYSIS_NOT_AVAILABLE"
++    )
++
++
++@pytest.mark.parametrize("phase", ["audit", "commit"])
++def test_failure_rolls_back_review_run_batch_and_audit(review_api, monkeypatch, phase):
++    api = review_api
++    case = api.create()
++    before = api.detail(case)
++    canary = "虚构敏感正文不能回显"
++    if phase == "audit":
++        monkeypatch.setattr(
++            service, "append_audit", lambda *args: (_ for _ in ()).throw(RuntimeError(canary))
++        )
++    else:
++        from sqlalchemy.orm import Session
++
++        monkeypatch.setattr(
++            Session, "commit", lambda self: (_ for _ in ()).throw(RuntimeError(canary))
++        )
++    from fastapi.testclient import TestClient
++
++    from app.main import app
++
++    with TestClient(app, raise_server_exceptions=False) as client:
++        client.cookies.update(api.engineer.cookies)
++        client.headers.update(api.engineer.headers)
++        response = client.post(f"{RUNS}/{case.run_id}/review", json=api.payload(case))
++    assert response.status_code == 500 and canary not in response.text
++    after = api.detail(case)
++    assert after["run"]["revision"] == before["run"]["revision"]
++    assert after["batch"]["revision"] == before["batch"]["revision"]
++    assert after["analysis"]["reviews"] == []
++    assert after["run"]["status"] == "NEEDS_REVIEW"
+--- a/backend/tests/integration/test_geo_review_concurrency.py
++++ b/backend/tests/integration/test_geo_review_concurrency.py
+@@ -0,0 +1,137 @@
++"""真实PG行锁交错验证复核revision竞争和current pointer发布边界。"""
++
++import time
++from concurrent.futures import ThreadPoolExecutor
++from threading import Event
++
++import psycopg
++import pytest
++from sqlalchemy import select, text
++
++from app.errors import AppError
++from app.models.identity import User
++from app.schemas.geo_reviews import GeoRunReviewRequest
++from app.services import geo_reviews as service
++from app.services.geo_run_lifecycle import lock_run
++from tests.integration.geo_analysis_support import bind, finish, pending, publish
++from tests.integration.geo_reviews_support import (
++    analysis_engine,
++    answer_database,
++    harness,
++    plan_database,
++    review_api,
++    run_database,
++)
++
++pytestmark = pytest.mark.integration
++__all__ = [
++    "analysis_engine",
++    "answer_database",
++    "harness",
++    "plan_database",
++    "review_api",
++    "run_database",
++]
++
++
++def wait_for_lock(api, pid):
++    deadline = time.monotonic() + 4
++    with psycopg.connect(api.harness.database.url, autocommit=True) as observer:
++        while time.monotonic() < deadline:
++            row = observer.execute(
++                "SELECT wait_event_type FROM pg_stat_activity WHERE pid=%s", (pid,)
++            ).fetchone()
++            if row and row[0] == "Lock":
++                return
++            time.sleep(0.01)
++    pytest.fail("第二连接未进入预期行锁等待")
++
++
++def call_review(api, case, payload, ready=None, pid=None):
++    with api.harness.factory() as db:
++        actor = db.get(User, api.engineer_id)
++        db.execute(text("SET LOCAL lock_timeout='8s'"))
++        if pid is not None:
++            pid.append(db.scalar(select(text("pg_backend_pid()"))))
++            ready.set()
++        try:
++            return service.review_run(
++                db, run_id=case.run_id, payload=payload, actor=actor, request_id="geo507-race"
++            )
++        except AppError as error:
++            return error.code
++
++
++def test_same_expected_revision_has_one_winner(review_api, monkeypatch):
++    api, held, release, ready = review_api, Event(), Event(), Event()
++    case = api.create()
++    payload = GeoRunReviewRequest.model_validate(api.payload(case))
++    original = service.append_audit
++
++    def pause(db, entry):
++        original(db, entry)
++        held.set()
++        assert release.wait(8)
++
++    monkeypatch.setattr(service, "append_audit", pause)
++    with ThreadPoolExecutor(max_workers=2) as pool:
++        first = pool.submit(call_review, api, case, payload)
++        assert held.wait(4)
++        pid = []
++        second = pool.submit(call_review, api, case, payload, ready, pid)
++        try:
++            assert ready.wait(4)
++            wait_for_lock(api, pid[0])
++        finally:
++            release.set()
++        assert first.result(timeout=8).run_revision == payload.expected_run_revision + 1
++        assert second.result(timeout=8) == "REVISION_CONFLICT"
++    current = api.detail(case)
++    assert len(current["analysis"]["reviews"]) == 1
++    assert current["run"]["revision"] == payload.expected_run_revision + 1
++
++
++def test_concurrent_pointer_publication_rejects_waiting_old_review(review_api):
++    api = review_api
++    case = api.create()
++    payload = GeoRunReviewRequest.model_validate(api.payload(case))
++    with psycopg.connect(api.harness.database.url) as conn:
++        newer = pending(conn, case, analyzer_version="geo507-concurrent-v2")
++        bind(conn, case, newer)
++        finish(conn, newer)
++    ready, pid = Event(), []
++    with api.harness.factory() as publisher:
++        locked = lock_run(publisher, case.run_id)
++        assert locked is not None
++        publisher.execute(
++            text(
++                "UPDATE geo_observation_runs SET current_analysis_revision_id=:analysis,"
++                "revision=revision+1 WHERE id=:run"
++            ),
++            {"analysis": newer, "run": case.run_id},
++        )
++        with ThreadPoolExecutor(max_workers=1) as pool:
++            future = pool.submit(call_review, api, case, payload, ready, pid)
++            try:
++                assert ready.wait(4)
++                wait_for_lock(api, pid[0])
++            finally:
++                publisher.commit()
++            assert future.result(timeout=8) == "GEO_REVIEW_STALE_ANALYSIS"
++    current = api.detail(case)
++    assert current["analysis"]["selection"]["current_analysis_revision_id"] == str(newer)
++    assert current["analysis"]["reviews"] == []
++
++
++def test_review_before_new_pointer_becomes_history(review_api):
++    api = review_api
++    case = api.create()
++    assert api.submit(case).status_code == 201
++    with psycopg.connect(api.harness.database.url) as conn:
++        newer = pending(conn, case, analyzer_version="geo507-after-review-v2")
++        bind(conn, case, newer)
++        finish(conn, newer)
++        publish(conn, case, newer)
++    current = api.detail(case)
++    assert current["analysis"]["selection"]["current_review_id"] is None
++    assert not current["analysis"]["reviews"][0]["is_current"]
+--- a/backend/tests/integration/test_geo_review_reads.py
++++ b/backend/tests/integration/test_geo_review_reads.py
+@@ -0,0 +1,142 @@
++"""复核详情RR快照与固定查询成本，未批准事实不能被人工凭空确认。"""
++
++import pytest
++from sqlalchemy import event
++
++from app.services import geo_analysis_runs as runs
++from tests.integration.geo_reviews_support import (
++    RUNS,
++    analysis_engine,
++    answer_database,
++    harness,
++    plan_database,
++    review_api,
++    run_database,
++)
++from tests.integration.test_geo_reviews import empty_correction
++
++pytestmark = pytest.mark.integration
++__all__ = [
++    "analysis_engine",
++    "answer_database",
++    "harness",
++    "plan_database",
++    "review_api",
++    "run_database",
++]
++
++
++def test_detail_cannot_mix_review_commit_between_queries(review_api):
++    api = review_api
++    case = api.create()
++    submitted = False
++
++    def after_run(conn, cursor, statement, parameters, context, many):
++        nonlocal submitted
++        if (
++            submitted
++            or "FROM geo_observation_runs LEFT OUTER JOIN geo_answer_snapshots" not in statement
++        ):
++            return
++        submitted = True
++        assert api.submit(case).status_code == 201
++
++    event.listen(api.harness.factory.kw["bind"], "after_cursor_execute", after_run)
++    try:
++        observed = api.detail(case)
++    finally:
++        event.remove(api.harness.factory.kw["bind"], "after_cursor_execute", after_run)
++    assert submitted
++    assert observed["run"]["status"] == "NEEDS_REVIEW"
++    assert observed["analysis"]["review_required"] and observed["analysis"]["reviews"] == []
++    assert api.detail(case)["analysis"]["review_gate_passed"]
++
++
++def test_detail_query_count_does_not_grow_with_review_history(review_api):
++    api = review_api
++    case = api.create()
++
++    def capture():
++        statements, levels = [], []
++
++        def before(conn, cursor, statement, parameters, context, many):
++            statements.append(statement)
++            levels.append(conn.get_isolation_level())
++
++        engine = api.harness.factory.kw["bind"]
++        event.listen(engine, "before_cursor_execute", before)
++        try:
++            value = api.detail(case)
++        finally:
++            event.remove(engine, "before_cursor_execute", before)
++        assert all(sql.lstrip().startswith("SELECT") for sql in statements)
++        assert all(level == "REPEATABLE READ" for level in levels)
++        return value, len(statements)
++
++    _, initial = capture()
++    for _ in range(4):
++        assert api.submit(case).status_code == 201
++    api.reanalyze(case)
++    current, count = capture()
++    assert len(current["analysis"]["reviews"]) == 4
++    assert len(current["analysis"]["revisions"]) == 2
++    assert count == initial
++
++
++def test_claim_without_approved_fact_cannot_become_judgeable(review_api):
++    api = review_api
++    subject_name = api.harness.database.runs.input["subjects"][0]["canonical_name"]
++    case = api.harness.create(products=0, answer_text=f"{subject_name}的供电电压为5 V。")
++    runs.process_analysis_run(case.run_id)
++    machine = api.detail(case)["analysis"]["revisions"][0]
++    claim = machine["claims"][0]
++    assert claim["fact_version_id"] is None and claim["verdict"] == "UNJUDGEABLE"
++    correction = empty_correction(
++        claims=[
++            {
++                "claim_assessment_id": claim["id"],
++                "verdict": "ACCURATE",
++                "severity": "LOW",
++                "explanation": "虚构凭空判断",
++            }
++        ]
++    )
++    response = api.submit(
++        case, decision="CORRECTED", correction_payload=correction, comment="虚构错误修正"
++    )
++    assert response.status_code == 422
++    assert api.detail(case)["analysis"]["reviews"] == []
++    assert api.engineer.get(f"{RUNS}/{case.run_id}").status_code == 200
++
++
++def test_new_analysis_without_review_reasons_clears_old_review_workflow(review_api):
++    from app.models.geo_catalog import GeoSubjectAlias
++    from app.services.geo_catalog_normalization import catalog_text_key
++
++    api = review_api
++    case = api.create()
++    assert api.harness.run(case.run_id).status == "NEEDS_REVIEW"
++    # 当前字典不再匹配原答案里的旧型号，真实重分析因此没有待复核判断。
++    with api.harness.factory.begin() as db:
++        subject = case.input["subjects"][0]["id"]
++        name = "虚构不在答案中的当前别名"
++        db.add(
++            GeoSubjectAlias(
++                subject_id=subject,
++                alias=name,
++                normalized_alias=catalog_text_key(name),
++                alias_kind="NAME",
++                is_active=True,
++            )
++        )
++    newer = api.harness.reanalyze(case.run_id)
++    runs.process_analysis_revision(newer)
++    current = api.detail(case)
++    assert current["analysis"]["selection"]["current_analysis_revision_id"] == str(newer)
++    assert current["run"]["status"] == "NEEDS_REVIEW"
++    assert current["analysis"]["review_required"] is False
++    assert current["analysis"]["review_gate_passed"] is True
++    assert current["run"]["workflow_stage"] == "COMPLETED"
++    assert current["run"]["primary_task"] == "VIEW_OBSERVATION"
++    items = api.engineer.get(RUNS, params={"needs_review": True}).json()["items"]
++    assert str(case.run_id) not in {row["id"] for row in items}
+--- a/backend/tests/integration/test_geo_review_guards.py
++++ b/backend/tests/integration/test_geo_review_guards.py
+@@ -0,0 +1,64 @@
++"""复核发布不允许重写采集终态字段。"""
++
++import psycopg
++import pytest
++
++from tests.integration.geo_analysis_support import review
++from tests.integration.geo_reviews_support import (
++    analysis_engine,
++    answer_database,
++    harness,
++    plan_database,
++    review_api,
++    run_database,
++)
++
++pytestmark = pytest.mark.integration
++__all__ = [
++    "analysis_engine",
++    "answer_database",
++    "harness",
++    "plan_database",
++    "review_api",
++    "run_database",
++]
++
++
++@pytest.mark.parametrize(
++    "extra",
++    [
++        "cost_amount=3,cost_currency='USD'",
++        "finished_at=clock_timestamp()",
++        "error_summary='虚构改写'",
++    ],
++)
++def test_review_cannot_rewrite_terminal_collection_fields(review_api, extra):
++    api = review_api
++    case = api.create()
++    assert api.submit(case).status_code == 201
++    original = api.harness.run(case.run_id)
++    with psycopg.connect(api.harness.database.url) as conn:
++        review(conn, case, original.current_analysis_revision_id, api.engineer_id)
++        with pytest.raises(psycopg.errors.CheckViolation):
++            conn.execute(
++                f"UPDATE geo_observation_runs SET revision=revision+1,{extra} WHERE id=%s",
++                (case.run_id,),
++            )
++        conn.rollback()
++    assert api.harness.run(case.run_id).revision == original.revision
++    assert len(api.detail(case)["analysis"]["reviews"]) == 1
++
++
++def test_needs_review_cannot_complete_without_new_review(review_api):
++    api = review_api
++    case = api.create()
++    with psycopg.connect(api.harness.database.url) as conn:
++        with pytest.raises(psycopg.errors.CheckViolation) as failure:
++            conn.execute(
++                "UPDATE geo_observation_runs SET status='COMPLETED',revision=revision+1,"
++                "finished_at=clock_timestamp() WHERE id=%s",
++                (case.run_id,),
++            )
++        assert failure.value.diag.constraint_name == "ck_geo_runs_review_publication"
++        conn.rollback()
++    assert api.harness.run(case.run_id).status == "NEEDS_REVIEW"
+--- a/backend/tests/integration/test_geo_review_migration.py
++++ b/backend/tests/integration/test_geo_review_migration.py
+@@ -0,0 +1,79 @@
++"""0056非空历史前滚与复核发布限定字段；不回填、不降级删除历史。"""
++
++import subprocess
++import sys
++from uuid import uuid4
++
++import psycopg
++import pytest
++
++from tests.integration.geo_analysis_support import (
++    bind,
++    collected_case,
++    finish,
++    pending,
++    publish,
++    review,
++)
++from tests.integration.geo_answers_support import AnswerDatabase, plan_database, run_database
++from tests.integration.test_geo_analysis_worker_migration import history
++from tests.integration.test_migrations import run_alembic
++
++pytestmark = pytest.mark.integration
++__all__ = ["plan_database", "run_database"]
++
++
++def test_0056_nonempty_forward_keeps_every_history_row(run_database):
++    db = run_database
++    run_alembic(db.plan.env, db.plan.backend_dir, "0055_geo_analysis_worker")
++    with psycopg.connect(db.url) as conn:
++        case = collected_case(conn, AnswerDatabase(db, uuid4()), products=1)
++        analysis = pending(conn, case)
++        bind(conn, case, analysis)
++        finish(conn, analysis)
++        publish(conn, case, analysis)
++        review(conn, case, analysis, db.plan.actor)
++        conn.execute(
++            "UPDATE geo_observation_runs SET status='COMPLETED',finished_at=clock_timestamp(),"
++            "revision=revision+1 WHERE id=%s",
++            (case.run_id,),
++        )
++        before = history(conn)
++    run_alembic(db.plan.env, db.plan.backend_dir, "0056_geo_run_review")
++    with psycopg.connect(db.url) as conn:
++        assert history(conn) == before
++        assert (
++            conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
++            == "0056_geo_run_review"
++        )
++        # 旧review不能充当本事务发布新revision的凭证。
++        with pytest.raises(psycopg.errors.CheckViolation) as failure:
++            conn.execute(
++                "UPDATE geo_observation_runs SET revision=revision+1 WHERE id=%s", (case.run_id,)
++            )
++        assert failure.value.diag.constraint_name == "ck_geo_runs_review_publication"
++        conn.rollback()
++        review(conn, case, analysis, db.plan.actor)
++        conn.execute(
++            "UPDATE geo_observation_runs SET revision=revision+1 WHERE id=%s", (case.run_id,)
++        )
++    stopped = subprocess.run(
++        [sys.executable, "-m", "alembic", "downgrade", "0055_geo_analysis_worker"],
++        cwd=db.plan.backend_dir,
++        env=db.plan.env,
++        capture_output=True,
++        text=True,
++    )
++    assert stopped.returncode != 0
++    assert "0056人工复核历史必须保留" in stopped.stdout + stopped.stderr
++    with psycopg.connect(db.url) as conn:
++        assert (
++            conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
++            == "0056_geo_run_review"
++        )
++        assert (
++            conn.execute(
++                "SELECT count(*) FROM geo_run_reviews WHERE run_id=%s", (case.run_id,)
++            ).fetchone()[0]
++            == 2
++        )
+--- a/backend/tests/unit/test_geo_review_contract.py
++++ b/backend/tests/unit/test_geo_review_contract.py
+@@ -0,0 +1,76 @@
++"""复核命令复用闭合correction，拒绝自由JSON和伪造追溯字段。"""
++
++from uuid import uuid4
++
++import pytest
++from pydantic import TypeAdapter, ValidationError
++
++from app.schemas.geo_reviews import GeoRunReviewCreated, GeoRunReviewRequest
++from tests.unit.test_geo_analysis_contract import corrections
++from tests.unit.test_geo_run_contract import annotations_removed, validate
++from tests.unit.test_geo_run_contract import contract as contract
++
++
++@pytest.mark.parametrize("model", [GeoRunReviewRequest, GeoRunReviewCreated])
++def test_review_components_match_authority(contract, model):
++    schema = TypeAdapter(model).json_schema(ref_template="#/components/schemas/{model}")
++    definitions = schema.pop("$defs", {})
++    assert contract["components"]["schemas"][model.__name__] == schema
++    for name, definition in definitions.items():
++        assert annotations_removed(contract["components"]["schemas"][name]) == annotations_removed(
++            definition
++        )
++
++
++def request(**patch):
++    return {
++        "analysis_revision_id": str(uuid4()),
++        "expected_run_revision": 4,
++        "decision": "CONFIRMED",
++        "correction_payload": None,
++        "comment": "确认",
++        **patch,
++    }
++
++
++@pytest.mark.parametrize(
++    "patch",
++    [
++        {"expected_run_revision": -1},
++        {"expected_run_revision": True},
++        {"reviewer_id": str(uuid4())},
++        {"created_at": "1999-01-01"},
++        {"comment": "bad\x00"},
++        {"decision": "SUPERSEDED"},
++        {"correction_payload": corrections()},
++        {"decision": "CORRECTED"},
++        {"decision": "CORRECTED", "correction_payload": corrections(), "comment": "  "},
++    ],
++)
++def test_invalid_review_command(patch):
++    with pytest.raises(ValidationError):
++        GeoRunReviewRequest.model_validate(request(**patch))
++
++
++@pytest.mark.parametrize("decision", ["CONFIRMED", "CORRECTED"])
++def test_real_review_request_validates_static_and_runtime(contract, decision):
++    from app.main import app
++
++    value = request(
++        decision=decision, correction_payload=corrections() if decision == "CORRECTED" else None
++    )
++    output = GeoRunReviewRequest.model_validate(value).model_dump(mode="json")
++    for schema in (contract, app.openapi()):
++        validate(schema, "GeoRunReviewRequest", output)
++
++
++def test_review_operation_has_real_auth_csrf_and_revision(contract):
++    operation = contract["paths"]["/api/v1/geo/observation-runs/{run_id}/review"]["post"]
++    assert operation["operationId"] == "reviewGeoObservationRun"
++    assert operation["security"] == [{"sessionCookie": []}]
++    assert set(operation["responses"]) == {"201", "400", "401", "403", "404", "409", "422"}
++    assert next(p for p in operation["parameters"] if p.get("name") == "X-CSRF-Token")["required"]
++    assert (
++        "expected_run_revision"
++        in contract["components"]["schemas"]["GeoRunReviewRequest"]["required"]
++    )
+--- a/backend/tests/unit/test_runtime_response_metadata.py
++++ b/backend/tests/unit/test_runtime_response_metadata.py
+@@ -647,9 +647,9 @@
+     runtime = app.openapi()
+     operations = _operation_map(runtime)
+ 
+-    assert len(operations) == 220
+-    assert len(set(operations)) == 220
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1416
++    assert len(operations) == 221
++    assert len(set(operations)) == 221
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1423
+     parameter_ref = {"$ref": "#/components/parameters/RequestIdHeader"}
+     header_ref = {"$ref": "#/components/headers/RequestIdResponseHeader"}
+     parameter_schema = {
+@@ -694,10 +694,10 @@
+     augmented = app.openapi()
+     stripped = _strip_request_context_metadata(augmented)
+ 
+-    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1196
++    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1202
+     assert sum(
+         len(operation["responses"]) for operation in _operation_map(stripped).values()
+-    ) == 1196
++    ) == 1202
+     # 安装版本的 FastAPI 省略 None 默认；这里只移除已声明且显式恢复的 nullable annotation。
+     raw_settings = raw["components"]["schemas"]["GeoApiSettings"]["properties"]
+     stripped_settings = stripped["components"]["schemas"]["GeoApiSettings"]["properties"]
+--- a/docs/geo-monitoring/README.md
++++ b/docs/geo-monitoring/README.md
+@@ -69,6 +69,8 @@
+ GEO-501 / R4 已定义 AnalysisRevision、Mention、Recommendation、Claim、Review 及当前选择组件，新增六张表和 `0054_geo_analysis_contract`。原始证据、不可变分析与追加复核分离；完整输入摘要、多产品事实强引用、显式前进指针与历史保留由数据库约束保证。仅补既有资源的删除阻断和真实分析引用计数，不提供分析算法、Worker、API 或复核页面。状态为 `review`，实际验证、修复记录与独立复核见 [Task Brief](../../.trellis/tasks/10-03-geo-501-analysis-contract/prd.md) 和 [实施证据](../../.trellis/tasks/10-03-geo-501-analysis-contract/implement.md)。未迁移生产数据库。
+ 
+ GEO-502 / R4 新增不可变别名匹配快照和确定性提及纯阶段。中英文、大小写、有限 Unicode 连字符、型号边界、原文字符位置及否定线索由独立金标验证；共享别名、规范化碰撞和跨对象重叠均返回完整候选与 `ALIAS_AMBIGUOUS`，不任选对象。无公共合同或 Alembic 变化，Worker/revision 持久化和 NEEDS_REVIEW 接线留 GEO-506，运行详情分析区仍为 NOT_IMPLEMENTED。使用规则见 [实际分析边界](./03-technical/05-worker-and-collector-architecture.md#当前-r4geo-502-确定性提及阶段)，Task Brief 与实际检查见 [任务说明](../../.trellis/tasks/10-03-geo-502-mention-matching/prd.md) 和 [实施证据](../../.trellis/tasks/10-03-geo-502-mention-matching/implement.md)，当前状态以 [任务清单](./04-delivery/task-manifest.yaml) 为准。
++
++GEO-507 / R4 已实现追加人工复核API、stale revision裁决、机器/复核历史和当前reviewed投影；未完成必要复核明确阻断业务指标使用。0056仅扩展受控Run发布守卫，无历史回填。Task Brief与实际验证见[任务记录](../../.trellis/tasks/10-03-geo-507-run-review/prd.md)和[实施证据](../../.trellis/tasks/10-03-geo-507-run-review/implement.md)，本地交付后状态为review，待人工接受。GEO-508页面和GEO-601指标未实施，未迁移生产数据库。
+ 
+ ## 1. 文档包用途
+ 
+--- a/docs/geo-monitoring/CHANGELOG.md
++++ b/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,11 @@
+ # 文档包变更记录
++
++## GEO-507 / R4 人工复核与当前结果 — 2026-10-03（review）
++
++- 新增confirm/correct复核API和闭合请求/回执，锁后重验当前账号、Run revision、成功analysis与四栏归属；复核、revision、首次完成及安全审计原子提交。
++- 详情返回机器及review历史和最新有效投影；latest Review不累计旧修正，新成功pointer使旧复核仅作历史。未完成必要复核阻断业务指标使用，完整资格仍未实现。
++- 0056只扩展受控Run发布guard，无新增表/列或历史回填；旧Review不能授权新终态更新，采集字段继续冻结，降级安全停止。
++- 真实PG权限、并发、旧review supersede、correction schema、读一致性、失败回滚和非空前滚证据见[实施记录](../../.trellis/tasks/10-03-geo-507-run-review/implement.md)。只同步generated类型和fixture，不实现508页面、601指标或其他后续任务，不自行done。
+ 
+ ## GEO-506 / R4 Analysis Worker 与 revision 生命周期 — 2026-10-03（review）
+ 
+--- a/docs/geo-monitoring/03-technical/03-api-contract-design.md
++++ b/docs/geo-monitoring/03-technical/03-api-contract-design.md
+@@ -293,10 +293,11 @@
+ - `batch`：冻结计划摘要、完整批次计数、workflow/action；不嵌入全部批次 runs；
+ - `answer/citations/evidence_files`：所选 attempt 的不可变原始证据，引用保留去重及实际位置；
+ - `attempts/timeline`：同 cell 全部 attempts 与真实 created/started/collected/finished 时间，不推断未记录的状态时间；
+-- `data_quality`：`assessment=NOT_IMPLEMENTED`、`metric_eligible=null`，明确未实现的 ANALYSIS/REVIEW/METRICS/OPPORTUNITIES/RETEST；
++- `analysis`：GEO-507增加机器revision/结果、review历史、current选择与effective_results，精确字段见下方当前复核章节；
++- `data_quality`：完整资格仍`assessment=NOT_IMPLEMENTED`；当前必要复核未完成时`metric_eligible=false`，其他情况为null；未实施区块仅METRICS/OPPORTUNITIES/RETEST；
+ - `as_of`：数据库事务时钟，全部关联来自同一快照。
+ 
+-正式分析、复核、机会与重测关联仍是后续增量；本任务不伪造历史、指标分母或派发成功。大文件只返回白名单元数据和限时签名 URL，不返回 raw 字节、object_key、上传者或文件名；GET 不做外部 HEAD/HTTP。详情使用 `Cache-Control: no-store`。缺失历史/证据返回409 GEO_READ_MODEL_INCOMPLETE，不合格文件返回409 FILE_INTEGRITY_FAILED；已知签名不可用返回503 DEPENDENCY_UNAVAILABLE。
++分析/复核关联已由GEO-507接入，机会与重测关联仍是后续增量；本任务不伪造历史、指标分母或派发成功。大文件只返回白名单元数据和限时签名 URL，不返回 raw 字节、object_key、上传者或文件名；GET 不做外部 HEAD/HTTP。详情使用 `Cache-Control: no-store`。缺失历史/证据返回409 GEO_READ_MODEL_INCOMPLETE，不合格文件返回409 FILE_INTEGRITY_FAILED；已知签名不可用返回503 DEPENDENCY_UNAVAILABLE。
+ 
+ Batch列表筛选 `q/plan_id/subject_id/status/trigger_type/created_from/created_to`；Run列表支持 `batch_id/plan_id/subject_id/product_id/query_topic_id/prompt_variant_id/collection_profile_id/engine_surface_id/collection_mode/status/error_code/needs_review/latest_only/q/created_from/created_to`，批次内Run列表由路径固定batch_id。q为冻结计划名称或冻结问题正文的字面子串，转义LIKE通配符；所有历史维度使用冻结身份。时间为含起点、不含终点的带时区窗口。页大小10/20/50，默认20；排序CREATED_DESC（默认）/CREATED_ASC，UUID用于稳定tie-break。
+ 
+@@ -306,7 +307,7 @@
+ 
+ ### 8.2 人工录入（GEO-305 / R2）
+ 
+-GEO-305 已开放上表三个 `manual-*` 端点，完整路径均带 `/api/v1`。Batch/Run读取由GEO-306开放，显式retry由GEO-406开放；其他运行操作仍是后续设计。精确字段及类型以根 OpenAPI 为权威。
++GEO-305 已开放上表三个 `manual-*` 端点，完整路径均带 `/api/v1`。Batch/Run读取由GEO-306开放，显式retry由GEO-406开放，人工复核由GEO-507开放；其他运行操作仍是后续设计。精确字段及类型以根 OpenAPI 为权威。
+ 
+ - GET manual-entry：冻结 `input_snapshot`、Run/Batch ID、run_revision、截图要求、当前草稿与独立 draft_revision、当前 collection_blockers 和服务端 workflow/action。未保存为 revision0/null draft；配置停用或监测关闭仍可读取草稿，但没有可写动作。
+ - PUT manual-draft：`{expected_draft_revision,draft}`；可保存未完成的文本、引用和可选证据，首次 revision1，实际修改恰好+1，同值保存保留原版本和时间，不重复审计。Run revision 不变。
+@@ -370,7 +371,7 @@
+ reason: "别名和事实版本已更新"
+ ```
+ 
+-以上为后续 GEO-507 的命令草案，未在 GEO-501 新增 operation；具体装配必须按 ADR-003 验证多产品事实归属与资格。创建异步分析 revision，返回 `202` 和 revision summary。
++以上为尚未发布的公共命令目标草案，不属于 GEO-507 deliverables。当前仅有 GEO-506 的内部管理员命令，按 ADR-003 冻结多产品事实归属与资格；GEO-507 不新增 reanalyze HTTP operation，也不接受客户端事实清单。
+ 
+ ### 9.2 人工复核
+ 
+@@ -381,13 +382,15 @@
+ expected_run_revision: 4
+ decision: CORRECTED
+ comment: "模型把型号后缀识别成另一产品"
+-corrections:
++correction_payload:
++  schema_version: 1
+   mentions: [...]
+   recommendations: [...]
+   claims: [...]
+-```
+-
+-GEO-501 已定义闭合 GeoReviewCorrectionPayload，以 mentions/recommendations/claims/citations 分栏判别目标类型，包含 schema_version=1；至少一项修正且每栏目标唯一，不能接受任意 JSON。后续命令必须复用该组件，不维护第二套修正合同。
++  citations: [...]
++```
++
++GEO-501 已定义闭合 GeoReviewCorrectionPayload，以 mentions/recommendations/claims/citations 分栏判别目标类型，包含 schema_version=1；至少一项修正且每栏目标唯一，不能接受任意 JSON。GEO-507命令复用该组件；CONFIRMED的correction_payload为null，CORRECTED至少一项修正且comment非空。成功201返回追加Review与新Run revision，具体当前投影见下方GEO-507章节。
+ 
+ ## 10. 总览和洞察 API
+ 
+@@ -606,6 +609,14 @@
+ 
+ 根 OpenAPI 新增 AnalysisRevision、Mention、Recommendation、Claim、RunReview、闭合分析输入/配置、多产品事实绑定、类型化修正及 GeoAnalysisSelection 数据组件；没有新增 operation。精确字段以 [OpenAPI](../../../contracts/openapi.yaml) 为权威，关系与并发以 [数据库合同](../../../contracts/database.md#geo-analysisrevision--子结果--runreview-合同geo-501--r4) 为权威。
+ 
+-Run 当前成功指针是唯一选择来源；当前有效 review 仅在该 analysis 内按 created_at DESC,id DESC 选取。旧 review 不覆盖新分析。CONFIRMED 无修正；CORRECTED 有说明与至少一项类型化修正；不改机器结果或原始引用。后续 GEO-507/508 才接入详情、重分析、复核命令和权限策略。现有详情分析区继续显式 NOT_IMPLEMENTED。
++Run 当前成功指针是唯一选择来源；当前有效 review 仅在该 analysis 内按 created_at DESC,id DESC 选取。旧 review 不覆盖新分析。CONFIRMED 无修正；CORRECTED 有说明与至少一项类型化修正；不改机器结果或原始引用。GEO-507 已接入详情、复核命令和权限策略，具体当前合同见下节；重分析仍为 GEO-506 的内部管理员命令，页面由 GEO-508 接入。
+ 
+ 事实删除阻断类型追加 GEO_ANALYSIS，继续使用 FACT_VERSION_IN_USE；用户 reviewer 历史沿用 USER_BUSINESS_HISTORY。仅前端类型及已有阻断元数据映射同步，无新页面状态。
++
++## GEO-507 / R4 当前复核 API 与读取
++
++`POST /api/v1/geo/observation-runs/{run_id}/review`（`reviewGeoObservationRun`）接受当前 analysis ID、expected_run_revision、CONFIRMED/CORRECTED、闭合四栏 correction_payload 与 comment，返回201复核记录和新的Run revision。ADMIN/ENGINEER使用现有session/CSRF；reviewer_id和时间由服务端生成，不接受客户端追溯字段。旧 analysis 优先409 GEO_REVIEW_STALE_ANALYSIS，旧 Run revision 为409 REVISION_CONFLICT；无当前成功分析409 GEO_ANALYSIS_NOT_AVAILABLE，非法状态409 INVALID_STATE_TRANSITION，修正schema或归属错误422 VALIDATION_ERROR。精确字段和response签名以根OpenAPI为权威。
++
++既有详情增加 `analysis`：独立机器revision及子结果、完整review历史、显式current selection、effective_results、review_required/review_gate_passed及当前REVIEW动作。读取同一RR快照；latest有效Review整体替换此前修正，CONFIRMED恢复机器投影，当前pointer之外的review仅作历史。未完成必要复核明确metric_eligible=false/GEO_REVIEW_REQUIRED；通过review gate仍返回完整指标资格未实施，不计算指标。列表needs_review查询同一current gate，不把重分析后的采集终态倒退。
++
++本任务只同步generated类型和受影响fixture，无新前端路由、query key或URL状态，不提供重分析公共端点。GEO-508负责页面，GEO-601负责MetricEligibility。事务、追加历史、锁和0056停止路径见[根数据库合同](../../../contracts/database.md#geo-507-人工复核命令与当前结果r4)。
+--- a/docs/geo-monitoring/03-technical/02-data-architecture.md
++++ b/docs/geo-monitoring/03-technical/02-data-architecture.md
+@@ -394,3 +394,9 @@
+ 首次Run/Joblease及终结、全部分类与COMPLETED受延迟约束保护；不可变与RESTRICT保留历史。
+ 精确列、索引、锁序、PG hash、幂等与迁移停止合同见
+ [根数据库合同](../../../contracts/database.md#geo-506-analysis-worker--revision-生命周期r4)，不在本层维护第二套规则。
++
++### GEO-507：追加复核与当前选择
++
++0056只扩展受控Run复核发布guard，不新增表/列、不回填历史；Answer、机器子结果和旧Review保持不可变。review追加与Run revision、首次NEEDS_REVIEW完成和受控audit同事务；当前选择和四栏修正都由根合同拥有。
++
++详情始终同时返回原机器历史与当前reviewed投影；latest Review不累计旧修正，新成功pointer自动使旧review仅作历史。精确锁序、scope、并发、门禁和前向恢复规则见[根数据库合同](../../../contracts/database.md#geo-507-人工复核命令与当前结果r4)。
+--- a/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
++++ b/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
+@@ -409,4 +409,10 @@
+ 成功推进current pointer，失败保留旧pointer，不倒退Run采集状态；这适用于首次已失败但有答案的Run。
+ 相同input hash的待执行/成功revision复用，失败只能显式重跑。数据库 lease、派发恢复与原子提交见
+ [Worker当前实现](../03-technical/05-worker-and-collector-architecture.md#当前-r4geo-506-analysis-worker)。
+-GEO-507的复核/current读投影仍未接线；本任务不改变指标资格或加入机会状态。
++GEO-507已接线confirm/correct和current reviewed读投影，见下节；完整指标资格和机会状态仍由后续任务实施。
++
++### GEO-507 已接线复核边界
++
++当前成功analysis可由ADMIN/ENGINEER确认或结构化修正；每次复核追加Review并递增Run revision。首次NEEDS_REVIEW在该事务中完成为COMPLETED；后续复核及已结束Run的重分析只更新当前分析/复核选择，不改采集历史。旧Run revision和旧analysis都明确冲突，不自动重放。
++
++latest Review只影响其绑定的当前analysis，原机器结果与所有旧review保留。新成功analysis使此前review失去当前资格；失败仍保留此前成功选择。当前analysis需要人工复核且无当前review时，review gate=false且业务指标使用被阻断；通过复核不等同于后续完整MetricEligibility已通过。锁、原子性与精确错误以[根数据库合同](../../../contracts/database.md#geo-507-人工复核命令与当前结果r4)为权威。
+--- a/backend/tests/integration/test_geo_admission_migration.py
++++ b/backend/tests/integration/test_geo_admission_migration.py
+@@ -156,9 +156,9 @@
+         text=True,
+     )
+     assert stopped.returncode != 0
+-    assert "0055 分析执行与引用历史必须保留" in stopped.stdout + stopped.stderr
++    assert "0056人工复核历史必须保留" in stopped.stdout + stopped.stderr
+     with psycopg.connect(db.url) as conn:
+         assert (
+             conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+-            == "0055_geo_analysis_worker"
++            == "0056_geo_run_review"
+         )
+--- a/backend/tests/integration/test_geo_answer_migration.py
++++ b/backend/tests/integration/test_geo_answer_migration.py
+@@ -27,7 +27,7 @@
+     with psycopg.connect(db.url) as conn:
+         assert (
+             conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+-            == "0055_geo_analysis_worker"
++            == "0056_geo_run_review"
+         )
+         assert existing_rows(conn) == db.runs.before
+         assert (
+@@ -63,10 +63,10 @@
+     )
+     assert (
+         stopped.returncode != 0
+-        and "0055 分析执行与引用历史必须保留" in stopped.stdout + stopped.stderr
++        and "0056人工复核历史必须保留" in stopped.stdout + stopped.stderr
+     )
+     with psycopg.connect(db.url) as conn:
+         assert (
+             conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+-            == "0055_geo_analysis_worker"
++            == "0056_geo_run_review"
+         )
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -6,11 +6,11 @@
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+ 3892c8f83318ee460de04960a5162b4d777db06eb731a5999cdee946cd8042e3  ./02-business/01-business-architecture.md
+ ecf9472b259ebe572775405e0fcd5d3dddf35a13d68be130a44baec5a3db9f98  ./02-business/02-domain-model.md
+-f5aaa653fead5c8da4f007531cbc67b71298c2075093857c81fb7b842fd84085  ./02-business/03-workflows-and-state-machines.md
++f3aeee99fa15b2c6b28c33ef869aed12283334a2b17116b8dd0ddda6272ae0cd  ./02-business/03-workflows-and-state-machines.md
+ 30e1976c61c18150724cf4b89ead9e2d960b0cea729ba377b06c7c384c264899  ./02-business/04-monitoring-methodology-and-metrics.md
+ 90c2a635615b591f0d1a282fb62f289de0fbad030ea2dcb19ce7dd10983b85b2  ./03-technical/01-technical-architecture.md
+-487f43028baced2d8c6ac281990ae13341915428d7ec5b3f530d9d9e8e8910c8  ./03-technical/02-data-architecture.md
+-df4a36e524aa3a9dfdae09dddddcc2847d2f4e0618c1bced179b7913f513ea8e  ./03-technical/03-api-contract-design.md
++005d3d0bbf76fd04de5c7ab74ec6ea1b021647e88500da98870e5bfe1899a4e9  ./03-technical/02-data-architecture.md
++99dac7d9ecc586638b30f096fa991851958bbdcfd21f25d97c72a6be5ca05d50  ./03-technical/03-api-contract-design.md
+ 76b36ff4bdc28ae906dcd07eafdf91cfae1b016f858d94c6fd6a2d54ae70fb09  ./03-technical/04-frontend-architecture.md
+ daf8f8cec2dfb8996c316ca259ae6eea161d944337f340ce9c6180bc9c87c0f5  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+@@ -105,12 +105,12 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-73a6482cd2745c8718ee775d6fcdc72f50c501ffd3259c0b55a06963c145e173  ./04-delivery/task-manifest.yaml
++ca11dfb6e505143be741b4ac86309e20a2c2c448d8ac9c03c8c2a5829eb3eafe  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 09d2ba6a3d8f07ca61309d0a9d4a557c30a1d16853d73139e15b43ca6f1303bb  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-7332a8a7c15dbccbbe12690aa0111b5087d7c665fdc4d55e94023143bd32ef0e  ./CHANGELOG.md
+-dc6f70b4325c3a2310d3795d4db85f7b703f1f6ecb8b8b9d4ac9b21bdb28c4c0  ./README.md
++d7a354e0c2ee450fb3fdeec73c2194fb54d76d9f1566608cfe8b3da8bc711b1c  ./CHANGELOG.md
++782f4f74854eb0916aa2d7c4ed1ef050aa27c25ba1aa65e4ad8e896cdf8efd42  ./README.md

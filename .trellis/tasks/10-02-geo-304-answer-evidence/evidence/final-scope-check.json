@@ -1,0 +1,15 @@
+{
+  "manifest_changed_task_ids": [
+    "GEO-304"
+  ],
+  "dependency_GEO-301": "done",
+  "GEO-304_status": "review",
+  "openapi_added_schemas": [
+    "GeoAnswerCitationInput",
+    "GeoAnswerCitationOut",
+    "GeoAnswerSnapshotOut",
+    "GeoRawPayloadSummary"
+  ],
+  "existing_paths_and_schemas_unchanged": true,
+  "scope": "relative_to_session_baseline"
+}

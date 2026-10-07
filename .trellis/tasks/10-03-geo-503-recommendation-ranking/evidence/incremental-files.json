@@ -1,0 +1,21 @@
+{
+  "changed": [
+    "backend/app/services/geo_analysis.py",
+    "backend/tests/fixtures/geo_analysis/README.md",
+    "backend/tests/geo_fixtures.py",
+    "deploy/scripts/check-geo-fixtures.py",
+    "docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/SHA256SUMS"
+  ],
+  "new": [
+    "backend/app/services/geo_recommendation_rules.py",
+    "backend/tests/fixtures/geo_analysis/recommendations-v1.json",
+    "backend/tests/fixtures/geo_analysis/recommendations-v1.schema.json",
+    "backend/tests/unit/test_geo_recommendations.py"
+  ],
+  "unrelated_files_unchanged": 1274,
+  "unexpected": []
+}

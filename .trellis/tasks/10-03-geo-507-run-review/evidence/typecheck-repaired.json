@@ -1,0 +1,7 @@
+{
+  "command": [
+    "make",
+    "typecheck"
+  ],
+  "exit_code": 2
+}

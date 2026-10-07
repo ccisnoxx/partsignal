@@ -1,0 +1,72 @@
+[
+  {
+    "path": "backend/app/collectors/openai_compatible.py",
+    "kind": "new",
+    "sha256": "f6131fb110ded252a4795124b88d13ace7d7d5fe06d64dfea0a443e877a1ad07"
+  },
+  {
+    "path": "backend/app/collectors/openai_response.py",
+    "kind": "new",
+    "sha256": "4d1db6a2e4a34f9df50776ea4251caeffc7ecb15cddc64e82502b1f6d6fd8b41"
+  },
+  {
+    "path": "backend/app/services/pinned_http.py",
+    "kind": "modified",
+    "sha256": "27136d608a462b7bae6167f3472ac9195f8d4baf935bd651a00b1f6dfaf01791"
+  },
+  {
+    "path": "backend/tests/geo_openai_support.py",
+    "kind": "new",
+    "sha256": "8e43aa07a07b49e503ccee66bb9c5af4a88407a33867676700a60e203a386f18"
+  },
+  {
+    "path": "backend/tests/unit/test_geo_openai_collector.py",
+    "kind": "new",
+    "sha256": "ac91b2b30c1256cab5fd9c00d2efd0da65a38d1740b7b311a7a1a145f1de7f0f"
+  },
+  {
+    "path": "backend/tests/unit/test_geo_openai_response.py",
+    "kind": "new",
+    "sha256": "b8e20e550582aeef6e1ffe3ccaa1a02c61abb99c80f76553eb349571676f73cf"
+  },
+  {
+    "path": "backend/tests/unit/test_geo_openai_network.py",
+    "kind": "new",
+    "sha256": "84c1bf89d3e0979f52dae2f7b7f87685cd6981dba35ea25acb8bb943d7a09f29"
+  },
+  {
+    "path": "backend/tests/unit/test_geo_collector_contract.py",
+    "kind": "modified",
+    "sha256": "6fc5fe851224a150a4b08fcbd74bc8599b8c00de2a5db8436af94f28b9a72f9b"
+  },
+  {
+    "path": "deploy/scripts/test-geo-collector-contract.py",
+    "kind": "modified",
+    "sha256": "8a3cf2d6294d543e0e57d084a311de083cd56d58efba00ecd614aa328b099078"
+  },
+  {
+    "path": "docs/geo-monitoring/README.md",
+    "kind": "modified",
+    "sha256": "8b6755a6ef67ef9146f73571a69b63c9e79d8da80895be2f9708c8a166aeaa5f"
+  },
+  {
+    "path": "docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md",
+    "kind": "modified",
+    "sha256": "ed9f4e203b0dd8c40ef0b2c8cf76a7d66de55b0654b298e12b95092ab03e7090"
+  },
+  {
+    "path": "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+    "kind": "modified",
+    "sha256": "6637c4b8232d8d3b18d0f396411341af3a772215e7ab59c9e11c1efbdc372e1a"
+  },
+  {
+    "path": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "kind": "modified",
+    "sha256": "3a470d00fea6ca112104e0b4efb675063d5819943582bfdb63e678b24d7bd6c2"
+  },
+  {
+    "path": "docs/geo-monitoring/SHA256SUMS",
+    "kind": "modified",
+    "sha256": "0daaf1740686a56bec43e3d2d14de35b64e876547759d9d58c5f16f52471b5cc"
+  }
+]

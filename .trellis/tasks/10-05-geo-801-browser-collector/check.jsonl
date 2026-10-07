@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/infra/index.md", "reason": "基础设施与部署验证入口"}
+{"file": ".trellis/spec/backend/index.md", "reason": "后端职责和Application Service合同"}
+{"file": "docs/geo-monitoring/03-technical/08-deployment-and-operations.md", "reason": "独立服务与默认关闭运维合同"}
+{"file": "docs/geo-monitoring/03-technical/06-security-and-compliance.md", "reason": "网络与敏感数据边界"}
+{"file": "docs/geo-monitoring/05-decisions/ADR-005-staged-collector-rollout.md", "reason": "Browser独立隔离与分阶段门禁"}
+{"file": ".trellis/tasks/10-05-geo-801-browser-collector/evidence/dependency-gate.md", "reason": "当前任务与完整manifest定向核对，避免大文件注入截断"}

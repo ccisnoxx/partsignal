@@ -1,0 +1,574 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { api } from '@/shared/api/client';
+import type { components } from '@/shared/api/generated/schema';
+import { contentKeys } from './content.api';
+import { ContentAiProduction } from './content-ai-production';
+
+type ContentEditorContext = components['schemas']['ContentEditorContext'];
+type ContentVersion = components['schemas']['ContentVersion'];
+type GenerationJob = components['schemas']['GenerationJob'];
+type GenerationJobDetail = components['schemas']['GenerationJobDetail'];
+
+const ids = {
+  task: '30000000-0000-4000-8000-000000000001',
+  product: '30000000-0000-4000-8000-000000000002',
+  fact: '30000000-0000-4000-8000-000000000003',
+  content: '30000000-0000-4000-8000-000000000004',
+  job: '30000000-0000-4000-8000-000000000005',
+  retry: '30000000-0000-4000-8000-000000000006',
+  model: '30000000-0000-4000-8000-000000000007',
+  channel: '30000000-0000-4000-8000-000000000008',
+  prompt: '30000000-0000-4000-8000-000000000009',
+  user: '30000000-0000-4000-8000-000000000010',
+} as const;
+
+const generationOptions: components['schemas']['GenerationOptions'] = {
+  platform_profile_id: '30000000-0000-4000-8000-000000000011',
+  platform_profile_name: '工程师社区',
+  platform_prompt: {
+    id: ids.prompt,
+    name: '技术文章 Prompt',
+    revision: 7,
+    template_markdown: '# 平台 Prompt\n\n只使用批准事实。',
+  },
+  humanization_prompt_configured: true,
+  models: [{
+    id: ids.model,
+    channel_id: ids.channel,
+    channel_name: 'Fixture Channel',
+    display_name: 'Fixture Model',
+    model_id: 'fixture-model',
+  }],
+};
+
+function version(): ContentVersion {
+  return {
+    id: ids.content,
+    task_id: ids.task,
+    fact_version_id: ids.fact,
+    source_job_id: ids.job,
+    based_on_id: null,
+    version: 1,
+    source_type: 'AI',
+    title: 'AI 草稿',
+    summary: '摘要',
+    body_markdown: '# 正文',
+    tags: ['AI'],
+    content_hash: 'a'.repeat(64),
+    status: 'DRAFT',
+    workflow_stage: 'CURRENT_DRAFT',
+    primary_task: 'EDIT_AND_SUBMIT_REVIEW',
+    available_actions: ['CREATE_REVISION', 'CREATE_HUMANIZATION_JOB', 'SUBMIT_REVIEW'],
+    revision: 0,
+    quality_issues: [],
+    created_by: ids.user,
+    created_at: '2026-08-10T00:00:00Z',
+  };
+}
+
+function context({
+  current = null,
+  latest = null,
+}: {
+  current?: ContentVersion | null;
+  latest?: ContentEditorContext['latest_generation'];
+} = {}): ContentEditorContext {
+  return {
+    task: {
+      id: ids.task,
+      identifier: 'CT-A1B2C3D4',
+      status: 'OPEN',
+      workflow_stage: current ? 'DRAFT' : latest?.status === 'FAILED' ? 'GENERATION_FAILED' : 'NO_DRAFT',
+      primary_task: current
+        ? 'EDIT_AND_SUBMIT_REVIEW'
+        : latest?.status === 'FAILED'
+          ? 'HANDLE_GENERATION_FAILURE'
+          : latest
+            ? 'VIEW_GENERATION_PROGRESS'
+            : 'CREATE_FIRST_DRAFT',
+      available_actions: current ? ['CANCEL'] : ['CANCEL', 'CREATE_GENERATION_JOB', 'CREATE_MANUAL_VERSION'],
+      deletion: null,
+      revision: 1,
+      created_by: ids.user,
+      created_at: '2026-08-10T00:00:00Z',
+      archived_at: null,
+    },
+    product: {
+      id: ids.product,
+      brand: 'PartSignal',
+      part_number: 'PS-AI',
+      category: 'MCU',
+      status: 'ACTIVE',
+    },
+    platform: {
+      id: generationOptions.platform_profile_id,
+      name: generationOptions.platform_profile_name,
+      website_url: null,
+      logo: null,
+    },
+    locked_fact_version: {
+      id: ids.fact,
+      version: 2,
+      status: 'APPROVED',
+      classification: 'PUBLIC',
+      body_markdown: '# 批准事实',
+    },
+    current_content: current,
+    comparison_content: null,
+    diff: null,
+    latest_generation: latest,
+    current_lineage: null,
+    source: null,
+  };
+}
+
+function job(overrides: Partial<GenerationJob> = {}): GenerationJob {
+  return {
+    id: ids.job,
+    content_task_id: ids.task,
+    job_type: 'GENERATE',
+    source_content_version_id: null,
+    status: 'PENDING',
+    workflow_stage: 'IN_PROGRESS',
+    primary_task: 'VIEW_EXECUTION_PROGRESS',
+    available_actions: [],
+    attempt_count: 0,
+    content_version_id: null,
+    retry_of_id: null,
+    error_code: null,
+    error_summary: null,
+    provider_request_id: null,
+    response_duration_ms: null,
+    prompt_tokens: null,
+    completion_tokens: null,
+    total_tokens: null,
+    created_at: '2026-08-10T00:00:00Z',
+    started_at: null,
+    finished_at: null,
+    ...overrides,
+  };
+}
+
+function renderProduction(editorContext: ContentEditorContext) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  const rendered = render(
+    <QueryClientProvider client={queryClient}>
+      <ContentAiProduction
+        context={editorContext}
+        csrfToken="ai-production-csrf"
+        taskId={ids.task}
+      />
+    </QueryClientProvider>,
+  );
+  return {
+    queryClient,
+    rerenderContext(next: ContentEditorContext) {
+      rendered.rerender(
+        <QueryClientProvider client={queryClient}>
+          <ContentAiProduction context={next} csrfToken="ai-production-csrf" taskId={ids.task} />
+        </QueryClientProvider>,
+      );
+    },
+  };
+}
+
+function response<T>(value: T, status = 200) {
+  return { data: value, response: Response.json(value, { status }) } as never;
+}
+
+function apiError(code: string, message: string, requestId: string, status: number) {
+  return {
+    error: { error: { code, message, details: {}, request_id: requestId } },
+    response: Response.json({}, { status }),
+  } as never;
+}
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
+
+describe('ContentAiProduction', () => {
+  it.each(['generate', 'humanize'] as const)('服务端移除 %s 动作时不呈现入口或请求模型', (mode) => {
+    const initial = context({ current: mode === 'humanize' ? version() : null });
+    const get = vi.spyOn(api, 'GET');
+    renderProduction({
+      ...initial,
+      task: { ...initial.task, available_actions: ['CANCEL', 'CREATE_MANUAL_VERSION'] },
+      current_content: initial.current_content
+        ? { ...initial.current_content, available_actions: ['CREATE_REVISION'] }
+        : null,
+    });
+    expect(screen.queryByRole('button', { name: 'AI 生成首稿' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '创建自然化版本' })).not.toBeInTheDocument();
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it.each(['generate', 'humanize'] as const)('打开 %s 后模型候选被撤销，禁止提交旧选择', async (mode) => {
+    vi.spyOn(api, 'GET').mockResolvedValue(response(generationOptions));
+    const post = vi.spyOn(api, 'POST');
+    const { queryClient } = renderProduction(context({ current: mode === 'humanize' ? version() : null }));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: mode === 'generate' ? 'AI 生成首稿' : '创建自然化版本' }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('combobox', { name: '模型' }));
+    await user.click(await screen.findByRole('option', { name: /Fixture Model/ }));
+    const submit = within(dialog).getByRole('button', { name: mode === 'generate' ? '确认 Prompt 与模型并开始生成' : '确认创建自然化版本' });
+    expect(submit).toBeEnabled();
+    await act(async () => {
+      queryClient.setQueryData(contentKeys.generationOptions(ids.task), { ...generationOptions, models: [] });
+    });
+    await waitFor(() => expect(submit).toBeDisabled());
+    expect(within(dialog).getByRole('combobox', { name: '模型' })).toBeDisabled();
+    await user.click(submit);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('重试确认窗打开后服务端撤销 RETRY，确认控件不可点击', async () => {
+    const failed = job({ status: 'FAILED', workflow_stage: 'RETRYABLE_FAILURE', primary_task: 'HANDLE_FAILURE', available_actions: ['RETRY'] });
+    vi.spyOn(api, 'GET').mockResolvedValue(response({ items: [failed] }));
+    const post = vi.spyOn(api, 'POST');
+    const { queryClient } = renderProduction(context({ latest: {
+      id: ids.job, job_type: 'GENERATE', status: 'FAILED', attempt_count: 0,
+      error_code: 'AI_GENERATION_DISABLED', error_summary: '业务生成已关闭',
+      created_at: failed.created_at, started_at: null, finished_at: null,
+    } }));
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: '按原快照重试' }));
+    const submit = screen.getByRole('button', { name: '确认按原快照重试' });
+    await act(async () => {
+      queryClient.setQueryData(contentKeys.generationJobs(ids.task), { items: [{
+        ...failed, workflow_stage: 'HISTORICAL_FAILURE', primary_task: 'VIEW_FAILURE', available_actions: [],
+      }] });
+    });
+    await waitFor(() => expect(submit).toBeDisabled());
+    await user.click(submit);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('模式拒绝显示公开错误并刷新模型与动作，不自动重发', async () => {
+    let closed = false;
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/content-tasks/{content_task_id}/generation-options') {
+        return response({ ...generationOptions, models: closed ? [] : generationOptions.models });
+      }
+      throw new Error(`未声明 GET：${path}`);
+    });
+    const post = vi.spyOn(api, 'POST').mockImplementation(async () => {
+      closed = true;
+      return apiError('AI_GENERATION_DISABLED', '当前运行模式已关闭业务 AI 生成', 'mode-request', 409);
+    });
+    const { queryClient } = renderProduction(context());
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'AI 生成首稿' }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('combobox', { name: '模型' }));
+    await user.click(await screen.findByRole('option', { name: /Fixture Model/ }));
+    const submit = within(dialog).getByRole('button', { name: '确认 Prompt 与模型并开始生成' });
+    await user.click(submit);
+    expect(await within(dialog).findByText(/当前运行模式已关闭业务 AI 生成/)).toBeInTheDocument();
+    await waitFor(() => expect(submit).toBeDisabled());
+    expect(invalidate).toHaveBeenCalledWith({ exact: true, queryKey: contentKeys.editorContext(ids.task) });
+    expect(post).toHaveBeenCalledOnce();
+  });
+
+  it.each(['generate', 'humanize'] as const)('打开 %s Dialog 后 token 被撤销，禁止继续提交', async (mode) => {
+    vi.spyOn(api, 'GET').mockResolvedValue(response(generationOptions));
+    const post = vi.spyOn(api, 'POST');
+    const initial = context({ current: mode === 'humanize' ? version() : null });
+    const { rerenderContext } = renderProduction(initial);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: mode === 'generate' ? 'AI 生成首稿' : '创建自然化版本' }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('combobox', { name: '模型' }));
+    await user.click(await screen.findByRole('option', { name: /Fixture Model/ }));
+    const submit = within(dialog).getByRole('button', { name: mode === 'generate' ? '确认 Prompt 与模型并开始生成' : '确认创建自然化版本' });
+    expect(submit).toBeEnabled();
+    rerenderContext({
+      ...initial,
+      task: { ...initial.task, available_actions: ['CANCEL'] },
+      current_content: initial.current_content ? { ...initial.current_content, available_actions: ['CREATE_REVISION'] } : null,
+    });
+    expect(submit).toBeDisabled();
+    await user.click(submit);
+    expect(post).not.toHaveBeenCalled();
+    expect(dialog).toBeInTheDocument();
+  });
+
+  it('本页 J1 结束后接管外部 J2，重新读取列表并轮询至终态刷新主线', async () => {
+    const first = job({ status: 'SUCCEEDED', workflow_stage: 'SUCCEEDED', primary_task: 'VIEW_GENERATED_CONTENT' });
+    let external = job({ id: ids.retry, status: 'RUNNING' });
+    let externalPublished = false;
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/content-tasks/{content_task_id}/generation-options') return response(generationOptions);
+      if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') return response({ items: externalPublished ? [first, external] : [first] });
+      throw new Error(`未声明 GET：${path}`);
+    });
+    vi.spyOn(api, 'POST').mockResolvedValue(response(first));
+    const { queryClient, rerenderContext } = renderProduction(context());
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'AI 生成首稿' }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('combobox', { name: '模型' }));
+    await user.click(await screen.findByRole('option', { name: /Fixture Model/ }));
+    await user.click(within(dialog).getByRole('button', { name: '确认 Prompt 与模型并开始生成' }));
+    expect(await screen.findByText(`Job ${ids.job}`)).toBeInTheDocument();
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ exact: true, queryKey: contentKeysForEditor() }));
+    // Context 可直接从旧值跳到外部 J2，不要求先观察本页 J1。
+    externalPublished = true;
+    rerenderContext(context({ current: version(), latest: {
+      ...external,
+      error_code: null,
+      error_summary: null,
+      started_at: null,
+      finished_at: null,
+    } }));
+    expect(await screen.findByText(`Job ${ids.retry}`)).toBeInTheDocument();
+    expect(await screen.findByText('生成作业正在执行。')).toBeInTheDocument();
+    invalidate.mockClear();
+    external = { ...external, status: 'SUCCEEDED', workflow_stage: 'SUCCEEDED', primary_task: 'VIEW_GENERATED_CONTENT' };
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ exact: true, queryKey: contentKeysForEditor() }), { timeout: 4000 });
+    expect(screen.getByText(`Job ${ids.retry}`)).toBeInTheDocument();
+    expect(screen.getByText(/生成作业成功/)).toBeInTheDocument();
+  });
+
+  it('按需加载完整 Prompt，并为同一生成命令复用稳定 Idempotency-Key', async () => {
+    const get = vi.spyOn(api, 'GET').mockResolvedValue(response(generationOptions));
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(
+      apiError('AI_PROVIDER_UNAVAILABLE', '模型暂不可用', 'req-ai-create', 503),
+    );
+    const randomUuid = vi.spyOn(crypto, 'randomUUID').mockReturnValue(
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    );
+    const user = userEvent.setup();
+    renderProduction(context());
+
+    expect(get).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'AI 生成首稿' }));
+    const dialog = await screen.findByRole('dialog', { name: '确认 Prompt 与模型' });
+    expect(within(dialog).getByText('技术文章 Prompt')).toBeInTheDocument();
+    expect(within(dialog).getByText('Revision 7')).toBeInTheDocument();
+    expect(within(dialog).getByText('只使用批准事实。')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: '确认 Prompt 与模型并开始生成' })).toBeDisabled();
+
+    await user.click(within(dialog).getByRole('combobox', { name: '模型' }));
+    await user.click(await screen.findByRole('option', { name: /Fixture Model/ }));
+    const submit = within(dialog).getByRole('button', { name: '确认 Prompt 与模型并开始生成' });
+    await user.click(submit);
+    expect(await within(dialog).findByText(/模型暂不可用/)).toBeInTheDocument();
+    await user.click(submit);
+
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+    const postCalls = post.mock.calls as unknown as Array<[
+      string,
+      { params: { header: Record<string, string> } },
+    ]>;
+    const firstHeaders = postCalls[0]?.[1].params.header;
+    const secondHeaders = postCalls[1]?.[1].params.header;
+    expect(firstHeaders).toEqual(secondHeaders);
+    expect(firstHeaders).toMatchObject({
+      'X-CSRF-Token': 'ai-production-csrf',
+      'Idempotency-Key': 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    });
+    expect(post.mock.calls[0]?.[1]).toMatchObject({
+      body: {
+        ai_model_id: ids.model,
+        platform_prompt_id: ids.prompt,
+        platform_prompt_revision: 7,
+      },
+    });
+    expect(randomUuid).toHaveBeenCalledOnce();
+  });
+
+  it('只轮询活动 job，terminal 后停止并刷新 Editor Context', async () => {
+    vi.useFakeTimers();
+    const pending = job();
+    const succeeded = job({
+      status: 'SUCCEEDED',
+      workflow_stage: 'SUCCEEDED',
+      primary_task: 'VIEW_GENERATED_CONTENT',
+      content_version_id: ids.content,
+      finished_at: '2026-08-10T00:00:02Z',
+    });
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(response({ items: [pending] }))
+      .mockResolvedValue(response({ items: [succeeded] }));
+    const editorContext = context({
+      latest: {
+        id: ids.job,
+        job_type: 'GENERATE',
+        status: 'PENDING',
+        attempt_count: 0,
+        error_code: null,
+        error_summary: null,
+        created_at: pending.created_at,
+        started_at: null,
+        finished_at: null,
+      },
+    });
+    const { queryClient } = renderProduction(editorContext);
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    await vi.waitFor(() => expect(get).toHaveBeenCalledOnce());
+    await vi.advanceTimersByTimeAsync(2_000);
+    await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(screen.getByText(/生成作业成功/)).toBeInTheDocument());
+    expect(invalidate).toHaveBeenCalledWith({
+      exact: true,
+      queryKey: contentKeysForEditor(),
+    });
+
+    await vi.advanceTimersByTimeAsync(4_000);
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it('完整 detail 仅显式加载，retry 只发送 job ID 和幂等键', async () => {
+    const failed = job({
+      status: 'FAILED',
+      workflow_stage: 'RETRYABLE_FAILURE',
+      primary_task: 'HANDLE_FAILURE',
+      available_actions: ['RETRY'],
+      error_code: 'MODEL_TIMEOUT',
+      error_summary: '模型响应超时',
+      finished_at: '2026-08-10T00:00:10Z',
+    });
+    const detail: GenerationJobDetail = {
+      ...failed,
+      input_snapshot: {
+        adapter_name: 'openai-compatible-chat-completions',
+        contract_version: 'content-markdown-v3',
+        channel: { id: ids.channel, timeout_seconds: 10 },
+        model: { id: ids.model, model_id: 'fixture-model', request_parameters: {} },
+        platform_profile: { id: generationOptions.platform_profile_id, name: '工程师社区', slug: 'forum' },
+        platform_prompt: { id: ids.prompt, name: '技术文章 Prompt', revision: 7 },
+        fact_version: { id: ids.fact, product_id: ids.product, version: 2, classification: 'PUBLIC' },
+        system_message: '# 平台 Prompt',
+        user_message: '# 批准事实',
+      },
+    };
+    const retried = job({ id: ids.retry, retry_of_id: ids.job });
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') {
+        return response({ items: [failed] });
+      }
+      if (path === '/api/v1/generation-jobs/{generation_job_id}') return response(detail);
+      throw new Error(`未声明 GET：${path}`);
+    });
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(response(retried, 202));
+    const user = userEvent.setup();
+    renderProduction(context({ latest: {
+      id: ids.job,
+      job_type: 'GENERATE',
+      status: 'FAILED',
+      attempt_count: 1,
+      error_code: 'MODEL_TIMEOUT',
+      error_summary: '模型响应超时',
+      created_at: failed.created_at,
+      started_at: failed.started_at ?? null,
+      finished_at: failed.finished_at ?? null,
+    } }));
+
+    expect(await screen.findByRole('button', { name: '查看完整作业快照' })).toBeInTheDocument();
+    const getCalls = get.mock.calls as unknown as Array<[string]>;
+    expect(getCalls.filter(([path]) => path === '/api/v1/generation-jobs/{generation_job_id}')).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: '查看完整作业快照' }));
+    const detailDialog = await screen.findByRole('dialog', { name: '完整生成作业快照' });
+    expect(await within(detailDialog).findByText(/content-markdown-v3/)).toBeInTheDocument();
+    await user.click(within(detailDialog).getAllByRole('button', { name: '关闭' })[0]!);
+
+    await user.click(screen.getByRole('button', { name: '按原快照重试' }));
+    const retryDialog = await screen.findByRole('dialog', { name: '按原快照重试？' });
+    await user.click(within(retryDialog).getByRole('button', { name: '确认按原快照重试' }));
+    await waitFor(() => expect(post).toHaveBeenCalledOnce());
+    expect(post).toHaveBeenCalledWith(
+      '/api/v1/generation-jobs/{generation_job_id}/retry',
+      {
+        params: {
+          path: { generation_job_id: ids.job },
+          header: {
+            'X-CSRF-Token': 'ai-production-csrf',
+            'Idempotency-Key': expect.any(String),
+          },
+        },
+      },
+    );
+  });
+
+  it('humanization 首次返回 terminal 时刷新 Editor Context 且不继续轮询', async () => {
+    const humanization = job({
+      job_type: 'HUMANIZE',
+      source_content_version_id: ids.content,
+      status: 'SUCCEEDED',
+      workflow_stage: 'SUCCEEDED',
+      primary_task: 'VIEW_GENERATED_CONTENT',
+      content_version_id: ids.retry,
+      finished_at: '2026-08-10T00:00:02Z',
+    });
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/content-tasks/{content_task_id}/generation-options') {
+        return response(generationOptions);
+      }
+      if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') {
+        return response({ items: [humanization] });
+      }
+      throw new Error(`未声明 GET：${path}`);
+    });
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(response(humanization, 202));
+    const user = userEvent.setup();
+    const { queryClient } = renderProduction(context({ current: version() }));
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    await user.click(screen.getByRole('button', { name: '创建自然化版本' }));
+    const dialog = await screen.findByRole('dialog', { name: '创建自然化作业' });
+    expect(within(dialog).getByText(/源版本保持不变/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('combobox', { name: '模型' }));
+    await user.click(await screen.findByRole('option', { name: /Fixture Model/ }));
+    await user.click(within(dialog).getByRole('button', { name: '确认创建自然化版本' }));
+
+    await waitFor(() => expect(post).toHaveBeenCalledOnce());
+    expect(post).toHaveBeenCalledWith(
+      '/api/v1/content-versions/{content_version_id}/humanization-jobs',
+      {
+        body: { ai_model_id: ids.model },
+        params: {
+          path: { content_version_id: ids.content },
+          header: {
+            'X-CSRF-Token': 'ai-production-csrf',
+            'Idempotency-Key': expect.any(String),
+          },
+        },
+      },
+    );
+    await waitFor(() => expect(screen.getByText(`Job ${ids.job}`)).toBeInTheDocument());
+    const invalidations = invalidate.mock.calls as unknown as Array<[{ queryKey?: readonly unknown[] }]>;
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({
+      exact: true,
+      queryKey: contentKeysForEditor(),
+    }));
+    expect(invalidations.filter(([filters]) => (
+      filters.queryKey?.toString() === contentKeysForEditor().toString()
+    ))).toHaveLength(1);
+
+    const getCalls = get.mock.calls as unknown as Array<[string]>;
+    const generationJobReads = getCalls.filter(([path]) => (
+      path === '/api/v1/content-tasks/{content_task_id}/generation-jobs'
+    )).length;
+    vi.useFakeTimers();
+    await vi.advanceTimersByTimeAsync(4_000);
+    expect(getCalls.filter(([path]) => (
+      path === '/api/v1/content-tasks/{content_task_id}/generation-jobs'
+    ))).toHaveLength(generationJobReads);
+  });
+});
+
+function contentKeysForEditor() {
+  return ['content', 'tasks', 'editor-context', ids.task] as const;
+}

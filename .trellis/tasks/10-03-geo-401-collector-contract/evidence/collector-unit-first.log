@@ -1,0 +1,321 @@
+FFF.....F...................F....................................        [100%]
+=================================== FAILURES ===================================
+_ test_request_copies_frozen_configuration_without_analysis_or_credentials[MANUAL] _
+
+mode = 'MANUAL'
+
+    @pytest.mark.parametrize("mode", ["MANUAL", "API", "BROWSER"])
+    def test_request_copies_frozen_configuration_without_analysis_or_credentials(mode: str) -> None:
+        snapshot = GeoRunInputSnapshot.model_validate(input_snapshot(mode))
+        original = snapshot.prompt.prompt_text
+>       value = CollectionRequest.from_snapshot(
+            uuid4(), snapshot, timeout_seconds=30, max_response_bytes=2097152, budget_remaining=None
+        )
+
+backend/tests/unit/test_geo_collector_contract.py:85: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+cls = <class 'app.collectors.contracts.CollectionRequest'>
+run_id = UUID('0004c61c-6c76-49d5-97b3-83198572bde0')
+snapshot = GeoRunInputSnapshot(schema_version=1, data_classification=<GeoRunDataClassification.PUBLIC: 'PUBLIC'>, prompt=GeoRunPr...one, parent_subject_id=None, canonical_name='虚构品牌', display_name='虚构品牌', aliases=[], domains=[])], rule_set_revision=1)
+
+    @classmethod
+    def from_snapshot(
+        cls,
+        run_id: UUID,
+        snapshot: GeoRunInputSnapshot,
+        *,
+        timeout_seconds: int,
+        max_response_bytes: int,
+        budget_remaining: Decimal | None,
+    ) -> Self:
+        """消费已校验的冻结 DTO；复制配置，不传递可变 DTO 或 subject/事实字典。"""
+        profile = snapshot.profile
+        surface = profile.surface
+        return cls(
+            run_id=run_id,
+            prompt_text=snapshot.prompt.prompt_text,
+            data_classification=snapshot.data_classification,
+            engine_surface=CollectionSurface(
+                id=surface.id,
+                revision=surface.revision,
+                name=surface.name,
+                surface_kind=surface.surface_kind,
+                provider_brand=surface.provider_brand,
+                compliance_status=surface.compliance_status,
+                capabilities=surface_capabilities(surface.capabilities.model_dump()),
+            ),
+>           profile=CollectionProfile(
+                id=profile.id,
+                revision=profile.revision,
+                engine_surface_id=surface.id,
+                name=profile.name,
+                collection_mode=profile.collection_mode,
+                adapter_key=profile.adapter_key,
+                adapter_version=profile.adapter_version,
+                ai_channel_id=profile.ai_channel_id,
+                ai_model_id=profile.ai_model_id,
+                language_code=profile.language_code,
+                region_code=profile.region_code,
+                login_state=profile.login_state,
+                web_search_policy=profile.web_search_policy,
+                settings=tuple(profile.settings.model_dump().items()),
+            ),
+            timeout_seconds=timeout_seconds,
+            max_response_bytes=max_response_bytes,
+            budget_remaining=budget_remaining,
+        )
+E       pydantic_core._pydantic_core.ValidationError: 2 validation errors for CollectionProfile
+E       collection_mode
+E         Input should be an instance of GeoCollectionMode [type=is_instance_of]
+E           For further information visit https://errors.pydantic.dev/2.13/v/is_instance_of
+E       login_state
+E         Input should be an instance of GeoProfileLoginState [type=is_instance_of]
+E           For further information visit https://errors.pydantic.dev/2.13/v/is_instance_of
+
+backend/app/collectors/contracts.py:135: ValidationError
+_ test_request_copies_frozen_configuration_without_analysis_or_credentials[API] _
+
+mode = 'API'
+
+    @pytest.mark.parametrize("mode", ["MANUAL", "API", "BROWSER"])
+    def test_request_copies_frozen_configuration_without_analysis_or_credentials(mode: str) -> None:
+        snapshot = GeoRunInputSnapshot.model_validate(input_snapshot(mode))
+        original = snapshot.prompt.prompt_text
+>       value = CollectionRequest.from_snapshot(
+            uuid4(), snapshot, timeout_seconds=30, max_response_bytes=2097152, budget_remaining=None
+        )
+
+backend/tests/unit/test_geo_collector_contract.py:85: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+cls = <class 'app.collectors.contracts.CollectionRequest'>
+run_id = UUID('e468af5a-b727-4b18-8163-818b8fd4dd2c')
+snapshot = GeoRunInputSnapshot(schema_version=1, data_classification=<GeoRunDataClassification.PUBLIC: 'PUBLIC'>, prompt=GeoRunPr...one, parent_subject_id=None, canonical_name='虚构品牌', display_name='虚构品牌', aliases=[], domains=[])], rule_set_revision=1)
+
+    @classmethod
+    def from_snapshot(
+        cls,
+        run_id: UUID,
+        snapshot: GeoRunInputSnapshot,
+        *,
+        timeout_seconds: int,
+        max_response_bytes: int,
+        budget_remaining: Decimal | None,
+    ) -> Self:
+        """消费已校验的冻结 DTO；复制配置，不传递可变 DTO 或 subject/事实字典。"""
+        profile = snapshot.profile
+        surface = profile.surface
+        return cls(
+            run_id=run_id,
+            prompt_text=snapshot.prompt.prompt_text,
+            data_classification=snapshot.data_classification,
+            engine_surface=CollectionSurface(
+                id=surface.id,
+                revision=surface.revision,
+                name=surface.name,
+                surface_kind=surface.surface_kind,
+                provider_brand=surface.provider_brand,
+                compliance_status=surface.compliance_status,
+                capabilities=surface_capabilities(surface.capabilities.model_dump()),
+            ),
+>           profile=CollectionProfile(
+                id=profile.id,
+                revision=profile.revision,
+                engine_surface_id=surface.id,
+                name=profile.name,
+                collection_mode=profile.collection_mode,
+                adapter_key=profile.adapter_key,
+                adapter_version=profile.adapter_version,
+                ai_channel_id=profile.ai_channel_id,
+                ai_model_id=profile.ai_model_id,
+                language_code=profile.language_code,
+                region_code=profile.region_code,
+                login_state=profile.login_state,
+                web_search_policy=profile.web_search_policy,
+                settings=tuple(profile.settings.model_dump().items()),
+            ),
+            timeout_seconds=timeout_seconds,
+            max_response_bytes=max_response_bytes,
+            budget_remaining=budget_remaining,
+        )
+E       pydantic_core._pydantic_core.ValidationError: 2 validation errors for CollectionProfile
+E       collection_mode
+E         Input should be an instance of GeoCollectionMode [type=is_instance_of]
+E           For further information visit https://errors.pydantic.dev/2.13/v/is_instance_of
+E       login_state
+E         Input should be an instance of GeoProfileLoginState [type=is_instance_of]
+E           For further information visit https://errors.pydantic.dev/2.13/v/is_instance_of
+
+backend/app/collectors/contracts.py:135: ValidationError
+_ test_request_copies_frozen_configuration_without_analysis_or_credentials[BROWSER] _
+
+mode = 'BROWSER'
+
+    @pytest.mark.parametrize("mode", ["MANUAL", "API", "BROWSER"])
+    def test_request_copies_frozen_configuration_without_analysis_or_credentials(mode: str) -> None:
+        snapshot = GeoRunInputSnapshot.model_validate(input_snapshot(mode))
+        original = snapshot.prompt.prompt_text
+>       value = CollectionRequest.from_snapshot(
+            uuid4(), snapshot, timeout_seconds=30, max_response_bytes=2097152, budget_remaining=None
+        )
+
+backend/tests/unit/test_geo_collector_contract.py:85: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+cls = <class 'app.collectors.contracts.CollectionRequest'>
+run_id = UUID('50236362-3058-4c19-a481-4e13d86d66d3')
+snapshot = GeoRunInputSnapshot(schema_version=1, data_classification=<GeoRunDataClassification.PUBLIC: 'PUBLIC'>, prompt=GeoRunPr...one, parent_subject_id=None, canonical_name='虚构品牌', display_name='虚构品牌', aliases=[], domains=[])], rule_set_revision=1)
+
+    @classmethod
+    def from_snapshot(
+        cls,
+        run_id: UUID,
+        snapshot: GeoRunInputSnapshot,
+        *,
+        timeout_seconds: int,
+        max_response_bytes: int,
+        budget_remaining: Decimal | None,
+    ) -> Self:
+        """消费已校验的冻结 DTO；复制配置，不传递可变 DTO 或 subject/事实字典。"""
+        profile = snapshot.profile
+        surface = profile.surface
+        return cls(
+            run_id=run_id,
+            prompt_text=snapshot.prompt.prompt_text,
+            data_classification=snapshot.data_classification,
+            engine_surface=CollectionSurface(
+                id=surface.id,
+                revision=surface.revision,
+                name=surface.name,
+                surface_kind=surface.surface_kind,
+                provider_brand=surface.provider_brand,
+                compliance_status=surface.compliance_status,
+                capabilities=surface_capabilities(surface.capabilities.model_dump()),
+            ),
+>           profile=CollectionProfile(
+                id=profile.id,
+                revision=profile.revision,
+                engine_surface_id=surface.id,
+                name=profile.name,
+                collection_mode=profile.collection_mode,
+                adapter_key=profile.adapter_key,
+                adapter_version=profile.adapter_version,
+                ai_channel_id=profile.ai_channel_id,
+                ai_model_id=profile.ai_model_id,
+                language_code=profile.language_code,
+                region_code=profile.region_code,
+                login_state=profile.login_state,
+                web_search_policy=profile.web_search_policy,
+                settings=tuple(profile.settings.model_dump().items()),
+            ),
+            timeout_seconds=timeout_seconds,
+            max_response_bytes=max_response_bytes,
+            budget_remaining=budget_remaining,
+        )
+E       pydantic_core._pydantic_core.ValidationError: 2 validation errors for CollectionProfile
+E       collection_mode
+E         Input should be an instance of GeoCollectionMode [type=is_instance_of]
+E           For further information visit https://errors.pydantic.dev/2.13/v/is_instance_of
+E       login_state
+E         Input should be an instance of GeoProfileLoginState [type=is_instance_of]
+E           For further information visit https://errors.pydantic.dev/2.13/v/is_instance_of
+
+backend/app/collectors/contracts.py:135: ValidationError
+______________ test_request_profile_identity_and_closed_settings _______________
+
+    def test_request_profile_identity_and_closed_settings() -> None:
+>       value = request()
+                ^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_contract.py:123: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/unit/test_geo_collector_contract.py:48: in request
+    return CollectionRequest.from_snapshot(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+cls = <class 'app.collectors.contracts.CollectionRequest'>
+run_id = UUID('38674361-ec84-47f9-85a2-783968185893')
+snapshot = GeoRunInputSnapshot(schema_version=1, data_classification=<GeoRunDataClassification.PUBLIC: 'PUBLIC'>, prompt=GeoRunPr...one, parent_subject_id=None, canonical_name='虚构品牌', display_name='虚构品牌', aliases=[], domains=[])], rule_set_revision=1)
+
+    @classmethod
+    def from_snapshot(
+        cls,
+        run_id: UUID,
+        snapshot: GeoRunInputSnapshot,
+        *,
+        timeout_seconds: int,
+        max_response_bytes: int,
+        budget_remaining: Decimal | None,
+    ) -> Self:
+        """消费已校验的冻结 DTO；复制配置，不传递可变 DTO 或 subject/事实字典。"""
+        profile = snapshot.profile
+        surface = profile.surface
+        return cls(
+            run_id=run_id,
+            prompt_text=snapshot.prompt.prompt_text,
+            data_classification=snapshot.data_classification,
+            engine_surface=CollectionSurface(
+                id=surface.id,
+                revision=surface.revision,
+                name=surface.name,
+                surface_kind=surface.surface_kind,
+                provider_brand=surface.provider_brand,
+                compliance_status=surface.compliance_status,
+                capabilities=surface_capabilities(surface.capabilities.model_dump()),
+            ),
+>           profile=CollectionProfile(
+                id=profile.id,
+                revision=profile.revision,
+                engine_surface_id=surface.id,
+                name=profile.name,
+                collection_mode=profile.collection_mode,
+                adapter_key=profile.adapter_key,
+                adapter_version=profile.adapter_version,
+                ai_channel_id=profile.ai_channel_id,
+                ai_model_id=profile.ai_model_id,
+                language_code=profile.language_code,
+                region_code=profile.region_code,
+                login_state=profile.login_state,
+                web_search_policy=profile.web_search_policy,
+                settings=tuple(profile.settings.model_dump().items()),
+            ),
+            timeout_seconds=timeout_seconds,
+            max_response_bytes=max_response_bytes,
+            budget_remaining=budget_remaining,
+        )
+E       pydantic_core._pydantic_core.ValidationError: 2 validation errors for CollectionProfile
+E       collection_mode
+E         Input should be an instance of GeoCollectionMode [type=is_instance_of]
+E           For further information visit https://errors.pydantic.dev/2.13/v/is_instance_of
+E       login_state
+E         Input should be an instance of GeoProfileLoginState [type=is_instance_of]
+E           For further information visit https://errors.pydantic.dev/2.13/v/is_instance_of
+
+backend/app/collectors/contracts.py:135: ValidationError
+______ test_summary_is_closed_and_validation_does_not_echo_input[patch3] _______
+
+patch = {'schema_version': True}
+
+    @pytest.mark.parametrize(
+        "patch",
+        [
+            {"Cookie": "synthetic-secret"},
+            {"payload_bytes": 52428801},
+            {"finish_reason": "synthetic-secret"},
+            {"schema_version": True},
+        ],
+    )
+    def test_summary_is_closed_and_validation_does_not_echo_input(patch: dict[str, Any]) -> None:
+>       with pytest.raises(ValidationError) as caught:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+backend/tests/unit/test_geo_collector_contract.py:191: Failed
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_collector_contract.py::test_request_copies_frozen_configuration_without_analysis_or_credentials[MANUAL]
+FAILED backend/tests/unit/test_geo_collector_contract.py::test_request_copies_frozen_configuration_without_analysis_or_credentials[API]
+FAILED backend/tests/unit/test_geo_collector_contract.py::test_request_copies_frozen_configuration_without_analysis_or_credentials[BROWSER]
+FAILED backend/tests/unit/test_geo_collector_contract.py::test_request_profile_identity_and_closed_settings
+FAILED backend/tests/unit/test_geo_collector_contract.py::test_summary_is_closed_and_validation_does_not_echo_input[patch3]
+5 failed, 60 passed in 0.15s

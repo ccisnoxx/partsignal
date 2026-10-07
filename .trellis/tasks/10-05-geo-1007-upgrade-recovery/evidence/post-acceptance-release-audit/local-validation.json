@@ -1,0 +1,81 @@
+{
+  "sha": "d2aefec7ced564d70d2961f7855755a6f17b6b2d",
+  "entries": [
+    {
+      "name": "branch-dev-infra",
+      "command": [
+        "make",
+        "dev-infra"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "sha": "d2aefec7ced564d70d2961f7855755a6f17b6b2d",
+      "dirty": false,
+      "started_at": "2026-10-06T19:32:28.312470+00:00",
+      "ended_at": "2026-10-06T19:32:28.577910+00:00",
+      "exit_code": 0,
+      "log": "/Users/sc/.codex/reviews/partsignal/geo1007-owner-remediation-20261006T190127Z/logs/branch-dev-infra.log",
+      "log_sha256": "70d386afb3f1ee2edbad248e5dec87de4db2c165c6952a9f48ae508b169d0025"
+    },
+    {
+      "name": "branch-full-verify",
+      "command": [
+        "env",
+        "UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv",
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "python",
+        ".trellis/tasks/10-05-verify-entrypoint/run-verify.py"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "sha": "d2aefec7ced564d70d2961f7855755a6f17b6b2d",
+      "dirty": false,
+      "started_at": "2026-10-06T19:32:44.083019+00:00",
+      "ended_at": "2026-10-06T19:33:08.718488+00:00",
+      "exit_code": 2,
+      "log": "/Users/sc/.codex/reviews/partsignal/geo1007-owner-remediation-20261006T190127Z/logs/branch-full-verify.log",
+      "log_sha256": "797dcb47e6ae8b42248d6a5a499f1c1134e4e4fee629f84f6f63c7f96db26945"
+    },
+    {
+      "process_umask": "0o22",
+      "name": "branch-browser-umask-corrected",
+      "command": [
+        "node",
+        "--test",
+        "browser-collector/tests/session.test.mjs"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "sha": "d2aefec7ced564d70d2961f7855755a6f17b6b2d",
+      "dirty": false,
+      "started_at": "2026-10-06T19:34:42.358189+00:00",
+      "ended_at": "2026-10-06T19:34:42.722002+00:00",
+      "exit_code": 0,
+      "log": "/Users/sc/.codex/reviews/partsignal/geo1007-owner-remediation-20261006T190127Z/logs/branch-browser-umask-corrected.log",
+      "log_sha256": "771cc8a89230f1271fa7cca054b5ad0a41103b214c58b8a16a102d323d6c536f"
+    },
+    {
+      "process_umask": "0o22",
+      "name": "branch-full-verify-umask-corrected",
+      "command": [
+        "env",
+        "UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv",
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "python",
+        ".trellis/tasks/10-05-verify-entrypoint/run-verify.py"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "sha": "d2aefec7ced564d70d2961f7855755a6f17b6b2d",
+      "dirty": false,
+      "started_at": "2026-10-06T19:34:54.098530+00:00",
+      "ended_at": "2026-10-06T19:36:31.081508+00:00",
+      "exit_code": 2,
+      "log": "/Users/sc/.codex/reviews/partsignal/geo1007-owner-remediation-20261006T190127Z/logs/branch-full-verify-umask-corrected.log",
+      "log_sha256": "ea24951ebf605a231065719b2ee4aada987b2c55f7f97912e91fda287b8a0c87"
+    }
+  ],
+  "coverage": "第二次完整入口于backend unit exit2停止；frontend localunit、integration、performance、build、E2E、deploysuite未到达。CI frontendshards另行success。"
+}

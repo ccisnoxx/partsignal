@@ -53,9 +53,9 @@ def test_static_request_context_metadata_covers_all_operations_and_responses() -
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
     document = yaml.safe_load(contract.read_text(encoding="utf-8"))
     operations = operation_map(document)
-    assert len(operations) == 164
-    assert len({operation["operationId"] for operation in operations.values()}) == 164
-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1039
+    assert len(operations) == 256
+    assert len({operation["operationId"] for operation in operations.values()}) == 256
+    assert sum(len(operation["responses"]) for operation in operations.values()) == 1667
 
     expected_parameter = {
         "name": "X-Request-ID",
@@ -94,9 +94,7 @@ def test_static_request_context_metadata_covers_all_operations_and_responses() -
             if resolve_schema(document, parameter).get("name") == "X-Request-ID"
         ]
         assert parameters == [expected_parameter]
-        assert operation["responses"]["400"] == {
-            "$ref": "#/components/responses/ErrorResponse"
-        }
+        assert operation["responses"]["400"] == {"$ref": "#/components/responses/ErrorResponse"}
         assert "default" not in operation["responses"]
         assert "4XX" not in operation["responses"]
         for response in operation["responses"].values():
@@ -129,6 +127,8 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "getAuthSession",
             "getContentHumanizationPrompt",
         ),
+        ("200", "401", "403", "503"): ("getGeoRules",),
+        ("200", "401", "403", "409", "422", "503"): ("updateGeoRules", "previewGeoRules"),
         ("200", "401", "403", "409"): ("getWorkbench",),
         ("200", "401", "403", "422"): (
             "listUsers",
@@ -144,6 +144,13 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "getContentTaskCreationOptions",
             "listPlatformAccounts",
             "getGeoMetrics",
+            "listGeoSubjects",
+            "listGeoPromptVariants",
+            "listGeoEngineSurfaces",
+            "listGeoCollectionProfiles",
+            "listGeoMonitoringPlans",
+            "listGeoOpportunities",
+            "previewGeoMonitoringPlan",
         ),
         ("201", "401", "403", "422"): (
             "createQueryTopic",
@@ -176,22 +183,51 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "compareContentVersions",
             "listGeoObservationPublications",
             "getFileRecord",
+            "getGeoSubject",
+            "getGeoPromptVariant",
+            "getGeoEngineSurface",
+            "getGeoCollectionProfile",
+            "getGeoMonitoringPlan",
+        ),
+        ("200", "401", "403", "409", "422", "501"): (
+            "exportGeoRunsCsv",
+            "exportGeoCitationsCsv",
+            "exportGeoClaimsCsv",
+            "exportGeoOpportunitiesCsv",
         ),
         ("200", "401", "403", "409", "422"): (
+            "getGeoReportPreview",
+            "getGeoPrintReport",
             "putContentHumanizationPrompt",
             "listPublicationWorks",
             "listPublishedArticles",
             "listPublishedContentIssues",
             "listGeoObservations",
             "listGeoObservationItems",
+            "getGeoOverview",
+            "getGeoAnswerInsights",
+            "listGeoInsightQualityRuns",
         ),
         ("201", "401", "403", "409", "422"): (
             "createUser",
             "createProduct",
             "createPlatformPrompt",
             "createPlatformType",
+            "createGeoMonitoringPlan",
         ),
         ("200", "401", "403", "404", "409", "422"): (
+            "resolveGeoOpportunity",
+            "continueGeoOpportunity",
+            "startFactRevisionFromGeoOpportunity",
+            "createContentTaskFromGeoOpportunity",
+            "createPublicationRepairFromGeoOpportunity",
+            "acknowledgeGeoOpportunity",
+            "previewGeoOpportunityRetest",
+            "dismissGeoOpportunity",
+            "listGeoOverviewRuns",
+            "listGeoAnswerInsightRuns",
+            "listGeoInsightCitations",
+            "listGeoInsightClaims",
             "updateUser",
             "resetUserPassword",
             "getAuditLog",
@@ -247,12 +283,40 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "getPublishedContentIssueWorkspaceContext",
             "getPublishedContentRepairContext",
             "resolvePublishedContentIssue",
+            "getGeoManualEntryContext",
+            "listGeoObservationBatches",
+            "getGeoObservationBatch",
+            "listGeoObservationBatchRuns",
+            "listGeoObservationRuns",
             "getGeoObservation",
             "getGeoObservationDetail",
             "getGeoObservationCorrectionContext",
             "getGeoInsights",
             "abortFileUpload",
             "getFileDownloadUrl",
+            "updateGeoSubject",
+            "updateGeoEngineSurface",
+            "enableGeoEngineSurface",
+            "disableGeoEngineSurface",
+            "updateGeoCollectionProfile",
+            "enableGeoCollectionProfile",
+            "testGeoCollectionProfile",
+            "disableGeoCollectionProfile",
+            "updateGeoPromptVariant",
+            "enableGeoPromptVariant",
+            "disableGeoPromptVariant",
+            "enableGeoSubject",
+            "disableGeoSubject",
+            "createGeoSubjectAlias",
+            "updateGeoSubjectAlias",
+            "deleteGeoSubjectAlias",
+            "createGeoSubjectDomain",
+            "deleteGeoSubjectDomain",
+            "updateGeoMonitoringPlan",
+            "activateGeoMonitoringPlan",
+            "pauseGeoMonitoringPlan",
+            "resumeGeoMonitoringPlan",
+            "archiveGeoMonitoringPlan",
         ),
         ("201", "401", "403", "404", "409", "422"): (
             "submitProductFactReview",
@@ -268,10 +332,18 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "createGeoObservation",
             "createGeoOptimizationContentTask",
             "createAIModel",
+            "createGeoSubject",
+            "createGeoPromptVariant",
+            "createGeoEngineSurface",
+            "createGeoCollectionProfile",
+            "copyGeoMonitoringPlan",
+            "createGeoObservationBatch",
+            "runGeoMonitoringPlanNow",
+            "retryGeoObservationRun",
+            "reviewGeoObservationRun",
+            "createGeoOpportunityRetest",
         ),
-        ("201", "401", "403", "409", "422", "503"): (
-            "createPlatformLogoCandidate",
-        ),
+        ("201", "401", "403", "409", "422", "503"): ("createPlatformLogoCandidate",),
         ("202", "401", "403", "404", "409", "422"): (
             "createGenerationJob",
             "createHumanizationJob",
@@ -294,17 +366,31 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "deletePlatformAccount",
             "permanentlyDeletePublishedArticle",
             "deleteGeoObservation",
+            "deleteGeoSubject",
+            "deleteGeoPromptVariant",
+            "deleteGeoEngineSurface",
+            "deleteGeoCollectionProfile",
+            "deleteGeoMonitoringPlan",
         ),
-        ("204", "401", "403", "404", "408", "409", "413", "422", "503"): (
-            "uploadFileContent",
-        ),
+        ("204", "401", "403", "404", "408", "409", "413", "422", "503"): ("uploadFileContent",),
         ("200", "401", "403", "404", "409", "422", "503"): (
+            "getGeoOpportunityComparison",
+            "saveGeoManualDraft",
             "completeFileUpload",
+            "getGeoObservationRun",
+            "getGeoOpportunity",
+            "evaluateGeoOpportunities",
         ),
-        ("200", "401", "403", "404", "409", "422", "502", "504"): (
-            "discoverAIChannelModels",
-        ),
+        ("200", "401", "403", "404", "409", "422", "502", "504"): ("discoverAIChannelModels",),
+        ("201", "401", "403", "404", "409", "422", "503"): ("submitGeoManualObservation",),
     }
+    expected_by_signature[("200", "401", "403", "404", "409", "422")] += (
+        "getGeoBrowserSession",
+    )
+    expected_by_signature[("200", "401", "403", "404", "409", "422", "503")] += (
+        "importGeoBrowserSession", "checkGeoBrowserSessionHealth",
+        "revokeGeoBrowserSession", "purgeGeoBrowserSessions", "accessGeoBrowserSession",
+    )
     expected = {
         operation_id: set(statuses) | {"400"}
         for statuses, operation_ids in expected_by_signature.items()
@@ -317,7 +403,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
         if isinstance(operation, dict) and "operationId" in operation
     }
 
-    assert len(expected) == 164
+    assert len(expected) == 256
     assert set(operations) == set(expected)
     for operation_id, operation in operations.items():
         responses = operation["responses"]
@@ -329,6 +415,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
                 assert response == {"$ref": "#/components/responses/ErrorResponse"}
 
     validation_free = {
+        "getGeoRules",
         "getLiveHealth",
         "getReadyHealth",
         "getAuditLogFilterOptions",
@@ -344,8 +431,8 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
         "listQueryTopics",
         "getWorkbench",
     }
-    assert len(validation_free) == 14
-    assert sum("422" in statuses for statuses in expected.values()) == 150
+    assert len(validation_free) == 15
+    assert sum("422" in statuses for statuses in expected.values()) == 241
     assert {
         operation_id for operation_id, statuses in expected.items() if "422" not in statuses
     } == validation_free
@@ -436,9 +523,7 @@ def test_geo_observation_list_contract_is_compact_and_preserves_v1() -> None:
     paths = document["paths"]
     schemas = document["components"]["schemas"]
     operation = paths["/api/v1/geo-observations/list-items"]["get"]
-    query_parameters = [
-        parameter for parameter in operation["parameters"] if "name" in parameter
-    ]
+    query_parameters = [parameter for parameter in operation["parameters"] if "name" in parameter]
 
     assert [parameter["name"] for parameter in query_parameters] == [
         "search",
@@ -490,9 +575,7 @@ def test_geo_observation_list_contract_is_compact_and_preserves_v1() -> None:
     assert paths["/api/v1/geo-observations"]["get"]["responses"]["200"]["content"][
         "application/json"
     ]["schema"] == {"$ref": "#/components/schemas/GeoObservationList"}
-    assert "422" in paths["/api/v1/geo-observations/{observation_id}"]["delete"][
-        "responses"
-    ]
+    assert "422" in paths["/api/v1/geo-observations/{observation_id}"]["delete"]["responses"]
     assert set(paths["/api/v1/geo-observation-publications"]["get"]["responses"]) == _statuses(
         "200", "401", "403", "404", "422"
     )
@@ -500,11 +583,12 @@ def test_geo_observation_list_contract_is_compact_and_preserves_v1() -> None:
         "201", "401", "403", "404", "409", "422"
     )
     assert set(schemas["GeoArticleResultCreate"]["required"]) == {
-        "published_article_id", "discovered", "mentioned", "accuracy"
+        "published_article_id",
+        "discovered",
+        "mentioned",
+        "accuracy",
     }
-    assert not {"recommendation", "citation"} & set(
-        schemas["GeoArticleResultCreate"]["properties"]
-    )
+    assert not {"recommendation", "citation"} & set(schemas["GeoArticleResultCreate"]["properties"])
 
 
 def test_geo_observation_list_accepts_page_size_from_query_string(
@@ -624,9 +708,7 @@ def test_query_topic_list_rejects_non_enum_page_size(
     assert response.status_code == 422
     payload = response.json()["error"]
     assert payload["code"] == "VALIDATION_ERROR"
-    assert any(
-        issue["loc"] == ["query", "page_size"] for issue in payload["details"]["errors"]
-    )
+    assert any(issue["loc"] == ["query", "page_size"] for issue in payload["details"]["errors"])
     assert collaborator_calls == []
 
 
@@ -637,9 +719,7 @@ def test_query_topic_list_contract_preserves_full_list_and_adds_v2_read_model() 
     paths = document["paths"]
     schemas = document["components"]["schemas"]
     operation = paths["/api/v1/query-topics/list-items"]["get"]
-    query_parameters = [
-        parameter for parameter in operation["parameters"] if "name" in parameter
-    ]
+    query_parameters = [parameter for parameter in operation["parameters"] if "name" in parameter]
 
     assert [parameter["name"] for parameter in query_parameters] == [
         "q",
@@ -651,9 +731,9 @@ def test_query_topic_list_contract_preserves_full_list_and_adds_v2_read_model() 
     assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/QueryTopicListPage"
     }
-    assert paths["/api/v1/query-topics"]["get"]["responses"]["200"]["content"][
-        "application/json"
-    ]["schema"] == {"$ref": "#/components/schemas/QueryTopicList"}
+    assert paths["/api/v1/query-topics"]["get"]["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/QueryTopicList"}
     assert set(schemas["QueryTopicReferenceSummary"]["required"]) == {
         "content_task_count",
         "geo_optimization_count",
@@ -684,9 +764,7 @@ def test_platform_list_contract_exposes_readiness_options_and_delete_revision() 
     paths = document["paths"]
     schemas = document["components"]["schemas"]
     operation = paths["/api/v1/platform-profiles"]["get"]
-    query_parameters = [
-        parameter for parameter in operation["parameters"] if "name" in parameter
-    ]
+    query_parameters = [parameter for parameter in operation["parameters"] if "name" in parameter]
 
     assert [parameter["name"] for parameter in query_parameters] == [
         "q",
@@ -732,9 +810,9 @@ def test_platform_list_contract_exposes_readiness_options_and_delete_revision() 
         "required": True,
         "schema": {"type": "integer", "minimum": 0},
     }
-    account_delete_parameters = paths["/api/v1/platform-accounts/{platform_account_id}"][
-        "delete"
-    ]["parameters"]
+    account_delete_parameters = paths["/api/v1/platform-accounts/{platform_account_id}"]["delete"][
+        "parameters"
+    ]
     assert account_delete_parameters[1] == {
         "name": "expected_revision",
         "in": "query",
@@ -818,9 +896,7 @@ def test_platform_type_contract_exposes_count_bounds_and_delete_revision() -> No
         assert schemas[name]["properties"]["name"]["maxLength"] == 160
         assert schemas[name]["properties"]["slug"]["maxLength"] == 100
 
-    delete_parameters = paths["/api/v1/platform-types/{platform_type_id}"]["delete"][
-        "parameters"
-    ]
+    delete_parameters = paths["/api/v1/platform-types/{platform_type_id}"]["delete"]["parameters"]
     assert delete_parameters[1] == {
         "name": "expected_revision",
         "in": "query",
@@ -836,14 +912,10 @@ def test_platform_type_contract_exposes_count_bounds_and_delete_revision() -> No
     )
     assert set(
         paths["/api/v1/platform-types/{platform_type_id}"]["patch"]["responses"]
-    ) == _statuses(
-        "200", "401", "403", "404", "409", "422"
-    )
+    ) == _statuses("200", "401", "403", "404", "409", "422")
     assert set(
         paths["/api/v1/platform-types/{platform_type_id}"]["delete"]["responses"]
-    ) == _statuses(
-        "204", "401", "403", "404", "409", "422"
-    )
+    ) == _statuses("204", "401", "403", "404", "409", "422")
 
 
 def test_geo_observation_detail_contract_is_one_readonly_generated_union() -> None:
@@ -893,9 +965,9 @@ def test_geo_observation_detail_contract_is_one_readonly_generated_union() -> No
         "file": {"$ref": "#/components/schemas/FileRecord"},
         "download": {"$ref": "#/components/schemas/SignedUrl"},
     }
-    assert paths["/api/v1/geo-observations/{observation_id}"]["get"]["responses"]["200"][
-        "content"
-    ]["application/json"]["schema"] == {"$ref": "#/components/schemas/GeoObservation"}
+    assert paths["/api/v1/geo-observations/{observation_id}"]["get"]["responses"]["200"]["content"][
+        "application/json"
+    ]["schema"] == {"$ref": "#/components/schemas/GeoObservation"}
     assert paths["/api/v1/geo-observations"]["post"]["responses"]["201"]["content"][
         "application/json"
     ]["schema"] == {"$ref": "#/components/schemas/GeoObservation"}
@@ -1226,9 +1298,7 @@ def test_fact_review_contract_locates_target_and_declares_command_errors() -> No
     } <= set(schemas["FactVersion"]["required"])
     assert set(exact_context["responses"]) == _statuses("200", "401", "403", "404", "422")
     assert set(approve["responses"]) == _statuses("200", "401", "403", "404", "409", "422")
-    assert set(request_changes["responses"]) == _statuses(
-        "200", "401", "403", "404", "409", "422"
-    )
+    assert set(request_changes["responses"]) == _statuses("200", "401", "403", "404", "409", "422")
     assert set(schemas["FactReviewContext"]["required"]) == {
         "fact_version",
         "diff",
@@ -1382,12 +1452,8 @@ def test_phase_b_shared_contract_shapes_are_explicit() -> None:
     assert basis["discriminator"] == {
         "propertyName": "rule_code",
         "mapping": {
-            "CONTENT_DECLINE": (
-                "#/components/schemas/ContentTaskDetailGeoContentDeclineBasis"
-            ),
-            "LONG_UNMENTIONED": (
-                "#/components/schemas/ContentTaskDetailGeoLongUnmentionedBasis"
-            ),
+            "CONTENT_DECLINE": ("#/components/schemas/ContentTaskDetailGeoContentDeclineBasis"),
+            "LONG_UNMENTIONED": ("#/components/schemas/ContentTaskDetailGeoLongUnmentionedBasis"),
             "QUESTION_COVERAGE_GAP": (
                 "#/components/schemas/ContentTaskDetailGeoQuestionCoverageBasis"
             ),
@@ -1446,63 +1512,176 @@ def test_response_components_are_flattened_closed_objects() -> None:
     schemas = yaml.safe_load(contract.read_text(encoding="utf-8"))["components"]["schemas"]
     expected_properties = {
         "AuditLogDetail": {
-            "id", "actor_id", "actor", "business_module", "action", "target_type",
-            "target_id", "outcome", "primary_task", "request_id", "created_at", "changes",
-            "facts", "result_message", "error_code", "related_entry",
+            "id",
+            "actor_id",
+            "actor",
+            "business_module",
+            "action",
+            "target_type",
+            "target_id",
+            "outcome",
+            "primary_task",
+            "request_id",
+            "created_at",
+            "changes",
+            "facts",
+            "result_message",
+            "error_code",
+            "related_entry",
         },
         "QueryTopic": {
-            "canonical_question", "intent_type", "variants", "id", "available_actions",
-            "deletion", "primary_task", "revision", "created_at",
+            "canonical_question",
+            "intent_type",
+            "variants",
+            "id",
+            "available_actions",
+            "deletion",
+            "primary_task",
+            "revision",
+            "created_at",
         },
         "QueryTopicListItem": {
-            "canonical_question", "intent_type", "variants", "id", "available_actions",
-            "deletion", "primary_task", "revision", "created_at", "references",
+            "canonical_question",
+            "intent_type",
+            "variants",
+            "id",
+            "available_actions",
+            "deletion",
+            "primary_task",
+            "revision",
+            "created_at",
+            "references",
         },
         "PlatformLogoUpload": {"source", "file_id", "url"},
         "PlatformPromptUpdate": {"name", "template_markdown", "expected_revision"},
         "PlatformPromptListItem": {
-            "id", "name", "revision", "updated_at", "updated_by", "bound_platform_count",
+            "id",
+            "name",
+            "revision",
+            "updated_at",
+            "updated_by",
+            "bound_platform_count",
             "available_actions",
         },
         "PlatformPromptDetail": {
-            "id", "name", "revision", "updated_at", "updated_by", "bound_platform_count",
-            "available_actions", "template_markdown", "created_at", "bound_platforms",
+            "id",
+            "name",
+            "revision",
+            "updated_at",
+            "updated_by",
+            "bound_platform_count",
+            "available_actions",
+            "template_markdown",
+            "created_at",
+            "bound_platforms",
         },
         "ContentTask": {
-            "product_id", "fact_version_id", "platform_profile_id", "id", "query_topic_id",
-            "source_published_content_issue_id", "current_content_version_id", "workflow_stage",
-            "primary_task", "available_actions", "deletion", "status", "revision", "created_by",
-            "created_at", "archived_at",
+            "product_id",
+            "fact_version_id",
+            "platform_profile_id",
+            "id",
+            "query_topic_id",
+            "source_published_content_issue_id",
+            "current_content_version_id",
+            "workflow_stage",
+            "primary_task",
+            "available_actions",
+            "deletion",
+            "status",
+            "revision",
+            "created_by",
+            "created_at",
+            "archived_at",
         },
         "ContentTaskListItem": {
-            "product_id", "fact_version_id", "platform_profile_id", "id", "query_topic_id",
-            "source_published_content_issue_id", "current_content_version_id", "workflow_stage",
-            "primary_task", "available_actions", "deletion", "status", "revision", "created_by",
-            "created_at", "archived_at", "identifier", "product", "platform", "current_content",
-            "latest_generation_status", "updated_at",
+            "product_id",
+            "fact_version_id",
+            "platform_profile_id",
+            "id",
+            "query_topic_id",
+            "source_published_content_issue_id",
+            "current_content_version_id",
+            "workflow_stage",
+            "primary_task",
+            "available_actions",
+            "deletion",
+            "status",
+            "revision",
+            "created_by",
+            "created_at",
+            "archived_at",
+            "identifier",
+            "product",
+            "platform",
+            "current_content",
+            "latest_generation_status",
+            "updated_at",
         },
         "GenerationJobDetail": {
-            "id", "content_task_id", "job_type", "source_content_version_id", "status",
-            "workflow_stage", "primary_task", "available_actions", "attempt_count",
-            "content_version_id", "retry_of_id", "error_code", "error_summary",
-            "provider_request_id", "response_duration_ms", "prompt_tokens", "completion_tokens",
-            "total_tokens", "created_at", "started_at", "finished_at", "input_snapshot",
+            "id",
+            "content_task_id",
+            "job_type",
+            "source_content_version_id",
+            "status",
+            "workflow_stage",
+            "primary_task",
+            "available_actions",
+            "attempt_count",
+            "content_version_id",
+            "retry_of_id",
+            "error_code",
+            "error_summary",
+            "provider_request_id",
+            "response_duration_ms",
+            "prompt_tokens",
+            "completion_tokens",
+            "total_tokens",
+            "created_at",
+            "started_at",
+            "finished_at",
+            "input_snapshot",
         },
         "PlatformAccount": {
-            "platform_profile_id", "label", "account_identifier", "id", "is_active",
-            "workflow_stage", "primary_task", "available_actions", "deletion", "revision",
+            "platform_profile_id",
+            "label",
+            "account_identifier",
+            "id",
+            "is_active",
+            "workflow_stage",
+            "primary_task",
+            "available_actions",
+            "deletion",
+            "revision",
         },
         "GeoInsightPublicationOption": {"id", "label", "platform_name"},
         "GeoInsightRatePoint": {"numerator", "denominator", "value", "date"},
         "GeoInsightDecliningContent": {
-            "published_article_id", "product_id", "content_platform_id", "title",
-            "content_platform", "observation_count", "discovery_rate", "mention_rate",
-            "accuracy_rate", "primary_task", "optimization_action", "basis",
+            "published_article_id",
+            "product_id",
+            "content_platform_id",
+            "title",
+            "content_platform",
+            "observation_count",
+            "discovery_rate",
+            "mention_rate",
+            "accuracy_rate",
+            "primary_task",
+            "optimization_action",
+            "basis",
         },
         "GeoInsightLongUnmentionedContent": {
-            "published_article_id", "product_id", "content_platform_id", "title",
-            "content_platform", "observation_count", "discovery_rate", "mention_rate",
-            "accuracy_rate", "primary_task", "optimization_action", "unmentioned_days",
+            "published_article_id",
+            "product_id",
+            "content_platform_id",
+            "title",
+            "content_platform",
+            "observation_count",
+            "discovery_rate",
+            "mention_rate",
+            "accuracy_rate",
+            "primary_task",
+            "optimization_action",
+            "unmentioned_days",
             "last_mentioned_at",
         },
     }
@@ -1513,8 +1692,16 @@ def test_response_components_are_flattened_closed_objects() -> None:
     } == set()
     expected_required = {
         "GenerationJobDetail": {
-            "id", "content_task_id", "job_type", "source_content_version_id", "status",
-            "workflow_stage", "primary_task", "available_actions", "attempt_count", "created_at",
+            "id",
+            "content_task_id",
+            "job_type",
+            "source_content_version_id",
+            "status",
+            "workflow_stage",
+            "primary_task",
+            "available_actions",
+            "attempt_count",
+            "created_at",
             "input_snapshot",
         }
     }

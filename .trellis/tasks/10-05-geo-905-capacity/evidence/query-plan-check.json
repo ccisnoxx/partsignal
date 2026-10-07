@@ -1,0 +1,8 @@
+{
+  "deep_page_execution_ms": 88.742,
+  "deep_page_temp_written_blocks": 419,
+  "page_key_width": 24,
+  "selected_page_rows": 20,
+  "full_json_pk_lookups": 20,
+  "passed": true
+}

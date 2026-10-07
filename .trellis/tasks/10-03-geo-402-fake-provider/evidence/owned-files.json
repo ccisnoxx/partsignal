@@ -1,0 +1,21 @@
+{
+  "new_files": [
+    "backend/app/geo_fake_server.py",
+    "backend/tests/geo_collector_contract.py",
+    "backend/tests/geo_reference_collector.py",
+    "backend/tests/geo_network_guard.py",
+    "backend/tests/unit/test_geo_fake_provider.py",
+    "backend/tests/unit/test_geo_collector_suite.py",
+    "backend/tests/fixtures/geo_provider/README.md",
+    "deploy/scripts/test-geo-collector-contract.py"
+  ],
+  "modified_files": [
+    "Makefile",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md",
+    "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+    "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/SHA256SUMS"
+  ]
+}

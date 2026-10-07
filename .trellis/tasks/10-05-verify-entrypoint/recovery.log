@@ -1,0 +1,17 @@
+docker compose --env-file .env -f deploy/compose.dev.yaml up -d --wait postgres redis
+ Container partsignal-dev-postgres-1 Running 
+ Container partsignal-dev-redis-1 Running 
+ Container partsignal-dev-redis-1 Waiting 
+ Container partsignal-dev-postgres-1 Waiting 
+ Container partsignal-dev-redis-1 Healthy 
+ Container partsignal-dev-postgres-1 Healthy 
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/test-geo-recovery-integration.py
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-geo-recovery-integration.py", line 74, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-geo-recovery-integration.py", line 31, in main
+    profile = config["services"]["backend-test"]["environment"]
+              ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'backend-test'
+make: *** [test-geo-recovery-integration] Error 1

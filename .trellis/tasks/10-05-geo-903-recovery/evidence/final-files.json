@@ -1,0 +1,42 @@
+{
+  "files": [
+    "Makefile",
+    "deploy/scripts/backup.sh",
+    "deploy/scripts/restore-verify.sh",
+    "deploy/scripts/geo-recovery.py",
+    "deploy/scripts/geo_recovery_bundle.py",
+    "deploy/scripts/geo_recovery_environment.py",
+    "backend/app/tools/geo_recovery_scan.py",
+    "backend/tests/unit/test_geo_recovery_boundaries.py",
+    "backend/tests/integration/geo_recovery_support.py",
+    "backend/tests/integration/test_geo_recovery.py",
+    "docs/operations.md",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/SHA256SUMS",
+    "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+    "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+    "docs/geo-monitoring/03-technical/09-backup-recovery-runbook.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml"
+  ],
+  "source_sha256": {
+    "Makefile": "d19aa5b608a8a690974ad00742d0508b3edb955b4650d4477e9f0e2ce8ce5b6b",
+    "deploy/scripts/backup.sh": "a3f91ae9066cdc8388a6bded2352b3bbaeb72d923ae03f82125fac70be3685c0",
+    "deploy/scripts/restore-verify.sh": "fc158c38b24051581a65249fe535fa1a32e80d2326850bdba1d62f61930f2839",
+    "deploy/scripts/geo-recovery.py": "4d78ea713b240fc94fb57407a83c10dad02ac83b27ac06bd89e4f195a5a4cc16",
+    "deploy/scripts/geo_recovery_bundle.py": "bba21d5956c0310919e36e97c9247480b146c8f3b649941a39c3165bf688186c",
+    "deploy/scripts/geo_recovery_environment.py": "c88877bd848dff5f1b1b1b25eb12b42b9312ef0fd0f05c48176d85d01beb7260",
+    "backend/app/tools/geo_recovery_scan.py": "c62220ffbf6e7df6bcbb364f7bfa40e0352a7a5e294201d93904a561c0dbf497",
+    "backend/tests/unit/test_geo_recovery_boundaries.py": "0fe35be78328ad4b169496eed98b1626bd75d11c1e7f5ed8a59956998967dd52",
+    "backend/tests/integration/geo_recovery_support.py": "309931ebda045ce88990c78a99d3583b76b616c35799c861160b00cb1523688e",
+    "backend/tests/integration/test_geo_recovery.py": "01c292a7b994981f94b4c931faa1e26597230c394e617c380c827ca8e58b2d1e",
+    "docs/operations.md": "914653da5de29d56ca8f215eb5031e9a53087ece6de270c30f624ac483de222b",
+    "docs/geo-monitoring/README.md": "e23c36a3e3aeec29189916c5857a86a270886eaa47705621cba4f792ac20a49e",
+    "docs/geo-monitoring/CHANGELOG.md": "a279a8b717e5ae5ffa149a34d215a0e3712e1d024d48d723b47f44681955f685",
+    "docs/geo-monitoring/SHA256SUMS": "6e78507d1e84092dcdd208df4fe80e5d34f3a7c20cd47e6bdce08102e9356dcc",
+    "docs/geo-monitoring/03-technical/07-testing-and-quality.md": "860c59c8931b872683626c7598bf1c72586b97406c087bb0a4d0e8bee692f935",
+    "docs/geo-monitoring/03-technical/08-deployment-and-operations.md": "d221bc4e4709e48be9302fbe16dac798c54fd125287fbfe4a04b3ab98fe0bc1d",
+    "docs/geo-monitoring/03-technical/09-backup-recovery-runbook.md": "48ee02798a720cd1c74067e040677bf18947e56933521c2d409b4feb81cc4c0e",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml": "ab3249f29ff026385df8db93c8a1906817fc9eb427c3282f6204688755ef2d25"
+  }
+}

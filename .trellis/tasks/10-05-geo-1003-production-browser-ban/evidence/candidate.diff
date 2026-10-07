@@ -1,0 +1,1037 @@
+--- a/backend/app/config.py
++++ b/backend/app/config.py
+@@ -202,7 +202,7 @@
+ 
+     @model_validator(mode="after")
+     def validate_production_boundaries(self) -> Settings:
+-        """生产环境禁止开发密钥、非安全 Cookie 和开发对象存储。"""
++        """生产环境禁止 Browser、开发密钥、非安全 Cookie 和开发对象存储。"""
+         if self.content_generator not in {"deterministic", "openai-compatible"}:
+             raise ValueError("CONTENT_GENERATOR 仅支持 deterministic 或 openai-compatible")
+         try:
+@@ -217,6 +217,15 @@
+             raise ValueError("AI_ALLOW_LOCAL_HTTP 仅允许在 development 或 test 环境启用")
+         if self.environment != "production":
+             return self
++        if self.geo_browser_collection_enabled:
++            raise ValueError("生产环境禁止 GEO_BROWSER_COLLECTION_ENABLED=true")
++        if any((
++            self.geo_browser_session_root,
++            self.geo_browser_session_public_key_file,
++            self.geo_browser_session_service_key_file,
++            self.geo_browser_session_service_user_id,
++        )):
++            raise ValueError("生产环境禁止配置 GEO_BROWSER_SESSION 会话材料")
+         if self.session_secret == DEVELOPMENT_SESSION_SECRET:
+             raise ValueError("生产环境必须设置独立 SESSION_SECRET")
+         if self.ai_credential_encryption_key == DEVELOPMENT_AI_CREDENTIAL_KEY:
+--- a/backend/app/cli.py
++++ b/backend/app/cli.py
+@@ -209,6 +209,7 @@
+         "content_generator": settings.content_generator,
+         "database_configured": explicit_environment["DATABASE_URL"],
+         "environment": settings.environment,
++        "geo_browser_collection_enabled": settings.geo_browser_collection_enabled,
+         "object_storage_backend": settings.object_storage_backend,
+         "oss_access_key_id_configured": bool(settings.oss_access_key_id),
+         "oss_access_key_secret_configured": bool(settings.oss_access_key_secret),
+--- a/backend/tests/unit/test_geo_configuration.py
++++ b/backend/tests/unit/test_geo_configuration.py
+@@ -63,15 +63,17 @@
+ 
+ 
+ @pytest.mark.parametrize("flags", list(itertools.product([False, True], repeat=4)))
++@pytest.mark.parametrize("environment", ["development", "test"])
+ def test_geo_flags_require_monitoring_but_children_are_independent(
+     flags: tuple[bool, bool, bool, bool],
++    environment: str,
+ ) -> None:
+     configuration = dict(zip(GEO_FLAGS, flags, strict=True))
+     if not flags[0] and any(flags[1:]):
+         with pytest.raises(ValidationError, match="必须同时启用 GEO_MONITORING_ENABLED"):
+-            Settings(_env_file=None, APP_ENV="test", **configuration)
++            Settings(_env_file=None, APP_ENV=environment, **configuration)
+     else:
+-        configured = Settings(_env_file=None, APP_ENV="test", **configuration)
++        configured = Settings(_env_file=None, APP_ENV=environment, **configuration)
+         assert tuple(getattr(configured, name.lower()) for name in GEO_FLAGS) == flags
+ 
+ 
+@@ -100,10 +102,19 @@
+         ({}, "PASSED", None),
+         ({name: None for name in GEO_FLAGS}, "PASSED", None),
+         ({"GEO_MONITORING_ENABLED": "true"}, "PASSED", None),
+-        ({name: "true" for name in GEO_FLAGS}, "PASSED", None),
++        ({"GEO_MONITORING_ENABLED": "true", "GEO_API_COLLECTION_ENABLED": "true",
++          "GEO_OPPORTUNITY_EVALUATION_ENABLED": "true"}, "PASSED", None),
++        ({name: "true" for name in GEO_FLAGS}, "FAILED",
++         "PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED"),
+         ({"GEO_API_COLLECTION_ENABLED": "true"}, "FAILED", "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+         ({"GEO_BROWSER_COLLECTION_ENABLED": "true"}, "FAILED",
+-         "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
++         "PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED"),
++        ({"GEO_MONITORING_ENABLED": "true", "GEO_BROWSER_COLLECTION_ENABLED": "true"},
++         "FAILED", "PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED"),
++        ({"GEO_BROWSER_COLLECTION_ENABLED": "1"}, "FAILED",
++         "PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED"),
++        ({"GEO_BROWSER_COLLECTION_ENABLED": ""}, "FAILED",
++         "PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED"),
+         ({"GEO_OPPORTUNITY_EVALUATION_ENABLED": "true"}, "FAILED",
+          "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+         ({"GEO_MONITORING_ENABLED": "invalid"}, "FAILED", "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+--- a/backend/tests/unit/test_cli.py
++++ b/backend/tests/unit/test_cli.py
+@@ -83,6 +83,7 @@
+             oss_endpoint="https://private-endpoint.example",
+             redis_url="redis://redis:6379/0",
+             cookie_secure=True,
++            geo_browser_collection_enabled=False,
+         ),
+     )
+     monkeypatch.setenv("DATABASE_URL", "postgresql://user:secret@postgres/database")
+@@ -103,6 +104,7 @@
+     ):
+         assert secret_value not in encoded
+     assert '"environment": "production"' in encoded
++    assert '"geo_browser_collection_enabled": false' in encoded
+     assert '"oss_access_key_secret_configured": true' in encoded
+ 
+ 
+--- a/.env.production.example
++++ b/.env.production.example
+@@ -52,16 +52,13 @@
+ GENERATION_RECOVERY_SCAN_SECONDS=60
+ 
+ # 新 GEO 能力全部默认关闭；旧 runtime 可省略这四项，Settings 仍为 false。
+-# 子开关为 true 时总开关必须为 true；更新后需统一重建 API/Worker/Scheduler。
++# API/Opportunity 子开关为 true 时总开关必须为 true；更新后需统一重建 API/Worker/Scheduler。
+ # 配置不替代平台合规、权限或数据外发批准；R0 不接入 Collector。
+ GEO_MONITORING_ENABLED=false
+ GEO_API_COLLECTION_ENABLED=false
++# Production 固定 false；即使 Monitoring=true 也禁止 Browser=true，输入检查和启动均失败。
+ GEO_BROWSER_COLLECTION_ENABLED=false
+-# GEO-802仅会话管理；路径由显式安全卷overlay提供，凭据正文不进入环境变量。
+-# GEO_BROWSER_SESSION_ROOT=/run/geo-browser-sessions
+-# GEO_BROWSER_SESSION_PUBLIC_KEY_FILE=/run/geo-browser-session-public.pem
+-# GEO_BROWSER_SESSION_SERVICE_KEY_FILE=/run/geo-browser-service.key
+-# GEO_BROWSER_SESSION_SERVICE_USER_ID=<已批准且启用的ADMIN服务账号UUID>
++# 禁止 production Browser profile、会话卷及密钥；GEO-801～803 仅保留非生产骨架/合同。
+ GEO_OPPORTUNITY_EVALUATION_ENABLED=false
+ # GEO-405：采集 lease 与补投递；不授予外发/adapter 批准权限。
+ GEO_PENDING_REDISPATCH_SECONDS=120
+--- a/deploy/compose.prod.yaml
++++ b/deploy/compose.prod.yaml
+@@ -1,13 +1,13 @@
+ # 当前 Production 原地接管既有运行时；历史项目标识保留到独立迁移窗口。
+ name: partsignal-staging
+-
+-include:
+-  - compose.geo-browser.yaml
+ 
+ x-backend: &backend
+   image: ${PARTSIGNAL_BACKEND_IMAGE:?必须指定 PARTSIGNAL_BACKEND_IMAGE}:${PARTSIGNAL_VERSION:?必须指定 PARTSIGNAL_VERSION}
+   env_file:
+     - ${PARTSIGNAL_RUNTIME_ENV_FILE:?必须指定 PARTSIGNAL_RUNTIME_ENV_FILE}
++  # 生产入口不能以非生产 Settings 绕过校验；Browser 原始输入由 Settings 明确拒绝。
++  environment:
++    APP_ENV: production
+   depends_on:
+     postgres:
+       condition: service_healthy
+--- a/deploy/compose.geo-browser.yaml
++++ b/deploy/compose.geo-browser.yaml
+@@ -1,4 +1,5 @@
+-# GEO-801 仅运行隔离骨架；后续 adapter 的批准 egress 必须在对应任务中单独建立。
++# GEO-801 仅供非 production 的隔离骨架；禁止组合到 production，部署入口拒绝该 overlay。
++# 后续 adapter 的批准 egress 必须在对应任务中单独建立。
+ services:
+   browser-collector:
+     image: ${PARTSIGNAL_BROWSER_COLLECTOR_IMAGE:-partsignal-browser-collector}:${PARTSIGNAL_BROWSER_COLLECTOR_VERSION:-geo801}
+@@ -14,6 +15,7 @@
+       - no-new-privileges:true
+       - seccomp=./geo-browser-seccomp.json
+     environment:
++      APP_ENV: ${APP_ENV-development}
+       GEO_MONITORING_ENABLED: ${GEO_MONITORING_ENABLED-false}
+       GEO_BROWSER_COLLECTION_ENABLED: ${GEO_BROWSER_COLLECTION_ENABLED-false}
+       GEO_BROWSER_KILL_SWITCH_FILE: /run/control/STOP
+--- a/deploy/compose.geo-browser-sessions.yaml
++++ b/deploy/compose.geo-browser-sessions.yaml
+@@ -1,4 +1,5 @@
+-# GEO-802 显式安全卷 overlay；不加入默认部署，不打开 browser 网络或采集开关。
++# GEO-802 仅供非 production 的显式安全卷 overlay；生产部署入口和 Settings 拒绝会话材料。
++# 不加入默认部署，不打开 browser 网络或采集开关。
+ services:
+   api:
+     environment:
+--- a/deploy/scripts/check-production-inputs.py
++++ b/deploy/scripts/check-production-inputs.py
+@@ -86,6 +86,9 @@
+     template = parse_runtime((ROOT / ".env.production.example").read_text())
+     if not set(template) - OPTIONAL_GEO_SETTINGS <= set(values) <= set(template) | OPTIONAL_GEO_SETTINGS:
+         raise InputError("ENV_KEY_SET_MISMATCH")
++    # Browser 是生产固定边界；不能因 Monitoring 开启或模板被改写而放行。
++    if values.get("GEO_BROWSER_COLLECTION_ENABLED", "false") != "false":
++        raise InputError("PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED")
+     missing = sorted(key for key in values if key != "VITE_API_BASE_URL" and not values[key])
+     if missing:
+         return missing
+@@ -138,6 +141,27 @@
+     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,61}[a-z0-9]", values["OSS_BUCKET"]):
+         raise InputError("OSS_BUCKET_INVALID")
+     return []
++
++
++def check_deployment_boundary(values: dict[str, str], environment: dict[str, str]) -> None:
++    """在维护锁/状态变更/Compose 前拒绝 Browser 绕过；只依赖宿主机标准库。"""
++    expected_compose = ROOT / "deploy/compose.prod.yaml"
++    if Path(environment.get("COMPOSE_FILE", str(expected_compose))).resolve() != (
++        expected_compose.resolve()
++    ):
++        raise InputError("PRODUCTION_COMPOSE_OVERLAY_FORBIDDEN")
++    for source in (values, environment):
++        profiles = source.get("COMPOSE_PROFILES", "").split(",")
++        if any(profile.strip() not in {"", "production-async"} for profile in profiles):
++            raise InputError("PRODUCTION_COMPOSE_PROFILE_FORBIDDEN")
++        if source.get("GEO_BROWSER_COLLECTION_ENABLED", "false") != "false":
++            raise InputError("PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED")
++        if any(value for key, value in source.items() if key.startswith((
++            "GEO_BROWSER_SESSION_", "PARTSIGNAL_GEO_BROWSER_SESSION_"
++        ))):
++            raise InputError("PRODUCTION_BROWSER_SESSION_FORBIDDEN")
++    if values.get("APP_ENV") != "production":
++        raise InputError("PRODUCTION_FIXED_VALUE_REQUIRED:APP_ENV")
+ 
+ 
+ def strict_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+@@ -252,9 +276,15 @@
+     parser.add_argument("runtime_file", type=Path, nargs="?")
+     parser.add_argument("--ai-inputs", type=Path)
+     parser.add_argument(
++        "--deployment-boundary", action="store_true",
++        help="部署入口在维护锁和状态变更前检查 production Browser/profile/overlay 边界",
++    )
++    parser.add_argument(
+         "--ai-only", action="store_true", help="只检查 AI 输入，复用已验证的服务器 runtime 文件"
+     )
+     args = parser.parse_args()
++    if args.deployment_boundary and (args.ai_only or args.ai_inputs is not None):
++        parser.error("--deployment-boundary 仅检查 runtime_file，不能组合 AI 检查")
+     if args.ai_only:
+         if args.runtime_file is not None or args.ai_inputs is None:
+             parser.error("--ai-only 需要 --ai-inputs，不能同时提供 runtime_file")
+@@ -264,6 +294,10 @@
+         values = (
+             {"APP_ENV": "test"} if args.ai_only else parse_runtime(read_private(args.runtime_file))
+         )
++        if args.deployment_boundary:
++            check_deployment_boundary(values, dict(os.environ))
++            print(json.dumps({"status": "PASSED", "production_browser_boundary": "PASSED"}))
++            return 0
+         missing_runtime = [] if args.ai_only else check_runtime(values)
+         ai, missing_ai = check_ai(args.ai_inputs) if args.ai_inputs else (None, [])
+         if missing_runtime or missing_ai:
+--- a/deploy/scripts/deploy.sh
++++ b/deploy/scripts/deploy.sh
+@@ -2,6 +2,8 @@
+ set -eu
+ 
+ script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
++python3 "$script_dir/check-production-inputs.py" --deployment-boundary \
++  "${ENV_FILE:?必须通过 ENV_FILE 指定 Production 环境文件}"
+ if test -z "${PARTSIGNAL_MAINTENANCE_LOCK_FD:-}"; then
+   exec python3 "$script_dir/prepare-production-data.py" run-locked \
+     "$script_dir/deploy.sh" "$@"
+--- a/deploy/scripts/activate-production.sh
++++ b/deploy/scripts/activate-production.sh
+@@ -2,6 +2,8 @@
+ set -eu
+ 
+ script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
++python3 "$script_dir/check-production-inputs.py" --deployment-boundary \
++  "${ENV_FILE:?必须通过 ENV_FILE 指定 Production 环境文件}"
+ 
+ : "${PARTSIGNAL_VERSION:?必须指定 PARTSIGNAL_VERSION}"
+ : "${PARTSIGNAL_BACKEND_IMAGE:?必须指定 PARTSIGNAL_BACKEND_IMAGE}"
+--- a/deploy/scripts/rollback-production-frontend.sh
++++ b/deploy/scripts/rollback-production-frontend.sh
+@@ -2,6 +2,8 @@
+ set -eu
+ 
+ script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
++python3 "$script_dir/check-production-inputs.py" --deployment-boundary \
++  "${ENV_FILE:?必须通过 ENV_FILE 指定 Production 环境文件}"
+ if test -z "${PARTSIGNAL_MAINTENANCE_LOCK_FD:-}"; then
+   exec python3 "$script_dir/prepare-production-data.py" run-locked \
+     "$script_dir/rollback-production-frontend.sh" "$@"
+--- a/deploy/scripts/create-release-manifest.py
++++ b/deploy/scripts/create-release-manifest.py
+@@ -19,6 +19,7 @@
+     "deploy/nginx/partsignal-security-headers.conf",
+     "deploy/nginx/partsignal.conf.template",
+     "deploy/scripts/activate-production.sh",
++    "deploy/scripts/check-production-inputs.py",
+     "deploy/scripts/deploy.sh",
+     "deploy/scripts/prepare-production-data.py",
+     "deploy/scripts/rollback-production-frontend.sh",
+--- a/deploy/scripts/prepare-production-data.py
++++ b/deploy/scripts/prepare-production-data.py
+@@ -54,6 +54,7 @@
+     "deploy/nginx/partsignal-security-headers.conf",
+     "deploy/nginx/partsignal.conf.template",
+     "deploy/scripts/activate-production.sh",
++    "deploy/scripts/check-production-inputs.py",
+     "deploy/scripts/deploy.sh",
+     "deploy/scripts/prepare-production-data.py",
+     "deploy/scripts/rollback-production-frontend.sh",
+--- a/deploy/scripts/test-deploy-production.sh
++++ b/deploy/scripts/test-deploy-production.sh
+@@ -63,6 +63,15 @@
+   exit 2
+ fi
+ test_dir=$(mktemp -d "$temporary_root/partsignal-production-test.XXXXXX")
++# 部署脚本 mock 仍使用明确的 production runtime；不借开发 env 绕过生产入口。
++python3 - "$root/.env.example" "$test_dir/deployment-runtime.env" <<'PYCONFIG'
++from pathlib import Path
++import sys
++source = Path(sys.argv[1]).read_text().replace("APP_ENV=development", "APP_ENV=production")
++target = Path(sys.argv[2])
++target.write_text(source)
++target.chmod(0o600)
++PYCONFIG
+ candidate_release=production-20260829-120000-0123456789ab
+ next_release=production-20260829-130000-fedcba987654
+ 
+@@ -92,21 +101,21 @@
+ PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
+ PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 \
+ PARTSIGNAL_VERSION=test \
+-PARTSIGNAL_RUNTIME_ENV_FILE="$root/.env.example" \
++PARTSIGNAL_RUNTIME_ENV_FILE="$test_dir/deployment-runtime.env" \
+ PARTSIGNAL_DATA_ROOT="$test_dir/live" \
+   docker compose --env-file "$root/.env.example" -f "$root/deploy/compose.prod.yaml" \
+   config --no-env-resolution --format json >"$test_dir/compose.json"
+ PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
+ PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 \
+ PARTSIGNAL_VERSION=test \
+-PARTSIGNAL_RUNTIME_ENV_FILE="$root/.env.example" \
++PARTSIGNAL_RUNTIME_ENV_FILE="$test_dir/deployment-runtime.env" \
+ PARTSIGNAL_DATA_ROOT="$test_dir/live" \
+   docker compose --profile production-async --env-file "$root/.env.example" \
+   -f "$root/deploy/compose.prod.yaml" \
+   config --no-env-resolution --format json >"$test_dir/compose-async.json"
+ 
+ if test "${PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE:-}" != network-compatibility; then
+-python3 - "$test_dir/compose.json" "$test_dir/live" "$root/.env.example" \
++python3 - "$test_dir/compose.json" "$test_dir/live" "$test_dir/deployment-runtime.env" \
+   "$test_dir/compose-async.json" "$root/deploy/compose.prod.yaml" <<'PY'
+ import json
+ import sys
+@@ -984,6 +993,7 @@
+     "deploy/nginx/partsignal-security-headers.conf",
+     "deploy/nginx/partsignal.conf.template",
+     "deploy/scripts/activate-production.sh",
++    "deploy/scripts/check-production-inputs.py",
+     "deploy/scripts/deploy.sh",
+     "deploy/scripts/prepare-production-data.py",
+     "deploy/scripts/rollback-production-frontend.sh",
+@@ -1598,6 +1608,7 @@
+   --tracked-file "$root/deploy/nginx/partsignal-security-headers.conf" \
+   --tracked-file "$root/deploy/nginx/partsignal.conf.template" \
+   --tracked-file "$root/deploy/scripts/activate-production.sh" \
++  --tracked-file "$root/deploy/scripts/check-production-inputs.py" \
+   --tracked-file "$root/deploy/scripts/deploy.sh" \
+   --tracked-file "$root/deploy/scripts/prepare-production-data.py" \
+   --tracked-file "$root/deploy/scripts/rollback-production-frontend.sh" \
+@@ -1623,6 +1634,7 @@
+   --tracked-file "$root/deploy/nginx/partsignal-security-headers.conf" \
+   --tracked-file "$root/deploy/nginx/partsignal.conf.template" \
+   --tracked-file "$root/deploy/scripts/activate-production.sh" \
++  --tracked-file "$root/deploy/scripts/check-production-inputs.py" \
+   --tracked-file "$root/deploy/scripts/deploy.sh" \
+   --tracked-file "$root/deploy/scripts/prepare-production-data.py" \
+   --tracked-file "$root/deploy/scripts/rollback-production-frontend.sh" \
+@@ -1642,6 +1654,7 @@
+   --tracked-file "$root/deploy/nginx/partsignal-security-headers.conf" \
+   --tracked-file "$root/deploy/nginx/partsignal.conf.template" \
+   --tracked-file "$root/deploy/scripts/activate-production.sh" \
++  --tracked-file "$root/deploy/scripts/check-production-inputs.py" \
+   --tracked-file "$root/deploy/scripts/deploy.sh" \
+   --tracked-file "$root/deploy/scripts/prepare-production-data.py" \
+   --tracked-file "$root/deploy/scripts/rollback-production-frontend.sh" \
+@@ -1740,7 +1753,7 @@
+   PARTSIGNAL_DEPLOY_MODE=clean-init \
+   PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.staging.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.staging.yaml" \
+   "$root/deploy/scripts/deploy.sh" >/dev/null 2>&1
+ wrong_compose_status=$?
+ set -e
+@@ -1761,7 +1774,7 @@
+   PARTSIGNAL_DEPLOY_MODE=clean-init \
+   PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/deploy.sh" >/dev/null 2>&1
+ wrong_project_status=$?
+ set -e
+@@ -1782,7 +1795,7 @@
+   PARTSIGNAL_DEPLOY_MODE=clean-init \
+   PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/deploy.sh" >"$test_dir/invalid-image-delivery-mode.out" \
+   2>"$test_dir/invalid-image-delivery-mode.err"
+ invalid_image_delivery_mode_status=$?
+@@ -1806,7 +1819,7 @@
+   PARTSIGNAL_DEPLOY_MODE=clean-init \
+   PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/deploy.sh" >"$test_dir/empty-image-delivery-mode.out" \
+   2>"$test_dir/empty-image-delivery-mode.err"
+ empty_image_delivery_mode_status=$?
+@@ -1830,7 +1843,7 @@
+   PARTSIGNAL_DEPLOY_MODE=clean-init \
+   PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/deploy.sh" >/dev/null 2>"$test_dir/v1-deploy.err"
+ v1_deploy_status=$?
+ set -e
+@@ -1852,7 +1865,7 @@
+   PARTSIGNAL_DEPLOY_MODE=clean-init \
+   PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/deploy.sh" >"$test_dir/v1-backend-deploy.out" \
+   2>"$test_dir/v1-backend-deploy.err"
+ v1_backend_deploy_status=$?
+@@ -1876,7 +1889,7 @@
+   PARTSIGNAL_DEPLOY_MODE=clean-init \
+   PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/deploy.sh" >"$test_dir/missing-image.out" \
+   2>"$test_dir/missing-image.err"
+ missing_image_status=$?
+@@ -1897,7 +1910,7 @@
+   PARTSIGNAL_DEPLOY_MODE=clean-init \
+   PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/deploy.sh" >/dev/null
+ 
+ awk '
+@@ -1936,7 +1949,7 @@
+   PARTSIGNAL_DEPLOY_MODE=clean-init \
+   PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/deploy.sh" >/dev/null
+ ! grep -q ' pull ' "$test_dir/local.log"
+ grep -q 'up --pull never -d --wait postgres redis' "$test_dir/local.log"
+@@ -1961,7 +1974,7 @@
+   PARTSIGNAL_DEPLOY_MODE=clean-init PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+   PARTSIGNAL_EXTERNAL_SERVICES_GATE=NOT_MET \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/activate-production.sh" >/dev/null 2>&1
+ blocked_status=$?
+ set -e
+@@ -1981,7 +1994,7 @@
+   PARTSIGNAL_DEPLOY_MODE=clean-init PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+   PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/activate-production.sh" >"$test_dir/invalid-activation-mode.out" \
+   2>"$test_dir/invalid-activation-mode.err"
+ invalid_activation_mode_status=$?
+@@ -2005,7 +2018,7 @@
+   PARTSIGNAL_DEPLOY_MODE=clean-init PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+   PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/activate-production.sh" >"$test_dir/empty-activation-mode.out" \
+   2>"$test_dir/empty-activation-mode.err"
+ empty_activation_mode_status=$?
+@@ -2028,7 +2041,7 @@
+   PARTSIGNAL_DEPLOY_MODE=clean-init PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+   PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/activate-production.sh" >/dev/null 2>"$test_dir/v1-activation.err"
+ v1_activation_status=$?
+ set -e
+@@ -2049,7 +2062,7 @@
+   PARTSIGNAL_DEPLOY_MODE=clean-init PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+   PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/activate-production.sh" \
+   >"$test_dir/missing-bootstrap-activation.out" \
+   2>"$test_dir/missing-bootstrap-activation.err"
+@@ -2088,7 +2101,7 @@
+   PARTSIGNAL_DEPLOY_MODE=clean-init PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+   PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/activate-production.sh" >/dev/null
+ grep -q -- '--profile production-async.*up --pull never -d --wait worker scheduler' "$test_dir/activate.log"
+ 
+@@ -2105,7 +2118,7 @@
+   PARTSIGNAL_MAINTENANCE_LOCK_FILE="$test_dir/maintenance.lock" \
+   PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/rollback-production-frontend.sh" >/dev/null 2>&1
+ rollback_mismatch_status=$?
+ set -e
+@@ -2124,7 +2137,7 @@
+   PARTSIGNAL_MAINTENANCE_LOCK_FILE="$test_dir/maintenance.lock" \
+   PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/rollback-production-frontend.sh" >/dev/null
+ grep -q 'up -d --no-deps --no-build --pull never --force-recreate --wait frontend' \
+   "$test_dir/rollback.log"
+@@ -2190,7 +2203,7 @@
+   PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
+   PARTSIGNAL_DEPLOY_MODE=upgrade PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest-next.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/activate-production.sh" >/dev/null 2>&1
+ unprepared_upgrade_status=$?
+ set -e
+@@ -2207,7 +2220,7 @@
+   PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
+   PARTSIGNAL_DEPLOY_MODE=upgrade \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest-next.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/deploy.sh" >/dev/null
+ awk '
+   /preflight-integrity/ { integrity = NR }
+@@ -2229,7 +2242,7 @@
+   PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
+   PARTSIGNAL_DEPLOY_MODE=upgrade PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/activate-production.sh" >/dev/null 2>&1
+ mismatched_upgrade_status=$?
+ set -e
+@@ -2246,7 +2259,7 @@
+   PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
+   PARTSIGNAL_DEPLOY_MODE=upgrade PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
+   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest-next.json" \
+-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
++  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+   "$root/deploy/scripts/activate-production.sh" >/dev/null
+ grep -q -- '--profile production-async.*up -d --wait worker scheduler' \
+   "$test_dir/upgrade-activation.log"
+@@ -2454,6 +2467,7 @@
+     "deploy/nginx/partsignal-security-headers.conf",
+     "deploy/nginx/partsignal.conf.template",
+     "deploy/scripts/activate-production.sh",
++    "deploy/scripts/check-production-inputs.py",
+     "deploy/scripts/deploy.sh",
+     "deploy/scripts/prepare-production-data.py",
+     "deploy/scripts/rollback-production-frontend.sh",
+--- a/deploy/scripts/test-geo-configuration.py
++++ b/deploy/scripts/test-geo-configuration.py
+@@ -29,6 +29,7 @@
+ from app import config, main, worker
+ from starlette.testclient import TestClient
+ assert main.settings is worker.settings is config.settings
++assert config.settings is config.get_settings()
+ with TestClient(main.app) as client:
+     assert client.get('/api/health/live').json() == {'status': 'ok', 'checks': None}
+ # GEO-901 已批准限批清理；注册与声明调度不等于启动时执行任务。
+@@ -128,10 +129,43 @@
+                     env={**services["api"]["environment"], "PYTHONPATH": str(ROOT / "backend")},
+                     capture_output=True, text=True, check=False,
+                 )
++                if environment == "prod" and scenario == "browser":
++                    assert started.returncode != 0
++                    assert "生产环境禁止 GEO_BROWSER_COLLECTION_ENABLED=true" in started.stderr
++                    continue
+                 if started.returncode:
+                     raise AssertionError(f"入口启动或 no-egress 检查失败：{environment}/{scenario}")
+                 assert json.loads(started.stdout) == expected
+-        print("GEO Compose/Settings/API/Worker/Beat：18 组配置一致，启动外部调用为 0")
++                if environment == "prod":
++                    # shell 环境不能改变生产身份，任何 profile 也不能添加 Browser/会话服务。
++                    for profiles in ([], ["--profile", "geo-browser"], ["--profile", "*"]):
++                        expanded = subprocess.run(
++                            [*command[:2], *profiles, *command[4:]],
++                            env={
++                                "PATH": os.environ["PATH"], "APP_ENV": "test",
++                                "GEO_MONITORING_ENABLED": "true",
++                                "GEO_BROWSER_COLLECTION_ENABLED": "true",
++                                "COMPOSE_PROFILES": "geo-browser",
++                                "PARTSIGNAL_BACKEND_IMAGE": "partsignal-backend",
++                                "PARTSIGNAL_FRONTEND_IMAGE": "partsignal-frontend-v2",
++                                "PARTSIGNAL_VERSION": "geo-config-test",
++                                "PARTSIGNAL_RUNTIME_ENV_FILE": str(runtime),
++                                "PARTSIGNAL_DATA_ROOT": str(owner / "data"),
++                            }, capture_output=True, text=True, check=True,
++                        )
++                        production = json.loads(expanded.stdout)
++                        assert "browser-collector" not in production["services"]
++                        for service in production["services"].values():
++                            assert "geo-browser" not in service.get("profiles", [])
++                            assert not any("geo-browser" in mount["target"]
++                                           for mount in service.get("volumes", []))
++                            assert not any(name.startswith("GEO_BROWSER_SESSION_")
++                                           for name in service.get("environment", {}))
++                        assert production["services"]["api"]["environment"]["APP_ENV"] == (
++                            "production"
++                        )
++        print("GEO Compose/Settings/API/Worker/Beat：17 组启动一致、production Browser 负例拒绝；"
++              "生产全部 profile/环境覆盖均为零 Browser 服务/会话，启动外部调用为 0")
+ 
+ 
+ if __name__ == "__main__":
+--- a/deploy/scripts/test-geo-browser.py
++++ b/deploy/scripts/test-geo-browser.py
+@@ -48,6 +48,20 @@
+         configured = json.loads(execute(
+             base + ["--profile", "geo-browser", "config", "--format", "json"], env=env
+         ))
++        if environment == "prod":
++            # production 不再拥有 Browser include；显式/全部 profile 也不能恢复服务。
++            all_profiles = json.loads(execute(
++                base + ["--profile", "*", "config", "--format", "json"], env=env
++            ))
++            assert "browser-collector" not in configured["services"]
++            assert "browser-collector" not in all_profiles["services"]
++            assert "geo-browser" not in execute(base + ["config", "--profiles"], env=env)
++            for ordinary in all_profiles["services"].values():
++                assert all("geo-browser" not in v["target"]
++                           for v in ordinary.get("volumes", []))
++                assert not any(key.startswith("GEO_BROWSER_SESSION_")
++                               for key in ordinary.get("environment", {}))
++            continue
+         service = configured["services"]["browser-collector"]
+         assert service["profiles"] == ["geo-browser"]
+         assert service["network_mode"] == "none" and not service.get("networks")
+@@ -60,6 +74,7 @@
+         assert "no-new-privileges:true" in service["security_opt"]
+         assert any(value.startswith("seccomp=") for value in service["security_opt"])
+         assert service["environment"] == {
++            "APP_ENV": "development",
+             "GEO_MONITORING_ENABLED": "false", "GEO_BROWSER_COLLECTION_ENABLED": "false",
+             "GEO_BROWSER_KILL_SWITCH_FILE": "/run/control/STOP",
+         }
+@@ -83,7 +98,7 @@
+     seccomp = json.loads((ROOT / "deploy/geo-browser-seccomp.json").read_text())
+     assert seccomp["defaultAction"] == "SCMP_ACT_ERRNO"
+     assert set(seccomp["syscalls"][0]["names"]) == {"clone", "setns", "unshare", "chroot"}
+-    print("Compose dev/staging/prod：默认无Browser；profile/资源/网络/凭据隔离通过")
++    print("Compose dev/staging：非生产Browser profile/隔离通过；prod全部profile零Browser/会话")
+ 
+ 
+ def runtime_checks(owner):
+--- a/browser-collector/src/service.mjs
++++ b/browser-collector/src/service.mjs
+@@ -4,6 +4,10 @@
+ 
+ /** @param {NodeJS.ProcessEnv} environment */
+ export function readConfiguration(environment) {
++  // 必须先于 Chromium、健康端点或会话读取拒绝 production，即使采集开关关闭。
++  if ((environment.APP_ENV ?? environment.PARTSIGNAL_ENVIRONMENT) === 'production') {
++    throw new Error('BROWSER_PRODUCTION_FORBIDDEN');
++  }
+   /** @param {string} key */
+   const flag = (key) => {
+     const value = environment[key] ?? 'false';
+--- a/browser-collector/src/main.mjs
++++ b/browser-collector/src/main.mjs
+@@ -64,7 +64,7 @@
+ }
+ 
+ main().catch((error) => {
+-  const safeCodes = ['BROWSER_CONFIGURATION_INVALID', 'BROWSER_TASK_INVALID',
++  const safeCodes = ['BROWSER_PRODUCTION_FORBIDDEN', 'BROWSER_CONFIGURATION_INVALID', 'BROWSER_TASK_INVALID',
+     'COLLECTOR_DISABLED', 'BROWSER_ADAPTER_NOT_IMPLEMENTED'];
+   console.error(error instanceof Error && safeCodes.includes(error.message)
+     ? error.message : 'BROWSER_STARTUP_FAILED');
+--- a/browser-collector/tests/service.test.mjs
++++ b/browser-collector/tests/service.test.mjs
+@@ -6,6 +6,22 @@
+ import { admissionCode, claimRun, createHealthServer, readConfiguration } from '../src/service.mjs';
+ 
+ const runId = '7fca3868-ad19-44ef-9d81-deb3d595ed29';
++
++test('production 在 Browser 和会话启动前拒绝，非生产保留显式配置合同', () => {
++  for (const enabled of ['false', 'true']) {
++    for (const name of ['APP_ENV', 'PARTSIGNAL_ENVIRONMENT']) {
++      assert.throws(() => readConfiguration({
++        [name]: 'production', GEO_MONITORING_ENABLED: 'true',
++        GEO_BROWSER_COLLECTION_ENABLED: enabled,
++      }), /BROWSER_PRODUCTION_FORBIDDEN/);
++    }
++  }
++  for (const APP_ENV of ['development', 'test', 'staging']) {
++    assert.equal(readConfiguration({
++      APP_ENV, GEO_MONITORING_ENABLED: 'true', GEO_BROWSER_COLLECTION_ENABLED: 'true',
++    }).enabled, true);
++  }
++});
+ 
+ test('默认关闭与父子配置拒绝；未知值不回退', () => {
+   assert.equal(admissionCode(readConfiguration({})), 'COLLECTOR_DISABLED');
+--- a/docs/production-configuration.md
++++ b/docs/production-configuration.md
+@@ -59,7 +59,8 @@
+ | `GENERATION_RECOVERY_BATCH_SIZE` | 默认 `100`，范围 `1..1000` |
+ | `GENERATION_RECOVERY_SCAN_SECONDS` | 默认 `60`，范围 `5..3600` |
+ | `GEO_MONITORING_ENABLED` | 新 GEO 写能力总开关，默认 `false`；R0 只建立配置，不注册业务入口 |
+-| `GEO_API_COLLECTION_ENABLED`、`GEO_BROWSER_COLLECTION_ENABLED`、`GEO_OPPORTUNITY_EVALUATION_ENABLED` | 默认全部 `false`；任一为 `true` 必须同时开启 Monitoring，否则 Settings 启动失败；三个子开关独立，不互相隐式启用 |
++| `GEO_API_COLLECTION_ENABLED`、`GEO_OPPORTUNITY_EVALUATION_ENABLED` | 默认 `false`；任一为 `true` 必须同时开启 Monitoring，否则 Settings 启动失败；子开关独立，不互相隐式启用 |
++| `GEO_BROWSER_COLLECTION_ENABLED` | Production 固定 `false`；省略仍为 `false`，显式输入只接受 literal `false`；Monitoring=true 也不能启用 Browser，Settings 和 production preflight 拒绝 true |
+ | `OBJECT_STORAGE_BACKEND` | 固定 `aliyun_oss` |
+ | `UPLOAD_SIGNING_SECRET` | 独立随机生成；保留 storage 配置字段，Aliyun OSS 路径不使用开发签名 |
+ | `UPLOAD_INTENT_TTL_SECONDS`、`DOWNLOAD_URL_TTL_SECONDS` | 默认 `600`、`300` |
+@@ -70,7 +71,11 @@
+ 
+ 四项 GEO 是允许旧生产 runtime 省略的新增键；省略时由 `app.config.Settings` 唯一默认关闭，无需补键或轮换任何 secret。其余键仍要求完整，未知键拒绝；显式空值或非法布尔值不按省略处理。开关只控制后续新 GEO 能力，保留现有人工文章观测、洞察、优化命令和历史读取；开关不能替代权限、平台合规、凭据、预算或外发资格。
+ 
+-API、Worker、Scheduler 的 Compose backend 定义共享同一 env 文件，应用共用 `app.config.settings`，Beat 通过相同 `app.worker:celery_app` 启动。开关是进程启动快照，修改 env 文件后必须通过受控部署统一重建三个进程；不是热重载，也不能撤回已发请求。本轮 GEO-004 不部署、不接入 Collector；后续采集任务仍需在外部调用前执行开关与资格门禁。
++API、Worker、Scheduler 的 Compose backend 定义共享同一 env 文件，固定 `APP_ENV=production`，应用共用 `app.config.settings`，Beat 通过相同 `app.worker:celery_app` 启动。Browser 输入保留原值并明确失败，不覆盖为 false 掩盖错误。开关是进程启动快照，修改 env 文件后必须通过受控部署统一重建三个进程；不是热重载，也不能撤回已发请求。采集任务仍需在外部调用前执行开关与资格门禁。
++
++GEO-1003 的生产部署、激活和前端回滚脚本在取得维护锁、改变部署状态或调用 Compose 前执行 `check-production-inputs.py --deployment-boundary <runtime_file>`。该模式只依赖 Python 标准库，并检查 runtime 与宿主环境：Browser 必须省略或 literal false；拒绝所有 Browser 会话材料；`COMPOSE_PROFILES` 只允许空值或 `production-async`；`COMPOSE_FILE` 只允许权威 `deploy/compose.prod.yaml`，拒绝 Browser/service-session overlay 和多文件组合。runtime 仍须符合普通文件、当前用户所有和 0600 合同。该模式不替代完整输入检查或 backend preflight。
++
++权威 production Compose 不包含 Browser service/profile/session 卷；显式 `geo-browser`、`COMPOSE_PROFILES=geo-browser` 或 `--profile '*'` 展开也不会产生 Browser 服务。两个 Browser Compose 文件仅供非 production，独立 Collector 在 production 身份下先于 Chromium 启动拒绝。禁止通过手工多文件 Compose 绕过权威部署入口；非生产骨架与 GEO-801～803 本地合同继续保留，没有真实 Adapter。release manifest producer/consumer 同时将输入检查脚本纳入固定 9 项 tracked files，旧 manifest 不自动兼容；新候选由 GEO-1009 冻结，目标生产零容器/零会话材料证据仍由 GEO-1010 验证。
+ 
+ 开发专用 `OBJECT_STORAGE_ENDPOINT`、`OBJECT_STORAGE_PUBLIC_ENDPOINT`、`OBJECT_STORAGE_PATH` 在开发模板中完整列出，生产 Aliyun OSS 不使用这三项。Production 不增加 `fake-oss`、`19001` 或 `/object-storage/`。
+ 
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -1681,7 +1681,7 @@
+   phase: R9A
+   release: V1.0-manual-first
+   title: production Browser Collection 硬禁止
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-1002
+   - GEO-004
+@@ -1703,7 +1703,10 @@
+   - 05-decisions/ADR-007-manual-first-v1-release-scope.md
+   - 06-reviews/GEO-1001-release-readiness-audit.md
+   audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
+-  scope_note: 后续独立任务；本次 GEO-1002 只登记范围、依赖与验收，不开始实现或生产操作。
++  scope_note: 2026-10-05：用户明确授权 GEO-1003 实现与本地定向验证；保留非生产 Browser 骨架/合同，不实现真实 Adapter，不操作生产。
++  trellis_task: .trellis/tasks/10-05-geo-1003-production-browser-ban
++  validation_record: .trellis/tasks/10-05-geo-1003-production-browser-ban/implement.md
++  review_note: 2026-10-05：production Settings/input checker/启动预检硬拒绝 Browser=true 和会话材料；权威 Compose 全部 profile 展开零 Browser；deploy/activate/rollback 在维护锁前拒绝 profile/overlay/环境绕过。152 项定向后端、17 组启动正例及生产负例、Compose/Browser 骨架检查、14 项 Collector/27 项本地合同、生产部署自检通过；独立只读复核发现附录 tracked-file 漏项已修复并解除。完整 git diff --check 仅报未改 GEO-1001 审计既存 12 处尾空格，本任务差异无空白错误。仅 review，不自行 done；候选和现场证据仍属 GEO-1009/1010。
+ - id: GEO-1004
+   phase: R9A
+   release: V1.0-manual-first
+--- a/docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md
++++ b/docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md
+@@ -35,7 +35,7 @@
+ | 现有 Retest API 与比较/解决 | available | preview/create、冻结基线、可比性门禁及显式解决已实现 | 不可比/未知版本阻断；不承诺因果 |
+ | MANUAL 内部试运行 | manual-only | 本地真实栈有证据，生产试用未执行 | GEO-1010；负责人、范围、时长、反馈需签署 |
+ | API Collection 初始试运行 | disabled | 采集/Worker/发送恢复已有实现，生产供应商批准与验收未取得 | 默认 false；后续启用需单独批准与验收 |
+-| Browser production Collection/会话 | disabled | 默认 false，仍可被 production Settings 接受 true；现场未知 | GEO-1003 硬禁止＋GEO-1010 零启用/零材料证据 |
++| Browser production Collection/会话 | disabled | GEO-1003 已实现 Settings/预检/部署入口硬拒绝 true 和会话材料；production Compose 无 Browser；交付 review，现场未知 | GEO-1003 待人工接受＋GEO-1010 零启用/零材料证据 |
+ | Browser 真实界面 Adapter/生产证据采集 | deferred | GEO-804～807 延期；真实 Adapter/证据路径未实现 | ADR-006；801～803 done 保留 |
+ | CRON 到期自动创建批次 | disabled | 内部 scheduled factory 存在，生产扫描未接线；可能假 ACTIVE | GEO-1005 禁止 ACTIVE/resume/绕过并治理既存状态 |
+ | CRON 生产自动调度交付 | deferred | not implemented：无生产到期入口 | 后续重新排期；V1.0 不以自动执行为门禁 |
+@@ -54,7 +54,7 @@
+ | GEO_MONITORING_ENABLED | false | 按环境批准设 true | API/Worker/Beat 启动后核对实际值 |
+ | MANUAL Collection | 随总开关不开放新写入 | 启用；没有独立 MANUAL 环境键 | 人工采集/创建，确定性分析和复核继续执行 |
+ | GEO_API_COLLECTION_ENABLED | false | false（初始默认） | 保留已有代码，不自动回退到 API |
+-| GEO_BROWSER_COLLECTION_ENABLED | false | production **硬禁止 true** | 硬禁止尚缺：GEO-1003；现场 GEO-1010 |
++| GEO_BROWSER_COLLECTION_ENABLED | false | production **硬禁止 true** | GEO-1003 实现/本地验证交付 review；现场 GEO-1010 |
+ | CRON Plan | 不启用 | 不得 ACTIVE/resume，既存 ACTIVE 必须治理 | 防假 ACTIVE 尚缺：GEO-1005；不新增 Schema 状态 |
+ | GEO_OPPORTUNITY_EVALUATION_ENABLED | false | 显式评估获批时 true | 这是资格开关；入口尚缺：GEO-1006 |
+ | Opportunity 自动调度 | 无周期注册/隐式触发 | 关闭 | 不虚构新的已实现环境键；保持人工评估与自动调度分开 |
+--- a/docs/geo-monitoring/03-technical/01-technical-architecture.md
++++ b/docs/geo-monitoring/03-technical/01-technical-architecture.md
+@@ -349,7 +349,7 @@
+ 
+ ## 14. 功能开关
+ 
+-GEO-004 / R0 已实现以下部署配置及 Settings 校验，已人工接受 done；生产 Browser 硬禁止并非该历史交付已实现的保证，需 GEO-1003：
++GEO-004 / R0 已实现以下部署配置及 Settings 校验，已人工接受 done；GEO-1003 另行实现生产 Browser 硬禁止并交付 review，不改写历史验收。生产配置与部署边界见 [配置权威说明](../../production-configuration.md)：
+ 
+ ```text
+ GEO_MONITORING_ENABLED
+--- a/docs/geo-monitoring/CHANGELOG.md
++++ b/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,11 @@
+ # 文档包变更记录
++
++## GEO-1003 / R9A 生产 Browser 硬禁止 — 2026-10-05（review）
++
++- Production Settings/启动预检明确拒绝 Browser=true 和会话材料；输入检查要求省略或 literal false，API/Worker/Beat 共用最终 Settings。
++- Production Compose 删除 Browser include 并固定生产身份；全部 profile 展开零 Browser/会话。部署/激活/前端回滚在维护锁前拒绝 Browser/profile/overlay/会话材料，checker 纳入同一 9 项 candidate manifest。
++- 非生产骨架、会话和本地合同保留，Collector 对 production 先于 Chromium 启动拒绝；不实现真实 Adapter，不改 OpenAPI/数据库或 GEO-801～803 历史。
++- 本地定向测试与部署自检证据见 GEO-1003 Trellis implement；仅 review，不自行 done、不部署/提交。生产仍 NO-GO，候选冻结/目标零材料现场证据仍由 GEO-1009/1010 收口。
+ 
+ ## GEO-1002 / R9A V1.0 范围冻结 — 2026-10-05（review）
+ 
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -4,13 +4,13 @@
+ dcb2e50c723df8758173ba472a63a6a12b51eed074b2e82a408e56f78980b5f2  01-product/02-geo-core-prd.md
+ 95637e55031a56bf3e70073207439e2d7cd6f879be9ddaefa1b7edc3192d7751  01-product/03-information-architecture-and-page-spec.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  01-product/04-catalog-user-guide.md
+-2548ec477ef6e9c8c4c81d437156b06df4a75a3dce3ae39702b21bda2fd79706  01-product/05-v1-release-capability-matrix.md
++e3004a74f9786ac22ca5b2a623de9b41dd095d6df79ea599ba02dcdf24ac7c83  01-product/05-v1-release-capability-matrix.md
+ 45b864ba43a27d184a5161086b4a8332615fd831ec1aad4f908d1705e6bb3594  02-business/01-business-architecture.md
+ 140e16f4dc3d712628c4cbba8bab938848f24c2bf8e0b530fd52b4de5c6c4ec1  02-business/02-domain-model.md
+ c0957fde7fb609dd1746d4d29e4a3f8e14129e685787bf4046c8d8941a314054  02-business/03-workflows-and-state-machines.md
+ aeec9d65d22cc1f2640c46968e1923d328ed842bbc086f18e5dc4bd376a4bb02  02-business/04-monitoring-methodology-and-metrics.md
+ 2ecb8425899de5f1ae4f6a1f0b130f93aba201fbc9c084856d6893835d0484e9  02-business/05-manual-geo-observation-sop.md
+-841a96a93eac6837f9c7829e707331f69eb314be63e1a0538ff76d5a3864b491  03-technical/01-technical-architecture.md
++b2349ebacd9ae9240b17204ea6b11116ca51638c6ff36c1f8174a43c7259e1c5  03-technical/01-technical-architecture.md
+ dfa99da7fce0e0ab5678cff7f0aa722565dba13514bf770efceeacdc812de817  03-technical/02-data-architecture.md
+ 22f8976a569a88800331d5f8ad54a83d753450f469bd30b70e4ac79a8f18c2e9  03-technical/03-api-contract-design.md
+ a0291d4a77609a1db741e3adc84d19ab712ac3ffff8c49f8572ac09b1c5327eb  03-technical/04-frontend-architecture.md
+@@ -117,7 +117,7 @@
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  04-delivery/geo-003-baseline/validation.md
+ e047efc782933053f13f46e205e6aff331b4d3e2f8574a1c6857c97d426115cc  04-delivery/geo-906-release-record.template.yaml
+-071605483ab5b6a63cf7405245672a018ce414fbbebf07fe2aaefb146ae0cfd3  04-delivery/task-manifest.yaml
++70523cc5e6cf46093ac9582f2c249b9a4eb37ca368db339bbd548bb184d29c74  04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  05-decisions/ADR-003-separate-collection-analysis-review.md
+@@ -127,5 +127,5 @@
+ 4029e4be716aff7605368c51df6b797b55bb5fa9aba293c75a0e76b3943c2259  05-decisions/ADR-007-manual-first-v1-release-scope.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  05-decisions/GEO-002-architecture-review.md
+ b949243cf6b9715e2ecad7c36bee3d9e094d76ed9f50dca1bc365da77c956fb3  06-reviews/GEO-1001-release-readiness-audit.md
+-42592d2a3f686cf87b6d40196c95a4d79430d8fe8efe6a858dc22b430a9d685b  CHANGELOG.md
++40c124440db341004ca0993431c87ac9bd6603ff118008f2aa05900782725e28  CHANGELOG.md
+ 8cbc60f79a6d232f0504175d9221678ec5b8881849957ddad395fe249c312f58  README.md
+--- a/.trellis/spec/infra/production-image-delivery.md
++++ b/.trellis/spec/infra/production-image-delivery.md
+@@ -22,6 +22,7 @@
+ - runbook 的直接 local preflight 必须先通过同一 release manifest 的 tracked-file/image identity 校验，再使用 `run --rm --pull never --no-deps`；不能让 probe 隐式 pull 或启动依赖服务。
+ - backend、frontend、rollback frontend 的 repository 末段以 `backend-v1` 或 `frontend-v1` 结尾时，producer 和 consumer 都必须拒绝；deploy/activate 还应在状态转换前拒绝对应环境变量。
+ - V1 不能进入 manifest、Production Compose 操作或 frontend rollback；V2-only 不依赖 UI 隐藏或人工约定。
++- GEO-1003：deploy/activate/rollback 在维护锁和状态变更前执行 `check-production-inputs.py --deployment-boundary <runtime_file>`；Browser true、非权威 Compose/overlay、除 production-async 外的 profile、Browser 会话材料均明确失败。生产 Compose 固定 APP_ENV=production，Browser 原始输入由共用 Settings 拒绝；展开任何 profile 无 Browser 服务或会话卷。完整配置合同和非生产骨架边界见 `docs/production-configuration.md`。
+ - `bootstrap-ai` 在同一维护锁内验证 run ID、manifest/candidate、phase 和正在运行 API 容器的 project/service/image/running/mount identity；不得读取 `.Config.Env`，不得启动 one-off service 或执行 `run/up/pull`。
+ - host 在调用 backend 前原子写入无 secret 的 `ai_bootstrap_attempt=STARTED`；任何已有 attempt 都拒绝重入。完整成功更新 `SUCCEEDED`，明确失败更新 `FAILED`，结果未知保持 `STARTED`；`verify-prepared`/activation 必须拒绝 `STARTED` 或 `FAILED`，且不提供 force-clear。
+ - credential 只从真实交互式 no-echo TTY 经 `docker exec -i` stdin 传入；禁止 argv、environment、文件、history、日志、Docker metadata 或异常透传。bootstrap 成功不自动把完整 External Services Gate 标为 `MET`。
+@@ -107,7 +108,7 @@
+ 
+ ### 3. Contracts
+ 
+-- manifest producer 与 consumer 的 `REQUIRED_TRACKED_FILES` 必须同时包含 maintenance template；Production 自检的全部 manifest 创建路径和 exact-set 断言必须使用相同 8 项集合。
++- manifest producer 与 consumer 的 `REQUIRED_TRACKED_FILES` 必须同时包含 maintenance template 和生产输入检查脚本；Production 自检的全部 manifest 创建路径和 exact-set 断言必须使用相同 9 项集合。
+ - maintenance template 保留 `geo.962850.xyz`、`<HOSTDZIRE_WG_ADDRESS>`、HTTP 到 HTTPS、ACME、TLS、PartSignal security snippet 和 `add_header_inherit merge`。
+ - maintenance template 不得声明 upstream、`proxy_pass`、静态 `root`、`19000`、`19001`、`19080` 或 `/object-storage/`；API/frontend 即使已在同一 loopback 端口启动，也不能通过公网访问。
+ - 停止任何 PartSignal 容器前必须先完成 maintenance write、`nginx -t`、独立 maintenance reload 和公网 `503` 验证；首次验证时间是 60 分钟硬窗口的 T0。
+@@ -137,7 +138,7 @@
+ 
+ - maintenance template 精确包含 host、HTTP/HTTPS listen、ACME、TLS、安全 snippet、`add_header_inherit merge`、固定状态/正文/cache/retry 响应；
+ - maintenance template 不包含 upstream、`proxy_pass`、静态 root、三个应用端口或 `/object-storage/`；
+-- producer、consumer、三组 manifest producer test input 与 manifest exact-set assertion 均包含相同 8 项 tracked files；
++- producer、consumer、三组 manifest producer test input 与 manifest exact-set assertion 均包含相同 9 项 tracked files（包含 `check-production-inputs.py`）；
+ - `check-nginx-security.mjs` 把 maintenance template 与 Production/Staging template 一起检查，拒绝缺少安全 snippet、缺少 header inheritance 或重复安全头。
+ 
+ ### 7. Wrong vs Correct
+--- a/docs/Hostdzire部署附录.md
++++ b/docs/Hostdzire部署附录.md
+@@ -25,6 +25,7 @@
+   --tracked-file deploy/nginx/partsignal-maintenance.conf.template \
+   --tracked-file deploy/scripts/deploy.sh \
+   --tracked-file deploy/scripts/activate-production.sh \
++  --tracked-file deploy/scripts/check-production-inputs.py \
+   --tracked-file deploy/scripts/prepare-production-data.py \
+   --tracked-file deploy/scripts/rollback-production-frontend.sh \
+   --tracked-file deploy/nginx/partsignal.conf.template \
+@@ -47,6 +48,8 @@
+ ```sh
+ set -eu
+ ps_env=/root/partsignal/shared/.env.production
++
++python3 ./deploy/scripts/check-production-inputs.py --deployment-boundary "$ps_env"
+ test -f "$ps_env"
+ test ! -L "$ps_env"
+ test "$(stat -c '%a' "$ps_env")" = 600
+--- a/docs/Hostdzire部署上线流程.md
++++ b/docs/Hostdzire部署上线流程.md
+@@ -50,7 +50,7 @@
+ git diff --check
+ ```
+ 
+-候选必须来自 clean、已推送的 `main`。使用 `git archive` 生成不可覆盖源归档，构建 backend 和 Frontend V2 镜像后，通过 `deploy/scripts/create-release-manifest.py` 冻结完整 commit、源归档 SHA-256、backend/current V2/previous V2 image ID 与非空 RepoDigest、schema head，以及固定 allowlist 中的 Production Compose、状态/部署/激活脚本、Production/maintenance Nginx 模板和安全 snippet 校验和。manifest 采用排他创建；部署和激活会复算 tracked files，并要求 `PARTSIGNAL_VERSION` 精确等于 release ID。不得复用 tag、覆盖文件或从 release 目录名推断 Git 状态。
++候选必须来自 clean、已推送的 `main`。使用 `git archive` 生成不可覆盖源归档，构建 backend 和 Frontend V2 镜像后，通过 `deploy/scripts/create-release-manifest.py` 冻结完整 commit、源归档 SHA-256、backend/current V2/previous V2 image ID 与非空 RepoDigest、schema head，以及固定 9 项 allowlist 中的 Production Compose、状态/部署/激活/输入检查脚本、Production/maintenance Nginx 模板和安全 snippet 校验和。输入检查脚本为 `deploy/scripts/check-production-inputs.py`，必须按附录一起传入 tracked files。manifest 采用排他创建；部署和激活会复算 tracked files，并要求 `PARTSIGNAL_VERSION` 精确等于 release ID。不得复用 tag、覆盖文件或从 release 目录名推断 Git 状态。
+ 
+ Production 镜像交付模式由 `PARTSIGNAL_IMAGE_DELIVERY_MODE` 显式控制；未设置时默认为 `registry`，按既有顺序 pull 后校验 manifest 中的 image ID 与 RepoDigest。Hostdzire 本地构建候选必须明确设置为 `local`：脚本跳过 pull，但要求候选镜像已存在，并在任何 `docker compose run`/`up` 前完成同一 manifest 的身份校验，同时为相关路径传入 `--pull never`。空值或其他模式，以及任何 V1 镜像仓库，均立即拒绝；不得用手工 Compose 命令绕过该合同。
+ 
+--- a/backend/tests/unit/test_geo_production_boundary.py
++++ b/backend/tests/unit/test_geo_production_boundary.py
+@@ -0,0 +1,147 @@
++"""GEO-1003：真实启动与部署入口必须先拒绝生产 Browser，不能出现服务副作用。"""
++
++from __future__ import annotations
++
++import json
++import os
++import subprocess
++import sys
++from pathlib import Path
++
++import pytest
++from pydantic import ValidationError
++
++from app.config import Settings
++from tests.unit.test_geo_configuration import ROOT, production_configuration
++
++
++@pytest.mark.parametrize("browser", [True, "true", "TRUE", "1", "on", "yes"])
++def test_production_monitoring_cannot_enable_browser(browser: object) -> None:
++    with pytest.raises(ValidationError, match="生产环境禁止 GEO_BROWSER_COLLECTION_ENABLED=true"):
++        Settings(_env_file=None, **{
++            **production_configuration(),
++            "GEO_MONITORING_ENABLED": True, "GEO_BROWSER_COLLECTION_ENABLED": browser,
++        })
++
++
++@pytest.mark.parametrize("name", [
++    "GEO_BROWSER_SESSION_ROOT", "GEO_BROWSER_SESSION_PUBLIC_KEY_FILE",
++    "GEO_BROWSER_SESSION_SERVICE_KEY_FILE", "GEO_BROWSER_SESSION_SERVICE_USER_ID",
++])
++def test_production_rejects_session_material_even_with_browser_off(name: str) -> None:
++    value = "123e4567-e89b-42d3-a456-426614174000" if name.endswith("USER_ID") else "/synthetic"
++    with pytest.raises(ValidationError, match="生产环境禁止配置 GEO_BROWSER_SESSION"):
++        Settings(_env_file=None, **{**production_configuration(), name: value})
++
++
++def test_production_browser_off_preserves_other_explicit_capabilities() -> None:
++    configured = Settings(_env_file=None, **{
++        **production_configuration(), "GEO_MONITORING_ENABLED": True,
++        "GEO_API_COLLECTION_ENABLED": True, "GEO_OPPORTUNITY_EVALUATION_ENABLED": True,
++    })
++    assert configured.geo_monitoring_enabled and configured.geo_api_collection_enabled
++    assert configured.geo_opportunity_evaluation_enabled
++    assert not configured.geo_browser_collection_enabled
++
++
++@pytest.mark.parametrize("command", [
++    ["-c", "from app.main import app"],
++    ["-m", "celery", "-A", "app.worker:celery_app", "worker", "--help"],
++    ["-m", "celery", "-A", "app.worker:celery_app", "beat", "--help"],
++    ["-m", "app.cli", "preflight-production-config"],
++])
++def test_production_entrypoints_fail_before_network_or_session_access(
++    tmp_path: Path, command: list[str],
++) -> None:
++    configuration = {
++        **production_configuration(), "GEO_MONITORING_ENABLED": "true",
++        "GEO_BROWSER_COLLECTION_ENABLED": "true", "PYTHONPATH": str(ROOT / "backend"),
++    }
++    # sitecustomize 的审计钩子先于 app/CLI 加载；禁止连接、解析及会话文件读取。
++    (tmp_path / "sitecustomize.py").write_text('''import sys
++def reject(event, args):
++    if event in {'socket.connect', 'socket.getaddrinfo'}:
++        raise AssertionError('NETWORK_SIDE_EFFECT_FORBIDDEN')
++    if event == 'open' and isinstance(args[0], str) and '/run/geo-browser' in args[0]:
++        raise AssertionError('SESSION_SIDE_EFFECT_FORBIDDEN')
++sys.addaudithook(reject)
++''')
++    configuration["PYTHONPATH"] = str(tmp_path) + os.pathsep + configuration["PYTHONPATH"]
++    result = subprocess.run(
++        [sys.executable, "-B", *command], cwd=tmp_path, env=configuration,
++        capture_output=True, text=True, timeout=30, check=False,
++    )
++    output = result.stdout + result.stderr
++    assert result.returncode != 0
++    assert "生产环境禁止 GEO_BROWSER_COLLECTION_ENABLED=true" in output
++    assert "SIDE_EFFECT_FORBIDDEN" not in output
++    assert "synthetic-access-secret" not in output
++    assert "input_value=" not in output
++
++
++@pytest.mark.parametrize("browser", [None, "false"])
++def test_production_preflight_reports_browser_false(tmp_path: Path, browser: str | None) -> None:
++    configuration = production_configuration()
++    if browser is None:
++        configuration.pop("GEO_BROWSER_COLLECTION_ENABLED")
++    result = subprocess.run(
++        [sys.executable, "-B", "-m", "app.cli", "preflight-production-config"],
++        cwd=tmp_path, env={**configuration, "PYTHONPATH": str(ROOT / "backend")},
++        capture_output=True, text=True, timeout=30, check=True,
++    )
++    assert json.loads(result.stdout)["geo_browser_collection_enabled"] is False
++
++
++@pytest.mark.parametrize("script", [
++    "deploy.sh", "activate-production.sh", "rollback-production-frontend.sh",
++])
++@pytest.mark.parametrize(("runtime_change", "shell_change", "code"), [
++    ({"GEO_MONITORING_ENABLED": "true", "GEO_BROWSER_COLLECTION_ENABLED": "true"}, {},
++     "PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED"),
++    ({}, {"GEO_BROWSER_COLLECTION_ENABLED": "true"},
++     "PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED"),
++    ({}, {"COMPOSE_PROFILES": "production-async,geo-browser"},
++     "PRODUCTION_COMPOSE_PROFILE_FORBIDDEN"),
++    ({}, {"COMPOSE_PROFILES": "*"}, "PRODUCTION_COMPOSE_PROFILE_FORBIDDEN"),
++    ({}, {"COMPOSE_FILE": str(ROOT / "deploy/compose.prod.yaml") + ":" +
++      str(ROOT / "deploy/compose.geo-browser.yaml")}, "PRODUCTION_COMPOSE_OVERLAY_FORBIDDEN"),
++    ({}, {"COMPOSE_FILE": str(ROOT / "deploy/compose.geo-browser-sessions.yaml")},
++     "PRODUCTION_COMPOSE_OVERLAY_FORBIDDEN"),
++    ({"GEO_BROWSER_SESSION_ROOT": "/synthetic"}, {}, "PRODUCTION_BROWSER_SESSION_FORBIDDEN"),
++    ({}, {"PARTSIGNAL_GEO_BROWSER_SESSION_PRIVATE_KEY_FILE": "/synthetic"},
++     "PRODUCTION_BROWSER_SESSION_FORBIDDEN"),
++    ({"APP_ENV": "development"}, {}, "PRODUCTION_FIXED_VALUE_REQUIRED:APP_ENV"),
++])
++def test_deployment_entrypoints_reject_before_lock_or_compose(
++    tmp_path: Path, script: str, runtime_change: dict[str, str],
++    shell_change: dict[str, str], code: str,
++) -> None:
++    runtime = tmp_path / "runtime.env"
++    runtime.write_text("".join(
++        f"{key}={value}\n" for key, value in {
++            **production_configuration(), **runtime_change,
++        }.items()
++    ))
++    runtime.chmod(0o600)
++    result = subprocess.run(
++        ["/bin/sh", str(ROOT / "deploy/scripts" / script)], cwd=tmp_path,
++        env={"PATH": os.environ["PATH"], "ENV_FILE": str(runtime), **shell_change},
++        capture_output=True, text=True, timeout=30, check=False,
++    )
++    assert result.returncode == 2 and result.stderr == ""
++    assert json.loads(result.stdout) == {"status": "FAILED", "code": code}
++    # 未提供后续维护锁/manifest/data-root 输入；进入它们即无法产生上述明确拒绝。
++    assert not list(tmp_path.glob("**/*lock*"))
++
++
++def test_deployment_boundary_accepts_production_async_without_browser(tmp_path: Path) -> None:
++    runtime = tmp_path / "runtime.env"
++    runtime.write_text("APP_ENV=production\n")
++    runtime.chmod(0o600)
++    result = subprocess.run(
++        [sys.executable, str(ROOT / "deploy/scripts/check-production-inputs.py"),
++         "--deployment-boundary", str(runtime)], cwd=tmp_path,
++        env={"COMPOSE_PROFILES": "production-async"}, capture_output=True, text=True,
++        timeout=30, check=True,
++    )
++    assert json.loads(result.stdout)["production_browser_boundary"] == "PASSED"

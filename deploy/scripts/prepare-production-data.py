@@ -18,8 +18,14 @@ import uuid
 import warnings
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
+
+from production_deployment import execute as execute_deployment
+from production_maintenance_execution import ExecutionResult, exit_code, supervise
+from production_upgrade_recovery import verify_archives
+from production_migration_runtime import image_runtime_fingerprint, source_digest, validate_fingerprint
 
 STANDARD_DATA_ROOT = Path("/root/partsignal-data")
 STANDARD_QUARANTINE_ROOT = Path("/root/partsignal-data-quarantine")
@@ -54,8 +60,13 @@ REQUIRED_TRACKED_FILES = {
     "deploy/nginx/partsignal-security-headers.conf",
     "deploy/nginx/partsignal.conf.template",
     "deploy/scripts/activate-production.sh",
+    "deploy/scripts/check-production-inputs.py",
     "deploy/scripts/deploy.sh",
     "deploy/scripts/prepare-production-data.py",
+    "deploy/scripts/production_upgrade_recovery.py",
+    "deploy/scripts/production_migration_runtime.py",
+    "deploy/scripts/production_maintenance_execution.py",
+    "deploy/scripts/production_deployment.py",
     "deploy/scripts/rollback-production-frontend.sh",
 }
 rename_count = 0
@@ -205,6 +216,10 @@ def candidate_from_manifest(value: str) -> dict[str, Any]:
             "release_id": payload["release_id"],
             "commit": payload["commit"],
             "schema_head": payload["schema_head"],
+            "migration_runtime": payload["migration_runtime"],
+            "migration_reference": payload["images"]["migration"]["reference"],
+            "migration_image_id": payload["images"]["migration"]["image_id"],
+            "migration_repo_digests": sorted(payload["images"]["migration"]["repo_digests"]),
             "backend_reference": payload["images"]["backend"]["reference"],
             "backend_image_id": payload["images"]["backend"]["image_id"],
             "backend_repo_digests": sorted(
@@ -227,6 +242,7 @@ def candidate_from_manifest(value: str) -> dict[str, Any]:
         }
     except (KeyError, TypeError) as error:
         raise DataStateError("Production 候选清单缺少必要身份字段") from error
+    validate_fingerprint(candidate["migration_runtime"])
     scalar_fields = (
         "manifest_sha256",
         "release_id",
@@ -234,6 +250,8 @@ def candidate_from_manifest(value: str) -> dict[str, Any]:
         "schema_head",
         "backend_reference",
         "backend_image_id",
+        "migration_reference",
+        "migration_image_id",
         "frontend_reference",
         "frontend_image_id",
         "rollback_frontend_reference",
@@ -243,13 +261,13 @@ def candidate_from_manifest(value: str) -> dict[str, Any]:
         isinstance(candidate[name], str) and candidate[name] for name in scalar_fields
     ):
         raise DataStateError("Production 候选清单身份字段格式无效")
-    for role in ("backend", "frontend", "rollback_frontend"):
+    for role in ("backend", "migration", "frontend", "rollback_frontend"):
         reference = candidate[f"{role}_reference"]
         if V1_REPOSITORY_PATTERN.search(reference):
             raise DataStateError(
                 f"Production 候选清单不允许使用 V1 {role} 镜像仓库：{reference}"
             )
-    for role in ("backend", "frontend", "rollback_frontend"):
+    for role in ("backend", "migration", "frontend", "rollback_frontend"):
         digests = candidate[f"{role}_repo_digests"]
         if (
             not isinstance(digests, list)
@@ -286,6 +304,8 @@ def candidate_from_manifest(value: str) -> dict[str, Any]:
     expected_frontend = f"{os.getenv('PARTSIGNAL_FRONTEND_IMAGE', '')}:{version}"
     if candidate["backend_reference"] != expected_backend:
         raise DataStateError("候选清单 backend 镜像与当前部署变量不一致")
+    if candidate["migration_reference"] != os.getenv("PARTSIGNAL_MIGRATION_IMAGE", expected_backend):
+        raise DataStateError("候选清单 migration 镜像与当前部署变量不一致")
     if candidate["frontend_reference"] != expected_frontend:
         raise DataStateError("候选清单 frontend 镜像与当前部署变量不一致")
     return candidate
@@ -299,7 +319,7 @@ def require_candidate(state: dict[str, Any], candidate: dict[str, Any]) -> None:
 
 def verify_candidate_images(candidate: dict[str, Any]) -> None:
     """确认本地镜像 ID 与候选清单一致。"""
-    for role in ("backend", "frontend"):
+    for role in ("backend", "migration", "frontend"):
         verify_image(candidate, role)
     print("Production 候选镜像身份校验通过。")
 
@@ -408,23 +428,33 @@ def maintenance_lock() -> Iterator[int]:
 
 
 def run_locked(child_command: list[str]) -> int:
-    """持有同一锁执行完整部署或激活脚本，并把锁身份安全传给子进程。"""
+    """继承 FD 只复用锁；公开 run-locked 始终创建本次 supervisor。"""
     if not child_command:
         raise DataStateError("run-locked 必须指定子命令")
     with maintenance_lock() as descriptor:
-        os.set_inheritable(descriptor, True)
-        environment = os.environ.copy()
-        environment["PARTSIGNAL_MAINTENANCE_LOCK_FD"] = str(descriptor)
+        def operation(publish: Callable[[dict[str, Any]], None]) -> int:
+            publish({})
+            environment = {**os.environ, "PARTSIGNAL_MAINTENANCE_LOCK_FD": str(descriptor)}
+            result = subprocess.run(child_command, env=environment, pass_fds=(descriptor,))
+            return exit_code(result.returncode)
+        return supervise(operation).exit_code
+
+
+def supervised_operation(operation: Callable[[Callable[[dict[str, Any]], None]], int]) -> ExecutionResult:
+    """在 worker 内保留具体错误；父级只依据自己的真实退出观测。"""
+    def worker(publish: Callable[[dict[str, Any]], None]) -> int:
         try:
-            result = subprocess.run(
-                child_command,
-                env=environment,
-                pass_fds=(descriptor,),
-                check=False,
-            )
-        finally:
-            os.set_inheritable(descriptor, False)
-    return result.returncode
+            return operation(publish)
+        except subprocess.CalledProcessError as error:
+            if isinstance(error.cmd, list) and error.cmd[:3] == ["docker", "image", "inspect"]:
+                print(f"Production 镜像身份检查失败：{error.cmd[-1]}", file=sys.stderr)
+            else:
+                print("Production 维护命令失败；保留未初始化状态。", file=sys.stderr)
+            return exit_code(error.returncode)
+        except (DataStateError, OSError, ValueError) as error:
+            print(f"Production 数据状态操作失败：{error}", file=sys.stderr)
+            return 2
+    return supervise(worker)
 
 
 def read_bootstrap_credential(
@@ -1014,28 +1044,159 @@ def transition_candidate(
     print(f"Production 数据阶段已更新为 {destination}。")
 
 
-def begin_upgrade(candidate: dict[str, str]) -> None:
-    """从已初始化版本开始或续跑同一候选的 Production upgrade。"""
+def upgrade_entry_state(candidate: dict[str, Any]) -> dict[str, Any]:
+    """交付镜像前只读裁决升级资格，不修改阶段或伪造历史策略。"""
     data_root, _ = configured_roots()
     state = read_state(data_root)
     phase = state.get("phase")
     if phase == "PRODUCTION_INITIALIZED":
         if state.get("candidate") == candidate:
             raise DataStateError("当前候选已经初始化，拒绝重复创建 upgrade")
-        state["previous_candidate"] = state.get("candidate")
-        state["candidate"] = candidate
-        state["phase"] = "UPGRADE_DEPLOYING"
-        atomic_write_state(data_root, state)
     elif phase in {"UPGRADE_DEPLOYING", "UPGRADE_PREPARED"}:
         require_candidate(state, candidate)
-        if phase == "UPGRADE_PREPARED":
-            state["phase"] = "UPGRADE_DEPLOYING"
-            atomic_write_state(data_root, state)
     else:
         raise DataStateError(f"当前数据阶段不允许 Production upgrade：{phase}")
+    return state
+
+
+def begin_upgrade(candidate: dict[str, str]) -> None:
+    """从已初始化版本开始或续跑同一候选的 Production upgrade。"""
+    data_root, _ = configured_roots()
+    state = upgrade_entry_state(candidate)
+    phase = state["phase"]
+    if phase == "PRODUCTION_INITIALIZED":
+        # 在第一次迁移前记录执行条件；恢复不能把当前检查伪造为历史证明。
+        cache_policy = prove_upgrade_cache_policy(candidate)
+        runtime_proof = prove_upgrade_runtime(candidate)
+        state["previous_candidate"] = state.get("candidate")
+        state["candidate"] = candidate
+        state["upgrade_migration_cache_policy"] = cache_policy
+        state["upgrade_migration_runtime"] = runtime_proof
+        state["phase"] = "UPGRADE_DEPLOYING"
+    elif phase in {"UPGRADE_DEPLOYING", "UPGRADE_PREPARED"}:
+        if state.get("upgrade_migration_runtime") != {"candidate": candidate, "fingerprint": candidate["migration_runtime"]}:
+            raise DataStateError("升级缺少迁移执行前冻结的运行时证明，拒绝历史补造")
+        prove_upgrade_runtime(candidate)
+        if phase == "UPGRADE_PREPARED":
+            state["phase"] = "UPGRADE_DEPLOYING"
     for leaf in RUNTIME_LEAVES:
         ensure_plain_directory(data_root / leaf, label=f"Production {leaf}")
+    # 每次真实重入建立新 attempt；旧失败仍保留，但不能证明正在重试的候选失败。
+    state["upgrade_attempt"] = {
+        "attempt_id": "upa_" + uuid.uuid4().hex,
+        "candidate": candidate,
+        "status": "RUNNING",
+    }
+    state.pop("current_upgrade_failure_id", None)
+    atomic_write_state(data_root, state)
     print("Production upgrade 数据所有权与候选绑定校验通过。")
+
+
+def prove_upgrade_runtime(candidate: dict[str, Any]) -> dict[str, Any]:
+    """在首次迁移前冻结完整迁移镜像，并核对 checkout 的 Alembic 树。"""
+    fingerprint = candidate["migration_runtime"]
+    verify_migration_image(candidate, fingerprint["source_sha256"])
+    if source_digest(REPOSITORY_ROOT / "backend") != fingerprint["source_sha256"]:
+        raise DataStateError("升级 Alembic 源码树与 manifest 不一致")
+    return {"candidate": candidate, "fingerprint": fingerprint}
+
+
+UPGRADE_FAILURE_STAGES = (
+    "data_services", "configuration_preflight", "integrity_preflight",
+    "stop_application", "migration", "integrity_post_migration", "account_initialization", "application_start",
+    "status", "api_readiness", "frontend_readiness", "prepared_proof",
+)
+
+
+def require_low_sensitive_ref(value: str) -> str:
+    """只记录明确低敏引用，不接收日志、正文或自由文本。"""
+    if not isinstance(value, str) or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._/-]{0,127}", value):
+        raise DataStateError("升级失败/恢复必须提供低敏精确引用")
+    return value
+
+
+def persist_upgrade_failure(candidate: dict[str, Any], fields: dict[str, Any], phase: str) -> dict[str, Any]:
+    """状态所有者保留失败事实；不能覆盖已有失败或为无 attempt 的历史补证。"""
+    data_root, _ = configured_roots()
+    state = read_state(data_root)
+    require_candidate(state, candidate)
+    attempt = state.get("upgrade_attempt")
+    if state.get("phase") != phase or not isinstance(attempt, dict) or attempt.get("candidate") != candidate:
+        raise DataStateError("升级失败记录缺少匹配阶段和候选的部署 attempt")
+    failures = state.get("upgrade_failures", [])
+    if attempt.get("status") == "FAILED":
+        repeated = next((f for f in failures if f["failure_id"] == state.get("current_upgrade_failure_id")), None)
+        if repeated and all(repeated.get(key) == value for key, value in fields.items()):
+            return repeated
+        raise DataStateError("升级失败记录与已有不可变事实冲突")
+    expected = "RUNNING" if phase == "UPGRADE_DEPLOYING" else "PREPARED"
+    if attempt.get("status") != expected:
+        raise DataStateError("升级失败记录要求有效的当前部署 attempt")
+    record = {
+        **fields,
+        "failure_id": "upf_" + uuid.uuid4().hex,
+        "attempt_id": attempt["attempt_id"],
+        "candidate": candidate,
+        "phase_at_failure": phase,
+        "failed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    state["upgrade_failures"] = [*failures, record]
+    state["current_upgrade_failure_id"] = record["failure_id"]
+    state["upgrade_attempt"] = {**attempt, "status": "FAILED"}
+    atomic_write_state(data_root, state)
+    print(f"升级失败事实已记录：{record['failure_id']}；候选与阶段保持。")
+    return record
+
+
+def record_observed_upgrade_failure(candidate: dict[str, Any], result: ExecutionResult) -> dict[str, Any] | None:
+    """持锁 supervisor 在全部子孙停止后记录自己观察到的本次退出。"""
+    attempt_id, stage = result.progress.get("attempt_id"), result.progress.get("stage")
+    if not result.exit_code or not attempt_id:
+        return
+    if stage not in UPGRADE_FAILURE_STAGES:
+        raise DataStateError("部署退出缺少本次执行阶段，保持维护且不补造失败")
+    data_root, _ = configured_roots()
+    state = read_state(data_root)
+    attempt = state.get("upgrade_attempt")
+    if not isinstance(attempt, dict) or attempt.get("attempt_id") != attempt_id:
+        raise DataStateError("部署退出不属于当前 attempt，拒绝记录失败")
+    runtime = state.get("upgrade_migration_runtime")
+    if runtime != {"candidate": candidate, "fingerprint": candidate["migration_runtime"]}:
+        raise DataStateError("部署失败缺少迁移前冻结证明")
+    return persist_upgrade_failure(candidate, {
+        "stage": stage, "exit_code": result.exit_code, "signal": result.signal or None,
+        "worker_exit_code": result.worker_exit_code,
+        "failure_kind": "DEPLOYMENT_SIGNALLED" if result.signal else "DEPLOYMENT_COMMAND_FAILED",
+        "evidence_ref": f"deploy-owner/{attempt_id}/{stage}",
+        "migration_runtime_proof": runtime,
+    }, state["phase"])
+
+
+def declare_pre_activation_failure(candidate: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+    """明确标记操作员批准声明；不把准备后发现的问题伪装为部署退出。"""
+    return persist_upgrade_failure(candidate, {
+        "stage": "pre_activation", "exit_code": None, "signal": None,
+        "failure_kind": "OPERATOR_DECLARED_PRE_ACTIVATION_FAILURE",
+        "evidence_ref": require_low_sensitive_ref(args.evidence_ref),
+        "declaration_approval_ref": require_low_sensitive_ref(args.approval_ref),
+    }, "UPGRADE_PREPARED")
+
+
+def prove_upgrade_cache_policy(candidate: dict[str, Any]) -> dict[str, Any]:
+    """首次 upgrade 入场证明 runtime/host/冻结镜像不改迁移缓存位置。"""
+    validate_recovery_boundary()
+    image = json.loads(subprocess.run(
+        ["docker", "image", "inspect", candidate["migration_image_id"]],
+        check=True, capture_output=True, text=True,
+    ).stdout)
+    if not isinstance(image, list) or len(image) != 1 or image[0].get("Id") != candidate["migration_image_id"]:
+        raise DataStateError("upgrade 迁移缓存策略的冻结镜像身份无效")
+    config = image[0].get("Config")
+    if not isinstance(config, dict) or not isinstance(config.get("Env"), list) or not all(isinstance(value, str) for value in config["Env"]):
+        raise DataStateError("upgrade 迁移缓存策略的镜像环境无法证明")
+    if any(value.partition("=")[0] == "PYTHONPYCACHEPREFIX" and value.partition("=")[2] for value in config["Env"]):
+        raise DataStateError("upgrade 镜像指定树外迁移编译缓存目录")
+    return {"policy": "DEFAULT_PYTHON_CACHE_V1", "candidate": candidate}
 
 
 def transition_upgrade(
@@ -1047,7 +1208,19 @@ def transition_upgrade(
     if state.get("phase") != source:
         raise DataStateError(f"当前数据阶段不允许该 upgrade 操作：{state.get('phase')}")
     require_candidate(state, candidate)
+    attempt = state.get("upgrade_attempt")
+    required_status = "RUNNING" if destination == "UPGRADE_PREPARED" else "PREPARED"
+    require_upgrade_attempt(state, candidate, required_status)
+    if state.get("upgrade_recoveries") and state["upgrade_recoveries"][-1]["candidate"] == candidate:
+        if "ai_bootstrap_attempt" in state:
+            require_activation_safe_bootstrap_attempt(state)
+        if destination == "UPGRADE_PREPARED":
+            verify_recovery_database(candidate)
     state["phase"] = destination
+    if destination == "UPGRADE_PREPARED":
+        state["upgrade_attempt"] = {**attempt, "status": "PREPARED"}
+    else:
+        state["upgrade_attempt"] = {**attempt, "status": "INITIALIZED"}
     atomic_write_state(data_root, state)
     print(f"Production 数据阶段已更新为 {destination}。")
 
@@ -1059,7 +1232,161 @@ def verify_upgrade_prepared(candidate: dict[str, str]) -> None:
     if state.get("phase") != "UPGRADE_PREPARED":
         raise DataStateError("Production upgrade 尚未准备完成")
     require_candidate(state, candidate)
+    require_upgrade_attempt(state, candidate, "PREPARED")
+    if state.get("upgrade_recoveries") and state["upgrade_recoveries"][-1]["candidate"] == candidate:
+        if "ai_bootstrap_attempt" in state:
+            require_activation_safe_bootstrap_attempt(state)
     print("Production upgrade 候选准备阶段校验通过。")
+
+
+def require_upgrade_attempt(state: dict[str, Any], candidate: dict[str, Any], status: str) -> None:
+    """已声明失败的 prepared 候选不能继续激活，也不能跳过新的部署 attempt。"""
+    attempt = state.get("upgrade_attempt")
+    if not isinstance(attempt, dict) or attempt.get("candidate") != candidate or attempt.get("status") != status:
+        raise DataStateError(f"upgrade 要求当前有效且未失败的 {status} 部署 attempt")
+
+
+def recover_upgrade(args: argparse.Namespace, *, checkpoint: Callable[[], None] = lambda: None) -> None:
+    """显式 CAS 前向接管；完整证明后仅原子写状态，不换镜像或触碰数据。"""
+    validate_recovery_boundary()
+    data_root, _ = configured_roots()
+    ensure_plain_directory(data_root, label="活动数据根")
+    state = read_state(data_root)
+    if state.get("phase") not in {"UPGRADE_DEPLOYING", "UPGRADE_PREPARED"}:
+        raise DataStateError("恢复要求未初始化的 UPGRADE_DEPLOYING/UPGRADE_PREPARED")
+    if not re.fullmatch(r"upr_[0-9]{8}_[0-9]{6}", args.recovery_id):
+        raise DataStateError("升级恢复 ID 格式无效")
+    if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._/-]{0,127}", args.approval_ref):
+        raise DataStateError("升级恢复必须提供低敏精确批准引用")
+    fixed = candidate_from_manifest(args.manifest)
+    history = state.get("upgrade_recoveries", [])
+    repeated = next((r for r in history if r["recovery_id"] == args.recovery_id), None)
+    failed = repeated["failed_candidate"] if repeated else state.get("candidate")
+    if (
+        not isinstance(failed, dict)
+        or failed.get("release_id") != args.failed_release_id
+        or failed.get("manifest_sha256") != args.failed_manifest_sha256
+    ):
+        raise DataStateError("升级恢复失败候选身份与状态不一致")
+    failure_record = repeated.get("failure_record") if repeated else next((
+        record for record in state.get("upgrade_failures", [])
+        if record.get("failure_id") == state.get("current_upgrade_failure_id")
+    ), None)
+    if not isinstance(failure_record, dict) or failure_record.get("candidate") != failed:
+        raise DataStateError("升级恢复缺少绑定当前候选的持久化失败记录")
+    if failure_record.get("failure_id") != args.failure_id:
+        raise DataStateError("升级恢复失败记录身份不一致")
+    if not repeated:
+        attempt = state.get("upgrade_attempt")
+        if not isinstance(attempt, dict) or attempt.get("status") != "FAILED" or attempt.get("candidate") != failed or attempt.get("attempt_id") != failure_record.get("attempt_id"):
+            raise DataStateError("升级恢复缺少当前 attempt 的终态失败记录")
+        if any(r.get("failure_record", {}).get("failure_id") == args.failure_id for r in history):
+            raise DataStateError("升级失败记录已经被消费")
+    failed_cache_policy = repeated.get("failed_cache_policy") if repeated else state.get("upgrade_migration_cache_policy")
+    if failed_cache_policy != {"policy": "DEFAULT_PYTHON_CACHE_V1", "candidate": failed}:
+        raise DataStateError("失败执行缺少绑定候选的迁移缓存策略证明，拒绝历史推断")
+    failed_runtime = repeated.get("failed_migration_runtime") if repeated else state.get("upgrade_migration_runtime")
+    if failed_runtime != {"candidate": failed, "fingerprint": failed.get("migration_runtime")} or not failed.get("migration_runtime"):
+        raise DataStateError("失败执行缺少迁移运行时冻结证明，拒绝历史补造")
+    if fixed["migration_runtime"] != failed["migration_runtime"]:
+        raise DataStateError("恢复候选迁移运行时与失败执行不一致")
+    if fixed["migration_image_id"] != failed.get("migration_image_id"):
+        raise DataStateError("严格失败恢复必须保留失败执行的冻结迁移镜像身份")
+    if fixed["schema_head"] != failed.get("schema_head"):
+        raise DataStateError("升级恢复只允许相同 schema head")
+    if fixed["release_id"] == failed["release_id"] or fixed == state.get("previous_candidate"):
+        raise DataStateError("升级恢复必须是新的前向修复候选")
+    if all(fixed[f"{role}_image_id"] == failed.get(f"{role}_image_id") for role in ("backend", "frontend")):
+        raise DataStateError("升级恢复要求实际修正 artifact 镜像身份")
+    predecessors = [state.get("previous_candidate"), *(r["failed_candidate"] for r in history)]
+    if any(
+        isinstance(previous, dict) and (
+            fixed["release_id"] == previous.get("release_id")
+            or all(fixed[f"{role}_image_id"] == previous.get(f"{role}_image_id") for role in ("backend", "frontend"))
+        )
+        for previous in predecessors
+    ):
+        raise DataStateError("升级恢复不允许重新启用旧候选或已失败镜像")
+    if "ai_bootstrap_attempt" in state:
+        require_activation_safe_bootstrap_attempt(state)
+    for leaf in RUNTIME_LEAVES:
+        ensure_plain_directory(data_root / leaf, label=f"Production {leaf}")
+    ensure_services_stopped(data_root)
+    verify_candidate_images(fixed)
+    migrations = verify_archives(
+        failed, fixed, failed_manifest=args.failed_manifest, manifest=args.manifest,
+        failed_archive=args.failed_source_archive, archive=args.source_archive,
+        repository=REPOSITORY_ROOT,
+    )
+    # 同名 revision 不证明旧镜像实际提交的 DDL 正确；两端都必须匹配。
+    verify_migration_image(failed, migrations)
+    verify_migration_image(fixed, migrations)
+    receipt = {
+        "recovery_id": args.recovery_id, "approval_ref": args.approval_ref,
+        "failed_candidate": failed, "candidate": fixed,
+        "migration_tree_sha256": migrations,
+        "migration_runtime_sha256": fixed["migration_runtime"]["migration_runtime_sha256"],
+        "failed_migration_runtime": failed_runtime,
+        "failed_cache_policy": failed_cache_policy,
+        "failure_record": failure_record,
+    }
+    if repeated:
+        if repeated != receipt or state.get("candidate") != fixed or state["phase"] != "UPGRADE_DEPLOYING" or state.get("upgrade_attempt") is not None:
+            raise DataStateError("升级恢复重复请求与持久回执或当前阶段冲突")
+        print("升级恢复已记录；重放同一回执，不重新切换候选。")
+        return
+    checkpoint()
+    state["candidate"] = fixed
+    state["upgrade_migration_cache_policy"] = {"policy": "DEFAULT_PYTHON_CACHE_V1", "candidate": fixed}
+    state["upgrade_migration_runtime"] = {"candidate": fixed, "fingerprint": fixed["migration_runtime"]}
+    state["phase"] = "UPGRADE_DEPLOYING"
+    state["upgrade_recoveries"] = [*history, receipt]
+    state.pop("current_upgrade_failure_id", None)
+    state.pop("upgrade_attempt", None)
+    atomic_write_state(data_root, state)
+    print("升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。")
+
+
+def verify_migration_image(candidate: dict[str, Any], expected: str) -> None:
+    """导出未启动的冻结镜像；不执行镜像 Python 或其可能被投毒的 loader。"""
+    actual = image_runtime_fingerprint(candidate["migration_image_id"])
+    if actual["source_sha256"] != expected:
+        raise DataStateError("恢复镜像内迁移源码闭包与 source archive 不一致")
+    if actual != candidate["migration_runtime"]:
+        raise DataStateError("恢复镜像迁移运行时与 manifest 不一致")
+
+
+def validate_recovery_boundary() -> str:
+    """恢复同样受生产配置/Compose/Browser 边界约束，不另设旁路。"""
+    runtime = os.environ.get("PARTSIGNAL_RUNTIME_ENV_FILE", "")
+    if not runtime or not Path(runtime).is_file():
+        raise DataStateError("升级恢复缺少 Production runtime env")
+    subprocess.run(
+        [sys.executable, str(REPOSITORY_ROOT / "deploy/scripts/check-production-inputs.py"),
+         "--deployment-boundary", runtime], check=True,
+    )
+    return runtime
+
+
+def verify_recovery_database(candidate: dict[str, Any]) -> None:
+    """恢复候选 prepared 前，以固定 Compose/镜像验证真实完整性和 schema。"""
+    verify_candidate_images(candidate)
+    runtime = validate_recovery_boundary()
+    command = [
+        "docker", "compose", "--project-name", PRODUCTION_COMPOSE_PROJECT,
+        "--env-file", runtime, "-f", str(REPOSITORY_ROOT / "deploy/compose.prod.yaml"),
+        "run", "--rm", "--pull", "never", "--no-deps", "api",
+    ]
+    subprocess.run([*command, "python", "-m", "app.cli", "preflight-integrity", "--require-schema"], check=True)
+    probe = (
+        "import json; from sqlalchemy import text; from app.db import engine; "
+        "connection=engine.connect(); "
+        "print(json.dumps(list(connection.execute(text('SELECT version_num FROM alembic_version')).scalars()))); "
+        "connection.close(); engine.dispose()"
+    )
+    result = subprocess.run([*command, "python", "-c", probe], check=True, capture_output=True, text=True)
+    if json.loads(result.stdout) != [candidate["schema_head"]]:
+        raise DataStateError("恢复数据库 schema head 与候选 manifest 不一致")
 
 
 def restore(run_id: str) -> None:
@@ -1182,9 +1509,8 @@ def parse_args() -> argparse.Namespace:
         command_parser.add_argument("run_id")
         command_parser.add_argument("manifest")
     for command in (
-        "begin-upgrade",
+        "verify-upgrade-entry",
         "verify-candidate-images",
-        "mark-upgrade-prepared",
         "verify-upgrade-prepared",
         "mark-upgrade-initialized",
         "verify-rollback-frontend",
@@ -1192,6 +1518,17 @@ def parse_args() -> argparse.Namespace:
     ):
         command_parser = subparsers.add_parser(command)
         command_parser.add_argument("manifest")
+    recovery_parser = subparsers.add_parser("recover-upgrade")
+    recovery_parser.add_argument("manifest")
+    for field in (
+        "failed-manifest", "failed-source-archive", "source-archive",
+        "failed-release-id", "failed-manifest-sha256", "recovery-id", "approval-ref", "failure-id",
+    ):
+        recovery_parser.add_argument(f"--{field}", required=True)
+    declaration_parser = subparsers.add_parser("declare-pre-activation-failure")
+    declaration_parser.add_argument("manifest")
+    declaration_parser.add_argument("--approval-ref", required=True)
+    declaration_parser.add_argument("--evidence-ref", required=True)
     bootstrap_parser = subparsers.add_parser("bootstrap-ai")
     bootstrap_parser.add_argument("run_id")
     bootstrap_parser.add_argument("manifest")
@@ -1222,6 +1559,7 @@ def parse_args() -> argparse.Namespace:
     bootstrap_parser.add_argument("--model-display-name", required=True)
     bootstrap_parser.add_argument("--model-id", required=True)
     bootstrap_parser.add_argument("--request-parameters-json", required=True)
+    subparsers.add_parser("deploy-production")
     locked_parser = subparsers.add_parser("run-locked")
     locked_parser.add_argument("child_command", nargs=argparse.REMAINDER)
     return parser.parse_args()
@@ -1261,16 +1599,26 @@ def main() -> None:
                     "PRODUCTION_INITIALIZED",
                     candidate_from_manifest(args.manifest),
                 )
-            elif args.command == "begin-upgrade":
-                begin_upgrade(candidate_from_manifest(args.manifest))
+            elif args.command == "verify-upgrade-entry":
+                upgrade_entry_state(candidate_from_manifest(args.manifest))
+                print("Production upgrade 只读入场资格校验通过。")
+            elif args.command == "recover-upgrade":
+                result = supervised_operation(lambda publish: (
+                    recover_upgrade(args, checkpoint=lambda: publish({})) or 0
+                ))
+                raise SystemExit(result.exit_code)
+            elif args.command == "deploy-production":
+                result = supervised_operation(lambda publish: execute_deployment(sys.modules[__name__], publish))
+                if (os.getenv("PARTSIGNAL_DEPLOY_MODE") or "upgrade") == "upgrade" and result.progress.get("attempt_id"):
+                    data_root, _ = configured_roots()
+                    # 身份已由本次 worker 冻结在 state；父级依据私有 pipe 的 attempt 关联。
+                    candidate = read_state(data_root)["candidate"]
+                    record_observed_upgrade_failure(candidate, result)
+                raise SystemExit(result.exit_code)
+            elif args.command == "declare-pre-activation-failure":
+                declare_pre_activation_failure(candidate_from_manifest(args.manifest), args)
             elif args.command == "verify-candidate-images":
                 verify_candidate_images(candidate_from_manifest(args.manifest))
-            elif args.command == "mark-upgrade-prepared":
-                transition_upgrade(
-                    "UPGRADE_DEPLOYING",
-                    "UPGRADE_PREPARED",
-                    candidate_from_manifest(args.manifest),
-                )
             elif args.command == "verify-upgrade-prepared":
                 verify_upgrade_prepared(candidate_from_manifest(args.manifest))
             elif args.command == "mark-upgrade-initialized":

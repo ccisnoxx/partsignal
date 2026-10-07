@@ -1,0 +1,38 @@
+{
+  "id": "verify-entrypoint",
+  "name": "verify-entrypoint",
+  "title": "修正本地 verify 依赖入口并重新验证",
+  "description": "承接 GEO-906 已接受的测试证据；补齐 fake OSS 就绪依赖和隔离 PG 恢复工具入口，重新执行完整 make verify，不修改生产或历史验收状态。",
+  "status": "review",
+  "dev_type": "infra",
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-05",
+  "completedAt": null,
+  "branch": "geo/GEO-906",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "Makefile",
+    "deploy/compose.dev.yaml",
+    "deploy/scripts/test-geo-recovery-integration.py",
+    ".trellis/spec/infra/development-object-storage.md"
+  ],
+  "notes": "本地测试入口修复、完整 make verify 及全部指定独立命令通过；独立只读复核无阻断发现。进入 review，不改变 GEO-906 原 done/completed 接受状态或生产 NOT_STARTED/NOT_VERIFIED；未提交、推送或归档。",
+  "meta": {
+    "followup_of": "GEO-906",
+    "production_status": "NOT_STARTED",
+    "geo906_status_preserved": "done/completed",
+    "independent_review_audit_id": "20261006T015455Z-verify-entrypoint-4daba9dc",
+    "validation_record": ".trellis/tasks/10-05-verify-entrypoint/validation-results.json",
+    "validation_result": "make verify exit 0"
+  }
+}

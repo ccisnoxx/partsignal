@@ -1,0 +1,12 @@
+{
+  "manifest_changed_tasks": [
+    "GEO-705"
+  ],
+  "dependency_states": {
+    "GEO-704": "done",
+    "GEO-303": "done"
+  },
+  "delivery_state": "review",
+  "next_task_state": "planned",
+  "completedAt": null
+}

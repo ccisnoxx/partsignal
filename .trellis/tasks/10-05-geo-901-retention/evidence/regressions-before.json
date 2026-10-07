@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "docker",
+    "compose",
+    "-f",
+    ".trellis/tasks/10-05-geo-901-retention/evidence/compose.yaml",
+    "run",
+    "--rm",
+    "backend-test",
+    "pytest",
+    "tests/integration/test_geo_retention.py::test_older_referenced_raw_cannot_starve_an_expired_orphan",
+    "tests/integration/test_geo_retention.py::test_terminal_draft_cleanup_is_atomic_keeps_tombstone_and_shared_file"
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 5.351
+}

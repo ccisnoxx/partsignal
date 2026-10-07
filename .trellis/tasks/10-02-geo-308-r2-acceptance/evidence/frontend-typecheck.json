@@ -1,0 +1,13 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "frontend",
+    "run",
+    "typecheck"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-03T06:37:57.720278+00:00",
+  "seconds": 7.9,
+  "log": "frontend-typecheck.log"
+}

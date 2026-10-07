@@ -1,0 +1,8 @@
+{
+  "reconstructed_baseline_sha256_matches_initial": [
+    "backend/app/services/geo_opportunities.py",
+    "backend/app/audit_types.py",
+    "frontend/src/domains/audit/audit.model.ts",
+    "frontend/src/domains/audit/audit.model.test.ts"
+  ]
+}

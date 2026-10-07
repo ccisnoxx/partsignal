@@ -1,0 +1,13 @@
+# GEO-307 前端状态与职责
+
+runs.model拥有URL规范化、显示标签和query参数，runs.api拥有唯一query key、读取及命令。runs-page组合列表、批次summary、详情和人工编辑器；batch-create选择现有计划，使用该计划detail revision一次调用run-now。没有临时批次向导或Plan状态机复制。
+
+选中run保持URL身份，edit=1才加载manual-entry；详情一份GeoRunDetail包含全部正式证据。未保存值由编辑器实例拥有，切换筛选不更换实例；切换run或退出编辑触发DirtyGuard。保存采用canonical response推进draft revision；被动更新只更新当前动作，不重置dirty值。409显式重载让用户比较/采用服务端草稿，绝不自动重放。未知提交结果保留同一payload/key供显式安全恢复，输入修改需明确重新开始。
+
+截图上传为本域独立生命周期（不导入旧geo域内部组件），共用shared/file-transfer。只有verified ID进入表单；pending complete保留intent并仅重试complete；离开/身份切换避免迟到回调污染其他表单。限时证据只保留当前观察期间的Query内存，gcTime=0；不生成永久URL。React纯文本保护HTML_TEXT，原始Markdown安全预览可复用editor pattern。
+
+短轮询只是服务器状态的刷新调度，不决定状态转换或动作。MANUAL_ENTRY_REQUIRED与终态停止自动轮询，QUEUED/IN_PROGRESS等执行阶段定时刷新；隐藏页面暂停；后台失败保留成功结果并展示错误。
+
+## 候选复核收敛
+
+批次成功回执在API owner按闭合schema验证；畸形回执进入unknown且保留原payload/key/owner。complete与abort是非幂等命令，截图显式恢复先GET canonical file；VERIFIED关联或明确解除当前关联，FAILED/ABORTED/DELETING/DELETED解除阻塞保留输入，只有PENDING继续命令。提交成功通过当前导航引用只更新run/edit，保留等待期间改变的筛选和页码。人工控件/错误展示与异步命令owner按职责拆开，保留单一revision、RHF与服务端actions裁决。

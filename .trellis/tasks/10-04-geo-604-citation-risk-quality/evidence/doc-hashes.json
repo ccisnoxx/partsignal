@@ -1,0 +1,14 @@
+{
+  "updated": [
+    "01-product/02-geo-core-prd.md",
+    "02-business/04-monitoring-methodology-and-metrics.md",
+    "03-technical/03-api-contract-design.md",
+    "04-delivery/03-requirement-traceability-matrix.md",
+    "04-delivery/task-manifest.yaml",
+    "CHANGELOG.md",
+    "README.md"
+  ],
+  "preexisting_mismatches": [
+    "./03-technical/04-frontend-architecture.md"
+  ]
+}

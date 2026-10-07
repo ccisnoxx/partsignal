@@ -1,0 +1,6 @@
+{
+  "command": "env PARTSIGNAL_TEST_DATABASE_URL=postgresql://partsignal:partsignal_dev@localhost:55439/geo102_validation UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/integration/test_migrations.py::test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent",
+  "exit_code": 0,
+  "duration_seconds": 2.06,
+  "log": "baseline-postgresql.log"
+}

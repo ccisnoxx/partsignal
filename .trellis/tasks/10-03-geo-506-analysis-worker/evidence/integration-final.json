@@ -1,0 +1,8 @@
+{
+  "command": [
+    "make",
+    "test-integration",
+    "COMPOSE=docker compose -p partsignal-geo506-validation -f .trellis/tasks/10-03-geo-506-analysis-worker/evidence/validation-compose.yaml"
+  ],
+  "exit_code": 0
+}

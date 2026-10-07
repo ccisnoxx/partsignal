@@ -1,0 +1,19 @@
+npm --prefix browser-collector run lint
+
+> partsignal-browser-collector@0.1.0 lint
+> node --check src/service.mjs && node --check src/main.mjs && node --check src/healthcheck.mjs && node --check tests/service.test.mjs && node --check tests/support/reference-adapter.mjs && node --check tests/support/adapter-contract.mjs && node --check tests/contracts/local-adapter.test.mjs && node --check ../tests/browser-fixture/server.mjs && node --check ../tests/browser-fixture/fixture.js
+
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+E501 Line too long (103 > 100)
+   --> backend/tests/integration/test_geo_retention.py:370:101
+    |
+368 |             "include_object": lambda obj, name, kind, reflected, compared: (
+369 |                 obj.name in tables if kind == "table" else (
+370 |                     name == "ix_file_records_unscheduled_retention" if obj.table.name == "file_records"
+    |                                                                                                     ^^^
+371 |                     else obj.table.name in tables
+372 |                 )
+    |
+
+Found 1 error.
+make: *** [lint] Error 1

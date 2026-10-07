@@ -1,0 +1,575 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend pytest backend/tests/unit
+........................................................F............... [  1%]
+........................................................................ [  3%]
+........................................................................ [  5%]
+........................................................................ [  7%]
+........................................................................ [  9%]
+........................................................................ [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 15%]
+........................................................................ [ 17%]
+........................................................................ [ 19%]
+........................................................................ [ 21%]
+........................................................................ [ 23%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 29%]
+........................................................................ [ 31%]
+........................................................................ [ 33%]
+........................................................................ [ 35%]
+........................................................................ [ 37%]
+........................................................................ [ 39%]
+........................................................................ [ 41%]
+........................................................................ [ 43%]
+........................................................................ [ 45%]
+........................................................................ [ 47%]
+..........F............................................................. [ 49%]
+........................................................................ [ 51%]
+........................................................................ [ 53%]
+........................................................................ [ 55%]
+........................................................................ [ 57%]
+........................................................................ [ 59%]
+........................................................................ [ 61%]
+........................................................................ [ 63%]
+........................................................................ [ 65%]
+........................................................................ [ 67%]
+........................................................................ [ 69%]
+........................................................................ [ 71%]
+........................................................................ [ 73%]
+........................................................................ [ 74%]
+........................................................................ [ 76%]
+........................................................................ [ 78%]
+........................................................................ [ 80%]
+........................................................................ [ 82%]
+........................................................................ [ 84%]
+........................................................................ [ 86%]
+........................................................................ [ 88%]
+......................F................................................. [ 90%]
+........................................................................ [ 92%]
+........................................................................ [ 94%]
+........................................................................ [ 96%]
+........................................................................ [ 98%]
+....................................F............                        [100%]
+=================================== FAILURES ===================================
+_________ test_frozen_response_status_signatures_cover_every_operation _________
+
+    def test_frozen_response_status_signatures_cover_every_operation() -> None:
+        """逐 operation 冻结精确 response 集合，避免合同回退到宽泛状态模板。"""
+        contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+        document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+        expected_by_signature = {
+            ("200",): ("getLiveHealth",),
+            ("200", "503"): ("getReadyHealth",),
+            ("200", "204", "401"): ("getCurrentUser",),
+            ("200", "401", "403"): (
+                "getCsrfToken",
+                "getAuditLogFilterOptions",
+                "listQueryTopics",
+                "listPlatformPrompts",
+                "listPlatformTypes",
+                "listPublicationReadyItems",
+                "getPublicationWorkbenchSummary",
+                "getDashboardSummary",
+            ),
+            ("200", "401", "422"): ("login",),
+            ("200", "204", "401", "403"): (
+                "getAuthSession",
+                "getContentHumanizationPrompt",
+            ),
+            ("200", "401", "403", "503"): ("getGeoRules",),
+            ("200", "401", "403", "409", "422", "503"): ("updateGeoRules", "previewGeoRules"),
+            ("200", "401", "403", "409"): ("getWorkbench",),
+            ("200", "401", "403", "422"): (
+                "listUsers",
+                "bulkUpdateUserStatus",
+                "exportUsers",
+                "listAuditLogs",
+                "listProducts",
+                "listQueryTopicItems",
+                "listPlatformProfiles",
+                "exportPlatformProfiles",
+                "listAIChannels",
+                "listContentTasks",
+                "getContentTaskCreationOptions",
+                "listPlatformAccounts",
+                "getGeoMetrics",
+                "listGeoSubjects",
+                "listGeoPromptVariants",
+                "listGeoEngineSurfaces",
+                "listGeoCollectionProfiles",
+                "listGeoMonitoringPlans",
+                "listGeoOpportunities",
+                "previewGeoMonitoringPlan",
+            ),
+            ("201", "401", "403", "422"): (
+                "createQueryTopic",
+                "createAIChannel",
+                "createFileUploadIntent",
+            ),
+            ("204", "401", "403", "422"): ("logout", "changePassword"),
+            ("200", "401", "403", "404", "422"): (
+                "getProduct",
+                "getProductDetail",
+                "getProductFactsDraft",
+                "listFactVersions",
+                "listProductFactHistory",
+                "getProductFactReviewContext",
+                "getFactVersion",
+                "getFactReviewContext",
+                "getPlatformProfile",
+                "getPlatformPrompt",
+                "getPlatformPromptPreviewOptions",
+                "getAIChannel",
+                "getAIChannelUsageSummary",
+                "listAIChannelAuditLogs",
+                "listAIModels",
+                "getContentTask",
+                "getContentTaskDetail",
+                "listGenerationJobs",
+                "listContentTaskVersions",
+                "getGenerationJob",
+                "getContentVersion",
+                "compareContentVersions",
+                "listGeoObservationPublications",
+                "getFileRecord",
+                "getGeoSubject",
+                "getGeoPromptVariant",
+                "getGeoEngineSurface",
+                "getGeoCollectionProfile",
+                "getGeoMonitoringPlan",
+            ),
+            ("200", "401", "403", "409", "422", "501"): (
+                "exportGeoRunsCsv",
+                "exportGeoCitationsCsv",
+                "exportGeoClaimsCsv",
+                "exportGeoOpportunitiesCsv",
+            ),
+            ("200", "401", "403", "409", "422"): (
+                "getGeoReportPreview", "getGeoPrintReport",
+                "putContentHumanizationPrompt",
+                "listPublicationWorks",
+                "listPublishedArticles",
+                "listPublishedContentIssues",
+                "listGeoObservations",
+                "listGeoObservationItems",
+                "getGeoOverview",
+                "getGeoAnswerInsights",
+                "listGeoInsightQualityRuns",
+            ),
+            ("201", "401", "403", "409", "422"): (
+                "createUser",
+                "createProduct",
+                "createPlatformPrompt",
+                "createPlatformType",
+                "createGeoMonitoringPlan",
+            ),
+            ("200", "401", "403", "404", "409", "422"): (
+                "acknowledgeGeoOpportunity",
+                "dismissGeoOpportunity",
+                "listGeoOverviewRuns",
+                "listGeoAnswerInsightRuns",
+                "listGeoInsightCitations",
+                "listGeoInsightClaims",
+                "updateUser",
+                "resetUserPassword",
+                "getAuditLog",
+                "updateProduct",
+                "replaceProductFactsDraft",
+                "approveFactVersion",
+                "requestFactVersionChanges",
+                "retireFactVersion",
+                "updateQueryTopic",
+                "updatePlatformProfile",
+                "enablePlatformProfile",
+                "disablePlatformProfile",
+                "updatePlatformPrompt",
+                "updatePlatformType",
+                "updateAIChannel",
+                "replaceAIChannelApiKey",
+                "enableAIChannel",
+                "disableAIChannel",
+                "updateAIChannelHeader",
+                "updateAIModel",
+                "testAIModel",
+                "enableAIModel",
+                "disableAIModel",
+                "getContentEditorContext",
+                "getContentTaskReviewContext",
+                "getContentTaskGenerationOptions",
+                "cancelContentTask",
+                "archiveContentTask",
+                "restoreContentTask",
+                "getContentTaskPermanentDeletionPreview",
+                "updateContentDraft",
+                "getContentReviewContext",
+                "getContentVersionDetail",
+                "submitContentVersion",
+                "abandonContentVersion",
+                "approveContentVersion",
+                "requestContentVersionChanges",
+                "getPublicationPackage",
+                "updatePlatformAccount",
+                "enablePlatformAccount",
+                "disablePlatformAccount",
+                "getPublicationWork",
+                "getPublicationWorkspaceContext",
+                "updatePublicationPreparation",
+                "markPublicationPlatformReview",
+                "registerPublicationResult",
+                "verifyPublicationWork",
+                "switchPublicationContentVersion",
+                "closePublicationWork",
+                "getPublishedArticle",
+                "previewPublishedArticlePermanentDeletion",
+                "getPublishedContentIssue",
+                "getPublishedContentIssueWorkspaceContext",
+                "getPublishedContentRepairContext",
+                "resolvePublishedContentIssue",
+                "getGeoManualEntryContext",
+                "listGeoObservationBatches",
+                "getGeoObservationBatch",
+                "listGeoObservationBatchRuns",
+                "listGeoObservationRuns",
+                "getGeoObservation",
+                "getGeoObservationDetail",
+                "getGeoObservationCorrectionContext",
+                "getGeoInsights",
+                "abortFileUpload",
+                "getFileDownloadUrl",
+                "updateGeoSubject",
+                "updateGeoEngineSurface",
+                "enableGeoEngineSurface",
+                "disableGeoEngineSurface",
+                "updateGeoCollectionProfile",
+                "enableGeoCollectionProfile",
+                "testGeoCollectionProfile",
+                "disableGeoCollectionProfile",
+                "updateGeoPromptVariant",
+                "enableGeoPromptVariant",
+                "disableGeoPromptVariant",
+                "enableGeoSubject",
+                "disableGeoSubject",
+                "createGeoSubjectAlias",
+                "updateGeoSubjectAlias",
+                "deleteGeoSubjectAlias",
+                "createGeoSubjectDomain",
+                "deleteGeoSubjectDomain",
+                "updateGeoMonitoringPlan",
+                "activateGeoMonitoringPlan",
+                "pauseGeoMonitoringPlan",
+                "resumeGeoMonitoringPlan",
+                "archiveGeoMonitoringPlan",
+            ),
+            ("201", "401", "403", "404", "409", "422"): (
+                "submitProductFactReview",
+                "createPlatformProfile",
+                "createAIChannelHeader",
+                "createContentTask",
+                "createManualContentVersion",
+                "createContentRevision",
+                "createPlatformAccount",
+                "createPublicationWork",
+                "openPublishedContentIssue",
+                "createPublishedContentRepairTask",
+                "createGeoObservation",
+                "createGeoOptimizationContentTask",
+                "createAIModel",
+                "createGeoSubject",
+                "createGeoPromptVariant",
+                "createGeoEngineSurface",
+                "createGeoCollectionProfile",
+                "copyGeoMonitoringPlan",
+                "createGeoObservationBatch",
+                "runGeoMonitoringPlanNow",
+                "retryGeoObservationRun",
+                "reviewGeoObservationRun",
+            ),
+            ("201", "401", "403", "409", "422", "503"): (
+                "createPlatformLogoCandidate",
+            ),
+            ("202", "401", "403", "404", "409", "422"): (
+                "createGenerationJob",
+                "createHumanizationJob",
+                "retryGenerationJob",
+            ),
+            ("204", "401", "403", "404", "409", "422"): (
+                "deleteUser",
+                "deleteProduct",
+                "deleteFactVersion",
+                "deleteQueryTopic",
+                "deletePlatformProfile",
+                "deletePlatformPrompt",
+                "deletePlatformType",
+                "deleteAIChannel",
+                "deleteAIChannelHeader",
+                "deleteAIModel",
+                "deleteContentTask",
+                "permanentlyDeleteContentTask",
+                "deleteContentDraft",
+                "deletePlatformAccount",
+                "permanentlyDeletePublishedArticle",
+                "deleteGeoObservation",
+                "deleteGeoSubject",
+                "deleteGeoPromptVariant",
+                "deleteGeoEngineSurface",
+                "deleteGeoCollectionProfile",
+                "deleteGeoMonitoringPlan",
+            ),
+            ("204", "401", "403", "404", "408", "409", "413", "422", "503"): (
+                "uploadFileContent",
+            ),
+            ("200", "401", "403", "404", "409", "422", "503"): (
+                "saveGeoManualDraft",
+                "completeFileUpload",
+                "getGeoObservationRun",
+                "getGeoOpportunity",
+            ),
+            ("200", "401", "403", "404", "409", "422", "502", "504"): (
+                "discoverAIChannelModels",
+            ),
+            ("201", "401", "403", "404", "409", "422", "503"): ("submitGeoManualObservation",),
+        }
+        expected = {
+            operation_id: set(statuses) | {"400"}
+            for statuses, operation_ids in expected_by_signature.items()
+            for operation_id in operation_ids
+        }
+        operations = {
+            operation["operationId"]: operation
+            for path in document["paths"].values()
+            for operation in path.values()
+            if isinstance(operation, dict) and "operationId" in operation
+        }
+    
+>       assert len(expected) == 244
+E       AssertionError: assert 241 == 244
+E        +  where 241 = len({'abandonContentVersion': {'200', '400', '401', '403', '404', '409', ...}, 'abortFileUpload': {'200', '400', '401', '4...', '401', '403', '404', '409', ...}, 'activateGeoMonitoringPlan': {'200', '400', '401', '403', '404', '409', ...}, ...})
+
+backend/tests/unit/test_contract.py:397: AssertionError
+___ test_call_counter_observes_duplicates_concurrency_and_instance_isolation ___
+
+    def test_call_counter_observes_duplicates_concurrency_and_instance_isolation():
+        attempt = uuid4()
+        body = b'{"messages":[{"role":"user","content":"fixture"}]}'
+        with running_geo_fake() as first, running_geo_fake() as second:
+            with ThreadPoolExecutor(max_workers=6) as pool:
+                futures = [pool.submit(send, first, attempt, body) for _ in range(12)]
+>               assert all(f.result(timeout=5).status_code == 200 for f in futures)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_fake_provider.py:138: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/unit/test_geo_fake_provider.py:138: in <genexpr>
+    assert all(f.result(timeout=5).status_code == 200 for f in futures)
+               ^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/concurrent/futures/_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/concurrent/futures/_base.py:401: in __get_result
+    raise self._exception
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/concurrent/futures/thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/unit/test_geo_fake_provider.py:20: in send
+    return PinnedHTTPTransport(allow_local_http=True, max_response_bytes=4096).request(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <app.services.pinned_http.PinnedHTTPTransport object at 0x110ea0980>
+
+    def request(
+        self,
+        *,
+        method: str,
+        base_url: str,
+        suffix: str,
+        headers: dict[str, str],
+        timeout_seconds: int,
+        body: bytes | None,
+        before_send: Callable[[], None] | None = None,
+        max_response_bytes: int | None = None,
+    ) -> PinnedResponse:
+        """最多发送一次 HTTP 请求；开始发送后任何失败都不会换地址重试。"""
+        limit = self._max_response_bytes
+        if max_response_bytes is not None:
+            if max_response_bytes <= 0:
+                raise ValueError("响应上限必须大于零")
+            limit = min(limit, max_response_bytes)
+        try:
+            endpoint = resolve_endpoint(
+                base_url,
+                allow_local_http=self._allow_local_http,
+                resolver=self._resolver,
+            )
+        except AppError as error:
+            raise PinnedTransportError(
+                error.code,
+                error.message,
+                error.status_code,
+                stage="CONFIGURATION",
+                request_started=False,
+            ) from None
+        try:
+            connection = self._connect(endpoint, timeout_seconds)
+        except AppError as error:
+>           raise PinnedTransportError(
+                error.code,
+                error.message,
+                error.status_code,
+                stage="CONNECT",
+                request_started=False,
+            ) from None
+E           app.services.pinned_http.PinnedTransportError: AI 渠道网络请求失败
+
+backend/app/services/pinned_http.py:251: PinnedTransportError
+______ test_runtime_request_context_merge_does_not_change_route_metadata _______
+
+    def test_runtime_request_context_merge_does_not_change_route_metadata() -> None:
+        raw = get_openapi(title=app.title, version=app.version, routes=app.routes)
+        augmented = app.openapi()
+        stripped = _strip_request_context_metadata(augmented)
+    
+>       assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1314
+E       assert 1332 == 1314
+E        +  where 1332 = sum(<generator object test_runtime_request_context_merge_does_not_change_route_metadata.<locals>.<genexpr> at 0x111803920>)
+
+backend/tests/unit/test_runtime_response_metadata.py:687: AssertionError
+___ test_seven_constrained_delete_projections_distinguish_empty_and_blocked ____
+
+    def test_seven_constrained_delete_projections_distinguish_empty_and_blocked() -> None:
+        """七类对象都以同一 ``deletion`` 结构表达当前直接引用。"""
+        product = _product()
+        deletable_product = products_out(
+            cast(Session, _ScalarSequenceSession([[], [], []])), [product], can_delete=True
+        )[0]
+        assert deletable_product.available_actions == ["UPDATE", "DELETE"]
+        assert deletable_product.deletion.model_dump() == {"blockers": []}
+    
+        product_session = _ScalarSequenceSession([[(product.id, "CONTENT_TASK", 2)], [], []])
+        product_out = products_out(cast(Session, product_session), [product], can_delete=True)[0]
+        assert product_out.available_actions == ["UPDATE"]
+        assert product_out.deletion.model_dump() == {"blockers": [{"type": "CONTENT_TASK", "count": 2}]}
+    
+        fact = _fact(product)
+        fact_out = fact_versions_out(
+            cast(Session, _ScalarSequenceSession([[(fact.id, "CONTENT_VERSION", 3)]])),
+            [fact],
+            can_delete=True,
+        )[0]
+        assert "DELETE" not in fact_out.available_actions
+        assert fact_out.deletion.model_dump() == {"blockers": [{"type": "CONTENT_VERSION", "count": 3}]}
+    
+        now = datetime(2026, 8, 4, tzinfo=UTC)
+        platform_type = PlatformType(
+            id=uuid.uuid4(),
+            name="内容平台",
+            slug="content-platform",
+            revision=0,
+            created_by=uuid.uuid4(),
+            created_at=now,
+            updated_at=now,
+        )
+        type_out = platform_types_out(
+            cast(Session, _ScalarSequenceSession([[(platform_type.id, 2)]])),
+            [platform_type],
+        )[0]
+        assert type_out.platform_count == 2
+        assert type_out.deletion.blockers[0].type == "PLATFORM_PROFILE"
+        assert "DELETE" not in type_out.available_actions
+    
+        profile = PlatformProfile(
+            id=uuid.uuid4(),
+            name="工程师社区",
+            slug="engineer-community",
+            allowed_domains=["community.example.invalid"],
+            platform_type_id=None,
+            website_url=None,
+            logo_file_id=None,
+            logo_external_url=None,
+            platform_prompt_id=None,
+            revision=0,
+            is_active=True,
+        )
+        profile_session = _ScalarSequenceSession(
+            [[], [], [], [(profile.id, 2, 1)], [(profile.id, 3)], [], []]
+        )
+        profile_out = platform_profiles_out(cast(Session, profile_session), [profile], can_manage=True)[
+            0
+        ]
+        assert profile_out.deletion.model_dump() == {"blockers": [{"type": "CONTENT_TASK", "count": 3}]}
+        assert profile_out.platform_account_count == 2
+        assert profile_out.enabled_platform_account_count == 1
+        assert profile_out.readiness_status == "MISSING_PROMPT"
+    
+        account = PlatformAccount(
+            id=uuid.uuid4(),
+            platform_profile_id=profile.id,
+            label="主账号",
+            account_identifier="operator",
+            is_active=True,
+            revision=0,
+        )
+        account_out = platform_accounts_out(
+            cast(Session, _ScalarSequenceSession([[(account.id, 4)], [profile]])),
+            [account],
+            can_delete=True,
+        )[0]
+        assert account_out.deletion.model_dump() == {
+            "blockers": [{"type": "PUBLICATION_WORK", "count": 4}]
+        }
+    
+        task = ContentTask(
+            id=uuid.uuid4(),
+            product_id=product.id,
+            fact_version_id=fact.id,
+            platform_profile_id=profile.id,
+            platform_profile_name_snapshot=profile.name,
+            platform_website_url_snapshot=None,
+            status="CANCELLED",
+            revision=0,
+            created_by=uuid.uuid4(),
+            created_at=now,
+        )
+>       task_out = content_tasks_out(
+            cast(
+                Session,
+                _ScalarSequenceSession(
+                    [
+                        [product],
+                        [fact],
+                        [profile],
+                        [],
+                        [(task.id, None, "CANCELLED", "VIEW_CANCELLATION", now)],
+                        [],
+                        [],
+                        [],
+                        [],
+                    ]
+                ),
+            ),
+            [task],
+        )[0]
+
+backend/tests/unit/test_workflow_projections.py:405: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/app/services/projections.py:934: in content_tasks_out
+    for content in db.scalars(select(ContentVersion).where(ContentVersion.id.in_(current_ids)))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <test_workflow_projections._ScalarSequenceSession object at 0x1126c4e90>
+_statement = <sqlalchemy.sql.selectable.Select object at 0x1131870b0>
+
+    def scalars(self, _statement: object) -> list[object]:
+        self.scalar_calls += 1
+>       return next(self.rows)
+               ^^^^^^^^^^^^^^^
+E       StopIteration
+
+backend/tests/unit/test_workflow_projections.py:58: StopIteration
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_contract.py::test_frozen_response_status_signatures_cover_every_operation
+FAILED backend/tests/unit/test_geo_fake_provider.py::test_call_counter_observes_duplicates_concurrency_and_instance_isolation
+FAILED backend/tests/unit/test_runtime_response_metadata.py::test_runtime_request_context_merge_does_not_change_route_metadata
+FAILED backend/tests/unit/test_workflow_projections.py::test_seven_constrained_delete_projections_distinguish_empty_and_blocked
+4 failed, 3645 passed in 62.40s (0:01:02)
+make: *** [test-unit] Error 1

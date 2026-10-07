@@ -1,0 +1,9 @@
+{
+  "docs/geo-monitoring/README.md": "e23c36a3e3aeec29189916c5857a86a270886eaa47705621cba4f792ac20a49e",
+  "docs/geo-monitoring/CHANGELOG.md": "a279a8b717e5ae5ffa149a34d215a0e3712e1d024d48d723b47f44681955f685",
+  "docs/geo-monitoring/SHA256SUMS": "7ada2193dcee9ac560e42da4d2622b927a59c88839b95f7b17ddf0b78caf9d0a",
+  "docs/geo-monitoring/04-delivery/task-manifest.yaml": "1191318d00ea4841401e37a93d56db858ac32011c51e9074698b125428b0219c",
+  "docs/geo-monitoring/03-technical/06-security-and-compliance.md": "596532a0304d246a9051872ebed910156983b9fd2cd146ef234fd6700e07c1eb",
+  "docs/geo-monitoring/03-technical/07-testing-and-quality.md": "860c59c8931b872683626c7598bf1c72586b97406c087bb0a4d0e8bee692f935",
+  "Makefile": "d19aa5b608a8a690974ad00742d0508b3edb955b4650d4477e9f0e2ce8ce5b6b"
+}

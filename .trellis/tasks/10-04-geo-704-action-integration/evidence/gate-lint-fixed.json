@@ -1,0 +1,8 @@
+{
+  "argv": [
+    "make",
+    "lint"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 9.384
+}

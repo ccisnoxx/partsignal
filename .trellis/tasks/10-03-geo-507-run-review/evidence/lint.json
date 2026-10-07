@@ -1,0 +1,7 @@
+{
+  "command": [
+    "make",
+    "lint"
+  ],
+  "exit_code": 2
+}

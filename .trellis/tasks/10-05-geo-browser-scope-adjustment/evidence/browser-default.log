@@ -1,0 +1,1 @@
+readConfiguration({}): Browser=false; monitoring=false; admission=COLLECTOR_DISABLED

@@ -2,9 +2,17 @@ name: ci
 
 on:
   workflow_dispatch:
+    inputs:
+      checks_group:
+        description: 'full 全量；delivery 仅构建、部署检查及 E2E，不作为全量通过证明'
+        type: choice
+        required: true
+        default: full
+        options: [full, delivery]
 
 jobs:
   verify:
+    name: verify (${{ inputs.checks_group || 'full' }})
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -40,7 +48,18 @@ jobs:
       OBJECT_STORAGE_ENDPOINT: http://127.0.0.1:19009
       PARTSIGNAL_SEED_ADMIN_PASSWORD: partsignal-admin-dev
       PARTSIGNAL_SEED_ENGINEER_PASSWORD: partsignal-engineer-dev
+      # Browser合同在仅回环的独立容器内运行；下载依赖不属于平台采集。
+      GEO_BROWSER_CONTRACT_CONTAINER: '1'
     steps:
+      - name: 核对验证范围
+        env:
+          CHECKS_GROUP: ${{ inputs.checks_group || 'full' }}
+        run: |
+          case "$CHECKS_GROUP" in
+            full) echo '全量 CI' ;;
+            delivery) echo '定向 delivery CI；不表示全量检查通过' ;;
+            *) echo '拒绝未知验证范围' >&2; exit 2 ;;
+          esac
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
         with:
@@ -53,14 +72,22 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: uv sync --project backend --all-extras
       - run: npm ci --prefix frontend
+      - run: npm ci --prefix browser-collector
       - run: cp .env.example .env
       - run: uv run --project backend alembic -c backend/alembic.ini upgrade head
-      - run: make contract-check
-      - run: make lint
-      - run: make typecheck
-      - run: uv run --project backend pytest backend/tests/unit
-      - run: npm --prefix frontend run test
-      - run: uv run --project backend pytest backend/tests/integration
+      - if: ${{ inputs.checks_group != 'delivery' }}
+        run: make contract-check
+      - if: ${{ inputs.checks_group != 'delivery' }}
+        run: make lint
+      - if: ${{ inputs.checks_group != 'delivery' }}
+        run: make typecheck
+      - if: ${{ inputs.checks_group != 'delivery' }}
+        run: uv run --project backend pytest backend/tests/unit
+      - if: ${{ inputs.checks_group != 'delivery' }}
+        run: npm --prefix frontend run test
+      # 复用权威入口：容器提供合同挂载和对象存储，恢复测试必跑显式 PG16 工具。
+      - if: ${{ inputs.checks_group != 'delivery' }}
+        run: make test-integration
       - run: npm --prefix frontend exec -- playwright install --with-deps chromium
       - run: make build test-deploy-scripts
       - run: make e2e
@@ -76,6 +103,7 @@ jobs:
           PARTSIGNAL_DATA_ROOT: ${{ runner.temp }}/partsignal-data
 
   frontend-test:
+    if: ${{ inputs.checks_group != 'delivery' }}
     runs-on: ubuntu-latest
     strategy:
       matrix:

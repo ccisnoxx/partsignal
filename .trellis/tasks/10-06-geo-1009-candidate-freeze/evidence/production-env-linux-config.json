@@ -1,0 +1,16 @@
+{
+  "name": "production-env-linux-config",
+  "command": [
+    "python3",
+    "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/check-linux-production-env.py"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "d0f61aaa78522be330207ed335869dafcd50017e",
+  "dirty": true,
+  "started_at": "2026-10-07T07:05:59.799508+00:00",
+  "ended_at": "2026-10-07T07:06:00.779328+00:00",
+  "exit_code": 1,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/production-env-linux-config.log",
+  "log_sha256": "6563ff89a5d7dcdabaf2b3de4f76389c16210a56575c8053ed55db7a0086d6ee"
+}

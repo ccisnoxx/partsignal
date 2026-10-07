@@ -1,0 +1,10 @@
+{
+  "command": [
+    "make",
+    "lint"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-03T06:46:24.976813+00:00",
+  "seconds": 11.44,
+  "log": "lint-final-candidate.log"
+}

@@ -1,0 +1,18 @@
+{
+  "argv": [
+    "docker",
+    "compose",
+    "-f",
+    ".trellis/tasks/10-04-geo-705-retest-planner/evidence/compose.yaml",
+    "run",
+    "--build",
+    "--rm",
+    "backend-test",
+    "pytest",
+    "tests/integration/test_geo_opportunity_actions.py",
+    "tests/integration/test_geo_opportunity_baseline.py",
+    "tests/integration/test_geo_batch_creation.py"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 29.971
+}

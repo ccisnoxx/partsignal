@@ -1,0 +1,11 @@
+{
+  "concurrency": 10,
+  "messages": 20,
+  "runs": 10,
+  "provider_calls": 10,
+  "collection_seconds": 1.696238792996155,
+  "pool": "prefork",
+  "peak_sampled_pss_bytes": 840221696,
+  "process_count": 11,
+  "external_platform_calls": 0
+}

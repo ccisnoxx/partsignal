@@ -1,0 +1,716 @@
+ Container geo704-validation-backend-test-run-5c795c5d81f5 Creating 
+ Container geo704-validation-backend-test-run-5c795c5d81f5 Created 
+F.F.F.F                                                                  [100%]
+=================================== FAILURES ===================================
+_ test_fact_navigation_and_content_creation_preserve_sources_replay_and_safe_audit _
+
+self = <sqlalchemy.engine.base.Connection object at 0xf86624e724b0>
+dialect = <sqlalchemy.dialects.postgresql.psycopg.PGDialect_psycopg object at 0xf866254e1220>
+context = <sqlalchemy.dialects.postgresql.psycopg.PGExecutionContext_psycopg object at 0xf8662528a5d0>
+statement = <sqlalchemy.dialects.postgresql.psycopg.PGCompiler_psycopg object at 0xf86624ed7830>
+parameters = [{'action_1': 'geo_opportunity.action_linked', 'target_id_1': UUID('e75826fe-b043-4f41-98be-2d0e5e3ff642')}]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+    
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+    
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+    
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+    
+        effective_parameters: Optional[_AnyExecuteParams]
+    
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+    
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+    
+        if self._echo:
+            self._log_info(str_statement)
+    
+            stats = context._get_cache_stats()
+    
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+    
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Cursor [closed] [IDLE] (host=postgres user=partsignal database=partsignal_geo206_df007bd6da) at 0xf866257eac90>
+query = 'SELECT audit_logs.id, audit_logs.actor_id, audit_logs.business_module, audit_logs.action, audit_logs.target_type, aud...t \nFROM audit_logs \nWHERE audit_logs.target_id = %(target_id_1)s::UUID AND audit_logs.action = %(action_1)s::VARCHAR'
+params = {'action_1': 'geo_opportunity.action_linked', 'target_id_1': UUID('e75826fe-b043-4f41-98be-2d0e5e3ff642')}
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool | None = None,
+    ) -> Self:
+        """
+        Execute a query or command to the database.
+        """
+        try:
+            with self._conn.lock:
+                self._conn.wait(
+                    self._execute_gen(query, params, prepare=prepare, binary=binary)
+                )
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           psycopg.errors.UndefinedFunction: operator does not exist: character varying = uuid
+E           LINE 3: WHERE audit_logs.target_id = $1::UUID AND audit_logs.action ...
+E                                              ^
+E           HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+
+/opt/venv/lib/python3.12/site-packages/psycopg/cursor.py:117: UndefinedFunction
+
+The above exception was the direct cause of the following exception:
+
+api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xf86624a84080>, engineer_id=UUID('58378b70-c751-47ff-8475-631279203e64'))
+
+    def test_fact_navigation_and_content_creation_preserve_sources_replay_and_safe_audit(api):
+        case, filters, correction, identity, payload = ready(api)
+        before = detail(api, identity)
+        assert before["available_action_types"] == ["FACT_REVISION", "CONTENT_TASK"]
+        with api.harness.factory() as db:
+            facts_before = count(db, FactVersion)
+            body_before = db.get(Product, UUID(payload["product_id"])).facts_body_markdown
+        fact = {k: payload[k] for k in ("expected_revision", "product_id")}
+        result = post(api, identity, "fact-revision", fact, "geo704-fact-key")
+        assert result.status_code == 200, result.text
+        assert result.headers["Cache-Control"] == "no-store"
+        action = result.json()["action"]
+        assert action["target_type"] == "Product" and action["target_id"] == payload["product_id"]
+        assert (
+            action["navigation_path"]
+            == f"/products/{payload['product_id']}/facts?source_opportunity_id={identity}"
+        )
+        payload["expected_revision"] = result.json()["opportunity_revision"]
+        created = post(api, identity, "content-task", payload, "geo704-content-key")
+        assert created.status_code == 200, created.text
+        receipt = created.json()
+        replay = post(api, identity, "content-task", payload, "geo704-content-key")
+        assert replay.status_code == 200 and replay.json() == receipt | {"replayed": True}
+        conflict = post(
+            api, identity, "content-task", payload | {"expected_revision": 999}, "geo704-content-key"
+        )
+        assert (
+            conflict.status_code == 409 and conflict.json()["error"]["code"] == "IDEMPOTENCY_CONFLICT"
+        )
+        after = detail(api, identity)
+        assert after["opportunity"]["status"] == "IN_PROGRESS"
+        assert (
+            after["trigger_snapshot"] == before["trigger_snapshot"]
+            and after["sources"] == before["sources"]
+        )
+        snapshot = receipt["action"]["source_snapshot"]
+        assert snapshot["trigger_snapshot"] == before["trigger_snapshot"]
+        assert snapshot["sources"] == [
+            {
+                k: v
+                for k, v in s.items()
+                if k in {"run_id", "analysis_revision_id", "review_id", "source_role"}
+            }
+            for s in before["sources"]["items"]
+        ]
+        with api.harness.factory() as db:
+            task = db.get(ContentTask, UUID(receipt["action"]["target_id"]))
+            assert (
+                str(task.query_topic_id)
+                == snapshot["query_topic_id"]
+                == before["opportunity"]["scope"]["query_topic_id"]
+            )
+            assert str(task.fact_version_id) == payload["fact_version_id"]
+            assert (
+                count(db, FactVersion) == facts_before
+                and db.get(Product, task.product_id).facts_body_markdown == body_before
+            )
+            logs = list(
+>               db.scalars(
+                    select(AuditLog).where(
+                        AuditLog.target_id == UUID(identity),
+                        AuditLog.action == "geo_opportunity.action_linked",
+                    )
+                )
+            )
+
+tests/integration/test_geo_opportunity_actions.py:229: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2481: in scalars
+    return self._execute_internal(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2271: in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/context.py:306: in orm_execute_statement
+    result = conn.execute(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Cursor [closed] [IDLE] (host=postgres user=partsignal database=partsignal_geo206_df007bd6da) at 0xf866257eac90>
+query = 'SELECT audit_logs.id, audit_logs.actor_id, audit_logs.business_module, audit_logs.action, audit_logs.target_type, aud...t \nFROM audit_logs \nWHERE audit_logs.target_id = %(target_id_1)s::UUID AND audit_logs.action = %(action_1)s::VARCHAR'
+params = {'action_1': 'geo_opportunity.action_linked', 'target_id_1': UUID('e75826fe-b043-4f41-98be-2d0e5e3ff642')}
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool | None = None,
+    ) -> Self:
+        """
+        Execute a query or command to the database.
+        """
+        try:
+            with self._conn.lock:
+                self._conn.wait(
+                    self._execute_gen(query, params, prepare=prepare, binary=binary)
+                )
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           sqlalchemy.exc.ProgrammingError: (psycopg.errors.UndefinedFunction) operator does not exist: character varying = uuid
+E           LINE 3: WHERE audit_logs.target_id = $1::UUID AND audit_logs.action ...
+E                                              ^
+E           HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
+E           [SQL: SELECT audit_logs.id, audit_logs.actor_id, audit_logs.business_module, audit_logs.action, audit_logs.target_type, audit_logs.target_id, audit_logs.outcome, audit_logs.result_message, audit_logs.error_code, audit_logs.details, audit_logs.request_id, audit_logs.created_at 
+E           FROM audit_logs 
+E           WHERE audit_logs.target_id = %(target_id_1)s::UUID AND audit_logs.action = %(action_1)s::VARCHAR]
+E           [parameters: {'target_id_1': UUID('e75826fe-b043-4f41-98be-2d0e5e3ff642'), 'action_1': 'geo_opportunity.action_linked'}]
+E           (Background on this error at: https://sqlalche.me/e/20/f405)
+
+/opt/venv/lib/python3.12/site-packages/psycopg/cursor.py:117: ProgrammingError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+INFO  [alembic.runtime.migration] Running upgrade 0050_geo_answer_evidence -> 0051_geo_manual_collection, 人工草稿和不可变提交身份；不回填或修改已提交证据。
+INFO  [alembic.runtime.migration] Running upgrade 0051_geo_manual_collection -> 0052_geo_profile_tests, API Profile 当前诊断资格与依赖失效；不修改业务历史。
+INFO  [alembic.runtime.migration] Running upgrade 0052_geo_profile_tests -> 0053_geo_collection_admission, 加法保存预算预留与发送限速事实，历史 Run 和原始证据保持不变。
+INFO  [alembic.runtime.migration] Running upgrade 0053_geo_collection_admission -> 0054_geo_analysis_contract, 分析输入/结果、追加复核与限定 current pointer；不回填历史证据。
+INFO  [alembic.runtime.migration] Running upgrade 0054_geo_analysis_contract -> 0055_geo_analysis_worker, 分析执行租约与引用结果；不回填或重写已有 revision。
+INFO  [alembic.runtime.migration] Running upgrade 0055_geo_analysis_worker -> 0056_geo_run_review, 受控人工复核发布；历史机器结果与Review不回填、不改写。
+INFO  [alembic.runtime.migration] Running upgrade 0056_geo_run_review -> 0057_geo_insight_indexes, GEO-607：洞察日期候选索引，不改变历史数据或业务约束。
+INFO  [alembic.runtime.migration] Running upgrade 0057_geo_insight_indexes -> 0058_geo_rule_configuration, GEO-701：当前规则配置和不可变 revision 历史，不回填既有评估。
+INFO  [alembic.runtime.migration] Running upgrade 0058_geo_rule_configuration -> 0059_geo_opportunities, GEO-702：机会、追加来源/行动/评估及真实 Batch 来源外键。
+INFO  [alembic.runtime.migration] Running upgrade 0059_geo_opportunities -> 0060_geo_opportunity_actions, GEO-704：行动来源快照、幂等回执与目标生命周期保护。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+_____________ test_late_cas_conflict_rolls_back_uncommitted_target _____________
+
+api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xf86624c7aa80>, engineer_id=UUID('1716e520-2da5-4c5b-a7d2-a69b98f360fa'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xf86625170170>
+
+    def test_late_cas_conflict_rolls_back_uncommitted_target(api, monkeypatch):
+        _, _, _, identity, payload = ready(api)
+        original = actions._target
+    
+        def conflicting(*args):
+            target = original(*args)
+            response = api.admin.post(
+                f"{PATH}/{identity}/dismiss",
+                json={
+                    "expected_revision": payload["expected_revision"],
+                    "resolution_code": "OTHER",
+                    "resolution_comment": "并发关闭",
+                },
+            )
+            assert response.status_code == 200, response.text
+            return target
+    
+        monkeypatch.setattr(actions, "_target", conflicting)
+        with api.harness.factory() as db:
+            before = count(db, ContentTask)
+        response = post(api, identity, "content-task", payload)
+        assert response.status_code == 409 and response.json()["error"]["code"] == "REVISION_CONFLICT"
+        with api.harness.factory() as db:
+            assert count(db, ContentTask) == before
+>           assert count(db, GeoOpportunityAction) == 0
+E           assert 3 == 0
+E            +  where 3 = count(<sqlalchemy.orm.session.Session object at 0xf866250727b0>, GeoOpportunityAction)
+
+tests/integration/test_geo_opportunity_actions.py:318: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+_ test_concurrent_same_key_replays_and_different_actors_revision_has_one_winner _
+
+api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xf86621c453a0>, engineer_id=UUID('c79d29c5-65b8-4fdc-a336-48ededb38311'))
+
+    def test_concurrent_same_key_replays_and_different_actors_revision_has_one_winner(api):
+        _, _, _, identity, payload = ready(api)
+    
+        def concurrent(actor_ids, keys):
+            barrier = Barrier(2)
+    
+            def invoke(actor_id, key):
+                with api.harness.factory() as db:
+                    actor = db.get(User, actor_id)
+                    barrier.wait(timeout=10)
+                    try:
+                        return actions.link_action(
+                            db,
+                            UUID(identity),
+                            GeoOpportunityContentTaskRequest(**payload),
+                            kind=GeoOpportunityActionType.CONTENT_TASK,
+                            actor=actor,
+                            request_id="geo704-concurrent",
+                            idempotency_key=key,
+                        )
+                    except AppError as error:
+                        return error.code
+    
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                return list(pool.map(invoke, actor_ids, keys))
+    
+        results = concurrent([api.engineer_id] * 2, ["geo704-concurrent-key"] * 2)
+        assert {r.replayed for r in results} == {False, True}
+        assert len({r.action.id for r in results}) == 1
+        payload["expected_revision"] = results[0].opportunity_revision
+        results = concurrent(
+            [api.engineer_id, api.harness.database.runs.plan.actor],
+            ["different-key-a", "different-key-b"],
+        )
+        assert len([r for r in results if r == "REVISION_CONFLICT"]) == 1
+        with api.harness.factory() as db:
+>           assert count(db, GeoOpportunityAction) == 2
+E           assert 6 == 2
+E            +  where 6 = count(<sqlalchemy.orm.session.Session object at 0xf86625230b30>, GeoOpportunityAction)
+
+tests/integration/test_geo_opportunity_actions.py:403: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+_ test_publication_open_link_repair_unique_failure_and_article_deletion_blocker _
+
+self = <sqlalchemy.engine.base.Connection object at 0xf866227ac0e0>
+dialect = <sqlalchemy.dialects.postgresql.psycopg.PGDialect_psycopg object at 0xf866254e1220>
+context = <sqlalchemy.dialects.postgresql.psycopg.PGExecutionContext_psycopg object at 0xf86621d05e20>
+statement = <sqlalchemy.dialects.postgresql.psycopg.PGCompiler_psycopg object at 0xf86621d057f0>
+parameters = [{'acknowledged_at': datetime.datetime(2026, 10, 4, 19, 33, 30, 616249, tzinfo=datetime.timezone.utc), 'acknowledged_by': UUID('1113030b-a042-4e89-8a56-1c56e1fd933d'), 'batch_id': None, 'collection_profile_id': None, ...}]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+    
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+    
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+    
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+    
+        effective_parameters: Optional[_AnyExecuteParams]
+    
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+    
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+    
+        if self._echo:
+            self._log_info(str_statement)
+    
+            stats = context._get_cache_stats()
+    
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+    
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Cursor [closed] [IDLE] (host=postgres user=partsignal database=partsignal_geo206_df007bd6da) at 0xf8662493e090>
+query = 'INSERT INTO geo_opportunities (id, identity_key, rule_code, priority, status, subject_id, query_topic_id, prompt_vari...comment)s::VARCHAR) RETURNING geo_opportunities.revision, geo_opportunities.created_at, geo_opportunities.last_seen_at'
+params = {'acknowledged_at': datetime.datetime(2026, 10, 4, 19, 33, 30, 616249, tzinfo=datetime.timezone.utc), 'acknowledged_by': UUID('1113030b-a042-4e89-8a56-1c56e1fd933d'), 'batch_id': None, 'collection_profile_id': None, ...}
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool | None = None,
+    ) -> Self:
+        """
+        Execute a query or command to the database.
+        """
+        try:
+            with self._conn.lock:
+                self._conn.wait(
+                    self._execute_gen(query, params, prepare=prepare, binary=binary)
+                )
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           psycopg.errors.CheckViolation: opportunity must start OPEN revision 1
+E           CONTEXT:  PL/pgSQL function geo_opportunity_guard() line 6 at RAISE
+
+/opt/venv/lib/python3.12/site-packages/psycopg/cursor.py:117: CheckViolation
+
+The above exception was the direct cause of the following exception:
+
+api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xf86621cef4a0>, engineer_id=UUID('1113030b-a042-4e89-8a56-1c56e1fd933d'))
+
+    def test_publication_open_link_repair_unique_failure_and_article_deletion_blocker(api):
+        _, _, _, identity, payload = ready(api)
+        with api.harness.factory() as db:
+            task = content_planning.create_content_task(
+                db=db,
+                payload=ContentTaskCreate(
+                    **{k: v for k, v in payload.items() if k != "expected_revision"}
+                ),
+                actor=db.get(User, api.engineer_id),
+                request_id="geo704-original",
+                idempotency_key=str(uuid4()),
+            )
+            task_id = task.id
+        article_id = publish_task(api, task_id, payload["fact_version_id"])
+>       identity = citation_opportunity(api, identity)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/integration/test_geo_opportunity_actions.py:464: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/integration/test_geo_opportunity_actions.py:155: in citation_opportunity
+    db.flush()
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:4353: in flush
+    self._flush(objects)
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:4488: in _flush
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py:122: in __exit__
+    raise exc_value.with_traceback(exc_tb)
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:4449: in _flush
+    flush_context.execute()
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py:465: in execute
+    rec.execute(self)
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py:641: in execute
+    util.preloaded.orm_persistence.save_obj(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py:94: in save_obj
+    _emit_insert_statements(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py:1234: in _emit_insert_statements
+    result = connection.execute(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Cursor [closed] [IDLE] (host=postgres user=partsignal database=partsignal_geo206_df007bd6da) at 0xf8662493e090>
+query = 'INSERT INTO geo_opportunities (id, identity_key, rule_code, priority, status, subject_id, query_topic_id, prompt_vari...comment)s::VARCHAR) RETURNING geo_opportunities.revision, geo_opportunities.created_at, geo_opportunities.last_seen_at'
+params = {'acknowledged_at': datetime.datetime(2026, 10, 4, 19, 33, 30, 616249, tzinfo=datetime.timezone.utc), 'acknowledged_by': UUID('1113030b-a042-4e89-8a56-1c56e1fd933d'), 'batch_id': None, 'collection_profile_id': None, ...}
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool | None = None,
+    ) -> Self:
+        """
+        Execute a query or command to the database.
+        """
+        try:
+            with self._conn.lock:
+                self._conn.wait(
+                    self._execute_gen(query, params, prepare=prepare, binary=binary)
+                )
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           sqlalchemy.exc.IntegrityError: (psycopg.errors.CheckViolation) opportunity must start OPEN revision 1
+E           CONTEXT:  PL/pgSQL function geo_opportunity_guard() line 6 at RAISE
+E           [SQL: INSERT INTO geo_opportunities (id, identity_key, rule_code, priority, status, subject_id, query_topic_id, prompt_variant_id, collection_profile_id, engine_surface_id, batch_id, trigger_snapshot, source_date_from, source_date_to, acknowledged_at, acknowledged_by, resolved_at, resolved_by, resolution_code, resolution_comment) VALUES (%(id)s::UUID, %(identity_key)s::VARCHAR, %(rule_code)s::VARCHAR, %(priority)s::VARCHAR, %(status)s::VARCHAR, %(subject_id)s::UUID, %(query_topic_id)s::UUID, %(prompt_variant_id)s::UUID, %(collection_profile_id)s::UUID, %(engine_surface_id)s::UUID, %(batch_id)s::UUID, %(trigger_snapshot)s::JSONB, %(source_date_from)s::TIMESTAMP WITH TIME ZONE, %(source_date_to)s::TIMESTAMP WITH TIME ZONE, %(acknowledged_at)s::TIMESTAMP WITH TIME ZONE, %(acknowledged_by)s::UUID, %(resolved_at)s::TIMESTAMP WITH TIME ZONE, %(resolved_by)s::UUID, %(resolution_code)s::VARCHAR, %(resolution_comment)s::VARCHAR) RETURNING geo_opportunities.revision, geo_opportunities.created_at, geo_opportunities.last_seen_at]
+E           [parameters: {'id': UUID('5d0c0f0c-b5bf-4b6f-8956-12155e77c76c'), 'identity_key': '356c5d21facca98ac2b0a8cfcd8113522dc9358c71af4af40d8df5d0d29b2406', 'rule_code': 'OWN_CITATION_LOST', 'priority': 'HIGH', 'status': 'ACKNOWLEDGED', 'subject_id': UUID('9b162f1f-0d9f-466e-8f25-4b05c39bb6df'), 'query_topic_id': UUID('c2cc49e4-af1d-4510-896e-779efe5b68b8'), 'prompt_variant_id': None, 'collection_profile_id': None, 'engine_surface_id': None, 'batch_id': None, 'trigger_snapshot': Jsonb({'scope': {'batch_id': None, 'subje ... (3328 chars)), 'source_date_from': datetime.datetime(2020, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'source_date_to': datetime.datetime(2100, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'acknowledged_at': datetime.datetime(2026, 10, 4, 19, 33, 30, 616249, tzinfo=datetime.timezone.utc), 'acknowledged_by': UUID('1113030b-a042-4e89-8a56-1c56e1fd933d'), 'resolved_at': None, 'resolved_by': None, 'resolution_code': None, 'resolution_comment': None}]
+E           (Background on this error at: https://sqlalche.me/e/20/gkpj)
+
+/opt/venv/lib/python3.12/site-packages/psycopg/cursor.py:117: IntegrityError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_opportunity_actions.py::test_fact_navigation_and_content_creation_preserve_sources_replay_and_safe_audit
+FAILED tests/integration/test_geo_opportunity_actions.py::test_late_cas_conflict_rolls_back_uncommitted_target
+FAILED tests/integration/test_geo_opportunity_actions.py::test_concurrent_same_key_replays_and_different_actors_revision_has_one_winner
+FAILED tests/integration/test_geo_opportunity_actions.py::test_publication_open_link_repair_unique_failure_and_article_deletion_blocker
+4 failed, 3 passed in 8.37s
+

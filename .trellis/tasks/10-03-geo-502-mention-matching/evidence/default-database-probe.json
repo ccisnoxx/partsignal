@@ -1,0 +1,23 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "-p",
+    "partsignal-geo502-validation",
+    "-f",
+    ".trellis/tasks/10-03-geo-502-mention-matching/evidence/validation-compose.yaml",
+    "exec",
+    "-T",
+    "postgres",
+    "psql",
+    "-U",
+    "partsignal",
+    "-d",
+    "partsignal",
+    "-Atc",
+    "SELECT version_num FROM alembic_version"
+  ],
+  "exit_code": 1,
+  "output": "ERROR: relation \"alembic_version\" does not exist",
+  "classification": "只读诊断查询了未迁移的默认空库。integration fixtures 创建/升级/销毁自己的临时库；不是前滚失败。源码head已独立确认0054。"
+}

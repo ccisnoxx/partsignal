@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_configuration.py",
+    "-k",
+    "production_input_checker"
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 3.034
+}

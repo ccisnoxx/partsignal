@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "应用服务/持久化及RR边界"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "既有422/404/409错误映射"}
+{"file": "contracts/openapi.yaml", "reason": "公共API权威"}
+{"file": "contracts/database.md", "reason": "数据库及只读合同权威"}
+{"file": "docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md", "reason": "趋势、SOV与覆盖已批准方法"}
+{"file": "docs/geo-monitoring/03-technical/03-api-contract-design.md", "reason": "回答级洞察交付边界"}

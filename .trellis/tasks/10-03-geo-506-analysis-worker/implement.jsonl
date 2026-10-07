@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/10-03-geo-506-analysis-worker/research.md", "reason": "长权威文档的完整相关单元定位；必须主动读取，避免自动注入截断"}
+{"file": "backend/AGENTS.md", "reason": "Application Service状态所有权"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "定向验证与显式门禁"}
+{"file": ".trellis/tasks/10-03-geo-506-analysis-worker/design.md", "reason": "本任务冻结输入、revision、锁与提交边界"}
+{"file": "docs/geo-monitoring/05-decisions/ADR-003-separate-collection-analysis-review.md", "reason": "分析/review/Run历史生命周期"}

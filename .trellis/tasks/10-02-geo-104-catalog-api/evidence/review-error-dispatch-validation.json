@@ -1,0 +1,19 @@
+{
+  "guard_type": "DISPATCH_CONTRACT_GUARD",
+  "planner_version": "1.5.1",
+  "plan_id": "geo104-error-guard-review",
+  "task_id": "geo104-error-review",
+  "status": "passed",
+  "observed_dispatch": {
+    "method": "spawn_agent",
+    "task_name": "geo104_error_guard_review",
+    "fork_turns": "none",
+    "model_override": null,
+    "reasoning_effort_override": null
+  },
+  "audit_id": "20261002T074402Z-geo-104-catalog-independent-review-17ed434b",
+  "audit_bundle_version": 1,
+  "audit_stage": "03-error-guard-review",
+  "audit_plan": "03-error-guard-review.plan.json",
+  "audit_dispatch": "03-error-guard-review.dispatches/geo104-error-review.json"
+}

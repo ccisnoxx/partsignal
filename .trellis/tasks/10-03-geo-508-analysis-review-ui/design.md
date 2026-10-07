@@ -1,0 +1,9 @@
+# GEO-508 设计
+
+只读分析展示和本地复核表单分别拥有展示/输入生命周期。服务端single detail拥有machine/effective/history/current；客户端不从status/reasons推断review资格。历史按显式selection标识当前，其他只能只读。
+
+四栏表单只提交本次明确覆盖的目标，最新review整体替换旧review，不叠加旧correction。严重INCORRECT HIGH/CRITICAL的机器声明逐条显式核对并非空comment才能CONFIRMED/CORRECTED；只是提交交互约束，不新增API状态。事实不足保留UNJUDGEABLE。
+
+编辑起点冻结Run revision和analysis identity；后台刷新不改变提交目标。409/unknown保留输入，禁止自动POST或更新expected_revision重放。unknown仅通过真实历史回读核对；跨账号使用既有principal epoch清理。success后cancel旧query并invalidate现有root，server read重新显示有效结果。
+
+不新增路由/endpoint/DB。分析待处理轮询更新到R4执行器；完整Batch服务器计数只影响读取频率。金标保留独立人工预期，pipeline测试补组合原因门禁而不复制各阶段全断言；质量报告列完整集、版本和覆盖限制。

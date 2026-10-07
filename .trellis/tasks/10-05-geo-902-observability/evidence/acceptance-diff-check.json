@@ -1,0 +1,25 @@
+{
+  "task_id": "GEO-902",
+  "date": "2026-10-05",
+  "command": "git diff --check",
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "exit_code": 0,
+  "stdout": "",
+  "stderr": "",
+  "manifest_status": "done",
+  "trellis_status": "completed",
+  "other_tasks_unchanged": true,
+  "manifest_SHA256_verified": true,
+  "modified_files": [
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/SHA256SUMS",
+    ".trellis/tasks/10-05-geo-902-observability/task.json",
+    ".trellis/tasks/10-05-geo-902-observability/implement.md"
+  ],
+  "new_evidence_files": [
+    ".trellis/tasks/10-05-geo-902-observability/evidence/acceptance-before.json",
+    ".trellis/tasks/10-05-geo-902-observability/evidence/acceptance-closeout.patch",
+    ".trellis/tasks/10-05-geo-902-observability/evidence/acceptance-diff-check.json",
+    ".trellis/tasks/10-05-geo-902-observability/evidence/acceptance-diff-check.log"
+  ]
+}

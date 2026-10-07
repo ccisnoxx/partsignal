@@ -1,0 +1,29 @@
+{
+  "commands": [
+    {
+      "command": "git diff --check",
+      "cwd": ".",
+      "exit_code": 0,
+      "log": "git-diff-check.log"
+    },
+    {
+      "command": "git diff --check -- backend/tests/unit/test_geo_catalog_contract.py .trellis/tasks/10-01-geo-101-catalog-contract/prd.md .trellis/tasks/10-01-geo-101-catalog-contract/implement.md .trellis/tasks/10-01-geo-101-catalog-contract/evidence/independent-review.md docs/geo-monitoring/README.md docs/geo-monitoring/CHANGELOG.md docs/geo-monitoring/01-product/02-geo-core-prd.md docs/geo-monitoring/02-business/02-domain-model.md docs/geo-monitoring/03-technical/02-data-architecture.md docs/geo-monitoring/03-technical/03-api-contract-design.md docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md docs/geo-monitoring/04-delivery/task-manifest.yaml",
+      "cwd": ".",
+      "exit_code": 0,
+      "log": "untracked-whitespace.log",
+      "index_scope": "temporary_index_only"
+    },
+    {
+      "command": "shasum -a 256 -c SHA256SUMS",
+      "cwd": "docs/geo-monitoring",
+      "exit_code": 0,
+      "log": "checksum-check.log"
+    }
+  ],
+  "checksum_files": 113,
+  "links": "passed",
+  "review_input_fingerprints": "unchanged",
+  "scope": "passed",
+  "manifest_status": "review",
+  "no_index_attempt_note": "首次 git diff --no-index --check 返回1且输出为空（文件差异退出语义），未将其误报通过；改用独立临时 index 的 git diff --check 返回0，未修改真实 index。"
+}

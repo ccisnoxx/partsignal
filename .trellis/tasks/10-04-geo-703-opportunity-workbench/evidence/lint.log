@@ -1,0 +1,30 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+All checks passed!
+npm --prefix frontend run lint
+
+> partsignal-frontend-v2@0.1.0 lint
+> eslint . --max-warnings 0
+
+
+/Users/sc/PycharmProjects/partsignal/frontend/src/domains/geo-opportunities/opportunities.model.ts
+  54:27  error  '_id' is assigned a value but never used    @typescript-eslint/no-unused-vars
+  54:45  error  '_page' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  54:70  error  '_size' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/sc/PycharmProjects/partsignal/frontend/src/domains/geo-opportunities/opportunity-filters.tsx
+  18:18  warning  Compilation Skipped: Use of incompatible library
+
+This API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.
+
+/Users/sc/PycharmProjects/partsignal/frontend/src/domains/geo-opportunities/opportunity-filters.tsx:18:18
+  16 | export function OpportunityFilters({ search, options, onChange }: { search: OpportunitySearch; options?: components['schemas']['GeoOpportunityFilterOptions']; onChange: (search: OpportunitySearch) => void }) {
+  17 |   const form = useForm<FilterValues>({ defaultValues: Object.fromEntries(filterNames.map((key) => [key, key === 'created_from' || key === 'created_to' ? toUtcInput(search[key]) : key === 'sort' ? search.sort ?? 'PRIORITY_DESC' : search[key] ?? ''])) as FilterValues });
+> 18 |   const values = form.watch();
+     |                  ^^^^ React Hook Form's `useForm()` API returns a `watch()` function which cannot be memoized safely.
+  19 |   const select = (key: keyof FilterValues, label: string, items: { value: string; label: string }[]) => <div className="min-w-0 space-y-1" key={key}><label className="type-label" htmlFor={`opportunity-filter-${key}`}>{label}</label><OpportunitySelect choices={items} id={`opportunity-filter-${key}`} label={label} onChange={(value) => form.setValue(key, value)} value={values[key]} /></div>;
+  20 |   function apply(values: FilterValues) {
+  21 |     form.clearErrors();  react-hooks/incompatible-library
+
+✖ 4 problems (3 errors, 1 warning)
+
+make: *** [lint] Error 1

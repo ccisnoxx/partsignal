@@ -1,0 +1,15 @@
+{
+  "task_owned_entries_verified": 5,
+  "other_mismatches": [
+    {
+      "path": "docs/geo-monitoring/01-product/02-geo-core-prd.md",
+      "owned_by_704": false,
+      "unchanged_since_start": true
+    },
+    {
+      "path": "docs/geo-monitoring/README.md",
+      "owned_by_704": false,
+      "unchanged_since_start": true
+    }
+  ]
+}

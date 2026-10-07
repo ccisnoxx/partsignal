@@ -1,0 +1,216 @@
+[
+  {
+    "name": "typecheck-first",
+    "chunk_id": "39d1ce",
+    "wall_time_seconds": 6.292e-06,
+    "exit_code": 2,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "runtime-pg",
+    "chunk_id": "6297c7",
+    "wall_time_seconds": 7.375e-06,
+    "exit_code": 0,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "typecheck-pre-review",
+    "chunk_id": "42487b",
+    "wall_time_seconds": 3.833e-06,
+    "exit_code": 0,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "deploy-scripts",
+    "chunk_id": "cf3116",
+    "wall_time_seconds": 2.875e-06,
+    "exit_code": 2,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "lint-pre-review",
+    "chunk_id": "a89e7c",
+    "wall_time_seconds": 2.25e-06,
+    "exit_code": 0,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "candidate-regression",
+    "chunk_id": "415cd0",
+    "wall_time_seconds": 6.958e-06,
+    "exit_code": 1,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "runtime-unit",
+    "chunk_id": "186037",
+    "wall_time_seconds": 2.209e-06,
+    "exit_code": 0,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "e2e-lifecycle",
+    "chunk_id": "05a5d3",
+    "wall_time_seconds": 4.833e-06,
+    "exit_code": 0,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "e2e-db-lifecycle",
+    "chunk_id": "1844b2",
+    "wall_time_seconds": 3.583e-06,
+    "exit_code": 0,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "deploy-staging",
+    "chunk_id": "e8e729",
+    "wall_time_seconds": 2.417e-06,
+    "exit_code": 0,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "deploy-cleanup",
+    "chunk_id": "6e5794",
+    "wall_time_seconds": 2.5e-06,
+    "exit_code": 0,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "deploy-production",
+    "chunk_id": "b88fb7",
+    "wall_time_seconds": 2.167e-06,
+    "exit_code": 0,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "review-fixes",
+    "chunk_id": "a86b58",
+    "wall_time_seconds": 2.083e-06,
+    "exit_code": 1,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "analysis-age-fixture-first",
+    "chunk_id": "0ba448",
+    "wall_time_seconds": 2.292e-06,
+    "exit_code": 1,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "analysis-age-before-fixture-first",
+    "chunk_id": "13419e",
+    "wall_time_seconds": 4.708e-06,
+    "exit_code": 1,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "contract-check",
+    "chunk_id": "06a6c9",
+    "wall_time_seconds": 2.625e-06,
+    "exit_code": 0,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "typecheck-review",
+    "chunk_id": "85c8d3",
+    "wall_time_seconds": 2.083e-06,
+    "exit_code": 0,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "analysis-age-fixed",
+    "chunk_id": "1312de",
+    "wall_time_seconds": 2.166e-06,
+    "exit_code": 0,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "analysis-age-before",
+    "chunk_id": "3200ab",
+    "wall_time_seconds": 5.458e-06,
+    "exit_code": 1,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "lint-before-final",
+    "chunk_id": "6cd4e2",
+    "wall_time_seconds": 1.875e-06,
+    "exit_code": 0,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "live-health",
+    "chunk_id": "1b070d",
+    "wall_time_seconds": 2.291e-06,
+    "exit_code": 0,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "manual-host",
+    "chunk_id": "1512b7",
+    "wall_time_seconds": 2.417e-06,
+    "exit_code": 0,
+    "original_token_count": 7,
+    "output": "manual regression exit: 1\n"
+  },
+  {
+    "name": "manual-container",
+    "chunk_id": "a076c0",
+    "wall_time_seconds": 2.208e-06,
+    "exit_code": 0,
+    "original_token_count": 9,
+    "output": "manual container regression exit: 0\n"
+  },
+  {
+    "name": "migration-regression",
+    "chunk_id": "382104",
+    "wall_time_seconds": 4.625e-06,
+    "exit_code": 0,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "lint-final",
+    "chunk_id": "afa79f",
+    "wall_time_seconds": 2.959e-06,
+    "exit_code": 0,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "typecheck-final",
+    "chunk_id": "cc12a2",
+    "wall_time_seconds": 2.25e-06,
+    "exit_code": 0,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "name": "ops-unit-final",
+    "exit_code": 0,
+    "output": "24 passed in 1.53s",
+    "evidence": "ops-unit-final.log"
+  }
+]

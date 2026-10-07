@@ -1,0 +1,2 @@
+命令：UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_catalog_contract.py backend/tests/unit/test_geo_catalog_metadata.py backend/tests/unit/test_geo_catalog_schema.py backend/tests/unit/test_geo_catalog_policy.py backend/tests/unit/test_geo_catalog_projection.py
+132 passed in 2.09s

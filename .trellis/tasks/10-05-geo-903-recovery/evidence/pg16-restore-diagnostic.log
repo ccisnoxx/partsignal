@@ -1,0 +1,139 @@
+ISOLATED_PG_DIAGNOSTIC pg_restore: error: could not execute query: ERROR:  function geo_answer_sha256(text) does not exist
+LINE 2:     SELECT geo_answer_sha256(jsonb_build_array('geo-analysis...
+                   ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+QUERY:  
+    SELECT geo_answer_sha256(jsonb_build_array('geo-analysis-v1',value,analyzer_type,analyzer_version)::text)
+
+CONTEXT:  SQL function "geo_analysis_input_sha256" during inlining
+Command was: CREATE TABLE public.geo_analysis_revisions (
+    id uuid NOT NULL,
+    run_id uuid NOT NULL,
+    answer_snapshot_id uuid NOT NULL,
+    revision integer NOT NULL,
+    status character varying(16) DEFAULT
+F
+=================================== FAILURES ===================================
+_____ test_real_restore_preserves_details_metrics_credentials_and_schedule _____
+
+recovery_case = (namespace(__name__='<run_path>', __doc__='成套备份与一次性隔离恢复；不接受已有数据库或生产 OSS 作为恢复目标。', __package__='', __loader__=None, __s...quested_run_count=3, created_at=datetime.datetime(2026, 10, 5, 17, 33, 54, 216243, tzinfo=datetime.timezone.utc)), ...)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1112d01d0>
+
+    def test_real_restore_preserves_details_metrics_credentials_and_schedule(
+        recovery_case, monkeypatch
+    ):
+        recovery, args, api, rows, data, scheduled, plan, window, master = recovery_case
+        result = recovery.backup(args)
+        assert result["complete"] and result["credential_count"] == 2
+        assert result["browser"]["status"] == "N/A"
+        packed = json.loads(Path(args.secrets_file).read_text())
+        token = api.api.engineer.cookies.get(settings.session_cookie_name)
+        assert token
+        monkeypatch.setattr(settings, "session_secret", "wrong-current-session-key" * 2)
+        monkeypatch.setattr(settings, "development_storage_signing_key", "wrong-current-object-key")
+        tested_objects = []
+        original_scan = recovery.scan_database
+        original_digest = recovery.file_digest
+    
+        def scan(db, key):
+            assert settings.session_secret == packed["SESSION_SECRET"]
+            assert settings.development_storage_signing_key == packed["UPLOAD_SIGNING_SECRET"]
+            result = original_scan(db, key)
+            assert db.scalar(
+                select(SessionRecord.id).where(SessionRecord.token_hash == hash_token(token))
+            )
+            if db.get_bind().url.database.startswith("partsignal_e2e_"):
+                engine = create_engine(db.get_bind().url)
+                try:
+    
+                    def replay(_):
+                        with Session(engine) as session:
+                            return geo_batches.create_scheduled_batch(
+                                db=session, plan_id=UUID(plan["id"]), scheduled_for=window
+                            )
+    
+                    with ThreadPoolExecutor(max_workers=2) as pool:
+                        assert list(pool.map(replay, range(2))) == [scheduled, scheduled]
+                    with Session(engine) as session:
+                        count = session.scalar(
+                            text(
+                                "SELECT count(*) FROM geo_observation_batches "
+                                "WHERE plan_id=:id AND scheduled_for=:window"
+                            ),
+                            {"id": UUID(plan["id"]), "window": window},
+                        )
+                        assert count == 1
+                finally:
+                    engine.dispose()
+            return result
+    
+        def digest(path):
+            if "/oss/" in str(path):
+                object_root = next(parent for parent in path.parents if parent.name == "oss")
+                key = path.relative_to(object_root).as_posix()
+                identity = next(str(identity) for identity, expected in rows if expected == key)
+                with monkeypatch.context() as patch:
+                    patch.setattr(settings, "development_storage_path", str(object_root))
+                    expires = datetime.now(UTC) + timedelta(minutes=1)
+                    with TestClient(storage_app) as client:
+                        downloaded = client.get(signed_storage_url("download", key, expires))
+                        head = client.head(signed_storage_url("head", key, expires))
+                        assert downloaded.status_code == head.status_code == 200
+                        assert downloaded.content == data[identity]
+                        assert (
+                            head.headers["x-meta-sha256"] == hashlib.sha256(data[identity]).hexdigest()
+                        )
+                tested_objects.append(identity)
+            return original_digest(path)
+    
+        monkeypatch.setitem(recovery.restore.__globals__, "scan_database", scan)
+        monkeypatch.setitem(recovery.restore.__globals__, "file_digest", digest)
+>       restored = recovery.restore(args)
+                   ^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/integration/test_geo_recovery.py:384: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+deploy/scripts/geo-recovery.py:316: in restore
+    pg_tool(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+name = 'pg_restore'
+url = '<REDACTED_DATABASE_URL>'
+arguments = ['--exit-on-error', '--single-transaction', '--no-owner', '--no-privileges', '--dbname', 'partsignal_e2e_20261005_663cf0f7b315485aa11f7951df838293', ...]
+
+    def pg_tool(name: str, url: str, arguments: list[str]) -> None:
+        """libpq 从子进程环境读取连接串；argv 和失败报告均不包含凭据。"""
+        binary = Path(os.environ.get("RECOVERY_PG_BIN", "/usr/bin")) / name
+        target = make_url(url)
+        if target.query:
+            raise RecoveryError("PG_CONNECTION_OPTIONS_UNSUPPORTED")
+        env = {k: v for k, v in os.environ.items() if not k.startswith("PG")}
+        env.update(
+            {
+                "PGHOST": target.host or "",
+                "PGPORT": str(target.port or 5432),
+                "PGDATABASE": target.database or "",
+                "PGUSER": target.username or "",
+                "PGPASSWORD": target.password or "",
+                "PGCONNECT_TIMEOUT": "10",
+            }
+        )
+        try:
+            result = subprocess.run(
+                [str(binary), *arguments],
+                env=env,
+                capture_output=True,
+                timeout=600,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            raise RecoveryError(f"{name.upper()}_UNAVAILABLE") from None
+        if result.returncode:
+>           raise RecoveryError(f"{name.upper()}_FAILED")
+E           geo_recovery_bundle.RecoveryError: PG_RESTORE_FAILED
+
+deploy/scripts/geo_recovery_environment.py:152: RecoveryError
+=========================== short test summary info ============================
+FAILED backend/tests/integration/test_geo_recovery.py::test_real_restore_preserves_details_metrics_credentials_and_schedule
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed in 3.71s

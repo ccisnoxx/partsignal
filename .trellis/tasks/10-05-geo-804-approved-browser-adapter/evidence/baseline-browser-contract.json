@@ -1,0 +1,5 @@
+{
+  "command": "make test-geo-browser-contract",
+  "exit_code": 0,
+  "purpose": "GEO-803 existing local contract baseline"
+}

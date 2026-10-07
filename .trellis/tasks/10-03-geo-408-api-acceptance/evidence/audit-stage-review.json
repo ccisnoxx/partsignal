@@ -1,0 +1,15 @@
+{
+  "audit_id": "20261003T123558Z-geo-408-220c2d2c",
+  "audit_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T123558Z-geo-408-220c2d2c",
+  "sequence": 3,
+  "name": "review",
+  "prefix": "03-review",
+  "paths": {
+    "draft": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T123558Z-geo-408-220c2d2c/03-review.draft.json",
+    "plan": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T123558Z-geo-408-220c2d2c/03-review.plan.json",
+    "dispatch_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T123558Z-geo-408-220c2d2c/03-review.dispatches",
+    "execution": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T123558Z-geo-408-220c2d2c/03-review.execution.json",
+    "summary_json": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T123558Z-geo-408-220c2d2c/03-review.summary.json",
+    "summary_text": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T123558Z-geo-408-220c2d2c/03-review.summary.txt"
+  }
+}

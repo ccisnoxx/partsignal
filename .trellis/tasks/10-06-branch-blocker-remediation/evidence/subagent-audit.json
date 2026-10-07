@@ -1,0 +1,10 @@
+{
+  "audit_ids": [
+    "20261006T200815Z-branch-blocker-remediation-527b7174",
+    "20261006T210337Z-branch-ci-entrypoint-review-614429bf"
+  ],
+  "aggregate_digest": "/Users/sc/.codex/reviews/partsignal/branch-blocker-remediation-20261006/SUBAGENT_EXECUTION_DIGEST.json",
+  "aggregate_digest_sha256": "e353a558068ce6bfaef64afae2cbf16909dc31b30d2134828a5bf6a8bc5dc343",
+  "audit_verification": "PASS",
+  "scope": "two repair workers and two fresh read-only remediation reviews; deliverable acceptance does not approve whole branch"
+}

@@ -1,0 +1,1844 @@
+--- before/backend/alembic/versions/0066_geo_manual_evaluation.py
++++ candidate/backend/alembic/versions/0066_geo_manual_evaluation.py
+@@ -0,0 +1,44 @@
++"""管理员显式机会评估回执：加法迁移，不改写既有评估历史。"""
++
++from alembic import op
++
++revision = "0066_geo_manual_evaluation"
++down_revision = "0065_geo_observability"
++branch_labels = None
++depends_on = None
++
++
++def upgrade() -> None:
++    op.execute("SET LOCAL lock_timeout = '5s'")
++    op.execute("SET LOCAL statement_timeout = '120s'")
++    op.execute("""CREATE TABLE geo_opportunity_evaluation_runs (
++        id uuid CONSTRAINT pk_geo_opportunity_evaluation_runs PRIMARY KEY,
++        created_by uuid NOT NULL CONSTRAINT fk_geo_evaluation_run_actor
++            REFERENCES users(id) ON DELETE RESTRICT,
++        request_key_sha256 varchar(64) NOT NULL,
++        request_sha256 varchar(64) NOT NULL,
++        rule_set_revision integer NOT NULL CONSTRAINT fk_geo_evaluation_run_rule
++            REFERENCES geo_rule_set_revisions(revision) ON DELETE RESTRICT,
++        request_snapshot jsonb NOT NULL,
++        receipt jsonb NOT NULL,
++        created_at timestamptz NOT NULL DEFAULT now(),
++        CONSTRAINT uq_geo_evaluation_run_key UNIQUE(created_by, request_key_sha256),
++        CONSTRAINT ck_geo_evaluation_run_hashes CHECK (
++            request_key_sha256 ~ '^[0-9a-f]{64}$' AND request_sha256 ~ '^[0-9a-f]{64}$'),
++        CONSTRAINT ck_geo_evaluation_run_snapshots CHECK (
++            jsonb_typeof(request_snapshot) = 'object' AND jsonb_typeof(receipt) = 'object')
++    )""")
++    op.execute("""CREATE FUNCTION geo_evaluation_run_immutable() RETURNS trigger
++        LANGUAGE plpgsql AS $$ BEGIN
++            RAISE EXCEPTION '管理员评估回执不可变' USING ERRCODE='55000';
++        END $$""")
++    op.execute("""CREATE TRIGGER geo_evaluation_run_no_mutation
++        BEFORE UPDATE OR DELETE OR TRUNCATE ON geo_opportunity_evaluation_runs
++        FOR EACH STATEMENT EXECUTE FUNCTION geo_evaluation_run_immutable()""")
++
++
++def downgrade() -> None:
++    op.execute("""DO $$ BEGIN
++        RAISE EXCEPTION '0066 管理员评估回执须保留；停止评估并采用前向修复或迁移前备份恢复'
++            USING ERRCODE='55000';
++    END $$""")
+--- before/backend/app/audit_types.py
++++ candidate/backend/app/audit_types.py
+@@ -115,6 +115,7 @@
+         "geo_browser_session.accessed",
+         "geo_rule_set.updated",
+         "geo_opportunity.opened",
++        "geo_opportunity.evaluated",
+         "geo_opportunity.acknowledged",
+         "geo_opportunity.dismissed",
+         "geo_opportunity.resolved",
+@@ -192,6 +193,12 @@
+     ),
+     AuditModule.GEO_OBSERVATION: frozenset(
+         {
++            "scope",
++            "evaluated_cells",
++            "created",
++            "existing_reused",
++            "skipped",
++            "unavailable_reasons",
+             "action_id",
+             "action_type",
+             "target_type",
+--- before/backend/app/models/__init__.py
++++ candidate/backend/app/models/__init__.py
+@@ -16,6 +16,7 @@
+ import app.models.geo_observability  # noqa: F401
+ import app.models.geo_opportunities  # noqa: F401
+ import app.models.geo_opportunity_decisions  # noqa: F401
++import app.models.geo_opportunity_evaluation  # noqa: F401
+ import app.models.geo_prompt_variants  # noqa: F401
+ import app.models.geo_retention  # noqa: F401
+ import app.models.geo_retests  # noqa: F401
+--- before/backend/app/models/geo_opportunity_evaluation.py
++++ candidate/backend/app/models/geo_opportunity_evaluation.py
+@@ -0,0 +1,56 @@
++"""管理员手动评估的不可变请求回执；只保存 key 的摘要。"""
++
++import uuid
++from datetime import datetime
++from typing import Any
++
++from sqlalchemy import (
++    CheckConstraint,
++    DateTime,
++    ForeignKey,
++    Integer,
++    String,
++    UniqueConstraint,
++    func,
++)
++from sqlalchemy.dialects.postgresql import JSONB, UUID
++from sqlalchemy.orm import Mapped, mapped_column
++from sqlalchemy.schema import conv
++
++from app.db import Base
++
++
++class GeoOpportunityEvaluationRun(Base):
++    __tablename__ = "geo_opportunity_evaluation_runs"
++    __table_args__ = (
++        UniqueConstraint("created_by", "request_key_sha256", name="uq_geo_evaluation_run_key"),
++        CheckConstraint(
++            "request_key_sha256 ~ '^[0-9a-f]{64}$' AND request_sha256 ~ '^[0-9a-f]{64}$'",
++            name=conv("ck_geo_evaluation_run_hashes"),
++        ),
++        CheckConstraint(
++            "jsonb_typeof(request_snapshot) = 'object' AND jsonb_typeof(receipt) = 'object'",
++            name=conv("ck_geo_evaluation_run_snapshots"),
++        ),
++    )
++    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
++    created_by: Mapped[uuid.UUID] = mapped_column(
++        ForeignKey("users.id", name="fk_geo_evaluation_run_actor", ondelete="RESTRICT"),
++        nullable=False,
++    )
++    request_key_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
++    request_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
++    rule_set_revision: Mapped[int] = mapped_column(
++        Integer,
++        ForeignKey(
++            "geo_rule_set_revisions.revision",
++            name="fk_geo_evaluation_run_rule",
++            ondelete="RESTRICT",
++        ),
++        nullable=False,
++    )
++    request_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
++    receipt: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
++    created_at: Mapped[datetime] = mapped_column(
++        DateTime(timezone=True), nullable=False, server_default=func.now()
++    )
+--- before/backend/app/routers/geo_opportunities.py
++++ candidate/backend/app/routers/geo_opportunities.py
+@@ -5,13 +5,17 @@
+ 
+ from fastapi import APIRouter, Depends, Header, Query, Request, Response
+ 
+-from app.deps import CsrfProtected, DbSession, EngineerUser
+-from app.errors import error_responses
++from app.deps import AdminUser, CsrfProtected, DbSession, EngineerUser
++from app.errors import AppError, error_responses
+ from app.schemas.geo_opportunities import GeoOpportunityActionType
+ from app.schemas.geo_opportunity_actions import (
+     GeoOpportunityContentTaskRequest,
+     GeoOpportunityFactRevisionRequest,
+     GeoOpportunityPublicationRepairRequest,
++)
++from app.schemas.geo_opportunity_evaluation import (
++    GeoOpportunityEvaluationReceipt,
++    GeoOpportunityEvaluationRequest,
+ )
+ from app.schemas.geo_opportunity_workbench import (
+     GeoOpportunityActionResult,
+@@ -23,10 +27,49 @@
+     GeoOpportunityRevisionRequest,
+     GeoOpportunitySourceFilters,
+ )
+-from app.services import geo_opportunity_actions, geo_opportunity_commands, geo_opportunity_queries
++from app.services import (
++    geo_opportunity_actions,
++    geo_opportunity_commands,
++    geo_opportunity_evaluation,
++    geo_opportunity_queries,
++)
+ from app.services.geo_catalog_queries import read_snapshot
+ 
+ router = APIRouter(prefix="/api/v1/geo/opportunities", tags=["geo-opportunities"])
++
++ActionKey = Annotated[
++    str, Header(alias="Idempotency-Key", min_length=8, max_length=128, pattern=r"^[\x21-\x7E]+$")
++]
++
++
++@router.post(
++    "/evaluate",
++    response_model=GeoOpportunityEvaluationReceipt,
++    operation_id="evaluateGeoOpportunities",
++    responses=error_responses(401, 403, 404, 409, 422, 503),
++)
++def evaluate_opportunities(
++    payload: GeoOpportunityEvaluationRequest,
++    request: Request,
++    response: Response,
++    db: DbSession,
++    actor: AdminUser,
++    _csrf: CsrfProtected,
++    idempotency_key: ActionKey,
++) -> GeoOpportunityEvaluationReceipt:
++    response.headers["Cache-Control"] = "no-store"
++    try:
++        return geo_opportunity_evaluation.run_evaluation(
++            db, payload, actor=actor, request_id=request.state.request_id,
++            idempotency_key=idempotency_key,
++        )
++    except AppError:
++        raise
++    except Exception:
++        failure = RuntimeError("GEO机会评估失败，请按请求ID和OPPORTUNITY运维事件排障")
++    # 已安装的Starlette会将__context__提升为__cause__；须退出except再抛出安全异常。
++    # 未知失败仍走既有500边界，原数据库/验证异常不交给ASGI日志序列化。
++    raise failure
+ 
+ 
+ @router.get(
+@@ -96,11 +139,6 @@
+     return geo_opportunity_commands.dismiss(
+         db, opportunity_id, payload, actor=actor, request_id=request.state.request_id
+     )
+-
+-
+-ActionKey = Annotated[
+-    str, Header(alias="Idempotency-Key", min_length=8, max_length=128, pattern=r"^[\x21-\x7E]+$")
+-]
+ 
+ 
+ @router.post(
+--- before/backend/app/schemas/geo_opportunity_evaluation.py
++++ candidate/backend/app/schemas/geo_opportunity_evaluation.py
+@@ -0,0 +1,59 @@
++"""管理员显式评估的请求范围及冻结回执。"""
++
++from datetime import UTC, timedelta
++from typing import Literal, Self
++from uuid import UUID
++
++from pydantic import AwareDatetime, Field, model_validator
++
++from app.schemas.base import ContractModel
++from app.schemas.geo_insights import Identities
++from app.schemas.geo_surfaces import GeoCollectionMode
++
++
++class GeoOpportunityEvaluationRequest(ContractModel):
++    scope: Literal["ALL", "FILTERED"]
++    date_from: AwareDatetime
++    date_to: AwareDatetime
++    rule_set_revision: int = Field(ge=1)
++    subject_ids: Identities = Field(default_factory=list)
++    engine_surface_ids: Identities = Field(default_factory=list)
++    collection_profile_ids: Identities = Field(default_factory=list)
++    collection_modes: list[GeoCollectionMode] = Field(default_factory=list, max_length=3)
++
++    @model_validator(mode="after")
++    def explicit_scope(self) -> Self:
++        self.date_from = self.date_from.astimezone(UTC)
++        self.date_to = self.date_to.astimezone(UTC)
++        if not timedelta(0) < self.date_to - self.date_from <= timedelta(days=31):
++            raise ValueError("评估窗口必须满足 date_from < date_to 且不超过31天")
++        for field in (
++            "subject_ids",
++            "engine_surface_ids",
++            "collection_profile_ids",
++            "collection_modes",
++        ):
++            setattr(self, field, sorted(set(getattr(self, field))))
++        filtered = bool(self.subject_ids or self.engine_surface_ids or self.collection_profile_ids)
++        if filtered != (self.scope == "FILTERED"):
++            raise ValueError(
++                "ALL 不允许对象过滤；FILTERED 至少指定 Subject/Surface/Profile 一类过滤"
++            )
++        return self
++
++
++class GeoOpportunityUnavailableReason(ContractModel):
++    code: str
++    count: int = Field(ge=1)
++
++
++class GeoOpportunityEvaluationReceipt(ContractModel):
++    evaluation_run_id: UUID
++    rule_set_revision: int = Field(ge=1)
++    evaluated_cells: int = Field(ge=0)
++    created: int = Field(ge=0)
++    existing_reused: int = Field(ge=0)
++    skipped: int = Field(ge=0)
++    unavailable_reasons: list[GeoOpportunityUnavailableReason]
++    as_of: AwareDatetime
++    replayed: bool
+--- before/backend/app/services/geo_opportunities.py
++++ candidate/backend/app/services/geo_opportunities.py
+@@ -21,18 +21,20 @@
+     GeoOpportunityEvaluation,
+     GeoOpportunitySource,
+ )
++from app.models.geo_rules import GeoRuleSetRevision
+ from app.models.identity import User
+ from app.models.product_facts import Product
++from app.schemas.common import AccountType
+ from app.schemas.geo_insights import GeoOverviewFilters
+ from app.schemas.geo_opportunities import GeoOpportunityTriggerSnapshot
++from app.schemas.geo_rules import GeoRuleConfiguration
++from app.services.current_actor import current_actor_command
+ from app.services.geo_catalog_locks import BRAND_TYPES
+ from app.services.geo_metric_views import MetricWindow
+ from app.services.geo_opportunity_policy import OPEN_STATUSES, identity_key
+ from app.services.geo_opportunity_rules import evaluate_rules
+ from app.services.geo_opportunity_types import RuleEvaluation
+-from app.services.geo_ops_runtime import observe
+ from app.services.geo_overview_queries import load_inputs
+-from app.services.geo_plan_locks import command
+ from app.services.geo_rule_policy import FrozenRuleSet
+ from app.services.geo_rules import freeze_current_rules
+ 
+@@ -43,6 +45,8 @@
+     opportunity_id: UUID | None
+     disposition: str
+     replayed: bool
++    as_of: datetime
++    unavailable_reasons: tuple[str, ...]
+ 
+ 
+ def _snapshot(
+@@ -107,12 +111,21 @@
+ 
+ 
+ def _capture(
+-    db: Session, filters: GeoOverviewFilters
++    db: Session, filters: GeoOverviewFilters, rule_set_revision: int | None = None
+ ) -> tuple[datetime, FrozenRuleSet, list[RuleEvaluation]]:
+     # 捕获事务只读；不可变结果和review身份进入写事务，不依赖后续current指针。
+     with Session(bind=db.get_bind(), autoflush=False) as reader:
+         reader.connection(execution_options={"isolation_level": "REPEATABLE READ"})
+-        rules = freeze_current_rules(reader)
++        if rule_set_revision is None:
++            rules = freeze_current_rules(reader)
++        else:
++            reader.execute(text("SET LOCAL statement_timeout = '120s'"))
++            record = reader.get(GeoRuleSetRevision, rule_set_revision)
++            if record is None:
++                raise AppError("RESOURCE_NOT_FOUND", "所选 GEO 规则 revision 不存在", 404)
++            rules = FrozenRuleSet.freeze(
++                record.revision, GeoRuleConfiguration.model_validate(record.configuration)
++            )
+         window = MetricWindow(filters.date_from, filters.date_to)
+         start = min(
+             window.previous.date_from,
+@@ -197,7 +210,10 @@
+         )
+     )
+     if existing is not None:
+-        return EvaluationResult(existing.id, existing.opportunity_id, existing.disposition, True)
++        return EvaluationResult(
++            existing.id, existing.opportunity_id, existing.disposition, True,
++            as_of, result.unavailable_reasons,
++        )
+     opportunity_id: UUID | None = None
+     disposition = "UNAVAILABLE" if result.unavailable_reasons else "NO_TRIGGER"
+     if result.triggered:
+@@ -286,21 +302,32 @@
+                 details={"facts": {"revision": 1, "status": "OPEN"}},
+             ),
+         )
+-    return EvaluationResult(evaluation.id, opportunity_id, disposition, False)
+-
+-
+-@observe("opportunity_evaluate", "OPPORTUNITY")
+-def evaluate_opportunities(
+-    db: Session, filters: GeoOverviewFilters, *, actor: User, request_id: str
+-) -> list[EvaluationResult]:
+-    """服务入口；702不提供HTTP路由、自动调度或后续行动/复测命令。"""
++    return EvaluationResult(
++        evaluation.id, opportunity_id, disposition, False, as_of, result.unavailable_reasons
++    )
++
++
++def ensure_evaluation_enabled() -> None:
+     if not settings.geo_monitoring_enabled or not settings.geo_opportunity_evaluation_enabled:
+         raise AppError("GEO_MONITORING_DISABLED", "GEO机会评估尚未启用", 409)
++
++
++def evaluate_opportunities(
++    db: Session, filters: GeoOverviewFilters, *, actor: User, request_id: str,
++    rule_set_revision: int | None = None, commit: bool = True,
++) -> list[EvaluationResult]:
++    """管理员领域入口；外层可拥有回执/审计事务，规则与机会写入只有这一处实现。"""
+     # 正式评估不能用REVIEWED_ONLY等展示筛选隐藏未终态治理样本或复核缺口。
+     if filters.review_policy != "EFFECTIVE":
+         raise AppError("VALIDATION_ERROR", "机会评估要求有效结果口径", 422)
+-    with command(db, actor) as current_actor:
+-        as_of, rules, results = _capture(db, filters)
++    with current_actor_command(db, actor, allowed=(AccountType.ADMIN,)) as current_actor:
++        if db.connection().get_isolation_level() != "READ COMMITTED":
++            raise ValueError("机会评估写入要求 READ COMMITTED")
++        ensure_evaluation_enabled()
++        as_of, rules, results = (
++            _capture(db, filters) if rule_set_revision is None
++            else _capture(db, filters, rule_set_revision)
++        )
+         prepared = []
+         for result in results:
+             key = identity_key(result.rule_code, result.scope, filters.date_from, filters.date_to)
+@@ -324,5 +351,6 @@
+             )
+             for key, fingerprint, result, snapshot in sorted(prepared, key=lambda p: (p[0], p[1]))
+         ]
+-        db.commit()
++        if commit:
++            db.commit()
+         return values
+--- before/backend/app/services/geo_opportunity_evaluation.py
++++ candidate/backend/app/services/geo_opportunity_evaluation.py
+@@ -0,0 +1,144 @@
++"""手动评估事务 owner：请求去重、领域服务调用、冻结摘要与安全审计。"""
++
++import json
++import re
++from collections import Counter
++from hashlib import sha256
++from uuid import uuid4
++
++from sqlalchemy import select, text
++from sqlalchemy.orm import Session
++
++from app.audit import append_audit
++from app.audit_types import AuditEntry, AuditModule, AuditOutcome
++from app.errors import AppError
++from app.models.geo_opportunity_evaluation import GeoOpportunityEvaluationRun
++from app.models.identity import User
++from app.schemas.common import AccountType
++from app.schemas.geo_insights import GeoOverviewFilters
++from app.schemas.geo_opportunity_evaluation import (
++    GeoOpportunityEvaluationReceipt,
++    GeoOpportunityEvaluationRequest,
++    GeoOpportunityUnavailableReason,
++)
++from app.services.current_actor import current_actor_command
++from app.services.geo_opportunities import ensure_evaluation_enabled, evaluate_opportunities
++from app.services.geo_ops_runtime import observe
++
++
++@observe("opportunity_evaluate", "OPPORTUNITY")
++def run_evaluation(
++    db: Session,
++    payload: GeoOpportunityEvaluationRequest,
++    *,
++    actor: User,
++    request_id: str,
++    idempotency_key: str,
++) -> GeoOpportunityEvaluationReceipt:
++    if re.fullmatch(r"[\x21-\x7e]{8,128}", idempotency_key) is None:
++        raise AppError("VALIDATION_ERROR", "幂等键必须为8至128个可打印ASCII非空白字符", 422)
++    snapshot = payload.model_dump(mode="json")
++    key_hash = sha256(idempotency_key.encode()).hexdigest()
++    request_hash = sha256(
++        json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()
++    ).hexdigest()
++    with current_actor_command(db, actor, allowed=(AccountType.ADMIN,)) as current:
++        if db.connection().get_isolation_level() != "READ COMMITTED":
++            raise ValueError("手动评估要求 READ COMMITTED")
++        ensure_evaluation_enabled()
++        db.execute(text("SET LOCAL lock_timeout = '5s'"))
++        db.execute(text("SET LOCAL statement_timeout = '120s'"))
++        db.execute(
++            text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
++            {"key": f"geo-evaluation:{current.id}:{key_hash}"},
++        )
++        previous = db.scalar(
++            select(GeoOpportunityEvaluationRun).where(
++                GeoOpportunityEvaluationRun.created_by == current.id,
++                GeoOpportunityEvaluationRun.request_key_sha256 == key_hash,
++            )
++        )
++        if previous is not None:
++            if previous.request_sha256 != request_hash:
++                raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一机会评估请求", 409)
++            receipt = GeoOpportunityEvaluationReceipt.model_validate(previous.receipt)
++            db.commit()
++            return receipt.model_copy(update={"replayed": True})
++        filters = GeoOverviewFilters(
++            date_from=payload.date_from,
++            date_to=payload.date_to,
++            subject_ids=payload.subject_ids,
++            engine_surface_ids=payload.engine_surface_ids,
++            collection_profile_ids=payload.collection_profile_ids,
++            collection_modes=payload.collection_modes,
++        )
++        results = evaluate_opportunities(
++            db,
++            filters,
++            actor=current,
++            request_id=request_id,
++            rule_set_revision=payload.rule_set_revision,
++            commit=False,
++        )
++        # evaluator 对缺候选规则也返回显式结果，因此捕获时点始终存在。
++        if not results:
++            raise RuntimeError("机会 evaluator 缺少评估结果和捕获时点")
++        created = sum(r.disposition == "CREATED" and not r.replayed for r in results)
++        reused = sum(
++            r.opportunity_id is not None and (r.replayed or r.disposition != "CREATED")
++            for r in results
++        )
++        reasons = Counter(code for r in results for code in r.unavailable_reasons)
++        receipt = GeoOpportunityEvaluationReceipt(
++            evaluation_run_id=uuid4(),
++            rule_set_revision=payload.rule_set_revision,
++            evaluated_cells=len(results),
++            created=created,
++            existing_reused=reused,
++            skipped=len(results) - created - reused,
++            unavailable_reasons=[
++                GeoOpportunityUnavailableReason(code=code, count=count)
++                for code, count in sorted(reasons.items())
++            ],
++            as_of=results[0].as_of,
++            replayed=False,
++        )
++        db.add(
++            GeoOpportunityEvaluationRun(
++                id=receipt.evaluation_run_id,
++                created_by=current.id,
++                request_key_sha256=key_hash,
++                request_sha256=request_hash,
++                rule_set_revision=payload.rule_set_revision,
++                request_snapshot=snapshot,
++                receipt=receipt.model_dump(mode="json"),
++            )
++        )
++        append_audit(
++            db,
++            AuditEntry(
++                actor_id=current.id,
++                business_module=AuditModule.GEO_OBSERVATION,
++                action="geo_opportunity.evaluated",
++                target_type="GeoOpportunityEvaluationRun",
++                target_id=receipt.evaluation_run_id,
++                request_id=request_id,
++                outcome=AuditOutcome.SUCCESS,
++                result_message="管理员已显式完成一次机会评估",
++                details={
++                    "facts": {
++                        "scope": payload.scope,
++                        "revision": payload.rule_set_revision,
++                        "evaluated_cells": receipt.evaluated_cells,
++                        "created": receipt.created,
++                        "existing_reused": receipt.existing_reused,
++                        "skipped": receipt.skipped,
++                        "unavailable_reasons": sorted(reasons),
++                        "as_of": receipt.as_of.isoformat(),
++                        "filter_sha256": request_hash,
++                    }
++                },
++            ),
++        )
++        db.commit()
++        return receipt
+--- before/backend/app/services/identity.py
++++ candidate/backend/app/services/identity.py
+@@ -34,6 +34,7 @@
+     GeoOpportunityEvaluation,
+ )
+ from app.models.geo_opportunity_decisions import GeoOpportunityDecision
++from app.models.geo_opportunity_evaluation import GeoOpportunityEvaluationRun
+ from app.models.geo_prompt_variants import GeoPromptVariant
+ from app.models.geo_retests import GeoRetestBaseline, GeoRetestRequest
+ from app.models.geo_rules import GeoRuleSetRevision
+@@ -122,6 +123,7 @@
+         GeoOpportunity.resolved_by,
+         GeoOpportunityAction.created_by,
+         GeoOpportunityEvaluation.created_by,
++        GeoOpportunityEvaluationRun.created_by,
+         GeoRetestBaseline.created_by,
+         GeoRetestRequest.created_by,
+         GeoOpportunityDecision.created_by,
+--- before/backend/tests/geo_loop_e2e_seed.py
++++ candidate/backend/tests/geo_loop_e2e_seed.py
+@@ -60,7 +60,10 @@
+         ):
+             raise ValueError("GEO707 评估输入必须为自有虚构公开产品的核心非点名人工观测")
+         product = db.get(Product, first.subjects[0].product_id)
+-        actor = db.get(User, batch.created_by)
++        # 隔离测试使用已初始化管理员执行评估，批次创建者仍可为 ENGINEER。
++        actor = db.scalar(
++            select(User).where(User.username == "admin", User.account_type == "ADMIN")
++        )
+         if product is None or not product.part_number.startswith("GEO707-") or actor is None:
+             raise ValueError("GEO707 评估缺少本轮虚构产品或创建者")
+         fact = db.scalar(
+--- before/backend/tests/geo_opportunity_e2e_seed.py
++++ candidate/backend/tests/geo_opportunity_e2e_seed.py
+@@ -53,7 +53,10 @@
+             raise ValueError("机会E2E仅评估API创建的虚构参数核验运行")
+         batch = db.get(GeoObservationBatch, run.batch_id)
+         assert batch is not None
+-        actor = db.get(User, batch.created_by)
++        # 隔离测试使用已初始化管理员执行评估，批次创建者仍可为 ENGINEER。
++        actor = db.scalar(
++            select(User).where(User.username == "admin", User.account_type == "ADMIN")
++        )
+         assert actor is not None
+         subject_ids = [UUID(row["id"]) for row in run.input_snapshot["subjects"]]
+         from datetime import UTC, datetime
+--- before/backend/tests/integration/geo_loop_support.py
++++ candidate/backend/tests/integration/geo_loop_support.py
+@@ -137,7 +137,7 @@
+ def evaluate(case):
+     with case.api.factory() as db:
+         return geo_opportunities.evaluate_opportunities(
+-            db, case.filters, actor=db.get(User, case.api.engineer_id), request_id="geo707-evaluate"
++            db, case.filters, actor=db.get(User, case.api.admin_id), request_id="geo707-evaluate"
+         )
+ 
+ 
+--- before/backend/tests/integration/test_geo_manual_evaluation_migration.py
++++ candidate/backend/tests/integration/test_geo_manual_evaluation_migration.py
+@@ -0,0 +1,84 @@
++"""GEO-1006 PostgreSQL 回执 schema、数据库仲裁和不可变历史守卫。"""
++
++import subprocess
++import sys
++from uuid import UUID, uuid4
++
++import pytest
++from alembic.autogenerate import compare_metadata
++from alembic.migration import MigrationContext
++from sqlalchemy import insert, text
++from sqlalchemy.exc import DBAPIError, IntegrityError
++
++from app.db import Base
++from app.models.geo_opportunity_evaluation import GeoOpportunityEvaluationRun
++from tests.integration.test_geo_manual_opportunity_evaluation import (
++    analysis_engine,
++    answer_database,
++    api,
++    harness,
++    overview_api,
++    payload,
++    plan_database,
++    post,
++    review_api,
++    run_database,
++)
++
++pytestmark = pytest.mark.integration
++__all__ = [
++    "analysis_engine",
++    "answer_database",
++    "api",
++    "harness",
++    "overview_api",
++    "plan_database",
++    "review_api",
++    "run_database",
++]
++
++
++def test_receipt_migration_metadata_database_uniqueness_and_immutable_history(api):
++    receipt = post(api, payload(api)).json()
++    with api.harness.factory() as db:
++        record = db.get(GeoOpportunityEvaluationRun, UUID(receipt["evaluation_run_id"]))
++        values = {c.name: getattr(record, c.name) for c in record.__table__.columns}
++        values["id"] = uuid4()
++        with pytest.raises(IntegrityError) as failure:
++            db.execute(insert(GeoOpportunityEvaluationRun).values(**values))
++        assert failure.value.orig.sqlstate == "23505"
++        assert failure.value.orig.diag.constraint_name == "uq_geo_evaluation_run_key"
++        db.rollback()
++        for sql in (
++            "UPDATE geo_opportunity_evaluation_runs SET receipt='{}'",
++            "DELETE FROM geo_opportunity_evaluation_runs",
++            "TRUNCATE geo_opportunity_evaluation_runs",
++        ):
++            with pytest.raises(DBAPIError) as immutable:
++                db.execute(text(sql))
++            assert immutable.value.orig.sqlstate == "55000"
++            db.rollback()
++    with api.harness.factory.kw["bind"].connect() as conn:
++        context = MigrationContext.configure(
++            conn,
++            opts={
++                "compare_type": True,
++                "compare_server_default": True,
++                "include_object": lambda obj, name, kind, reflected, compared: (
++                    obj.name == "geo_opportunity_evaluation_runs"
++                    if kind == "table"
++                    else obj.table.name == "geo_opportunity_evaluation_runs"
++                ),
++            },
++        )
++        assert compare_metadata(context, Base.metadata) == []
++    database = api.harness.database.runs.plan
++    result = subprocess.run(
++        [sys.executable, "-m", "alembic", "downgrade", "0065_geo_observability"],
++        cwd=database.backend_dir,
++        env=database.env,
++        capture_output=True,
++        text=True,
++    )
++    assert result.returncode != 0 and "0066 管理员评估回执须保留" in result.stderr
++    assert post(api, payload(api)).status_code == 200
+--- before/backend/tests/integration/test_geo_manual_opportunity_evaluation.py
++++ candidate/backend/tests/integration/test_geo_manual_opportunity_evaluation.py
+@@ -0,0 +1,447 @@
++"""GEO-1006 真实 PostgreSQL/管理员 API：冻结重放、权限和原子事务。"""
++
++import traceback
++from concurrent.futures import ThreadPoolExecutor
++from contextlib import contextmanager
++from copy import deepcopy
++from datetime import UTC, datetime, timedelta
++from threading import Barrier
++from uuid import UUID, uuid4
++
++import pytest
++from fastapi.testclient import TestClient
++from sqlalchemy import event, func, select
++from sqlalchemy.orm import Session
++
++from app.config import settings
++from app.deps import CURRENT_SESSION_ID
++from app.errors import AppError
++from app.main import app
++from app.models.geo_opportunities import (
++    GeoOpportunity,
++    GeoOpportunityAction,
++    GeoOpportunityEvaluation,
++)
++from app.models.geo_opportunity_evaluation import GeoOpportunityEvaluationRun
++from app.models.geo_retests import GeoRetestRequest
++from app.models.geo_runs import GeoObservationBatch
++from app.models.identity import AuditLog, SessionRecord, User
++from app.schemas.geo_insights import GeoOverviewFilters
++from app.schemas.geo_opportunity_evaluation import GeoOpportunityEvaluationRequest
++from app.schemas.geo_rules import GeoRuleUpdateRequest
++from app.services import geo_opportunities, geo_rules
++from app.services import geo_opportunity_evaluation as service
++from tests.integration.test_geo_opportunities import (
++    analysis_engine,
++    answer_database,
++    api,
++    harness,
++    overview_api,
++    plan_database,
++    prepared,
++    review_api,
++    run_database,
++)
++
++pytestmark = pytest.mark.integration
++__all__ = [
++    "analysis_engine",
++    "answer_database",
++    "api",
++    "harness",
++    "overview_api",
++    "plan_database",
++    "review_api",
++    "run_database",
++]
++PATH = "/api/v1/geo/opportunities/evaluate"
++
++
++def payload(api, filters=None, **patch):
++    with api.harness.factory() as db:
++        revision = geo_rules.get_rules(db).revision
++    return {
++        "scope": "FILTERED" if filters else "ALL",
++        "date_from": (datetime.now(UTC) - timedelta(days=7)).isoformat(),
++        "date_to": (datetime.now(UTC) + timedelta(minutes=1)).isoformat(),
++        "rule_set_revision": revision,
++        "subject_ids": [str(v) for v in filters.subject_ids] if filters else [],
++        **patch,
++    }
++
++
++def post(api, value, key=None, client=None):
++    return (client or api.admin).post(
++        PATH, json=value, headers={"Idempotency-Key": key or str(uuid4())}
++    )
++
++
++def counts(api):
++    with api.harness.factory() as db:
++        return tuple(
++            db.scalar(select(func.count()).select_from(model))
++            for model in (
++                GeoOpportunityEvaluationRun,
++                GeoOpportunityEvaluation,
++                GeoOpportunity,
++                GeoOpportunityAction,
++                GeoRetestRequest,
++                GeoObservationBatch,
++                AuditLog,
++            )
++        )
++
++
++def test_admin_real_evaluation_receipt_sources_audit_and_no_automatic_followups(api):
++    case, filters, _ = prepared(api)
++    frozen = api.harness.run(case.run_id).input_snapshot
++    value = payload(
++        api,
++        filters,
++        engine_surface_ids=[frozen["profile"]["surface"]["id"]],
++        collection_profile_ids=[frozen["profile"]["id"]],
++        collection_modes=[frozen["profile"]["collection_mode"]],
++    )
++    before = counts(api)
++    key = "geo1006-private-key-canary"
++    response = post(api, value, key)
++    assert response.status_code == 200, response.text
++    assert response.headers["Cache-Control"] == "no-store"
++    receipt = response.json()
++    assert receipt["created"] >= 1 and not receipt["replayed"]
++    assert receipt["evaluated_cells"] == sum(
++        receipt[k] for k in ("created", "existing_reused", "skipped")
++    )
++    assert receipt["unavailable_reasons"]
++    after = counts(api)
++    assert before[3:6] == after[3:6]
++    with api.harness.factory() as db:
++        record = db.get(GeoOpportunityEvaluationRun, UUID(receipt["evaluation_run_id"]))
++        assert record.receipt == receipt
++        assert record.request_snapshot["subject_ids"] == value["subject_ids"]
++        opportunity = db.scalar(
++            select(GeoOpportunity).where(
++                GeoOpportunity.subject_id.in_(filters.subject_ids),
++                GeoOpportunity.rule_code == "CRITICAL_FACT_ERROR",
++            )
++        )
++        assert opportunity.trigger_snapshot["sources"][0]["run_id"] == str(case.run_id)
++        assert (
++            opportunity.trigger_snapshot["rule_snapshot"]["rule_set_revision"]
++            == (value["rule_set_revision"])
++        )
++        audit = db.scalar(select(AuditLog).where(AuditLog.action == "geo_opportunity.evaluated"))
++        assert audit.target_id == receipt["evaluation_run_id"]
++        assert audit.actor_id == api.harness.database.runs.plan.actor
++        assert audit.details["facts"]["created"] == receipt["created"]
++        assert key not in str(record.request_snapshot) + str(record.receipt) + str(audit.details)
++        assert "虚构核验" not in str(audit.details)
++    from pathlib import Path
++
++    import yaml
++
++    from app.main import app
++    from tests.unit.test_geo_run_contract import validate
++
++    contract = yaml.safe_load((Path("/contracts") / "openapi.yaml").read_text())
++    for document in (contract, app.openapi()):
++        validate(document, "GeoOpportunityEvaluationReceipt", receipt)
++
++
++def test_replay_freezes_original_as_of_despite_new_review_and_new_key_reuses_opportunity(api):
++    case, filters, correction = prepared(api)
++    value, key = payload(api, filters), str(uuid4())
++    original = post(api, value, key).json()
++    before = counts(api)
++    with api.harness.factory() as db:
++        opportunities = list(db.scalars(select(GeoOpportunity)))
++        frozen = {o.id: (deepcopy(o.trigger_snapshot), o.revision) for o in opportunities}
++    assert api.submit(case, decision="CORRECTED", correction_payload=correction).status_code == 201
++    after_review = counts(api)
++    replay = post(api, value, key)
++    assert replay.status_code == 200, replay.text
++    assert replay.json() == original | {"replayed": True}
++    assert counts(api) == after_review
++    different = post(
++        api, value | {"date_to": (datetime.now(UTC) + timedelta(hours=1)).isoformat()}, key
++    )
++    assert (
++        different.status_code == 409 and different.json()["error"]["code"] == "IDEMPOTENCY_CONFLICT"
++    )
++    assert counts(api) == after_review
++    fresh = post(api, value).json()
++    assert fresh["created"] == 0 and fresh["existing_reused"] >= 1
++    assert fresh["evaluation_run_id"] != original["evaluation_run_id"]
++    assert fresh["as_of"] != original["as_of"]
++    assert counts(api)[2:6] == before[2:6]
++    with api.harness.factory() as db:
++        for identity, (snapshot, revision) in frozen.items():
++            current = db.get(GeoOpportunity, identity)
++            assert current.trigger_snapshot == snapshot and current.revision >= revision
++        assert (
++            db.scalar(
++                select(func.count())
++                .select_from(AuditLog)
++                .where(
++                    AuditLog.action == "geo_opportunity.evaluated",
++                    AuditLog.target_id.in_(
++                        [original["evaluation_run_id"], fresh["evaluation_run_id"]]
++                    ),
++                )
++            )
++            == 2
++        )
++
++
++def test_concurrent_same_key_returns_one_frozen_receipt(api):
++    _, filters, _ = prepared(api)
++    value = GeoOpportunityEvaluationRequest.model_validate(payload(api, filters))
++    key, barrier = str(uuid4()), Barrier(2)
++    before = counts(api)
++
++    def execute():
++        with api.harness.factory() as db:
++            actor = db.get(User, api.harness.database.runs.plan.actor)
++            barrier.wait(timeout=10)
++            return service.run_evaluation(
++                db, value, actor=actor, request_id="geo1006-concurrent", idempotency_key=key
++            )
++
++    with ThreadPoolExecutor(max_workers=2) as pool:
++        futures = [pool.submit(execute) for _ in range(2)]
++        results = [f.result(timeout=30) for f in futures]
++    assert results[0].evaluation_run_id == results[1].evaluation_run_id
++    assert results[0].as_of == results[1].as_of
++    assert sorted(r.replayed for r in results) == [False, True]
++    assert counts(api)[0] == before[0] + 1
++    with api.harness.factory() as db:
++        assert (
++            db.scalar(
++                select(func.count())
++                .select_from(AuditLog)
++                .where(
++                    AuditLog.action == "geo_opportunity.evaluated",
++                    AuditLog.target_id == str(results[0].evaluation_run_id),
++                )
++            )
++            == 1
++        )
++
++
++@pytest.mark.parametrize("rejected", ["engineer", "anonymous", "csrf", "missing_key", "bad_key"])
++def test_http_permission_csrf_and_required_idempotency_reject_without_business_writes(
++    api, rejected
++):
++    value, before = payload(api), counts(api)
++    if rejected in {"engineer", "anonymous"}:
++        response = post(api, value, client=getattr(api, rejected))
++        expected = 403 if rejected == "engineer" else 401
++    elif rejected == "csrf":
++        response = api.admin.post(
++            PATH,
++            json=value,
++            headers={
++                "Idempotency-Key": str(uuid4()),
++                "X-CSRF-Token": "x" * 40,
++            },
++        )
++        expected = 403
++    elif rejected == "missing_key":
++        response = api.admin.post(PATH, json=value)
++        expected = 422
++    else:
++        response = post(api, value, "invalid key")
++        expected = 422
++    assert response.status_code == expected, response.text
++    assert counts(api) == before
++
++
++@pytest.mark.parametrize("field", ["geo_monitoring_enabled", "geo_opportunity_evaluation_enabled"])
++def test_closed_feature_flags_reject_new_requests_and_existing_receipt_replays(
++    api, monkeypatch, field
++):
++    value, key = payload(api), str(uuid4())
++    assert post(api, value, key).status_code == 200
++    before = counts(api)
++    monkeypatch.setattr(settings, field, False)
++    for request_key in (key, str(uuid4())):
++        response = post(api, value, request_key)
++        assert response.status_code == 409
++        assert response.json()["error"]["code"] == "GEO_MONITORING_DISABLED"
++    assert counts(api) == before
++
++
++@pytest.mark.parametrize(
++    "patch",
++    [
++        {"scope": "FILTERED"},
++        {"scope": "ALL", "subject_ids": [str(uuid4())]},
++        {"date_from": "2020-01-01T00:00:00Z"},
++        {"date_from": "2026-01-01T00:00:00"},
++        {"rule_set_revision": 0},
++        {"rule_set_revision": None},
++        {"private": "private-input-canary"},
++    ],
++)
++def test_explicit_request_validation(api, patch):
++    before = counts(api)
++    response = post(api, payload(api, **patch))
++    assert response.status_code == 422, response.text
++    assert "private-input-canary" not in response.text
++    assert counts(api) == before
++
++
++def test_rule_revision_is_explicit_and_missing_revision_does_not_write(api):
++    _, filters, _ = prepared(api)
++    value = payload(api, filters)
++    with api.harness.factory() as db:
++        current = geo_rules.get_rules(db)
++        geo_rules.update_rules(
++            db,
++            GeoRuleUpdateRequest(
++                expected_revision=current.revision,
++                configuration=current.configuration.model_copy(
++                    update={"visibility_drop_points": 0.25}
++                ),
++            ),
++            actor=db.get(User, api.harness.database.runs.plan.actor),
++            request_id="geo1006-rules",
++        )
++    response = post(api, value)
++    assert response.status_code == 200 and response.json()["rule_set_revision"] == current.revision
++    with api.harness.factory() as db:
++        rows = list(db.scalars(select(GeoOpportunityEvaluation)))
++        assert rows and all(r.rule_set_revision == current.revision for r in rows)
++    before = counts(api)
++    missing = post(api, value | {"rule_set_revision": 999999})
++    assert missing.status_code == 404
++    assert counts(api) == before
++
++
++@pytest.mark.parametrize(
++    "filter_field", ["subject_ids", "engine_surface_ids", "collection_profile_ids"]
++)
++def test_empty_filtered_scope_has_unavailable_reasons_without_opportunities(api, filter_field):
++    prepared(api)
++    before = counts(api)
++    response = post(api, payload(api, scope="FILTERED", **{filter_field: [str(uuid4())]}))
++    assert response.status_code == 200, response.text
++    receipt = response.json()
++    assert receipt["created"] == receipt["existing_reused"] == 0
++    assert receipt["skipped"] == receipt["evaluated_cells"]
++    assert {r["code"] for r in receipt["unavailable_reasons"]} == {"NO_CANDIDATES"}
++    assert counts(api)[2:6] == before[2:6]
++
++
++@pytest.mark.parametrize(
++    "change,code",
++    [
++        ({"account_type": "ENGINEER"}, "PERMISSION_DENIED"),
++        ({"is_active": False}, "AUTH_REQUIRED"),
++        ({"must_change_password": True}, "PASSWORD_CHANGE_REQUIRED"),
++        ({}, "AUTH_REQUIRED"),
++    ],
++)
++def test_authenticated_admin_identity_is_rechecked_before_evaluation_lock(
++    api, monkeypatch, change, code
++):
++    before = counts(api)
++    command = service.current_actor_command
++
++    @contextmanager
++    def changed_after_auth(db, actor, **kwargs):
++        # HTTP ADMIN dependency 已通过；独立事务改变身份，锁内必须刷新陈旧 ORM。
++        with api.harness.factory.begin() as writer:
++            if change:
++                writer.execute(User.__table__.update().where(User.id == actor.id).values(**change))
++            else:
++                writer.execute(
++                    SessionRecord.__table__.update()
++                    .where(SessionRecord.id == db.info[CURRENT_SESSION_ID])
++                    .values(revoked_at=datetime.now(UTC))
++                )
++        with command(db, actor, **kwargs) as current:
++            yield current
++
++    monkeypatch.setattr(service, "current_actor_command", changed_after_auth)
++    try:
++        response = post(api, payload(api))
++        assert response.status_code in {401, 403}
++        assert response.json()["error"]["code"] == code
++        assert counts(api) == before
++    finally:
++        with api.harness.factory.begin() as db:
++            db.execute(
++                User.__table__.update()
++                .where(User.id == api.harness.database.runs.plan.actor)
++                .values(account_type="ADMIN", is_active=True, must_change_password=False)
++            )
++
++
++def test_domain_evaluator_also_rejects_engineer(api):
++    before = counts(api)
++    with api.harness.factory() as db, pytest.raises(AppError) as failure:
++        geo_opportunities.evaluate_opportunities(
++            db,
++            GeoOverviewFilters(
++                date_from=datetime.now(UTC) - timedelta(days=1), date_to=datetime.now(UTC)
++            ),
++            actor=db.get(User, api.engineer_id),
++            request_id="geo1006-engineer",
++        )
++    assert failure.value.code == "PERMISSION_DENIED"
++    assert counts(api) == before
++
++
++@pytest.mark.parametrize("phase", ["audit", "commit"])
++def test_unknown_failure_rolls_back_without_http_or_traceback_secret(api, monkeypatch, phase):
++    _, filters, _ = prepared(api)
++    before = counts(api)
++
++    def fail(*args):
++        raise RuntimeError("private-evaluation-error-canary")
++
++    def fail_commit(db):
++        if any(isinstance(r, GeoOpportunityEvaluationRun) for r in db.new):
++            fail()
++
++    if phase == "audit":
++        monkeypatch.setattr(service, "append_audit", fail)
++    else:
++        event.listen(Session, "before_commit", fail_commit)
++    try:
++        with pytest.raises(RuntimeError) as failure:
++            post(api, payload(api, filters))
++        assert "private-evaluation-error-canary" not in "".join(
++            traceback.format_exception(failure.value)
++        )
++        with TestClient(app, raise_server_exceptions=False) as client:
++            client.cookies.update(api.admin.cookies)
++            client.headers.update(api.admin.headers)
++            response = post(api, payload(api, filters), client=client)
++        assert response.status_code == 500
++        assert "private-evaluation-error-canary" not in response.text
++        assert counts(api) == before
++    finally:
++        if phase == "commit":
++            event.remove(Session, "before_commit", fail_commit)
++
++
++def test_equivalent_timezone_and_duplicate_filters_replay_canonical_request(api):
++    from datetime import timezone
++
++    _, filters, _ = prepared(api)
++    value, key = payload(api, filters), str(uuid4())
++    first = post(api, value, key)
++    assert first.status_code == 200, first.text
++    before = counts(api)
++    west = timezone(timedelta(hours=-7))
++    equivalent = value | {
++        "subject_ids": value["subject_ids"] * 2,
++        "date_from": datetime.fromisoformat(value["date_from"]).astimezone(west).isoformat(),
++        "date_to": datetime.fromisoformat(value["date_to"]).astimezone(west).isoformat(),
++    }
++    replay = post(api, equivalent, key)
++    assert replay.status_code == 200, replay.text
++    assert replay.json() == first.json() | {"replayed": True}
++    assert counts(api) == before
+--- before/backend/tests/integration/test_geo_opportunities.py
++++ candidate/backend/tests/integration/test_geo_opportunities.py
+@@ -84,7 +84,7 @@
+ 
+ def evaluate(api, filters, actor_id=None):
+     with api.harness.factory() as db:
+-        actor = db.get(User, actor_id or api.engineer_id)
++        actor = db.get(User, actor_id or api.harness.database.runs.plan.actor)
+         return service.evaluate_opportunities(
+             db, filters, actor=actor, request_id="geo702-evaluate"
+         )
+@@ -143,7 +143,7 @@
+     monkeypatch.setattr(service, "_capture", capture)
+     admin_id = api.harness.database.runs.plan.actor
+     with ThreadPoolExecutor(max_workers=2) as pool:
+-        one = pool.submit(evaluate, api, filters, api.engineer_id)
++        one = pool.submit(evaluate, api, filters, admin_id)
+         two = pool.submit(evaluate, api, filters, admin_id)
+         results = [one.result(timeout=20), two.result(timeout=20)]
+     monkeypatch.setattr(service, "_capture", original)
+@@ -463,7 +463,8 @@
+             api.submit(case, decision="CORRECTED", correction_payload=correction).status_code == 201
+         )
+         outcomes = service.evaluate_opportunities(
+-            db, filters, actor=db.get(User, api.engineer_id), request_id="geo702-evaluate"
++            db, filters, actor=db.get(User, api.harness.database.runs.plan.actor),
++            request_id="geo702-evaluate"
+         )
+         assert critical(api, outcomes).disposition == "UPDATED"
+         assert stale.revision == 3
+@@ -493,7 +494,8 @@
+         event.listen(db, "do_orm_execute", compete)
+         try:
+             results = service.evaluate_opportunities(
+-                db, filters, actor=db.get(User, api.engineer_id), request_id="geo702-evaluate"
++                db, filters, actor=db.get(User, api.harness.database.runs.plan.actor),
++            request_id="geo702-evaluate"
+             )
+         finally:
+             event.remove(db, "do_orm_execute", compete)
+--- before/backend/tests/integration/test_migrations.py
++++ candidate/backend/tests/integration/test_migrations.py
+@@ -326,7 +326,7 @@
+ 
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0065_geo_observability",)
++            assert cursor.fetchone() == ("0066_geo_manual_evaluation",)
+             cursor.execute(
+                 "SELECT tablename FROM pg_tables "
+                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
+@@ -484,10 +484,10 @@
+             text=True,
+         )
+         assert downgrade.returncode != 0
+-        assert "0065 运维故障事实须保留" in downgrade.stdout + downgrade.stderr
++        assert "0066 管理员评估回执须保留" in downgrade.stdout + downgrade.stderr
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0065_geo_observability",)
++            assert cursor.fetchone() == ("0066_geo_manual_evaluation",)
+ 
+ 
+ @pytest.mark.integration
+--- before/backend/tests/unit/test_contract.py
++++ candidate/backend/tests/unit/test_contract.py
+@@ -53,9 +53,9 @@
+     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+     document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+     operations = operation_map(document)
+-    assert len(operations) == 255
+-    assert len({operation["operationId"] for operation in operations.values()}) == 255
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1659
++    assert len(operations) == 256
++    assert len({operation["operationId"] for operation in operations.values()}) == 256
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1667
+ 
+     expected_parameter = {
+         "name": "X-Request-ID",
+@@ -379,6 +379,7 @@
+             "completeFileUpload",
+             "getGeoObservationRun",
+             "getGeoOpportunity",
++            "evaluateGeoOpportunities",
+         ),
+         ("200", "401", "403", "404", "409", "422", "502", "504"): ("discoverAIChannelModels",),
+         ("201", "401", "403", "404", "409", "422", "503"): ("submitGeoManualObservation",),
+@@ -402,7 +403,7 @@
+         if isinstance(operation, dict) and "operationId" in operation
+     }
+ 
+-    assert len(expected) == 255
++    assert len(expected) == 256
+     assert set(operations) == set(expected)
+     for operation_id, operation in operations.items():
+         responses = operation["responses"]
+@@ -431,7 +432,7 @@
+         "getWorkbench",
+     }
+     assert len(validation_free) == 15
+-    assert sum("422" in statuses for statuses in expected.values()) == 240
++    assert sum("422" in statuses for statuses in expected.values()) == 241
+     assert {
+         operation_id for operation_id, statuses in expected.items() if "422" not in statuses
+     } == validation_free
+--- before/contracts/database.md
++++ candidate/contracts/database.md
+@@ -1381,3 +1381,15 @@
+ 运行状态计数为各模式所有attempt；API日调用和费用从Reservation UTC budget_day及sent_at读取全部发送attempt，币种分开、未知保留，不改变601–604 latest attempt业务分母。Analysis过期包括终态Run重分析，复核积压根据current必要复核和当前revision有效review确定。MANUAL待录入不触发自动积压故障；运维告警不评估提及/推荐/准确性低表现。
+ 
+ 先迁移再统一部署API/Worker/Beat；无历史数据回填。downgrade以55000拒绝删除运行故障事实；停止观测、保留该表并前向修复，备份恢复留GEO-903。
++
++
++## GEO-1006 管理员手动机会评估（0066）
++
++`POST /api/v1/geo/opportunities/evaluate` 是唯一生产显式入口，ADMIN 会话 + CSRF + Idempotency-Key；领域服务锁内重验 ADMIN、启用、改密与当前会话。ENGINEER 不得评估。总开关/评估开关关闭时首次和重放均拒绝。无自动 Action、Retest、周期调度/Beat/CRON。
++
++- `geo_opportunity_evaluation_runs`：UUID PK；created_by users FK RESTRICT；`(created_by, request_key_sha256)` 唯一；request_sha256/request_key_sha256 为 SHA256；rule_set_revision 关联不可变规则 FK RESTRICT；request_snapshot 保存 UTC 窗口/ALL 或 FILTERED 范围/排序去重过滤/模式/revision；receipt 保存冻结完整摘要和 as_of；created_at。原始幂等键不保存。
++- ALL 不带实体过滤，FILTERED 至少指定 Subject/Surface/Profile 一类；窗口 UTC 半开且不超过31天，每类最多50 ID；模式不选表示全部历史模式。沿用 Overview 的冻结来源与资格/治理分母；未知或没有候选不猜测。明确 revision 可引用历史合法配置，不存在 404，不依赖 current 指针。
++- evaluated_cells 是规则×范围结果数，包括 NO_CANDIDATES 哨兵结果；created 仅本次首次创建，existing_reused 包含 UPDATED/已有机会的结果重放，其他归 skipped；三类数量合计等于 evaluated_cells。unavailable_reasons 是稳定原因代码及涉及的结果数，同结果多个原因可分别计数。
++- User SHARE→Session SHARE→请求 advisory lock→既有 Product/Subject/排序 identity/Opportunity 锁；READ COMMITTED 写事务与独立 REPEATABLE READ 捕获一次规则和证据。回执、机会/来源/evaluations、opened 及 evaluated 审计同事务提交或回滚。请求 key 去重按用户隔离；重复规范输入返回原回执和原 as_of，replayed=true，不再读证据/追加审计；变参 409 IDEMPOTENCY_CONFLICT。新 key 显式重评仍复用既有机会 identity/评估指纹。
++- 新回执禁止 UPDATE/DELETE/TRUNCATE，用户历史引用计数包含回执。0066 只加表和守卫，不回填；DDL lock_timeout=5s、statement_timeout=120s；失败事务回滚。downgrade 以55000安全停止，采用前向修复或迁移前成套备份恢复，不删幂等/审计事实。
++- 成功 `geo_opportunity.evaluated` target 为 GeoOpportunityEvaluationRun，只保存 scope、规则 revision、计数、原因代码、as_of 和 canonical 请求 SHA。无 Cookie/正文/URL/原始 key；重放不重复。运维 `opportunity_evaluate` 的观测边界为最终管理入口提交，不能在摘要/审计失败前记成功。
+--- before/contracts/openapi.yaml
++++ candidate/contracts/openapi.yaml
+@@ -10737,6 +10737,67 @@
+           $ref: '#/components/responses/ErrorResponse'
+         '400':
+           $ref: '#/components/responses/ErrorResponse'
++  /api/v1/geo/opportunities/evaluate:
++    post:
++      tags:
++      - geo-opportunities
++      summary: Evaluate Opportunities
++      operationId: evaluateGeoOpportunities
++      x-required-account-types:
++      - ADMIN
++      description: ADMIN 显式运行一次规则机会评估；UTC 半开窗口最多31天，ALL 禁止实体过滤，FILTERED 至少指定一类实体过滤。规则
++        revision 显式固定，缺候选不造机会。相同用户同幂等键重放冻结回执，不创建行动或复测，不注册周期调度。evaluated_cells 按规则×范围评估结果计数（包括无候选结果），created/existing_reused/skipped
++        为互斥分区；unavailable reason count 按结果计数。
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - name: Idempotency-Key
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 8
++          maxLength: 128
++          pattern: ^[\x21-\x7E]+$
++          title: Idempotency-Key
++      - $ref: '#/components/parameters/RequestIdHeader'
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoOpportunityEvaluationRequest'
++      responses:
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '503':
++          $ref: '#/components/responses/ErrorResponse'
++        '200':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoOpportunityEvaluationReceipt'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
+   /api/v1/geo/opportunities/{opportunity_id}:
+     get:
+       tags:
+@@ -31227,3 +31288,124 @@
+       - envelope
+       title: GeoBrowserSessionEnvelope
+       type: object
++    GeoOpportunityEvaluationRequest:
++      additionalProperties: false
++      properties:
++        scope:
++          enum:
++          - ALL
++          - FILTERED
++          title: Scope
++          type: string
++        date_from:
++          format: date-time
++          title: Date From
++          type: string
++        date_to:
++          format: date-time
++          title: Date To
++          type: string
++        rule_set_revision:
++          minimum: 1
++          title: Rule Set Revision
++          type: integer
++        subject_ids:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Subject Ids
++          type: array
++        engine_surface_ids:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Engine Surface Ids
++          type: array
++        collection_profile_ids:
++          items:
++            format: uuid
++            type: string
++          maxItems: 50
++          title: Collection Profile Ids
++          type: array
++        collection_modes:
++          items:
++            $ref: '#/components/schemas/GeoCollectionMode'
++          maxItems: 3
++          title: Collection Modes
++          type: array
++      required:
++      - scope
++      - date_from
++      - date_to
++      - rule_set_revision
++      title: GeoOpportunityEvaluationRequest
++      type: object
++    GeoOpportunityUnavailableReason:
++      additionalProperties: false
++      properties:
++        code:
++          title: Code
++          type: string
++        count:
++          minimum: 1
++          title: Count
++          type: integer
++      required:
++      - code
++      - count
++      title: GeoOpportunityUnavailableReason
++      type: object
++    GeoOpportunityEvaluationReceipt:
++      additionalProperties: false
++      properties:
++        evaluation_run_id:
++          format: uuid
++          title: Evaluation Run Id
++          type: string
++        rule_set_revision:
++          minimum: 1
++          title: Rule Set Revision
++          type: integer
++        evaluated_cells:
++          minimum: 0
++          title: Evaluated Cells
++          type: integer
++        created:
++          minimum: 0
++          title: Created
++          type: integer
++        existing_reused:
++          minimum: 0
++          title: Existing Reused
++          type: integer
++        skipped:
++          minimum: 0
++          title: Skipped
++          type: integer
++        unavailable_reasons:
++          items:
++            $ref: '#/components/schemas/GeoOpportunityUnavailableReason'
++          title: Unavailable Reasons
++          type: array
++        as_of:
++          format: date-time
++          title: As Of
++          type: string
++        replayed:
++          title: Replayed
++          type: boolean
++      required:
++      - evaluation_run_id
++      - rule_set_revision
++      - evaluated_cells
++      - created
++      - existing_reused
++      - skipped
++      - unavailable_reasons
++      - as_of
++      - replayed
++      title: GeoOpportunityEvaluationReceipt
++      type: object
+--- before/docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md
++++ candidate/docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md
+@@ -28,8 +28,8 @@
+ | 人工复核 | available | confirm/correct、追加历史、当前有效结果已实现 | 严重错误/歧义保持复核门禁 |
+ | 指标与洞察 | available | 回答级 Overview、趋势、SOV、引用、风险/质量及下钻已实现 | 分母零 null、失败排除、模式/环境不混算 |
+ | 现有报告 | available | 现有打印及 runs/citations/claims CSV 已实现 | CSV 权限、低敏、注入边界保持；GEO-1007/1010 |
+-| Opportunity 管理员显式评估方式 | manual-only | 内部 evaluator 已实现，生产管理员操作入口尚缺 | GEO-1006 为阻断；不能让 seed 代替操作 |
+-| Opportunity 管理员生产评估入口 | not implemented | 目前未接线 Router/运维命令；本次不新增协议 | GEO-1006 必须先交付并验收；V1.0 必需 |
++| Opportunity 管理员显式评估方式 | manual-only | GEO-1006 受 CSRF 保护的 ADMIN API 复用现有 evaluator，显式范围/窗口/revision/幂等键，无自动 Action/Retest | 本地交付 review；获批后由管理员执行，操作见 Runbook §4.1 |
++| Opportunity 管理员生产评估入口 | available | POST /api/v1/geo/opportunities/evaluate；真实 HTTP/PostgreSQL 验证 ADMIN、CSRF、ENGINEER 拒绝、冻结回执/原子审计及幂等；没有操作页面 | GEO-1006 待人工接受；0066 前滚及 GEO-1010 同候选现场验收尚未执行 |
+ | Opportunity 列表/详情、确认/忽略 | available | 现有工作台与服务端状态/证据已实现 | 机会需显式评估产生；保持来源历史 |
+ | 现有 Action API | available | 事实/内容/发布/补测应用服务协调及公共 API 已实现 | 人工调用；AI 仅草稿；GEO-1007/1010 |
+ | 现有 Retest API 与比较/解决 | available | preview/create、冻结基线、可比性门禁及显式解决已实现 | 不可比/未知版本阻断；不承诺因果；可复现的历史基线即使来自 CRON，人工 RETEST 仍按冻结矩阵执行，保留来源且不运行当前 Plan |
+@@ -40,7 +40,7 @@
+ | CRON Plan 创建/启用及到期建批 | disabled | GEO-1005：CRON Plan 写命令/首次 run、PLAN 建批及 scheduled 新窗口均 409 GEO_PLAN_CRON_UNSUPPORTED；历史仅 UNSUPPORTED_SCHEDULE 只读，无写动作；Beat 无到期入口 | 本地交付 review；GEO-1010 核实同候选与现场历史披露，不原地停用/删除 |
+ | CRON 生产自动调度交付 | deferred | not implemented：无生产到期入口 | 后续重新排期；V1.0 不以自动执行为门禁 |
+ | Opportunity 自动调度 | disabled | 开关是评估资格，不证明自动调度；当前无生产周期入口 | GEO-1006/1007 保持无周期/隐式触发 |
+-| Opportunity 自动周期评估交付 | deferred | not implemented：只有内部 evaluator 与测试/seed 调用 | 后续重新排期；V1.0 不以周期执行为门禁 |
++| Opportunity 自动周期评估交付 | deferred | not implemented：没有周期注册；管理员显式 API 不代表自动调度 | 后续重新排期；V1.0 不以周期执行为门禁 |
+ | Opportunity CSV | not implemented | 当前固定 501，三类已有 CSV 不受影响 | 首发之外；GEO-1007 明确不可用，不伪装空导出 |
+ | Action/Retest 完整页面操作 | not implemented | 现有 API 可用，完整创建 action、retest preview/create UI 未交付 | 首发之外；明确页面与 API 组合操作边界 |
+ | 公共管理员重分析入口 | not implemented | 内部可追加 revision，无生产公共 Router/CLI 操作入口 | 首发之外；不回退 FAILED Run，不承诺指标资格恢复 |
+@@ -56,7 +56,7 @@
+ | GEO_API_COLLECTION_ENABLED | false | false（初始默认） | 保留已有代码，不自动回退到 API |
+ | GEO_BROWSER_COLLECTION_ENABLED | false | production **硬禁止 true** | GEO-1003 实现/本地验证交付 review；现场 GEO-1010 |
+ | CRON Plan | 禁止新建和启用 | 全部历史 CRON Plan 只读，不能从当前 Plan 建批 | GEO-1005 已实现；旧 ACTIVE 原值保留但投影明确不支持；不新增存储状态 |
+-| GEO_OPPORTUNITY_EVALUATION_ENABLED | false | 显式评估获批时 true | 这是资格开关；入口尚缺：GEO-1006 |
++| GEO_OPPORTUNITY_EVALUATION_ENABLED | false | 显式评估获批时 true | 这是资格开关；GEO-1006 管理员显式 API 已交付 review，现场启用另需批准 |
+ | Opportunity 自动调度 | 无周期注册/隐式触发 | 关闭 | 不虚构新的已实现环境键；保持人工评估与自动调度分开 |
+ 
+ GEO_RETENTION_DRY_RUN=true、CELERY_CONCURRENCY=1 及既有数据/外发/备份安全条件按 runbook 保留。当前 production readiness 原文为 NOT_STARTED/NOT_VERIFIED，GEO-1002 不将策略值写成已观测事实。
+--- before/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
++++ candidate/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
+@@ -10,7 +10,7 @@
+ 
+ 依据 [ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md)，下列图和存储状态集合保留原始领域设计。V1.0 只承诺人工启动/创建批次；GEO-1005 禁止 CRON 创建、全部历史 Plan 写命令、首次 run/PLAN 建批及 scheduled 新窗口，稳定 409 GEO_PLAN_CRON_UNSUPPORTED。历史 CRON 原状态/快照/审计只读保留；服务器投影 UNSUPPORTED_SCHEDULE / VIEW_HISTORY 与空动作，页面明确不调度，不原地停用或转人工。页面隐藏不构成服务端禁止。
+ 
+-Opportunity 由 ADMIN 显式评估（生产入口待 GEO-1006），不由周期、提交或指标读请求自动触发。Action/Retest 采用现有 API；公开管理员重分析入口不属于 V1.0。确定性分析扫描、租约恢复和 PENDING 补投递继续执行，不能因为禁用业务 CRON 而停整个 Beat。
++Opportunity 由 ADMIN 经受 CSRF 保护的 `POST /api/v1/geo/opportunities/evaluate` 显式评估（GEO-1006 本地交付 review，生产启用与现场验收尚未执行），不由周期、提交或指标读请求自动触发。Action/Retest 采用现有 API；公开管理员重分析入口不属于 V1.0。确定性分析扫描、租约恢复和 PENDING 补投递继续执行，不能因为禁用业务 CRON 而停整个 Beat。
+ 
+ 实际能力与未实施入口见[矩阵](../01-product/05-v1-release-capability-matrix.md)。production Browser 硬禁止由 GEO-1003 实现，旧历史接受及 GEO-1001 NO-GO 不改。
+ 
+--- before/docs/geo-monitoring/03-technical/09-backup-recovery-runbook.md
++++ candidate/docs/geo-monitoring/03-technical/09-backup-recovery-runbook.md
+@@ -1,6 +1,6 @@
+ # GEO-903 一致性集合与隔离恢复 Runbook
+ 
+-当前交付：核心数据库/对象/密钥备份与一次性恢复验证。工具不发布生产、不替换主库，不启动 API、Worker、Beat 或 Browser。当前 schema 为 `0065_geo_observability`，没有本任务迁移。生产安全与启用验收仍由 GEO-904/906 在目标环境完成。
++当前交付：核心数据库/对象/密钥备份与一次性恢复验证。工具不发布生产、不替换主库，不启动 API、Worker、Beat 或 Browser。当前候选 schema 为 `0066_geo_manual_evaluation`；GEO-1006 新增的不可变管理员评估回执随 PostgreSQL 成套备份/恢复，恢复后同 key 仍重放原回执，不清表重新评估。生产安全与启用验收仍由 GEO-904/906 在目标环境完成。
+ 
+ ## 备份清单
+ 
+--- before/docs/geo-monitoring/03-technical/10-core-rollout-runbook.md
++++ candidate/docs/geo-monitoring/03-technical/10-core-rollout-runbook.md
+@@ -16,7 +16,7 @@
+ | Browser production 硬禁止 | Settings/启动预检/profile-overlay 明确拒绝 true/显式启动，负例通过且独立复核；现场三进程 false、零服务/profile/会话/材料 | NOT_MET / NOT_VERIFIED；1003/1010 |
+ | Catalog 当前身份 | 正确锁序及锁内 active/ADMIN/改密重验；真实 PG 角色变化竞态拒绝且零业务写入，独立复核 | NOT_MET；1004 |
+ | CRON 禁用与既存治理 | 禁止 CRON Plan 新建/全部写命令/首次 run、PLAN 建批及 scheduled 新窗口，稳定 409；历史配置/状态/快照只读，无写动作且页面明确不调度；MANUAL 入口正常 | GEO-1005 本地实现交付 review；目标/候选历史清点及投影现场证据 NOT_VERIFIED（1010）；不要求自动到期入口 |
+-| Opportunity 显式评估 | ADMIN 经实际受保护入口评估，非管理员/资格关闭拒绝，重复触发去重、来源可追溯；无周期或隐式触发 | NOT_MET；1006/1010；测试 seed 不替代入口 |
++| Opportunity 显式评估 | ADMIN 经实际受保护入口评估，非管理员/资格关闭拒绝，重复触发去重、来源可追溯；无周期或隐式触发 | GEO-1006 本地实现交付 review；同候选现场实际入口证据 NOT_VERIFIED（1010）；测试 seed 不替代入口 |
+ | 能力真实性 | 现有报告/三类 CSV/API 与页面说明一致；未实现 CSV/UI/重分析/占位明确不可用，无依据无引用不推断 | NOT_VERIFIED；1007 |
+ | 升级失败恢复 | 未 initialized 的 UPGRADE_DEPLOYING/PREPARED artifact 失败可安全前向/阶段恢复；身份/兼容/维护锁/再次失败拒绝演练和独立复核 | NOT_MET；1008；旧同候选重入不足以覆盖新 artifact |
+ | 固定候选 | clean main=origin/main；commit/archive/release manifest/images/schema/tracked hashes 一致；同候选完整 make verify exit 0，失败/skip/限制明列 | NOT_VERIFIED；1009；旧本地成功日志不替代新候选 |
+@@ -45,7 +45,7 @@
+ | 批准 | expand/deploy/enable 各自审批人、目标、候选、窗口、操作范围、停止/恢复负责人和批准记录引用；改变目标或候选须重新批准 |
+ | 全应用外部服务 | 真实 AI/OSS 配置与既有门禁；GEO API 关闭不免除 activation 的 `PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET` |
+ 
+-dirty GEO 分支只用于实现，不能生成正式 candidate。生成 candidate 必须在另一份已批准、已推送的 clean main 中使用既有 `create-release-manifest.py`；不使用测试绕过变量，不为准备材料提交或推送当前树。记录引用 producer 的原始 manifest，不复制或编造 image ID/commit。candidate 的 schema head 当前为 `0065_geo_observability`，本任务无新增迁移或回填。
++dirty GEO 分支只用于实现，不能生成正式 candidate。生成 candidate 必须在另一份已批准、已推送的 clean main 中使用既有 `create-release-manifest.py`；不使用测试绕过变量，不为准备材料提交或推送当前树。记录引用 producer 的原始 manifest，不复制或编造 image ID/commit。GEO-1006 当前本地候选的 schema head 为 `0066_geo_manual_evaluation`；该加法迁移只新增管理员评估回执及不可变守卫，不回填或改写既有业务历史。正式 candidate 必须包含已接受的迁移并按实际 head 核对。
+ 
+ 现有发布入口把前滚和应用部署合在一次 `deploy.sh` 内。执行该入口前必须同时具备 expand 与 deploy 批准；不能通过手工迁移/Compose up 拆开或绕过维护锁和持久阶段。GEO 使用已有数据的 upgrade，不执行 clean-init/quarantine/物理删除。
+ 
+@@ -54,7 +54,7 @@
+ | 阶段 | 操作和退出条件 | 失败后的安全状态 |
+ |---|---|---|
+ | prepare | 冻结目标/候选/审批；实际 Browser 负证据；备份/隔离恢复；本地门禁与容量边界明确 | 无生产写入，保持 NOT_STARTED |
+-| expand | 维护入口阻断新写入；暂停 Beat、按在途结果静默 consumer；一致性集合完成；由已批准 deploy 入口前滚至 0065、配置/完整性检查成功 | 保留维护响应、失败现场与原 schema/数据；不 downgrade |
++| expand | 维护入口阻断新写入；暂停 Beat、按在途结果静默 consumer；一致性集合完成；由已批准 deploy 入口前滚至 0066、配置/完整性检查成功 | 保留维护响应、失败现场与原 schema/数据；不 downgrade |
+ | deploy | 同一入口验证 candidate/tracked files/镜像，部署 API/Frontend；Worker/Scheduler 尚未激活；回环 live/ready、前端与安全检查通过 | 保持维护；prepared 阶段不支持既有 frontend-only 回滚，按下文阶段限制停止 |
+ | enable 内部 | 单独批准须覆盖保护配置切换和同候选再次 deploy；在 UPGRADE_PREPARED 重入 deploy 重建 API，再 activate 启动 Worker/Beat；三进程一致、分析/恢复扫描通过后限定试用范围 | 停新写入和异步发布；保留证据，不开放公网 |
+ | observation / release | 负责人签署内部试用、冻结观察期和停止阈值；回环/公网/权限/核心结果完成；单独批准 Nginx 写入及 reload 后开放；观察期通过才能提交 review | 停止扩量，恢复维护，依批准恢复；不自行 done |
+@@ -140,13 +140,44 @@
+ | 录入/提交 | 真实问题和非空回答、引用来源/采集环境准确；草稿保存后正式提交；提交证据不可原地修改，unknown usage/cost 不补零 |
+ | 分析/复核 | Worker 处理已提交观察并形成当前 revision；需复核样本由人工追加有效复核；旧 revision 的复核不挪作当前资格 |
+ | 指标/下钻 | Overview/Insights/Report 按已验收分母、时间、模式和证据来源计算；失败不当未提及；报告/CSV 权限、低敏和公式注入边界不变 |
+-| 机会/行动 | ADMIN 经 GEO-1006 的真实受保护入口显式 evaluate 产生可解释机会，人工使用现有 Action API 并查看结果；AI 仅草稿，不直接发布；入口当前尚缺 |
++| 机会/行动 | ADMIN 经 GEO-1006 的真实受保护入口显式 evaluate 产生可解释机会，人工使用现有 Action API 并查看结果；AI 仅草稿，不直接发布；入口见 §4.1 |
+ | 同口径复测 | 既有公共 API 创建 action/retest（创建 UI 未完整接线时不伪称页面完成）；保存冻结 baseline 和 comparability，完整结果后显式 resolve |
+ | 拒绝/恢复 | 错角色、CSRF、stale revision、重复提交保留既有错误；未知外发结果不自动重发；安全停止后能恢复 MANUAL 分析，无历史修改 |
+ 
+ 至少一批实际生产 MANUAL 闭环及内部使用者反馈，由业务验收人签署；冻结试用人群/问题样本/时长/缺陷处理负责人。本地假数据 E2E 只证明实现边界，不证明正式试用或真实采集质量。外部人工采集仍须遵守平台许可，不要求普通测试访问真实外部 AI。
+ 
+ 当前生产 Plan cron 批次扫描和自动 opportunity evaluator **未接线**。ADR-007 明确将它们移出 V1.0，能力矩阵保留 deferred/not implemented 的事实；首发改为 GEO-1005 的 CRON 禁用/既存治理与 GEO-1006 的管理员显式评估门禁。Beat tick/健康不能证明业务执行，手工评估也不证明周期执行；旧 906 NOT_MET 原文保留，本次不改写其历史。
++
++### 4.1 管理员显式机会评估（GEO-1006）
++
++内部试运行每次机会评估由 ADMIN 明确执行 `POST /api/v1/geo/opportunities/evaluate`。该接口使用现有登录会话，必须携带会话绑定的 `X-CSRF-Token` 和独立 `Idempotency-Key`（8～128 个非空白可打印 ASCII 字符）；ENGINEER 不能执行。没有评估操作页面，使用获准的管理 API 客户端。不要将会话、CSRF 或幂等键写入命令历史、报告或审计证据。
++
++执行前确认当前进程的 `GEO_MONITORING_ENABLED` 与 `GEO_OPPORTUNITY_EVALUATION_ENABLED` 均为 true；这只授予显式评估资格，不启动周期任务。ADMIN 从现有 `GET /api/v1/geo/rules` 读取并明确选择规则 revision；也可使用已有历史 revision，不会被当前规则指针替换。窗口必须带时区，UTC 半开 `[date_from,date_to)`、不超过31天。
++
++请求示例仅说明结构，不是现场授权或业务样本：
++
++```json
++{
++  "scope": "ALL",
++  "date_from": "2026-10-01T00:00:00Z",
++  "date_to": "2026-10-06T00:00:00Z",
++  "rule_set_revision": 1,
++  "subject_ids": [],
++  "engine_surface_ids": [],
++  "collection_profile_ids": [],
++  "collection_modes": ["MANUAL"]
++}
++```
++
++ALL 评估所选模式窗口内全部观测，不能带实体过滤。限定评估时使用 FILTERED，Subject/Surface/Profile 至少一类非空，各类最多50 UUID；跨类取交集，同类集合取并集。省略 collection_modes 表示全部历史模式，内部 MANUAL 试运行应显式选 MANUAL。服务仍使用既有有效分析/复核资格及完整治理分母，不通过过滤隐藏失败打断或质量缺口。
++
++保存低敏回执 `evaluation_run_id`、`rule_set_revision`、`as_of`、`evaluated_cells`、`created`、`existing_reused`、`skipped`、`unavailable_reasons` 与 `replayed`。evaluated_cells 按规则×范围评估结果计数，包括无候选规则结果；三类数量互斥且总和等于 evaluated_cells。不可用原因有原因代码和结果数：例如 NO_CANDIDATES、INSUFFICIENT_SAMPLE、THRESHOLD_NOT_CONFIGURED；不可用/缺依据不等于零表现。首次触发证据及后续追加来源仍可通过机会详情追溯。
++
++网络中断或响应丢失时，同一管理员以完全相同规范参数和原 key 重试，服务返回原回执及原 as_of、replayed=true，不再次评估、不追加成功审计。同 key 变参返回409 IDEMPOTENCY_CONFLICT；需要主动评估新观测或新复核时使用新 key，开放机会与相同结果沿既有 identity/指纹复用。key 按管理员隔离，不将另一管理员的同 key 当作全局重放。角色/停用/改密或开关已关闭时，重放同样拒绝。
++
++评估只记录机会和评估证据；Action 和 Retest 仍由人工分别调用已有接口，不自动执行，不注册 Beat/CRON 或任何周期调度，也不在采集提交、指标读取或报表读取时隐式触发。成功 `geo_opportunity.evaluated` 审计仅保留范围、规则 revision、计数、原因代码、as_of 和请求摘要；失败整体回滚，重放无重复审计。
++
++候选需先前滚到0066；加法迁移保留既有历史，回执不可修改或删除，downgrade 安全停止。故障时先关闭评估资格并保留失败现场，使用前向修复或迁移前成套备份恢复，不清除回执/审计来重新执行。GEO-1010 仍须在获准目标/候选上证明真实入口、重复触发、拒绝与 MANUAL 闭环；本地 PostgreSQL 测试不替代现场试运行。
+ 
+ ## 5. 监控与停止
+ 
+--- before/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ candidate/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -1767,7 +1767,7 @@
+   phase: R9A
+   release: V1.0-manual-first
+   title: 交付管理员显式 Opportunity 评估入口
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-1002
+   - GEO-702
+@@ -1789,7 +1789,8 @@
+   - 05-decisions/ADR-007-manual-first-v1-release-scope.md
+   - 06-reviews/GEO-1001-release-readiness-audit.md
+   audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
+-  scope_note: 后续独立任务；本次 GEO-1002 只登记范围、依赖与验收，不开始实现或生产操作。
++  scope_note: GEO-1006 已交付 ADMIN + CSRF 管理 API，复用 evaluator，无独立 CLI、操作页面、自动 Action/Retest 或周期接线；0066 加法回执迁移，不改既有历史。
++  review_note: "2026-10-05：显式范围/窗口/revision/过滤/幂等键、冻结摘要、资格锁内重验和原子低敏审计完成；45个独立PG用例、121个后端单元和24个前端审计用例分轮最终通过，合同/类型/生成一致性/目标lint及文档hash通过。两轮fresh只读复核指出Runbook0065漂移，三处已统一0066；audit/commit故障证据已补齐，未知异常仍500并脱敏。审计Bundle校验通过；首轮写入证据unknown如实保留，第二轮源快照无写入。详见Trellis implement/evidence；仅review，待人工接受；未提交、部署或生产评估；GEO-1009/1010同候选及现场门禁保留。"
+ - id: GEO-1007
+   phase: R9A
+   release: V1.0-manual-first
+--- before/docs/geo-monitoring/SHA256SUMS
++++ candidate/docs/geo-monitoring/SHA256SUMS
+@@ -4,10 +4,10 @@
+ b1ed9e956eed455178d190b5cfd72e43ee0ae706890e1b5e39ab8d53229c6786  01-product/02-geo-core-prd.md
+ 95637e55031a56bf3e70073207439e2d7cd6f879be9ddaefa1b7edc3192d7751  01-product/03-information-architecture-and-page-spec.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  01-product/04-catalog-user-guide.md
+-314ead7e6e4679dd1ebc3a11b9e2bd534e006186881e6a1ef111e1b84d9c4e37  01-product/05-v1-release-capability-matrix.md
++d3f0dbe7acfd2a16a0b534abf5bad1910b9613bb5bf5b68913388b05a440f17f  01-product/05-v1-release-capability-matrix.md
+ 45b864ba43a27d184a5161086b4a8332615fd831ec1aad4f908d1705e6bb3594  02-business/01-business-architecture.md
+ 140e16f4dc3d712628c4cbba8bab938848f24c2bf8e0b530fd52b4de5c6c4ec1  02-business/02-domain-model.md
+-6f0d7a0f1fa6de0387527657e84ad12e726a35f3ba8c3098582069e38967191c  02-business/03-workflows-and-state-machines.md
++970b5aec42febbcbc528650454315abe485264dc4162bf8eabfdcc8e53896bcd  02-business/03-workflows-and-state-machines.md
+ aeec9d65d22cc1f2640c46968e1923d328ed842bbc086f18e5dc4bd376a4bb02  02-business/04-monitoring-methodology-and-metrics.md
+ 2ecb8425899de5f1ae4f6a1f0b130f93aba201fbc9c084856d6893835d0484e9  02-business/05-manual-geo-observation-sop.md
+ ce09fc392c20e25cc44c5ef73896d7c4abcf22461997e00ab4d46b1f5fe2fa16  03-technical/01-technical-architecture.md
+@@ -18,8 +18,8 @@
+ 596532a0304d246a9051872ebed910156983b9fd2cd146ef234fd6700e07c1eb  03-technical/06-security-and-compliance.md
+ 10e3e60c5885c23cd36e941d0d46dc2d1e30a01d3b7817b2f1ecf6700151f654  03-technical/07-testing-and-quality.md
+ 95ff451b9d6927240bbf19ba157f22952212178b52089f4053f6644c889fa7b7  03-technical/08-deployment-and-operations.md
+-24a1a9a0c7a8076e3521304053a52f411dc4943a4316f542718f9b507dc1be7c  03-technical/09-backup-recovery-runbook.md
+-d8d690fb7c4cacd17071936a9f57672c3de7e50962ce723e37c610fb8e417516  03-technical/10-core-rollout-runbook.md
++0ea92a90c7ba38dcf4db7e81b580814628e6f902b530fdb108939829e0393f29  03-technical/09-backup-recovery-runbook.md
++f7e768cf81166e450d5dcb96e08b6a9d7f636224e97b68267045a8b07de23955  03-technical/10-core-rollout-runbook.md
+ 9edd3f79af2d9f91932e9e668b41c6f3e9a38ebe781ec9dc8b6517c135f3ee49  04-delivery/01-implementation-roadmap.md
+ 0c43e4072efeb3b4271cbad3f6e7ff896dcc075530e73f2e98bf2d74c0c48e19  04-delivery/02-work-breakdown-structure.md
+ ff9c5c9426eadc2f53c9df96daccba3761c8a736d1c7c4feb547f39f2b58adbc  04-delivery/03-requirement-traceability-matrix.md
+@@ -117,7 +117,7 @@
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  04-delivery/geo-003-baseline/validation.md
+ e047efc782933053f13f46e205e6aff331b4d3e2f8574a1c6857c97d426115cc  04-delivery/geo-906-release-record.template.yaml
+-5a04070ad601361055dd0eb55890f4d697b1af2c6e5890048356a955f562a8d9  04-delivery/task-manifest.yaml
++490bb84f9796f77ba72e0af7a24c89cd1811b51cabd483cb2e41313ecb7bcded  04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  05-decisions/ADR-003-separate-collection-analysis-review.md
+--- before/frontend/src/domains/audit/audit.model.test.ts
++++ candidate/frontend/src/domains/audit/audit.model.test.ts
+@@ -60,6 +60,24 @@
+ }
+ 
+ describe('系统审计 model', () => {
++  it('管理员机会评估安全回执可展示，未知对象不生成导航', () => {
++    const evaluated = parseAuditLogDetailResponse(runtimeDetail({
++      business_module: 'GEO_OBSERVATION', action: 'geo_opportunity.evaluated',
++      target_type: 'GeoOpportunityEvaluationRun', changes: [],
++      related_entry: { status: 'UNSUPPORTED', kind: null, parent_id: null },
++      facts: { scope: 'FILTERED', evaluated_cells: 10, created: 1, existing_reused: 0,
++        skipped: 9, unavailable_reasons: ['INSUFFICIENT_SAMPLE'], revision: 1,
++        as_of: '2026-10-05T08:00:00Z', filter_sha256: 'a'.repeat(64) },
++    }), runtimeLog.id);
++    expect(auditActionLabel(evaluated.action)).toBe('管理员评估 GEO 机会');
++    expect(projectAuditFacts(evaluated.facts).map((item) => item.label)).toContain('评估结果数');
++    expect(resolveAuditRelatedLink(evaluated)).toBeUndefined();
++    expectRuntimeProjectionFailure(runtimeDetail({
++      business_module: 'GEO_OBSERVATION', action: 'geo_opportunity.evaluated',
++      facts: { answer_text: 'audit-runtime-secret-sentinel' },
++    }));
++  });
++
+   it('机会创建与严格复测审计使用登记动作、闭合安全事实和机会导航', () => {
+     const common = {
+       business_module: 'GEO_OBSERVATION', target_type: 'GeoOpportunity', changes: [],
+--- before/frontend/src/domains/audit/audit.model.ts
++++ candidate/frontend/src/domains/audit/audit.model.ts
+@@ -68,6 +68,7 @@
+     'revision', 'status', 'status_event_count', 'task_id', 'trigger_status',
+   ]),
+   GEO_OBSERVATION: new Set([
++    'scope', 'evaluated_cells', 'created', 'existing_reused', 'skipped', 'unavailable_reasons',
+     'baseline_id', 'baseline_batch_id', 'batch_id', 'requested_run_count',
+     'article_count', 'article_result_count', 'attachment_count', 'observation_count', 'product_id',
+     'publication_count', 'query_topic_id', 'root_observation_id', 'supersedes_id',
+@@ -579,6 +580,7 @@
+   'geo_observation.deleted': '删除 GEO 观测',
+   'geo_rule_set.updated': '更新 GEO 规则集',
+   'geo_opportunity.opened': '创建 GEO 机会',
++  'geo_opportunity.evaluated': '管理员评估 GEO 机会',
+   'geo.retest.created': '创建 GEO 严格复测',
+   'geo_opportunity.acknowledged': '确认 GEO 机会',
+   'geo_opportunity.dismissed': '忽略 GEO 机会',
+@@ -623,6 +625,8 @@
+   baseline_id: '冻结基线 ID', baseline_batch_id: '基线批次 ID', batch_id: '复测批次 ID', requested_run_count: '请求运行数',
+   action_id: '行动 ID', action_type: '行动类型', target_type: '目标类型', target_id: '目标 ID',
+   export_type: '导出类型', as_of: '数据截止时间', filter_sha256: '筛选摘要 SHA-256',
++  scope: '评估范围', evaluated_cells: '评估结果数', created: '新建机会数',
++  existing_reused: '复用机会结果数', skipped: '跳过结果数', unavailable_reasons: '不可用原因',
+   decision_id: '处理记录 ID', decision: '处理选择', account_type: '账号类型', is_active: '启用状态', source: '来源', status: '状态', row_count: '行数', revision: '修订号', display_name: '显示名称',
+   product_id: '产品 ID', review_record_count: '审核记录数', version: '版本', fact_version_id: '事实版本 ID', platform_profile_id: '平台 ID', platform_profile_version_id: '平台版本 ID', platform_type_id: '平台类型 ID', previous_active_version_id: '原活动版本 ID', reason: '原因', replacement_version_id: '替代版本 ID',
+   generation_job_count: '生成作业数', content_version_count: '内容版本数', content_review_record_count: '内容审核记录数', publication_work_count: '发布工作数', generation_data_classification: '生成数据分级', generation_input_configured: '生成输入配置状态',
+--- before/frontend/src/shared/api/generated/schema.d.ts
++++ candidate/frontend/src/shared/api/generated/schema.d.ts
+@@ -3102,6 +3102,26 @@
+         get: operations["listGeoOpportunities"];
+         put?: never;
+         post?: never;
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/opportunities/evaluate": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /**
++         * Evaluate Opportunities
++         * @description ADMIN 显式运行一次规则机会评估；UTC 半开窗口最多31天，ALL 禁止实体过滤，FILTERED 至少指定一类实体过滤。规则 revision 显式固定，缺候选不造机会。相同用户同幂等键重放冻结回执，不创建行动或复测，不注册周期调度。evaluated_cells 按规则×范围评估结果计数（包括无候选结果），created/existing_reused/skipped 为互斥分区；unavailable reason count 按结果计数。
++         */
++        post: operations["evaluateGeoOpportunities"];
+         delete?: never;
+         options?: never;
+         head?: never;
+@@ -13613,6 +13633,68 @@
+             /** Envelope */
+             envelope: string;
+         };
++        /** GeoOpportunityEvaluationRequest */
++        GeoOpportunityEvaluationRequest: {
++            /**
++             * Scope
++             * @enum {string}
++             */
++            scope: "ALL" | "FILTERED";
++            /**
++             * Date From
++             * Format: date-time
++             */
++            date_from: string;
++            /**
++             * Date To
++             * Format: date-time
++             */
++            date_to: string;
++            /** Rule Set Revision */
++            rule_set_revision: number;
++            /** Subject Ids */
++            subject_ids?: string[];
++            /** Engine Surface Ids */
++            engine_surface_ids?: string[];
++            /** Collection Profile Ids */
++            collection_profile_ids?: string[];
++            /** Collection Modes */
++            collection_modes?: components["schemas"]["GeoCollectionMode"][];
++        };
++        /** GeoOpportunityUnavailableReason */
++        GeoOpportunityUnavailableReason: {
++            /** Code */
++            code: string;
++            /** Count */
++            count: number;
++        };
++        /** GeoOpportunityEvaluationReceipt */
++        GeoOpportunityEvaluationReceipt: {
++            /**
++             * Evaluation Run Id
++             * Format: uuid
++             */
++            evaluation_run_id: string;
++            /** Rule Set Revision */
++            rule_set_revision: number;
++            /** Evaluated Cells */
++            evaluated_cells: number;
++            /** Created */
++            created: number;
++            /** Existing Reused */
++            existing_reused: number;
++            /** Skipped */
++            skipped: number;
++            /** Unavailable Reasons */
++            unavailable_reasons: components["schemas"]["GeoOpportunityUnavailableReason"][];
++            /**
++             * As Of
++             * Format: date-time
++             */
++            as_of: string;
++            /** Replayed */
++            replayed: boolean;
++        };
+     };
+     responses: {
+         /** @description 业务或校验错误 */
+@@ -21735,6 +21817,42 @@
+             422: components["responses"]["ErrorResponse"];
+         };
+     };
++    evaluateGeoOpportunities: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "Idempotency-Key": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path?: never;
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoOpportunityEvaluationRequest"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoOpportunityEvaluationReceipt"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++            503: components["responses"]["ErrorResponse"];
++        };
++    };
+     getGeoOpportunity: {
+         parameters: {
+             query?: {

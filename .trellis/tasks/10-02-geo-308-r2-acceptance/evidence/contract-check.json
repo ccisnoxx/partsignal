@@ -1,0 +1,10 @@
+{
+  "command": [
+    "make",
+    "contract-check"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-03T06:35:42.340533+00:00",
+  "seconds": 3.27,
+  "log": "contract-check.log"
+}

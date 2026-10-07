@@ -1,0 +1,145 @@
+[
+  {
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "--",
+      "/dev/null",
+      "backend/app/models/geo_catalog.py"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "--",
+      "/dev/null",
+      "backend/alembic/versions/0044_geo_catalog.py"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "--",
+      "/dev/null",
+      "backend/tests/unit/test_geo_catalog_metadata.py"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "--",
+      "/dev/null",
+      "backend/tests/integration/test_geo_catalog.py"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "--",
+      "/dev/null",
+      "backend/tests/integration/test_geo_catalog_constraints.py"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "--",
+      "/dev/null",
+      "docs/geo-monitoring/README.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "--",
+      "/dev/null",
+      "docs/geo-monitoring/CHANGELOG.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "--",
+      "/dev/null",
+      "docs/geo-monitoring/03-technical/02-data-architecture.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "--",
+      "/dev/null",
+      "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "--",
+      "/dev/null",
+      "docs/geo-monitoring/04-delivery/task-manifest.yaml"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "--",
+      "/dev/null",
+      "docs/geo-monitoring/SHA256SUMS"
+    ],
+    "exit_code": 1,
+    "diagnostics": ""
+  }
+]

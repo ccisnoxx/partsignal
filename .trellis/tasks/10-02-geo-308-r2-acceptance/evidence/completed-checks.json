@@ -1,0 +1,125 @@
+{
+  "production_contracts_unchanged": true,
+  "gates": {
+    "r2-integration-final": {
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "pytest",
+        "backend/tests/integration/test_geo_manual_races.py",
+        "backend/tests/integration/test_geo_r2_immutability.py"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:33:00.314365+00:00",
+      "seconds": 6.01,
+      "log": "r2-integration-final.log"
+    },
+    "contract-check": {
+      "command": [
+        "make",
+        "contract-check"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:35:42.340533+00:00",
+      "seconds": 3.27,
+      "log": "contract-check.log"
+    },
+    "lint-candidate": {
+      "command": [
+        "make",
+        "lint"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:36:57.542728+00:00",
+      "seconds": 8.13,
+      "log": "lint-candidate.log"
+    },
+    "typecheck": {
+      "command": [
+        "make",
+        "typecheck"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:32:25.372925+00:00",
+      "seconds": 7.88,
+      "log": "typecheck.log"
+    },
+    "test-unit": {
+      "command": [
+        "make",
+        "test-unit"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:33:00.314301+00:00",
+      "seconds": 64.88,
+      "log": "test-unit.log"
+    },
+    "test-integration": {
+      "command": [
+        "make",
+        "test-integration",
+        "COMPOSE=docker compose -f .trellis/tasks/10-02-geo-308-r2-acceptance/evidence/compose.validation.yaml"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:33:06.649894+00:00",
+      "seconds": 450.11,
+      "log": "test-integration.log"
+    },
+    "frontend-test": {
+      "command": [
+        "npm",
+        "--prefix",
+        "frontend",
+        "run",
+        "test"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:38:07.189141+00:00",
+      "seconds": 33.39,
+      "log": "frontend-test.log"
+    },
+    "frontend-typecheck": {
+      "command": [
+        "npm",
+        "--prefix",
+        "frontend",
+        "run",
+        "typecheck"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:37:57.720278+00:00",
+      "seconds": 7.9,
+      "log": "frontend-typecheck.log"
+    },
+    "dev-compose-config": {
+      "command": [
+        "docker",
+        "compose",
+        "--env-file",
+        ".env",
+        "-f",
+        "deploy/compose.dev.yaml",
+        "config",
+        "--quiet"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:41:02.579284+00:00",
+      "seconds": 0.06,
+      "log": "dev-compose-config.log"
+    },
+    "task-context": {
+      "command": [
+        "python3",
+        ".trellis/scripts/task.py",
+        "validate",
+        ".trellis/tasks/10-02-geo-308-r2-acceptance"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:39:34.631378+00:00",
+      "seconds": 0.04,
+      "log": "task-context.log"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "RHF草稿、URL和query ownership"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "表单控件和错误可访问性"}
+{"file": ".trellis/spec/frontend/visual-system.md", "reason": "canonical tokens、TableShell和布局"}
+{"file": "docs/geo-monitoring/03-technical/04-frontend-architecture.md", "reason": "运行中心职责边界"}
+{"file": "docs/geo-monitoring/04-delivery/05-task-template.md", "reason": "Task Brief和交付证据"}
+{"file": ".trellis/tasks/10-02-geo-307-run-center/design.md", "reason": "当前任务所有权与恢复设计"}

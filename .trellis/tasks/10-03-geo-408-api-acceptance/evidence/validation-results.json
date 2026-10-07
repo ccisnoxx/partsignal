@@ -1,0 +1,118 @@
+{
+  "task": "GEO-408",
+  "branch": "geo/GEO-408",
+  "status": "review",
+  "human_accepted": false,
+  "environment": {
+    "database_url": "postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55458/partsignal",
+    "redis_url": "redis://127.0.0.1:56398/14",
+    "integration_redis_db": 15,
+    "owned_compose_project": "partsignal-geo408"
+  },
+  "required_commands": [
+    {
+      "command": "git diff --check",
+      "observed_exit_code": 0,
+      "result": "通过",
+      "log": "git-diff-check-final.log"
+    },
+    {
+      "command": "make lint",
+      "observed_exit_code": 0,
+      "result": "ruff与ESLint通过；verify再次通过",
+      "log": "make-lint-candidate.log"
+    },
+    {
+      "command": "make typecheck",
+      "observed_exit_code": 0,
+      "result": "mypy158源码与前端tsc通过；verify再次通过",
+      "log": "make-typecheck-candidate.log"
+    },
+    {
+      "command": "npm --prefix frontend run test",
+      "observed_exit_code": 0,
+      "result": "1141项/121文件通过；verify再次通过",
+      "log": "frontend-test-candidate.log"
+    },
+    {
+      "command": "npm --prefix frontend run typecheck",
+      "observed_exit_code": 0,
+      "result": "通过；verify再次通过",
+      "log": "frontend-typecheck-candidate.log"
+    },
+    {
+      "command": "make e2e",
+      "observed_exit_code": 0,
+      "result": "canonical真实26；GEO三阶段各1；页面498通过/58条件跳过",
+      "log": "make-e2e-passed.log"
+    },
+    {
+      "command": "make verify COMPOSE='docker compose -p partsignal-geo408 -f /Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-03-geo-408-api-acceptance/evidence/validation-compose.yaml'",
+      "observed_exit_code": 0,
+      "result": "完整门禁通过；后端单元3029，前端1141，真实PG集成、构建、完整E2E、部署脚本及Compose配置通过",
+      "log": "make-verify.log"
+    }
+  ],
+  "required_commands_not_run": [],
+  "e2e": {
+    "canonical_real_stack_passed": 26,
+    "geo_modes": {
+      "enabled": {
+        "passed": 1,
+        "mutually_exclusive_skip": 1,
+        "business_run_external_call_count": "按场景断言"
+      },
+      "api-disabled": {
+        "passed": 1,
+        "mutually_exclusive_skip": 1,
+        "business_run_external_call_count": 0
+      },
+      "monitoring-disabled": {
+        "passed": 1,
+        "mutually_exclusive_skip": 1,
+        "business_run_external_call_count": 0
+      }
+    },
+    "page_suite_passed": 498,
+    "page_suite_conditional_skips": 58,
+    "all_secret_scans_clean": true,
+    "all_phase_cleanup_passed": true
+  },
+  "contracts": {
+    "openapi_changed": false,
+    "database_changed": false,
+    "new_alembic_revision": null,
+    "head": "0053_geo_collection_admission",
+    "isolated_empty_database_forward_passed": true,
+    "task_historical_backfill": false
+  },
+  "review": {
+    "audit_id": "20261003T123558Z-geo-408-220c2d2c",
+    "independent_read_only_reviews": 2,
+    "digest_validated": true,
+    "audit_verify_passed": true,
+    "remaining_confirmed_candidate_findings": []
+  },
+  "cleanup": {
+    "owned_project": "partsignal-geo408",
+    "remaining_owned_resources": {
+      "containers": [],
+      "volumes": [],
+      "networks": []
+    },
+    "listening_test_ports": [],
+    "cleanup_exit_code": 0
+  },
+  "limits": [
+    "生产adapter批准false、INTERNAL外发限制保持",
+    "COLLECTED/ANALYSIS_PENDING不代表分析完成",
+    "retry pending/unknown blocker仅属于当前QueryClient会话，无浏览器持久存储",
+    "真实供应商/生产发布/GEO-801/GEO-902未执行"
+  ],
+  "non_blocking_output": [
+    "未改动迁移测试SQLAlchemy多向FK/dialect_options警告",
+    "Vite大chunk提示",
+    "容器启动探测短暂Empty reply后自检通过"
+  ],
+  "initial_failure_logs_preserved": true
+}

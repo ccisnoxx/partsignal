@@ -1,0 +1,14 @@
+{
+  "docker": {
+    "version": "29.5.2",
+    "os": "Ubuntu 24.04.4 LTS",
+    "architecture": "aarch64",
+    "cpus": 2,
+    "memory_bytes": 4095643648
+  },
+  "postgres": "16.15",
+  "python": "3.12.15",
+  "fixture": "synthetic manual, short answer, one citation, 20 products, 365 days",
+  "production_migration": false,
+  "real_provider_calls": 0
+}

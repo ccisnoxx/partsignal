@@ -1,0 +1,15 @@
+{
+  "backend/app/services/geo_analysis.py": "c3fd414ee0a02d94a9669049b672dc8f3c0fd2c3e905411de370cc10709f78a5",
+  "backend/app/services/geo_citation_rules.py": "def3f7e724ae021fe36488861ec3b5700156f7f0820801a163bb73895983b3bc",
+  "backend/tests/unit/test_geo_citations.py": "9bc91bcfd16b00ca2dd4a03c32f9af609c839fda8111bbfee655213815c6794b",
+  "backend/tests/integration/test_geo_citations.py": "558a27f2952fcb27e5224db8bf40c1d54c3c4563d53ccf11abdd1f6acb45aff0",
+  "docs/geo-monitoring/README.md": "b3f46c13ea19a777cb7d6aacf04184a1045d6992c7e41f357c0a1b31db1fe4c7",
+  "docs/geo-monitoring/CHANGELOG.md": "afc2afc162b79007200950b8215cdb6d6b12972ce99044a4f8443db4e62bd7f2",
+  "docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md": "4d39cd072a77795776bdab659309d3e2454062cd3a5a1788f0611c3068fc64e6",
+  "docs/geo-monitoring/04-delivery/task-manifest.yaml": "ac4ddf72efd93263a5ae2c36e6a504dfad21ce4afbe11f1c9d9ba2708f3b23d9",
+  "docs/geo-monitoring/SHA256SUMS": "5b7b4c7fbe5594d213e51b86f26c5c09bd776ce7f6ab67164c3e15622815973b",
+  ".trellis/tasks/10-03-geo-504-citation-attribution/prd.md": "88c09167a0430bcca7e4c73e2b21622d734bad77565072c0009f859d07366f58",
+  ".trellis/tasks/10-03-geo-504-citation-attribution/design.md": "37fc99b780a9d3153362585b5e222003c128923fa8ca457b485aaaea89d77fdf",
+  ".trellis/tasks/10-03-geo-504-citation-attribution/implement.md": "951f85d31268b6e5563f0584c3ff58da66e8ce9b1d894fa88c9573292d988d4a",
+  ".trellis/tasks/10-03-geo-504-citation-attribution/task.json": "f7bdabc33a6a0e22d832d110b1939f037dee079b690597e92b7d3d2bd6268d6a"
+}

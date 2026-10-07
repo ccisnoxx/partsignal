@@ -1,0 +1,2746 @@
+--- baseline/backend/app/audit_types.py
++++ backend/app/audit_types.py
+@@ -77,6 +77,8 @@
+         "platform_account.deleted",
+         "geo_observation.deleted",
+         "geo_observation_batch.created",
++        "geo_manual_draft.saved",
++        "geo_manual_observation.submitted",
+         "geo_monitoring_plan.created",
+         "geo_monitoring_plan.updated",
+         "geo_monitoring_plan.activated",
+@@ -171,6 +173,9 @@
+     ),
+     AuditModule.GEO_OBSERVATION: frozenset(
+         {
++            "run_id",
++            "draft_revision",
++            "answer_snapshot_id",
+             "article_count",
+             "article_result_count",
+             "attachment_count",
+--- baseline/backend/app/main.py
++++ backend/app/main.py
+@@ -28,6 +28,7 @@
+ from app.routers.files import router as files_router
+ from app.routers.geo_batches import router as geo_batches_router
+ from app.routers.geo_catalog import router as geo_catalog_router
++from app.routers.geo_manual_collection import router as geo_manual_collection_router
+ from app.routers.geo_monitoring_plans import router as geo_monitoring_plans_router
+ from app.routers.geo_questions import router as geo_questions_router
+ from app.routers.geo_surface_management import router as geo_surface_management_router
+@@ -39,6 +40,7 @@
+ from app.routers.publication import router as publication_router
+ from app.routers.workbench import router as workbench_router
+ from app.schemas.common import HealthResponse
++from app.schemas.geo_answers import GeoRawPayloadSummary
+ from app.schemas.geo_surfaces import GeoApiSettings
+ 
+ logger = logging.getLogger("partsignal.api")
+@@ -330,6 +332,7 @@
+ app.include_router(geo_questions_router)
+ app.include_router(geo_monitoring_plans_router)
+ app.include_router(geo_batches_router)
++app.include_router(geo_manual_collection_router)
+ app.include_router(geo_surface_management_router)
+ app.include_router(configuration_router)
+ app.include_router(product_facts_router)
+@@ -352,6 +355,9 @@
+         api_settings = schema["components"]["schemas"]["GeoApiSettings"]["properties"]
+         for name in ("temperature", "max_output_tokens"):
+             api_settings[name]["default"] = GeoApiSettings.model_fields[name].default
++        summary = schema["components"]["schemas"]["GeoRawPayloadSummary"]["properties"]
++        for name in ("payload_format", "payload_bytes", "finish_reason"):
++            summary[name]["default"] = GeoRawPayloadSummary.model_fields[name].default
+         _merge_request_context_metadata(schema)
+         app.openapi_schema = schema
+     return app.openapi_schema
+--- baseline/backend/app/models/__init__.py
++++ backend/app/models/__init__.py
+@@ -7,6 +7,7 @@
+ import app.models.geo_batch_creation  # noqa: F401
+ import app.models.geo_catalog  # noqa: F401
+ import app.models.geo_files  # noqa: F401
++import app.models.geo_manual_collection  # noqa: F401
+ import app.models.geo_monitoring_plans  # noqa: F401
+ import app.models.geo_prompt_variants  # noqa: F401
+ import app.models.geo_runs  # noqa: F401
+--- baseline/backend/app/models/geo_manual_collection.py
++++ backend/app/models/geo_manual_collection.py
+@@ -0,0 +1,108 @@
++"""Run 临时草稿与不可变人工提交身份；0051 拥有最终防线。"""
++
++import uuid
++from datetime import datetime
++from typing import Any
++
++from sqlalchemy import (
++    CheckConstraint,
++    DateTime,
++    ForeignKey,
++    Index,
++    Integer,
++    String,
++    UniqueConstraint,
++    func,
++)
++from sqlalchemy.dialects.postgresql import JSONB, UUID
++from sqlalchemy.orm import Mapped, mapped_column
++from sqlalchemy.schema import conv
++
++from app.db import Base
++
++
++class GeoManualDraft(Base):
++    __tablename__ = "geo_manual_drafts"
++    __table_args__ = (
++        CheckConstraint("draft_revision >= 1", name=conv("ck_geo_manual_drafts_revision")),
++        CheckConstraint("geo_manual_draft_valid(draft)", name=conv("ck_geo_manual_drafts_payload")),
++        CheckConstraint(
++            "(draft->>'screenshot_file_id')::uuid IS NOT DISTINCT FROM screenshot_file_id AND "
++            "(draft->>'raw_payload_file_id')::uuid IS NOT DISTINCT FROM raw_payload_file_id AND "
++            "(screenshot_file_id IS NULL OR raw_payload_file_id IS NULL OR "
++            "screenshot_file_id <> raw_payload_file_id)",
++            name=conv("ck_geo_manual_drafts_files"),
++        ),
++        Index("ix_geo_manual_drafts_screenshot_file", "screenshot_file_id"),
++        Index("ix_geo_manual_drafts_raw_file", "raw_payload_file_id"),
++        Index("ix_geo_manual_drafts_actor", "updated_by"),
++    )
++    run_id: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("geo_observation_runs.id", name="fk_geo_manual_drafts_run", ondelete="RESTRICT"),
++        primary_key=True,
++    )
++    draft_revision: Mapped[int] = mapped_column(Integer, nullable=False)
++    draft: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
++    screenshot_file_id: Mapped[uuid.UUID | None] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("file_records.id", name="fk_geo_manual_drafts_screenshot", ondelete="RESTRICT"),
++    )
++    raw_payload_file_id: Mapped[uuid.UUID | None] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("file_records.id", name="fk_geo_manual_drafts_raw", ondelete="RESTRICT"),
++    )
++    updated_by: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("users.id", name="fk_geo_manual_drafts_actor", ondelete="RESTRICT"),
++        nullable=False,
++    )
++    created_at: Mapped[datetime] = mapped_column(
++        DateTime(timezone=True), nullable=False, server_default=func.now()
++    )
++    updated_at: Mapped[datetime] = mapped_column(
++        DateTime(timezone=True), nullable=False, server_default=func.now()
++    )
++
++
++class GeoManualSubmission(Base):
++    __tablename__ = "geo_manual_submissions"
++    __table_args__ = (
++        UniqueConstraint("run_id", name="uq_geo_manual_submissions_run"),
++        UniqueConstraint("answer_snapshot_id", name="uq_geo_manual_submissions_answer"),
++        CheckConstraint(
++            "identity_hash ~ '^[0-9a-f]{64}$' AND request_hash ~ '^[0-9a-f]{64}$'",
++            name=conv("ck_geo_manual_submissions_hashes"),
++        ),
++        CheckConstraint(
++            "run_revision >= 1 AND draft_revision >= 0",
++            name=conv("ck_geo_manual_submissions_revisions"),
++        ),
++        Index("ix_geo_manual_submissions_actor", "submitted_by"),
++    )
++    identity_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
++    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
++    run_id: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey(
++            "geo_observation_runs.id", name="fk_geo_manual_submissions_run", ondelete="RESTRICT"
++        ),
++        nullable=False,
++    )
++    answer_snapshot_id: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey(
++            "geo_answer_snapshots.id", name="fk_geo_manual_submissions_answer", ondelete="RESTRICT"
++        ),
++        nullable=False,
++    )
++    submitted_by: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("users.id", name="fk_geo_manual_submissions_actor", ondelete="RESTRICT"),
++        nullable=False,
++    )
++    run_revision: Mapped[int] = mapped_column(Integer, nullable=False)
++    draft_revision: Mapped[int] = mapped_column(Integer, nullable=False)
++    created_at: Mapped[datetime] = mapped_column(
++        DateTime(timezone=True), nullable=False, server_default=func.now()
++    )
+--- baseline/backend/app/routers/geo_manual_collection.py
++++ backend/app/routers/geo_manual_collection.py
+@@ -0,0 +1,79 @@
++"""人工录入 HTTP 边界；不拥有事务、行锁或持久化写入。"""
++
++from typing import Annotated
++from uuid import UUID
++
++from fastapi import APIRouter, Depends, Header, Request
++
++from app.deps import CsrfProtected, DbSession, EngineerUser
++from app.errors import error_responses
++from app.schemas.geo_manual_collection import (
++    GeoManualDraftOut,
++    GeoManualDraftSave,
++    GeoManualEntryContext,
++    GeoManualObservationSubmit,
++    GeoManualObservationSubmitted,
++)
++from app.services import geo_manual_collection as service
++from app.services.geo_plan_queries import read_snapshot
++
++router = APIRouter(prefix="/api/v1/geo/observation-runs", tags=["geo-manual-collection"])
++
++
++@router.get(
++    "/{run_id}/manual-entry",
++    response_model=GeoManualEntryContext,
++    operation_id="getGeoManualEntryContext",
++    dependencies=[Depends(read_snapshot)],
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def manual_entry(run_id: UUID, db: DbSession, user: EngineerUser) -> GeoManualEntryContext:
++    return service.manual_entry_context(db, run_id=run_id, actor=user)
++
++
++@router.put(
++    "/{run_id}/manual-draft",
++    response_model=GeoManualDraftOut,
++    operation_id="saveGeoManualDraft",
++    responses=error_responses(401, 403, 404, 409, 422, 503),
++)
++def save_manual_draft(
++    run_id: UUID,
++    payload: GeoManualDraftSave,
++    request: Request,
++    db: DbSession,
++    user: EngineerUser,
++    _csrf: CsrfProtected,
++) -> GeoManualDraftOut:
++    return service.save_manual_draft(
++        db, run_id=run_id, payload=payload, actor=user, request_id=request.state.request_id
++    )
++
++
++@router.post(
++    "/{run_id}/manual-submit",
++    status_code=201,
++    response_model=GeoManualObservationSubmitted,
++    operation_id="submitGeoManualObservation",
++    responses=error_responses(401, 403, 404, 409, 422, 503),
++)
++def submit_manual_observation(
++    run_id: UUID,
++    payload: GeoManualObservationSubmit,
++    request: Request,
++    db: DbSession,
++    user: EngineerUser,
++    _csrf: CsrfProtected,
++    idempotency_key: Annotated[
++        str,
++        Header(alias="Idempotency-Key", min_length=1, max_length=160, pattern=r"^[\x21-\x7E]+$"),
++    ],
++) -> GeoManualObservationSubmitted:
++    return service.submit_manual_observation(
++        db,
++        run_id=run_id,
++        payload=payload,
++        actor=user,
++        idempotency_key=idempotency_key,
++        request_id=request.state.request_id,
++    )
+--- baseline/backend/app/schemas/geo_manual_collection.py
++++ backend/app/schemas/geo_manual_collection.py
+@@ -0,0 +1,92 @@
++"""人工编辑上下文与一次性提交；环境始终来自不可变 Run 输入。"""
++
++from datetime import datetime
++from typing import Annotated, Literal, Self
++from uuid import UUID
++
++from pydantic import AwareDatetime, Field, StrictBool, model_validator
++
++from app.schemas.base import ContractModel
++from app.schemas.geo_answers import GeoAnswerCitationInput, GeoRawPayloadSummary
++from app.schemas.geo_prompt_variants import Revision
++from app.schemas.geo_run_workflow import GeoRunWorkflowProjection
++from app.schemas.geo_runs import GeoRunInputSnapshot, Sha256
++from app.schemas.geo_surface_management import GeoProfileActivationBlocker
++
++DraftText = Annotated[str, Field(strict=True, max_length=1048576, pattern=r"^[^\x00]*$")]
++SourceProduct = Annotated[
++    str,
++    Field(strict=True, min_length=1, max_length=160, pattern=r"^[^\s\x00](?:[^\x00]*[^\s\x00])?$"),
++]
++SourceModel = Annotated[
++    str,
++    Field(strict=True, min_length=1, max_length=200, pattern=r"^[^\s\x00](?:[^\x00]*[^\s\x00])?$"),
++]
++
++
++class GeoManualCitationInput(GeoAnswerCitationInput):
++    extraction_source: Literal["MANUAL"] = "MANUAL"
++
++
++class GeoManualObservationDraft(ContractModel):
++    answer_text: DraftText = ""
++    answer_format: Literal["TEXT", "MARKDOWN", "HTML_TEXT"] = "TEXT"
++    source_product: SourceProduct | None = None
++    source_model: SourceModel | None = None
++    source_version: SourceModel | None = None
++    web_search_observed: StrictBool | None = None
++    raw_payload_summary: GeoRawPayloadSummary = Field(default_factory=GeoRawPayloadSummary)
++    raw_payload_file_id: UUID | None = None
++    screenshot_file_id: UUID | None = None
++    citations: list[GeoManualCitationInput] = Field(default_factory=list, max_length=1000)
++    collected_at: AwareDatetime | None = None
++
++    @model_validator(mode="after")
++    def distinct_citation_positions(self) -> Self:
++        if len({value.position for value in self.citations}) != len(self.citations):
++            raise ValueError("引用的实际位置不能重复")
++        return self
++
++
++class GeoManualDraftSave(ContractModel):
++    expected_draft_revision: Revision
++    draft: GeoManualObservationDraft
++
++
++class GeoManualObservationSubmit(GeoManualObservationDraft):
++    expected_draft_revision: Revision
++    answer_text: DraftText
++    collected_at: AwareDatetime
++
++
++class GeoManualDraftOut(ContractModel):
++    run_id: UUID
++    draft_revision: Revision
++    draft: GeoManualObservationDraft
++    updated_by: UUID
++    updated_at: datetime
++
++
++class GeoManualEntryContext(GeoRunWorkflowProjection):
++    run_id: UUID
++    batch_id: UUID
++    run_revision: Revision
++    input_snapshot: GeoRunInputSnapshot
++    require_screenshot: StrictBool
++    draft_revision: Revision
++    draft: GeoManualDraftOut | None
++    collection_blockers: list[GeoProfileActivationBlocker]
++
++
++class GeoManualObservationSubmitted(ContractModel):
++    """首次提交的稳定回执；不代表当前 Run 状态或已经执行分析。"""
++
++    run_id: UUID
++    answer_snapshot_id: UUID
++    answer_sha256: Sha256
++    run_revision: Revision
++    draft_revision: Revision
++    collected_at: AwareDatetime
++    submitted_at: AwareDatetime
++    collection_status: Literal["COLLECTED"]
++    analysis_dispatch: Literal["NOT_IMPLEMENTED"]
+--- baseline/backend/app/services/file_records.py
++++ backend/app/services/file_records.py
+@@ -19,6 +19,7 @@
+ from app.models.configuration import PlatformProfile
+ from app.models.geo_answers import GeoAnswerSnapshot
+ from app.models.geo_files import FileRecord, GeoObservationAttachment
++from app.models.geo_manual_collection import GeoManualDraft
+ from app.models.identity import User
+ from app.models.publication import PublicationAttachment
+ from app.schemas.geo_files import UploadInstruction, UploadIntent, UploadIntentCreate
+@@ -246,6 +247,8 @@
+             (GeoObservationAttachment, GeoObservationAttachment.file_id),
+             (GeoAnswerSnapshot, GeoAnswerSnapshot.raw_payload_file_id),
+             (GeoAnswerSnapshot, GeoAnswerSnapshot.screenshot_file_id),
++            (GeoManualDraft, GeoManualDraft.raw_payload_file_id),
++            (GeoManualDraft, GeoManualDraft.screenshot_file_id),
+         )
+     )
+ 
+--- baseline/backend/app/services/geo_manual_collection.py
++++ backend/app/services/geo_manual_collection.py
+@@ -0,0 +1,464 @@
++"""人工采集事务 owner；原文、引用、文件与状态一次冻结，分析尚未接线。"""
++
++import hashlib
++import json
++from dataclasses import replace
++from datetime import UTC, datetime
++from typing import Any
++from uuid import UUID
++
++from sqlalchemy import func, select
++from sqlalchemy.orm import Session
++
++from app.audit import append_audit
++from app.audit_types import AuditEntry, AuditModule, AuditOutcome
++from app.errors import AppError, not_found
++from app.models.geo_answers import GeoAnswerCitation, GeoAnswerSnapshot
++from app.models.geo_files import FileRecord
++from app.models.geo_manual_collection import GeoManualDraft, GeoManualSubmission
++from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
++from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
++from app.models.identity import User
++from app.schemas.common import AccountType
++from app.schemas.geo_answers import GeoAnswerCitationInput
++from app.schemas.geo_manual_collection import (
++    GeoManualDraftOut,
++    GeoManualDraftSave,
++    GeoManualEntryContext,
++    GeoManualObservationDraft,
++    GeoManualObservationSubmit,
++    GeoManualObservationSubmitted,
++)
++from app.schemas.geo_runs import (
++    GeoExternalCallState,
++    GeoRunErrorStage,
++    GeoRunInputSnapshot,
++    GeoRunStatus,
++)
++from app.schemas.geo_surface_management import GeoProfileActivationBlocker
++from app.schemas.geo_surfaces import GeoCollectionMode
++from app.services.file_records import DETACHED_RETENTION, schedule_unreferenced_file
++from app.services.geo_answer_citations import prepare_answer_citations
++from app.services.geo_answer_files import lock_answer_evidence_files
++from app.services.geo_batch_policy import BatchRunState, batch_status
++from app.services.geo_collection_profiles import profile_eligibility
++from app.services.geo_plan_locks import command
++from app.services.geo_run_policy import (
++    RunCommandAvailability,
++    RunState,
++    run_transition,
++    run_workflow,
++)
++
++
++def submission_identity(actor_id: UUID, key: str) -> str:
++    if not 1 <= len(key) <= 160 or any(not 0x21 <= ord(c) <= 0x7E for c in key):
++        raise AppError("VALIDATION_ERROR", "提交幂等键必须为1至160字符可见ASCII", 422)
++    return hashlib.sha256(f"geo-manual-submit:{actor_id}:{key}".encode()).hexdigest()
++
++
++def canonical_draft(value: GeoManualObservationDraft) -> dict[str, Any]:
++    data = value.model_dump(mode="json", exclude={"expected_draft_revision"})
++    data["citations"] = sorted(data["citations"], key=lambda v: v["position"])
++    if value.collected_at is not None:
++        data["collected_at"] = value.collected_at.astimezone(UTC).isoformat(timespec="microseconds")
++    return data
++
++
++def submission_hash(run_id: UUID, value: GeoManualObservationSubmit) -> str:
++    data = {
++        "run_id": str(run_id),
++        "expected_draft_revision": value.expected_draft_revision,
++        "observation": canonical_draft(value),
++    }
++    return hashlib.sha256(
++        json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
++    ).hexdigest()
++
++
++def _run(db: Session, run_id: UUID, *, lock: bool = False) -> GeoObservationRun:
++    query = select(GeoObservationRun).where(GeoObservationRun.id == run_id)
++    if lock:
++        query = query.with_for_update()
++    run = db.scalar(query.execution_options(populate_existing=True))
++    if run is None:
++        raise not_found("GEO 运行")
++    return run
++
++
++def _state(db: Session, run: GeoObservationRun) -> RunState:
++    return RunState(
++        status=GeoRunStatus(run.status),
++        collection_mode=GeoCollectionMode(run.input_snapshot["profile"]["collection_mode"]),
++        external_call_state=GeoExternalCallState(run.external_call_state),
++        error_stage=GeoRunErrorStage(run.error_stage) if run.error_stage else None,
++        has_answer=bool(
++            db.scalar(select(GeoAnswerSnapshot.id).where(GeoAnswerSnapshot.run_id == run.id))
++        ),
++        has_successor=bool(
++            db.scalar(
++                select(GeoObservationRun.id).where(GeoObservationRun.previous_attempt_id == run.id)
++            )
++        ),
++    )
++
++
++def _require_pending(state: RunState) -> None:
++    if state.collection_mode != GeoCollectionMode.MANUAL:
++        raise AppError("GEO_MANUAL_MODE_REQUIRED", "只有 MANUAL 运行可人工录入", 409)
++    if (
++        state.status != GeoRunStatus.PENDING
++        or state.external_call_state != GeoExternalCallState.NOT_STARTED
++        or state.has_answer
++        or state.has_successor
++    ):
++        raise AppError("INVALID_STATE_TRANSITION", "当前运行不可编辑或再次正式提交", 409)
++
++
++def _draft(db: Session, run_id: UUID, *, lock: bool = False) -> GeoManualDraft | None:
++    query = select(GeoManualDraft).where(GeoManualDraft.run_id == run_id)
++    if lock:
++        query = query.with_for_update()
++    return db.scalar(query.execution_options(populate_existing=True))
++
++
++def _draft_out(value: GeoManualDraft) -> GeoManualDraftOut:
++    return GeoManualDraftOut(
++        run_id=value.run_id,
++        draft_revision=value.draft_revision,
++        draft=GeoManualObservationDraft.model_validate(value.draft),
++        updated_by=value.updated_by,
++        updated_at=value.updated_at,
++    )
++
++
++def manual_entry_context(db: Session, *, run_id: UUID, actor: User) -> GeoManualEntryContext:
++    run = _run(db, run_id)
++    state = _state(db, run)
++    _require_pending(state)
++    eligibility = profile_eligibility(db, run.collection_profile_id)
++    draft = _draft(db, run_id)
++    workflow = run_workflow(
++        state,
++        actor_type=AccountType(actor.account_type),
++        actor_active=actor.is_active,
++        collection_eligible=eligibility.eligible,
++        commands=RunCommandAvailability(manual_entry=True, cancel=False, retry=False),
++    )
++    snapshot = GeoRunInputSnapshot.model_validate(run.input_snapshot)
++    return GeoManualEntryContext(
++        **workflow.model_dump(),
++        run_id=run.id,
++        batch_id=run.batch_id,
++        run_revision=run.revision,
++        input_snapshot=snapshot,
++        require_screenshot=run.input_snapshot["profile"]["settings"].get(
++            "require_screenshot", True
++        ),
++        draft_revision=draft.draft_revision if draft else 0,
++        draft=_draft_out(draft) if draft else None,
++        collection_blockers=[
++            GeoProfileActivationBlocker(code=b.code, field=b.field) for b in eligibility.blockers
++        ],
++    )
++
++
++def _lock_entry(db: Session, run_id: UUID) -> tuple[GeoObservationRun, GeoObservationBatch]:
++    initial = _run(db, run_id)
++    # Run 的身份和绑定不可变；初读仅确定锁集合，当前资格在锁后重验。
++    if initial.input_snapshot["profile"]["collection_mode"] != "MANUAL":
++        raise AppError("GEO_MANUAL_MODE_REQUIRED", "只有 MANUAL 运行可人工录入", 409)
++    surface_id = UUID(initial.input_snapshot["profile"]["surface"]["id"])
++    db.execute(
++        select(GeoEngineSurface.id).where(GeoEngineSurface.id == surface_id).with_for_update()
++    ).all()
++    profile = db.scalar(
++        select(GeoCollectionProfile)
++        .where(GeoCollectionProfile.id == initial.collection_profile_id)
++        .with_for_update()
++        .execution_options(populate_existing=True)
++    )
++    if profile is None:
++        raise not_found("GEO 采集配置")
++    if profile.engine_surface_id != surface_id or profile.collection_mode != "MANUAL":
++        raise AppError("GEO_PROFILE_CHANGED", "当前采集配置与冻结的人工运行绑定不一致", 409)
++    batch = db.scalar(
++        select(GeoObservationBatch)
++        .where(GeoObservationBatch.id == initial.batch_id)
++        .with_for_update()
++        .execution_options(populate_existing=True)
++    )
++    if batch is None:
++        raise not_found("GEO 批次")
++    run = _run(db, run_id, lock=True)
++    _require_pending(_state(db, run))
++    eligibility = profile_eligibility(db, run.collection_profile_id)
++    if not eligibility.eligible:
++        raise AppError(
++            "GEO_PLAN_PROFILE_INELIGIBLE",
++            "当前配置不具备采集资格",
++            422,
++            details={
++                "blockers": [{"code": b.code.value, "field": b.field} for b in eligibility.blockers]
++            },
++        )
++    return run, batch
++
++
++def _check_revision(draft: GeoManualDraft | None, expected: int) -> None:
++    actual = draft.draft_revision if draft else 0
++    if actual != expected:
++        raise AppError(
++            "REVISION_CONFLICT",
++            "人工草稿已被其他请求修改，请重新读取",
++            409,
++            details={"current_revision": actual},
++        )
++
++
++def _file_ids(value: GeoManualDraft | GeoManualObservationDraft | None) -> set[UUID]:
++    return (
++        {v for v in (value.screenshot_file_id, value.raw_payload_file_id) if v is not None}
++        if value
++        else set()
++    )
++
++
++def _lock_files(
++    db: Session, draft: GeoManualDraft | None, value: GeoManualObservationDraft, actor: User
++) -> set[UUID]:
++    old = _file_ids(draft)
++    # 先一次锁定旧、新引用全集，避免解绑清理在新文件锁之后逆序获取旧锁。
++    ids = old | _file_ids(value)
++    db.execute(
++        select(FileRecord.id)
++        .where(FileRecord.id.in_(ids))
++        .order_by(FileRecord.id)
++        .with_for_update()
++    ).all()
++    lock_answer_evidence_files(
++        db,
++        uploader_id=actor.id,
++        screenshot_file_id=value.screenshot_file_id,
++        raw_payload_file_id=value.raw_payload_file_id,
++    )
++    return old - _file_ids(value)
++
++
++def _cleanup_detached(db: Session, ids: set[UUID], now: datetime) -> None:
++    for identity in sorted(ids):
++        schedule_unreferenced_file(db, identity, cleanup_after=now + DETACHED_RETENTION)
++
++
++def _audit(
++    db: Session,
++    *,
++    actor: User,
++    run_id: UUID,
++    revision: int,
++    request_id: str,
++    submitted: UUID | None = None,
++) -> None:
++    facts: dict[str, Any] = {"run_id": str(run_id), "draft_revision": revision}
++    if submitted is not None:
++        facts["answer_snapshot_id"] = str(submitted)
++    append_audit(
++        db,
++        AuditEntry(
++            actor_id=actor.id,
++            business_module=AuditModule.GEO_OBSERVATION,
++            action="geo_manual_observation.submitted" if submitted else "geo_manual_draft.saved",
++            target_type="GeoObservationRun",
++            target_id=run_id,
++            request_id=request_id,
++            outcome=AuditOutcome.SUCCESS,
++            result_message="人工回答已冻结，等待分析" if submitted else "人工草稿已保存",
++            details={"facts": facts},
++        ),
++    )
++
++
++def save_manual_draft(
++    db: Session, *, run_id: UUID, payload: GeoManualDraftSave, actor: User, request_id: str
++) -> GeoManualDraftOut:
++    with command(db, actor) as current:
++        _lock_entry(db, run_id)
++        draft = _draft(db, run_id, lock=True)
++        _check_revision(draft, payload.expected_draft_revision)
++        data = canonical_draft(payload.draft)
++        if draft is not None and draft.draft == data:
++            result = _draft_out(draft)
++            db.rollback()
++            return result
++        detached = _lock_files(db, draft, payload.draft, current)
++        now = db.scalar(select(func.clock_timestamp()))
++        assert isinstance(now, datetime)
++        if draft is None:
++            draft = GeoManualDraft(
++                run_id=run_id,
++                draft_revision=1,
++                draft=data,
++                updated_by=current.id,
++                updated_at=now,
++                created_at=now,
++                screenshot_file_id=payload.draft.screenshot_file_id,
++                raw_payload_file_id=payload.draft.raw_payload_file_id,
++            )
++            db.add(draft)
++        else:
++            draft.draft = data
++            draft.draft_revision += 1
++            draft.updated_by = current.id
++            draft.updated_at = now
++            draft.screenshot_file_id = payload.draft.screenshot_file_id
++            draft.raw_payload_file_id = payload.draft.raw_payload_file_id
++        db.flush()
++        _cleanup_detached(db, detached, now)
++        _audit(
++            db, actor=current, run_id=run_id, revision=draft.draft_revision, request_id=request_id
++        )
++        result = _draft_out(draft)
++        db.commit()
++        return result
++
++
++def _receipt(db: Session, submission: GeoManualSubmission) -> GeoManualObservationSubmitted:
++    answer = db.get(GeoAnswerSnapshot, submission.answer_snapshot_id)
++    if answer is None:
++        raise ValueError("提交身份缺少不可变回答")
++    return GeoManualObservationSubmitted(
++        run_id=submission.run_id,
++        answer_snapshot_id=answer.id,
++        answer_sha256=answer.answer_sha256,
++        run_revision=submission.run_revision,
++        draft_revision=submission.draft_revision,
++        collected_at=answer.collected_at,
++        submitted_at=submission.created_at,
++        collection_status="COLLECTED",
++        analysis_dispatch="NOT_IMPLEMENTED",
++    )
++
++
++def _refresh_batch(db: Session, batch: GeoObservationBatch, now: datetime) -> None:
++    runs = list(db.scalars(select(GeoObservationRun).where(GeoObservationRun.batch_id == batch.id)))
++    states = [BatchRunState(r.run_cell_key, r.attempt_no, _state(db, r)) for r in runs]
++    status = batch_status(
++        states, requested_run_count=batch.requested_run_count, matrix_committed=True
++    )
++    if batch.status != status:
++        batch.status = status.value
++        batch.revision += 1
++        if batch.started_at is None:
++            batch.started_at = now
++
++
++def submit_manual_observation(
++    db: Session,
++    *,
++    run_id: UUID,
++    payload: GeoManualObservationSubmit,
++    actor: User,
++    idempotency_key: str,
++    request_id: str,
++) -> GeoManualObservationSubmitted:
++    identity = submission_identity(actor.id, idempotency_key)
++    digest = submission_hash(run_id, payload)
++    with command(db, actor) as current:
++        key = int.from_bytes(bytes.fromhex(identity)[:8], "big", signed=True)
++        db.execute(select(func.pg_advisory_xact_lock(key)))
++        previous = db.get(GeoManualSubmission, identity)
++        if previous is not None:
++            if previous.request_hash != digest:
++                raise AppError("IDEMPOTENCY_CONFLICT", "同一幂等键不能用于不同提交内容或运行", 409)
++            result = _receipt(db, previous)
++            db.rollback()
++            return result
++        run, batch = _lock_entry(db, run_id)
++        draft = _draft(db, run_id, lock=True)
++        _check_revision(draft, payload.expected_draft_revision)
++        if not payload.answer_text.strip():
++            raise AppError("GEO_ANSWER_EMPTY", "正式提交必须包含非空回答", 422)
++        if payload.screenshot_file_id is None and payload.raw_payload_file_id is None:
++            raise AppError("GEO_EVIDENCE_REQUIRED", "正式提交必须包含截图或原始证据", 422)
++        if (
++            run.input_snapshot["profile"]["settings"].get("require_screenshot", True)
++            and payload.screenshot_file_id is None
++        ):
++            raise AppError("GEO_SCREENSHOT_REQUIRED", "冻结的采集配置要求截图证据", 422)
++        detached = _lock_files(db, draft, payload, current)
++        now = db.scalar(select(func.clock_timestamp()))
++        assert isinstance(now, datetime)
++        collected = payload.collected_at.astimezone(UTC)
++        if not run.created_at <= collected <= now:
++            raise AppError("VALIDATION_ERROR", "采集时间必须在运行创建与当前提交时间之间", 422)
++        citations = prepare_answer_citations(
++            [GeoAnswerCitationInput.model_validate(v.model_dump()) for v in payload.citations]
++        )
++        # 先解除临时引用，再创建答案；所有步骤仍受 Run 锁和同一事务保护。
++        if draft is not None:
++            db.delete(draft)
++            db.flush()
++        answer = GeoAnswerSnapshot(
++            run_id=run.id,
++            prompt_text=run.input_snapshot["prompt"]["prompt_text"],
++            answer_text=payload.answer_text,
++            answer_format=payload.answer_format,
++            source_product=payload.source_product,
++            source_model=payload.source_model,
++            source_version=payload.source_version,
++            web_search_observed=payload.web_search_observed,
++            raw_payload_summary=payload.raw_payload_summary.model_dump(mode="json"),
++            raw_payload_file_id=payload.raw_payload_file_id,
++            screenshot_file_id=payload.screenshot_file_id,
++            citation_count=len(citations),
++            collected_at=collected,
++        )
++        db.add(answer)
++        db.flush()
++        db.add_all(
++            [
++                GeoAnswerCitation(
++                    answer_snapshot_id=answer.id,
++                    original_url=c.original_url,
++                    normalized_url=c.normalized_url,
++                    hostname=c.hostname,
++                    position=c.position,
++                    occurrences=list(c.occurrences),
++                    title=c.title,
++                    extraction_source=c.extraction_source,
++                )
++                for c in citations
++            ]
++        )
++        db.flush()
++        run_transition(replace(_state(db, run), has_answer=True), GeoRunStatus.COLLECTED)
++        run.status = "COLLECTED"
++        run.revision += 1
++        run.started_at = collected
++        run.collected_at = collected
++        db.flush()
++        _refresh_batch(db, batch, now)
++        submission = GeoManualSubmission(
++            identity_hash=identity,
++            request_hash=digest,
++            run_id=run.id,
++            answer_snapshot_id=answer.id,
++            submitted_by=current.id,
++            run_revision=run.revision,
++            draft_revision=payload.expected_draft_revision,
++            created_at=now,
++        )
++        db.add(submission)
++        _cleanup_detached(db, detached, now)
++        _audit(
++            db,
++            actor=current,
++            run_id=run_id,
++            revision=payload.expected_draft_revision,
++            submitted=answer.id,
++            request_id=request_id,
++        )
++        db.flush()
++        result = _receipt(db, submission)
++        db.commit()
++        return result
+--- baseline/backend/app/services/identity.py
++++ backend/app/services/identity.py
+@@ -24,6 +24,7 @@
+ from app.models.content import ContentReviewRecord, ContentTask, ContentVersion
+ from app.models.geo_catalog import GeoSubject
+ from app.models.geo_files import FileRecord, GeoObservation
++from app.models.geo_manual_collection import GeoManualDraft, GeoManualSubmission
+ from app.models.geo_monitoring_plans import GeoMonitoringPlan
+ from app.models.geo_prompt_variants import GeoPromptVariant
+ from app.models.geo_runs import GeoObservationBatch
+@@ -100,6 +101,8 @@
+         GeoMonitoringPlan.created_by,
+         GeoMonitoringPlan.updated_by,
+         GeoObservationBatch.created_by,
++        GeoManualDraft.updated_by,
++        GeoManualSubmission.submitted_by,
+         FileRecord.uploader_id,
+         FactVersion.created_by,
+         FactVersion.approved_by,
+--- baseline/backend/alembic/sql/0051_geo_manual_collection.sql
++++ backend/alembic/sql/0051_geo_manual_collection.sql
+@@ -0,0 +1,162 @@
++CREATE FUNCTION geo_manual_draft_valid(v jsonb) RETURNS boolean
++LANGUAGE plpgsql IMMUTABLE AS $$
++DECLARE c jsonb; k text; pos integer[] := '{}';
++BEGIN
++    IF jsonb_typeof(v) IS DISTINCT FROM 'object' OR NOT v ?& ARRAY[
++        'answer_text','answer_format','source_product','source_model','source_version',
++        'web_search_observed','raw_payload_summary','raw_payload_file_id',
++        'screenshot_file_id','citations','collected_at']
++        OR EXISTS (SELECT 1 FROM jsonb_object_keys(v) key WHERE key <> ALL(ARRAY[
++            'answer_text','answer_format','source_product','source_model','source_version',
++            'web_search_observed','raw_payload_summary','raw_payload_file_id',
++            'screenshot_file_id','citations','collected_at'])) THEN RETURN false; END IF;
++    IF jsonb_typeof(v->'answer_text') IS DISTINCT FROM 'string'
++        OR length(v->>'answer_text') > 1048576
++        OR COALESCE((v->>'answer_format') NOT IN ('TEXT','MARKDOWN','HTML_TEXT'),true)
++        OR NOT geo_raw_summary_valid(v->'raw_payload_summary')
++        OR jsonb_typeof(v->'web_search_observed') NOT IN ('boolean','null')
++        OR jsonb_typeof(v->'citations') IS DISTINCT FROM 'array' THEN RETURN false; END IF;
++    FOREACH k IN ARRAY ARRAY['source_product','source_model','source_version'] LOOP
++        IF jsonb_typeof(v->k) <> 'null' AND (jsonb_typeof(v->k) <> 'string'
++            OR length(btrim(v->>k))=0 OR length(v->>k) > CASE WHEN k='source_product' THEN 160 ELSE 200 END)
++            THEN RETURN false; END IF;
++    END LOOP;
++    IF NOT geo_snapshot_uuids(v, '{}', ARRAY['raw_payload_file_id','screenshot_file_id']) THEN RETURN false; END IF;
++    IF jsonb_typeof(v->'collected_at') <> 'null' AND (jsonb_typeof(v->'collected_at') <> 'string'
++        OR (v->>'collected_at') !~ 'T.*(Z|[+-][0-9]{2}:[0-9]{2})$') THEN RETURN false; END IF;
++    IF jsonb_array_length(v->'citations') > 1000 THEN RETURN false; END IF;
++    FOR c IN SELECT value FROM jsonb_array_elements(v->'citations') LOOP
++        IF jsonb_typeof(c) IS DISTINCT FROM 'object'
++            OR NOT c ?& ARRAY['original_url','position','title','extraction_source']
++            OR EXISTS (SELECT 1 FROM jsonb_object_keys(c) key
++                WHERE key <> ALL(ARRAY['original_url','position','title','extraction_source']))
++            OR jsonb_typeof(c->'original_url') IS DISTINCT FROM 'string'
++            OR length(c->>'original_url') NOT BETWEEN 1 AND 2083
++            OR (c->>'original_url') !~* '^https?://'
++            OR (c->>'extraction_source') IS DISTINCT FROM 'MANUAL'
++            OR jsonb_typeof(c->'position') IS DISTINCT FROM 'number'
++            OR (c->>'position') !~ '^[0-9]+$'
++            OR (c->>'position')::numeric NOT BETWEEN 1 AND 1000
++            OR (jsonb_typeof(c->'title') <> 'null' AND (jsonb_typeof(c->'title') <> 'string'
++                OR length(c->>'title') > 2000)) THEN RETURN false; END IF;
++        IF (c->>'position')::integer=ANY(pos) THEN RETURN false; END IF;
++        pos:=array_append(pos,(c->>'position')::integer);
++    END LOOP;
++    RETURN true;
++END $$;
++
++CREATE TABLE geo_manual_drafts (
++    run_id uuid NOT NULL,
++    draft_revision integer NOT NULL,
++    draft jsonb NOT NULL,
++    screenshot_file_id uuid,
++    raw_payload_file_id uuid,
++    updated_by uuid NOT NULL,
++    created_at timestamptz DEFAULT now() NOT NULL,
++    updated_at timestamptz DEFAULT now() NOT NULL,
++    CONSTRAINT pk_geo_manual_drafts PRIMARY KEY(run_id),
++    CONSTRAINT fk_geo_manual_drafts_run FOREIGN KEY(run_id) REFERENCES geo_observation_runs(id) ON DELETE RESTRICT,
++    CONSTRAINT fk_geo_manual_drafts_screenshot FOREIGN KEY(screenshot_file_id) REFERENCES file_records(id) ON DELETE RESTRICT,
++    CONSTRAINT fk_geo_manual_drafts_raw FOREIGN KEY(raw_payload_file_id) REFERENCES file_records(id) ON DELETE RESTRICT,
++    CONSTRAINT fk_geo_manual_drafts_actor FOREIGN KEY(updated_by) REFERENCES users(id) ON DELETE RESTRICT,
++    CONSTRAINT ck_geo_manual_drafts_revision CHECK(draft_revision >= 1),
++    CONSTRAINT ck_geo_manual_drafts_payload CHECK(geo_manual_draft_valid(draft)),
++    CONSTRAINT ck_geo_manual_drafts_files CHECK(
++        (draft->>'screenshot_file_id')::uuid IS NOT DISTINCT FROM screenshot_file_id AND
++        (draft->>'raw_payload_file_id')::uuid IS NOT DISTINCT FROM raw_payload_file_id AND
++        (screenshot_file_id IS NULL OR raw_payload_file_id IS NULL OR screenshot_file_id <> raw_payload_file_id))
++);
++CREATE INDEX ix_geo_manual_drafts_screenshot_file ON geo_manual_drafts(screenshot_file_id);
++CREATE INDEX ix_geo_manual_drafts_raw_file ON geo_manual_drafts(raw_payload_file_id);
++CREATE INDEX ix_geo_manual_drafts_actor ON geo_manual_drafts(updated_by);
++
++CREATE TABLE geo_manual_submissions (
++    identity_hash varchar(64) NOT NULL,
++    request_hash varchar(64) NOT NULL,
++    run_id uuid NOT NULL,
++    answer_snapshot_id uuid NOT NULL,
++    submitted_by uuid NOT NULL,
++    run_revision integer NOT NULL,
++    draft_revision integer NOT NULL,
++    created_at timestamptz DEFAULT now() NOT NULL,
++    CONSTRAINT pk_geo_manual_submissions PRIMARY KEY(identity_hash),
++    CONSTRAINT uq_geo_manual_submissions_run UNIQUE(run_id),
++    CONSTRAINT uq_geo_manual_submissions_answer UNIQUE(answer_snapshot_id),
++    CONSTRAINT fk_geo_manual_submissions_run FOREIGN KEY(run_id) REFERENCES geo_observation_runs(id) ON DELETE RESTRICT,
++    CONSTRAINT fk_geo_manual_submissions_answer FOREIGN KEY(answer_snapshot_id) REFERENCES geo_answer_snapshots(id) ON DELETE RESTRICT,
++    CONSTRAINT fk_geo_manual_submissions_actor FOREIGN KEY(submitted_by) REFERENCES users(id) ON DELETE RESTRICT,
++    CONSTRAINT ck_geo_manual_submissions_hashes CHECK(identity_hash ~ '^[0-9a-f]{64}$' AND request_hash ~ '^[0-9a-f]{64}$'),
++    CONSTRAINT ck_geo_manual_submissions_revisions CHECK(run_revision >= 1 AND draft_revision >= 0)
++);
++CREATE INDEX ix_geo_manual_submissions_actor ON geo_manual_submissions(submitted_by);
++
++CREATE FUNCTION geo_guard_manual_draft() RETURNS trigger LANGUAGE plpgsql AS $$
++DECLARE r geo_observation_runs%ROWTYPE; f file_records%ROWTYPE; target uuid; count_files integer:=0;
++BEGIN
++    target:=CASE WHEN TG_OP='DELETE' THEN OLD.run_id ELSE NEW.run_id END;
++    SELECT * INTO r FROM geo_observation_runs WHERE id=target FOR UPDATE;
++    IF NOT FOUND OR r.input_snapshot->'profile'->>'collection_mode' <> 'MANUAL'
++        OR r.status <> 'PENDING' OR r.external_call_state <> 'NOT_STARTED'
++        OR EXISTS(SELECT 1 FROM geo_answer_snapshots WHERE run_id=target) THEN
++        RAISE EXCEPTION '人工草稿只能编辑待录入运行'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_manual_drafts_editable';
++    END IF;
++    IF TG_OP='DELETE' THEN RETURN OLD; END IF;
++    IF TG_OP='INSERT' AND NEW.draft_revision <> 1 THEN
++        RAISE EXCEPTION '草稿初次版本必须为1'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_manual_drafts_revision';
++    END IF;
++    IF TG_OP='UPDATE' THEN
++        IF ROW(NEW.run_id,NEW.created_at) IS DISTINCT FROM ROW(OLD.run_id,OLD.created_at) THEN
++            RAISE EXCEPTION '草稿身份不可更改'
++                USING ERRCODE='23514', CONSTRAINT='ck_geo_manual_drafts_identity';
++        END IF;
++        IF (NEW.draft IS DISTINCT FROM OLD.draft AND NEW.draft_revision <> OLD.draft_revision+1)
++            OR (NEW.draft IS NOT DISTINCT FROM OLD.draft AND NEW IS DISTINCT FROM OLD) THEN
++            RAISE EXCEPTION '草稿实际修改必须递增独立版本，同值保持原样'
++                USING ERRCODE='23514', CONSTRAINT='ck_geo_manual_drafts_revision';
++        END IF;
++    END IF;
++    FOR f IN SELECT * FROM file_records WHERE id=ANY(ARRAY[NEW.screenshot_file_id,NEW.raw_payload_file_id])
++        ORDER BY id FOR UPDATE LOOP
++        count_files:=count_files+1;
++        IF f.uploader_id <> NEW.updated_by OR f.status <> 'VERIFIED' OR f.verified_at IS NULL
++            OR f.access_level NOT IN ('INTERNAL','RESTRICTED') OR f.sha256 !~ '^[0-9a-f]{64}$' OR f.size<1
++            OR (f.id=NEW.screenshot_file_id AND (f.category <> 'OPERATION_SCREENSHOT'
++                OR f.content_type NOT IN ('image/png','image/jpeg','image/webp') OR f.size>10485760))
++            OR (f.id=NEW.raw_payload_file_id AND (f.category <> 'EVIDENCE'
++                OR f.content_type <> 'text/plain' OR f.size>52428800)) THEN
++            RAISE EXCEPTION '草稿证据文件资格无效'
++                USING ERRCODE='23514', CONSTRAINT='ck_geo_manual_drafts_file_eligible';
++        END IF;
++        UPDATE file_records SET cleanup_after=NULL WHERE id=f.id;
++    END LOOP;
++    IF count_files <> (NEW.screenshot_file_id IS NOT NULL)::integer + (NEW.raw_payload_file_id IS NOT NULL)::integer THEN
++        RAISE EXCEPTION '草稿证据文件不存在或重复'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_manual_drafts_file_eligible';
++    END IF;
++    RETURN NEW;
++END $$;
++CREATE TRIGGER geo_manual_draft_guard BEFORE INSERT OR UPDATE OR DELETE ON geo_manual_drafts
++    FOR EACH ROW EXECUTE FUNCTION geo_guard_manual_draft();
++
++CREATE FUNCTION geo_guard_manual_submission() RETURNS trigger LANGUAGE plpgsql AS $$
++DECLARE r geo_observation_runs%ROWTYPE; answer_run uuid;
++BEGIN
++    IF TG_OP <> 'INSERT' THEN
++        RAISE EXCEPTION '人工正式提交身份不可修改或删除'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_manual_submissions_immutable';
++    END IF;
++    SELECT * INTO r FROM geo_observation_runs WHERE id=NEW.run_id FOR UPDATE;
++    SELECT run_id INTO answer_run FROM geo_answer_snapshots WHERE id=NEW.answer_snapshot_id;
++    IF r.id IS NULL OR answer_run IS DISTINCT FROM NEW.run_id
++        OR r.input_snapshot->'profile'->>'collection_mode' <> 'MANUAL'
++        OR r.status <> 'COLLECTED' OR r.revision <> NEW.run_revision
++        OR EXISTS(SELECT 1 FROM geo_manual_drafts WHERE run_id=NEW.run_id) THEN
++        RAISE EXCEPTION '正式提交必须对应同运行的完整人工证据和已提交版本'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_manual_submissions_complete';
++    END IF;
++    RETURN NEW;
++END $$;
++CREATE TRIGGER geo_manual_submission_guard BEFORE INSERT OR UPDATE OR DELETE ON geo_manual_submissions
++    FOR EACH ROW EXECUTE FUNCTION geo_guard_manual_submission();
+--- baseline/backend/alembic/versions/0051_geo_manual_collection.py
++++ backend/alembic/versions/0051_geo_manual_collection.py
+@@ -0,0 +1,22 @@
++"""人工草稿和不可变提交身份；不回填或修改已提交证据。"""
++
++from pathlib import Path
++
++from alembic import op
++
++revision = "0051_geo_manual_collection"
++down_revision = "0050_geo_answer_evidence"
++branch_labels = None
++depends_on = None
++
++
++def upgrade() -> None:
++    sql_dir = Path(__file__).resolve().parents[1] / "sql"
++    op.execute((sql_dir / "0051_geo_manual_collection.sql").read_text())
++
++
++def downgrade() -> None:
++    op.execute("""DO $$ BEGIN
++        RAISE EXCEPTION '0051 人工提交身份不可安全降级；保留证据并前向修复'
++            USING ERRCODE='55000';
++    END $$;""")
+--- baseline/backend/tests/integration/test_geo_manual_collection.py
++++ backend/tests/integration/test_geo_manual_collection.py
+@@ -0,0 +1,434 @@
++"""真实 PostgreSQL、真实会话及本地 OSS 的人工冻结与故障原子性。"""
++
++import hashlib
++import json
++from concurrent.futures import ThreadPoolExecutor
++from datetime import UTC, datetime, timedelta
++from threading import Barrier
++from uuid import UUID, uuid4
++
++import pytest
++from sqlalchemy import func, select, text
++from sqlalchemy.exc import IntegrityError
++
++from app.config import settings
++from app.errors import AppError
++from app.models.geo_answers import GeoAnswerCitation, GeoAnswerSnapshot
++from app.models.geo_files import FileRecord
++from app.models.geo_manual_collection import GeoManualDraft, GeoManualSubmission
++from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
++from app.models.identity import AuditLog, User
++from app.schemas.geo_manual_collection import GeoManualDraftSave, GeoManualObservationSubmit
++from app.services import geo_manual_collection as service
++from app.services.file_records import _claim_file_cleanup, file_is_referenced
++from app.services.storage import DevelopmentEvidenceStorage
++from tests.integration.geo_plans_support import PlansAPI
++from tests.integration.geo_plans_support import plans_api as plans_api
++from tests.integration.geo_plans_support import questions_api as questions_api
++from tests.integration.geo_plans_support import questions_engine as questions_engine
++
++pytestmark = pytest.mark.integration
++__all__ = ["plans_api", "questions_api", "questions_engine"]
++
++
++def batch_run(api: PlansAPI, *, screenshot=True, repeats=1):
++    with api.api.factory() as db:
++        db.execute(
++            text(
++                "UPDATE geo_collection_profiles SET settings_json=:settings, "
++                "revision=revision+1 WHERE id=:id"
++            ),
++            {
++                "settings": json.dumps({"require_screenshot": screenshot}),
++                "id": api.profile,
++            },
++        )
++        db.commit()
++    result = api.api.engineer.post(
++        "/api/v1/geo/observation-batches",
++        json={"source": "AD_HOC", "configuration": api.payload(repeat_count=repeats)},
++        headers={"Idempotency-Key": str(uuid4())},
++    )
++    assert result.status_code == 201, result.text
++    with api.api.factory() as db:
++        runs = list(
++            db.scalars(
++                select(GeoObservationRun)
++                .where(GeoObservationRun.batch_id == UUID(result.json()["batch_id"]))
++                .order_by(GeoObservationRun.repeat_index)
++            )
++        )
++        return runs
++
++
++def evidence(api: PlansAPI, *, screenshot=True, owner=None, access="INTERNAL"):
++    data = b"fixture-redacted-screenshot" if screenshot else b"fixture-redacted-answer"
++    key = f"geo305/{uuid4()}"
++    digest = hashlib.sha256(data).hexdigest()
++    kind = "image/png" if screenshot else "text/plain"
++    storage = DevelopmentEvidenceStorage()
++    storage.put(key, data, content_type=kind, sha256=digest)
++    with api.api.factory() as db:
++        f = FileRecord(
++            category="OPERATION_SCREENSHOT" if screenshot else "EVIDENCE",
++            original_filename="fixture.png" if screenshot else "fixture.txt",
++            object_key=key,
++            content_type=kind,
++            size=len(data),
++            sha256=digest,
++            access_level=access,
++            status="VERIFIED",
++            uploader_id=owner or api.api.engineer_id,
++            upload_expires_at=datetime.now(UTC) + timedelta(hours=1),
++            verified_at=datetime.now(UTC),
++            cleanup_after=datetime.now(UTC) + timedelta(days=1),
++        )
++        db.add(f)
++        db.commit()
++        return f.id, key
++
++
++def prefix(run):
++    return f"/api/v1/geo/observation-runs/{run.id}"
++
++
++def payload(run, *, revision=0, **values):
++    return {
++        "expected_draft_revision": revision,
++        "answer_text": "  虚构原始回答\n",
++        "answer_format": "MARKDOWN",
++        "collected_at": datetime.now(UTC).isoformat(),
++        **values,
++    }
++
++
++def submit(api, run, value, key="submit"):
++    return api.api.engineer.post(
++        prefix(run) + "/manual-submit", json=value, headers={"Idempotency-Key": key}
++    )
++
++
++def save(api, run, draft, revision=0):
++    return api.api.engineer.put(
++        prefix(run) + "/manual-draft", json={"expected_draft_revision": revision, "draft": draft}
++    )
++
++
++def assert_pending(api, run, *, revision=0):
++    with api.api.factory() as db:
++        assert db.get(GeoObservationRun, run.id).status == "PENDING"
++        assert (
++            db.scalar(
++                select(func.count())
++                .select_from(GeoAnswerSnapshot)
++                .where(GeoAnswerSnapshot.run_id == run.id)
++            )
++            == 0
++        )
++        assert (
++            db.scalar(
++                select(func.count())
++                .select_from(GeoManualSubmission)
++                .where(GeoManualSubmission.run_id == run.id)
++            )
++            == 0
++        )
++        draft = db.get(GeoManualDraft, run.id)
++        assert (draft.draft_revision if draft else 0) == revision
++
++
++def test_entry_draft_revision_noop_conflict_and_file_retention(plans_api):
++    api = plans_api
++    run = batch_run(api)[0]
++    context = api.api.engineer.get(prefix(run) + "/manual-entry")
++    assert context.status_code == 200, context.text
++    assert context.json()["draft_revision"] == 0 and context.json()["draft"] is None
++    assert context.json()["available_actions"] == ["ENTER_MANUAL_OBSERVATION"]
++    f, _ = evidence(api)
++    result = save(api, run, {"answer_text": "半成品", "screenshot_file_id": str(f)})
++    assert result.status_code == 200, result.text
++    assert result.json()["draft_revision"] == 1
++    noop = save(api, run, result.json()["draft"], 1)
++    assert noop.json() == result.json()
++    conflict = save(api, run, {"answer_text": "过期"}, 0)
++    assert conflict.status_code == 409 and conflict.json()["error"]["code"] == "REVISION_CONFLICT"
++    with api.api.factory() as db:
++        assert file_is_referenced(db, f)
++        assert db.get(FileRecord, f).cleanup_after is None
++        db.execute(text("UPDATE file_records SET cleanup_after=now() WHERE id=:id"), {"id": f})
++        assert f not in {
++            x for x, _ in _claim_file_cleanup(db, now=datetime.now(UTC), batch_size=10000)
++        }
++        db.rollback()
++    removed = save(api, run, {"answer_text": "修订"}, 1)
++    assert removed.json()["draft_revision"] == 2
++    with api.api.factory() as db:
++        assert db.get(FileRecord, f).cleanup_after > datetime.now(UTC) + timedelta(days=6)
++        assert not file_is_referenced(db, f)
++        assert db.get(GeoObservationRun, run.id).revision == 0
++
++
++def test_submit_freezes_all_once_replay_and_no_analysis(plans_api, monkeypatch):
++    api = plans_api
++    run = batch_run(api)[0]
++    f, _ = evidence(api)
++    raw, _ = evidence(api, screenshot=False)
++    assert save(api, run, {"answer_text": "旧草稿"}).status_code == 200
++    value = payload(
++        run,
++        revision=1,
++        screenshot_file_id=str(f),
++        raw_payload_file_id=str(raw),
++        citations=[
++            {"original_url": "https://EXAMPLE.test/a#x", "position": 2, "title": "后出现"},
++            {"original_url": "https://example.test/a", "position": 1, "title": "首次"},
++        ],
++    )
++    result = submit(api, run, value)
++    assert result.status_code == 201, result.text
++    receipt = result.json()
++    assert receipt["analysis_dispatch"] == "NOT_IMPLEMENTED"
++    with api.api.factory() as db:
++        answer = db.get(GeoAnswerSnapshot, UUID(receipt["answer_snapshot_id"]))
++        assert (
++            answer.answer_text == value["answer_text"]
++            and answer.prompt_text == run.input_snapshot["prompt"]["prompt_text"]
++        )
++        assert answer.answer_sha256 == hashlib.sha256(value["answer_text"].encode()).hexdigest()
++        citations = list(
++            db.scalars(
++                select(GeoAnswerCitation).where(GeoAnswerCitation.answer_snapshot_id == answer.id)
++            )
++        )
++        assert (
++            len(citations) == 1
++            and citations[0].occurrences == [1, 2]
++            and citations[0].title == "首次"
++        )
++        state = db.get(GeoObservationRun, run.id)
++        batch = db.get(GeoObservationBatch, run.batch_id)
++        assert (
++            state.status == "COLLECTED"
++            and state.revision == 1
++            and state.external_call_state == "NOT_STARTED"
++        )
++        assert state.dispatch_attempt_count == 0 and state.lease_token is None
++        assert batch.status == "RUNNING" and batch.revision == 2 and batch.finished_at is None
++        assert db.get(GeoManualDraft, run.id) is None
++        assert file_is_referenced(db, f) and file_is_referenced(db, raw)
++        logs = list(db.scalars(select(AuditLog).where(AuditLog.target_id == str(run.id))))
++        assert len(logs) == 2 and all("answer_text" not in str(log.details) for log in logs)
++    monkeypatch.setattr(settings, "geo_monitoring_enabled", False)
++    assert submit(api, run, value).json() == receipt
++    changed = submit(api, run, {**value, "answer_text": "不同"})
++    assert changed.status_code == 409 and changed.json()["error"]["code"] == "IDEMPOTENCY_CONFLICT"
++    assert submit(api, run, value, key="other").status_code == 409
++    assert save(api, run, {"answer_text": "覆盖"}, 1).status_code == 409
++    assert api.api.engineer.get(prefix(run) + "/manual-entry").status_code == 409
++
++
++@pytest.mark.parametrize(
++    "case,code",
++    [
++        ("empty", "GEO_ANSWER_EMPTY"),
++        ("no_evidence", "GEO_EVIDENCE_REQUIRED"),
++        ("raw_only", "GEO_SCREENSHOT_REQUIRED"),
++        ("missing", "FILE_INTEGRITY_FAILED"),
++        ("owner", "PERMISSION_DENIED"),
++        ("public", "FILE_INTEGRITY_FAILED"),
++        ("future", "VALIDATION_ERROR"),
++        ("before", "VALIDATION_ERROR"),
++        ("revision", "REVISION_CONFLICT"),
++        ("object_missing", "FILE_INTEGRITY_FAILED"),
++        ("object_changed", "FILE_INTEGRITY_FAILED"),
++        ("storage", "DEPENDENCY_UNAVAILABLE"),
++    ],
++)
++def test_submit_failure_is_atomic(plans_api, monkeypatch, case, code):
++    api = plans_api
++    run = batch_run(api)[0]
++    f, key = evidence(
++        api,
++        screenshot=case != "raw_only",
++        owner=api.api.admin_id if case == "owner" else None,
++        access="PUBLIC" if case == "public" else "INTERNAL",
++    )
++    value = payload(run, screenshot_file_id=str(f))
++    if case == "empty":
++        value["answer_text"] = " \n "
++    elif case == "no_evidence":
++        value.pop("screenshot_file_id")
++    elif case == "raw_only":
++        value["raw_payload_file_id"] = value.pop("screenshot_file_id")
++    elif case == "missing":
++        value["screenshot_file_id"] = str(uuid4())
++    elif case == "future":
++        value["collected_at"] = (datetime.now(UTC) + timedelta(days=1)).isoformat()
++    elif case == "before":
++        value["collected_at"] = (run.created_at - timedelta(seconds=1)).isoformat()
++    elif case == "revision":
++        value["expected_draft_revision"] = 1
++    elif case == "object_missing":
++        DevelopmentEvidenceStorage().delete(key)
++    elif case == "object_changed":
++        d = b"changed"
++        DevelopmentEvidenceStorage().put(
++            key, d, content_type="image/png", sha256=hashlib.sha256(d).hexdigest()
++        )
++    elif case == "storage":
++        monkeypatch.setattr(settings, "development_storage_internal_url", "http://127.0.0.1:1")
++    result = submit(api, run, value)
++    assert result.status_code in (403, 409, 422, 503), result.text
++    assert result.json()["error"]["code"] == code, result.text
++    assert_pending(api, run)
++
++
++def test_optional_screenshot_still_requires_evidence_and_submission_can_include_unsaved_edits(
++    plans_api,
++):
++    api = plans_api
++    run = batch_run(api, screenshot=False)[0]
++    f, _ = evidence(api, screenshot=False)
++    assert save(api, run, {"answer_text": "未完成"}).status_code == 200
++    value = payload(run, revision=1, raw_payload_file_id=str(f))
++    assert submit(api, run, value).status_code == 201
++
++
++def test_disabled_configuration_is_readable_but_not_writable(plans_api):
++    api = plans_api
++    run = batch_run(api)[0]
++    assert save(api, run, {"answer_text": "先保存"}).status_code == 200
++    with api.api.factory() as db:
++        db.execute(
++            text(
++                "UPDATE geo_collection_profiles SET is_active=false, "
++                "revision=revision+1 WHERE id=:id"
++            ),
++            {"id": api.profile},
++        )
++        db.commit()
++    context = api.api.engineer.get(prefix(run) + "/manual-entry")
++    assert context.status_code == 200 and context.json()["draft_revision"] == 1
++    assert context.json()["available_actions"] == [] and context.json()["collection_blockers"]
++    assert save(api, run, {"answer_text": "禁止"}, 1).status_code == 422
++
++
++def test_audit_failure_rolls_back_freeze_and_preserves_draft(plans_api, monkeypatch):
++    api = plans_api
++    run = batch_run(api)[0]
++    f, _ = evidence(api)
++    assert (
++        save(api, run, {"answer_text": "必须保留", "screenshot_file_id": str(f)}).status_code == 200
++    )
++
++    def fail(*args, **kwargs):
++        raise RuntimeError("fixture failure")
++
++    monkeypatch.setattr(service, "append_audit", fail)
++    with api.api.factory() as db, pytest.raises(RuntimeError, match="fixture failure"):
++        service.submit_manual_observation(
++            db,
++            run_id=run.id,
++            actor=db.get(User, api.api.engineer_id),
++            payload=GeoManualObservationSubmit.model_validate(
++                payload(run, revision=1, screenshot_file_id=str(f))
++            ),
++            idempotency_key="audit-failure",
++            request_id=str(uuid4()),
++        )
++    assert_pending(api, run, revision=1)
++
++
++@pytest.mark.parametrize("same_key", [True, False])
++def test_concurrent_submit_is_exactly_once(plans_api, same_key):
++    api = plans_api
++    run = batch_run(api)[0]
++    f, _ = evidence(api)
++    value = GeoManualObservationSubmit.model_validate(payload(run, screenshot_file_id=str(f)))
++    gate = Barrier(2)
++
++    def invoke(i):
++        with api.api.factory() as db:
++            actor = db.get(User, api.api.engineer_id)
++            gate.wait(timeout=10)
++            try:
++                return service.submit_manual_observation(
++                    db,
++                    run_id=run.id,
++                    payload=value,
++                    actor=actor,
++                    idempotency_key="same" if same_key else f"key-{i}",
++                    request_id=str(uuid4()),
++                ).model_dump(mode="json")
++            except AppError as e:
++                return e.code
++
++    with ThreadPoolExecutor(max_workers=2) as pool:
++        results = list(pool.map(invoke, range(2)))
++    if same_key:
++        assert results[0] == results[1]
++    else:
++        assert (
++            sum(isinstance(r, dict) for r in results) == 1 and "INVALID_STATE_TRANSITION" in results
++        )
++    with api.api.factory() as db:
++        assert (
++            db.scalar(
++                select(func.count())
++                .select_from(GeoAnswerSnapshot)
++                .where(GeoAnswerSnapshot.run_id == run.id)
++            )
++            == 1
++        )
++        assert (
++            db.scalar(
++                select(func.count())
++                .select_from(GeoManualSubmission)
++                .where(GeoManualSubmission.run_id == run.id)
++            )
++            == 1
++        )
++        assert db.get(GeoObservationRun, run.id).revision == 1
++
++
++def test_concurrent_draft_conflict(plans_api):
++    api = plans_api
++    run = batch_run(api)[0]
++    gate = Barrier(2)
++
++    def invoke(i):
++        with api.api.factory() as db:
++            actor = db.get(User, api.api.engineer_id)
++            gate.wait(timeout=10)
++            try:
++                return service.save_manual_draft(
++                    db,
++                    run_id=run.id,
++                    payload=GeoManualDraftSave.model_validate(
++                        {"expected_draft_revision": 0, "draft": {"answer_text": str(i)}}
++                    ),
++                    actor=actor,
++                    request_id=str(uuid4()),
++                ).draft_revision
++            except AppError as e:
++                return e.code
++
++    with ThreadPoolExecutor(max_workers=2) as pool:
++        results = list(pool.map(invoke, range(2)))
++    assert sorted(results, key=str) == [1, "REVISION_CONFLICT"]
++
++
++def test_sql_final_facts_are_immutable(plans_api):
++    api = plans_api
++    run = batch_run(api)[0]
++    f, _ = evidence(api)
++    result = submit(api, run, payload(run, screenshot_file_id=str(f)))
++    assert result.status_code == 201, result.text
++    for statement in [
++        "UPDATE geo_manual_submissions SET draft_revision=99 WHERE run_id=:id",
++        "DELETE FROM geo_manual_submissions WHERE run_id=:id",
++        "UPDATE geo_answer_snapshots SET answer_text='改历史' WHERE run_id=:id",
++        "DELETE FROM geo_answer_snapshots WHERE run_id=:id",
++    ]:
++        with api.api.factory() as db, pytest.raises(IntegrityError):
++            db.execute(text(statement), {"id": run.id})
+--- baseline/backend/tests/integration/test_geo_manual_collection_boundaries.py
++++ backend/tests/integration/test_geo_manual_collection_boundaries.py
+@@ -0,0 +1,233 @@
++"""人工接口的模式、身份、安全边界及跨命令竞争。"""
++
++from concurrent.futures import ThreadPoolExecutor
++from copy import deepcopy
++from threading import Barrier
++from uuid import uuid4
++
++import pytest
++from sqlalchemy import text
++from sqlalchemy.exc import IntegrityError
++
++from app.errors import AppError
++from app.models.geo_batch_creation import GeoBatchSubject
++from app.models.geo_manual_collection import GeoManualDraft
++from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
++from app.models.identity import User
++from app.schemas.geo_manual_collection import GeoManualDraftSave, GeoManualObservationSubmit
++from app.services import geo_manual_collection as service
++from tests.integration.geo_plans_support import plans_api as plans_api
++from tests.integration.geo_plans_support import questions_api as questions_api
++from tests.integration.geo_plans_support import questions_engine as questions_engine
++from tests.integration.test_geo_manual_collection import (
++    batch_run,
++    evidence,
++    payload,
++    prefix,
++    save,
++    submit,
++)
++from tests.unit.test_geo_run_contract import input_snapshot
++
++pytestmark = pytest.mark.integration
++__all__ = ["plans_api", "questions_api", "questions_engine"]
++
++
++@pytest.mark.parametrize("mode", ["API", "BROWSER"])
++def test_nonmanual_read_draft_and_submit_rejected(plans_api, mode):
++    api = plans_api
++    original = batch_run(api)[0]
++    with api.api.factory() as db:
++        old = db.get(GeoObservationBatch, original.batch_id)
++        batch = GeoObservationBatch(
++            trigger_type="MANUAL",
++            plan_snapshot=old.plan_snapshot,
++            rule_snapshot=old.rule_snapshot,
++            requested_run_count=1,
++            created_by=api.api.engineer_id,
++        )
++        db.add(batch)
++        db.flush()
++        db.add(GeoBatchSubject(batch_id=batch.id, subject_id=api.subject, role="PRIMARY"))
++        value = deepcopy(original.input_snapshot)
++        profile = input_snapshot(mode)["profile"]
++        profile["id"] = str(api.profile)
++        profile["surface"]["id"] = str(api.surface)
++        value["profile"] = profile
++        run = GeoObservationRun(
++            batch_id=batch.id,
++            prompt_variant_id=api.prompt,
++            collection_profile_id=api.profile,
++            repeat_index=1,
++            input_snapshot=value,
++        )
++        db.add(run)
++        db.flush()
++        batch.status = "QUEUED"
++        batch.revision = 1
++        db.commit()
++    results = [
++        api.api.engineer.get(prefix(run) + "/manual-entry"),
++        save(api, run, {}),
++        submit(api, run, payload(run)),
++    ]
++    assert all(
++        r.status_code == 409 and r.json()["error"]["code"] == "GEO_MANUAL_MODE_REQUIRED"
++        for r in results
++    )
++    with api.api.factory() as db:
++        bad = GeoManualDraft(
++            run_id=run.id,
++            draft_revision=1,
++            draft=service.canonical_draft(
++                GeoManualDraftSave.model_validate({"expected_draft_revision": 0, "draft": {}}).draft
++            ),
++            updated_by=api.api.engineer_id,
++        )
++        db.add(bad)
++        with pytest.raises(IntegrityError) as error:
++            db.commit()
++        assert error.value.orig.diag.constraint_name == "ck_geo_manual_drafts_editable"
++
++
++def test_csrf_role_and_disabled_actor_are_enforced_even_on_replay(plans_api):
++    api = plans_api
++    run = batch_run(api)[0]
++    f, _ = evidence(api)
++    value = payload(run, screenshot_file_id=str(f))
++    assert submit(api, run, value).status_code == 201
++    assert submit(api, run, value).status_code == 201
++    invalid = api.api.engineer.post(
++        prefix(run) + "/manual-submit",
++        json=value,
++        headers={"Idempotency-Key": "submit", "X-CSRF-Token": "invalid"},
++    )
++    assert invalid.status_code == 403 and invalid.json()["error"]["code"] == "CSRF_INVALID"
++    token = api.api.engineer.headers.pop("X-CSRF-Token")
++    try:
++        assert submit(api, run, value).status_code == 422
++    finally:
++        api.api.engineer.headers["X-CSRF-Token"] = token
++    for field, value_to_set in [
++        ("is_active", False),
++        ("must_change_password", True),
++    ]:
++        with api.api.factory() as db:
++            user = db.get(User, api.api.engineer_id)
++            old = getattr(user, field)
++            setattr(user, field, value_to_set)
++            user.revision += 1
++            db.commit()
++        try:
++            assert submit(api, run, value).status_code in (401, 403)
++        finally:
++            with api.api.factory() as db:
++                user = db.get(User, api.api.engineer_id)
++                setattr(user, field, old)
++                user.revision += 1
++                db.commit()
++
++
++def test_same_key_cannot_be_reused_for_another_run(plans_api):
++    api = plans_api
++    runs = batch_run(api, repeats=2)
++    f, _ = evidence(api)
++    value = payload(runs[0], screenshot_file_id=str(f))
++    assert submit(api, runs[0], value).status_code == 201
++    conflict = submit(api, runs[1], value)
++    assert (
++        conflict.status_code == 409 and conflict.json()["error"]["code"] == "IDEMPOTENCY_CONFLICT"
++    )
++
++
++def test_distinct_actors_compete_on_run_lock(plans_api):
++    api = plans_api
++    run = batch_run(api)[0]
++    files = [evidence(api, owner=actor)[0] for actor in [api.api.admin_id, api.api.engineer_id]]
++    gate = Barrier(2)
++
++    def invoke(i):
++        with api.api.factory() as db:
++            actor = db.get(User, [api.api.admin_id, api.api.engineer_id][i])
++            gate.wait(timeout=10)
++            value = GeoManualObservationSubmit.model_validate(
++                payload(run, screenshot_file_id=str(files[i]))
++            )
++            try:
++                return service.submit_manual_observation(
++                    db,
++                    run_id=run.id,
++                    payload=value,
++                    actor=actor,
++                    idempotency_key=f"actor-{i}",
++                    request_id=str(uuid4()),
++                ).run_revision
++            except AppError as error:
++                return error.code
++
++    with ThreadPoolExecutor(max_workers=2) as pool:
++        results = list(pool.map(invoke, range(2)))
++    assert sorted(results, key=str) == [1, "INVALID_STATE_TRANSITION"]
++
++
++def test_save_racing_submit_cannot_overwrite_final_answer(plans_api):
++    api = plans_api
++    run = batch_run(api)[0]
++    f, _ = evidence(api)
++    gate = Barrier(2)
++    value = GeoManualObservationSubmit.model_validate(payload(run, screenshot_file_id=str(f)))
++
++    def invoke(i):
++        with api.api.factory() as db:
++            actor = db.get(User, api.api.engineer_id)
++            gate.wait(timeout=10)
++            try:
++                if i == 0:
++                    return service.submit_manual_observation(
++                        db,
++                        run_id=run.id,
++                        payload=value,
++                        actor=actor,
++                        idempotency_key="race-submit",
++                        request_id=str(uuid4()),
++                    ).run_revision
++                return service.save_manual_draft(
++                    db,
++                    run_id=run.id,
++                    payload=GeoManualDraftSave.model_validate(
++                        {"expected_draft_revision": 0, "draft": {"answer_text": "竞争草稿"}}
++                    ),
++                    actor=actor,
++                    request_id=str(uuid4()),
++                ).draft_revision
++            except AppError as error:
++                return error.code
++
++    with ThreadPoolExecutor(max_workers=2) as pool:
++        results = list(pool.map(invoke, range(2)))
++    assert results in [[1, "INVALID_STATE_TRANSITION"], ["REVISION_CONFLICT", 1]]
++
++
++def test_sql_draft_revision_and_file_checks_cannot_be_bypassed(plans_api):
++    api = plans_api
++    run = batch_run(api)[0]
++    assert save(api, run, {"answer_text": "保存"}).status_code == 200
++    statements = [
++        (
++            "UPDATE geo_manual_drafts SET draft_revision=9 WHERE run_id=:id",
++            "ck_geo_manual_drafts_revision",
++        ),
++        (
++            "UPDATE geo_manual_drafts SET draft=jsonb_set(draft,'{answer_text}','\"变更\"') "
++            "WHERE run_id=:id",
++            "ck_geo_manual_drafts_revision",
++        ),
++        (
++            "UPDATE geo_manual_drafts SET updated_at=clock_timestamp() WHERE run_id=:id",
++            "ck_geo_manual_drafts_revision",
++        ),
++    ]
++    for sql, constraint in statements:
++        with api.api.factory() as db, pytest.raises(IntegrityError) as error:
++            db.execute(text(sql), {"id": run.id})
++        assert error.value.orig.diag.constraint_name == constraint
+--- baseline/backend/tests/integration/test_migrations.py
++++ backend/tests/integration/test_migrations.py
+@@ -326,7 +326,7 @@
+ 
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0050_geo_answer_evidence",)
++            assert cursor.fetchone() == ("0051_geo_manual_collection",)
+             cursor.execute(
+                 "SELECT tablename FROM pg_tables "
+                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
+@@ -484,10 +484,10 @@
+             text=True,
+         )
+         assert downgrade.returncode != 0
+-        assert "0050 原始回答与证据不可安全降级" in downgrade.stdout + downgrade.stderr
++        assert "0051 人工提交身份不可安全降级" in downgrade.stdout + downgrade.stderr
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0050_geo_answer_evidence",)
++            assert cursor.fetchone() == ("0051_geo_manual_collection",)
+ 
+ 
+ @pytest.mark.integration
+--- baseline/backend/tests/unit/test_geo_manual_collection_contract.py
++++ backend/tests/unit/test_geo_manual_collection_contract.py
+@@ -0,0 +1,87 @@
++"""人工命令输入边界与稳定提交身份。"""
++
++from datetime import UTC, datetime, timedelta, timezone
++from uuid import uuid4
++
++import pytest
++from pydantic import ValidationError
++
++from app.errors import AppError
++from app.schemas.geo_manual_collection import GeoManualObservationDraft, GeoManualObservationSubmit
++from app.services.geo_manual_collection import submission_hash, submission_identity
++
++
++@pytest.mark.parametrize(
++    "field,value",
++    [
++        ("web_search_observed", "true"),
++        ("answer_text", "a\x00b"),
++        ("source_model", "   "),
++        ("source_product", " x"),
++        ("raw_payload_summary", {"authorization": "fake"}),
++        ("environment", {}),
++        (
++            "citations",
++            [{"original_url": "https://example.test/", "position": 1, "extraction_source": "DOM"}],
++        ),
++        ("citations", [{"original_url": "https://u:p@example.test/", "position": 1}]),
++        ("citations", [{"original_url": "file:///etc/passwd", "position": 1}]),
++        ("collected_at", "2026-10-02T00:00:00"),
++    ],
++)
++def test_draft_rejects_untrusted_shape(field, value):
++    with pytest.raises(ValidationError):
++        GeoManualObservationDraft.model_validate({field: value})
++
++
++def test_draft_can_be_incomplete_but_submit_requires_explicit_time_and_answer():
++    assert GeoManualObservationDraft().answer_text == ""
++    with pytest.raises(ValidationError):
++        GeoManualObservationSubmit.model_validate({"expected_draft_revision": 0})
++
++
++def test_hash_normalizes_time_and_citation_order_but_preserves_original_evidence():
++    r = uuid4()
++    value = GeoManualObservationSubmit(
++        expected_draft_revision=0,
++        answer_text="  原始文本\n",
++        collected_at=datetime.now(UTC),
++        citations=[
++            {"original_url": "https://example.test/b", "position": 2},
++            {"original_url": "https://example.test/a", "position": 1},
++        ],
++    )
++    equivalent = value.model_copy(
++        update={
++            "collected_at": value.collected_at.astimezone(timezone(timedelta(hours=8))),
++            "citations": list(reversed(value.citations)),
++        }
++    )
++    assert submission_hash(r, value) == submission_hash(r, equivalent)
++    assert submission_hash(r, value) != submission_hash(
++        r, value.model_copy(update={"answer_text": "原始文本"})
++    )
++    assert submission_hash(r, value) != submission_hash(uuid4(), value)
++    assert submission_hash(r, value) != submission_hash(
++        r, value.model_copy(update={"expected_draft_revision": 1})
++    )
++    citation = value.citations[0].model_copy(
++        update={"original_url": "https://example.test/b#fragment"}
++    )
++    assert submission_hash(r, value) != submission_hash(
++        r, value.model_copy(update={"citations": [citation, value.citations[1]]})
++    )
++
++
++@pytest.mark.parametrize("key", ["", " ", "x\n", "中文", "a" * 161])
++def test_identity_rejects_invalid_key(key):
++    with pytest.raises(AppError) as error:
++        submission_identity(uuid4(), key)
++    assert error.value.code == "VALIDATION_ERROR"
++
++
++def test_identity_is_per_actor_and_does_not_store_key():
++    actor = uuid4()
++    assert len(submission_identity(actor, "abc")) == 64
++    assert submission_identity(actor, "abc") == submission_identity(actor, "abc")
++    assert submission_identity(actor, "abc") != submission_identity(uuid4(), "abc")
+--- baseline/contracts/database.md
++++ contracts/database.md
+@@ -901,3 +901,29 @@
+ 资格/HEAD不符→内部AppError FILE_INTEGRITY_FAILED 422；非上传者→PERMISSION_DENIED 403；存储不可用→DEPENDENCY_UNAVAILABLE 503。数据库具名23514 ck_geo_answers_submission / ck_geo_answers_complete / ck_geo_answers_file_eligible / ck_geo_evidence_file_immutable / ck_geo_citations_submission / ck_geo_citations_complete，重复快照23505 uq_geo_answers_run。只供未来命令精确映射，本次无HTTP接线，未知错误不得吞掉。
+ 
+ 迁移先持Run表SHARE ROW EXCLUSIVE锁直至提交，等待旧写事务并阻止预检后新采集穿越；再预检既有collected_at或采集成功状态；无原始证据无法修复时55000原子拒绝，不补空回答。正常0049只含PENDING/失败采集，因此零回填。空库和非空0049前滚/metadata与旧行保留测试；downgrade55000拒绝删证据，恢复使用前向修复或一致备份。没有生产迁移。
++
++## GEO MANUAL 草稿与提交合同（GEO-305 / R2）
++
++`0051_geo_manual_collection` 接续0050，新增人工临时编辑与稳定提交身份，不修改已冻结输入/答案、不回填旧文章观测或既有采集历史。降级55000安全停止，恢复用前向修复。
++
++### geo_manual_drafts
++
++run_id UUID PK/FK→geo_observation_runs RESTRICT；draft_revision正整数；draft JSONB为闭合GeoManualObservationDraft临时编辑内容（有序原始引用、可空白原文、可空采集时间、GEO-304闭合raw summary）；screenshot_file_id/raw_payload_file_id为显式FileRecord RESTRICT FK且与JSON一致；updated_by UUID FK→User RESTRICT；created_at/updated_at timestamptz。文件索引ix_geo_manual_drafts_screenshot_file / raw_file。引用JSON只作编辑内容，不是指标关系。
++
++具名ck_geo_manual_drafts_revision / payload / files，触发器ck_geo_manual_drafts_editable / identity / file_eligible：仅冻结MANUAL PENDING/NOT_STARTED/无答案可INSERT/UPDATE/DELETE；初次revision1、实际内容变化恰好+1、同值不递增；Run/created_at身份不改。关联持Run锁，再Files UUID排序锁，校验VERIFIED、内部访问级别、正确类别/类型/size/hash与当前updated_by上传者；写cleanup_after=NULL建立MVCC冲突。Application Service额外真实HEAD；文件GC实时计入两项FK，解除引用才安排清理。草稿命令允许缺证据，正式提交须至少截图或raw文本证据；冻结require_screenshot=true强制截图。
++
++### geo_manual_submissions
++
++identity_hash varchar64 PK；request_hash varchar64；run_id UUID UNIQUE/FK→Run RESTRICT；answer_snapshot_id UUID UNIQUE/FK→Answer RESTRICT；submitted_by UUID FK→User RESTRICT；run_revision正整数、draft_revision非负；created_at timestamptz。唯一uq_geo_manual_submissions_run / answer；CHECK ck_geo_manual_submissions_hashes / revisions；用户索引ix_geo_manual_submissions_actor。触发器ck_geo_manual_submissions_complete确认Answer/Run同归属且MANUAL COLLECTED、revision匹配；ck_geo_manual_submissions_immutable禁止UPDATE/DELETE。
++
++身份SHA256(`geo-manual-submit:`+actor UUID+`:`+key)，原key不保存/日志；request_hash覆盖run与规范完整请求（采集时间UTC、引用按实际位置、原文保留）。当前鉴权后先读回执，同请求重放首次结果，异请求409 IDEMPOTENCY_CONFLICT；不同身份不得再次提交同Run。虚拟无草稿revision0，首次保存1，同值无变化；stale409 GEO_MANUAL_DRAFT_CONFLICT。submit可以包含未保存最终编辑，但必须匹配当前draft_revision。
++
++### 事务、状态与占位
++
++锁序User(FOR NO KEY UPDATE，舍弃认证heartbeat)→identity advisory xact→Surface→Profile→Batch→Run→Draft→Files(UUID)。READ COMMITTED锁后重读；当前资格沿GEO-204，模式/环境/截图策略沿冻结InputSnapshot。仅MANUAL PENDING/NOT_STARTED/无答案可首次保存或提交；非MANUAL409 GEO_RUN_NOT_MANUAL，不可编辑409 GEO_RUN_NOT_PENDING。GET录入上下文在认证前RR，当前写开关/配置阻断返回闭合blockers/无动作，不丢草稿。
++
++同事务写Snapshot/全部Citation、删除临时草稿、复用GEO-302合法边推进COLLECTED/revision+1、完整集合复用Batch投影、提交身份和最小成功审计，再commit。started_at=人工collected_at，创建≤采集≤锁内数据库时钟；未知来源/模型/搜索保留NULL，费用/usage保持未知。同事务失败全部rollback，已提交证据由0050继续保护，不能追加或修改。
++
++回执保存提交时Run/Draft版本、Answer UUID/哈希/采集时间/提交时间，collection_status=COLLECTED、analysis_dispatch=NOT_IMPLEMENTED；不是当前可变状态。COLLECTED/ANALYSIS_PENDING是后续分析加载稳定run ID的依据；不发送Redis、不增加dispatch计数、不创建分析结果或伪成功。人工上传前负责去除凭据/账号/支付信息，服务不宣称通用脱敏器。
++
++最小保留审计geo_manual_draft.saved / geo_manual_observation.submitted只含run_id、draft_revision、answer_snapshot_id；不含正文/URL/文件内容/key。User历史计入updated_by/submitted_by。文件/HEAD不符422 FILE_INTEGRITY_FAILED、非上传者403 PERMISSION_DENIED、存储不可用503 DEPENDENCY_UNAVAILABLE；空白回答422 GEO_ANSWER_EMPTY、缺证据422 GEO_EVIDENCE_REQUIRED，时间非法422 VALIDATION_ERROR。只按精确SQLSTATE+上述具名约束映射；未知失败原样上抛，不扩大全局mapper或伪造成功。
+--- baseline/contracts/openapi.yaml
++++ contracts/openapi.yaml
+@@ -6834,6 +6834,172 @@
+           $ref: '#/components/responses/ErrorResponse'
+         '400':
+           $ref: '#/components/responses/ErrorResponse'
++  /api/v1/geo/observation-runs/{run_id}/manual-entry:
++    get:
++      tags:
++      - geo-manual-collection
++      summary: Manual Entry
++      operationId: getGeoManualEntryContext
++      parameters:
++      - name: run_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Run Id
++      - $ref: '#/components/parameters/RequestIdHeader'
++      responses:
++        '200':
++          description: Successful Response
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoManualEntryContext'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++      security:
++      - sessionCookie: []
++      x-required-account-types:
++      - ADMIN
++      - ENGINEER
++  /api/v1/geo/observation-runs/{run_id}/manual-draft:
++    put:
++      tags:
++      - geo-manual-collection
++      summary: Save Manual Draft
++      operationId: saveGeoManualDraft
++      parameters:
++      - name: run_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Run Id
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - $ref: '#/components/parameters/RequestIdHeader'
++      responses:
++        '200':
++          description: Successful Response
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoManualDraftOut'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '503':
++          $ref: '#/components/responses/ErrorResponse'
++      security:
++      - sessionCookie: []
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoManualDraftSave'
++      x-required-account-types:
++      - ADMIN
++      - ENGINEER
++  /api/v1/geo/observation-runs/{run_id}/manual-submit:
++    post:
++      tags:
++      - geo-manual-collection
++      summary: Submit Manual Observation
++      operationId: submitGeoManualObservation
++      parameters:
++      - name: run_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Run Id
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - name: Idempotency-Key
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 1
++          maxLength: 160
++          pattern: ^[\x21-\x7E]+$
++          title: Idempotency-Key
++      - $ref: '#/components/parameters/RequestIdHeader'
++      responses:
++        '201':
++          description: Successful Response
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoManualObservationSubmitted'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '503':
++          $ref: '#/components/responses/ErrorResponse'
++      security:
++      - sessionCookie: []
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoManualObservationSubmit'
++      x-required-account-types:
++      - ADMIN
++      - ENGINEER
++
+ components:
+   securitySchemes:
+     sessionCookie:
+@@ -16672,3 +16838,337 @@
+       - created_at
+       title: GeoAnswerCitationOut
+       type: object
++
++    GeoManualCitationInput:
++      properties:
++        original_url:
++          type: string
++          maxLength: 2083
++          minLength: 1
++          title: Original Url
++        position:
++          type: integer
++          maximum: 1000.0
++          minimum: 1.0
++          title: Position
++        title:
++          anyOf:
++          - type: string
++            maxLength: 2000
++          - type: 'null'
++          title: Title
++        extraction_source:
++          type: string
++          const: MANUAL
++          title: Extraction Source
++          default: MANUAL
++      additionalProperties: false
++      type: object
++      required:
++      - original_url
++      - position
++      title: GeoManualCitationInput
++    GeoManualObservationDraft:
++      properties:
++        answer_text:
++          type: string
++          maxLength: 1048576
++          pattern: ^[^\x00]*$
++          title: Answer Text
++          default: ''
++        answer_format:
++          type: string
++          enum:
++          - TEXT
++          - MARKDOWN
++          - HTML_TEXT
++          title: Answer Format
++          default: TEXT
++        source_product:
++          anyOf:
++          - type: string
++            maxLength: 160
++            minLength: 1
++            pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          - type: 'null'
++          title: Source Product
++        source_model:
++          anyOf:
++          - type: string
++            maxLength: 200
++            minLength: 1
++            pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          - type: 'null'
++          title: Source Model
++        source_version:
++          anyOf:
++          - type: string
++            maxLength: 200
++            minLength: 1
++            pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          - type: 'null'
++          title: Source Version
++        web_search_observed:
++          anyOf:
++          - type: boolean
++          - type: 'null'
++          title: Web Search Observed
++        raw_payload_summary:
++          $ref: '#/components/schemas/GeoRawPayloadSummary'
++        raw_payload_file_id:
++          anyOf:
++          - type: string
++            format: uuid
++          - type: 'null'
++          title: Raw Payload File Id
++        screenshot_file_id:
++          anyOf:
++          - type: string
++            format: uuid
++          - type: 'null'
++          title: Screenshot File Id
++        citations:
++          items:
++            $ref: '#/components/schemas/GeoManualCitationInput'
++          type: array
++          maxItems: 1000
++          title: Citations
++        collected_at:
++          anyOf:
++          - type: string
++            format: date-time
++          - type: 'null'
++          title: Collected At
++      additionalProperties: false
++      type: object
++      title: GeoManualObservationDraft
++    GeoManualDraftSave:
++      properties:
++        expected_draft_revision:
++          type: integer
++          minimum: 0.0
++          title: Expected Draft Revision
++        draft:
++          $ref: '#/components/schemas/GeoManualObservationDraft'
++      additionalProperties: false
++      type: object
++      required:
++      - expected_draft_revision
++      - draft
++      title: GeoManualDraftSave
++    GeoManualObservationSubmit:
++      properties:
++        answer_text:
++          type: string
++          maxLength: 1048576
++          pattern: ^[^\x00]*$
++          title: Answer Text
++        answer_format:
++          type: string
++          enum:
++          - TEXT
++          - MARKDOWN
++          - HTML_TEXT
++          title: Answer Format
++          default: TEXT
++        source_product:
++          anyOf:
++          - type: string
++            maxLength: 160
++            minLength: 1
++            pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          - type: 'null'
++          title: Source Product
++        source_model:
++          anyOf:
++          - type: string
++            maxLength: 200
++            minLength: 1
++            pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          - type: 'null'
++          title: Source Model
++        source_version:
++          anyOf:
++          - type: string
++            maxLength: 200
++            minLength: 1
++            pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          - type: 'null'
++          title: Source Version
++        web_search_observed:
++          anyOf:
++          - type: boolean
++          - type: 'null'
++          title: Web Search Observed
++        raw_payload_summary:
++          $ref: '#/components/schemas/GeoRawPayloadSummary'
++        raw_payload_file_id:
++          anyOf:
++          - type: string
++            format: uuid
++          - type: 'null'
++          title: Raw Payload File Id
++        screenshot_file_id:
++          anyOf:
++          - type: string
++            format: uuid
++          - type: 'null'
++          title: Screenshot File Id
++        citations:
++          items:
++            $ref: '#/components/schemas/GeoManualCitationInput'
++          type: array
++          maxItems: 1000
++          title: Citations
++        collected_at:
++          type: string
++          format: date-time
++          title: Collected At
++        expected_draft_revision:
++          type: integer
++          minimum: 0.0
++          title: Expected Draft Revision
++      additionalProperties: false
++      type: object
++      required:
++      - answer_text
++      - collected_at
++      - expected_draft_revision
++      title: GeoManualObservationSubmit
++    GeoManualDraftOut:
++      properties:
++        run_id:
++          type: string
++          format: uuid
++          title: Run Id
++        draft_revision:
++          type: integer
++          minimum: 0.0
++          title: Draft Revision
++        draft:
++          $ref: '#/components/schemas/GeoManualObservationDraft'
++        updated_by:
++          type: string
++          format: uuid
++          title: Updated By
++        updated_at:
++          type: string
++          format: date-time
++          title: Updated At
++      additionalProperties: false
++      type: object
++      required:
++      - run_id
++      - draft_revision
++      - draft
++      - updated_by
++      - updated_at
++      title: GeoManualDraftOut
++    GeoManualEntryContext:
++      properties:
++        workflow_stage:
++          $ref: '#/components/schemas/GeoRunWorkflowStage'
++        primary_task:
++          $ref: '#/components/schemas/GeoRunPrimaryTask'
++        available_actions:
++          items:
++            $ref: '#/components/schemas/GeoRunAction'
++          type: array
++          title: Available Actions
++        run_id:
++          type: string
++          format: uuid
++          title: Run Id
++        batch_id:
++          type: string
++          format: uuid
++          title: Batch Id
++        run_revision:
++          type: integer
++          minimum: 0.0
++          title: Run Revision
++        input_snapshot:
++          $ref: '#/components/schemas/GeoRunInputSnapshot'
++        require_screenshot:
++          type: boolean
++          title: Require Screenshot
++        draft_revision:
++          type: integer
++          minimum: 0.0
++          title: Draft Revision
++        draft:
++          anyOf:
++          - $ref: '#/components/schemas/GeoManualDraftOut'
++          - type: 'null'
++        collection_blockers:
++          items:
++            $ref: '#/components/schemas/GeoProfileActivationBlocker'
++          type: array
++          title: Collection Blockers
++      additionalProperties: false
++      type: object
++      required:
++      - workflow_stage
++      - primary_task
++      - available_actions
++      - run_id
++      - batch_id
++      - run_revision
++      - input_snapshot
++      - require_screenshot
++      - draft_revision
++      - draft
++      - collection_blockers
++      title: GeoManualEntryContext
++    GeoManualObservationSubmitted:
++      properties:
++        run_id:
++          type: string
++          format: uuid
++          title: Run Id
++        answer_snapshot_id:
++          type: string
++          format: uuid
++          title: Answer Snapshot Id
++        answer_sha256:
++          type: string
++          pattern: ^[0-9a-f]{64}$(?![\s\S])
++          title: Answer Sha256
++        run_revision:
++          type: integer
++          minimum: 0.0
++          title: Run Revision
++        draft_revision:
++          type: integer
++          minimum: 0.0
++          title: Draft Revision
++        collected_at:
++          type: string
++          format: date-time
++          title: Collected At
++        submitted_at:
++          type: string
++          format: date-time
++          title: Submitted At
++        collection_status:
++          type: string
++          const: COLLECTED
++          title: Collection Status
++        analysis_dispatch:
++          type: string
++          const: NOT_IMPLEMENTED
++          title: Analysis Dispatch
++      additionalProperties: false
++      type: object
++      required:
++      - run_id
++      - answer_snapshot_id
++      - answer_sha256
++      - run_revision
++      - draft_revision
++      - collected_at
++      - submitted_at
++      - collection_status
++      - analysis_dispatch
++      title: GeoManualObservationSubmitted
++      description: 首次提交的稳定回执；不代表当前 Run 状态或已经执行分析。
+--- baseline/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -551,7 +551,7 @@
+   phase: R2
+   release: R2
+   title: 实现 MANUAL 草稿和正式提交
+-  status: planned
++  status: in_progress
+   dependencies:
+   - GEO-303
+   - GEO-304
+--- baseline/frontend/src/shared/api/generated/schema.d.ts
++++ frontend/src/shared/api/generated/schema.d.ts
+@@ -2637,6 +2637,57 @@
+         put?: never;
+         /** Create Batch */
+         post: operations["createGeoObservationBatch"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/observation-runs/{run_id}/manual-entry": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        /** Manual Entry */
++        get: operations["getGeoManualEntryContext"];
++        put?: never;
++        post?: never;
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/observation-runs/{run_id}/manual-draft": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        /** Save Manual Draft */
++        put: operations["saveGeoManualDraft"];
++        post?: never;
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/observation-runs/{run_id}/manual-submit": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /** Submit Manual Observation */
++        post: operations["submitGeoManualObservation"];
+         delete?: never;
+         options?: never;
+         head?: never;
+@@ -8224,6 +8275,181 @@
+              */
+             created_at: string;
+         };
++        /** GeoManualCitationInput */
++        GeoManualCitationInput: {
++            /** Original Url */
++            original_url: string;
++            /** Position */
++            position: number;
++            /** Title */
++            title?: string | null;
++            /**
++             * Extraction Source
++             * @default MANUAL
++             * @constant
++             */
++            extraction_source: "MANUAL";
++        };
++        /** GeoManualObservationDraft */
++        GeoManualObservationDraft: {
++            /**
++             * Answer Text
++             * @default
++             */
++            answer_text: string;
++            /**
++             * Answer Format
++             * @default TEXT
++             * @enum {string}
++             */
++            answer_format: "TEXT" | "MARKDOWN" | "HTML_TEXT";
++            /** Source Product */
++            source_product?: string | null;
++            /** Source Model */
++            source_model?: string | null;
++            /** Source Version */
++            source_version?: string | null;
++            /** Web Search Observed */
++            web_search_observed?: boolean | null;
++            raw_payload_summary?: components["schemas"]["GeoRawPayloadSummary"];
++            /** Raw Payload File Id */
++            raw_payload_file_id?: string | null;
++            /** Screenshot File Id */
++            screenshot_file_id?: string | null;
++            /** Citations */
++            citations?: components["schemas"]["GeoManualCitationInput"][];
++            /** Collected At */
++            collected_at?: string | null;
++        };
++        /** GeoManualDraftSave */
++        GeoManualDraftSave: {
++            /** Expected Draft Revision */
++            expected_draft_revision: number;
++            draft: components["schemas"]["GeoManualObservationDraft"];
++        };
++        /** GeoManualObservationSubmit */
++        GeoManualObservationSubmit: {
++            /** Answer Text */
++            answer_text: string;
++            /**
++             * Answer Format
++             * @default TEXT
++             * @enum {string}
++             */
++            answer_format: "TEXT" | "MARKDOWN" | "HTML_TEXT";
++            /** Source Product */
++            source_product?: string | null;
++            /** Source Model */
++            source_model?: string | null;
++            /** Source Version */
++            source_version?: string | null;
++            /** Web Search Observed */
++            web_search_observed?: boolean | null;
++            raw_payload_summary?: components["schemas"]["GeoRawPayloadSummary"];
++            /** Raw Payload File Id */
++            raw_payload_file_id?: string | null;
++            /** Screenshot File Id */
++            screenshot_file_id?: string | null;
++            /** Citations */
++            citations?: components["schemas"]["GeoManualCitationInput"][];
++            /**
++             * Collected At
++             * Format: date-time
++             */
++            collected_at: string;
++            /** Expected Draft Revision */
++            expected_draft_revision: number;
++        };
++        /** GeoManualDraftOut */
++        GeoManualDraftOut: {
++            /**
++             * Run Id
++             * Format: uuid
++             */
++            run_id: string;
++            /** Draft Revision */
++            draft_revision: number;
++            draft: components["schemas"]["GeoManualObservationDraft"];
++            /**
++             * Updated By
++             * Format: uuid
++             */
++            updated_by: string;
++            /**
++             * Updated At
++             * Format: date-time
++             */
++            updated_at: string;
++        };
++        /** GeoManualEntryContext */
++        GeoManualEntryContext: {
++            workflow_stage: components["schemas"]["GeoRunWorkflowStage"];
++            primary_task: components["schemas"]["GeoRunPrimaryTask"];
++            /** Available Actions */
++            available_actions: components["schemas"]["GeoRunAction"][];
++            /**
++             * Run Id
++             * Format: uuid
++             */
++            run_id: string;
++            /**
++             * Batch Id
++             * Format: uuid
++             */
++            batch_id: string;
++            /** Run Revision */
++            run_revision: number;
++            input_snapshot: components["schemas"]["GeoRunInputSnapshot"];
++            /** Require Screenshot */
++            require_screenshot: boolean;
++            /** Draft Revision */
++            draft_revision: number;
++            draft: components["schemas"]["GeoManualDraftOut"] | null;
++            /** Collection Blockers */
++            collection_blockers: components["schemas"]["GeoProfileActivationBlocker"][];
++        };
++        /**
++         * GeoManualObservationSubmitted
++         * @description 首次提交的稳定回执；不代表当前 Run 状态或已经执行分析。
++         */
++        GeoManualObservationSubmitted: {
++            /**
++             * Run Id
++             * Format: uuid
++             */
++            run_id: string;
++            /**
++             * Answer Snapshot Id
++             * Format: uuid
++             */
++            answer_snapshot_id: string;
++            /** Answer Sha256 */
++            answer_sha256: string;
++            /** Run Revision */
++            run_revision: number;
++            /** Draft Revision */
++            draft_revision: number;
++            /**
++             * Collected At
++             * Format: date-time
++             */
++            collected_at: string;
++            /**
++             * Submitted At
++             * Format: date-time
++             */
++            submitted_at: string;
++            /**
++             * Collection Status
++             * @constant
++             */
++            collection_status: "COLLECTED";
++            /**
++             * Analysis Dispatch
++             * @constant
++             */
++            analysis_dispatch: "NOT_IMPLEMENTED";
++        };
+     };
+     responses: {
+         /** @description 业务或校验错误 */
+@@ -15172,4 +15398,110 @@
+             422: components["responses"]["ErrorResponse"];
+         };
+     };
++    getGeoManualEntryContext: {
++        parameters: {
++            query?: never;
++            header?: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                run_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoManualEntryContext"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    saveGeoManualDraft: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                run_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoManualDraftSave"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoManualDraftOut"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++            503: components["responses"]["ErrorResponse"];
++        };
++    };
++    submitGeoManualObservation: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "Idempotency-Key": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                run_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoManualObservationSubmit"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            201: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoManualObservationSubmitted"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++            503: components["responses"]["ErrorResponse"];
++        };
++    };
+ }

@@ -1,0 +1,9 @@
+[
+  {
+    "path": "docs/geo-monitoring/01-product/02-geo-core-prd.md",
+    "sha256_manifest_at_start": "44d54c96622be90ace3165fad8cd99208c3e56be8b38ae954196518ab3b47131",
+    "initial_source_sha256": "cbcbdb4bf180d2669cac61a3b5160fb2baff743a1360492bf42fde00f0571e2f",
+    "current_source_sha256": "cbcbdb4bf180d2669cac61a3b5160fb2baff743a1360492bf42fde00f0571e2f",
+    "source_unchanged_during_geo707": true
+  }
+]

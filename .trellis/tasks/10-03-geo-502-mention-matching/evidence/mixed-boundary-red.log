@@ -1,0 +1,48 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_____________ test_mention_gold[reference-part-number-boundaries] ______________
+
+case = {'expected': {'ambiguities': [], 'mentions': [{'matched_aliases': ['GEORF-915T'], 'occurrences': [{'end': 53, 'excerpt...undaries', 'subject_ids': ['subject-reference'], 'text': 'GEORF-915T/ALT GEORF-915T.2 GEORF-915T-NEW GEORF-915T是参考型号。'}
+
+    @pytest.mark.parametrize("case", MENTION_GOLD["cases"], ids=lambda case: case["id"])
+    def test_mention_gold(case: dict[str, Any]) -> None:
+        snapshot = freeze_subject_aliases(subjects(case["subject_ids"]))
+        result = identify_mentions(case["text"], snapshot)
+        expected = case["expected"]
+        assert result.rule_set_version == MENTION_RULE_VERSION
+        assert {row.subject_id for row in result.mentions} == {
+            identity(row["subject_id"]) for row in expected["mentions"]
+        }
+        actual = {row.subject_id: row for row in result.mentions}
+        for gold in expected["mentions"]:
+            mention = actual[identity(gold["subject_id"])]
+>           assert mention.mention_count == len(gold["occurrences"])
+E           AssertionError: assert 3 == 1
+E            +  where 3 = EntityMention(subject_id=UUID('d9ff7752-a753-50a3-bcd8-ee9ad38044b5'), mention_count=3, first_character_offset=0).mention_count
+E            +  and   1 = len([{'end': 53, 'excerpt': 'GEORF-915T', 'negation_cues': [], 'start': 43}])
+
+backend/tests/unit/test_geo_analysis.py:107: AssertionError
+________ test_mention_gold[shared-alias-mixed-types-never-picks-brand] _________
+
+case = {'expected': {'ambiguities': [{'end': 26, 'excerpt': 'GEOFX-731Q', 'matched_aliases': ['GEOFX-731Q', 'geofx-731q'], 'n...never-picks-brand', 'subject_ids': ['subject-base', 'subject-model-label-brand'], 'text': 'GEOFX-731Q/ALT; GEOFX-731Q'}
+
+    @pytest.mark.parametrize("case", MENTION_GOLD["cases"], ids=lambda case: case["id"])
+    def test_mention_gold(case: dict[str, Any]) -> None:
+        snapshot = freeze_subject_aliases(subjects(case["subject_ids"]))
+        result = identify_mentions(case["text"], snapshot)
+        expected = case["expected"]
+        assert result.rule_set_version == MENTION_RULE_VERSION
+>       assert {row.subject_id for row in result.mentions} == {
+            identity(row["subject_id"]) for row in expected["mentions"]
+        }
+E       AssertionError: assert {UUID('9a5e36...277955e17a0')} == set()
+E         
+E         Extra items in the left set:
+E         UUID('9a5e36bc-c7c2-5c7a-92db-4277955e17a0')
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_analysis.py:101: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_analysis.py::test_mention_gold[reference-part-number-boundaries]
+FAILED backend/tests/unit/test_geo_analysis.py::test_mention_gold[shared-alias-mixed-types-never-picks-brand]
+2 failed, 47 deselected in 0.15s

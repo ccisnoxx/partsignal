@@ -1,0 +1,36 @@
+{
+  "ruff": {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend ruff check backend/app/services/geo_collection_profiles.py backend/tests/unit/test_geo_surface_contract.py backend/app/audit_types.py backend/app/errors.py backend/app/main.py backend/app/services/audit_logs.py backend/tests/unit/test_contract.py backend/tests/unit/test_runtime_response_metadata.py backend/tests/integration/geo_surface_management_support.py backend/tests/integration/test_geo_surface_management_concurrency.py backend/tests/integration/test_geo_surface_management_reads.py backend/tests/integration/test_geo_surface_management_constraint_mapping.py backend/tests/integration/test_geo_surface_management_transactions.py backend/tests/integration/test_geo_surface_management_api.py backend/tests/unit/test_validation_error_safety.py backend/tests/unit/test_geo_surface_management_errors.py backend/app/services/geo_surface_commands.py backend/app/services/geo_surface_queries.py backend/app/services/geo_surface_locks.py backend/app/services/geo_surface_projections.py backend/app/routers/geo_surface_management.py backend/app/schemas/geo_surface_management.py",
+    "exit_code": 0,
+    "result": "All checks passed!"
+  },
+  "mypy": {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app/services/geo_collection_profiles.py backend/app/services/geo_surface_commands.py backend/app/services/geo_surface_locks.py backend/app/services/geo_surface_queries.py backend/app/services/geo_surface_projections.py backend/app/routers/geo_surface_management.py backend/app/schemas/geo_surface_management.py backend/app/audit_types.py backend/app/services/audit_logs.py backend/app/errors.py backend/app/main.py",
+    "exit_code": 0,
+    "result": "Success: no issues found in 11 source files"
+  },
+  "contract": {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_contract.py",
+    "exit_code": 0,
+    "result": "61 passed in 10.65s"
+  },
+  "runtime_metadata": {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_runtime_response_metadata.py --tb=short",
+    "exit_code": 0,
+    "result": "345 passed in 4.53s"
+  },
+  "postgresql": {
+    "logs": [
+      "postgresql.log",
+      "constraint-final.log"
+    ],
+    "exit_code": 0,
+    "result": "74 passed with 2 existing warnings; separately 3 passed with no warnings",
+    "environment": "APP_ENV=test; PARTSIGNAL_TEST_DATABASE_URL=parent-provided exclusive PostgreSQL port 55445; UV_CACHE_DIR=.cache/uv"
+  },
+  "notes": [
+    "unit-final.log 保留首次263 passed/1 failed的旧422库存断言失败；修正后已重跑合同全文件61 tests通过。",
+    "未运行全仓门禁；parent接管完整unit、integration、独立只读复核。",
+    "未使用Git、未写backend外目录；临时运行脚本已删除，仅保留日志和JSON。"
+  ]
+}

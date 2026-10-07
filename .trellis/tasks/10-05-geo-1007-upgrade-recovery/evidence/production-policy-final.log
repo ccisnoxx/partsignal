@@ -1,0 +1,26 @@
+canonical Frontend Nginx 安全头、Markdown、HTML 与 DOM sink 校验通过
+Production network identity static: 3 networks / 7 services passed
+Engine existing-label reuse: api passed
+Engine existing-label reuse: migrate passed
+Engine existing-label reuse: postgres passed
+Engine existing-label reuse: redis passed
+Engine existing-label reuse: worker passed
+Engine existing-label reuse: scheduler passed
+Engine existing-label reuse: frontend passed
+Traceback (most recent call last):
+  File "<stdin>", line 96, in <module>
+  File "<stdin>", line 59, in cleanup
+  File "<stdin>", line 27, in docker
+  File "/Users/sc/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['docker', 'network', 'rm', '2fe6018847d2547e5b52fca40d7b80ad0ae9ef0363f82d495793b58de5339735']' returned non-zero exit status 1.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "<stdin>", line 109, in <module>
+  File "<stdin>", line 59, in cleanup
+  File "<stdin>", line 27, in docker
+  File "/Users/sc/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['docker', 'network', 'rm', '2fe6018847d2547e5b52fca40d7b80ad0ae9ef0363f82d495793b58de5339735']' returned non-zero exit status 1.

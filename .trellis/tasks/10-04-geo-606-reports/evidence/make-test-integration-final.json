@@ -1,0 +1,9 @@
+{
+  "command": [
+    "make",
+    "test-integration",
+    "COMPOSE=docker compose -p geo606-validation -f .trellis/tasks/10-04-geo-606-reports/evidence/validation-compose.yaml"
+  ],
+  "exit_code": 0,
+  "duration_seconds": 600.0
+}

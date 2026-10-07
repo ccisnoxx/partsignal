@@ -1,0 +1,143 @@
+[
+  {
+    "scope": "PostgreSQL 新入口/旧 evaluator/baseline 首轮",
+    "command": "docker compose --env-file .env -f deploy/compose.dev.yaml run --rm backend-test pytest tests/integration/test_geo_manual_opportunity_evaluation.py tests/integration/test_geo_opportunities.py tests/integration/test_geo_opportunity_baseline.py -q",
+    "exit_code": 1,
+    "result": "旧 evaluator 11项及baseline 1项通过；新测试6项因共享数据库/身份恢复失败；业务实现无确认失败",
+    "evidence": "evidence/pg-integration.log"
+  },
+  {
+    "scope": "PostgreSQL 新入口/闭环/迁移定向",
+    "exit_code": 1,
+    "result": "29 passed，1个新增正例在发请求前使用analysis输入而非Run快照导致KeyError",
+    "evidence": "evidence/pg-integration-corrected.log"
+  },
+  {
+    "scope": "管理员正例三类过滤及真实来源",
+    "exit_code": 0,
+    "result": "1 passed；修正夹具读取Run.input_snapshot后通过",
+    "evidence": "evidence/pg-positive-corrected.log"
+  },
+  {
+    "scope": "当前身份/会话撤销及规范化重放",
+    "exit_code": 0,
+    "result": "5 passed（其中3项复用重验，2项新合同）",
+    "evidence": "evidence/pg-additional.log"
+  },
+  {
+    "scope": "PostgreSQL 唯一用例最终状态",
+    "result": "45个独立用例最终通过：新入口API29、独立迁移1、既有evaluator11、baseline1、闭环2、fresh/head/seed1；0 skip。新API包含audit/commit两类故障（替换原audit单项），迁移测试从原API模块拆分。分轮证据复用，不声明整套一次重跑。"
+  },
+  {
+    "scope": "后端规则/工作台/OpenAPI 单元",
+    "exit_code": 1,
+    "result": "119 passed，2个固定operation inventory因新增路由未更新而失败",
+    "evidence": "evidence/backend-unit.log"
+  },
+  {
+    "scope": "OpenAPI inventory修正",
+    "exit_code": 1,
+    "result": "元数据1项通过，signature1项尚缺422总数更新",
+    "evidence": "evidence/contract-unit-corrected.log"
+  },
+  {
+    "scope": "OpenAPI signature最终修正",
+    "exit_code": 0,
+    "result": "1 passed；operation inventory两项最终通过，后端共121个独立用例最终通过",
+    "evidence": "evidence/contract-signatures-final.log"
+  },
+  {
+    "scope": "前端审计投影",
+    "exit_code": 0,
+    "result": "24 passed；首轮新夹具UNSUPPORTED kind应为null、导航返回undefined，修正后通过",
+    "evidence": "evidence/frontend-audit-test-corrected.log"
+  },
+  {
+    "scope": "runtime合同",
+    "exit_code": 0,
+    "result": "FastAPI 与根OpenAPI完整操作合同一致",
+    "evidence": "evidence/contract-check.log"
+  },
+  {
+    "scope": "generated API",
+    "exit_code": 0,
+    "result": "类型实际生成且api:check通过；首轮共享枚举重复已修正",
+    "evidence": [
+      "evidence/api-generate.log",
+      "evidence/api-check.log"
+    ]
+  },
+  {
+    "scope": "backend类型",
+    "exit_code": 0,
+    "result": "8个变更源码mypy通过",
+    "evidence": "evidence/backend-types.log"
+  },
+  {
+    "scope": "frontend类型",
+    "exit_code": 0,
+    "evidence": "evidence/frontend-typecheck.log"
+  },
+  {
+    "scope": "backend lint",
+    "exit_code": 0,
+    "result": "15个变更路径ruff通过；新增4个长行修正后通过",
+    "evidence": "evidence/backend-lint-final.log"
+  },
+  {
+    "scope": "frontend lint",
+    "exit_code": 0,
+    "evidence": "evidence/frontend-lint.log"
+  },
+  {
+    "scope": "任务空白",
+    "result": "28个本任务路径最终全部通过；no-index exit1只表示正常内容差异，未有空白错误输出",
+    "evidence": "evidence/task-diff-check.json"
+  },
+  {
+    "scope": "全局空白",
+    "exit_code": 2,
+    "classification": "未改动的GEO-1001审计文档已有尾随空白；不清理无关变更",
+    "evidence": "evidence/global-diff-check.log"
+  },
+  {
+    "scope": "未运行",
+    "result": "无新增操作页面，不运行浏览器矩阵/页面E2E；未运行全仓make verify、性能/真实外部AI、生产迁移/部署/现场内部试用。API会话/权限/事务由真实HTTP+PostgreSQL验证；GEO-1009/1010独立候选/现场门禁保留"
+  },
+  {
+    "scope": "失败边界/迁移拆分首轮",
+    "exit_code": 1,
+    "result": "2项故障失败、独立迁移1 passed：from None仍被当前Starlette从context重新提升cause，暴露秘密哨兵",
+    "evidence": "evidence/pg-failure-boundary-final.log"
+  },
+  {
+    "scope": "审计/提交失败安全边界修正",
+    "exit_code": 0,
+    "result": "2 passed；退出except后抛固定RuntimeError，HTTP500与ASGI traceback脱敏、整次业务回滚",
+    "evidence": "evidence/pg-failure-boundary-corrected.log"
+  },
+  {
+    "scope": "复核后静态检查",
+    "exit_code": 0,
+    "result": "router及拆分测试ruff通过；router mypy通过",
+    "evidence": [
+      "evidence/post-review-lint.log",
+      "evidence/router-types-final.log"
+    ]
+  },
+  {
+    "scope": "文档/最终状态/范围",
+    "exit_code": 0,
+    "result": "131条文档SHA一致；Runbook三处0066一致；task/manifest为review；manifest仅GEO-1006项改变；28个任务路径空白通过。收尾辅助脚本首用系统Python缺PyYAML，改项目既有venv后执行通过。",
+    "evidence": [
+      "evidence/docs-status-check.json",
+      "evidence/task-diff-check.json",
+      "evidence/candidate.diff"
+    ]
+  },
+  {
+    "scope": "独立复核审计",
+    "result": "2个fresh critical_reviewer交付验收；Bundle已关闭和audit-verify通过。首轮写入观测unknown明确保留，第二轮源文件快照无差异；不把运行状态当验收或写入证据。",
+    "audit_id": "20261006T051325Z-geo-1006-14f7608a"
+  }
+]

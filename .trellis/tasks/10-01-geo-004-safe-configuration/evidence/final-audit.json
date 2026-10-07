@@ -1,0 +1,52 @@
+{
+  "status": "passed",
+  "task": "GEO-004",
+  "manifest_status": "review",
+  "manifest_changes": [
+    "GEO-004.status",
+    "GEO-004.review_note",
+    "GEO-004.trellis_task",
+    "GEO-004.validation_record"
+  ],
+  "other_tasks_unchanged": true,
+  "protected_paths_unchanged": [
+    "contracts/openapi.yaml",
+    "contracts/database.md",
+    "backend/app/main.py",
+    "backend/app/worker.py",
+    "deploy/compose.dev.yaml",
+    "deploy/compose.staging.yaml",
+    "deploy/compose.prod.yaml"
+  ],
+  "contract_migration_frontend_diff": [],
+  "geo_document_hashes_checked": 113,
+  "changed_document_links_checked": 68,
+  "tracked_diff_check_exit": 0,
+  "new_files_diff_check_exit": 0,
+  "real_git_index_modified": false,
+  "selected_owned_paths": [
+    ".env.example",
+    ".env.production.example",
+    ".trellis/tasks/10-01-geo-004-safe-configuration/check.jsonl",
+    ".trellis/tasks/10-01-geo-004-safe-configuration/evidence/independent-review.md",
+    ".trellis/tasks/10-01-geo-004-safe-configuration/implement.jsonl",
+    ".trellis/tasks/10-01-geo-004-safe-configuration/implement.md",
+    ".trellis/tasks/10-01-geo-004-safe-configuration/prd.md",
+    ".trellis/tasks/10-01-geo-004-safe-configuration/task.json",
+    "Makefile",
+    "backend/app/config.py",
+    "backend/tests/unit/test_geo_configuration.py",
+    "deploy/scripts/check-production-inputs.py",
+    "deploy/scripts/test-geo-configuration.py",
+    "docs/geo-monitoring/03-technical/01-technical-architecture.md",
+    "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/SHA256SUMS",
+    "docs/production-configuration.md"
+  ],
+  "limits": [
+    "此审计不取代人工差异检查或测试；不读取真实生产 env。"
+  ]
+}

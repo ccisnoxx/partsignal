@@ -1,0 +1,10 @@
+
+> partsignal-frontend-v2@0.1.0 typecheck
+> tsc -b --pretty false
+
+src/domains/geo-insights/insights-page.test.tsx(82,64): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+tests/e2e/insights-real-stack.spec.ts(28,242): error TS2353: Object literal may only specify known properties, and 'url' does not exist in type '{ original_url: string; position: number; title?: string | null | undefined; extraction_source: "MANUAL"; }'.

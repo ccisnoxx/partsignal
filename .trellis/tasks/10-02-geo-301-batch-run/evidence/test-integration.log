@@ -1,0 +1,12 @@
+docker compose -f /Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-02-geo-301-batch-run/evidence/validation-compose.yaml run --rm backend-test
+ Volume evidence_geo301-postgres Creating 
+ Volume evidence_geo301-postgres Created 
+ Container evidence-fake-oss-1 Running 
+ Container evidence-redis-1 Creating 
+ Container evidence-postgres-1 Creating 
+ Container evidence-postgres-1 Created 
+ Container evidence-redis-1 Created 
+ Container evidence-redis-1 Starting 
+ Container evidence-postgres-1 Starting 
+Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint evidence-redis-1 (eac1533e7396920f95389f49477709f0b1f529ae0ee62dbdb82f0ab921a33e2b): Bind for 127.0.0.1:56391 failed: port is already allocated
+make: *** [test-integration] Error 1

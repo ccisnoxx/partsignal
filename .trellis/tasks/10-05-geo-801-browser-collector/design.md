@@ -1,0 +1,13 @@
+# GEO-801 实施边界
+
+业务状态与事务仍由现有Backend Application Service/PG拥有；本服务只拥有临时浏览器进程和受限运行时生命周期。没有批准的Browser adapter/会话，独立消息消费者或新PG client会构造没有业务裁决的平行执行路径，因此801只建立稳定UUID内部拒绝入口。不消费/确认Redis消息，不写Run.error_code或lease；后续接线必须调用同一权威资格、锁与发送裁决。
+
+普通Worker读取PENDING冻结模式后只接受API。MANUAL/BROWSER都在构造请求、资格与第二段写事务前返回；输入被冻结的PG合同保证读取到的模式不能并发改写。现有API锁顺序与SENT at-most-once保持，新增检查不取得锁、不增加revision、不分配预算。
+
+共享Compose include将profile定义集中一处；默认services排除Browser。独立镜像固定包和浏览器基镜像版本；没有全局env_file、数据库/Redis/socket/存储凭据，也没有持久会话材料。network_mode none是当前完全禁止外发的边界，未来批准网络和session由后续任务建立，不加入不可达的猜测代理/allowlist。
+
+双启动开关与默认STOP分别提供进程配置门禁和每次入口热停止。控制目录只读且必须存在；STOP任意文件类型或目录访问错误都拒绝，不能把读失败当授权。健康执行真实离线DOM，只证明runtime；collection disabled/notimplemented与session NOT_IMPLEMENTED明确输出，不冒充会话/采集成功。
+
+非root Chromium sandbox实际启动需要user namespace，以及其内部chroot。固定官方seccomp基础上的chroot放行只允许进入内核namespace权限检查，保留默认ERRNO/cap_drop ALL/no-new-privileges，不授予宿主能力、不关闭sandbox。初始官方CAP_SYS_CHROOT条件在cap_dropALL下让sandbox启动失败，实际日志定位后修改。重新创建容器后通过；过滤器由容器创建加载，文件变更不改变已有容器。
+
+验证用例只渲染可信内存页，范围不包含GEO803模拟AI站/DOM选择器/adapter suite。Docker Desktop bind的宿主STOP写入观察存在短延迟，runtime测试对目标状态最多等待5秒，业务入口仍逐次按容器文件系统裁决。浏览器资源限额为骨架起点；未度量真实平台负载，不声称真实采集容量。

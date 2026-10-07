@@ -1,0 +1,42 @@
+[
+  {
+    "command": "git diff --check",
+    "result": "passed",
+    "log": "diff-check-final.log"
+  },
+  {
+    "command": "make contract-check",
+    "result": "passed",
+    "log": "contract-check.log"
+  },
+  {
+    "command": "make lint",
+    "result": "passed",
+    "log": "lint-final.log"
+  },
+  {
+    "command": "make typecheck",
+    "result": "passed",
+    "log": "typecheck-fixed.log"
+  },
+  {
+    "command": "make test-unit",
+    "result": "passed: backend1281; frontend report1067",
+    "log": "test-unit.log"
+  },
+  {
+    "command": "npm --prefix frontend test -- --maxWorkers=4 --reporter=json --outputFile=/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-02-geo-301-batch-run/evidence/frontend-unit.json",
+    "result": "passed:1067",
+    "log": "frontend-unit.json"
+  },
+  {
+    "command": "make test-integration COMPOSE='docker compose -p partsignal-geo301-validation -f /Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-02-geo-301-batch-run/evidence/validation-compose.yaml'",
+    "result": "passed:656",
+    "log": "test-integration-fixed.log"
+  },
+  {
+    "command": "APP_ENV=test DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55451/partsignal UV_CACHE_DIR=.cache/uv uv run --project backend alembic -c backend/alembic.ini upgrade head",
+    "result": "passed:0048",
+    "log": "alembic-final-upgrade.log"
+  }
+]

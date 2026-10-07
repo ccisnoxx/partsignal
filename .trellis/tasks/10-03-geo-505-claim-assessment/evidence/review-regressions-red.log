@@ -1,0 +1,320 @@
+FFFFFFFF.FF                                                              [100%]
+=================================== FAILURES ===================================
+__________________ test_claim_gold[review-cert-\u9700\u8981] ___________________
+
+case = {'expected': {'claims': [{'claim_kind': 'CERTIFICATION', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'verdict'...AFETY_CERTIFICATION_REVIEW']}, 'fact_body': '需要获得虚构安全认证 Q-77。', 'fact_status': 'APPROVED', 'id': 'review-cert-需要', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+        facts = candidates()
+        facts[0] = replace(
+            facts[0],
+            status=FactVersionStatus(case["fact_status"]),
+            body_markdown=case["fact_body"]
+            if case["fact_body"] is not None
+            else facts[0].body_markdown,
+        )
+        result = assess_claims(case["text"], scope, freeze_fact_versions(scope, facts))
+        assert result.rule_set_version == CLAIM_RULE_VERSION
+        expected = [
+            {**row, "subject_id": identity(row["subject_id"])} for row in case["expected"]["claims"]
+        ]
+>       assert [
+            {
+                "subject_id": row.subject_id,
+                "claim_kind": row.claim_kind,
+                "verdict": row.verdict,
+                "severity": row.severity,
+            }
+            for row in result.assessments
+        ] == expected
+E       AssertionError: assert [{'claim_kind... 'ACCURATE'>}] == [{'claim_kind...UNJUDGEABLE'}]
+E         
+E         At index 0 diff: {'subject_id': UUID('05a8bb67-688f-51a1-aee5-621dc46a000b'), 'claim_kind': <GeoClaimKind.CERTIFICATION: 'CERTIFICATION'>, 'verdict': <GeoClaimVerdict.ACCURATE: 'ACCURATE'>, 'severity': <GeoClaimSeverity.LOW: 'LOW'>} != {'subject_id': UUID('05a8bb67-688f-51a1-aee5-621dc46a000b'), 'claim_kind': 'CERTIFICATION', 'verdict': 'UNJUDGEABLE', 'severity': 'MEDIUM'}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_claims.py:64: AssertionError
+__________________ test_claim_gold[review-cert-\u8ba1\u5212] ___________________
+
+case = {'expected': {'claims': [{'claim_kind': 'CERTIFICATION', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'verdict'...AFETY_CERTIFICATION_REVIEW']}, 'fact_body': '计划获得虚构安全认证 Q-77。', 'fact_status': 'APPROVED', 'id': 'review-cert-计划', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+        facts = candidates()
+        facts[0] = replace(
+            facts[0],
+            status=FactVersionStatus(case["fact_status"]),
+            body_markdown=case["fact_body"]
+            if case["fact_body"] is not None
+            else facts[0].body_markdown,
+        )
+        result = assess_claims(case["text"], scope, freeze_fact_versions(scope, facts))
+        assert result.rule_set_version == CLAIM_RULE_VERSION
+        expected = [
+            {**row, "subject_id": identity(row["subject_id"])} for row in case["expected"]["claims"]
+        ]
+>       assert [
+            {
+                "subject_id": row.subject_id,
+                "claim_kind": row.claim_kind,
+                "verdict": row.verdict,
+                "severity": row.severity,
+            }
+            for row in result.assessments
+        ] == expected
+E       AssertionError: assert [{'claim_kind... 'ACCURATE'>}] == [{'claim_kind...UNJUDGEABLE'}]
+E         
+E         At index 0 diff: {'subject_id': UUID('05a8bb67-688f-51a1-aee5-621dc46a000b'), 'claim_kind': <GeoClaimKind.CERTIFICATION: 'CERTIFICATION'>, 'verdict': <GeoClaimVerdict.ACCURATE: 'ACCURATE'>, 'severity': <GeoClaimSeverity.LOW: 'LOW'>} != {'subject_id': UUID('05a8bb67-688f-51a1-aee5-621dc46a000b'), 'claim_kind': 'CERTIFICATION', 'verdict': 'UNJUDGEABLE', 'severity': 'MEDIUM'}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_claims.py:64: AssertionError
+__________________ test_claim_gold[review-no-comma-condition] __________________
+
+case = {'expected': {'claims': [{'claim_kind': 'REPLACEMENT_RELATION', 'severity': 'CRITICAL', 'subject_id': 'subject-base', ...RRECT']}, 'fact_body': '在 3.3 V 供电时可替代 GEORF-915T。', 'fact_status': 'APPROVED', 'id': 'review-no-comma-condition', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+        facts = candidates()
+        facts[0] = replace(
+            facts[0],
+            status=FactVersionStatus(case["fact_status"]),
+            body_markdown=case["fact_body"]
+            if case["fact_body"] is not None
+            else facts[0].body_markdown,
+        )
+        result = assess_claims(case["text"], scope, freeze_fact_versions(scope, facts))
+        assert result.rule_set_version == CLAIM_RULE_VERSION
+        expected = [
+            {**row, "subject_id": identity(row["subject_id"])} for row in case["expected"]["claims"]
+        ]
+>       assert [
+            {
+                "subject_id": row.subject_id,
+                "claim_kind": row.claim_kind,
+                "verdict": row.verdict,
+                "severity": row.severity,
+            }
+            for row in result.assessments
+        ] == expected
+E       AssertionError: assert [{'claim_kind... 'ACCURATE'>}] == [{'claim_kind... 'INCORRECT'}]
+E         
+E         At index 0 diff: {'subject_id': UUID('05a8bb67-688f-51a1-aee5-621dc46a000b'), 'claim_kind': <GeoClaimKind.REPLACEMENT_RELATION: 'REPLACEMENT_RELATION'>, 'verdict': <GeoClaimVerdict.ACCURATE: 'ACCURATE'>, 'severity': <GeoClaimSeverity.LOW: 'LOW'>} != {'subject_id': UUID('05a8bb67-688f-51a1-aee5-621dc46a000b'), 'claim_kind': 'REPLACEMENT_RELATION', 'verdict': 'INCORRECT', 'severity': 'CRITICAL'}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_claims.py:64: AssertionError
+_________________ test_claim_gold[review-two-condition-blocks] _________________
+
+case = {'expected': {'claims': [{'claim_kind': 'REPLACEMENT_RELATION', 'severity': 'HIGH', 'subject_id': 'subject-base', 'ver..._body': '仅在 3.3 V 供电时，且仅在完成时序验证后，可替代 GEORF-915T。', 'fact_status': 'APPROVED', 'id': 'review-two-condition-blocks', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+        facts = candidates()
+        facts[0] = replace(
+            facts[0],
+            status=FactVersionStatus(case["fact_status"]),
+            body_markdown=case["fact_body"]
+            if case["fact_body"] is not None
+            else facts[0].body_markdown,
+        )
+        result = assess_claims(case["text"], scope, freeze_fact_versions(scope, facts))
+        assert result.rule_set_version == CLAIM_RULE_VERSION
+        expected = [
+            {**row, "subject_id": identity(row["subject_id"])} for row in case["expected"]["claims"]
+        ]
+>       assert [
+            {
+                "subject_id": row.subject_id,
+                "claim_kind": row.claim_kind,
+                "verdict": row.verdict,
+                "severity": row.severity,
+            }
+            for row in result.assessments
+        ] == expected
+E       AssertionError: assert [{'claim_kind... 'ACCURATE'>}] == [{'claim_kind...': 'PARTIAL'}]
+E         
+E         At index 0 diff: {'subject_id': UUID('05a8bb67-688f-51a1-aee5-621dc46a000b'), 'claim_kind': <GeoClaimKind.REPLACEMENT_RELATION: 'REPLACEMENT_RELATION'>, 'verdict': <GeoClaimVerdict.ACCURATE: 'ACCURATE'>, 'severity': <GeoClaimSeverity.LOW: 'LOW'>} != {'subject_id': UUID('05a8bb67-688f-51a1-aee5-621dc46a000b'), 'claim_kind': 'REPLACEMENT_RELATION', 'verdict': 'PARTIAL', 'severity': 'HIGH'}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_claims.py:64: AssertionError
+_______________ test_claim_gold[review-unmonitored-product-fact] _______________
+
+case = {'expected': {'claims': [{'claim_kind': 'PARAMETER', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'verdict': 'U...BLE']}, 'fact_body': 'GEOCX-842R 的供电电压为 5 V。', 'fact_status': 'APPROVED', 'id': 'review-unmonitored-product-fact', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+        facts = candidates()
+        facts[0] = replace(
+            facts[0],
+            status=FactVersionStatus(case["fact_status"]),
+            body_markdown=case["fact_body"]
+            if case["fact_body"] is not None
+            else facts[0].body_markdown,
+        )
+        result = assess_claims(case["text"], scope, freeze_fact_versions(scope, facts))
+        assert result.rule_set_version == CLAIM_RULE_VERSION
+        expected = [
+            {**row, "subject_id": identity(row["subject_id"])} for row in case["expected"]["claims"]
+        ]
+>       assert [
+            {
+                "subject_id": row.subject_id,
+                "claim_kind": row.claim_kind,
+                "verdict": row.verdict,
+                "severity": row.severity,
+            }
+            for row in result.assessments
+        ] == expected
+E       AssertionError: assert [{'claim_kind... 'ACCURATE'>}] == [{'claim_kind...UNJUDGEABLE'}]
+E         
+E         At index 0 diff: {'subject_id': UUID('05a8bb67-688f-51a1-aee5-621dc46a000b'), 'claim_kind': <GeoClaimKind.PARAMETER: 'PARAMETER'>, 'verdict': <GeoClaimVerdict.ACCURATE: 'ACCURATE'>, 'severity': <GeoClaimSeverity.LOW: 'LOW'>} != {'subject_id': UUID('05a8bb67-688f-51a1-aee5-621dc46a000b'), 'claim_kind': 'PARAMETER', 'verdict': 'UNJUDGEABLE', 'severity': 'MEDIUM'}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_claims.py:64: AssertionError
+________________ test_claim_gold[review-conditional-parameter] _________________
+
+case = {'expected': {'claims': [{'claim_kind': 'PARAMETER', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'verdict': 'U...UDGEABLE']}, 'fact_body': '仅在测试模式下，供电电压为 3.3 V。', 'fact_status': 'APPROVED', 'id': 'review-conditional-parameter', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+        facts = candidates()
+        facts[0] = replace(
+            facts[0],
+            status=FactVersionStatus(case["fact_status"]),
+            body_markdown=case["fact_body"]
+            if case["fact_body"] is not None
+            else facts[0].body_markdown,
+        )
+        result = assess_claims(case["text"], scope, freeze_fact_versions(scope, facts))
+        assert result.rule_set_version == CLAIM_RULE_VERSION
+        expected = [
+            {**row, "subject_id": identity(row["subject_id"])} for row in case["expected"]["claims"]
+        ]
+>       assert [
+            {
+                "subject_id": row.subject_id,
+                "claim_kind": row.claim_kind,
+                "verdict": row.verdict,
+                "severity": row.severity,
+            }
+            for row in result.assessments
+        ] == expected
+E       AssertionError: assert [{'claim_kind... 'ACCURATE'>}] == [{'claim_kind...UNJUDGEABLE'}]
+E         
+E         At index 0 diff: {'subject_id': UUID('05a8bb67-688f-51a1-aee5-621dc46a000b'), 'claim_kind': <GeoClaimKind.PARAMETER: 'PARAMETER'>, 'verdict': <GeoClaimVerdict.ACCURATE: 'ACCURATE'>, 'severity': <GeoClaimSeverity.LOW: 'LOW'>} != {'subject_id': UUID('05a8bb67-688f-51a1-aee5-621dc46a000b'), 'claim_kind': 'PARAMETER', 'verdict': 'UNJUDGEABLE', 'severity': 'MEDIUM'}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_claims.py:64: AssertionError
+_____________________ test_claim_gold[review-nonscalar-0] ______________________
+
+case = {'expected': {'claims': [{'claim_kind': 'PARAMETER', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'verdict': 'U...sons': ['CLAIM_UNJUDGEABLE']}, 'fact_body': '供电电压为 3.3 V。', 'fact_status': 'APPROVED', 'id': 'review-nonscalar-0', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+        facts = candidates()
+        facts[0] = replace(
+            facts[0],
+            status=FactVersionStatus(case["fact_status"]),
+            body_markdown=case["fact_body"]
+            if case["fact_body"] is not None
+            else facts[0].body_markdown,
+        )
+        result = assess_claims(case["text"], scope, freeze_fact_versions(scope, facts))
+        assert result.rule_set_version == CLAIM_RULE_VERSION
+        expected = [
+            {**row, "subject_id": identity(row["subject_id"])} for row in case["expected"]["claims"]
+        ]
+>       assert [
+            {
+                "subject_id": row.subject_id,
+                "claim_kind": row.claim_kind,
+                "verdict": row.verdict,
+                "severity": row.severity,
+            }
+            for row in result.assessments
+        ] == expected
+E       AssertionError: assert [{'claim_kind... 'ACCURATE'>}] == [{'claim_kind...UNJUDGEABLE'}]
+E         
+E         At index 0 diff: {'subject_id': UUID('05a8bb67-688f-51a1-aee5-621dc46a000b'), 'claim_kind': <GeoClaimKind.PARAMETER: 'PARAMETER'>, 'verdict': <GeoClaimVerdict.ACCURATE: 'ACCURATE'>, 'severity': <GeoClaimSeverity.LOW: 'LOW'>} != {'subject_id': UUID('05a8bb67-688f-51a1-aee5-621dc46a000b'), 'claim_kind': 'PARAMETER', 'verdict': 'UNJUDGEABLE', 'severity': 'MEDIUM'}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_claims.py:64: AssertionError
+_____________________ test_claim_gold[review-nonscalar-1] ______________________
+
+case = {'expected': {'claims': [{'claim_kind': 'PARAMETER', 'severity': 'MEDIUM', 'subject_id': 'subject-base', 'verdict': 'U...sons': ['CLAIM_UNJUDGEABLE']}, 'fact_body': '供电电压为 3.3 V。', 'fact_status': 'APPROVED', 'id': 'review-nonscalar-1', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+        facts = candidates()
+        facts[0] = replace(
+            facts[0],
+            status=FactVersionStatus(case["fact_status"]),
+            body_markdown=case["fact_body"]
+            if case["fact_body"] is not None
+            else facts[0].body_markdown,
+        )
+        result = assess_claims(case["text"], scope, freeze_fact_versions(scope, facts))
+        assert result.rule_set_version == CLAIM_RULE_VERSION
+        expected = [
+            {**row, "subject_id": identity(row["subject_id"])} for row in case["expected"]["claims"]
+        ]
+>       assert [
+            {
+                "subject_id": row.subject_id,
+                "claim_kind": row.claim_kind,
+                "verdict": row.verdict,
+                "severity": row.severity,
+            }
+            for row in result.assessments
+        ] == expected
+E       AssertionError: assert [{'claim_kind... 'ACCURATE'>}] == [{'claim_kind...UNJUDGEABLE'}]
+E         
+E         At index 0 diff: {'subject_id': UUID('05a8bb67-688f-51a1-aee5-621dc46a000b'), 'claim_kind': <GeoClaimKind.PARAMETER: 'PARAMETER'>, 'verdict': <GeoClaimVerdict.ACCURATE: 'ACCURATE'>, 'severity': <GeoClaimSeverity.LOW: 'LOW'>} != {'subject_id': UUID('05a8bb67-688f-51a1-aee5-621dc46a000b'), 'claim_kind': 'PARAMETER', 'verdict': 'UNJUDGEABLE', 'severity': 'MEDIUM'}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_claims.py:64: AssertionError
+_____ test_later_replacement_conflict_is_not_overwritten_by_first_relation _____
+
+    def test_later_replacement_conflict_is_not_overwritten_by_first_relation() -> None:
+        scope = subjects(["subject-base", "subject-reference"])
+        fact = replace(candidates()[0], body_markdown="不能替代 GEORF-915T。")
+        text = "GEOFX-731Q 不能替代 GEORF-915T，GEOFX-731Q 可替代 GEORF-915T。"
+        result = assess_claims(text, scope, freeze_fact_versions(scope, [fact]))
+>       assert [row.verdict for row in result.assessments] == ["ACCURATE", "INCORRECT"]
+E       AssertionError: assert [<GeoClaimVer...: 'ACCURATE'>] == ['ACCURATE', 'INCORRECT']
+E         
+E         Right contains one more item: 'INCORRECT'
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_claims.py:216: AssertionError
+________ test_unmonitored_product_in_comparison_cannot_supply_own_claim ________
+
+    def test_unmonitored_product_in_comparison_cannot_supply_own_claim() -> None:
+        scope = subjects(["subject-base", "subject-reference"])
+        fact = replace(candidates()[0], body_markdown="供电电压为 5 V。")
+        result = assess_claims("与 GEOFX-731Q 相比，GEOCX-842R 的供电电压为 5 V。", scope,
+                               freeze_fact_versions(scope, [fact]))
+>       assert not any(row.verdict == "ACCURATE" for row in result.assessments)
+E       assert not True
+E        +  where True = any(<generator object test_unmonitored_product_in_comparison_cannot_supply_own_claim.<locals>.<genexpr> at 0x10e936c20>)
+
+backend/tests/unit/test_geo_claims.py:226: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[review-cert-\u9700\u8981]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[review-cert-\u8ba1\u5212]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[review-no-comma-condition]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[review-two-condition-blocks]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[review-unmonitored-product-fact]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[review-conditional-parameter]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[review-nonscalar-0]
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[review-nonscalar-1]
+FAILED backend/tests/unit/test_geo_claims.py::test_later_replacement_conflict_is_not_overwritten_by_first_relation
+FAILED backend/tests/unit/test_geo_claims.py::test_unmonitored_product_in_comparison_cannot_supply_own_claim
+10 failed, 1 passed, 57 deselected in 0.43s

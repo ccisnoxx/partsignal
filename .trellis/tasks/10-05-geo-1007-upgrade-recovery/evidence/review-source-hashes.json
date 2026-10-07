@@ -1,0 +1,11 @@
+{
+  "deploy/scripts/prepare-production-data.py": "8db70da3f651b1bd1944f8917956ce1bad14de9c9df3b1a21559106bee1ffcb9",
+  "deploy/scripts/production_upgrade_recovery.py": "0b4f7c8a50394382f276b17968f2e46d6fe80438da2a40457b0cae8b57dc3f06",
+  "deploy/scripts/create-release-manifest.py": "e04cd5cddffa6bd3260ad89bb0b2ccbd87c396e2e78d1e0260e1688863695d2c",
+  "deploy/scripts/test-upgrade-recovery.py": "7b1441205e9b7c18fe1e1a00fc347fd71a7f6ae207231836d00a45ecfdcd2ed6",
+  "deploy/scripts/test-upgrade-recovery-compose.py": "90d6be860fafd21301f9e30b0db3bd764d850b950c5c1c4c4a830fb8cece5e25",
+  "deploy/scripts/test-deploy-production.sh": "0968e29ebed417f2d6ed2075e4e13862c03ba40e7ef65aa3e6c968d8efdadb74",
+  "docs/Hostdzire\u90e8\u7f72\u9644\u5f55.md": "bf756accb667b5f710cc70cb8a152442549e56d19f61d26fdce18b0e06afb9d7",
+  "docs/Hostdzire\u90e8\u7f72\u4e0a\u7ebf\u6d41\u7a0b.md": "4e1c68b4a07ebf2b8834ce73b9d8fbcb6fd7d8197fffab05b67495ac96572504",
+  ".trellis/spec/infra/production-image-delivery.md": "31933ff8daa101e9d7b78863456685729761306889465f29bcf4b703bd7e59a9"
+}

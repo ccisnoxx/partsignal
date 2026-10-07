@@ -1,0 +1,42 @@
+#0 building with "colima" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 316B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for mcr.microsoft.com/playwright:v1.61.1-noble
+#2 DONE 0.4s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 58B done
+#3 DONE 0.0s
+
+#4 [internal] load build context
+#4 transferring context: 200B done
+#4 DONE 0.0s
+
+#5 [1/5] FROM mcr.microsoft.com/playwright:v1.61.1-noble@sha256:5b8f294aff9041b7191c34a4bab3ac270157a28774d4b0660e9743297b697e48
+#5 resolve mcr.microsoft.com/playwright:v1.61.1-noble@sha256:5b8f294aff9041b7191c34a4bab3ac270157a28774d4b0660e9743297b697e48 0.0s done
+#5 DONE 0.0s
+
+#6 [2/5] WORKDIR /opt/collector
+#6 CACHED
+
+#7 [3/5] COPY package.json package-lock.json ./
+#7 CACHED
+
+#8 [4/5] RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+#8 CACHED
+
+#9 [5/5] COPY src ./src
+#9 CACHED
+
+#10 exporting to image
+#10 exporting layers done
+#10 exporting manifest sha256:5237d812a140e072644d740b9bba3590e3d3e6a754ac85699798babdb79f26c9 done
+#10 exporting config sha256:592a9c27007ddcc82d8249eed646664cade77390cba9a39ed6412301a93db218 done
+#10 exporting attestation manifest sha256:5c90112b425945df04062b9ae3c03e2efe8763bf767c8400ed7ef3dd9f8521ab done
+#10 exporting manifest list sha256:dae26e0ca699704d6098559b4d7628540c44f2f4e5e46f570a4364aa187c9f49 done
+#10 naming to docker.io/library/partsignal-browser-collector:geo801 done
+#10 unpacking to docker.io/library/partsignal-browser-collector:geo801 done
+#10 DONE 0.0s

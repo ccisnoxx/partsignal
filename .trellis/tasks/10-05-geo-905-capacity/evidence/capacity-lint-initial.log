@@ -1,0 +1,14 @@
+SIM117 Use a single `with` statement with multiple contexts instead of nested `with` statements
+  --> backend/tests/performance/test_geo_worker_capacity.py:75:5
+   |
+73 |       redis = Redis.from_url(settings.redis_url)
+74 |       barrier = threading.Barrier(10, timeout=15)
+75 | /     with running_geo_fake() as provider:
+76 | |         with prepared_worker_graph(plans_api, monkeypatch, provider) as graph:
+   | |______________________________________________________________________________^
+77 |               with graph.api.api.factory.begin() as db:
+78 |                   profile = db.get(GeoCollectionProfile, graph.profile)
+   |
+help: Combine `with` statements
+
+Found 1 error.

@@ -1,0 +1,15 @@
+--- before/docs/geo-monitoring/CHANGELOG.md
++++ docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,12 @@
+ # 文档包变更记录
++
++## GEO-102 Catalog ORM 与 Alembic — 2026-10-01（review）
++
++- 唯一直接依赖 GEO-101 已经人工接受，状态 done；GEO-102 按门禁 planned→in_progress→review，不自行 done。
++- 新增三表 ORM、共享 metadata 注册与冻结迁移 `0044_geo_catalog`；活动 OWN_PRODUCT partial unique、真实父类型 MATCH FULL 复合 FK、身份 trigger、字典约束/索引及 RESTRICT/CASCADE 与已接受合同一致。
++- 空库及含旧 Product/GEO 的 0043 前滚通过，不回填或改写历史；0001～0043 和 migration_schema_v1 的 44 项指纹保持一致。downgrade 明确拒绝删除三表，恢复使用前滚修复或迁移前备份。
++- 定向 77 项、后端单元 855 项、前端 863 项、完整集成 427 项、lint/typecheck/contract 检查通过；保留 metadata 的两项 SQLAlchemy warning。fresh critical_reviewer 未确认阻断问题，执行摘要与审计校验通过。精确命令、环境、局部早期失败与修复见 GEO-102 implement.md。
++- 同步数据库实施状态、导航、需求覆盖、manifest、哈希及 Trellis 证据；OpenAPI、generated types、Service/Router/UI、部署配置与旧 GEO 行为没有本任务变化，GEO-103 保持 planned。
+ 
+ ## GEO-101 Catalog 合同 — 2026-10-01（review）
+ 

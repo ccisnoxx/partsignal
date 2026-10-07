@@ -1,0 +1,13 @@
+docker compose --env-file .env -f deploy/compose.dev.yaml run --rm backend-test
+ Container partsignal-dev-postgres-1 Starting 
+ Container partsignal-dev-redis-1 Starting 
+ Container partsignal-dev-redis-1 Started 
+ Container partsignal-dev-postgres-1 Started 
+ Container partsignal-dev-postgres-1 Waiting 
+ Container partsignal-dev-redis-1 Waiting 
+ Container partsignal-dev-redis-1 Healthy 
+ Container partsignal-dev-postgres-1 Healthy 
+ Container partsignal-dev-backend-test-run-441e1a681a19 Creating 
+ Container partsignal-dev-backend-test-run-441e1a681a19 Created 
+....................................................
+make: *** [test-integration] Error 137

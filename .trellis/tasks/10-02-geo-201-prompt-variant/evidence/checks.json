@@ -1,0 +1,65 @@
+[
+  {
+    "command": "git diff --check",
+    "exit_code": 0,
+    "log": "diff-check.log"
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv make contract-generate",
+    "exit_code": 0,
+    "log": "contract-generate.log"
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv make contract-check",
+    "exit_code": 0,
+    "log": "contract-check.log"
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv make lint",
+    "exit_code": 0,
+    "log": "lint.log"
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv make typecheck",
+    "exit_code": 0,
+    "log": "typecheck.log"
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv make test-unit",
+    "exit_code": 0,
+    "log": "test-unit.log"
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv make test-integration COMPOSE=\"docker compose -f /Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-02-geo-201-prompt-variant/evidence/compose-validation.yaml\"",
+    "exit_code": 0,
+    "log": "test-integration.log",
+    "result": "481 passed, 4 warnings in 314.86s"
+  },
+  {
+    "command": "DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@localhost:55441/geo201_validation UV_CACHE_DIR=.cache/uv uv run --project backend alembic -c backend/alembic.ini upgrade head",
+    "exit_code": 0,
+    "log": "alembic-upgrade.log"
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv PARTSIGNAL_TEST_DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@localhost:55441/geo201_validation uv run --project backend pytest backend/tests/unit/test_geo_prompt_variant_contract.py backend/tests/integration/test_geo_prompt_variants.py",
+    "exit_code": 0,
+    "result": "27 passed, 2 warnings",
+    "log": "prompt-variant-targeted.log"
+  },
+  {
+    "command": "python3 .trellis/scripts/task.py validate .trellis/tasks/10-02-geo-201-prompt-variant",
+    "exit_code": 0,
+    "log": "trellis-validate.log"
+  },
+  {
+    "command": "cd docs/geo-monitoring && shasum -a 256 -c SHA256SUMS",
+    "exit_code": 0,
+    "log": "document-hashes.log"
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv PARTSIGNAL_TEST_DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@localhost:55441/geo201_validation uv run --project backend pytest backend/tests/unit/test_geo_prompt_variant_contract.py backend/tests/integration/test_geo_prompt_variants.py",
+    "exit_code": 0,
+    "result": "28 passed, 2 warnings；仅补测试，生产实现未变，不重复全量门禁",
+    "log": "prompt-variant-final-targeted.log"
+  }
+]

@@ -1,0 +1,1588 @@
+{
+  "files": [
+    {
+      "file": "backend/tests/integration/test_geo_insights.py",
+      "source_test_declarations": [
+        {
+          "name": "test_geo_insights_preserve_deleted_platform_identity_and_project_actions",
+          "line": 253
+        },
+        {
+          "name": "test_geo_optimization_same_key_is_atomic_and_compares_full_payload",
+          "line": 291
+        },
+        {
+          "name": "test_geo_optimization_recomputes_after_waiting_for_observation_commit",
+          "line": 405
+        },
+        {
+          "name": "test_geo_optimization_uses_locked_target_state",
+          "line": 487
+        },
+        {
+          "name": "test_geo_optimization_rolls_back_task_when_source_flush_fails",
+          "line": 554
+        },
+        {
+          "name": "test_geo_task_current_head_catalog_and_real_duplicate_diagnostics",
+          "line": 641
+        },
+        {
+          "name": "test_geo_exact_race_revalidates_source_kind_and_reuses_session",
+          "line": 759
+        },
+        {
+          "name": "test_geo_different_target_race_waits_at_real_unique_insert",
+          "line": 966
+        },
+        {
+          "name": "test_geo_unknown_diagnostics_and_unverifiable_winner_rethrow_original",
+          "line": 1048
+        },
+        {
+          "name": "test_geo_precheck_compares_each_identity_field_and_both_source_kinds",
+          "line": 1154
+        },
+        {
+          "name": "test_geo_source_commit_failure_is_outside_mapper_and_atomic",
+          "line": 1266
+        },
+        {
+          "name": "test_geo_http_precheck_exact_conflict_and_real_unknown_no_leak",
+          "line": 1339
+        }
+      ]
+    },
+    {
+      "file": "backend/tests/integration/test_geo_observation_correction.py",
+      "source_test_declarations": [
+        {
+          "name": "test_geo_correction_context_and_append_preserve_authoritative_chain",
+          "line": 122
+        },
+        {
+          "name": "test_geo_correction_context_rejects_legacy_observation",
+          "line": 375
+        },
+        {
+          "name": "test_geo_correction_context_query_count_is_independent_of_chain_length",
+          "line": 422
+        },
+        {
+          "name": "test_geo_correction_missing_evidence_ancestor_http_is_atomic",
+          "line": 484
+        },
+        {
+          "name": "test_geo_successor_current_head_catalog_and_real_duplicate_diagnostics",
+          "line": 703
+        },
+        {
+          "name": "test_geo_successor_integrity_classifier_fails_closed",
+          "line": 827
+        },
+        {
+          "name": "test_geo_successor_exact_diagnostics_outside_root_flush_remain_unknown",
+          "line": 855
+        },
+        {
+          "name": "test_geo_successor_concurrency_has_one_winner_and_exact_owner",
+          "line": 904
+        },
+        {
+          "name": "test_geo_successor_direct_reuse_and_http_contracts",
+          "line": 1236
+        }
+      ]
+    },
+    {
+      "file": "backend/tests/integration/test_geo_observation_deletion.py",
+      "source_test_declarations": [
+        {
+          "name": "test_delete_manual_geo_chain_from_any_node",
+          "line": 120
+        },
+        {
+          "name": "test_delete_corrupt_manual_chain_has_no_partial_effect",
+          "line": 166
+        },
+        {
+          "name": "test_delete_chain_membership_change_uses_real_second_connection",
+          "line": 312
+        },
+        {
+          "name": "test_delete_geo_observation_http_context_error_preserves_request_and_data",
+          "line": 436
+        },
+        {
+          "name": "test_delete_geo_observation_http_chain_changed_requires_new_confirmation",
+          "line": 503
+        },
+        {
+          "name": "test_delete_unknown_postgres_guard_remains_500_and_rolls_back",
+          "line": 612
+        }
+      ]
+    },
+    {
+      "file": "backend/tests/integration/test_geo_observation_detail.py",
+      "source_test_declarations": [
+        {
+          "name": "test_geo_observation_detail_projects_legacy_and_complete_manual_chain",
+          "line": 77
+        },
+        {
+          "name": "test_geo_observation_detail_query_count_does_not_grow_with_chain_length",
+          "line": 217
+        },
+        {
+          "name": "test_geo_observation_detail_reports_not_found",
+          "line": 269
+        },
+        {
+          "name": "test_geo_context_http_rejects_incomplete_chain_without_partial_history",
+          "line": 320
+        },
+        {
+          "name": "test_geo_context_synthetic_defensive_boundaries",
+          "line": 394
+        }
+      ]
+    },
+    {
+      "file": "backend/tests/integration/test_geo_observation_list.py",
+      "source_test_declarations": [
+        {
+          "name": "test_geo_observation_list_is_compact_server_filtered_and_actor_projected",
+          "line": 143
+        }
+      ]
+    },
+    {
+      "file": "backend/tests/integration/test_migrations.py",
+      "source_test_declarations": [
+        {
+          "name": "test_repair_task_source_constraint_and_fk_are_current_head_contract",
+          "line": 132
+        },
+        {
+          "name": "test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent",
+          "line": 321
+        },
+        {
+          "name": "test_generation_reliability_migration_is_additive_and_reversible",
+          "line": 494
+        },
+        {
+          "name": "test_ai_data_classification_migration_keeps_history_unclassified_and_reversible",
+          "line": 522
+        },
+        {
+          "name": "test_publication_closure_migration_blocks_ambiguous_history",
+          "line": 571
+        },
+        {
+          "name": "test_publication_closure_migration_enforces_platform_and_forward_only_history",
+          "line": 607
+        },
+        {
+          "name": "test_existing_role_users_migrate_to_account_types",
+          "line": 742
+        },
+        {
+          "name": "test_legacy_seed_users_are_cleaned_with_sessions",
+          "line": 786
+        },
+        {
+          "name": "test_referenced_legacy_users_abort_the_complete_cleanup",
+          "line": 857
+        },
+        {
+          "name": "test_platform_prompts_move_from_type_to_each_profile",
+          "line": 934
+        },
+        {
+          "name": "test_platform_rule_draft_editing_guard",
+          "line": 997
+        },
+        {
+          "name": "test_fact_review_cleanup_guard",
+          "line": 1109
+        },
+        {
+          "name": "test_content_humanization_migration_constraints_and_forward_only_history",
+          "line": 1242
+        },
+        {
+          "name": "test_manual_geo_migration_preserves_legacy_history_and_blocks_lossy_downgrade",
+          "line": 1374
+        },
+        {
+          "name": "test_geo_insight_migration_preserves_unknown_history_and_enforces_new_stages",
+          "line": 1437
+        },
+        {
+          "name": "test_product_driven_task_migration_preserves_history_and_blocks_lossy_downgrade",
+          "line": 1558
+        },
+        {
+          "name": "test_platform_branding_migration_enforces_single_source_and_blocks_lossy_downgrade",
+          "line": 1626
+        },
+        {
+          "name": "test_platform_management_migration_backfills_status_indexes_and_downgrades",
+          "line": 1680
+        },
+        {
+          "name": "test_audit_outcome_migration_backfills_exact_results_and_blocks_lossy_downgrade",
+          "line": 1731
+        },
+        {
+          "name": "test_audit_outcome_migration_rejects_unknown_history_atomically",
+          "line": 1869
+        },
+        {
+          "name": "test_markdown_facts_migration_rejects_active_legacy_jobs_atomically",
+          "line": 1904
+        },
+        {
+          "name": "test_markdown_facts_migration_converts_history_and_targets_direct_platform_schema",
+          "line": 1952
+        },
+        {
+          "name": "test_publication_account_dedup_migration_adds_constraints_and_downgrades",
+          "line": 2421
+        },
+        {
+          "name": "test_publication_account_dedup_migration_rejects_existing_duplicates_atomically",
+          "line": 2498
+        },
+        {
+          "name": "test_audit_user_delete_guard_is_targeted_and_reversible",
+          "line": 2531
+        },
+        {
+          "name": "test_platform_logo_lifecycle_migration_initializes_retention_and_guards_links",
+          "line": 2691
+        },
+        {
+          "name": "test_geo_evidence_migration_removes_stages_and_guards_manual_delete",
+          "line": 2807
+        },
+        {
+          "name": "test_publication_record_delete_migration_guards_target_and_public_history",
+          "line": 2913
+        },
+        {
+          "name": "test_reusable_platform_prompt_migration_preserves_rows_and_guards_downgrade",
+          "line": 3209
+        },
+        {
+          "name": "test_content_task_creation_idempotency_migration_preserves_history_and_downgrades",
+          "line": 3315
+        },
+        {
+          "name": "test_content_task_owned_history_delete_migration_is_reversible",
+          "line": 3449
+        },
+        {
+          "name": "test_publication_redesign_migration_blocks_legacy_data_atomically",
+          "line": 3495
+        },
+        {
+          "name": "test_business_workflow_migration_backfills_and_guards_authoritative_owners",
+          "line": 3628
+        },
+        {
+          "name": "test_remove_publication_section_url_migration_preserves_work_and_guards",
+          "line": 3719
+        },
+        {
+          "name": "test_simplify_deletion_lifecycle_backfills_snapshots_and_trims_audit",
+          "line": 3831
+        },
+        {
+          "name": "test_business_workflow_migration_blocks_ambiguous_fact_history_atomically",
+          "line": 3976
+        },
+        {
+          "name": "test_content_draft_management_migration_limits_update_and_delete_windows",
+          "line": 4021
+        },
+        {
+          "name": "test_content_version_detail_migration_preserves_unknown_legacy_time",
+          "line": 4086
+        },
+        {
+          "name": "test_0043_geo_insight_platform_identity",
+          "line": 4205
+        }
+      ]
+    },
+    {
+      "file": "backend/tests/integration/test_product_detail.py",
+      "source_test_declarations": [
+        {
+          "name": "test_product_detail_projects_compact_summaries_activity_and_fixed_query_count",
+          "line": 87
+        },
+        {
+          "name": "test_product_update_maps_duplicate_and_writes_audit_only_on_success",
+          "line": 250
+        },
+        {
+          "name": "test_fact_workspace_read_model_uses_one_snapshot_and_fixed_query_count",
+          "line": 341
+        },
+        {
+          "name": "test_fact_history_returns_narrow_server_ordered_page_and_product_context",
+          "line": 431
+        },
+        {
+          "name": "test_fact_review_context_locates_target_and_commands_refresh_canonical_state",
+          "line": 525
+        },
+        {
+          "name": "test_fact_review_pending_classifier_uses_only_exact_postgres_diagnostics",
+          "line": 722
+        },
+        {
+          "name": "test_fact_review_pending_classifier_rejects_missing_or_non_unique_diagnostics",
+          "line": 759
+        },
+        {
+          "name": "test_fact_review_integrity_failures_rollback_and_preserve_product_graph",
+          "line": 775
+        },
+        {
+          "name": "test_fact_review_http_pending_equivalence_and_unknown_no_leak",
+          "line": 983
+        },
+        {
+          "name": "test_fact_workspace_commands_preserve_conflicts_and_immutable_snapshot",
+          "line": 1233
+        }
+      ]
+    },
+    {
+      "file": "backend/tests/integration/test_publication_workflow.py",
+      "source_test_declarations": [
+        {
+          "name": "test_fact_version_current_head_catalog_and_unique_diagnostics",
+          "line": 402
+        },
+        {
+          "name": "test_open_issue_integrity_classifier_fails_closed",
+          "line": 670
+        },
+        {
+          "name": "test_open_issue_catalog_real_diagnostics_and_unknown_guards",
+          "line": 685
+        },
+        {
+          "name": "test_open_issue_concurrency_waits_at_exact_owner_and_has_one_winner",
+          "line": 779
+        },
+        {
+          "name": "test_open_issue_http_prechecks_exact_reuse_and_unknown_no_leak",
+          "line": 937
+        },
+        {
+          "name": "test_open_issue_late_exact_diagnostics_remain_unknown",
+          "line": 1102
+        },
+        {
+          "name": "test_publication_work_integrity_classifier_fails_closed",
+          "line": 1200
+        },
+        {
+          "name": "test_publication_work_replay_and_conflicts_preserve_session_and_aggregate",
+          "line": 1215
+        },
+        {
+          "name": "test_publication_work_recovery_prioritizes_key_for_every_exact_constraint",
+          "line": 1322
+        },
+        {
+          "name": "test_publication_work_mapper_does_not_cover_event_flush",
+          "line": 1417
+        },
+        {
+          "name": "test_publication_work_http_conflicts_and_unknown_do_not_leak",
+          "line": 1460
+        },
+        {
+          "name": "test_publication_work_concurrency_has_one_winner",
+          "line": 1612
+        },
+        {
+          "name": "test_publication_work_current_head_catalog_and_unique_diagnostics",
+          "line": 1850
+        },
+        {
+          "name": "test_fact_review_same_product_concurrency_uses_product_lock_and_single_pending",
+          "line": 1951
+        },
+        {
+          "name": "test_published_article_list_and_detail_read_models",
+          "line": 2264
+        },
+        {
+          "name": "test_publication_work_read_surfaces_use_state_aware_identity",
+          "line": 2341
+        },
+        {
+          "name": "test_publication_work_list_malformed_context_returns_structured_409",
+          "line": 2500
+        },
+        {
+          "name": "test_publication_work_list_read_model_and_start_boundary",
+          "line": 2554
+        },
+        {
+          "name": "test_publication_workspace_context_is_consistent_and_bounded",
+          "line": 2764
+        },
+        {
+          "name": "test_publication_workspace_core_commands_evidence_and_close",
+          "line": 2904
+        },
+        {
+          "name": "test_query_topic_delete_requires_no_direct_business_references",
+          "line": 3026
+        },
+        {
+          "name": "test_failed_verification_remains_pending_then_completes_and_opens_issue",
+          "line": 3195
+        },
+        {
+          "name": "test_publication_verification_final_authority_rejects_awaiting_switch_over_http",
+          "line": 3600
+        },
+        {
+          "name": "test_publication_event_timestamp_uses_strict_database_clock_floor",
+          "line": 3848
+        },
+        {
+          "name": "test_content_task_delete_and_archive_permanent_delete_lifecycle",
+          "line": 3910
+        },
+        {
+          "name": "test_content_task_geo_context_http_preserves_entire_aggregate",
+          "line": 4070
+        },
+        {
+          "name": "test_content_task_geo_chain_changed_http_preserves_aggregate",
+          "line": 4181
+        },
+        {
+          "name": "test_published_article_permanent_delete_restores_source_task_and_owned_history",
+          "line": 4307
+        },
+        {
+          "name": "test_published_article_delete_cancels_source_task_when_platform_was_deleted",
+          "line": 4513
+        },
+        {
+          "name": "test_published_article_delete_blocks_distinct_geo_history_and_optimization_source",
+          "line": 4616
+        },
+        {
+          "name": "test_platform_prompt_platform_profile_and_platform_account_deletion_lifecycle",
+          "line": 4768
+        },
+        {
+          "name": "test_close_work_cancels_source_task_without_published_article",
+          "line": 4884
+        },
+        {
+          "name": "test_fact_workspace_submission_creates_one_pending_snapshot_and_new_revision_after_return",
+          "line": 4924
+        },
+        {
+          "name": "test_product_create_maps_normalized_duplicate_to_stable_field_error",
+          "line": 5020
+        },
+        {
+          "name": "test_product_list_projects_filters_sorts_and_paginates_current_fact",
+          "line": 5069
+        },
+        {
+          "name": "test_product_delete_checks_revision_then_revalidates_references",
+          "line": 5257
+        },
+        {
+          "name": "test_repair_task_competing_issue_commands_wait_for_issue_lock_and_precheck_winner",
+          "line": 5347
+        },
+        {
+          "name": "test_repair_task_unique_diagnostics_map_and_rollback_preserves_session_reuse",
+          "line": 5445
+        },
+        {
+          "name": "test_repair_task_integrity_classifier_fails_closed",
+          "line": 5530
+        },
+        {
+          "name": "test_repair_task_http_envelope_and_unknown_foreign_key_do_not_leak_database_details",
+          "line": 5545
+        }
+      ]
+    },
+    {
+      "file": "backend/tests/integration/test_query_topic_list.py",
+      "source_test_declarations": [
+        {
+          "name": "test_query_topic_list_is_server_filtered_paged_and_reference_authoritative",
+          "line": 51
+        },
+        {
+          "name": "test_query_topic_create_update_audit_and_revision_conflict",
+          "line": 151
+        }
+      ]
+    },
+    {
+      "file": "backend/tests/integration/test_workbench.py",
+      "source_test_declarations": [
+        {
+          "name": "test_workbench_endpoint_is_authenticated_role_shared_and_repeatable_read",
+          "line": 137
+        },
+        {
+          "name": "test_workbench_projects_counts_rates_current_tails_and_safe_attention",
+          "line": 202
+        },
+        {
+          "name": "test_workbench_query_count_does_not_grow_with_attention_rows",
+          "line": 484
+        }
+      ]
+    },
+    {
+      "file": "backend/tests/unit/test_contract.py",
+      "source_test_declarations": [
+        {
+          "name": "test_runtime_openapi_matches_frozen_operations",
+          "line": 37
+        },
+        {
+          "name": "test_auth_session_contract_allows_anonymous_bootstrap_or_session_cookie",
+          "line": 42
+        },
+        {
+          "name": "test_static_request_context_metadata_covers_all_operations_and_responses",
+          "line": 51
+        },
+        {
+          "name": "test_frozen_response_status_signatures_cover_every_operation",
+          "line": 109
+        },
+        {
+          "name": "test_audit_contract_separates_list_metadata_from_safe_detail",
+          "line": 376
+        },
+        {
+          "name": "test_user_management_contract_is_revisioned_and_typed",
+          "line": 396
+        },
+        {
+          "name": "test_geo_observation_list_contract_is_compact_and_preserves_v1",
+          "line": 432
+        },
+        {
+          "name": "test_geo_observation_list_accepts_page_size_from_query_string",
+          "line": 510
+        },
+        {
+          "name": "test_query_topic_list_accepts_page_size_from_query_string",
+          "line": 541
+        },
+        {
+          "name": "test_query_topic_list_uses_integer_default_page_size",
+          "line": 573
+        },
+        {
+          "name": "test_query_topic_list_rejects_non_enum_page_size",
+          "line": 601
+        },
+        {
+          "name": "test_query_topic_list_contract_preserves_full_list_and_adds_v2_read_model",
+          "line": 633
+        },
+        {
+          "name": "test_platform_list_contract_exposes_readiness_options_and_delete_revision",
+          "line": 680
+        },
+        {
+          "name": "test_ai_channel_list_contract_is_safe_and_revisioned",
+          "line": 746
+        },
+        {
+          "name": "test_platform_type_contract_exposes_count_bounds_and_delete_revision",
+          "line": 803
+        },
+        {
+          "name": "test_geo_observation_detail_contract_is_one_readonly_generated_union",
+          "line": 849
+        },
+        {
+          "name": "test_geo_observation_correction_context_reuses_detail_and_append_contract",
+          "line": 904
+        },
+        {
+          "name": "test_geo_insight_contract_projects_actor_aware_optimization_source",
+          "line": 936
+        },
+        {
+          "name": "test_published_content_issue_contract_has_one_workspace_read_model_and_real_errors",
+          "line": 965
+        },
+        {
+          "name": "test_publication_work_read_contract_matches_runtime_error_matrix",
+          "line": 989
+        },
+        {
+          "name": "test_product_create_contract_declares_input_limits_and_error_responses",
+          "line": 1010
+        },
+        {
+          "name": "test_content_task_creation_contract_is_three_fields_with_one_options_read_model",
+          "line": 1023
+        },
+        {
+          "name": "test_content_task_detail_contract_is_one_compact_read_model",
+          "line": 1056
+        },
+        {
+          "name": "test_content_version_detail_contract_is_readonly_and_compact",
+          "line": 1097
+        },
+        {
+          "name": "test_content_task_creation_options_enforce_engineer_and_uuid_boundaries",
+          "line": 1122
+        },
+        {
+          "name": "test_product_detail_contract_is_compact_and_update_has_matching_limits",
+          "line": 1144
+        },
+        {
+          "name": "test_fact_workspace_contract_is_a_complete_single_read_model",
+          "line": 1168
+        },
+        {
+          "name": "test_fact_review_contract_locates_target_and_declares_command_errors",
+          "line": 1200
+        },
+        {
+          "name": "test_fact_review_submission_rejects_blank_summary_before_business_command",
+          "line": 1248
+        },
+        {
+          "name": "test_product_update_rejects_blank_identity_before_business_command",
+          "line": 1275
+        },
+        {
+          "name": "test_product_create_rejects_blank_and_overlong_fields_before_business_command",
+          "line": 1316
+        },
+        {
+          "name": "test_live_health_does_not_require_external_dependencies",
+          "line": 1345
+        },
+        {
+          "name": "test_error_envelope_without_details_keeps_empty_wire_object",
+          "line": 1351
+        },
+        {
+          "name": "test_phase_b_shared_contract_shapes_are_explicit",
+          "line": 1364
+        },
+        {
+          "name": "test_response_components_are_flattened_closed_objects",
+          "line": 1443
+        },
+        {
+          "name": "test_ai_model_provider_failure_is_projected_to_failed_200",
+          "line": 1531
+        },
+        {
+          "name": "test_ai_model_route_projects_failed_test_as_http_200",
+          "line": 1586
+        },
+        {
+          "name": "test_complete_file_upload_storage_failure_keeps_pending_state",
+          "line": 1630
+        },
+        {
+          "name": "test_csv_export_routes_return_downloadable_csv",
+          "line": 1678
+        },
+        {
+          "name": "test_query_topic_delete_rejects_non_admin_and_missing_csrf",
+          "line": 1720
+        },
+        {
+          "name": "test_query_topic_delete_rejects_anonymous_request",
+          "line": 1746
+        },
+        {
+          "name": "test_product_delete_requires_valid_revision_before_business_command",
+          "line": 1762
+        },
+        {
+          "name": "test_content_revision_routes_reject_invalid_tags",
+          "line": 1792
+        },
+        {
+          "name": "test_content_draft_update_rejects_empty_tags_before_business_command",
+          "line": 1822
+        }
+      ]
+    },
+    {
+      "file": "backend/tests/unit/test_geo_insights.py",
+      "source_test_declarations": [
+        {
+          "name": "test_content_filter_still_excludes_an_observation_with_an_incomplete_relation",
+          "line": 62
+        },
+        {
+          "name": "test_unknown_accuracy_does_not_create_a_false_decline",
+          "line": 89
+        },
+        {
+          "name": "test_best_content_does_not_rank_unknown_accuracy_as_zero",
+          "line": 136
+        },
+        {
+          "name": "test_geo_optimization_recomputes_and_freezes_authoritative_source",
+          "line": 205
+        },
+        {
+          "name": "test_geo_optimization_rejects_stale_client_anomaly",
+          "line": 304
+        },
+        {
+          "name": "test_geo_optimization_preserves_fact_product_mismatch_error",
+          "line": 355
+        },
+        {
+          "name": "test_geo_optimization_idempotency_compares_target_and_source",
+          "line": 398
+        },
+        {
+          "name": "test_coverage_optimization_recomputes_with_selected_target",
+          "line": 528
+        }
+      ]
+    },
+    {
+      "file": "backend/tests/unit/test_platform_logo_cleanup.py",
+      "source_test_declarations": [
+        {
+          "name": "test_detached_logo_gets_seven_day_retention_after_last_reference",
+          "line": 45
+        },
+        {
+          "name": "test_cleanup_skips_referenced_verified_logo_and_clears_wrong_deadline",
+          "line": 55
+        },
+        {
+          "name": "test_cleanup_reference_authority_uses_all_current_file_foreign_keys",
+          "line": 67
+        },
+        {
+          "name": "test_cleanup_marks_unreferenced_due_logo_deleting_before_object_delete",
+          "line": 80
+        },
+        {
+          "name": "test_cleanup_deletes_object_then_keeps_deleted_database_tombstone",
+          "line": 97
+        },
+        {
+          "name": "test_cleanup_storage_failure_keeps_deleting_for_next_scan",
+          "line": 124
+        },
+        {
+          "name": "test_logo_cleanup_is_registered_as_hourly_postgresql_scan",
+          "line": 147
+        }
+      ]
+    },
+    {
+      "file": "backend/tests/unit/test_response_schema_instances.py",
+      "source_test_declarations": [
+        {
+          "name": "test_real_model_dumps_satisfy_static_and_runtime_components",
+          "line": 290
+        },
+        {
+          "name": "test_closed_components_reject_unknown_fields_on_both_documents",
+          "line": 302
+        },
+        {
+          "name": "test_affected_success_responses_match_without_filters",
+          "line": 380
+        }
+      ]
+    },
+    {
+      "file": "backend/tests/unit/test_runtime_response_metadata.py",
+      "source_test_declarations": [
+        {
+          "name": "test_wave_1_inventory_is_complete",
+          "line": 626
+        },
+        {
+          "name": "test_runtime_request_context_covers_all_operations_and_responses",
+          "line": 643
+        },
+        {
+          "name": "test_runtime_request_context_merge_does_not_change_route_metadata",
+          "line": 689
+        },
+        {
+          "name": "test_custom_openapi_does_not_cache_document_when_metadata_merge_fails",
+          "line": 702
+        },
+        {
+          "name": "test_wave_2_inventory_is_complete",
+          "line": 723
+        },
+        {
+          "name": "test_wave_3_inventory_is_complete_and_disjoint",
+          "line": 740
+        },
+        {
+          "name": "test_each_wave_3_operation_has_explicit_expected_response_statuses",
+          "line": 765
+        },
+        {
+          "name": "test_wave_3_response_comparator_has_no_differences",
+          "line": 774
+        },
+        {
+          "name": "test_wave_3_error_responses_use_project_error_envelope",
+          "line": 783
+        },
+        {
+          "name": "test_wave_3_success_occurrences_and_response_boundaries",
+          "line": 803
+        },
+        {
+          "name": "test_each_wave_operation_has_exact_frozen_response_statuses",
+          "line": 847
+        },
+        {
+          "name": "test_each_wave_2_operation_has_explicit_expected_response_statuses",
+          "line": 855
+        },
+        {
+          "name": "test_wave_response_comparator_has_no_differences",
+          "line": 864
+        },
+        {
+          "name": "test_wave_2_response_comparator_has_no_differences",
+          "line": 872
+        },
+        {
+          "name": "test_geo_success_schema_identity_and_alias_compatibility",
+          "line": 880
+        },
+        {
+          "name": "test_wave_2_error_statuses_use_project_error_envelope",
+          "line": 975
+        },
+        {
+          "name": "test_wave_2_success_occurrences_and_response_boundaries",
+          "line": 1000
+        },
+        {
+          "name": "test_error_statuses_use_project_error_envelope",
+          "line": 1024
+        },
+        {
+          "name": "test_error_envelope_schema_has_single_required_wire_shape",
+          "line": 1045
+        },
+        {
+          "name": "test_app_exception_handlers_keep_known_boundaries_without_global_integrity_mapping",
+          "line": 1054
+        },
+        {
+          "name": "test_health_special_errors_and_csv_metadata",
+          "line": 1061
+        },
+        {
+          "name": "test_response_models_preserve_validation_and_serialization",
+          "line": 1082
+        },
+        {
+          "name": "test_response_models_use_default_flat_closed_schema",
+          "line": 1165
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/domains/geo/geo-evidence-upload.test.tsx",
+      "source_test_declarations": [
+        {
+          "line": 49,
+          "declaration": "it('intent、transfer、complete 使用 GEO 合同且 complete 失败只重试 complete', async () => {"
+        },
+        {
+          "line": 87,
+          "declaration": "it('校验失败后放弃上传，abort 失败保留阻塞，成功后才允许继续', async () => {"
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/domains/geo/geo-insights-page.test.tsx",
+      "source_test_declarations": [
+        {
+          "line": 62,
+          "declaration": "it('以单一 read model 呈现全部区块、精确替代数据与服务端动作', async () => {"
+        },
+        {
+          "line": 84,
+          "declaration": "it('打印页复用同一 read model，但只呈现带标签的只读报告', async () => {"
+        },
+        {
+          "line": 102,
+          "declaration": "it('打印筛选缺少服务端标签时显式失败并允许清除筛选', async () => {"
+        },
+        {
+          "line": 115,
+          "declaration": "it('打印报告刷新失败时保留上一次成功快照', async () => {"
+        },
+        {
+          "line": 161,
+          "declaration": "it('pending 拒绝取消、Escape、关闭及重复提交，仍使用同一个命令', async () => {"
+        },
+        {
+          "line": 180,
+          "declaration": "it('201 后缓存悬停和导航拒绝不会重新 POST，重试仅打开响应 ID', async () => {"
+        },
+        {
+          "line": 196,
+          "declaration": "it('相同 body 的 409 显式刷新后人工重试复用幂等键', async () => {"
+        },
+        {
+          "line": 210,
+          "declaration": "it('来源消失时显式刷新保留 Dialog、目标与 request ID', async () => {"
+        },
+        {
+          "line": 225,
+          "declaration": "it.each(['source', 'target', 'read-error'] as const)('%s 撤销后不能用旧上下文提交，被动恢复不能解冻', async (kind) => {"
+        },
+        {
+          "line": 248,
+          "declaration": "it('A reload 迟到不会关闭或写入重新打开的 B Dialog', async () => {"
+        },
+        {
+          "line": 269,
+          "declaration": "it('search 往返复用页面命令：pending 不重复 POST，迟到 201 后只打开已接受 ID', async () => {"
+        },
+        {
+          "line": 291,
+          "declaration": "it('失败后关闭重开并用相同 body 人工重试仍复用同一幂等键', async () => {"
+        },
+        {
+          "line": 305,
+          "declaration": "it('search 切换结束旧 Dialog；旧 POST 晚到不导航新筛选', async () => {"
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/domains/geo/geo-insights.model.test.ts",
+      "source_test_declarations": [
+        {
+          "line": 25,
+          "declaration": "it('使用 UTC 30 日默认周期，并把合法筛选一一映射到 API', () => {"
+        },
+        {
+          "line": 45,
+          "declaration": "it('不把空分母或不可比较变化伪装成 0%', () => {"
+        },
+        {
+          "line": 53,
+          "declaration": "it('只按服务端 primary task 生成精确 drill-down 或命令 body', () => {"
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/domains/geo/geo-observation-correction-page.test.tsx",
+      "source_test_declarations": [
+        {
+          "line": 233,
+          "declaration": "it('只读呈现历史与冻结字段，并用 DirtyGuard 保护新 Notes', async () => {"
+        },
+        {
+          "line": 258,
+          "declaration": "it('提交权威尾节点 payload，成功解除 DirtyGuard 并按响应 ID 交接', async () => {"
+        },
+        {
+          "line": 312,
+          "declaration": "it.each(['GEO_PUBLICATIONS_CHANGED', 'GEO_OBSERVATION_HAS_SUCCESSOR', 'GEO_OBSERVATION_CONTEXT_INCOMPLETE'] as const)("
+        },
+        {
+          "line": 353,
+          "declaration": "it('冲突后失败重载保留 request ID 与旧草稿，被动成功不能解冻', async () => {"
+        },
+        {
+          "line": 372,
+          "declaration": "it('201 已接受后消费者悬停与导航失败均不允许再次 POST，重试只使用响应 ID', async () => {"
+        },
+        {
+          "line": 391,
+          "declaration": "it('后台新尾冻结旧草稿，显式成功刷新才合并与更换 canonical URL', async () => {"
+        },
+        {
+          "line": 407,
+          "declaration": "it('同链外部身份切换建立新会话，不带入旧草稿', async () => {"
+        },
+        {
+          "line": 419,
+          "declaration": "it('A 提交中切到同链 B，A 的迟到成功不会导航 B 或清空 B 草稿', async () => {"
+        },
+        {
+          "line": 441,
+          "declaration": "it('pending 期间禁用表单并阻止重复 POST', async () => {"
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/domains/geo/geo-observation-correction.model.test.ts",
+      "source_test_declarations": [
+        {
+          "line": 104,
+          "declaration": "it('采用服务端候选事实，并为本次时间、证据和 Notes 建立新草稿', () => {"
+        },
+        {
+          "line": 122,
+          "declaration": "it('payload 冻结业务字段、使用权威尾 ID，且只提交本次证据', () => {"
+        },
+        {
+          "line": 151,
+          "declaration": "it('历史空 Topic 必须显式选择，冲突刷新按文章 ID 保留仍有效草稿', () => {"
+        },
+        {
+          "line": 194,
+          "declaration": "it('拒绝无 CORRECT 尾、重复候选和非空 Topic 的多余选项', () => {"
+        },
+        {
+          "line": 214,
+          "declaration": "it('只映射更正可编辑字段，冻结字段错误保留在摘要', () => {"
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/domains/geo/geo-observation-detail-page.test.tsx",
+      "source_test_declarations": [
+        {
+          "line": 204,
+          "declaration": "it('绘制 Manual selected record、完整历史和链尾服务端动作', async () => {"
+        },
+        {
+          "line": 240,
+          "declaration": "it('绘制 Legacy-only recommendation、citation 与成果，不显示更正历史', async () => {"
+        },
+        {
+          "line": 255,
+          "declaration": "it('区分 409 并在显式重试后恢复', async () => {"
+        },
+        {
+          "line": 281,
+          "declaration": "it('背景刷新失败时保留已有只读快照并允许重试', async () => {"
+        },
+        {
+          "line": 312,
+          "declaration": "it('删除完整更正链后失效所有真实消费者且不重取旧 Detail', async () => {"
+        },
+        {
+          "line": 353,
+          "declaration": "it.each(['revoked', 'failed'])('确认开启后 %s 不使用旧 DELETE token', async (mode) => {"
+        },
+        {
+          "line": 374,
+          "declaration": "it('DELETE 409 旧确认失效，背景成功不解冻，显式重载才允许重新确认', async () => {"
+        },
+        {
+          "line": 394,
+          "declaration": "it('204 后导航失败仍显示删除成功并完成缓存失效，不可重试 DELETE', async () => {"
+        },
+        {
+          "line": 418,
+          "declaration": "it('A 的 DELETE pending 期间切换 B，完成后只清理 A 身份且不导航 B', async () => {"
+        },
+        {
+          "line": 448,
+          "declaration": "it('非法 UUID 在路由边界失败且不发送 Detail 请求', async () => {"
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/domains/geo/geo-observation-detail.model.test.ts",
+      "source_test_declarations": [
+        {
+          "line": 72,
+          "declaration": "it('保留服务端 root→tail 顺序并解析 selected 与 tail', () => {"
+        },
+        {
+          "line": 81,
+          "declaration": "it('拒绝错误 selected、节点顺序和 primary/action 组合', () => {"
+        },
+        {
+          "line": 101,
+          "declaration": "it('如实格式化历史空事实，不猜测默认值', () => {"
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/domains/geo/geo-observation-list-page.test.tsx",
+      "source_test_declarations": [
+        {
+          "line": 105,
+          "declaration": "it('单次 compact GET 绘制八列、canonical links 和服务端动作', async () => {"
+        },
+        {
+          "line": 138,
+          "declaration": "it('无 available_actions 时不渲染 overflow，并区分 loading/empty/filtered-empty/error', async () => {"
+        },
+        {
+          "line": 199,
+          "declaration": "it('删除 Dialog 单次发送 CSRF、成功刷新并把焦点返回 overflow', async () => {"
+        },
+        {
+          "line": 249,
+          "declaration": "it('DELETE 成功进入 deferred cancelQueries 后切换主体，不再投影或失效新主体缓存', async () => {"
+        },
+        {
+          "line": 280,
+          "declaration": "it.each(['撤销动作', '移除记录'])('背景刷新%s时保留确认框、阻止删除并恢复焦点', async (change) => {"
+        },
+        {
+          "line": 298,
+          "declaration": "it('409 关闭重开及背景刷新仍冻结，显式重载成功后才能再次确认', async () => {"
+        },
+        {
+          "line": 334,
+          "declaration": "it('204 后列表重读失败也移除旧删除和更正入口并恢复稳定焦点', async () => {"
+        },
+        {
+          "line": 357,
+          "declaration": "it('排序与分页只更新 canonical URL 并由服务端重新请求', async () => {"
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/domains/geo/geo-observation-list.model.test.ts",
+      "source_test_declarations": [
+        {
+          "line": 14,
+          "declaration": "it('规范化 URL 并一一映射到 API query，不接受兼容别名', () => {"
+        },
+        {
+          "line": 56,
+          "declaration": "it('非法值 canonicalize 为默认页，不把默认排序写入 URL', () => {"
+        },
+        {
+          "line": 74,
+          "declaration": "it('观测时间排序只映射唯一服务端排序列', () => {"
+        },
+        {
+          "line": 86,
+          "declaration": "it('compact indicator 明确表达不适用和未评估', () => {"
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/domains/geo/geo.api.test.ts",
+      "source_test_declarations": [
+        {
+          "line": 29,
+          "declaration": "it('大小写 UUID 共享 Detail 与 Correction Context 缓存身份', () => {"
+        },
+        {
+          "line": 34,
+          "declaration": "it('更正上下文只请求 generated 聚合 endpoint 并校验 CORRECT 尾节点', async () => {"
+        },
+        {
+          "line": 97,
+          "declaration": "it('详情只请求 generated 聚合 endpoint 并校验请求身份', async () => {"
+        },
+        {
+          "line": 156,
+          "declaration": "it('列表只请求 generated compact endpoint', async () => {"
+        },
+        {
+          "line": 186,
+          "declaration": "it('Query Topic list-items 与三个命令只使用 generated contract', async () => {"
+        },
+        {
+          "line": 233,
+          "declaration": "it('创建选项分别读取现有权威接口', async () => {"
+        },
+        {
+          "line": 248,
+          "declaration": "it('候选结构化错误保留 request ID，显式重试后可恢复', async () => {"
+        },
+        {
+          "line": 274,
+          "declaration": "it('创建命令只携带 CSRF 与批准合同，不添加 Idempotency-Key', async () => {"
+        },
+        {
+          "line": 304,
+          "declaration": "it('删除携带 CSRF，结构化错误保留 request ID 且不重放', async () => {"
+        },
+        {
+          "line": 336,
+          "declaration": "it('Insights GET 映射七个筛选，优化 POST 原样携带 body 与稳定 key', async () => {"
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/domains/geo/new-geo-observation-page.test.tsx",
+      "source_test_declarations": [
+        {
+          "line": 47,
+          "declaration": "it('未编辑表单开始上传即启用离开保护，放弃成功仅在没有草稿时解除', async () => {"
+        },
+        {
+          "line": 60,
+          "declaration": "it('409 刷新失败保留草稿及请求 ID，成功刷新按文章 ID 合并后才解冻', async () => {"
+        },
+        {
+          "line": 83,
+          "declaration": "it('后台候选读取中和失败时，即使直接 submit 也不发送 POST', async () => {"
+        },
+        {
+          "line": 98,
+          "declaration": "it('已接受创建立即交接且持续锁定，缓存失效等待不会允许第二次 POST', async () => {"
+        },
+        {
+          "line": 115,
+          "declaration": "it('上传期间阻止 POST，完成后只提交仍保留的最新附件', async () => {"
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/domains/geo/new-geo-observation.model.test.ts",
+      "source_test_declarations": [
+        {
+          "line": 31,
+          "declaration": "it('接收精确 Topic 与 GEO 平台 handoff，并拒绝空平台', () => {"
+        },
+        {
+          "line": 41,
+          "declaration": "it('handoff 只接受明确的 Query Topic UUID', () => {"
+        },
+        {
+          "line": 50,
+          "declaration": "it('新候选保持未选择，刷新只保留仍有效文章的显式事实', () => {"
+        },
+        {
+          "line": 71,
+          "declaration": "it('校验全部独立事实并只生成当前人工合同字段', () => {"
+        },
+        {
+          "line": 102,
+          "declaration": "it('只定位批准字段与逐篇事实，未知 issue 保留在摘要', () => {"
+        }
+      ]
+    },
+    {
+      "file": "frontend/src/domains/geo/query-topic-list.model.test.ts",
+      "source_test_declarations": [
+        {
+          "line": 30,
+          "declaration": "it('规范化搜索并逐项映射服务端分页与排序参数', () => {"
+        },
+        {
+          "line": 45,
+          "declaration": "it('只按服务端 primary_task 生成 handoff，并固定三类 resolve links', () => {"
+        },
+        {
+          "line": 57,
+          "declaration": "it('表单保持输入，expected_revision 只来自 canonical topic', () => {"
+        }
+      ]
+    },
+    {
+      "file": "frontend/tests/e2e/geo-insights.spec.ts",
+      "source_test_declarations": [
+        {
+          "line": 6,
+          "declaration": "test('direct URL 映射筛选并完整呈现 read model、替代数据和精确 drill-down', async ({ page, insightsApi }, testInfo) => {"
+        },
+        {
+          "line": 27,
+          "declaration": "test('筛选写回 canonical URL，reset 与浏览器历史恢复', async ({ page, insightsApi }) => {"
+        },
+        {
+          "line": 41,
+          "declaration": "test('loading、首次错误重试与 empty/unavailable 状态彼此区分', async ({ page, insightsApi }) => {"
+        },
+        {
+          "line": 62,
+          "declaration": "test('优化 Dialog 按需读取 options，以响应 ID 导航并携带稳定命令头', async ({ page, insightsApi }) => {"
+        },
+        {
+          "line": 80,
+          "declaration": "test('优化 POST pending 时取消、Escape 与外点都不能重建命令会话', async ({ page, insightsApi }) => {"
+        },
+        {
+          "line": 100,
+          "declaration": "test('stale/409 不自动重放，保留选择并要求显式刷新', async ({ page, insightsApi }) => {"
+        },
+        {
+          "line": 127,
+          "declaration": "test('stale 刷新后来源消失仍保留目标与 request ID，并禁止再次 POST', async ({ page, insightsApi }) => {"
+        },
+        {
+          "line": 144,
+          "declaration": "test('后台撤销优化来源或创建选项失败时旧选择可见但不能提交', async ({ page, insightsApi }) => {"
+        },
+        {
+          "line": 177,
+          "declaration": "test('后台创建选项撤销已批准事实版本后阻止旧目标 POST', async ({ page, insightsApi }) => {"
+        },
+        {
+          "line": 195,
+          "declaration": "test('打印报告使用相同查询，只呈现只读数据并调用浏览器打印', async ({ page, insightsApi }, testInfo) => {"
+        },
+        {
+          "line": 257,
+          "declaration": "test('Screen 打印入口完整保留七项筛选并支持浏览器历史', async ({ page }) => {"
+        },
+        {
+          "line": 270,
+          "declaration": "test('打印报告规范化参数，并区分 loading、error、empty 与 unavailable', async ({ page, insightsApi }) => {"
+        }
+      ]
+    },
+    {
+      "file": "frontend/tests/e2e/geo-observation-correction.spec.ts",
+      "source_test_declarations": [
+        {
+          "line": 48,
+          "declaration": "test('从 Detail CORRECT 入口进入，历史 ID 先 replace 到服务端 canonical 尾', async ({"
+        },
+        {
+          "line": 81,
+          "declaration": "test('校验显式事实；上传失败只重试 complete，POST 防重复并按响应 ID 交接', async ({"
+        },
+        {
+          "line": 161,
+          "declaration": "test(`${mode} 不重放；显式刷新按 ID 合并草稿、证据和新尾`, async ({"
+        },
+        {
+          "line": 212,
+          "declaration": "test('successor 后显式上下文刷新失败仍冻结旧尾并保留草稿与 request ID', async ({"
+        },
+        {
+          "line": 240,
+          "declaration": "test('链上下文不完整后禁止重放，显式 GET 失败也不能用缓存旧数据解冻', async ({"
+        },
+        {
+          "line": 264,
+          "declaration": "test('upload complete 悬停跨布局时阻止 POST，成功后仅提交新证据', async ({"
+        },
+        {
+          "line": 290,
+          "declaration": "test('空白草稿开始上传后，离开仍需确认', async ({ page, geoCorrectionApi }) => {"
+        },
+        {
+          "line": 309,
+          "declaration": "test('后台读取撤销更正资格后冻结旧上下文与写入入口', async ({ page, geoCorrectionApi }) => {"
+        },
+        {
+          "line": 328,
+          "declaration": "test('loading、404、403、Legacy 与提交时权限变化均明确且保留输入', async ({"
+        },
+        {
+          "line": 363,
+          "declaration": "test('DirtyGuard、键盘主动作与 375/768/1024/1440 布局可达', async ({"
+        }
+      ]
+    },
+    {
+      "file": "frontend/tests/e2e/geo-observation-detail.spec.ts",
+      "source_test_declarations": [
+        {
+          "line": 8,
+          "declaration": "test('List 进入 Detail，direct URL、refresh、Back 和 Forward 保持 canonical route', async ({"
+        },
+        {
+          "line": 28,
+          "declaration": "test('Manual 一次请求展示 selected record、完整 chain、direct evidence 和 tail actions', async ({"
+        },
+        {
+          "line": 77,
+          "declaration": "test('Legacy 只展示合同真实存在的 recommendation、citation 与 frozen article', async ({"
+        },
+        {
+          "line": 93,
+          "declaration": "test('loading、409、retry 与 contract error 均不回退到旧 GET', async ({"
+        },
+        {
+          "line": 112,
+          "declaration": "test('404、403 和普通读取失败明确展示错误，不使用旧单条 GET', async ({ page, geoDetailApi }) => {"
+        },
+        {
+          "line": 130,
+          "declaration": "test('删除确认期间后台撤销尾节点动作，确认禁用且焦点回到标题', async ({ page, geoApi, geoDetailApi }) => {"
+        },
+        {
+          "line": 150,
+          "declaration": "test('DELETE 409 冻结旧确认，显式重载后需重新打开并人工确认', async ({ page, geoApi }) => {"
+        },
+        {
+          "line": 179,
+          "declaration": "test('375/768/1024/1440 无根级横向溢出且键盘可达', async ({ page }, testInfo) => {"
+        }
+      ]
+    },
+    {
+      "file": "frontend/tests/e2e/geo-observations.spec.ts",
+      "source_test_declarations": [
+        {
+          "line": 5,
+          "declaration": "test('八列紧凑列表只提供 canonical links 和服务端投影动作', async ({ page, geoApi }) => {"
+        },
+        {
+          "line": 31,
+          "declaration": "test('URL 参数逐项映射 API，支持排序、分页和 canonical replace', async ({"
+        },
+        {
+          "line": 77,
+          "declaration": "test('Query Topic resolve URL 精确映射服务端筛选并可清除', async ({ page, geoApi }) => {"
+        },
+        {
+          "line": 86,
+          "declaration": "test('loading、empty、filtered-empty、error 与 retry 诚实可见', async ({ page, geoApi }) => {"
+        },
+        {
+          "line": 108,
+          "declaration": "test('键盘 Dialog 返回焦点，删除只发送一次且携带 CSRF', async ({ page, geoApi }) => {"
+        },
+        {
+          "line": 130,
+          "declaration": "test('375/768/1024/1440 页面根无横向溢出，表格只在区域内滚动', async ({"
+        },
+        {
+          "line": 147,
+          "declaration": "test('确认删除期间背景移除行仍保留 Dialog，取消后焦点回到标题', async ({ page, geoApi }) => {"
+        }
+      ]
+    },
+    {
+      "file": "frontend/tests/e2e/geo-real-stack.spec.ts",
+      "source_test_declarations": [
+        {
+          "line": 269,
+          "declaration": "&& /^\\/api\\/v1\\/files\\/[^/]+\\/content$/.test(new URL(request.url()).pathname)"
+        },
+        {
+          "line": 273,
+          "declaration": "&& /^\\/api\\/v1\\/files\\/[^/]+\\/complete$/.test(new URL(response.url()).pathname)"
+        },
+        {
+          "line": 327,
+          "declaration": "test('Flow A：新建 Observation 后追加 Correction，原记录保持不可变', async ({ page }) => {"
+        },
+        {
+          "line": 542,
+          "declaration": "test('Flow B：真实 Insights 复算异常并创建带不可变 GEO 来源的优化任务', async ({ page }) => {"
+        }
+      ]
+    },
+    {
+      "file": "frontend/tests/e2e/geo-topics.spec.ts",
+      "source_test_declarations": [
+        {
+          "line": 5,
+          "declaration": "test('五列只消费服务端动作，primary 携带 canonical handoff，引用链接精确可解析', async ({"
+        },
+        {
+          "line": 48,
+          "declaration": "test('引用 Dialog 从当前 exact list projection 实时更新', async ({ page, geoTopicsApi }) => {"
+        },
+        {
+          "line": 72,
+          "declaration": "test('删除 Dialog 按最新 blocker/资格原位切换，并以最新 revision 确认', async ({"
+        },
+        {
+          "line": 125,
+          "declaration": "test('删除确认在 exact list fetching/error/目标消失时保持阻断', async ({ page, geoTopicsApi }) => {"
+        },
+        {
+          "line": 172,
+          "declaration": "test('搜索、排序、分页进入 URL/API，direct、refresh、Back/Forward 保持 canonical', async ({"
+        },
+        {
+          "line": 204,
+          "declaration": "test('loading、empty、filtered-empty、error/retry 与四档根宽度状态诚实', async ({"
+        },
+        {
+          "line": 237,
+          "declaration": "test('创建与更新携带 CSRF/revision；409 保留草稿并只在显式 reload 后恢复', async ({"
+        },
+        {
+          "line": 323,
+          "declaration": "test('DELETE 只对服务端允许的行出现，确认后只发送一次 expected_revision', async ({"
+        },
+        {
+          "line": 350,
+          "declaration": "test('DELETE 409 不自动重放，显式 reload revision 后才允许再次确认', async ({"
+        },
+        {
+          "line": 403,
+          "declaration": "test('DELETE 引用竞态显示服务端最新类型、数量和 canonical resolve links', async ({"
+        }
+      ]
+    },
+    {
+      "file": "frontend/tests/e2e/new-geo-observation.spec.ts",
+      "source_test_declarations": [
+        {
+          "line": 62,
+          "declaration": "test('列表 Primary、直接访问和刷新都进入 canonical 创建 Workspace', async ({ page }) => {"
+        },
+        {
+          "line": 76,
+          "declaration": "test('queryTopicId 与 geoPlatform handoff 支持 direct URL 与刷新，不存在 Topic 时明确阻止提交', async ({ page }) => {"
+        },
+        {
+          "line": 99,
+          "declaration": "test('候选 loading 诚实可见且阻止创建', async ({ page, newGeoApi }) => {"
+        },
+        {
+          "line": 111,
+          "declaration": "test('候选 empty 提供可用出口且阻止创建', async ({ page, newGeoApi }) => {"
+        },
+        {
+          "line": 124,
+          "declaration": "test('客户端校验显式事实；上传后 POST 防重复并 canonical handoff', async ({"
+        },
+        {
+          "line": 186,
+          "declaration": "test('证据 complete 未结束且跨布局时不能创建，完成后才提交附件', async ({ page, newGeoApi }) => {"
+        },
+        {
+          "line": 212,
+          "declaration": "test('空白表单上传期间离开需确认，保留上传后可继续校验', async ({ page, newGeoApi }) => {"
+        },
+        {
+          "line": 236,
+          "declaration": "test('候选冲突不重放创建，显式刷新后保留输入并允许人工重试', async ({ page, newGeoApi }) => {"
+        },
+        {
+          "line": 256,
+          "declaration": "test('DirtyGuard 覆盖 Cancel，Back/Forward 可恢复 canonical 页面；四档宽度无溢出', async ({ page }, testInfo) => {"
+        }
+      ]
+    }
+  ],
+  "note": "声明数不是展开后的用例数；收集与实际执行结果见 validation.md。"
+}

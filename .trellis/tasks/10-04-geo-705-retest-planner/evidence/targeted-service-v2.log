@@ -1,0 +1,279 @@
+ Container geo705-validation-backend-test-run-9f99d975b18d Creating 
+ Container geo705-validation-backend-test-run-9f99d975b18d Created 
+....F
+=================================== FAILURES ===================================
+_ test_latest_observed_model_version_change_or_unknown_blocks[fixture-v2-MODEL_VERSION_CHANGED] _
+
+self = <sqlalchemy.engine.base.Connection object at 0xe2b7fcebec90>
+dialect = <sqlalchemy.dialects.postgresql.psycopg.PGDialect_psycopg object at 0xe2b7fd551970>
+context = <sqlalchemy.dialects.postgresql.psycopg.PGExecutionContext_psycopg object at 0xe2b7fc90a9c0>
+statement = <sqlalchemy.dialects.postgresql.psycopg.PGCompiler_psycopg object at 0xe2b7fc908bc0>
+parameters = [{'collected_at': datetime.datetime(2026, 10, 5, 0, 27, 36, 147893, tzinfo=datetime.timezone.utc), 'geo_observation_runs_id': UUID('c368a5f6-006c-482f-95b9-d0f7154a2a9a'), 'revision': 1, 'status': 'COLLECTED'}]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+    
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+    
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+    
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+    
+        effective_parameters: Optional[_AnyExecuteParams]
+    
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+    
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+    
+        if self._echo:
+            self._log_info(str_statement)
+    
+            stats = context._get_cache_stats()
+    
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+    
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Cursor [closed] [IDLE] (host=postgres user=partsignal database=partsignal_geo208_43ef016e8c) at 0xe2b7fd7bf110>
+query = 'UPDATE geo_observation_runs SET status=%(status)s::VARCHAR, revision=%(revision)s::INTEGER, collected_at=%(collected_at)s::TIMESTAMP WITH TIME ZONE WHERE geo_observation_runs.id = %(geo_observation_runs_id)s::UUID'
+params = {'collected_at': datetime.datetime(2026, 10, 5, 0, 27, 36, 147893, tzinfo=datetime.timezone.utc), 'geo_observation_runs_id': UUID('c368a5f6-006c-482f-95b9-d0f7154a2a9a'), 'revision': 1, 'status': 'COLLECTED'}
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool | None = None,
+    ) -> Self:
+        """
+        Execute a query or command to the database.
+        """
+        try:
+            with self._conn.lock:
+                self._conn.wait(
+                    self._execute_gen(query, params, prepare=prepare, binary=binary)
+                )
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           psycopg.errors.CheckViolation: new row for relation "geo_observation_runs" violates check constraint "ck_geo_runs_time"
+E           DETAIL:  Failing row contains (c368a5f6-006c-482f-95b9-d0f7154a2a9a, 7c144247-c0af-4951-a967-ffd8e7052f2a, f1a5a017-b454-4bc1-904e-cfdc0e934509, 331e8f77-0a94-449f-8720-34454b7c3955, 1, 81e43851e0cb6ce80212b88edf4b71e1224f82b200bf047c4bee1548756b0065, 1, null, COLLECTED, 1, {"prompt": {"id": "f1a5a017-b454-4bc1-904e-cfdc0e934509", "prior..., NOT_STARTED, null, null, 0, null, null, null, null, null, null, null, null, null, null, null, null, 2026-10-05 00:27:36.147893+00, null, 2026-10-05 00:27:35.145354+00, null, null, null).
+
+/opt/venv/lib/python3.12/site-packages/psycopg/cursor.py:117: CheckViolation
+
+The above exception was the direct cause of the following exception:
+
+retest_case = (PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_43ef016e8...0-d531-4a51-9d43-c674301ee5ef'), {'baseline_batch_id': 'a6402190-d531-4a51-9d43-c674301ee5ef', 'expected_revision': 3})
+version = 'fixture-v2', code = 'MODEL_VERSION_CHANGED'
+
+    @pytest.mark.parametrize(
+        "version,code", [("fixture-v2", "MODEL_VERSION_CHANGED"), (None, "MODEL_VERSION_UNKNOWN")]
+    )
+    def test_latest_observed_model_version_change_or_unknown_blocks(retest_case, version, code):
+        from datetime import UTC, datetime, timedelta
+    
+        from app.models.geo_answers import GeoAnswerSnapshot
+        from app.models.geo_batch_creation import GeoBatchSubject
+    
+        case = retest_case
+        with case[0].api.factory.begin() as db:
+            original = db.get(GeoObservationBatch, case[2])
+            root = db.scalar(select(GeoObservationRun).where(GeoObservationRun.batch_id == original.id))
+            batch = GeoObservationBatch(
+                id=uuid4(),
+                trigger_type="MANUAL",
+                plan_id=original.plan_id,
+                created_by=case[0].api.engineer_id,
+                requested_run_count=2,
+                plan_snapshot=deepcopy(original.plan_snapshot),
+                rule_snapshot=deepcopy(original.rule_snapshot),
+            )
+            db.add(batch)
+            db.flush()
+            db.add(GeoBatchSubject(batch_id=batch.id, subject_id=case[0].subject, role="PRIMARY"))
+            db.flush()
+            for repeat in (1, 2):
+                run = GeoObservationRun(
+                    batch_id=batch.id,
+                    prompt_variant_id=root.prompt_variant_id,
+                    collection_profile_id=root.collection_profile_id,
+                    repeat_index=repeat,
+                    input_snapshot=deepcopy(root.input_snapshot),
+                )
+                db.add(run)
+>               db.flush()
+
+tests/integration/test_geo_retests.py:166: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:4353: in flush
+    self._flush(objects)
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:4488: in _flush
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py:122: in __exit__
+    raise exc_value.with_traceback(exc_tb)
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:4449: in _flush
+    flush_context.execute()
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py:465: in execute
+    rec.execute(self)
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py:641: in execute
+    util.preloaded.orm_persistence.save_obj(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py:86: in save_obj
+    _emit_update_statements(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py:913: in _emit_update_statements
+    c = connection.execute(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Cursor [closed] [IDLE] (host=postgres user=partsignal database=partsignal_geo208_43ef016e8c) at 0xe2b7fd7bf110>
+query = 'UPDATE geo_observation_runs SET status=%(status)s::VARCHAR, revision=%(revision)s::INTEGER, collected_at=%(collected_at)s::TIMESTAMP WITH TIME ZONE WHERE geo_observation_runs.id = %(geo_observation_runs_id)s::UUID'
+params = {'collected_at': datetime.datetime(2026, 10, 5, 0, 27, 36, 147893, tzinfo=datetime.timezone.utc), 'geo_observation_runs_id': UUID('c368a5f6-006c-482f-95b9-d0f7154a2a9a'), 'revision': 1, 'status': 'COLLECTED'}
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool | None = None,
+    ) -> Self:
+        """
+        Execute a query or command to the database.
+        """
+        try:
+            with self._conn.lock:
+                self._conn.wait(
+                    self._execute_gen(query, params, prepare=prepare, binary=binary)
+                )
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           sqlalchemy.exc.IntegrityError: (psycopg.errors.CheckViolation) new row for relation "geo_observation_runs" violates check constraint "ck_geo_runs_time"
+E           DETAIL:  Failing row contains (c368a5f6-006c-482f-95b9-d0f7154a2a9a, 7c144247-c0af-4951-a967-ffd8e7052f2a, f1a5a017-b454-4bc1-904e-cfdc0e934509, 331e8f77-0a94-449f-8720-34454b7c3955, 1, 81e43851e0cb6ce80212b88edf4b71e1224f82b200bf047c4bee1548756b0065, 1, null, COLLECTED, 1, {"prompt": {"id": "f1a5a017-b454-4bc1-904e-cfdc0e934509", "prior..., NOT_STARTED, null, null, 0, null, null, null, null, null, null, null, null, null, null, null, null, 2026-10-05 00:27:36.147893+00, null, 2026-10-05 00:27:35.145354+00, null, null, null).
+E           [SQL: UPDATE geo_observation_runs SET status=%(status)s::VARCHAR, revision=%(revision)s::INTEGER, collected_at=%(collected_at)s::TIMESTAMP WITH TIME ZONE WHERE geo_observation_runs.id = %(geo_observation_runs_id)s::UUID]
+E           [parameters: {'status': 'COLLECTED', 'revision': 1, 'collected_at': datetime.datetime(2026, 10, 5, 0, 27, 36, 147893, tzinfo=datetime.timezone.utc), 'geo_observation_runs_id': UUID('c368a5f6-006c-482f-95b9-d0f7154a2a9a')}]
+E           (Background on this error at: https://sqlalche.me/e/20/gkpj)
+
+/opt/venv/lib/python3.12/site-packages/psycopg/cursor.py:117: IntegrityError
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_retests.py::test_latest_observed_model_version_change_or_unknown_blocks[fixture-v2-MODEL_VERSION_CHANGED]
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 4 passed in 3.31s
+

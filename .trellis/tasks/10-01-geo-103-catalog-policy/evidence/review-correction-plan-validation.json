@@ -1,0 +1,93 @@
+{
+  "version": 5,
+  "planner_version": "1.5.1",
+  "plan_id": "geo-103-schema-correction-review",
+  "max_concurrent_workers": 1,
+  "effective_capacity": 1,
+  "open_workers": 0,
+  "available_slots": 1,
+  "role_profiles": {
+    "critical_reviewer": {
+      "name": "critical_reviewer",
+      "model": "gpt-6.1-sol",
+      "model_reasoning_effort": "xhigh",
+      "sandbox_mode": "read-only",
+      "profile_source": "agent_toml",
+      "config_file": "critical_reviewer.toml",
+      "config_sha256": "30f4b4654e23415c7723b0d6ec7625b2020f13c51c5714a37c80feb53c7e4118"
+    }
+  },
+  "codex_config_evidence": {
+    "config_file": "config.toml",
+    "config_sha256": "641b7c480070418f46b56d34883478a880504024e3ebe937b7454bac94f0f7aa",
+    "configured_max_concurrent_threads_per_session": 4,
+    "capacity_source": "codex_config"
+  },
+  "runtime_workers": [],
+  "prior_tasks": [
+    {
+      "task_id": "primary-schema-correction",
+      "attempt": 1,
+      "status": "accepted",
+      "worker_id": null
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "geo103-schema-review-a1",
+      "task_name": "geo103_schema_correction_review",
+      "agent_type": "critical_reviewer",
+      "attempt": 1,
+      "replaces_task_id": null,
+      "depends_on": [],
+      "read_paths": [
+        "backend/app/schemas/geo_catalog.py",
+        "backend/app/services/geo_catalog_normalization.py",
+        "backend/tests/unit/test_geo_catalog_schema.py",
+        "backend/tests/unit/test_geo_catalog_projection.py",
+        "contracts/openapi.yaml",
+        "contracts/database.md",
+        ".trellis/tasks/10-01-geo-103-catalog-policy/evidence/independent-review-initial.md",
+        ".trellis/tasks/10-01-geo-103-catalog-policy/evidence/schema-parity-diagnostic.json",
+        ".trellis/tasks/10-01-geo-103-catalog-policy/evidence/schema-parity-before-fix.log",
+        ".trellis/tasks/10-01-geo-103-catalog-policy/evidence/schema-parity-after-fix.log",
+        ".trellis/tasks/10-01-geo-103-catalog-policy/evidence/targeted-schema-corrected.log",
+        ".trellis/tasks/10-01-geo-103-catalog-policy/prd.md"
+      ],
+      "write_paths": [],
+      "independent_review": true,
+      "review_of_task_ids": [
+        "primary-schema-correction"
+      ],
+      "reuse_worker_id": null,
+      "accounting_scope": "not_available",
+      "dispatch_method": "spawn_agent",
+      "fork_turns": "none",
+      "delivery_mode": "complete_task",
+      "progress_policy": "blocker_or_final",
+      "deliverable": "只读独立确认第一次发现的 P2 Schema 机器形状阻断已由最小修正解除，保留请求语义且无 Router 接线。",
+      "acceptance_criteria": [
+        "九个公共入口生成 Schema 用现有合同比较器完整 failure=[]",
+        "原空 PATCH/非法 parent/stage 反例在根合同及生成声明两侧均拒绝，真实请求 dump/投影两侧接受",
+        "nullable默认工厂不改变省略与null语义，hostname not 与真实规范化一致；权限/领域 owner 未迁移",
+        "中文精确 finding 或无阻断及覆盖限制；只读、不执行Git/外部平台/凭据访问"
+      ],
+      "assigned_wave": 1
+    }
+  ],
+  "waves": [
+    {
+      "wave": 1,
+      "task_ids": [
+        "geo103-schema-review-a1"
+      ]
+    }
+  ],
+  "ready_task_ids": [
+    "geo103-schema-review-a1"
+  ],
+  "deferred_task_ids": [],
+  "blocked_task_ids": [],
+  "blocked_reasons": {},
+  "superseded_worker_ids": []
+}

@@ -1,0 +1,651 @@
+--- baseline/backend/app/services/geo_overview_queries.py
++++ candidate/backend/app/services/geo_overview_queries.py
+@@ -1,15 +1,18 @@
+ """Overview 同快照批量输入；只读列和 current 结果，不加载凭据或历史最佳分析。"""
+ 
+-from collections.abc import Mapping, Sequence
++from collections.abc import Iterable, Mapping, Sequence
+ from dataclasses import dataclass
+ from datetime import datetime
+ from decimal import Decimal
+ from typing import Any
+ from uuid import UUID
+ 
+-from sqlalchemy import Select, func, select
++from sqlalchemy import Select, Text, any_, bindparam, cast, column, func, select
++from sqlalchemy.dialects.postgresql import ARRAY, JSONB
++from sqlalchemy.dialects.postgresql import UUID as PGUUID
+ from sqlalchemy.orm import Session, aliased
+ 
++from app.geo_citation_urls import CitationUrlMemo
+ from app.models.geo_analysis import (
+     GeoAnalysisRevision,
+     GeoClaimAssessment,
+@@ -24,6 +27,7 @@
+ from app.models.geo_runs import GeoObservationRun as Run
+ from app.schemas.base import ContractModel
+ from app.schemas.geo_analysis import (
++    GeoAnalysisInputSnapshot,
+     GeoAnalysisRevisionOut,
+     GeoAnalysisSelection,
+     GeoClaimAssessmentOut,
+@@ -61,6 +65,16 @@
+     evidence: InsightEvidence = InsightEvidence()
+ 
+ 
++def _snapshot_key() -> Any:
++    # 完整JSONB的UTF8内容指纹；不按batch/profile猜测相同，也不建立可写镜像。
++    return func.encode(func.sha256(func.convert_to(cast(Run.input_snapshot, Text), "UTF8")), "hex")
++
++
++def _ids(field: Any, values: Iterable[UUID]) -> Any:
++    # 单个类型化数组参数，避免密集窗口为每条查询展开上万个占位符；空数组仍为空集。
++    return field == any_(bindparam(None, list(values), type_=ARRAY(PGUUID(as_uuid=True))))
++
++
+ def candidate_query(filters: GeoOverviewFilters) -> Select[Any]:
+     successor = aliased(Run)
+     query = select(
+@@ -68,7 +82,7 @@
+         Run.batch_id,
+         Run.repeat_index,
+         Run.status,
+-        Run.input_snapshot,
++        _snapshot_key().label("input_key"),
+         Run.created_at,
+         Run.current_analysis_revision_id,
+         Run.cost_amount,
+@@ -81,9 +95,9 @@
+     snapshot = Run.input_snapshot
+     fields = (
+         (snapshot["prompt"]["query_topic_id"].as_string(), filters.query_topic_ids),
+-        (snapshot["prompt"]["id"].as_string(), filters.prompt_variant_ids),
++        (Run.prompt_variant_id, filters.prompt_variant_ids),
+         (snapshot["profile"]["surface"]["id"].as_string(), filters.engine_surface_ids),
+-        (snapshot["profile"]["id"].as_string(), filters.collection_profile_ids),
++        (Run.collection_profile_id, filters.collection_profile_ids),
+         (snapshot["profile"]["collection_mode"].as_string(), filters.collection_modes),
+         (snapshot["profile"]["language_code"].as_string(), filters.language_codes),
+         (snapshot["profile"]["region_code"].as_string(), filters.region_codes),
+@@ -95,6 +109,23 @@
+             query = query.where(field.in_([str(value) for value in values]))
+     if filters.mention_mode is not None:
+         query = query.where(snapshot["prompt"]["mention_mode"].as_string() == filters.mention_mode)
++    if filters.subject_ids or filters.product_ids:
++        # 同一冻结 JSON binding 的交集；不能以可变 Catalog 或批次其他对象替代 Run 输入。
++        bindings = func.jsonb_array_elements(snapshot["subjects"]).table_valued(
++            column("value", JSONB)
++        )
++        selected = select(1).select_from(bindings)
++        if filters.subject_ids:
++            selected = selected.where(
++                bindings.c.value["id"].as_string().in_([str(v) for v in filters.subject_ids])
++            )
++        if filters.product_ids:
++            selected = selected.where(
++                bindings.c.value["product_id"].as_string().in_(
++                    [str(v) for v in filters.product_ids]
++                )
++            )
++        query = query.where(selected.exists())
+     return query.order_by(Run.created_at.desc(), Run.id)
+ 
+ 
+@@ -122,48 +153,74 @@
+     assert as_of is not None
+     query = candidate_query(filters)
+     if run_ids is not None:
+-        query = query.where(Run.id.in_(run_ids))
++        query = query.where(_ids(Run.id, run_ids))
+     rows = db.execute(query).mappings().all()
++    candidates = [row["id"] for row in rows]
++    key = _snapshot_key()
++    frozen = {
++        row.input_key: GeoRunInputSnapshot.model_validate(row.input_snapshot)
++        for row in db.execute(
++            select(key.label("input_key"), Run.input_snapshot)
++            .where(_ids(Run.id, candidates)).distinct(key)
++        )
++    }
++    # 同一RR内按完整不可变内容批量读取/校验一次。后续消费者只读这些快照。
+     snapshots = {
+-        row["id"]: GeoRunInputSnapshot.model_validate(row["input_snapshot"]) for row in rows
++        row["id"]: frozen[row["input_key"]] for row in rows
+     }
+     # 对象和产品必须命中同一个冻结binding，不通过当前Catalog或答案推断关联。
+     rows = [row for row in rows if selected_subjects(snapshots[row["id"]], filters)]
+     ids = [row["id"] for row in rows]
+     answers = {
+         item.run_id: GeoAnswerSnapshotOut.model_validate(item)
+-        for item in db.scalars(select(GeoAnswerSnapshot).where(GeoAnswerSnapshot.run_id.in_(ids)))
++        for item in db.execute(
++            select(GeoAnswerSnapshot.__table__).where(_ids(GeoAnswerSnapshot.run_id, ids))
++        )
+     }
+     citations: dict[UUID, list[GeoAnswerCitationOut]] = {identity: [] for identity in ids}
+     answer_runs = {answer.id: identity for identity, answer in answers.items()}
+-    for item in db.scalars(
+-        select(GeoAnswerCitation).where(GeoAnswerCitation.answer_snapshot_id.in_(answer_runs))
++    url_memo = CitationUrlMemo()
++    for item in db.execute(
++        select(GeoAnswerCitation.__table__).where(
++            _ids(GeoAnswerCitation.answer_snapshot_id, answer_runs)
++        )
+     ):
+         citations[answer_runs[item.answer_snapshot_id]].append(
+-            GeoAnswerCitationOut.model_validate(item)
++            GeoAnswerCitationOut.model_validate(item, context=url_memo)
+         )
+     current_ids = [
+         row["current_analysis_revision_id"] for row in rows if row["current_analysis_revision_id"]
+     ]
++    analysis_inputs = {
++        row.input_sha256: GeoAnalysisInputSnapshot.model_validate(row.input_snapshot)
++        for row in db.execute(
++            select(GeoAnalysisRevision.input_sha256, GeoAnalysisRevision.input_snapshot)
++            .where(_ids(GeoAnalysisRevision.id, current_ids))
++            .distinct(GeoAnalysisRevision.input_sha256)
++        )
++    }
+     analyses = {
+         item.id: GeoAnalysisResult(
+-            analysis=GeoAnalysisRevisionOut.model_validate(item),
++            analysis=GeoAnalysisRevisionOut.model_validate(
++                dict(item._mapping) | {"input_snapshot": analysis_inputs[item.input_sha256]}
++            ),
+             mentions=[],
+             recommendations=[],
+             claims=[],
+             citations=[],
+             citation_classification_complete=False,
+         )
+-        for item in db.scalars(
+-            select(GeoAnalysisRevision).where(GeoAnalysisRevision.id.in_(current_ids))
++        for item in db.execute(
++            select(*[c for c in GeoAnalysisRevision.__table__.c if c.name != "input_snapshot"])
++            .where(_ids(GeoAnalysisRevision.id, current_ids))
+         )
+     }
+     _load_results(db, analyses)
+     reviews = {
+         item.analysis_revision_id: GeoRunReviewOut.model_validate(item)
+-        for item in db.scalars(
+-            select(GeoRunReview)
+-            .where(GeoRunReview.analysis_revision_id.in_(current_ids))
++        for item in db.execute(
++            select(GeoRunReview.__table__)
++            .where(_ids(GeoRunReview.analysis_revision_id, current_ids))
+             .distinct(GeoRunReview.analysis_revision_id)
+             .order_by(
+                 GeoRunReview.analysis_revision_id,
+@@ -179,14 +236,14 @@
+         if identity is not None
+     }
+     files = dict(
+-        db.execute(select(FileRecord.id, FileRecord.status).where(FileRecord.id.in_(file_ids)))
++        db.execute(select(FileRecord.id, FileRecord.status).where(_ids(FileRecord.id, file_ids)))
+         .tuples()
+         .all()
+     )
+     batches = dict(
+         db.execute(
+             select(Batch.id, Batch.created_at).where(
+-                Batch.id.in_({row["batch_id"] for row in rows})
++                _ids(Batch.id, {row["batch_id"] for row in rows})
+             )
+         )
+         .tuples()
+@@ -212,6 +269,7 @@
+ 
+ 
+ def _load_results(db: Session, results: dict[UUID, GeoAnalysisResult]) -> None:
++    # Row仍通过原有from_attributes/Pydantic校验；只读投影无需ORM身份图或实体状态。
+     models: tuple[tuple[Any, type[ContractModel], str], ...] = (
+         (GeoEntityMention, GeoEntityMentionOut, "mentions"),
+         (GeoRecommendation, GeoRecommendationOut, "recommendations"),
+@@ -219,7 +277,8 @@
+         (GeoCitationClassification, GeoCitationClassificationOut, "citations"),
+     )
+     for model, schema, field in models:
+-        for row in db.scalars(select(model).where(model.analysis_revision_id.in_(results))):
++        query = select(model.__table__).where(_ids(model.analysis_revision_id, results))
++        for row in db.execute(query):
+             getattr(results[row.analysis_revision_id], field).append(schema.model_validate(row))
+ 
+ 
+--- baseline/backend/app/services/geo_overview.py
++++ candidate/backend/app/services/geo_overview.py
+@@ -28,7 +28,7 @@
+     OverviewMetric,
+ )
+ from app.services.geo_metric_inputs import metric_scope_from_snapshot
+-from app.services.geo_metric_types import MetricCode, MetricExclusion
++from app.services.geo_metric_types import MetricCode, MetricDimensions, MetricExclusion
+ from app.services.geo_metrics import DEFAULT_SAMPLE_POLICY, calculate_metric, metric_eligibility
+ from app.services.geo_overview_queries import OverviewInput, load_inputs, selected_subjects
+ 
+@@ -155,16 +155,25 @@
+ def _cells(
+     inputs: list[OverviewInput],
+     filters: GeoOverviewFilters,
++    *,
++    include_contributions: bool = True,
+ ) -> tuple[list[GeoOverviewCell], dict[tuple[str, OverviewMetric], list[Contribution]]]:
+     groups: dict[str, list[OverviewInput]] = defaultdict(list)
+     metadata: dict[str, tuple[UUID, GeoOverviewDimensions]] = {}
++    # 生命周期只在本次装配；完整不可变维度作键，不跨请求保存指标或事实。
++    serialized: dict[MetricDimensions, tuple[GeoOverviewDimensions, str]] = {}
+     for source in inputs:
+-        dimensions = GeoOverviewDimensions.model_validate(asdict(source.metric.dimensions))
++        value = serialized.get(source.metric.dimensions)
++        if value is None:
++            dimensions = GeoOverviewDimensions.model_validate(asdict(source.metric.dimensions))
++            value = dimensions, dimensions.model_dump_json()
++            serialized[source.metric.dimensions] = value
++        dimensions, dimension_json = value
+         for identity in sorted(selected_subjects(source.snapshot, filters)):
+             scope = metric_scope_from_snapshot(source.snapshot, subject_id=identity)
+             key = sha256(
+                 (
+-                    dimensions.model_dump_json()
++                    dimension_json
+                     + str(identity)
+                     + ":".join(str(item) for item in sorted(scope.sov_subject_ids))
+                 ).encode()
+@@ -208,6 +217,8 @@
+                     drilldown=_drill(filters, code, key=key),
+                 )
+             )
++            if not include_contributions:
++                continue
+             parts = []
+             for source in sources:
+                 single = calculate_metric(
+@@ -233,7 +244,7 @@
+ 
+ def get_overview(db: Session, filters: GeoOverviewFilters) -> GeoOverview:
+     as_of, inputs = load_inputs(db, filters)
+-    cells, _ = _cells(inputs, filters)
++    cells, _ = _cells(inputs, filters, include_contributions=False)
+     quality_parts = _quality(inputs, filters)
+     quality_cards = [_quality_card(code, quality_parts[code], filters) for code in QUALITY_CODES]
+     generic = quality_cards[0]
+--- baseline/backend/app/services/geo_answer_insights.py
++++ candidate/backend/app/services/geo_answer_insights.py
+@@ -33,11 +33,12 @@
+     GeoOverviewRunSample,
+ )
+ from app.services.geo_metric_inputs import metric_scope_from_snapshot
+-from app.services.geo_metric_types import MetricCode, MetricResult, MetricScope
++from app.services.geo_metric_types import MetricCode, MetricDimensions, MetricResult, MetricScope
+ from app.services.geo_metric_views import CoveragePolicy, MetricWindow
+ from app.services.geo_metrics import (
+     DEFAULT_SAMPLE_POLICY,
+     calculate_metric,
++    calculate_metrics,
+     compare_metric_windows,
+     coverage_classification,
+     metric_eligibility,
+@@ -79,24 +80,41 @@
+ ) -> dict[str, InsightCell]:
+     groups: dict[str, list[OverviewInput]] = defaultdict(list)
+     metadata: dict[str, tuple[UUID, MetricScope, bool]] = {}
++    # 按完整维度复用序列化，仅存活于本次调用；公式、cell键及分层规则保持一致。
++    serialized: dict[MetricDimensions, str] = {}
++    bindings: dict[tuple[str, int], list[tuple[UUID, MetricScope, str, bool]]] = {}
+     for source in inputs:
+-        selected_ids = selected_subjects(source.snapshot, filters)
+-        # 筛选目标不改变实际冻结竞争集合；同行竞争对象也必须展示SOV。
+-        sov = frozenset(
+-            s.id for s in source.snapshot.subjects if s.role in {"PRIMARY", "COMPETITOR"}
+-        )
+-        for identity in sorted(selected_ids | set(sov)):
+-            scope = metric_scope_from_snapshot(source.snapshot, subject_id=identity)
+-            dimensions = GeoOverviewDimensions.model_validate(asdict(source.metric.dimensions))
+-            key = sha256(
+-                (
+-                    dimensions.model_dump_json()
+-                    + str(identity)
+-                    + ":".join(str(s) for s in sorted(scope.sov_subject_ids))
+-                ).encode()
+-            ).hexdigest()
++        dimension_json = serialized.get(source.metric.dimensions)
++        if dimension_json is None:
++            dimension_json = GeoOverviewDimensions.model_validate(
++                asdict(source.metric.dimensions)
++            ).model_dump_json()
++            serialized[source.metric.dimensions] = dimension_json
++        # snapshot对象只读且由完整输入指纹复用，整个inputs持有它们，id不会被回收重用。
++        # 维度仍完整入键；只复用绑定元信息，Run事实与贡献逐条进入同一分组。
++        binding_key = dimension_json, id(source.snapshot)
++        entries = bindings.get(binding_key)
++        if entries is None:
++            selected_ids = selected_subjects(source.snapshot, filters)
++            # 筛选目标不改变实际冻结竞争集合；同行竞争对象也必须展示SOV。
++            sov = frozenset(
++                s.id for s in source.snapshot.subjects if s.role in {"PRIMARY", "COMPETITOR"}
++            )
++            entries = []
++            for identity in sorted(selected_ids | set(sov)):
++                scope = metric_scope_from_snapshot(source.snapshot, subject_id=identity)
++                key = sha256(
++                    (
++                        dimension_json
++                        + str(identity)
++                        + ":".join(str(s) for s in sorted(scope.sov_subject_ids))
++                    ).encode()
++                ).hexdigest()
++                entries.append((identity, scope, key, identity in selected_ids))
++            bindings[binding_key] = entries
++        for identity, scope, key, selected in entries:
+             groups[key].append(source)
+-            metadata[key] = identity, scope, identity in selected_ids
++            metadata[key] = identity, scope, selected
+     cells = {}
+     for key in sorted(groups):
+         sources = groups[key]
+@@ -104,15 +122,10 @@
+         codes: tuple[MetricCode, ...] = BUSINESS_METRICS if selected else ()
+         if identity in scope.sov_subject_ids:
+             codes += SOV_METRICS
+-        results = {
+-            code: calculate_metric(
+-                [s.metric for s in sources],
+-                metric=code,
+-                scope=scope,
+-                dimensions=sources[0].metric.dimensions,
+-            )
+-            for code in codes
+-        }
++        results = calculate_metrics(
++            [s.metric for s in sources], metrics=codes, scope=scope,
++            dimensions=sources[0].metric.dimensions,
++        )
+         subject = next(s for s in sources[0].snapshot.subjects if s.id == identity)
+         cards = [
+             GeoAnswerInsightMetric(
+@@ -171,11 +184,17 @@
+     as_of, inputs = load_inputs(db, combined)
+     current: list[OverviewInput] = []
+     previous: list[OverviewInput] = []
++    dimensions_by_period: dict[tuple[bool, MetricDimensions], MetricDimensions] = {}
+     for source in inputs:
+         is_current = source.created_at >= window.date_from
+-        dimensions = replace(
+-            source.metric.dimensions, window_key=window.key if is_current else window.previous.key
+-        )
++        identity = is_current, source.metric.dimensions
++        dimensions = dimensions_by_period.get(identity)
++        if dimensions is None:
++            dimensions = replace(
++                source.metric.dimensions,
++                window_key=window.key if is_current else window.previous.key,
++            )
++            dimensions_by_period[identity] = dimensions
+         value = replace(source, metric=replace(source.metric, dimensions=dimensions))
+         (current if is_current else previous).append(value)
+     return (
+--- baseline/backend/app/services/geo_metrics.py
++++ candidate/backend/app/services/geo_metrics.py
+@@ -1,8 +1,9 @@
+ """回答级 GEO 资格和公式唯一所有者；GEO-602 再接入读模型/API。"""
+ 
+ from collections import Counter
+-from collections.abc import Sequence
++from collections.abc import Mapping, Sequence
+ from dataclasses import fields
++from uuid import UUID
+ 
+ from app.schemas.configuration import IntentType
+ from app.schemas.geo_analysis import GeoClaimSeverity, GeoClaimVerdict
+@@ -145,14 +146,10 @@
+     return citations
+ 
+ 
+-def metric_eligibility(
+-    run: MetricRun,
+-    *,
+-    metric: MetricCode,
+-    scope: MetricScope,
+-    dimensions: MetricDimensions,
+-) -> MetricEligibility:
+-    """收集稳定原因码，不把不合格运行转换为 false 的业务事实。"""
++def _common_reasons(
++    run: MetricRun, *, scope: MetricScope, dimensions: MetricDimensions
++) -> tuple[MetricExclusion, ...]:
++    """同一cell共享的资格检查；每个指标仍由下方专属规则裁决。"""
+     reasons: list[MetricExclusion] = []
+     checks = (
+         (run.status != "COMPLETED", MetricExclusion.RUN_NOT_COMPLETED),
+@@ -165,13 +162,32 @@
+         (not run.integrity_valid, MetricExclusion.INTEGRITY_ERROR),
+         (run.administrator_excluded, MetricExclusion.ADMINISTRATOR_EXCLUDED),
+         (run.superseded_attempt, MetricExclusion.SUPERSEDED_ATTEMPT),
+-        (run.dimensions != dimensions, MetricExclusion.DIMENSION_MISMATCH),
++        (run.dimensions is not dimensions and run.dimensions != dimensions,
++         MetricExclusion.DIMENSION_MISMATCH),
+         (
+             scope.subject_id not in run.applicable_subject_ids,
+             MetricExclusion.SUBJECT_NOT_APPLICABLE,
+         ),
+     )
+     reasons.extend(reason for failed, reason in checks if failed)
++    return tuple(reasons)
++
++
++def metric_eligibility(
++    run: MetricRun, *, metric: MetricCode, scope: MetricScope, dimensions: MetricDimensions
++) -> MetricEligibility:
++    """收集稳定原因码，不把不合格运行转换为 false 的业务事实。"""
++    return _eligibility(
++        run, metric=metric, scope=scope, dimensions=dimensions,
++        common=_common_reasons(run, scope=scope, dimensions=dimensions),
++    )
++
++
++def _eligibility(
++    run: MetricRun, *, metric: MetricCode, scope: MetricScope, dimensions: MetricDimensions,
++    common: tuple[MetricExclusion, ...],
++) -> MetricEligibility:
++    reasons = list(common)
+     unbranded_only = metric == MetricCode.NATURAL_VISIBILITY or metric in SOV_METRICS
+     if (unbranded_only and dimensions.mention_mode != "UNBRANDED") or (
+         metric == MetricCode.BRANDED_ANSWER and dimensions.mention_mode != "BRANDED"
+@@ -185,9 +201,10 @@
+         subject.rank is not None for subject in run.subjects
+     ):
+         reasons.append(MetricExclusion.RELIABLE_ORDER_UNAVAILABLE)
+-    fact = subject_fact(run, scope)
+-    if metric == MetricCode.AVERAGE_RECOMMENDATION_RANK and (fact is None or fact.rank is None):
+-        reasons.append(MetricExclusion.TARGET_RANK_UNAVAILABLE)
++    if metric == MetricCode.AVERAGE_RECOMMENDATION_RANK:
++        fact = subject_fact(run, scope)
++        if fact is None or fact.rank is None:
++            reasons.append(MetricExclusion.TARGET_RANK_UNAVAILABLE)
+     if metric in CITATION_METRICS:
+         if not run.citations and not run.citation_absence_observable:
+             reasons.append(MetricExclusion.CITATION_OBSERVATION_UNAVAILABLE)
+@@ -202,7 +219,11 @@
+ 
+ 
+ def _events(run: MetricRun, metric: MetricCode, scope: MetricScope) -> tuple[int, int]:
+-    fact = subject_fact(run, scope)
++    # 引用/声明/SOV事件直接读取各自事实，不需要按目标再查一次对象提及。
++    fact = (
++        None if metric in CITATION_METRICS or metric in CLAIM_METRICS or metric in SOV_METRICS
++        else subject_fact(run, scope)
++    )
+     mentioned = fact is not None and fact.mentioned
+     recommended = fact is not None and fact.recommended
+     if metric in {
+@@ -258,15 +279,7 @@
+     raise ValueError("未定义的指标公式")
+ 
+ 
+-def calculate_metric(
+-    runs: Sequence[MetricRun],
+-    *,
+-    metric: MetricCode,
+-    scope: MetricScope,
+-    dimensions: MetricDimensions,
+-    sample_policy: SamplePolicy = DEFAULT_SAMPLE_POLICY,
+-) -> MetricResult:
+-    """一个明确 cell 的比例；不聚合不同环境，不按平均百分比计算事件份额。"""
++def _validate_scope(metric: MetricCode, scope: MetricScope, dimensions: MetricDimensions) -> None:
+     if metric in SOV_METRICS and (
+         scope.subject_id not in scope.sov_subject_ids
+         or not scope.sov_subject_ids <= {identity for identity, _ in dimensions.subject_versions}
+@@ -274,6 +287,9 @@
+         raise ValueError("SOV 必须指定包含目标的冻结监测对象集合")
+     if metric == MetricCode.DOMAIN_COVERAGE and not scope.domain:
+         raise ValueError("域名覆盖必须指定已归一域名")
++
++
++def _validate_samples(runs: Sequence[MetricRun], dimensions: MetricDimensions) -> None:
+     if len({run.run_id for run in runs}) != len(runs):
+         raise ValueError("同一运行不得重复输入")
+     active_samples = [
+@@ -288,12 +304,59 @@
+     ]
+     if len(set(active_samples)) != len(active_samples):
+         raise ValueError("每个重复样本只能提供 latest attempt，不能按成功挑选重试")
++
++
++def calculate_metric(
++    runs: Sequence[MetricRun], *, metric: MetricCode, scope: MetricScope,
++    dimensions: MetricDimensions, sample_policy: SamplePolicy = DEFAULT_SAMPLE_POLICY,
++) -> MetricResult:
++    return _calculate_metric(
++        runs, metric=metric, scope=scope, dimensions=dimensions, sample_policy=sample_policy,
++    )
++
++
++def calculate_metrics(
++    runs: Sequence[MetricRun], *, metrics: Sequence[MetricCode], scope: MetricScope,
++    dimensions: MetricDimensions, sample_policy: SamplePolicy = DEFAULT_SAMPLE_POLICY,
++) -> dict[MetricCode, MetricResult]:
++    """同一cell批量计算；共享输入守卫和基础资格，指标专属规则/事件公式保持唯一。"""
++    for metric in metrics:
++        _validate_scope(metric, scope, dimensions)
++    _validate_samples(runs, dimensions)
++    common = {run.run_id: _common_reasons(run, scope=scope, dimensions=dimensions) for run in runs}
++    return {
++        metric: _calculate_metric(
++            runs, metric=metric, scope=scope, dimensions=dimensions, sample_policy=sample_policy,
++            common=common,
++        )
++        for metric in metrics
++    }
++
++
++def _calculate_metric(
++    runs: Sequence[MetricRun],
++    *,
++    metric: MetricCode,
++    scope: MetricScope,
++    dimensions: MetricDimensions,
++    sample_policy: SamplePolicy = DEFAULT_SAMPLE_POLICY,
++    common: Mapping[UUID, tuple[MetricExclusion, ...]] | None = None,
++) -> MetricResult:
++    """一个明确 cell 的比例；不聚合不同环境，不按平均百分比计算事件份额。"""
++    if common is None:
++        _validate_scope(metric, scope, dimensions)
++        _validate_samples(runs, dimensions)
+     eligible: list[MetricRun] = []
+     reasons: Counter[MetricExclusion] = Counter()
+     excluded = 0
+     unjudgeable = 0
+     for run in runs:
+-        qualification = metric_eligibility(run, metric=metric, scope=scope, dimensions=dimensions)
++        qualification = (
++            metric_eligibility(run, metric=metric, scope=scope, dimensions=dimensions)
++            if common is None else _eligibility(
++                run, metric=metric, scope=scope, dimensions=dimensions, common=common[run.run_id]
++            )
++        )
+         # 不可判断数包含仅因没有可判断声明而排除的运行，不包含失败或旧分析。
+         if metric in CLAIM_METRICS and not (
+             set(qualification.exclusion_reasons) - {MetricExclusion.ASSESSABLE_CLAIM_UNAVAILABLE}
+--- baseline/backend/app/schemas/geo_answers.py
++++ candidate/backend/app/schemas/geo_answers.py
+@@ -7,9 +7,16 @@
+ from typing import Annotated, Literal
+ from uuid import UUID
+ 
+-from pydantic import AfterValidator, Field, StringConstraints, field_validator, model_validator
++from pydantic import (
++    AfterValidator,
++    Field,
++    StringConstraints,
++    ValidationInfo,
++    field_validator,
++    model_validator,
++)
+ 
+-from app.geo_citation_urls import normalize_citation_url
++from app.geo_citation_urls import CitationUrlMemo, normalize_citation_url
+ from app.schemas.base import ContractModel
+ 
+ 
+@@ -49,8 +56,12 @@
+ 
+     @field_validator("original_url")
+     @classmethod
+-    def valid_url(cls, value: str) -> str:
+-        return normalize_citation_url(value).original_url
++    def valid_url(cls, value: str, info: ValidationInfo) -> str:
++        normalize = (
++            info.context.normalize if isinstance(info.context, CitationUrlMemo)
++            else normalize_citation_url
++        )
++        return normalize(value).original_url
+ 
+ 
+ class GeoAnswerCitationOut(GeoAnswerCitationInput):
+@@ -62,8 +73,12 @@
+     created_at: datetime
+ 
+     @model_validator(mode="after")
+-    def canonical_identity(self) -> GeoAnswerCitationOut:
+-        normalized = normalize_citation_url(self.original_url)
++    def canonical_identity(self, info: ValidationInfo) -> GeoAnswerCitationOut:
++        normalize = (
++            info.context.normalize if isinstance(info.context, CitationUrlMemo)
++            else normalize_citation_url
++        )
++        normalized = normalize(self.original_url)
+         if (normalized.normalized_url, normalized.hostname) != (self.normalized_url, self.hostname):
+             raise ValueError("引用规范身份必须与原 URL 一致")
+         if (
+--- baseline/backend/app/geo_citation_urls.py
++++ candidate/backend/app/geo_citation_urls.py
+@@ -2,7 +2,7 @@
+ 
+ import ipaddress
+ import re
+-from dataclasses import dataclass
++from dataclasses import dataclass, field
+ from urllib.parse import urlsplit, urlunsplit
+ 
+ import idna
+@@ -13,6 +13,20 @@
+     original_url: str
+     normalized_url: str
+     hostname: str
++
++
++@dataclass
++class CitationUrlMemo:
++    """只在一次读取中复用确定性URL校验；不共享身份、位置或可写指标。"""
++
++    values: dict[str, CitationUrl] = field(default_factory=dict)
++
++    def normalize(self, value: str) -> CitationUrl:
++        result = self.values.get(value)
++        if result is None:
++            result = normalize_citation_url(value)
++            self.values[value] = result
++        return result
+ 
+ 
+ def normalize_citation_url(value: str) -> CitationUrl:

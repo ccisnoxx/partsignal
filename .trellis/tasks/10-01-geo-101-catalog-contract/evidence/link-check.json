@@ -1,0 +1,17 @@
+{
+  "files": [
+    "backend/tests/unit/test_geo_catalog_contract.py",
+    ".trellis/tasks/10-01-geo-101-catalog-contract/prd.md",
+    ".trellis/tasks/10-01-geo-101-catalog-contract/implement.md",
+    ".trellis/tasks/10-01-geo-101-catalog-contract/evidence/independent-review.md",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/01-product/02-geo-core-prd.md",
+    "docs/geo-monitoring/02-business/02-domain-model.md",
+    "docs/geo-monitoring/03-technical/02-data-architecture.md",
+    "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+    "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml"
+  ],
+  "missing": []
+}

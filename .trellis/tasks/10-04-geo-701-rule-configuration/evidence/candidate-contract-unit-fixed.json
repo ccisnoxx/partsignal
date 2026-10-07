@@ -1,0 +1,14 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_contract.py",
+    "backend/tests/unit/test_geo_rules.py"
+  ],
+  "started_at": "2026-10-04T14:56:47.106008+00:00",
+  "duration_seconds": 19.154052833968308,
+  "exit_code": 0
+}

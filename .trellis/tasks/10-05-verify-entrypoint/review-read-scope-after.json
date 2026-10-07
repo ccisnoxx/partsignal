@@ -1,0 +1,15 @@
+{
+  "sha256": {
+    "AGENTS.md": "dc12b4adb341c38c80aedc0a797940f4dc2a86b6af4d45c9220c7ff16cd382cd",
+    "Makefile": "3bff2a5e54ca6d2897af49acddb5455ec74850d9c381ee2767573cb4f2d4a329",
+    "deploy/compose.dev.yaml": "680d79c8c5c5f53797390f6821ffd5fcc573db365a005fa8a10f714924dde667",
+    "deploy/scripts/test-geo-recovery-integration.py": "64e14bd104411438f47298ebd4d625607a9faefc1f26caad119c940fc5cb6790",
+    "deploy/scripts/geo_recovery_environment.py": "c88877bd848dff5f1b1b1b25eb12b42b9312ef0fd0f05c48176d85d01beb7260",
+    "backend/tests/integration/geo_recovery_support.py": "309931ebda045ce88990c78a99d3583b76b616c35799c861160b00cb1523688e",
+    "backend/tests/integration/test_geo_recovery.py": "01c292a7b994981f94b4c931faa1e26597230c394e617c380c827ca8e58b2d1e",
+    "backend/tests/integration/test_migrations.py": "ca7afbc75831aefe679960f6c9cffd1c3daf45840cbfbc9efc9bee8223da502a",
+    ".trellis/spec/infra/development-object-storage.md": "34e82cef3bf5d0a8c717298a6ba285d8b968f5441705a214881251987cedaf26",
+    ".trellis/tasks/10-05-verify-entrypoint/prd.md": "1c0618ec70ada625684c8211ab5d14922bcb91258f7ae5a0dc3a79b9eaeaa9ac"
+  },
+  "changed_paths": []
+}

@@ -1,0 +1,51 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/test-geo-browser-contract.py 
+✔ 本地参考Adapter：streaming完整结果 (745.047042ms)
+✔ 本地参考Adapter：paused-stream完整结果 (704.4035ms)
+✔ 本地参考Adapter：early-complete完整结果 (434.676917ms)
+✔ 本地参考Adapter：no-citations完整结果 (381.810708ms)
+✔ 本地参考Adapter：unknown-metadata完整结果 (433.93875ms)
+✔ 本地参考Adapter：sensitive-ui完整结果 (433.069666ms)
+✔ 本地参考Adapter：已登录context (434.492459ms)
+✔ 本地参考Adapter：匿名context不继承登录资料 (71.443541ms)
+✔ 本地参考Adapter：expired-login稳定失败 (46.389666ms)
+✔ 本地参考Adapter：selector-changed稳定失败 (44.718042ms)
+✔ 本地参考Adapter：challenge稳定失败 (44.707458ms)
+✔ 本地参考Adapter：answer-selector-changed稳定失败 (184.579584ms)
+✔ 本地参考Adapter：duplicate-answer稳定失败 (200.306167ms)
+✔ 本地参考Adapter：challenge-after-send稳定失败 (148.182208ms)
+✔ 本地参考Adapter：login-after-send稳定失败 (148.853ms)
+✔ 本地参考Adapter：timeout稳定失败 (1226.248125ms)
+✔ 本地参考Adapter：empty-answer稳定失败 (431.820125ms)
+✔ 本地参考Adapter：发送授权拒绝 (94.496291ms)
+✔ 本地参考Adapter：回答大小上限 (405.825292ms)
+✔ 套件拒绝完成信号出现时立即返回的部分答案 (733.247333ms)
+✔ 套件拒绝丢失晚到引用或把重复URL静默合并 (431.423916ms)
+✔ 套件以真实POST记录拒绝发送后自动重复调用 (868.302708ms)
+✔ 套件拒绝吞掉selector失败并伪装成功 (80.540542ms)
+✔ 套件拒绝异常摘要及编码形式敏感值泄漏 (395.6305ms)
+✔ 敏感UI确实存在且登录/临时storage不跨context，未存截图或trace (84.661042ms)
+✖ 非fixture HTTP导航和WebSocket都在发包前被拒绝 (56.091667ms)
+✔ 模拟站多实例、attempt隔离；重复POST不去重且观测不保留正文 (107.84225ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 26
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9533.587583
+
+✖ failing tests:
+
+test at tests/contracts/local-adapter.test.mjs:85:1
+✖ 非fixture HTTP导航和WebSocket都在发包前被拒绝 (56.091667ms)
+  page.goto: Navigation to "http://127.0.0.1:60830/chat/2681ce02-ec95-4dd2-bc48-67c4c5bfa7fa" is interrupted by another navigation to "chrome-error://chromewebdata/"
+  Call log:
+  [2m  - navigating to "http://127.0.0.1:60830/chat/2681ce02-ec95-4dd2-bc48-67c4c5bfa7fa", waiting until "load"[22m
+  
+      at TestContext.<anonymous> (/Users/sc/PycharmProjects/partsignal/browser-collector/tests/contracts/local-adapter.test.mjs:100:16) {
+    name: 'Error',
+    log: [ '  - navigating to "http://127.0.0.1:60830/chat/2681ce02-ec95-4dd2-bc48-67c4c5bfa7fa", waiting until "load"' ]
+  }
+BROWSER_CONTRACT_RESULT tests=1 typed_results=18 secret_scan=0 external_network=blocked
+make: *** [test-geo-browser-contract] Error 1

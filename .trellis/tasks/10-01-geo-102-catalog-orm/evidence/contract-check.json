@@ -1,0 +1,6 @@
+{
+  "command": "make contract-check",
+  "exit_code": 0,
+  "duration_seconds": 2.55,
+  "log": "contract-check.log"
+}

@@ -1,0 +1,21 @@
+--- initial/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ candidate/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -665,7 +665,7 @@
+   phase: R3
+   release: R3
+   title: 实现 GEO fake provider 和 Collector 合同套件
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-401
+   - GEO-005
+@@ -682,6 +682,9 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  trellis_task: .trellis/tasks/10-03-geo-402-fake-provider
++  validation_record: .trellis/tasks/10-03-geo-402-fake-provider/implement.md
++  review_note: 2026-10-03本地回环TCP fake provider、真实故障/计数、可复用Collector合同断言、套件自测及输出前secret scan已实现；57项自测、lint/typecheck、后端2852及前端1121单元、contract/diff通过。make test-deploy-scripts在前置frontend镜像构建因Docker socket缺失失败，后续recipes未运行。无OpenAPI/数据库/Alembic或生产adapter/Worker改动；仅review，等待人工接受，覆盖边界和精确命令见实施记录。
+ - id: GEO-403
+   phase: R3
+   release: R3

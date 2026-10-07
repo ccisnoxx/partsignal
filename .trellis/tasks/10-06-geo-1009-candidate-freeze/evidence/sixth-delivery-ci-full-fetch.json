@@ -1,0 +1,20 @@
+{
+  "command": [
+    "gh",
+    "run",
+    "view",
+    "37598569164",
+    "--repo",
+    "ccisnoxx/partsignal",
+    "--log"
+  ],
+  "started_at": "2026-10-07T09:40:38.492778+00:00",
+  "ended_at": "2026-10-07T09:40:42.283884+00:00",
+  "exit_code": 0,
+  "stderr": "",
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/sixth-delivery-ci-full.log",
+  "log_sha256": "693c4514bf05645a58a76a7461a5f5aa876f4509b69cae92c8cc2c806c995d92",
+  "bytes": 1070884,
+  "run_id": 37598569164,
+  "sha": "8d2e528cce0f804b224bf9b78e02bb2651f6ac62"
+}

@@ -1,0 +1,69 @@
+{
+  "tested_base_commit": "0475a776056b7689721a42af90766fb94c13c6ed",
+  "dirty_execution": true,
+  "changed_source_paths": [
+    "frontend/tests/e2e/geo-api-real-stack.spec.ts"
+  ],
+  "source_hashes": {
+    "frontend/tests/e2e/geo-api-real-stack.spec.ts": "9a5c702cc6a4988633abbb33f8eb6dd4ce7cecf7d75164f78a2e8924d541b6ba",
+    "frontend/src/domains/geo-runs/run-detail.tsx": "2d752b3f317865fac1443482a321e1fcff0e78a7f44bcd8ebf9503ab6d4e6376",
+    "frontend/tests/e2e/geo-api-support.ts": "afea0ec45024875aecbc90975e479a8035e2c62137552af5989ef8f95b4ada60"
+  },
+  "validation": {
+    "fifth-ci-geo-enabled": {
+      "name": "fifth-ci-geo-enabled",
+      "command": [
+        "python3",
+        "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/run-fifth-geo-enabled.py"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "process_umask": "0o22",
+      "sha": "0475a776056b7689721a42af90766fb94c13c6ed",
+      "dirty": true,
+      "started_at": "2026-10-07T08:49:53.126669+00:00",
+      "ended_at": "2026-10-07T08:50:50.882523+00:00",
+      "exit_code": 0,
+      "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/fifth-ci-geo-enabled.log",
+      "log_sha256": "d362a34b420a7e04d1b0251861d36f6ac5b140f2c1304d7f573428726cb659be"
+    },
+    "fifth-ci-geo-spec-eslint": {
+      "name": "fifth-ci-geo-spec-eslint",
+      "command": [
+        "sh",
+        "-c",
+        "cd frontend && ./node_modules/.bin/eslint tests/e2e/geo-api-real-stack.spec.ts"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "process_umask": "0o22",
+      "sha": "0475a776056b7689721a42af90766fb94c13c6ed",
+      "dirty": true,
+      "started_at": "2026-10-07T08:49:54.239608+00:00",
+      "ended_at": "2026-10-07T08:49:54.922688+00:00",
+      "exit_code": 0,
+      "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/fifth-ci-geo-spec-eslint.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "fifth-ci-selected-error-boundary": {
+      "name": "fifth-ci-selected-error-boundary",
+      "command": [
+        "node",
+        "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/fifth-selected-error-boundary.cjs"
+      ],
+      "cwd": "/Users/sc/PycharmProjects/partsignal",
+      "process_umask": "0o22",
+      "sha": "0475a776056b7689721a42af90766fb94c13c6ed",
+      "dirty": true,
+      "started_at": "2026-10-07T08:51:15.972637+00:00",
+      "ended_at": "2026-10-07T08:51:16.266447+00:00",
+      "exit_code": 0,
+      "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/fifth-ci-selected-error-boundary.log",
+      "log_sha256": "e583eaf327c2fd722081206e72a930d37d9ddab6cc6345a5888431c7b51dc27f"
+    }
+  },
+  "driver_hashes": {
+    "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/run-fifth-geo-enabled.py": "d442ce26f1457e53dbad2b1ab9b9ba198569d499876c0f922d86591cae4c2185",
+    "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/fifth-selected-error-boundary.cjs": "ad3736d51cf2ed97b5d86ecc31fb00203e6c74b8a2f28dd941dd1c5691445622"
+  },
+  "runtime_application_changed": false,
+  "new_sha_remote_ci_passed": false
+}

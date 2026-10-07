@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "env",
+    "DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55473/partsignal",
+    "REDIS_URL=redis://127.0.0.1:56473/14",
+    "SESSION_SECRET=geo703-fictional-session-secret-at-least-32-bytes",
+    "OBJECT_STORAGE_BACKEND=development",
+    "COOKIE_SECURE=false",
+    "PARTSIGNAL_E2E_SPEC=tests/e2e/opportunities-real-stack.spec.ts",
+    "deploy/scripts/e2e-local.sh"
+  ],
+  "exit_code": 0,
+  "seconds": 75.84
+}

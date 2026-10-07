@@ -1,0 +1,778 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python -m app.tools.contract_check contracts/openapi.yaml
+FastAPI 运行时操作与 OpenAPI 完整契约一致。
+npm --prefix frontend run api:check
+
+> partsignal-frontend-v2@0.1.0 api:check
+> node scripts/check-openapi.mjs
+
+✨ openapi-typescript 7.13.0
+🚀 ../contracts/openapi.yaml → /var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/partsignal-v2-openapi-ZkPeDc/schema.d.ts [214.2ms]
+OpenAPI 类型与根合同一致。
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+All checks passed!
+npm --prefix frontend run lint
+
+> partsignal-frontend-v2@0.1.0 lint
+> eslint . --max-warnings 0
+
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+Success: no issues found in 198 source files
+npm --prefix frontend run typecheck
+
+> partsignal-frontend-v2@0.1.0 typecheck
+> tsc -b --pretty false
+
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend pytest backend/tests/unit
+........................................................................ [  2%]
+........................................................................ [  4%]
+........................................................................ [  6%]
+........................................................................ [  8%]
+........................................................................ [ 10%]
+........................................................................ [ 12%]
+........................................................................ [ 14%]
+........................................................................ [ 16%]
+........................................................................ [ 18%]
+........................................................................ [ 20%]
+........................................................................ [ 22%]
+........................................................................ [ 24%]
+........................................................................ [ 26%]
+........................................................................ [ 28%]
+........................................................................ [ 30%]
+........................................................................ [ 32%]
+........................................................................ [ 34%]
+........................................................................ [ 36%]
+........................................................................ [ 38%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+........................................................................ [ 44%]
+........................................................................ [ 46%]
+........................................................................ [ 48%]
+........................................................................ [ 50%]
+........................................................................ [ 52%]
+........................................................................ [ 54%]
+........................................................................ [ 56%]
+........................................................................ [ 58%]
+........................................................................ [ 60%]
+........................................................................ [ 62%]
+........................................................................ [ 64%]
+........................................................................ [ 66%]
+........................................................................ [ 68%]
+........................................................................ [ 70%]
+........................................................................ [ 72%]
+........................................................................ [ 74%]
+........................................................................ [ 76%]
+........................................................................ [ 78%]
+........................................................................ [ 80%]
+........................................................................ [ 82%]
+........................................................................ [ 84%]
+........................................................................ [ 86%]
+........................................................................ [ 89%]
+........................................................................ [ 91%]
+........................................................................ [ 93%]
+........................................................................ [ 95%]
+........................................................................ [ 97%]
+........................................................................ [ 99%]
+...............................                                          [100%]
+3559 passed in 54.45s
+npm --prefix frontend run test
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+
+ Test Files  128 passed (128)
+      Tests  1197 passed (1197)
+   Start at  06:32:54
+   Duration  25.65s (transform 10.94s, setup 9.15s, import 39.46s, tests 124.94s, environment 44.54s)
+
+docker compose -p geo607-validation -f .trellis/tasks/10-04-geo-607-insight-performance/evidence/validation-compose.yaml run --rm backend-test
+ Container geo607-validation-fake-oss-1 Running 
+ Container geo607-validation-postgres-1 Running 
+ Container geo607-validation-redis-1 Running 
+ Container geo607-validation-postgres-1 Waiting 
+ Container geo607-validation-postgres-1 Healthy 
+ Container geo607-validation-backend-test-run-7b56bdfbc259 Creating 
+ Container geo607-validation-backend-test-run-7b56bdfbc259 Created 
+........................................................................ [  7%]
+........................................................................ [ 14%]
+........................................................................ [ 21%]
+........................................................................ [ 28%]
+........................................................................ [ 35%]
+........................................................................ [ 42%]
+........................................................................ [ 50%]
+........................................................................ [ 57%]
+........................................................................ [ 64%]
+........................................................................ [ 71%]
+........................................................................ [ 78%]
+........................................................................ [ 85%]
+........................................................................ [ 93%]
+......................................................................   [100%]
+=============================== warnings summary ===============================
+tests/integration/test_geo_admission_migration.py::test_0053_preserves_run_history_and_backfills_unknown
+  /app/tests/integration/test_geo_admission_migration.py:148: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_admission_migration.py::test_0053_preserves_run_history_and_backfills_unknown
+  /app/tests/integration/test_geo_admission_migration.py:148: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_analysis_migration.py::test_nonempty_0053_forward_preserves_evidence_and_matches_models
+  /app/tests/integration/test_geo_analysis_migration.py:78: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_analysis_migration.py::test_nonempty_0053_forward_preserves_evidence_and_matches_models
+  /app/tests/integration/test_geo_analysis_migration.py:78: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_analysis_migration.py::test_nonempty_0053_forward_preserves_evidence_and_matches_models
+  /opt/venv/lib/python3.12/site-packages/alembic/autogenerate/compare/server_defaults.py:120: UserWarning: Computed default on geo_analysis_revisions.input_sha256 cannot be modified
+    util.warn("Computed default on %s.%s cannot be modified" % (tname, cname))
+
+tests/integration/test_geo_analysis_worker_migration.py::test_0055_nonempty_forward_preserves_analysis_and_review_history
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_analysis_worker_migration.py:105: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_analysis_worker_migration.py::test_0055_nonempty_forward_preserves_analysis_and_review_history
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_analysis_worker_migration.py:105: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_answer_migration.py::test_forward_keeps_nonempty_history_and_matches_models
+  /app/tests/integration/test_geo_answer_migration.py:54: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_answer_migration.py::test_forward_keeps_nonempty_history_and_matches_models
+  /app/tests/integration/test_geo_answer_migration.py:54: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_batch_creation_migration.py::test_forward_preserves_nonempty_frozen_inputs_and_matches_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_batch_creation_migration.py:82: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_batch_creation_migration.py::test_forward_preserves_nonempty_frozen_inputs_and_matches_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_batch_creation_migration.py:82: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_catalog.py::test_catalog_metadata_matches_migrated_postgresql
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_catalog.py:187: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_catalog.py::test_catalog_metadata_matches_migrated_postgresql
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_catalog.py:187: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_insight_indexes.py::test_0057_forward_and_index_only_rollback_preserve_history
+  /app/tests/integration/test_geo_insight_indexes.py:66: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_insight_indexes.py::test_0057_forward_and_index_only_rollback_preserve_history
+  /app/tests/integration/test_geo_insight_indexes.py:66: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_manual_migration.py::test_0051_preserves_nonempty_0050_evidence_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_migration.py:71: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_manual_migration.py::test_0051_preserves_nonempty_0050_evidence_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_migration.py:71: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_monitoring_plans.py::test_forward_preserves_existing_data_and_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_monitoring_plans.py:240: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_monitoring_plans.py::test_forward_preserves_existing_data_and_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_monitoring_plans.py:240: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_profile_test_migration.py::test_0052_forward_invalidates_only_current_api_qualification
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_profile_test_migration.py:76: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_profile_test_migration.py::test_0052_forward_invalidates_only_current_api_qualification
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_profile_test_migration.py:76: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_prompt_variants.py::test_additive_migration_metadata_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_prompt_variants.py:176: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_prompt_variants.py::test_additive_migration_metadata_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_prompt_variants.py:176: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_run_migration.py::test_forward_preserves_nonempty_old_geo_and_matches_metadata
+  /app/tests/integration/test_geo_run_migration.py:77: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_run_migration.py::test_forward_preserves_nonempty_old_geo_and_matches_metadata
+  /app/tests/integration/test_geo_run_migration.py:77: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_surfaces_profiles.py::test_old_head_forward_preserves_rows_metadata_and_downgrade_stops
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surfaces_profiles.py:216: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_surfaces_profiles.py::test_old_head_forward_preserves_rows_metadata_and_downgrade_stops
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surfaces_profiles.py:216: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1006 passed, 27 warnings in 476.83s (0:07:56)
+docker compose -p geo607-validation -f .trellis/tasks/10-04-geo-607-insight-performance/evidence/validation-compose.yaml run --rm -e GEO_PERF_PHASE=candidate -e GEO_PERF_OUTPUT=/app/tests/performance/.results/candidate backend-test pytest -s tests/performance/test_geo_insight_performance.py
+ Container geo607-validation-redis-1 Running 
+ Container geo607-validation-fake-oss-1 Running 
+ Container geo607-validation-postgres-1 Running 
+ Container geo607-validation-postgres-1 Waiting 
+ Container geo607-validation-postgres-1 Healthy 
+ Container geo607-validation-backend-test-run-d599a1146d6a Creating 
+ Container geo607-validation-backend-test-run-d599a1146d6a Created 
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+INFO  [alembic.runtime.migration] Running upgrade 0050_geo_answer_evidence -> 0051_geo_manual_collection, 人工草稿和不可变提交身份；不回填或修改已提交证据。
+INFO  [alembic.runtime.migration] Running upgrade 0051_geo_manual_collection -> 0052_geo_profile_tests, API Profile 当前诊断资格与依赖失效；不修改业务历史。
+INFO  [alembic.runtime.migration] Running upgrade 0052_geo_profile_tests -> 0053_geo_collection_admission, 加法保存预算预留与发送限速事实，历史 Run 和原始证据保持不变。
+INFO  [alembic.runtime.migration] Running upgrade 0053_geo_collection_admission -> 0054_geo_analysis_contract, 分析输入/结果、追加复核与限定 current pointer；不回填历史证据。
+INFO  [alembic.runtime.migration] Running upgrade 0054_geo_analysis_contract -> 0055_geo_analysis_worker, 分析执行租约与引用结果；不回填或重写已有 revision。
+INFO  [alembic.runtime.migration] Running upgrade 0055_geo_analysis_worker -> 0056_geo_run_review, 受控人工复核发布；历史机器结果与Review不回填、不改写。
+INFO  [alembic.runtime.migration] Running upgrade 0056_geo_run_review -> 0057_geo_insight_indexes, GEO-607：洞察日期候选索引，不改变历史数据或业务约束。
+GEO-607 fixture: 5000/100000
+GEO-607 fixture: 10000/100000
+GEO-607 fixture: 15000/100000
+GEO-607 fixture: 20000/100000
+GEO-607 fixture: 25000/100000
+GEO-607 fixture: 30000/100000
+GEO-607 fixture: 35000/100000
+GEO-607 fixture: 40000/100000
+GEO-607 fixture: 45000/100000
+GEO-607 fixture: 50000/100000
+GEO-607 fixture: 55000/100000
+GEO-607 fixture: 60000/100000
+GEO-607 fixture: 65000/100000
+GEO-607 fixture: 70000/100000
+GEO-607 fixture: 75000/100000
+GEO-607 fixture: 80000/100000
+GEO-607 fixture: 85000/100000
+GEO-607 fixture: 90000/100000
+GEO-607 fixture: 95000/100000
+GEO-607 fixture: 100000/100000
+overview_product_30d: P95=0.147s, SELECT=15
+insights_product_30d: P95=0.259s, SELECT=15
+report_product_30d: P95=0.252s, SELECT=16
+insights_all_30d: P95=2.874s, SELECT=15
+overview_all_30d: P95=1.506s, SELECT=15
+.
+1 passed in 551.80s (0:09:11)
+docker build -f frontend/Dockerfile -t partsignal-frontend-v2:test frontend
+#0 building with "colima" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 339B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:22-alpine
+#2 ...
+
+#3 [internal] load metadata for docker.io/library/nginx:1.27-alpine
+#3 DONE 1.7s
+
+#2 [internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 1.7s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 137B done
+#4 DONE 0.0s
+
+#5 [stage-2 1/3] FROM docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+#5 resolve docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10 0.0s done
+#5 DONE 0.0s
+
+#6 [development 1/5] FROM docker.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+#6 resolve docker.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 0.0s done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 transferring context: 1.05MB 0.0s done
+#7 DONE 0.0s
+
+#8 [development 3/5] COPY package.json package-lock.json ./
+#8 CACHED
+
+#9 [development 2/5] WORKDIR /app
+#9 CACHED
+
+#10 [development 4/5] RUN npm ci
+#10 CACHED
+
+#11 [development 5/5] COPY . .
+#11 DONE 0.1s
+
+#12 [build 1/1] RUN npm run build
+#12 0.359 
+#12 0.359 > partsignal-frontend-v2@0.1.0 build
+#12 0.359 > tsc -b && vite build --config vite.config.ts
+#12 0.359 
+#12 14.33 vite v8.2.1 building client environment for production...
+#12 14.34 [2Ktransforming...✓ 2982 modules transformed.
+#12 15.12 rendering chunks...
+#12 15.21 computing gzip size...
+#12 15.22 dist/index.html                                                    0.57 kB │ gzip:   0.34 kB
+#12 15.22 dist/assets/index-DhkSozWb.css                                    83.26 kB │ gzip:  14.36 kB
+#12 15.22 dist/assets/queryOptions-Dfvzj6n2.js                               0.03 kB │ gzip:   0.05 kB
+#12 15.22 dist/assets/route-3YAM3tuL.js                                      0.07 kB │ gzip:   0.08 kB
+#12 15.22 dist/assets/route-B2aZ3QBi.js                                      0.07 kB │ gzip:   0.08 kB
+#12 15.22 dist/assets/route-B41ZhOLB.js                                      0.07 kB │ gzip:   0.08 kB
+#12 15.22 dist/assets/route-BQmWoCus.js                                      0.07 kB │ gzip:   0.08 kB
+#12 15.22 dist/assets/route-C5cBrTK3.js                                      0.07 kB │ gzip:   0.08 kB
+#12 15.22 dist/assets/route-COvhN9v6.js                                      0.07 kB │ gzip:   0.08 kB
+#12 15.22 dist/assets/route-CW62_yWg.js                                      0.07 kB │ gzip:   0.08 kB
+#12 15.22 dist/assets/route-DEzmN659.js                                      0.07 kB │ gzip:   0.08 kB
+#12 15.22 dist/assets/route-DQwB-ZOv.js                                      0.07 kB │ gzip:   0.08 kB
+#12 15.22 dist/assets/route-DYSd7FA3.js                                      0.07 kB │ gzip:   0.08 kB
+#12 15.22 dist/assets/route-DoTyqfYj.js                                      0.07 kB │ gzip:   0.08 kB
+#12 15.22 dist/assets/route-DrPtIM3S.js                                      0.07 kB │ gzip:   0.08 kB
+#12 15.22 dist/assets/route-DsXtGSAg.js                                      0.07 kB │ gzip:   0.08 kB
+#12 15.22 dist/assets/route-TEQwWL7Y.js                                      0.07 kB │ gzip:   0.08 kB
+#12 15.22 dist/assets/coerce-0yzOR-mu.js                                     0.08 kB │ gzip:   0.10 kB
+#12 15.22 dist/assets/isElementDisabled-KSuuBj8D.js                          0.11 kB │ gzip:   0.11 kB
+#12 15.22 dist/assets/chevron-right-J_4vQFlF.js                              0.13 kB │ gzip:   0.14 kB
+#12 15.22 dist/assets/canonical-uuid-C42C0x7W.js                             0.13 kB │ gzip:   0.13 kB
+#12 15.22 dist/assets/settings.ai-CipVaq6G.js                                0.21 kB │ gzip:   0.20 kB
+#12 15.22 dist/assets/_taskId_.editor-_qjLAkbp.js                            0.22 kB │ gzip:   0.20 kB
+#12 15.22 dist/assets/_taskId_.review-zeX8OAEE.js                            0.22 kB │ gzip:   0.20 kB
+#12 15.22 dist/assets/route-DFljbmbX.js                                      0.22 kB │ gzip:   0.20 kB
+#12 15.22 dist/assets/system.audit-qBeF2bb1.js                               0.22 kB │ gzip:   0.20 kB
+#12 15.22 dist/assets/system.users-0TM8kiXu.js                               0.22 kB │ gzip:   0.20 kB
+#12 15.22 dist/assets/settings.prompts-9jQdIs2s.js                           0.22 kB │ gzip:   0.20 kB
+#12 15.22 dist/assets/print-CifAfN00.js                                      0.22 kB │ gzip:   0.18 kB
+#12 15.22 dist/assets/_taskId-Vsd3-0WC.js                                    0.22 kB │ gzip:   0.21 kB
+#12 15.22 dist/assets/settings.platforms.types-C4NjYBws.js                   0.22 kB │ gzip:   0.21 kB
+#12 15.22 dist/assets/versions_._versionId-BW6wP3pa.js                       0.22 kB │ gzip:   0.21 kB
+#12 15.22 dist/assets/_platformId-BeKfjBVf.js                                0.22 kB │ gzip:   0.20 kB
+#12 15.22 dist/assets/settings.ai_._channelId-Z_MUrH5D.js                    0.22 kB │ gzip:   0.20 kB
+#12 15.22 dist/assets/_observationId-B3QjNhkV.js                             0.23 kB │ gzip:   0.21 kB
+#12 15.22 dist/assets/useControlled-DMK4Pb-8.js                              0.24 kB │ gzip:   0.21 kB
+#12 15.22 dist/assets/skeleton-Ged3Zc9T.js                                   0.24 kB │ gzip:   0.20 kB
+#12 15.22 dist/assets/table-shell-BGuXgMNH.js                                0.33 kB │ gzip:   0.24 kB
+#12 15.22 dist/assets/usePopupHandleStore-D9Ys5NRI.js                        0.35 kB │ gzip:   0.25 kB
+#12 15.22 dist/assets/reports-CmZ4Xfrm.js                                    0.42 kB │ gzip:   0.29 kB
+#12 15.22 dist/assets/table-toolbar-JNNhOzlg.js                              0.42 kB │ gzip:   0.27 kB
+#12 15.22 dist/assets/table-skeleton-G-FjuOli.js                             0.45 kB │ gzip:   0.35 kB
+#12 15.22 dist/assets/route-error-Bl0menBv.js                                0.46 kB │ gzip:   0.31 kB
+#12 15.22 dist/assets/_productId-Cu3oT6KN.js                                 0.49 kB │ gzip:   0.35 kB
+#12 15.22 dist/assets/_productId_.facts-C-S7KVKf.js                          0.50 kB │ gzip:   0.36 kB
+#12 15.22 dist/assets/_productId_.facts_.versions_._versionId-996oc21h.js    0.50 kB │ gzip:   0.36 kB
+#12 15.22 dist/assets/_productId_.facts_.review-CtF33cCX.js                  0.50 kB │ gzip:   0.37 kB
+#12 15.22 dist/assets/_observationId_.correct-TcZnURcy.js                    0.51 kB │ gzip:   0.37 kB
+#12 15.22 dist/assets/useCompositeItem-BGClVRCY.js                           0.54 kB │ gzip:   0.37 kB
+#12 15.22 dist/assets/empty-table-DARB4g0g.js                                0.55 kB │ gzip:   0.33 kB
+#12 15.22 dist/assets/_observationId_.correct-BWs3VMhk.js                    0.58 kB │ gzip:   0.31 kB
+#12 15.22 dist/assets/content-version.model-BVKgM5xI.js                      0.61 kB │ gzip:   0.43 kB
+#12 15.22 dist/assets/detail-section-Dm8gVxQG.js                             0.63 kB │ gzip:   0.34 kB
+#12 15.22 dist/assets/return-to-BzbJXkRi.js                                  0.63 kB │ gzip:   0.39 kB
+#12 15.22 dist/assets/workbench.api-BODcO5uB.js                              0.71 kB │ gzip:   0.46 kB
+#12 15.22 dist/assets/route-Do6Dxmmm.js                                      0.72 kB │ gzip:   0.50 kB
+#12 15.22 dist/assets/textarea-CPcbKIlY.js                                   0.83 kB │ gzip:   0.43 kB
+#12 15.22 dist/assets/timeline-BSjJ8olh.js                                   0.94 kB │ gzip:   0.49 kB
+#12 15.22 dist/assets/form-field-B911B1W8.js                                 0.98 kB │ gzip:   0.54 kB
+#12 15.22 dist/assets/rowSortingFeature-CrXuCewo.js                          1.02 kB │ gzip:   0.49 kB
+#12 15.22 dist/assets/geo-observation-actions-C2i_qn8N.js                    1.09 kB │ gzip:   0.67 kB
+#12 15.22 dist/assets/security-CVHfJA84.js                                   1.11 kB │ gzip:   0.60 kB
+#12 15.22 dist/assets/print-CrsFwsLT.js                                      1.20 kB │ gzip:   0.67 kB
+#12 15.22 dist/assets/product-deletion-dialog-BMY8VPP8.js                    1.20 kB │ gzip:   0.75 kB
+#12 15.22 dist/assets/login-B0wYlMcu.js                                      1.20 kB │ gzip:   0.66 kB
+#12 15.22 dist/assets/filter-bar-Cc02USFP.js                                 1.23 kB │ gzip:   0.72 kB
+#12 15.22 dist/assets/new-CQWBSesQ.js                                        1.26 kB │ gzip:   0.73 kB
+#12 15.22 dist/assets/form-layout-B0Bgsdpq.js                                1.29 kB │ gzip:   0.69 kB
+#12 15.22 dist/assets/print-BB7XsZe3.js                                      1.32 kB │ gzip:   0.75 kB
+#12 15.22 dist/assets/reports.api-DKnhJTvA.js                                1.39 kB │ gzip:   0.85 kB
+#12 15.22 dist/assets/file-transfer-CkO3-a8I.js                              1.41 kB │ gzip:   0.83 kB
+#12 15.22 dist/assets/useBaseUiId-C9V7pCeo.js                                1.42 kB │ gzip:   0.80 kB
+#12 15.22 dist/assets/table-pagination-CdNhS3ek.js                           1.48 kB │ gzip:   0.81 kB
+#12 15.22 dist/assets/badge-DofVsWMx.js                                      1.57 kB │ gzip:   0.70 kB
+#12 15.22 dist/assets/audit.api-CiXRNquW.js                                  1.62 kB │ gzip:   0.75 kB
+#12 15.22 dist/assets/sticky-action-bar-BIzIxfv9.js                          1.62 kB │ gzip:   0.86 kB
+#12 15.22 dist/assets/versions_._versionId-C1gg5KL9.js                       1.72 kB │ gzip:   0.89 kB
+#12 15.22 dist/assets/_productId_.facts_.versions_._versionId-BK7wnN0X.js    1.77 kB │ gzip:   0.89 kB
+#12 15.22 dist/assets/workspace-shell-m_s03N0C.js                            1.77 kB │ gzip:   0.83 kB
+#12 15.22 dist/assets/reports-k47zrbY7.js                                    1.78 kB │ gzip:   0.97 kB
+#12 15.22 dist/assets/insights-ChqT2Q4H.js                                   1.82 kB │ gzip:   0.97 kB
+#12 15.22 dist/assets/articles-DESyUQPJ.js                                   1.82 kB │ gzip:   0.96 kB
+#12 15.22 dist/assets/_articleId-A0kZUWfK.js                                 1.96 kB │ gzip:   1.09 kB
+#12 15.22 dist/assets/_productId_.facts_.versions-aJ2FgIyt.js                1.96 kB │ gzip:   1.05 kB
+#12 15.22 dist/assets/new-Bx2G2iFg.js                                        1.97 kB │ gzip:   1.08 kB
+#12 15.22 dist/assets/catalog-controls-bQxYEyEj.js                           1.98 kB │ gzip:   0.89 kB
+#12 15.22 dist/assets/issues-8sf5jWZE.js                                     2.00 kB │ gzip:   1.05 kB
+#12 15.22 dist/assets/overview-BmaQ70LZ.js                                   2.00 kB │ gzip:   1.07 kB
+#12 15.22 dist/assets/_taskId-BN56oi8e.js                                    2.00 kB │ gzip:   1.06 kB
+#12 15.22 dist/assets/answers-I4hieI6B.js                                    2.03 kB │ gzip:   1.09 kB
+#12 15.22 dist/assets/settings.platforms.types-Byxwb0i1.js                   2.05 kB │ gzip:   1.03 kB
+#12 15.22 dist/assets/_observationId-BdgTKrLs.js                             2.09 kB │ gzip:   1.09 kB
+#12 15.22 dist/assets/work-DdkjUkmb.js                                       2.11 kB │ gzip:   1.10 kB
+#12 15.22 dist/assets/new-zOnWPm2G.js                                        2.12 kB │ gzip:   1.19 kB
+#12 15.22 dist/assets/_productId-CUy9GEYV.js                                 2.18 kB │ gzip:   1.12 kB
+#12 15.22 dist/assets/platforms-BDz6N7I5.js                                  2.18 kB │ gzip:   1.13 kB
+#12 15.22 dist/assets/_taskId_.review-TmMaZFeS.js                            2.20 kB │ gzip:   1.14 kB
+#12 15.22 dist/assets/_productId_.facts_.review-D7h6GKOY.js                  2.21 kB │ gzip:   1.13 kB
+#12 15.22 dist/assets/useRegisterFieldControl-BcstcGLC.js                    2.25 kB │ gzip:   1.07 kB
+#12 15.22 dist/assets/_productId_.facts-DPRyfv2W.js                          2.25 kB │ gzip:   1.17 kB
+#12 15.22 dist/assets/tasks-BguO25Uh.js                                      2.26 kB │ gzip:   1.17 kB
+#12 15.22 dist/assets/_issueId-BW9Re3xs.js                                   2.27 kB │ gzip:   1.25 kB
+#12 15.22 dist/assets/useStore-VZN0-5bO.js                                   2.27 kB │ gzip:   0.97 kB
+#12 15.22 dist/assets/observations-eYR28dz9.js                               2.28 kB │ gzip:   1.18 kB
+#12 15.22 dist/assets/_taskId_.editor-BkjSjrZ6.js                            2.31 kB │ gzip:   1.18 kB
+#12 15.22 dist/assets/dialog-CKnG35lp.js                                     2.33 kB │ gzip:   0.91 kB
+#12 15.22 dist/assets/system.audit-Do18vEGf.js                               2.35 kB │ gzip:   1.18 kB
+#12 15.22 dist/assets/plans-BtEzkryq.js                                      2.35 kB │ gzip:   1.24 kB
+#12 15.22 dist/assets/topics-8o8ZKLtC.js                                     2.37 kB │ gzip:   1.23 kB
+#12 15.22 dist/assets/input-BctqO2IH.js                                      2.47 kB │ gzip:   1.25 kB
+#12 15.22 dist/assets/dirty-guard-KmU8sPJB.js                                2.58 kB │ gzip:   1.23 kB
+#12 15.22 dist/assets/settings.ai-Dl_I_w8N.js                                2.64 kB │ gzip:   1.34 kB
+#12 15.22 dist/assets/prompt.api-ClmNqhO5.js                                 2.65 kB │ gzip:   1.01 kB
+#12 15.22 dist/assets/products-BF2dcVgS.js                                   2.73 kB │ gzip:   1.40 kB
+#12 15.22 dist/assets/security-D1KijFsV.js                                   3.07 kB │ gzip:   1.50 kB
+#12 15.22 dist/assets/login-DHse57SI.js                                      3.08 kB │ gzip:   1.49 kB
+#12 15.22 dist/assets/useCompositeListItem-u8lPl9Q5.js                       3.11 kB │ gzip:   1.41 kB
+#12 15.22 dist/assets/settings.ai_._channelId-DfGnhGS1.js                    3.15 kB │ gzip:   1.56 kB
+#12 15.22 dist/assets/zod-C1u0HXxU.js                                        3.31 kB │ gzip:   1.24 kB
+#12 15.22 dist/assets/sheet-D0Cen0hT.js                                      3.73 kB │ gzip:   1.45 kB
+#12 15.22 dist/assets/audit-detail-content-EOt_otbP.js                       3.90 kB │ gzip:   1.61 kB
+#12 15.22 dist/assets/print-CvDpj-i8.js                                      4.13 kB │ gzip:   1.66 kB
+#12 15.22 dist/assets/product.model-6M924PNp.js                              4.40 kB │ gzip:   2.01 kB
+#12 15.22 dist/assets/Match-CvdDQUn7.js                                      4.41 kB │ gzip:   1.72 kB
+#12 15.22 dist/assets/new-Vzk1gfgp.js                                        4.49 kB │ gzip:   1.96 kB
+#12 15.22 dist/assets/overview-zDN_s-w8.js                                   4.75 kB │ gzip:   1.93 kB
+#12 15.22 dist/assets/_workId-BxDlqiq4.js                                    4.76 kB │ gzip:   2.43 kB
+#12 15.22 dist/assets/insights.model-CM9GLo1B.js                             4.77 kB │ gzip:   2.52 kB
+#12 15.22 dist/assets/insight-filters-CdaYACpM.js                            4.84 kB │ gzip:   2.40 kB
+#12 15.22 dist/assets/settings.prompts-C3hICPOI.js                           4.92 kB │ gzip:   2.42 kB
+#12 15.22 dist/assets/issues-Dd8xPYXf.js                                     5.10 kB │ gzip:   2.13 kB
+#12 15.22 dist/assets/_productId_.facts_.versions-Dffn9f9P.js                5.26 kB │ gzip:   2.36 kB
+#12 15.22 dist/assets/composite-Lg2qlv-S.js                                  5.88 kB │ gzip:   2.28 kB
+#12 15.22 dist/assets/articles-Dc1ial_4.js                                   5.96 kB │ gzip:   2.41 kB
+#12 15.22 dist/assets/geo-evidence-upload-DJpLd4mE.js                        6.15 kB │ gzip:   2.67 kB
+#12 15.22 dist/assets/client-_ADlmVAQ.js                                     6.60 kB │ gzip:   2.57 kB
+#12 15.22 dist/assets/principal-epoch-1sT-YUbO.js                            6.87 kB │ gzip:   2.33 kB
+#12 15.22 dist/assets/globalFilteringFeature-DYCvYVrm.js                     6.95 kB │ gzip:   1.98 kB
+#12 15.22 dist/assets/plans.api-DzAQxdbu.js                                  7.47 kB │ gzip:   3.16 kB
+#12 15.22 dist/assets/_app-Ds4aqZfw.js                                       7.72 kB │ gzip:   2.58 kB
+#12 15.22 dist/assets/_platformId-LKjysYgF.js                                7.74 kB │ gzip:   3.47 kB
+#12 15.22 dist/assets/insights.api-DfOJlM5u.js                               7.79 kB │ gzip:   2.67 kB
+#12 15.22 dist/assets/QueryClientProvider-Bi8hvFQP.js                        7.81 kB │ gzip:   3.04 kB
+#12 15.22 dist/assets/product.api-CjYhtKIG.js                                7.94 kB │ gzip:   2.59 kB
+#12 15.22 dist/assets/_productId_.facts_.versions_._versionId-DjUUyEGN.js    8.18 kB │ gzip:   2.62 kB
+#12 15.22 dist/assets/jsx-runtime-B-hcVAMW.js                                8.55 kB │ gzip:   3.26 kB
+#12 15.22 dist/assets/x-B21-VadL.js                                          8.72 kB │ gzip:   3.14 kB
+#12 15.22 dist/assets/questions-C8KqhlZ0.js                                  8.80 kB │ gzip:   3.89 kB
+#12 15.22 dist/assets/new-BQRRD3mQ.js                                        8.99 kB │ gzip:   3.80 kB
+#12 15.22 dist/assets/geo-entities-CRrFDXuX.js                               9.11 kB │ gzip:   3.63 kB
+#12 15.22 dist/assets/products-XarRAy_G.js                                   9.25 kB │ gzip:   3.71 kB
+#12 15.22 dist/assets/tasks-CbcVv2jr.js                                      9.27 kB │ gzip:   3.57 kB
+#12 15.22 dist/assets/platform.api-CwsGiK95.js                               9.71 kB │ gzip:   3.25 kB
+#12 15.22 dist/assets/geo-insights-report-D9ELha5g.js                       10.34 kB │ gzip:   2.88 kB
+#12 15.22 dist/assets/versions_._versionId-Nvj5KkIg.js                      12.02 kB │ gzip:   3.82 kB
+#12 15.22 dist/assets/tabs-BXIrxKPx.js                                      12.50 kB │ gzip:   4.72 kB
+#12 15.22 dist/assets/content-task-lifecycle-CzaaQ8pT.js                    12.54 kB │ gzip:   4.67 kB
+#12 15.22 dist/assets/system.audit-DMreVzOD.js                              12.54 kB │ gzip:   4.37 kB
+#12 15.22 dist/assets/observations-O2Yz055L.js                              12.54 kB │ gzip:   4.87 kB
+#12 15.22 dist/assets/system.users-TSawnM1A.js                              12.90 kB │ gzip:   5.50 kB
+#12 15.22 dist/assets/insights-Cj5YxwO4.js                                  13.42 kB │ gzip:   4.92 kB
+#12 15.22 dist/assets/runs-cJ1E5RuU.js                                      13.62 kB │ gzip:   5.10 kB
+#12 15.22 dist/assets/route-CzlUapaa.js                                     13.85 kB │ gzip:   5.22 kB
+#12 15.22 dist/assets/report-page-DlxV51Go.js                               14.12 kB │ gzip:   4.42 kB
+#12 15.22 dist/assets/_taskId-Ypw963DT.js                                   14.87 kB │ gzip:   4.63 kB
+#12 15.22 dist/assets/content.api-N3gR1g3p.js                               14.90 kB │ gzip:   4.32 kB
+#12 15.22 dist/assets/_productId_.facts_.review-C-w_3Sty.js                 15.87 kB │ gzip:   5.65 kB
+#12 15.22 dist/assets/work-COexsow2.js                                      15.92 kB │ gzip:   5.20 kB
+#12 15.22 dist/assets/publication.api-Bk92jmz9.js                           16.20 kB │ gzip:   4.80 kB
+#12 15.22 dist/assets/_articleId-TDhN15uj.js                                16.27 kB │ gzip:   5.43 kB
+#12 15.22 dist/assets/useQuery-C44PsoTH.js                                  16.32 kB │ gzip:   5.47 kB
+#12 15.22 dist/assets/insight-page-frame-CFxGNFZi.js                        16.35 kB │ gzip:   5.29 kB
+#12 15.22 dist/assets/settings.platforms.types-CqLnVx5B.js                  16.45 kB │ gzip:   5.93 kB
+#12 15.22 dist/assets/new-C7jLdRz_.js                                       16.97 kB │ gzip:   6.06 kB
+#12 15.22 dist/assets/platforms-DcdVBubd.js                                 17.07 kB │ gzip:   6.19 kB
+#12 15.22 dist/assets/_productId_.facts-BUH8Z0BA.js                         17.36 kB │ gzip:   5.84 kB
+#12 15.22 dist/assets/_taskId_.review-c9BQuyCh.js                           17.51 kB │ gzip:   6.08 kB
+#12 15.22 dist/assets/settings.ai-_hTMrz4W.js                               17.54 kB │ gzip:   6.33 kB
+#12 15.22 dist/assets/_productId-7C43RAXa.js                                17.59 kB │ gzip:   5.90 kB
+#12 15.22 dist/assets/row-actions-DvUWGMqm.js                               17.90 kB │ gzip:   6.59 kB
+#12 15.22 dist/assets/_observationId-CqZff2O6.js                            18.05 kB │ gzip:   5.76 kB
+#12 15.22 dist/assets/audit.model-Du-3SeA2.js                               18.05 kB │ gzip:   5.72 kB
+#12 15.22 dist/assets/auth-provider-C5gUj1bo.js                             18.52 kB │ gzip:   6.79 kB
+#12 15.22 dist/assets/geo.api-BCY9FVrq.js                                   18.53 kB │ gzip:   5.93 kB
+#12 15.22 dist/assets/geo-surfaces-ByeBHKvc.js                              18.83 kB │ gzip:   6.98 kB
+#12 15.22 dist/assets/_issueId-Jk0-2K8Q.js                                  19.62 kB │ gzip:   6.52 kB
+#12 15.22 dist/assets/topics-CX0CJH-k.js                                    20.02 kB │ gzip:   7.06 kB
+#12 15.22 dist/assets/ai-channel-workspace.model-DHlGq-J4.js                20.72 kB │ gzip:   6.31 kB
+#12 15.22 dist/assets/lazyRouteComponent-uxziP15b.js                        24.20 kB │ gzip:   8.98 kB
+#12 15.22 dist/assets/_observationId_.correct-CJdi0ihD.js                   24.46 kB │ gzip:   8.26 kB
+#12 15.22 dist/assets/answers-Bw_VkjNl.js                                   28.41 kB │ gzip:   7.96 kB
+#12 15.22 dist/assets/_workId-BN4wJgfH.js                                   28.55 kB │ gzip:   8.91 kB
+#12 15.22 dist/assets/questions-14SO6gqp.js                                 28.85 kB │ gzip:   9.24 kB
+#12 15.22 dist/assets/select-Dez9s2ui.js                                    30.10 kB │ gzip:  10.91 kB
+#12 15.22 dist/assets/settings.prompts-j8hzNakc.js                          30.84 kB │ gzip:   9.99 kB
+#12 15.22 dist/assets/system.users-Kavevr0f.js                              31.04 kB │ gzip:   9.76 kB
+#12 15.22 dist/assets/geo-entities-DYI7i98H.js                              35.35 kB │ gzip:  10.95 kB
+#12 15.22 dist/assets/providers-BkotxYjh.js                                 35.75 kB │ gzip:  10.67 kB
+#12 15.22 dist/assets/icon-button-85-1aY6U.js                               36.26 kB │ gzip:  12.08 kB
+#12 15.22 dist/assets/column-header-DXmuDq4R.js                             36.45 kB │ gzip:  11.43 kB
+#12 15.22 dist/assets/ToolbarRootContext-BmfwVhP_.js                        36.62 kB │ gzip:  14.02 kB
+#12 15.22 dist/assets/geo-surfaces-B8zbp7Et.js                              37.46 kB │ gzip:  11.54 kB
+#12 15.22 dist/assets/index.esm-CDk9jdcJ.js                                 37.59 kB │ gzip:  13.14 kB
+#12 15.22 dist/assets/_taskId_.editor-ONqMqj_R.js                           37.95 kB │ gzip:  11.56 kB
+#12 15.22 dist/assets/_platformId-SQq46TXo.js                               38.94 kB │ gzip:  11.60 kB
+#12 15.22 dist/assets/createLucideIcon-RnscSJ3I.js                          39.80 kB │ gzip:  14.03 kB
+#12 15.22 dist/assets/button-BZhX1_Og.js                                    40.12 kB │ gzip:  13.54 kB
+#12 15.22 dist/assets/route-DroPaoI5.js                                     43.50 kB │ gzip:  15.66 kB
+#12 15.22 dist/assets/settings.ai_._channelId-0cQLQUwa.js                   49.70 kB │ gzip:  13.70 kB
+#12 15.22 dist/assets/plans-CfsNB097.js                                     50.96 kB │ gzip:  15.80 kB
+#12 15.22 dist/assets/schemas-Br29sO0h.js                                   69.76 kB │ gzip:  18.62 kB
+#12 15.22 dist/assets/runs-B9sS4oSv.js                                      95.05 kB │ gzip:  27.29 kB
+#12 15.22 dist/assets/index-BdQqW7BV.js                                    188.89 kB │ gzip:  60.41 kB
+#12 15.22 dist/assets/markdown-editor-C7O1qXNq.js                          729.88 kB │ gzip: 245.01 kB
+#12 15.22 
+#12 15.22 ✓ built in 893ms
+#12 15.22 [plugin builtin:vite-reporter] 
+#12 15.22 (!) Some chunks are larger than 500 kB after minification. Consider:
+#12 15.22 - Using dynamic import() to code-split the application
+#12 15.22 - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+#12 15.22 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+#12 15.25 npm notice
+#12 15.25 npm notice New major version of npm available! 10.9.9 -> 12.2.0
+#12 15.25 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+#12 15.25 npm notice To update run: npm install -g npm@12.2.0
+#12 15.25 npm notice
+#12 DONE 15.3s
+
+#5 [stage-2 1/3] FROM docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+#5 CACHED
+
+#13 [stage-2 2/3] COPY --from=build /app/dist /usr/share/nginx/html
+#13 DONE 0.0s
+
+#14 [stage-2 3/3] COPY nginx.conf /etc/nginx/conf.d/default.conf
+#14 DONE 0.0s
+
+#15 exporting to image
+#15 exporting layers 0.1s done
+#15 exporting manifest sha256:1ddeedc983989bc3af081df33d17236532080184cf0f55cb1908562bfbef5b18 done
+#15 exporting config sha256:9e9d5a9dc322832eb62f00d9e228d005dfee5e7082dd8b63c409414e733115a4 done
+#15 exporting attestation manifest sha256:008571005f209b88fa125ddfb490ec7878b1d46e3218f15e18cc75cb7d6b1fce done
+#15 exporting manifest list sha256:7c694cb8ee61c6a940eaf203ef0cf43ed7694710aaa050445b04e1bccf6012d7 done
+#15 naming to docker.io/library/partsignal-frontend-v2:test done
+#15 unpacking to docker.io/library/partsignal-frontend-v2:test 0.0s done
+#15 DONE 0.1s
+docker build -f backend/Dockerfile -t partsignal-backend:test backend
+#0 building with "colima" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 594B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:3.12-slim
+#2 ...
+
+#3 [auth] astral-sh/uv:pull token for ghcr.io
+#3 DONE 0.0s
+
+#4 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#4 ...
+
+#2 [internal] load metadata for docker.io/library/python:3.12-slim
+#2 DONE 1.7s
+
+#4 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#4 DONE 1.8s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 152B done
+#5 DONE 0.0s
+
+#6 FROM ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043
+#6 resolve ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043 0.0s done
+#6 DONE 0.0s
+
+#7 [runtime 1/7] FROM docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016
+#7 resolve docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016 0.0s done
+#7 DONE 0.0s
+
+#8 [internal] load build context
+#8 transferring context: 31.14MB 0.2s done
+#8 DONE 0.2s
+
+#9 [runtime 2/7] WORKDIR /app
+#9 CACHED
+
+#10 [runtime 3/7] COPY --from=ghcr.io/astral-sh/uv:0.7.13 /uv /uvx /bin/
+#10 CACHED
+
+#11 [runtime 4/7] COPY pyproject.toml uv.lock* ./
+#11 DONE 0.0s
+
+#12 [runtime 5/7] RUN uv sync --no-dev --no-install-project
+#12 0.171 Using CPython 3.12.15 interpreter at: /usr/local/bin/python3
+#12 0.171 Creating virtual environment at: /opt/venv
+#12 0.184 Resolved 88 packages in 4ms
+#12 1.193 Downloading pillow (6.0MiB)
+#12 1.194 Downloading psycopg-binary (6.4MiB)
+#12 1.365 Downloading uvloop (4.1MiB)
+#12 1.397 Downloading pydantic-core (1.9MiB)
+#12 1.449 Downloading cryptography (4.1MiB)
+#12 1.450 Downloading pycryptodome (2.1MiB)
+#12 1.452 Downloading sqlalchemy (3.2MiB)
+#12 1.908    Building crcmod==1.7
+#12 1.950    Building oss2==2.19.1
+#12 2.006    Building aliyun-python-sdk-core==2.16.0
+#12 2.308  Downloading pydantic-core
+#12 2.330  Downloading pycryptodome
+#12 2.613  Downloading sqlalchemy
+#12 2.641  Downloading uvloop
+#12 2.650  Downloading cryptography
+#12 2.797  Downloading pillow
+#12 2.909  Downloading psycopg-binary
+#12 4.107       Built crcmod==1.7
+#12 4.165       Built aliyun-python-sdk-core==2.16.0
+#12 4.182       Built oss2==2.19.1
+#12 4.183 Prepared 66 packages in 3.99s
+#12 4.232 Installed 66 packages in 48ms
+#12 5.285 Bytecode compiled 2466 files in 1.05s
+#12 5.285  + alembic==1.18.5
+#12 5.285  + aliyun-python-sdk-core==2.16.0
+#12 5.285  + aliyun-python-sdk-kms==2.16.5
+#12 5.285  + amqp==5.3.1
+#12 5.285  + annotated-doc==0.0.4
+#12 5.285  + annotated-types==0.7.0
+#12 5.285  + anyio==4.14.1
+#12 5.285  + argon2-cffi==25.1.0
+#12 5.285  + argon2-cffi-bindings==25.1.0
+#12 5.285  + billiard==4.2.4
+#12 5.285  + bleach==6.4.0
+#12 5.285  + celery==5.6.3
+#12 5.285  + certifi==2026.6.17
+#12 5.285  + cffi==2.1.0
+#12 5.285  + charset-normalizer==3.4.9
+#12 5.285  + click==8.4.2
+#12 5.285  + click-didyoumean==0.3.1
+#12 5.285  + click-plugins==1.1.1.2
+#12 5.285  + click-repl==0.3.0
+#12 5.285  + crcmod==1.7
+#12 5.285  + cryptography==46.0.7
+#12 5.285  + fastapi==0.139.0
+#12 5.285  + greenlet==3.5.3
+#12 5.285  + h11==0.16.0
+#12 5.285  + httpcore==1.0.9
+#12 5.285  + httptools==0.8.0
+#12 5.285  + httpx==0.28.1
+#12 5.285  + idna==3.18
+#12 5.285  + jmespath==0.10.0
+#12 5.285  + kombu==5.6.2
+#12 5.285  + mako==1.3.12
+#12 5.285  + markdown==3.10.2
+#12 5.285  + markupsafe==3.0.3
+#12 5.285  + oss2==2.19.1
+#12 5.285  + packaging==26.2
+#12 5.285  + pillow==12.3.0
+#12 5.285  + prompt-toolkit==3.0.52
+#12 5.285  + psycopg==3.3.4
+#12 5.285  + psycopg-binary==3.3.4
+#12 5.285  + pycparser==3.0
+#12 5.285  + pycryptodome==3.23.0
+#12 5.285  + pydantic==2.13.4
+#12 5.285  + pydantic-core==2.46.4
+#12 5.285  + pydantic-settings==2.14.2
+#12 5.285  + pyjwt==2.13.0
+#12 5.285  + python-dateutil==2.9.0.post0
+#12 5.285  + python-dotenv==1.2.2
+#12 5.285  + python-multipart==0.0.32
+#12 5.285  + pyyaml==6.0.3
+#12 5.285  + redis==5.3.1
+#12 5.285  + requests==2.34.2
+#12 5.285  + six==1.17.0
+#12 5.285  + sqlalchemy==2.0.51
+#12 5.285  + starlette==1.3.1
+#12 5.285  + typing-extensions==4.16.0
+#12 5.285  + typing-inspection==0.4.2
+#12 5.285  + tzdata==2026.3
+#12 5.285  + tzlocal==5.4.4
+#12 5.285  + urllib3==2.7.0
+#12 5.285  + uvicorn==0.51.0
+#12 5.285  + uvloop==0.22.1
+#12 5.285  + vine==5.1.0
+#12 5.285  + watchfiles==1.2.0
+#12 5.285  + wcwidth==0.8.2
+#12 5.286  + webencodings==0.5.1
+#12 5.286  + websockets==16.1
+#12 DONE 5.4s
+
+#13 [runtime 6/7] COPY . .
+#13 DONE 0.3s
+
+#14 [runtime 7/7] RUN uv sync --no-dev
+#14 0.134 Resolved 88 packages in 0.36ms
+#14 0.135    Building partsignal-backend @ file:///app
+#14 3.291       Built partsignal-backend @ file:///app
+#14 3.291 Prepared 1 package in 3.15s
+#14 3.294 Installed 1 package in 2ms
+#14 3.380 Bytecode compiled 2466 files in 86ms
+#14 3.380  + partsignal-backend==0.1.0 (from file:///app)
+#14 DONE 3.4s
+
+#15 exporting to image
+#15 exporting layers
+#15 exporting layers 4.8s done
+#15 exporting manifest sha256:727269a4d94d1eb956deb552e82b4bc413dd63f48815e845bd5aa0ba774b1dff
+#15 exporting manifest sha256:727269a4d94d1eb956deb552e82b4bc413dd63f48815e845bd5aa0ba774b1dff done
+#15 exporting config sha256:ed8092cacc9bab2634b92494fe3115de11ca45da559434c54e08598d50b1db2b done
+#15 exporting attestation manifest sha256:693a0fc8223d25b1430abb491369f97d7640f00908e0c9ef6e8cceb44e1fe08e 0.0s done
+#15 exporting manifest list sha256:55231a673ee4d591b9f032377a5674fcbc585c9580d3dbd468af480a6376fdb7 done
+#15 naming to docker.io/library/partsignal-backend:test done
+#15 unpacking to docker.io/library/partsignal-backend:test
+#15 unpacking to docker.io/library/partsignal-backend:test 1.2s done
+#15 DONE 6.0s
+PARTSIGNAL_E2E_GEO_MODE= PARTSIGNAL_E2E_SPEC= deploy/scripts/e2e-local.sh
+deploy/scripts/e2e-local.sh: line 4: DATABASE_URL: 必须设置本地或 CI PostgreSQL DATABASE_URL
+make: *** [e2e] Error 1

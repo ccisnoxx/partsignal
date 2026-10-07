@@ -1,0 +1,18 @@
+{
+  "argv": [
+    "env",
+    "UV_CACHE_DIR=.cache/uv",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_contract.py",
+    "backend/tests/unit/test_runtime_response_metadata.py",
+    "backend/tests/unit/test_workflow_projections.py",
+    "backend/tests/unit/test_geo_opportunity_actions.py",
+    "-q"
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 27.308
+}

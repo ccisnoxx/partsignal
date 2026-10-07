@@ -1,0 +1,11 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+Success: no issues found in 117 source files
+npm --prefix frontend run typecheck
+
+> partsignal-frontend-v2@0.1.0 typecheck
+> tsc -b --pretty false
+
+src/domains/geo-plans/plan-wizard.test.tsx(28,390): error TS2322: Type '"VIEW_DETAILS"' is not assignable to type '"MANAGE_SUBJECT" | "ENABLE_SUBJECT"'.
+src/domains/geo-plans/plan-wizard.test.tsx(93,33): error TS2488: Type 'never' must have a '[Symbol.iterator]()' method that returns an iterator.
+src/domains/geo-plans/plan-wizard.test.tsx(203,33): error TS2488: Type 'never' must have a '[Symbol.iterator]()' method that returns an iterator.
+make: *** [typecheck] Error 1

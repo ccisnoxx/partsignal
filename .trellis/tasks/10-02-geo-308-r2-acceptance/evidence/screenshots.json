@@ -1,0 +1,21 @@
+{
+  "source_command": "geo-e2e-reviewed-candidate.json",
+  "secret_scan": "clean",
+  "files": [
+    {
+      "source": "frontend/.cache/playwright-results/runs-real-stack-人工批次三次采样、URL、dirty、草稿刷新、截图、引用与不可变详情-foundation-desktop/geo307-manual-editor.png",
+      "path": ".trellis/tasks/10-02-geo-308-r2-acceptance/evidence/screenshots/geo307-manual-editor.png",
+      "sha256": "fb70e07e8b2f9cf9109c9611bbb8503625d6415960937b079c6be8efa76f205f"
+    },
+    {
+      "source": "frontend/.cache/playwright-results/surfaces-real-stack-管理员创建、启停和编辑后持久化，工程师仅看摘要，删除尊重真实子配置-foundation-desktop/geo205-admin-desktop.png",
+      "path": ".trellis/tasks/10-02-geo-308-r2-acceptance/evidence/screenshots/geo205-admin-desktop.png",
+      "sha256": "3895d7925a4d6ddc21de2588301d270b11c22a91faa6042d1e6eb908552ae5ed"
+    },
+    {
+      "source": "frontend/.cache/playwright-results/surfaces-real-stack-管理员创建、启停和编辑后持久化，工程师仅看摘要，删除尊重真实子配置-foundation-desktop/geo205-admin-mobile.png",
+      "path": ".trellis/tasks/10-02-geo-308-r2-acceptance/evidence/screenshots/geo205-admin-mobile.png",
+      "sha256": "861d18d8c962b9c664489cab5d81d0f4f200c78a209510a7862da8183531f5a5"
+    }
+  ]
+}

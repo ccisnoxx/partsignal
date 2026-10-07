@@ -1,0 +1,12 @@
+[0;34m=== Validating Context Files ===[0m
+Target dir: /Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-02-geo-306-read-model
+
+  [1;33mimplement.jsonl:2: Warning: contracts/openapi.yaml is 631753 bytes, exceeds context_injection.max_file_bytes (32768); injection will truncate it[0m
+  [1;33mimplement.jsonl:3: Warning: contracts/database.md is 162184 bytes, exceeds context_injection.max_file_bytes (32768); injection will truncate it[0m
+  [0;32mimplement.jsonl: ✓ (3 entries)[0m
+  [1;33mcheck.jsonl:2: Warning: backend/tests/integration/test_geo_read_consistency.py looks like a code file — implement/check.jsonl should reference spec/research docs; agents read code themselves[0m
+  [1;33mcheck.jsonl:3: Warning: backend/tests/integration/test_geo_read_models.py looks like a code file — implement/check.jsonl should reference spec/research docs; agents read code themselves[0m
+  [1;33mcheck.jsonl:4: Warning: backend/tests/unit/test_geo_read_contract.py looks like a code file — implement/check.jsonl should reference spec/research docs; agents read code themselves[0m
+  [0;32mcheck.jsonl: ✓ (3 entries)[0m
+
+[0;32m✓ All validations passed[0m

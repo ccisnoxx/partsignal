@@ -1,0 +1,11 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "frontend",
+    "run",
+    "api:generate"
+  ],
+  "exit_code": 0,
+  "duration_seconds": 0.58
+}

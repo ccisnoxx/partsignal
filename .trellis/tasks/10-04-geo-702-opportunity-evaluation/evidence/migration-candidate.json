@@ -1,0 +1,18 @@
+{
+  "argv": [
+    "env",
+    "APP_ENV=test",
+    "DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55472/partsignal",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "alembic",
+    "-c",
+    "backend/alembic.ini",
+    "upgrade",
+    "head"
+  ],
+  "exit_code": 0,
+  "seconds": 0.48
+}

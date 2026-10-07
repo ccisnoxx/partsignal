@@ -1,0 +1,11 @@
+{
+  "argv": [
+    "npm",
+    "--prefix",
+    "frontend",
+    "run",
+    "lint"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 8.737
+}

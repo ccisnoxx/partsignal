@@ -1,0 +1,30 @@
+ Container partsignal-geo406-postgres-1 Running 
+ Container partsignal-geo406-redis-1 Running 
+ Container partsignal-geo406-fake-oss-1 Running 
+ Container partsignal-geo406-postgres-1 Waiting 
+ Container partsignal-geo406-postgres-1 Healthy 
+ Container partsignal-geo406-backend-test-run-9d22196f5dca Creating 
+ Container partsignal-geo406-backend-test-run-9d22196f5dca Created 
+................F
+=================================== FAILURES ===================================
+_____ test_retry_rechecks_frozen_profile_and_current_eligibility[revision] _____
+
+worker_graph = WorkerGraph(api=PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_g...ec4fafbe'), channel=UUID('8c73a8d2-233c-4113-bbc1-3bd22f61ea1b'), call_id=UUID('467e1775-9349-4de2-9b00-40f50889b5c3'))
+change = 'revision'
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xf522811a7e30>
+
+    @pytest.mark.parametrize("change", ["revision", "disabled"])
+    def test_retry_rechecks_frozen_profile_and_current_eligibility(worker_graph, change, monkeypatch):
+        identity, _ = lose_sent_run(worker_graph)
+>       previous = facts(worker_graph, identity)
+                   ^^^^^
+E       UnboundLocalError: cannot access local variable 'facts' where it is not associated with a value
+
+tests/integration/test_geo_at_most_once.py:428: UnboundLocalError
+------------------------------ Captured log call -------------------------------
+WARNING  partsignal.worker:geo_dispatch.py:46 GEO 投递失败 run_id=446e8857-a589-4264-814d-7ac8284360f1 error_type=ConnectionError
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_at_most_once.py::test_retry_rechecks_frozen_profile_and_current_eligibility[revision]
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 16 passed in 5.17s
+

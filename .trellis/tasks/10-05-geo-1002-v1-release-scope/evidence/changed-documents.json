@@ -1,0 +1,19 @@
+[
+  "docs/geo-monitoring/00-governance/01-document-governance.md",
+  "docs/geo-monitoring/01-product/02-geo-core-prd.md",
+  "docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md",
+  "docs/geo-monitoring/02-business/01-business-architecture.md",
+  "docs/geo-monitoring/02-business/03-workflows-and-state-machines.md",
+  "docs/geo-monitoring/03-technical/01-technical-architecture.md",
+  "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+  "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+  "docs/geo-monitoring/03-technical/10-core-rollout-runbook.md",
+  "docs/geo-monitoring/04-delivery/01-implementation-roadmap.md",
+  "docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md",
+  "docs/geo-monitoring/04-delivery/04-codex-execution-guide.md",
+  "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+  "docs/geo-monitoring/05-decisions/ADR-007-manual-first-v1-release-scope.md",
+  "docs/geo-monitoring/CHANGELOG.md",
+  "docs/geo-monitoring/README.md",
+  "docs/geo-monitoring/SHA256SUMS"
+]

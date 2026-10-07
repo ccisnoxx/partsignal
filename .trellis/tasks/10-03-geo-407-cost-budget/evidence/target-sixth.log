@@ -1,0 +1,230 @@
+ Container partsignal-geo407-fake-oss-1 Running 
+ Container partsignal-geo407-postgres-1 Running 
+ Container partsignal-geo407-redis-1 Running 
+ Container partsignal-geo407-postgres-1 Waiting 
+ Container partsignal-geo407-postgres-1 Healthy 
+ Container partsignal-geo407-backend-test-run-abdfef7baa57 Creating 
+ Container partsignal-geo407-backend-test-run-abdfef7baa57 Created 
+....................................................F
+=================================== FAILURES ===================================
+________________ test_recovery_wins_race_old_sender_cannot_send ________________
+
+self = <sqlalchemy.engine.base.Connection object at 0xfaba625561e0>
+
+    def _commit_impl(self) -> None:
+        if self._has_events or self.engine._has_events:
+            self.dispatch.commit(self)
+    
+        if self._echo:
+            if self._is_autocommit_isolation():
+                self._log_info(
+                    "COMMIT using DBAPI connection.commit(), "
+                    "has no effect due to autocommit mode"
+                )
+            else:
+                self._log_info("COMMIT")
+        try:
+>           self.engine.dialect.do_commit(self.connection)
+
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1147: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:715: in do_commit
+    dbapi_connection.commit()
+/opt/venv/lib/python3.12/site-packages/psycopg/connection.py:305: in commit
+    self.wait(self._commit_gen())
+/opt/venv/lib/python3.12/site-packages/psycopg/connection.py:484: in wait
+    return waiting.wait(gen, self.pgconn.socket, interval=interval)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg_binary/_psycopg/waiting.pyx:241: in psycopg_binary._psycopg.wait_c
+    ???
+/opt/venv/lib/python3.12/site-packages/psycopg/_connection_base.py:585: in _commit_gen
+    yield from self._exec_command(b"COMMIT")
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Connection [IDLE] (host=postgres user=partsignal database=partsignal_geo208_c73294945e) at 0xfaba65464d10>
+command = b'COMMIT', result_format = <Format.TEXT: 0>
+
+    def _exec_command(
+        self, command: QueryNoTemplate, result_format: pq.Format = TEXT
+    ) -> PQGen[PGresult | None]:
+        """
+        Generator to send a command and receive the result to the backend.
+    
+        Only used to implement internal commands such as "commit", with eventual
+        arguments bound client-side. The cursor can do more complex stuff.
+        """
+        self._check_connection_ok()
+    
+        if isinstance(command, str):
+            command = command.encode(self.pgconn._encoding)
+        elif isinstance(command, Composable):
+            command = command.as_bytes(self)
+    
+        if self._pipeline:
+            cmd = partial(
+                self.pgconn.send_query_params,
+                command,
+                None,
+                result_format=result_format,
+            )
+            self._pipeline.command_queue.append(cmd)
+            self._pipeline.result_queue.append(None)
+            return None
+    
+        # Unless needed, use the simple query protocol, e.g. to interact with
+        # pgbouncer. In pipeline mode we always use the advanced query protocol
+        # instead, see #350
+        if result_format == TEXT:
+            self.pgconn.send_query(command)
+        else:
+            self.pgconn.send_query_params(command, None, result_format=result_format)
+    
+        result: PGresult = (yield from generators.execute(self.pgconn))[-1]
+        if result.status != COMMAND_OK and result.status != TUPLES_OK:
+            if result.status == FATAL_ERROR:
+>               raise e.error_from_result(result, encoding=self.pgconn._encoding)
+E               psycopg.errors.CheckViolation: 预留与Run发送/费用事实必须一致
+E               CONTEXT:  PL/pgSQL function geo_check_collection_reservation() line 17 at RAISE
+
+/opt/venv/lib/python3.12/site-packages/psycopg/_connection_base.py:483: CheckViolation
+
+The above exception was the direct cause of the following exception:
+
+worker_graph = WorkerGraph(api=PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_g...2c20fe1a'), channel=UUID('f27f0a55-7637-42d1-9ae1-b4d4fddb88b7'), call_id=UUID('bf57e03c-729c-43fc-929b-1dd8d92ef3f0'))
+local_provider = <app.geo_fake_server.GeoFakeServer object at 0xfaba6268cb90>
+
+    def test_recovery_wins_race_old_sender_cannot_send(worker_graph, local_provider):
+        identity = worker_graph.create()
+        lease = geo_runs.claim_collection_run(identity)
+        locked, release = Event(), Event()
+    
+        def hold_recovery():
+            with worker_graph.api.api.factory.begin() as db:
+                from app.services.geo_run_lifecycle import lock_run, recover_unsent_run, refresh_batch
+    
+                batch, run = lock_run(db, identity)
+                recover_unsent_run(db, run, run.lease_expires_at + timedelta(seconds=1))
+                refresh_batch(db, batch, run.created_at)
+                locked.set()
+                assert release.wait(5)
+    
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            recovery = pool.submit(hold_recovery)
+            assert locked.wait(5)
+            sending = pool.submit(
+                lease.collector.collect,
+                lease.request,
+                before_send=lambda: geo_runs.authorize_send(lease),
+            )
+            release.set()
+>           recovery.result(timeout=5)
+
+tests/integration/test_geo_at_most_once.py:402: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/local/lib/python3.12/concurrent/futures/_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.12/concurrent/futures/_base.py:401: in __get_result
+    raise self._exception
+/usr/local/lib/python3.12/concurrent/futures/thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/integration/test_geo_at_most_once.py:384: in hold_recovery
+    with worker_graph.api.api.factory.begin() as db:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.12/contextlib.py:144: in __exit__
+    next(self.gen)
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:1819: in _maker_context_manager
+    with self.begin():
+         ^^^^^^^^^^^^
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/util.py:147: in __exit__
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py:122: in __exit__
+    raise exc_value.with_traceback(exc_tb)
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/util.py:145: in __exit__
+    self.commit()
+<string>:2: in commit
+    ???
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/state_changes.py:137: in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:1323: in commit
+    trans.commit()
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2642: in commit
+    self._do_commit()
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2747: in _do_commit
+    self._connection_commit_impl()
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2718: in _connection_commit_impl
+    self.connection._commit_impl()
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1149: in _commit_impl
+    self._handle_dbapi_exception(e, None, None, None, None)
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1147: in _commit_impl
+    self.engine.dialect.do_commit(self.connection)
+/opt/venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:715: in do_commit
+    dbapi_connection.commit()
+/opt/venv/lib/python3.12/site-packages/psycopg/connection.py:305: in commit
+    self.wait(self._commit_gen())
+/opt/venv/lib/python3.12/site-packages/psycopg/connection.py:484: in wait
+    return waiting.wait(gen, self.pgconn.socket, interval=interval)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg_binary/_psycopg/waiting.pyx:241: in psycopg_binary._psycopg.wait_c
+    ???
+/opt/venv/lib/python3.12/site-packages/psycopg/_connection_base.py:585: in _commit_gen
+    yield from self._exec_command(b"COMMIT")
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Connection [IDLE] (host=postgres user=partsignal database=partsignal_geo208_c73294945e) at 0xfaba65464d10>
+command = b'COMMIT', result_format = <Format.TEXT: 0>
+
+    def _exec_command(
+        self, command: QueryNoTemplate, result_format: pq.Format = TEXT
+    ) -> PQGen[PGresult | None]:
+        """
+        Generator to send a command and receive the result to the backend.
+    
+        Only used to implement internal commands such as "commit", with eventual
+        arguments bound client-side. The cursor can do more complex stuff.
+        """
+        self._check_connection_ok()
+    
+        if isinstance(command, str):
+            command = command.encode(self.pgconn._encoding)
+        elif isinstance(command, Composable):
+            command = command.as_bytes(self)
+    
+        if self._pipeline:
+            cmd = partial(
+                self.pgconn.send_query_params,
+                command,
+                None,
+                result_format=result_format,
+            )
+            self._pipeline.command_queue.append(cmd)
+            self._pipeline.result_queue.append(None)
+            return None
+    
+        # Unless needed, use the simple query protocol, e.g. to interact with
+        # pgbouncer. In pipeline mode we always use the advanced query protocol
+        # instead, see #350
+        if result_format == TEXT:
+            self.pgconn.send_query(command)
+        else:
+            self.pgconn.send_query_params(command, None, result_format=result_format)
+    
+        result: PGresult = (yield from generators.execute(self.pgconn))[-1]
+        if result.status != COMMAND_OK and result.status != TUPLES_OK:
+            if result.status == FATAL_ERROR:
+>               raise e.error_from_result(result, encoding=self.pgconn._encoding)
+E               sqlalchemy.exc.IntegrityError: (psycopg.errors.CheckViolation) 预留与Run发送/费用事实必须一致
+E               CONTEXT:  PL/pgSQL function geo_check_collection_reservation() line 17 at RAISE
+E               (Background on this error at: https://sqlalche.me/e/20/gkpj)
+
+/opt/venv/lib/python3.12/site-packages/psycopg/_connection_base.py:483: IntegrityError
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_at_most_once.py::test_recovery_wins_race_old_sender_cannot_send
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 52 passed in 11.61s
+

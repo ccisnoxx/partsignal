@@ -1,0 +1,177 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/geo-catalog/surfaces-profile-test.test.tsx
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+ ❯ src/domains/geo-catalog/surfaces-profile-test.test.tsx (4 tests | 1 failed) 595ms
+     × 服务端不给 TEST 时只显示诊断阻断，没有测试入口 34ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/domains/geo-catalog/surfaces-profile-test.test.tsx > API Profile 连接诊断 > 服务端不给 TEST 时只显示诊断阻断，没有测试入口
+TestingLibraryElementError: Unable to find an element with the text: /模型尚未通过连接测试/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m""[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"min-h-screen bg-surface-app text-text-primary lg:grid lg:grid-cols-[13rem_minmax(0,1fr)]"[39m
+    [36m>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"fixed top-2 left-2 z-[70] -translate-y-20 rounded-md bg-primary px-3 py-2 text-primary-foreground shadow-md transition-transform focus:translate-y-0 focus:outline-none focus:ring-3 focus:ring-ring/50"[39m
+        [33mhref[39m=[32m"#main-content"[39m
+      [36m>[39m
+        [0m跳到主内容[0m
+      [36m</a>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"hidden min-h-screen border-r border-border-subtle bg-surface-panel lg:flex lg:flex-col"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex h-16 items-center border-b border-border-subtle px-4"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"font-heading text-base font-semibold"[39m
+          [36m>[39m
+            [0mPartSignal[0m
+          [36m</span>[39m
+        [36m</div>[39m
+        [36m<nav[39m
+          [33maria-label[39m=[32m"主导航"[39m
+          [33mclass[39m=[32m"flex-1 space-y-5 p-3"[39m
+        [36m>[39m
+          [36m<section[39m
+            [33maria-labelledby[39m=[32m"nav-工作区"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"mb-1 px-2 type-label text-text-muted"[39m
+              [33mid[39m=[32m"nav-工作区"[39m
+            [36m>[39m
+              [0m工作区[0m
+            [36m</h2>[39m
+            [36m<ul[39m
+              [33mclass[39m=[32m"space-y-1"[39m
+            [36m>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"flex min-h-9 items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 text-text-secondary hover:bg-surface-raised hover:text-text-primary"[39m
+                  [33mhref[39m=[32m"/"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-layout-dashboard size-4"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<rect[39m
+                      [33mheight[39m=[32m"9"[39m
+                      [33mrx[39m=[32m"1"[39m
+                      [33mwidth[39m=[32m"7"[39m
+                      [33mx[39m=[32m"3"[39m
+                      [33my[39m=[32m"3"[39m
+                    [36m/>[39m
+                    [36m<rect[39m
+                      [33mheight[39m=[32m"5"[39m
+                      [33mrx[39m=[32m"1"[39m
+                      [33mwidth[39m=[32m"7"[39m
+                      [33mx[39m=[32m"14"[39m
+                      [33my[39m=[32m"3"[39m
+                    [36m/>[39m
+                    [36m<rect[39m
+                      [33mheight[39m=[32m"9"[39m
+                      [33mrx[39m=[32m"1"[39m
+                      [33mwidth[39m=[32m"7"[39m
+                      [33mx[39m=[32m"14"[39m
+                      [33my[39m=[32m"12"[39m
+                    [36m/>[39m
+                    [36m<rect[39m
+                      [33mheight[39m=[32m"5"[39m
+                      [33mrx[39m=[32m"1"[39m
+                      [33mwidth[39m=[32m"7"[39m
+                      [33mx[39m=[32m"3"[39m
+                      [33my[39m=[32m"16"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                  [0m工作台[0m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"flex min-h-9 items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 text-text-secondary hover:bg-surface-raised hover:text-text-primary"[39m
+                  [33mhref[39m=[32m"/products"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-boxes size-4"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"m7 16.5-4.74-2.85"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"m7 16.5 5-3"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M7 16.5v5.17"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"m17 16.5-5-3"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"m17 16.5 4.74-2.85"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M17 16.5v5.17"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M12 8 7.26 5.15"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+          ...
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/domains/geo-catalog/surfaces-profile-test.test.tsx:52:19
+     50|     renderSurfaces(entry);
+     51|     await screen.findByRole('heading', { name: '人工采集配置' });
+     52|     expect(screen.getByText(/模型尚未通过连接测试/)).toBeVisible();
+       |                   ^
+     53|     expect(screen.queryByRole('menuitem', { name: '测试连接' })).not.toBeI…
+     54|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  01:34:35
+   Duration  2.20s (transform 809ms, setup 83ms, import 1.07s, tests 595ms, environment 372ms)
+

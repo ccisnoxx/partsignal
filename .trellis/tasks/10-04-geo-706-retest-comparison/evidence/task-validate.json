@@ -1,0 +1,10 @@
+{
+  "argv": [
+    "python3",
+    ".trellis/scripts/task.py",
+    "validate",
+    ".trellis/tasks/10-04-geo-706-retest-comparison"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 0.049
+}

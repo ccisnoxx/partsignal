@@ -1,0 +1,36 @@
+{
+  "ci_run_id": 37525885249,
+  "ci_head_sha": "aa7f3db8c222cd8b9a48bffbf24884c4c34e8151",
+  "status": "completed",
+  "conclusion": "failure",
+  "failed_step": "Run uv run --project backend pytest backend/tests/integration",
+  "step_started_at": "2026-10-06T20:31:43Z",
+  "step_completed_at": "2026-10-06T20:56:26Z",
+  "test_result": {
+    "passed": 1193,
+    "failed": 60,
+    "errors": 6,
+    "warnings": 45
+  },
+  "failure_groups": {
+    "object_storage_service_not_started": 54,
+    "container_contract_mount_missing": 6,
+    "recovery_pg16_tools_not_configured": 6
+  },
+  "remediation_commit": "d43695e5e5eac3ba8babdea22092cfcb2097144c",
+  "change": "CI integration uses existing make test-integration; ordinary PG container plus mandatory recovery wrapper",
+  "new_commit_remote_ci_run": false,
+  "failure_log": "/Users/sc/.codex/reviews/partsignal/branch-blocker-remediation-20261006/logs/ci-failed.log",
+  "failure_log_sha256": "b954d17c1a8a2081a763ad74cf70a8f18547fe7af717064a982f66b6a07491be",
+  "failure_log_capture_command": [
+    "gh",
+    "run",
+    "view",
+    "37525885249",
+    "--log-failed"
+  ],
+  "failure_log_capture_exit_code": 0,
+  "classified_at": "2026-10-06T21:05:56.551328+00:00",
+  "validation_reused_from": "aa7f3db8c222cd8b9a48bffbf24884c4c34e8151",
+  "reused_scope": "make test-integration behavioral run 1253 PG+6 recovery; all underlying source/tests/Compose/Makefile/lockfiles unchanged; CI caller newly checked; no new SHA CI success claimed"
+}

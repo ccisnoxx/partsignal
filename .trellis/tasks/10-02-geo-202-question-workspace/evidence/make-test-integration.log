@@ -1,0 +1,132 @@
+docker compose -f /Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-02-geo-202-question-workspace/evidence/compose-validation.yaml run --rm backend-test
+ Image partsignal-geo202-validation-backend-test Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 630B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 594B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 ...
+
+#4 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#4 DONE 0.7s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 0.8s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 152B done
+#5 DONE 0.0s
+
+#6 FROM ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043
+#6 resolve ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043 done
+#6 DONE 0.0s
+
+#7 [runtime 1/7] FROM docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016
+#7 resolve docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016 done
+#7 DONE 0.0s
+
+#8 [internal] load build context
+#8 transferring context: 46.79kB 0.0s done
+#8 DONE 0.0s
+
+#9 [runtime 2/7] WORKDIR /app
+#9 CACHED
+
+#10 [runtime 3/7] COPY --from=ghcr.io/astral-sh/uv:0.7.13 /uv /uvx /bin/
+#10 CACHED
+
+#11 [runtime 4/7] COPY pyproject.toml uv.lock* ./
+#11 CACHED
+
+#12 [runtime 5/7] RUN uv sync --no-dev --no-install-project
+#12 CACHED
+
+#13 [runtime 6/7] COPY . .
+#13 DONE 0.0s
+
+#14 [runtime 7/7] RUN uv sync --no-dev
+#14 0.138 Resolved 88 packages in 0.42ms
+#14 0.139    Building partsignal-backend @ file:///app
+#14 3.482       Built partsignal-backend @ file:///app
+#14 3.482 Prepared 1 package in 3.34s
+#14 3.485 Installed 1 package in 2ms
+#14 3.569 Bytecode compiled 2466 files in 83ms
+#14 3.569  + partsignal-backend==0.1.0 (from file:///app)
+#14 DONE 3.6s
+
+#15 [test 1/1] RUN uv sync --all-extras
+#15 0.075 Resolved 88 packages in 0.30ms
+#15 1.061 Downloading pygments (1.2MiB)
+#15 1.291 Downloading ruff (10.5MiB)
+#15 1.315 Downloading mypy (13.1MiB)
+#15 1.610  Downloading pygments
+#15 2.525  Downloading ruff
+#15 2.759  Downloading mypy
+#15 2.759 Prepared 20 packages in 2.68s
+#15 2.820 Installed 20 packages in 60ms
+#15 3.387 Bytecode compiled 3437 files in 567ms
+#15 3.387  + attrs==26.1.0
+#15 3.387  + coverage==7.15.0
+#15 3.387  + httpcore2==2.9.1
+#15 3.387  + httpx2==2.9.1
+#15 3.387  + iniconfig==2.3.0
+#15 3.387  + jsonschema==4.26.0
+#15 3.387  + jsonschema-specifications==2025.9.1
+#15 3.387  + librt==0.13.0
+#15 3.387  + mypy==1.20.2
+#15 3.387  + mypy-extensions==1.1.0
+#15 3.387  + pathspec==1.1.1
+#15 3.387  + pluggy==1.6.0
+#15 3.387  + pygments==2.20.0
+#15 3.387  + pytest==8.4.2
+#15 3.387  + pytest-cov==6.3.0
+#15 3.387  + referencing==0.37.0
+#15 3.387  + rpds-py==2026.6.3
+#15 3.387  + ruff==0.15.21
+#15 3.387  + truststore==0.10.4
+#15 3.387  + types-pyyaml==6.0.12.20260518
+#15 DONE 3.5s
+
+#16 exporting to image
+#16 exporting layers
+#16 exporting layers 2.8s done
+#16 exporting manifest sha256:89bf2d3a4dc3a69634b46485f73acbf6b80c3f1833dbc3cca1021545cac1709d done
+#16 exporting config sha256:cc7a25edeb95721f97e55a3b0e1f5d62211a11038d763515281806b0fc0fb465 done
+#16 exporting attestation manifest sha256:322e595dd8407c5010943efedd3f61d0036d02760f8c5565b67e86837acb0b4c done
+#16 exporting manifest list sha256:d39b619e9fcd8a41a36d19070c59485eba00f294123dc9b4025fcd82ece85c81 done
+#16 naming to docker.io/library/partsignal-geo202-validation-backend-test:latest done
+#16 unpacking to docker.io/library/partsignal-geo202-validation-backend-test:latest
+#16 unpacking to docker.io/library/partsignal-geo202-validation-backend-test:latest 0.8s done
+#16 DONE 3.7s
+
+#17 resolving provenance for metadata file
+#17 DONE 0.0s
+ Image partsignal-geo202-validation-backend-test Built 
+ Container partsignal-geo202-validation-backend-test-run-9fba6b0c0089 Creating 
+ Container partsignal-geo202-validation-backend-test-run-9fba6b0c0089 Created 
+........................................................................ [ 14%]
+........................................................................ [ 29%]
+........................................................................ [ 43%]
+........................................................................ [ 58%]
+........................................................................ [ 73%]
+........................................................................ [ 87%]
+............................................................             [100%]
+=============================== warnings summary ===============================
+tests/integration/test_geo_catalog.py::test_catalog_metadata_matches_migrated_postgresql
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_catalog.py:187: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_catalog.py::test_catalog_metadata_matches_migrated_postgresql
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_catalog.py:187: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_prompt_variants.py::test_additive_migration_metadata_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_prompt_variants.py:160: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_prompt_variants.py::test_additive_migration_metadata_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_prompt_variants.py:160: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+492 passed, 4 warnings in 298.92s (0:04:58)

@@ -1,0 +1,77 @@
+{
+  "checks": [
+    {
+      "command": [
+        "git",
+        "diff",
+        "--no-index",
+        "--check",
+        "/dev/null",
+        "backend/app/collectors/__init__.py"
+      ],
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--no-index",
+        "--check",
+        "/dev/null",
+        "backend/app/collectors/registry.py"
+      ],
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--no-index",
+        "--check",
+        "/dev/null",
+        "backend/app/services/geo_collection_profiles.py"
+      ],
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--no-index",
+        "--check",
+        "/dev/null",
+        "backend/app/services/geo_collector_eligibility.py"
+      ],
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--no-index",
+        "--check",
+        "/dev/null",
+        "backend/tests/integration/test_geo_profile_eligibility.py"
+      ],
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--no-index",
+        "--check",
+        "/dev/null",
+        "backend/tests/unit/test_geo_collector_registry.py"
+      ],
+      "exit_code": 1,
+      "output": ""
+    }
+  ],
+  "passed": true
+}

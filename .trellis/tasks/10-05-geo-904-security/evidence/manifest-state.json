@@ -1,0 +1,15 @@
+{
+  "task": "GEO-904",
+  "status_before": "planned",
+  "transition": [
+    "in_progress",
+    "blocked"
+  ],
+  "dependency": "GEO-903",
+  "dependency_status": "done",
+  "dependency_acceptance": "2026-10-05已核对人工接受记录",
+  "reason": "必需目标环境/适用平台批准外部输入缺失",
+  "review_entered": false,
+  "done_entered": false,
+  "other_task_states_changed": false
+}

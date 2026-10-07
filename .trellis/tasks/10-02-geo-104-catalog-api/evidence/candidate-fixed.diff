@@ -1,0 +1,4932 @@
+--- before/backend/app/audit_types.py
++++ after/backend/app/audit_types.py
+@@ -76,6 +76,16 @@
+         "platform_profile.deleted",
+         "platform_account.deleted",
+         "geo_observation.deleted",
++        "geo_subject.created",
++        "geo_subject.updated",
++        "geo_subject.enabled",
++        "geo_subject.disabled",
++        "geo_subject.deleted",
++        "geo_subject_alias.created",
++        "geo_subject_alias.updated",
++        "geo_subject_alias.deleted",
++        "geo_subject_domain.created",
++        "geo_subject_domain.deleted",
+     }
+ )
+ 
+--- before/backend/app/main.py
++++ after/backend/app/main.py
+@@ -26,6 +26,7 @@
+ )
+ from app.routers.configuration import router as configuration_router
+ from app.routers.files import router as files_router
++from app.routers.geo_catalog import router as geo_catalog_router
+ from app.routers.identity import router as identity_router
+ from app.routers.observation import router as observation_router
+ from app.routers.planning import router as planning_router
+@@ -328,6 +329,7 @@
+ 
+ 
+ app.include_router(identity_router)
++app.include_router(geo_catalog_router)
+ app.include_router(configuration_router)
+ app.include_router(product_facts_router)
+ app.include_router(planning_router)
+--- /dev/null
++++ after/backend/app/routers/geo_catalog.py
+@@ -0,0 +1,307 @@
++"""GEO Catalog HTTP 边界；业务事务、锁与聚合投影交给应用服务。"""
++
++from typing import Annotated, Literal
++from uuid import UUID
++
++from fastapi import APIRouter, Depends, Query, Request
++from pydantic import BeforeValidator
++
++from app.deps import AdminUser, CsrfProtected, DbSession, EngineerUser
++from app.errors import error_responses
++from app.schemas.common import AccountType
++from app.schemas.geo_catalog import (
++    GeoSubjectAliasCreate,
++    GeoSubjectAliasUpdate,
++    GeoSubjectCreate,
++    GeoSubjectDomainCreate,
++    GeoSubjectListPage,
++    GeoSubjectOut,
++    GeoSubjectRevisionRequest,
++    GeoSubjectType,
++    GeoSubjectUpdate,
++)
++from app.services import geo_catalog as commands
++from app.services import geo_catalog_queries as queries
++
++router = APIRouter(prefix="/api/v1/geo/subjects", tags=["geo-catalog"])
++
++
++@router.get(
++    "",
++    response_model=GeoSubjectListPage,
++    operation_id="listGeoSubjects",
++    dependencies=[Depends(queries.read_snapshot)],
++    responses=error_responses(401, 403, 422),
++)
++def list_subjects(
++    db: DbSession,
++    user: EngineerUser,
++    q: Annotated[str | None, Query(max_length=240)] = None,
++    subject_type: GeoSubjectType | None = None,
++    product_id: UUID | None = None,
++    parent_subject_id: UUID | None = None,
++    is_active: bool | None = None,
++    sort: Literal["NAME_ASC", "UPDATED_DESC"] = "NAME_ASC",
++    page: int = Query(1, ge=1),
++    page_size: Annotated[Literal[10, 20, 50], BeforeValidator(int), Query()] = 20,
++) -> GeoSubjectListPage:
++    return queries.list_subjects(
++        db,
++        actor_type=AccountType(user.account_type),
++        q=q,
++        subject_type=subject_type,
++        product_id=product_id,
++        parent_subject_id=parent_subject_id,
++        is_active=is_active,
++        sort=sort,
++        page=page,
++        page_size=page_size,
++    )
++
++
++@router.post(
++    "",
++    response_model=GeoSubjectOut,
++    status_code=201,
++    operation_id="createGeoSubject",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def create_subject(
++    payload: GeoSubjectCreate,
++    request: Request,
++    db: DbSession,
++    admin: AdminUser,
++    _csrf: CsrfProtected,
++) -> GeoSubjectOut:
++    return commands.create_subject(
++        db=db,
++        payload=payload,
++        actor=admin,
++        request_id=request.state.request_id,
++    )
++
++
++@router.get(
++    "/{subject_id}",
++    response_model=GeoSubjectOut,
++    operation_id="getGeoSubject",
++    dependencies=[Depends(queries.read_snapshot)],
++    responses=error_responses(401, 403, 404, 422),
++)
++def get_subject(subject_id: UUID, db: DbSession, user: EngineerUser) -> GeoSubjectOut:
++    return queries.get_subject(db, subject_id, actor_type=AccountType(user.account_type))
++
++
++@router.patch(
++    "/{subject_id}",
++    response_model=GeoSubjectOut,
++    operation_id="updateGeoSubject",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def update_subject(
++    subject_id: UUID,
++    payload: GeoSubjectUpdate,
++    request: Request,
++    db: DbSession,
++    admin: AdminUser,
++    _csrf: CsrfProtected,
++) -> GeoSubjectOut:
++    return commands.update_subject(
++        db=db,
++        subject_id=subject_id,
++        payload=payload,
++        actor=admin,
++        request_id=request.state.request_id,
++    )
++
++
++@router.delete(
++    "/{subject_id}",
++    status_code=204,
++    operation_id="deleteGeoSubject",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def delete_subject(
++    subject_id: UUID,
++    expected_revision: Annotated[int, Query(ge=0)],
++    request: Request,
++    db: DbSession,
++    admin: AdminUser,
++    _csrf: CsrfProtected,
++) -> None:
++    commands.delete_subject(
++        db=db,
++        subject_id=subject_id,
++        expected_revision=expected_revision,
++        actor=admin,
++        request_id=request.state.request_id,
++    )
++
++
++@router.post(
++    "/{subject_id}/enable",
++    response_model=GeoSubjectOut,
++    operation_id="enableGeoSubject",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def enable_subject(
++    subject_id: UUID,
++    payload: GeoSubjectRevisionRequest,
++    request: Request,
++    db: DbSession,
++    admin: AdminUser,
++    _csrf: CsrfProtected,
++) -> GeoSubjectOut:
++    return commands.set_subject_active(
++        db=db,
++        subject_id=subject_id,
++        expected_revision=payload.expected_revision,
++        is_active=True,
++        actor=admin,
++        request_id=request.state.request_id,
++    )
++
++
++@router.post(
++    "/{subject_id}/disable",
++    response_model=GeoSubjectOut,
++    operation_id="disableGeoSubject",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def disable_subject(
++    subject_id: UUID,
++    payload: GeoSubjectRevisionRequest,
++    request: Request,
++    db: DbSession,
++    admin: AdminUser,
++    _csrf: CsrfProtected,
++) -> GeoSubjectOut:
++    return commands.set_subject_active(
++        db=db,
++        subject_id=subject_id,
++        expected_revision=payload.expected_revision,
++        is_active=False,
++        actor=admin,
++        request_id=request.state.request_id,
++    )
++
++
++@router.post(
++    "/{subject_id}/aliases",
++    response_model=GeoSubjectOut,
++    operation_id="createGeoSubjectAlias",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def create_alias(
++    subject_id: UUID,
++    payload: GeoSubjectAliasCreate,
++    request: Request,
++    db: DbSession,
++    admin: AdminUser,
++    _csrf: CsrfProtected,
++) -> GeoSubjectOut:
++    return commands.create_alias(
++        db=db,
++        subject_id=subject_id,
++        payload=payload,
++        actor=admin,
++        request_id=request.state.request_id,
++    )
++
++
++@router.patch(
++    "/{subject_id}/aliases/{alias_id}",
++    response_model=GeoSubjectOut,
++    operation_id="updateGeoSubjectAlias",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def update_alias(
++    subject_id: UUID,
++    alias_id: UUID,
++    payload: GeoSubjectAliasUpdate,
++    request: Request,
++    db: DbSession,
++    admin: AdminUser,
++    _csrf: CsrfProtected,
++) -> GeoSubjectOut:
++    return commands.update_alias(
++        db=db,
++        subject_id=subject_id,
++        alias_id=alias_id,
++        payload=payload,
++        actor=admin,
++        request_id=request.state.request_id,
++    )
++
++
++@router.delete(
++    "/{subject_id}/aliases/{alias_id}",
++    response_model=GeoSubjectOut,
++    operation_id="deleteGeoSubjectAlias",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def delete_alias(
++    subject_id: UUID,
++    alias_id: UUID,
++    expected_revision: Annotated[int, Query(ge=0)],
++    request: Request,
++    db: DbSession,
++    admin: AdminUser,
++    _csrf: CsrfProtected,
++) -> GeoSubjectOut:
++    return commands.delete_alias(
++        db=db,
++        subject_id=subject_id,
++        alias_id=alias_id,
++        expected_revision=expected_revision,
++        actor=admin,
++        request_id=request.state.request_id,
++    )
++
++
++@router.post(
++    "/{subject_id}/domains",
++    response_model=GeoSubjectOut,
++    operation_id="createGeoSubjectDomain",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def create_domain(
++    subject_id: UUID,
++    payload: GeoSubjectDomainCreate,
++    request: Request,
++    db: DbSession,
++    admin: AdminUser,
++    _csrf: CsrfProtected,
++) -> GeoSubjectOut:
++    return commands.create_domain(
++        db=db,
++        subject_id=subject_id,
++        payload=payload,
++        actor=admin,
++        request_id=request.state.request_id,
++    )
++
++
++@router.delete(
++    "/{subject_id}/domains/{domain_id}",
++    response_model=GeoSubjectOut,
++    operation_id="deleteGeoSubjectDomain",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def delete_domain(
++    subject_id: UUID,
++    domain_id: UUID,
++    expected_revision: Annotated[int, Query(ge=0)],
++    request: Request,
++    db: DbSession,
++    admin: AdminUser,
++    _csrf: CsrfProtected,
++) -> GeoSubjectOut:
++    return commands.delete_domain(
++        db=db,
++        subject_id=subject_id,
++        domain_id=domain_id,
++        expected_revision=expected_revision,
++        actor=admin,
++        request_id=request.state.request_id,
++    )
+--- before/backend/app/schemas/common.py
++++ after/backend/app/schemas/common.py
+@@ -37,6 +37,7 @@
+     FACT_VERSION = "FACT_VERSION"
+     CONTENT_TASK = "CONTENT_TASK"
+     GEO_OBSERVATION = "GEO_OBSERVATION"
++    GEO_SUBJECT = "GEO_SUBJECT"
+     CONTENT_VERSION = "CONTENT_VERSION"
+     GENERATION_JOB = "GENERATION_JOB"
+     PUBLISHED_ARTICLE = "PUBLISHED_ARTICLE"
+--- before/backend/app/services/audit_logs.py
++++ after/backend/app/services/audit_logs.py
+@@ -21,6 +21,7 @@
+ from app.models.ai_generation import AIChannel, AIModel
+ from app.models.configuration import PlatformProfile
+ from app.models.content import ContentTask, ContentVersion
++from app.models.geo_catalog import GeoSubject
+ from app.models.geo_files import GeoObservation
+ from app.models.identity import AuditLog, User
+ from app.models.product_facts import FactVersion, Product
+@@ -288,6 +289,9 @@
+     if target_type == "GeoObservation":
+         observation = db.get(GeoObservation, target_id) if target_id is not None else None
+         return _availability(target_type, observation)
++    if target_type == "GeoSubject":
++        subject = db.get(GeoSubject, target_id) if target_id is not None else None
++        return _availability(target_type, subject)
+     if target_type == "PlatformProfile":
+         profile = db.get(PlatformProfile, target_id) if target_id is not None else None
+         return _availability(target_type, profile)
+--- /dev/null
++++ after/backend/app/services/geo_catalog.py
+@@ -0,0 +1,457 @@
++"""Catalog 写命令：统一维护聚合版本、锁、审计及精确数据库错误。"""
++
++from collections.abc import Iterator
++from contextlib import contextmanager
++from datetime import UTC, datetime
++from uuid import UUID
++
++from sqlalchemy import select
++from sqlalchemy.exc import IntegrityError
++from sqlalchemy.orm import Session
++
++from app.audit import append_audit
++from app.audit_types import AuditEntry, AuditModule, AuditOutcome
++from app.deps import assert_account_types
++from app.errors import AppError, not_found
++from app.models.geo_catalog import GeoSubject, GeoSubjectAlias, GeoSubjectDomain
++from app.models.identity import User
++from app.schemas.common import AccountType
++from app.schemas.geo_catalog import (
++    GeoNamedSubjectCreate,
++    GeoNamedSubjectUpdate,
++    GeoSubjectAliasCreate,
++    GeoSubjectAliasUpdate,
++    GeoSubjectCreate,
++    GeoSubjectDomainCreate,
++    GeoSubjectOut,
++    GeoSubjectUpdate,
++)
++from app.services.geo_catalog_locks import lock_brands, lock_product, lock_subject, require_parent
++from app.services.geo_catalog_normalization import catalog_text_key
++from app.services.geo_catalog_queries import subject_references, subjects_out
++
++
++def field_conflict(code: str, field: str, message: str) -> AppError:
++    return AppError(
++        code,
++        message,
++        409,
++        {
++            "errors": [
++                {
++                    "loc": ["body", field],
++                    "msg": message,
++                    "type": code.lower(),
++                }
++            ]
++        },
++    )
++
++
++def product_conflict(subject: GeoSubject) -> AppError:
++    error = field_conflict("GEO_SUBJECT_PRODUCT_EXISTS", "product_id", "产品已有活动监测身份")
++    error.details["product_id"] = str(subject.product_id)
++    if subject.id is not None:
++        error.details["subject_id"] = str(subject.id)
++    return error
++
++
++def _diagnostics(error: IntegrityError) -> tuple[object, object]:
++    original = error.orig
++    return getattr(original, "sqlstate", None), getattr(
++        getattr(original, "diag", None),
++        "constraint_name",
++        None,
++    )
++
++
++def _flush_subject(db: Session, subject: GeoSubject, *, deleting: bool = False) -> None:
++    try:
++        db.flush()
++    except IntegrityError as error:
++        pair = _diagnostics(error)
++        mapped: AppError | None = None
++        if deleting:
++            if pair == ("23503", "fk_geo_subjects_parent_identity"):
++                mapped = AppError("GEO_SUBJECT_IN_USE", "监测对象仍有直接引用，不能删除", 409)
++        elif pair == ("23505", "uq_geo_subjects_active_own_product"):
++            mapped = product_conflict(subject)
++        elif pair in {
++            ("23514", "ck_geo_subjects_parent_type"),
++            ("23514", "ck_geo_subjects_parent_not_self"),
++        }:
++            mapped = field_conflict(
++                "GEO_SUBJECT_PARENT_INVALID",
++                "parent_subject_id",
++                "监测对象的父级类型不合法或指向自身",
++            )
++        if mapped is None:
++            raise
++        db.rollback()
++        raise mapped from error
++
++
++def _flush_alias(db: Session) -> None:
++    try:
++        db.flush()
++    except IntegrityError as error:
++        if _diagnostics(error) != ("23505", "uq_geo_subject_aliases_subject_normalized"):
++            raise
++        db.rollback()
++        raise field_conflict(
++            "GEO_SUBJECT_ALIAS_EXISTS", "alias", "监测对象已有相同规范化别名"
++        ) from error
++
++
++def _flush_domain(db: Session) -> None:
++    try:
++        db.flush()
++    except IntegrityError as error:
++        if _diagnostics(error) != ("23505", "uq_geo_subject_domains_subject_hostname"):
++            raise
++        db.rollback()
++        raise field_conflict(
++            "GEO_SUBJECT_DOMAIN_EXISTS", "hostname", "监测对象已有相同域名"
++        ) from error
++
++
++@contextmanager
++def _command(db: Session, actor: User) -> Iterator[None]:
++    try:
++        assert_account_types(actor, (AccountType.ADMIN,))
++        yield
++    except Exception:
++        db.rollback()
++        raise
++
++
++def _audit(
++    db: Session,
++    subject: GeoSubject,
++    actor: User,
++    request_id: str,
++    action: str,
++) -> None:
++    append_audit(
++        db,
++        AuditEntry(
++            actor_id=actor.id,
++            business_module=AuditModule.CONFIGURATION,
++            action=action,
++            target_type="GeoSubject",
++            target_id=subject.id,
++            request_id=request_id,
++            outcome=AuditOutcome.SUCCESS,
++            result_message="GEO 监测对象配置已变更",
++            details={"facts": {"revision": subject.revision, "is_active": subject.is_active}},
++        ),
++    )
++
++
++def _changed(subject: GeoSubject) -> None:
++    subject.revision += 1
++    subject.updated_at = datetime.now(UTC)
++
++
++def _finish(
++    db: Session,
++    subject: GeoSubject,
++    actor: User,
++    request_id: str,
++    action: str | None,
++) -> GeoSubjectOut:
++    if action is not None:
++        _audit(db, subject, actor, request_id, action)
++    # 审计 flush 与 commit 保持 unknown，不能冒充业务唯一性冲突。
++    db.flush()
++    result = subjects_out(db, [subject], actor_type=AccountType(actor.account_type))[0]
++    db.commit()
++    return result
++
++
++def _require_product_available(db: Session, subject: GeoSubject) -> None:
++    if (
++        subject.product_id is not None
++        and db.scalar(
++            select(GeoSubject.id).where(
++                GeoSubject.product_id == subject.product_id,
++                GeoSubject.is_active,
++                GeoSubject.id != subject.id,
++            )
++        )
++        is not None
++    ):
++        raise product_conflict(subject)
++
++
++def create_subject(
++    *,
++    db: Session,
++    payload: GeoSubjectCreate,
++    actor: User,
++    request_id: str,
++) -> GeoSubjectOut:
++    with _command(db, actor):
++        product_id = payload.product_id if not isinstance(payload, GeoNamedSubjectCreate) else None
++        lock_product(db, product_id)
++        brands = lock_brands(
++            db, {payload.parent_subject_id} if payload.parent_subject_id else set()
++        )
++        parent = require_parent(
++            db,
++            kind=payload.subject_type,
++            subject_id=None,
++            parent_id=payload.parent_subject_id,
++            brands=brands,
++        )
++        subject = GeoSubject(
++            subject_type=payload.subject_type,
++            product_id=product_id,
++            parent_subject_id=parent.id if parent else None,
++            parent_subject_type=parent.subject_type if parent else None,
++            canonical_name=payload.canonical_name
++            if isinstance(payload, GeoNamedSubjectCreate)
++            else None,
++            normalized_name=catalog_text_key(payload.canonical_name)
++            if isinstance(payload, GeoNamedSubjectCreate)
++            else None,
++            display_name=payload.display_name
++            if isinstance(payload, GeoNamedSubjectCreate)
++            else None,
++            description=payload.description,
++            created_by=actor.id,
++            is_active=True,
++            revision=0,
++        )
++        _require_product_available(db, subject)
++        db.add(subject)
++        _flush_subject(db, subject)
++        return _finish(db, subject, actor, request_id, "geo_subject.created")
++
++
++def update_subject(
++    *,
++    db: Session,
++    subject_id: UUID,
++    payload: GeoSubjectUpdate,
++    actor: User,
++    request_id: str,
++) -> GeoSubjectOut:
++    with _command(db, actor):
++        locked = lock_subject(
++            db,
++            subject_id,
++            payload.expected_revision,
++            replace_parent="parent_subject_id" in payload.model_fields_set,
++            parent_id=payload.parent_subject_id,
++            expected_type=payload.subject_type,
++        )
++        subject = locked.subject
++        changed = False
++        for field in payload.model_fields_set - {"subject_type", "expected_revision"}:
++            value = getattr(payload, field)
++            if getattr(subject, field) != value:
++                setattr(subject, field, value)
++                changed = True
++        if "parent_subject_id" in payload.model_fields_set:
++            subject.parent_subject_type = locked.parent.subject_type if locked.parent else None
++        if (
++            isinstance(payload, GeoNamedSubjectUpdate)
++            and "canonical_name" in payload.model_fields_set
++        ):
++            subject.normalized_name = catalog_text_key(payload.canonical_name)
++        if changed:
++            _changed(subject)
++            _flush_subject(db, subject)
++        return _finish(db, subject, actor, request_id, "geo_subject.updated" if changed else None)
++
++
++def set_subject_active(
++    *,
++    db: Session,
++    subject_id: UUID,
++    expected_revision: int,
++    is_active: bool,
++    actor: User,
++    request_id: str,
++) -> GeoSubjectOut:
++    with _command(db, actor):
++        subject = lock_subject(db, subject_id, expected_revision).subject
++        changed = subject.is_active != is_active
++        if changed:
++            if is_active:
++                _require_product_available(db, subject)
++            subject.is_active = is_active
++            _changed(subject)
++            _flush_subject(db, subject)
++        action = "geo_subject.enabled" if is_active else "geo_subject.disabled"
++        return _finish(db, subject, actor, request_id, action if changed else None)
++
++
++def delete_subject(
++    *,
++    db: Session,
++    subject_id: UUID,
++    expected_revision: int,
++    actor: User,
++    request_id: str,
++) -> None:
++    with _command(db, actor):
++        subject = lock_subject(db, subject_id, expected_revision).subject
++        blockers = subject_references(db, [subject.id])[subject.id].blockers()
++        if blockers:
++            raise AppError(
++                "GEO_SUBJECT_IN_USE",
++                "监测对象仍有直接引用，不能删除",
++                409,
++                {
++                    "references": [
++                        {"type": kind.value, "count": count} for kind, count in blockers
++                    ],
++                },
++            )
++        db.delete(subject)
++        _flush_subject(db, subject, deleting=True)
++        _audit(db, subject, actor, request_id, "geo_subject.deleted")
++        db.commit()
++
++
++def create_alias(
++    *,
++    db: Session,
++    subject_id: UUID,
++    payload: GeoSubjectAliasCreate,
++    actor: User,
++    request_id: str,
++) -> GeoSubjectOut:
++    with _command(db, actor):
++        subject = lock_subject(db, subject_id, payload.expected_revision).subject
++        db.add(
++            GeoSubjectAlias(
++                subject_id=subject.id,
++                alias=payload.alias,
++                normalized_alias=catalog_text_key(payload.alias),
++                alias_kind=payload.alias_kind,
++                language_code=payload.language_code,
++                is_active=payload.is_active,
++            )
++        )
++        _changed(subject)
++        _flush_alias(db)
++        return _finish(db, subject, actor, request_id, "geo_subject_alias.created")
++
++
++def update_alias(
++    *,
++    db: Session,
++    subject_id: UUID,
++    alias_id: UUID,
++    payload: GeoSubjectAliasUpdate,
++    actor: User,
++    request_id: str,
++) -> GeoSubjectOut:
++    with _command(db, actor):
++        subject = lock_subject(db, subject_id, payload.expected_revision).subject
++        alias = db.scalar(
++            select(GeoSubjectAlias)
++            .where(
++                GeoSubjectAlias.id == alias_id,
++                GeoSubjectAlias.subject_id == subject_id,
++            )
++            .with_for_update()
++            .execution_options(populate_existing=True)
++        )
++        if alias is None:
++            raise not_found("别名")
++        changed = False
++        for field in payload.model_fields_set - {"expected_revision"}:
++            value = getattr(payload, field)
++            if getattr(alias, field) != value:
++                setattr(alias, field, value)
++                changed = True
++        if "alias" in payload.model_fields_set:
++            alias.normalized_alias = catalog_text_key(payload.alias)
++        if changed:
++            _changed(subject)
++            _flush_alias(db)
++        return _finish(
++            db, subject, actor, request_id, "geo_subject_alias.updated" if changed else None
++        )
++
++
++def delete_alias(
++    *,
++    db: Session,
++    subject_id: UUID,
++    alias_id: UUID,
++    expected_revision: int,
++    actor: User,
++    request_id: str,
++) -> GeoSubjectOut:
++    with _command(db, actor):
++        subject = lock_subject(db, subject_id, expected_revision).subject
++        alias = db.scalar(
++            select(GeoSubjectAlias)
++            .where(
++                GeoSubjectAlias.id == alias_id,
++                GeoSubjectAlias.subject_id == subject_id,
++            )
++            .with_for_update()
++            .execution_options(populate_existing=True)
++        )
++        if alias is None:
++            raise not_found("别名")
++        db.delete(alias)
++        _changed(subject)
++        db.flush()
++        return _finish(db, subject, actor, request_id, "geo_subject_alias.deleted")
++
++
++def create_domain(
++    *,
++    db: Session,
++    subject_id: UUID,
++    payload: GeoSubjectDomainCreate,
++    actor: User,
++    request_id: str,
++) -> GeoSubjectOut:
++    with _command(db, actor):
++        subject = lock_subject(db, subject_id, payload.expected_revision).subject
++        db.add(
++            GeoSubjectDomain(
++                subject_id=subject.id,
++                hostname=payload.hostname,
++                relation_type=payload.relation_type,
++            )
++        )
++        _changed(subject)
++        _flush_domain(db)
++        return _finish(db, subject, actor, request_id, "geo_subject_domain.created")
++
++
++def delete_domain(
++    *,
++    db: Session,
++    subject_id: UUID,
++    domain_id: UUID,
++    expected_revision: int,
++    actor: User,
++    request_id: str,
++) -> GeoSubjectOut:
++    with _command(db, actor):
++        subject = lock_subject(db, subject_id, expected_revision).subject
++        domain = db.scalar(
++            select(GeoSubjectDomain)
++            .where(
++                GeoSubjectDomain.id == domain_id,
++                GeoSubjectDomain.subject_id == subject_id,
++            )
++            .with_for_update()
++            .execution_options(populate_existing=True)
++        )
++        if domain is None:
++            raise not_found("域名")
++        db.delete(domain)
++        _changed(subject)
++        db.flush()
++        return _finish(db, subject, actor, request_id, "geo_subject_domain.deleted")
+--- /dev/null
++++ after/backend/app/services/geo_catalog_locks.py
+@@ -0,0 +1,144 @@
++"""Catalog 聚合锁序与锁后校验；身份初读仅用于选择锁集合。"""
++
++from dataclasses import dataclass
++from uuid import UUID
++
++from sqlalchemy import select
++from sqlalchemy.orm import Session
++
++from app.errors import AppError, not_found
++from app.models.geo_catalog import GeoSubject
++from app.models.product_facts import Product
++from app.schemas.geo_catalog import GeoSubjectType
++from app.services.geo_catalog_policy import require_subject_parent
++
++BRAND_TYPES = ("OWN_BRAND", "COMPETITOR_BRAND")
++
++
++@dataclass(frozen=True)
++class LockedSubject:
++    subject: GeoSubject
++    product: Product | None
++    parent: GeoSubject | None
++
++
++def lock_product(db: Session, product_id: UUID | None) -> Product | None:
++    if product_id is None:
++        return None
++    product = db.scalar(
++        select(Product)
++        .where(Product.id == product_id)
++        .with_for_update()
++        .execution_options(populate_existing=True)
++    )
++    if product is None:
++        raise not_found("产品")
++    return product
++
++
++def lock_brands(db: Session, ids: set[UUID]) -> dict[UUID, GeoSubject]:
++    """只锁真实品牌；非法父级不能反向锁另一个产品聚合而形成锁环。"""
++    return (
++        {
++            row.id: row
++            for row in db.scalars(
++                select(GeoSubject)
++                .where(GeoSubject.id.in_(ids), GeoSubject.subject_type.in_(BRAND_TYPES))
++                .order_by(GeoSubject.id)
++                .with_for_update()
++                .execution_options(populate_existing=True)
++            )
++        }
++        if ids
++        else {}
++    )
++
++
++def require_parent(
++    db: Session,
++    *,
++    kind: str,
++    subject_id: UUID | None,
++    parent_id: UUID | None,
++    brands: dict[UUID, GeoSubject],
++) -> GeoSubject | None:
++    parent = brands.get(parent_id) if parent_id else None
++    if parent_id is not None and parent is None:
++        parent = db.get(GeoSubject, parent_id, populate_existing=True)
++        if parent is None:
++            raise not_found("父级监测对象")
++    require_subject_parent(
++        GeoSubjectType(kind),
++        subject_id=subject_id,
++        parent_id=parent_id,
++        parent_type=GeoSubjectType(parent.subject_type) if parent else None,
++    )
++    return parent
++
++
++def lock_subject(
++    db: Session,
++    subject_id: UUID,
++    expected_revision: int,
++    *,
++    replace_parent: bool = False,
++    parent_id: UUID | None = None,
++    expected_type: str | None = None,
++) -> LockedSubject:
++    identity = db.execute(
++        select(
++            GeoSubject.subject_type,
++            GeoSubject.product_id,
++            GeoSubject.parent_subject_id,
++        ).where(GeoSubject.id == subject_id)
++    ).one_or_none()
++    if identity is None:
++        raise not_found("监测对象")
++    kind, product_id, old_parent_id = identity
++    product = lock_product(db, product_id)
++    desired_parent_id = parent_id if replace_parent else old_parent_id
++    brand_ids = {value for value in (old_parent_id, desired_parent_id) if value is not None}
++    if kind in BRAND_TYPES:
++        brand_ids.add(subject_id)
++    brands = lock_brands(db, brand_ids)
++    subject = (
++        brands.get(subject_id)
++        if kind in BRAND_TYPES
++        else db.scalar(
++            select(GeoSubject)
++            .where(GeoSubject.id == subject_id)
++            .with_for_update()
++            .execution_options(populate_existing=True)
++        )
++    )
++    if subject is None:
++        raise not_found("监测对象")
++    if subject.revision != expected_revision or (
++        subject.subject_type,
++        subject.product_id,
++        subject.parent_subject_id,
++    ) != tuple(identity):
++        raise AppError("REVISION_CONFLICT", "监测对象已被其他请求修改", 409)
++    if expected_type is not None and expected_type != subject.subject_type:
++        raise AppError(
++            "VALIDATION_ERROR",
++            "监测对象类型不可修改",
++            422,
++            {
++                "errors": [
++                    {
++                        "loc": ["body", "subject_type"],
++                        "msg": "监测对象类型不可修改",
++                        "type": "value_error",
++                    }
++                ]
++            },
++        )
++    parent = require_parent(
++        db,
++        kind=kind,
++        subject_id=subject_id,
++        parent_id=desired_parent_id,
++        brands=brands,
++    )
++    return LockedSubject(subject, product, parent)
+--- before/backend/app/services/geo_catalog_normalization.py
++++ after/backend/app/services/geo_catalog_normalization.py
+@@ -13,9 +13,18 @@
+ )
+ 
+ 
++def _catalog_text(value: str) -> str:
++    return " ".join(unicodedata.normalize("NFKC", value).split())
++
++
++def catalog_search_key(value: str) -> str:
++    """当前 Product/显示名称的搜索键；读取不施加 Catalog 写入长度限制。"""
++    return _catalog_text(value).casefold()
++
++
+ def normalize_catalog_text(value: str) -> str:
+     """显示值与匹配键都限长；不删除连字符、标点或型号后缀。"""
+-    normalized = " ".join(unicodedata.normalize("NFKC", value).split())
++    normalized = _catalog_text(value)
+     if not 1 <= len(normalized) <= 240:
+         raise ValueError("名称或别名必须为 1 到 240 个字符")
+     return normalized
+--- /dev/null
++++ after/backend/app/services/geo_catalog_queries.py
+@@ -0,0 +1,222 @@
++"""Catalog 当前聚合读模型；同一快照批量加载身份、字典及直接引用。"""
++
++from collections import defaultdict
++from collections.abc import Sequence
++from typing import Literal
++from uuid import UUID
++
++from sqlalchemy import any_, case, cast, func, or_, select
++from sqlalchemy.dialects.postgresql import ARRAY
++from sqlalchemy.dialects.postgresql import UUID as PgUUID
++from sqlalchemy.orm import Session
++
++from app.deps import DbSession
++from app.errors import AppError, not_found
++from app.models.geo_catalog import GeoSubject, GeoSubjectAlias, GeoSubjectDomain
++from app.models.product_facts import Product
++from app.schemas.common import AccountType
++from app.schemas.geo_catalog import GeoSubjectListPage, GeoSubjectOut, GeoSubjectType
++from app.services.geo_catalog_normalization import catalog_search_key, catalog_text_key
++from app.services.geo_catalog_policy import SubjectReferenceCounts
++from app.services.geo_subjects import subject_out
++
++
++def read_snapshot(db: DbSession) -> None:
++    """FastAPI 在认证查询前调用；事务及读取快照由服务层拥有。"""
++    # 认证更新 last_seen_at；纯读快照不能 autoflush 它而产生会话写锁/序列化故障。
++    db.autoflush = False
++    db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
++
++
++def subject_references(db: Session, ids: Sequence[UUID]) -> dict[UUID, SubjectReferenceCounts]:
++    children = (
++        dict(
++            db.execute(
++                select(
++                    GeoSubject.parent_subject_id,
++                    func.count(GeoSubject.id),
++                )
++                .where(GeoSubject.parent_subject_id.in_(ids))
++                .group_by(
++                    GeoSubject.parent_subject_id,
++                )
++            )
++            .tuples()
++            .all()
++        )
++        if ids
++        else {}
++    )
++    # 0044 只有子 Subject 引用域；后续真实域必须连同 RESTRICT FK/锁接入此 owner。
++    return {
++        key: SubjectReferenceCounts(
++            child_subject_count=int(children.get(key, 0)),
++            monitoring_plan_count=0,
++            observation_run_count=0,
++            analysis_count=0,
++            opportunity_count=0,
++        )
++        for key in ids
++    }
++
++
++def subjects_out(
++    db: Session,
++    subjects: Sequence[GeoSubject],
++    *,
++    actor_type: AccountType,
++) -> list[GeoSubjectOut]:
++    if not subjects:
++        return []
++    ids = [item.id for item in subjects]
++    products = {
++        item.id: item
++        for item in db.scalars(
++            select(Product)
++            .where(
++                Product.id.in_(
++                    [item.product_id for item in subjects if item.product_id is not None]
++                )
++            )
++            .execution_options(populate_existing=True)
++        )
++    }
++    parents = {
++        item.id: item
++        for item in db.scalars(
++            select(GeoSubject)
++            .where(
++                GeoSubject.id.in_(
++                    [
++                        item.parent_subject_id
++                        for item in subjects
++                        if item.parent_subject_id is not None
++                    ]
++                )
++            )
++            .execution_options(populate_existing=True)
++        )
++    }
++    aliases: dict[UUID, list[GeoSubjectAlias]] = defaultdict(list)
++    domains: dict[UUID, list[GeoSubjectDomain]] = defaultdict(list)
++    for alias in db.scalars(
++        select(GeoSubjectAlias)
++        .where(GeoSubjectAlias.subject_id.in_(ids))
++        .order_by(GeoSubjectAlias.created_at, GeoSubjectAlias.id)
++        .execution_options(populate_existing=True)
++    ):
++        aliases[alias.subject_id].append(alias)
++    for domain in db.scalars(
++        select(GeoSubjectDomain)
++        .where(GeoSubjectDomain.subject_id.in_(ids))
++        .order_by(GeoSubjectDomain.created_at, GeoSubjectDomain.id)
++        .execution_options(populate_existing=True)
++    ):
++        domains[domain.subject_id].append(domain)
++    references = subject_references(db, ids)
++    return [
++        subject_out(
++            item,
++            actor_type=actor_type,
++            product=products.get(item.product_id) if item.product_id else None,
++            parent=parents.get(item.parent_subject_id) if item.parent_subject_id else None,
++            aliases=aliases[item.id],
++            domains=domains[item.id],
++            references=references[item.id],
++        )
++        for item in subjects
++    ]
++
++
++def get_subject(db: Session, subject_id: UUID, *, actor_type: AccountType) -> GeoSubjectOut:
++    subject = db.get(GeoSubject, subject_id, populate_existing=True)
++    if subject is None:
++        raise not_found("监测对象")
++    return subjects_out(db, [subject], actor_type=actor_type)[0]
++
++
++def list_subjects(
++    db: Session,
++    *,
++    actor_type: AccountType,
++    q: str | None = None,
++    subject_type: GeoSubjectType | None = None,
++    product_id: UUID | None = None,
++    parent_subject_id: UUID | None = None,
++    is_active: bool | None = None,
++    sort: Literal["NAME_ASC", "UPDATED_DESC"] = "NAME_ASC",
++    page: int = 1,
++    page_size: Literal[10, 20, 50] = 20,
++) -> GeoSubjectListPage:
++    query = select(GeoSubject).outerjoin(Product, Product.id == GeoSubject.product_id)
++    for column, value in (
++        (GeoSubject.subject_type, subject_type),
++        (GeoSubject.product_id, product_id),
++        (GeoSubject.parent_subject_id, parent_subject_id),
++        (GeoSubject.is_active, is_active),
++    ):
++        if value is not None:
++            query = query.where(column == value)
++    if q is not None and q.strip():
++        try:
++            needle = catalog_text_key(q)
++        except ValueError as error:
++            raise AppError("VALIDATION_ERROR", "搜索词规范化后超出长度限制", 422) from error
++        # PostgreSQL 16 lower 不等于 Unicode casefold。按已有过滤在同一快照
++        # 批量读取当前名称，复用字典规范化；不复制 Product 身份到 Catalog。
++        matching_ids = [
++            row.id
++            for row in db.execute(
++                query.with_only_columns(
++                    GeoSubject.id, GeoSubject.display_name, Product.part_number, Product.brand
++                )
++            ).yield_per(500)
++            if any(
++                needle in catalog_search_key(value)
++                for value in (row.display_name, row.part_number, row.brand)
++                if value is not None
++            )
++        ]
++        alias_match = (
++            select(GeoSubjectAlias.id)
++            .where(
++                GeoSubjectAlias.subject_id == GeoSubject.id,
++                GeoSubjectAlias.normalized_alias.contains(needle, autoescape=True),
++            )
++            .exists()
++        )
++        query = query.where(
++            or_(
++                GeoSubject.normalized_name.contains(needle, autoescape=True),
++                # ARRAY 单一绑定参数，避免匹配 ID 多时超过 PostgreSQL 参数上限。
++                GeoSubject.id == any_(cast(matching_ids, ARRAY(PgUUID(as_uuid=True)))),
++                alias_match,
++            )
++        )
++    total = db.scalar(select(func.count()).select_from(query.subquery()))
++    name = case(
++        (GeoSubject.subject_type == "OWN_PRODUCT", func.lower(Product.part_number)),
++        else_=GeoSubject.normalized_name,
++    )
++    query = (
++        query.order_by(name, GeoSubject.id)
++        if sort == "NAME_ASC"
++        else query.order_by(
++            GeoSubject.updated_at.desc(),
++            GeoSubject.id.desc(),
++        )
++    )
++    rows = list(
++        db.scalars(
++            query.offset((page - 1) * page_size)
++            .limit(page_size)
++            .execution_options(populate_existing=True)
++        )
++    )
++    assert total is not None
++    return GeoSubjectListPage(
++        items=subjects_out(db, rows, actor_type=actor_type),
++        page=page,
++        page_size=page_size,
++        total=total,
++    )
+--- before/backend/app/services/identity.py
++++ after/backend/app/services/identity.py
+@@ -22,6 +22,7 @@
+ from app.models.ai_generation import AIChannel, AIModel, GenerationJob
+ from app.models.configuration import ContentHumanizationPrompt, PlatformPrompt, PlatformType
+ from app.models.content import ContentReviewRecord, ContentTask, ContentVersion
++from app.models.geo_catalog import GeoSubject
+ from app.models.geo_files import FileRecord, GeoObservation
+ from app.models.identity import (
+     SessionRecord,
+@@ -88,6 +89,7 @@
+         ContentVersion.created_by,
+         ContentReviewRecord.actor_id,
+         GeoObservation.tested_by,
++        GeoSubject.created_by,
+         FileRecord.uploader_id,
+         FactVersion.created_by,
+         FactVersion.approved_by,
+--- before/backend/app/services/product_facts.py
++++ after/backend/app/services/product_facts.py
+@@ -14,6 +14,7 @@
+ from app.audit_types import AuditEntry, AuditModule, AuditOutcome
+ from app.errors import AppError, in_use, not_found
+ from app.models.content import ContentTask, ContentVersion
++from app.models.geo_catalog import GeoSubject
+ from app.models.geo_files import GeoObservation
+ from app.models.identity import User
+ from app.models.product_facts import (
+@@ -140,6 +141,10 @@
+             GeoObservation.product_id.label("resource_id"),
+             literal("GEO_OBSERVATION").label("blocker_type"),
+         ).where(GeoObservation.product_id.in_(product_ids)),
++        select(
++            GeoSubject.product_id.label("resource_id"),
++            literal("GEO_SUBJECT").label("blocker_type"),
++        ).where(GeoSubject.product_id.in_(product_ids)),
+     ).subquery()
+     reference_counts = {
+         (resource_id, blocker_type): int(count)
+@@ -181,7 +186,7 @@
+     for product in products:
+         blockers = [
+             {"type": blocker_type, "count": count}
+-            for blocker_type in ("FACT_VERSION", "CONTENT_TASK", "GEO_OBSERVATION")
++            for blocker_type in ("FACT_VERSION", "CONTENT_TASK", "GEO_OBSERVATION", "GEO_SUBJECT")
+             if (count := reference_counts.get((product.id, blocker_type), 0))
+         ]
+         actions = ["UPDATE"]
+@@ -547,6 +552,11 @@
+                 or 0
+             ),
+         ),
++        (
++            "GEO_SUBJECT", "GEO 监测对象",
++            db.execute(select(func.count()).select_from(GeoSubject)
++                       .where(GeoSubject.product_id == product.id)).scalar_one(),
++        ),
+     ]
+     if any(count for _, _, count in references):
+         raise in_use("PRODUCT_IN_USE", "产品", references)
+--- /dev/null
++++ after/backend/tests/integration/geo_catalog_support.py
+@@ -0,0 +1,161 @@
++"""GEO-104 隔离 PostgreSQL、真实会话及有界并发测试支持。"""
++
++from collections.abc import Iterator
++from dataclasses import dataclass
++from datetime import UTC, datetime, timedelta
++from uuid import UUID, uuid4
++
++import pytest
++from fastapi.testclient import TestClient
++from sqlalchemy import Engine, create_engine, text
++from sqlalchemy.orm import Session, sessionmaker
++
++from app.config import settings
++from app.db import get_db
++from app.main import app
++from app.models.geo_catalog import GeoSubject
++from app.models.identity import SessionRecord, User
++from app.models.product_facts import Product
++from app.security import hash_token
++from tests.integration.test_migrations import run_alembic, temporary_database
++
++PREFIX = "/api/v1/geo/subjects"
++CSRF = "geo104-fake-csrf-token-at-least-32-bytes"
++
++
++@dataclass
++class CatalogAPI:
++    engine: Engine
++    factory: sessionmaker[Session]
++    admin_id: UUID
++    engineer_id: UUID
++    product_id: UUID
++    admin: TestClient
++    engineer: TestClient
++
++    def create(self, **values: object) -> dict:
++        response = self.admin.post(
++            PREFIX,
++            json={
++                "subject_type": "COMPETITOR_PRODUCT",
++                "canonical_name": "虚构 CP-104",
++                "display_name": "虚构竞品",
++                **values,
++            },
++        )
++        assert response.status_code == 201, response.text
++        return response.json()
++
++
++@pytest.fixture(scope="module")
++def catalog_engine() -> Iterator[Engine]:
++    with temporary_database("partsignal_geo104") as (url, env, backend_dir):
++        run_alembic(env, backend_dir, "head")
++        engine = create_engine(url.replace("postgresql://", "postgresql+psycopg://", 1))
++        try:
++            yield engine
++        finally:
++            engine.dispose()
++
++
++@pytest.fixture
++def catalog_api(catalog_engine: Engine) -> Iterator[CatalogAPI]:
++    factory = sessionmaker(bind=catalog_engine, expire_on_commit=False)
++    with factory() as db:
++        # 清理仅发生在本套件创建的隔离数据库；保留追加式审计。
++        db.execute(text("DELETE FROM geo_subjects WHERE parent_subject_id IS NOT NULL"))
++        db.execute(text("DELETE FROM geo_subjects"))
++        db.execute(text("DELETE FROM products"))
++        admin = User(
++            username=f"admin-{uuid4().hex}",
++            display_name="虚构管理员",
++            password_hash="unused",
++            account_type="ADMIN",
++            is_active=True,
++            must_change_password=False,
++            revision=0,
++        )
++        engineer = User(
++            username=f"engineer-{uuid4().hex}",
++            display_name="虚构工程师",
++            password_hash="unused",
++            account_type="ENGINEER",
++            is_active=True,
++            must_change_password=False,
++            revision=0,
++        )
++        product = Product(
++            part_number="PS-104",
++            normalized_part_number="ps104",
++            brand="虚构品牌",
++            normalized_brand="虚构品牌",
++            category="虚构类别",
++            status="ACTIVE",
++        )
++        db.add_all([admin, engineer, product])
++        db.flush()
++        tokens = [f"geo104-session-{user.id}" for user in (admin, engineer)]
++        for user, token in zip((admin, engineer), tokens, strict=True):
++            db.add(
++                SessionRecord(
++                    user_id=user.id,
++                    token_hash=hash_token(token),
++                    csrf_hash=hash_token(CSRF),
++                    expires_at=datetime.now(UTC) + timedelta(hours=1),
++                )
++            )
++        db.commit()
++        ids = admin.id, engineer.id, product.id
++
++    def request_db() -> Iterator[Session]:
++        with factory() as db:
++            try:
++                yield db
++            except Exception:
++                db.rollback()
++                raise
++
++    app.dependency_overrides[get_db] = request_db
++    try:
++        with (
++            TestClient(app) as admin_client,
++            TestClient(app) as engineer_client,
++        ):
++            for client, token in zip((admin_client, engineer_client), tokens, strict=True):
++                client.cookies.set(settings.session_cookie_name, token)
++                client.headers["X-CSRF-Token"] = CSRF
++            yield CatalogAPI(catalog_engine, factory, *ids, admin_client, engineer_client)
++    finally:
++        app.dependency_overrides.pop(get_db, None)
++
++
++def actor(db: Session, api: CatalogAPI) -> User:
++    user = db.get(User, api.admin_id)
++    assert user is not None
++    return user
++
++
++def subject(db: Session, subject_id: str) -> GeoSubject:
++    value = db.get(GeoSubject, UUID(subject_id), populate_existing=True)
++    assert value is not None
++    return value
++
++
++def catalog_state(api: CatalogAPI, subject_id: str) -> tuple:
++    """失败原子性：完整聚合与其成功审计的数据库快照。"""
++    with api.factory() as db:
++        return tuple(
++            db.execute(
++                text(
++                    "SELECT to_jsonb(s), "
++                    "(SELECT jsonb_agg(to_jsonb(a) ORDER BY a.id) FROM geo_subject_aliases a "
++                    "WHERE a.subject_id=s.id), "
++                    "(SELECT jsonb_agg(to_jsonb(d) ORDER BY d.id) FROM geo_subject_domains d "
++                    "WHERE d.subject_id=s.id), "
++                    "(SELECT jsonb_agg(to_jsonb(l) ORDER BY l.id) FROM audit_logs l "
++                    "WHERE l.target_id=CAST(s.id AS text)) "
++                    "FROM geo_subjects s WHERE s.id=:id"
++                ),
++                {"id": subject_id},
++            ).one()
++        )
+--- /dev/null
++++ after/backend/tests/integration/test_geo_catalog_api.py
+@@ -0,0 +1,402 @@
++"""GEO-104 HTTP/应用服务合同：CRUD、权限、版本、引用及原子审计。"""
++
++import uuid
++from typing import Any
++
++import pytest
++from sqlalchemy import select, text
++
++from app.errors import AppError
++from app.models.geo_catalog import GeoSubject
++from app.models.identity import AuditLog, User
++from app.services.identity import delete_user, users_out
++from tests.integration.geo_catalog_support import (
++    PREFIX,
++    CatalogAPI,
++    actor,
++    catalog_state,
++)
++from tests.integration.geo_catalog_support import (
++    catalog_api as catalog_api,
++)
++from tests.integration.geo_catalog_support import (
++    catalog_engine as catalog_engine,
++)
++
++pytestmark = pytest.mark.integration
++
++
++def error(response: Any, status: int, code: str) -> dict:
++    assert response.status_code == status, response.text
++    payload = response.json()["error"]
++    assert payload["code"] == code
++    assert payload["request_id"] == response.headers["X-Request-ID"]
++    return payload["details"]
++
++
++def test_subject_children_revision_noop_and_audit(catalog_api: CatalogAPI) -> None:
++    api = catalog_api
++    row = api.create(canonical_name="  ＣＰ-104  ")
++    sid = row["id"]
++    assert row["canonical_name"] == "CP-104" and row["revision"] == 0
++    before = catalog_state(api, sid)
++    same = api.admin.patch(
++        f"{PREFIX}/{sid}",
++        json={
++            "subject_type": row["subject_type"],
++            "expected_revision": 0,
++            "description": "",
++        },
++    )
++    assert same.status_code == 200 and same.json()["revision"] == 0
++    assert catalog_state(api, sid) == before
++    alias = api.admin.post(
++        f"{PREFIX}/{sid}/aliases",
++        json={
++            "expected_revision": 0,
++            "alias": " ＣＰ-104  ",
++            "alias_kind": "PART_NUMBER",
++            "language_code": "ZH-Hans",
++        },
++    ).json()
++    assert alias["revision"] == 1
++    child = alias["aliases"][0]
++    assert (child["alias"], child["normalized_alias"], child["language_code"]) == (
++        "CP-104",
++        "cp-104",
++        "zh-hans",
++    )
++    changed = api.admin.patch(
++        f"{PREFIX}/{sid}/aliases/{child['id']}",
++        json={
++            "expected_revision": 1,
++            "is_active": False,
++            "language_code": None,
++        },
++    ).json()
++    assert changed["revision"] == 2 and changed["aliases"][0]["language_code"] is None
++    assert changed["aliases"][0]["alias"] == child["alias"]
++    before = catalog_state(api, sid)
++    conflict = api.admin.post(
++        f"{PREFIX}/{sid}/aliases",
++        json={
++            "expected_revision": 2,
++            "alias": "cp-104",
++            "alias_kind": "NAME",
++        },
++    )
++    details = error(conflict, 409, "GEO_SUBJECT_ALIAS_EXISTS")
++    assert details["errors"][0]["loc"] == ["body", "alias"]
++    assert catalog_state(api, sid) == before
++    domain = api.admin.post(
++        f"{PREFIX}/{sid}/domains",
++        json={
++            "expected_revision": 2,
++            "hostname": "BÜCHER.example",
++            "relation_type": "OFFICIAL",
++        },
++    ).json()
++    assert domain["revision"] == 3
++    assert domain["domains"][0]["hostname"] == "xn--bcher-kva.example"
++    before = catalog_state(api, sid)
++    duplicate = api.admin.post(
++        f"{PREFIX}/{sid}/domains",
++        json={
++            "expected_revision": 3,
++            "hostname": "xn--bcher-kva.example",
++            "relation_type": "OTHER",
++        },
++    )
++    error(duplicate, 409, "GEO_SUBJECT_DOMAIN_EXISTS")
++    assert catalog_state(api, sid) == before
++    removed = api.admin.delete(
++        f"{PREFIX}/{sid}/aliases/{child['id']}?expected_revision=3",
++    ).json()
++    assert removed["revision"] == 4 and removed["aliases"] == []
++    removed = api.admin.delete(
++        f"{PREFIX}/{sid}/domains/{domain['domains'][0]['id']}?expected_revision=4",
++    ).json()
++    assert removed["revision"] == 5 and removed["domains"] == []
++    disabled = api.admin.post(f"{PREFIX}/{sid}/disable", json={"expected_revision": 5}).json()
++    assert disabled["revision"] == 6 and disabled["workflow_stage"] == "DISABLED"
++    before = catalog_state(api, sid)
++    assert (
++        api.admin.post(f"{PREFIX}/{sid}/disable", json={"expected_revision": 6}).status_code == 200
++    )
++    assert catalog_state(api, sid) == before
++    error(
++        api.admin.post(f"{PREFIX}/{sid}/disable", json={"expected_revision": 5}),
++        409,
++        "REVISION_CONFLICT",
++    )
++    enabled = api.admin.post(f"{PREFIX}/{sid}/enable", json={"expected_revision": 6}).json()
++    assert enabled["revision"] == 7 and enabled["workflow_stage"] == "ACTIVE"
++    assert api.admin.delete(f"{PREFIX}/{sid}?expected_revision=7").status_code == 204
++    error(api.admin.get(f"{PREFIX}/{sid}"), 404, "NOT_FOUND")
++    with api.factory() as db:
++        logs = list(db.scalars(select(AuditLog).where(AuditLog.target_id == sid)))
++        assert len(logs) == 9
++        assert {item.action for item in logs} == {
++            "geo_subject.created",
++            "geo_subject.disabled",
++            "geo_subject.enabled",
++            "geo_subject.deleted",
++            "geo_subject_alias.created",
++            "geo_subject_alias.updated",
++            "geo_subject_alias.deleted",
++            "geo_subject_domain.created",
++            "geo_subject_domain.deleted",
++        }
++        assert all(set(item.details["facts"]) == {"revision", "is_active"} for item in logs)
++        assert all(item.outcome == "SUCCESS" for item in logs)
++
++
++def test_parent_references_and_current_product_identity(catalog_api: CatalogAPI) -> None:
++    api = catalog_api
++    brand = api.create(subject_type="OWN_BRAND")
++    response = api.admin.post(
++        PREFIX,
++        json={
++            "subject_type": "OWN_PRODUCT",
++            "product_id": str(api.product_id),
++            "parent_subject_id": brand["id"],
++        },
++    )
++    assert response.status_code == 201
++    row = response.json()
++    assert row["canonical_name"] == "PS-104" and row["product"]["revision"] == 0
++    sid = row["id"]
++    parent = api.admin.get(f"{PREFIX}/{brand['id']}").json()
++    assert parent["references"]["child_subject_count"] == 1
++    assert parent["deletion"]["blockers"] == [{"type": "CHILD_SUBJECT", "count": 1}]
++    assert "DELETE" not in parent["available_actions"]
++    error(
++        api.admin.delete(f"{PREFIX}/{brand['id']}?expected_revision=0"), 409, "GEO_SUBJECT_IN_USE"
++    )
++    assert (
++        api.admin.post(f"{PREFIX}/{brand['id']}/disable", json={"expected_revision": 0}).status_code
++        == 200
++    )
++    assert api.admin.get(f"{PREFIX}/{sid}").json()["is_active"]
++    with api.factory() as db:
++        db.execute(
++            text(
++                "UPDATE products SET part_number='PS-104B', brand='新虚构品牌', "
++                "revision=revision+1 WHERE id=:id"
++            ),
++            {"id": api.product_id},
++        )
++        db.commit()
++    current = api.engineer.get(f"{PREFIX}/{sid}").json()
++    assert (
++        current["canonical_name"] == "PS-104B" and current["display_name"] == "新虚构品牌 PS-104B"
++    )
++    assert current["product"]["revision"] == 1 and current["revision"] == 0
++    assert current["available_actions"] == [] and current["deletion"] is None
++    duplicate = api.admin.post(
++        PREFIX, json={"subject_type": "OWN_PRODUCT", "product_id": str(api.product_id)}
++    )
++    error(duplicate, 409, "GEO_SUBJECT_PRODUCT_EXISTS")
++    assert (
++        api.admin.post(f"{PREFIX}/{sid}/disable", json={"expected_revision": 0}).status_code == 200
++    )
++    second = api.admin.post(
++        PREFIX, json={"subject_type": "OWN_PRODUCT", "product_id": str(api.product_id)}
++    )
++    assert second.status_code == 201
++    before = catalog_state(api, sid)
++    details = error(
++        api.admin.post(f"{PREFIX}/{sid}/enable", json={"expected_revision": 1}),
++        409,
++        "GEO_SUBJECT_PRODUCT_EXISTS",
++    )
++    assert details["subject_id"] == sid and details["product_id"] == str(api.product_id)
++    assert catalog_state(api, sid) == before
++    product = api.admin.get(f"/api/v1/products/{api.product_id}").json()
++    assert product["deletion"]["blockers"] == [{"type": "GEO_SUBJECT", "count": 2}]
++    error(
++        api.admin.delete(f"/api/v1/products/{api.product_id}?expected_revision=1"),
++        409,
++        "PRODUCT_IN_USE",
++    )
++    with api.factory() as db:
++        stored = db.execute(
++            text(
++                "SELECT canonical_name,normalized_name,display_name FROM geo_subjects WHERE id=:id"
++            ),
++            {"id": sid},
++        ).one()
++        assert tuple(stored) == (None, None, None)
++
++
++def test_alias_noop_cross_parent_and_parent_validation(catalog_api: CatalogAPI) -> None:
++    api = catalog_api
++    row = api.create()
++    other = api.create(subject_type="OWN_BRAND")
++    alias = api.admin.post(
++        f"{PREFIX}/{row['id']}/aliases",
++        json={
++            "expected_revision": 0,
++            "alias": "名称",
++            "alias_kind": "NAME",
++        },
++    ).json()["aliases"][0]
++    before = catalog_state(api, row["id"])
++    assert (
++        api.admin.patch(
++            f"{PREFIX}/{row['id']}/aliases/{alias['id']}",
++            json={
++                "expected_revision": 1,
++                "alias": "名称",
++            },
++        ).status_code
++        == 200
++    )
++    assert catalog_state(api, row["id"]) == before
++    error(
++        api.admin.delete(f"{PREFIX}/{other['id']}/aliases/{alias['id']}?expected_revision=0"),
++        404,
++        "NOT_FOUND",
++    )
++    error(
++        api.admin.patch(
++            f"{PREFIX}/{row['id']}",
++            json={
++                "subject_type": row["subject_type"],
++                "expected_revision": 1,
++                "parent_subject_id": other["id"],
++            },
++        ),
++        409,
++        "GEO_SUBJECT_PARENT_INVALID",
++    )
++    error(
++        api.admin.patch(
++            f"{PREFIX}/{row['id']}",
++            json={
++                "subject_type": row["subject_type"],
++                "expected_revision": 0,
++                "parent_subject_id": other["id"],
++            },
++        ),
++        409,
++        "REVISION_CONFLICT",
++    )
++    error(
++        api.admin.patch(
++            f"{PREFIX}/{row['id']}",
++            json={
++                "subject_type": row["subject_type"],
++                "expected_revision": 1,
++                "parent_subject_id": str(uuid.uuid4()),
++            },
++        ),
++        404,
++        "NOT_FOUND",
++    )
++    assert catalog_state(api, row["id"]) == before
++
++
++WRITE_ROUTES = [
++    ("POST", "", {"subject_type": "REFERENCE_PART", "canonical_name": "X", "display_name": "X"}),
++    (
++        "PATCH",
++        "/{id}",
++        {"subject_type": "COMPETITOR_PRODUCT", "expected_revision": 0, "description": "X"},
++    ),
++    ("DELETE", "/{id}?expected_revision=0", None),
++    ("POST", "/{id}/enable", {"expected_revision": 0}),
++    ("POST", "/{id}/disable", {"expected_revision": 0}),
++    ("POST", "/{id}/aliases", {"expected_revision": 0, "alias": "X", "alias_kind": "NAME"}),
++    ("PATCH", "/{id}/aliases/{child}", {"expected_revision": 0, "alias": "X"}),
++    ("DELETE", "/{id}/aliases/{child}?expected_revision=0", None),
++    (
++        "POST",
++        "/{id}/domains",
++        {"expected_revision": 0, "hostname": "a.example", "relation_type": "OWNED"},
++    ),
++    ("DELETE", "/{id}/domains/{child}?expected_revision=0", None),
++]
++
++
++@pytest.mark.parametrize("method,path,payload", WRITE_ROUTES)
++def test_all_writes_require_admin_and_csrf(
++    catalog_api: CatalogAPI,
++    method: str,
++    path: str,
++    payload: dict | None,
++) -> None:
++    api = catalog_api
++    row = api.create()
++    before = catalog_state(api, row["id"])
++    url = PREFIX + path.format(id=row["id"], child=uuid.uuid4())
++    error(api.engineer.request(method, url, json=payload), 403, "PERMISSION_DENIED")
++    api.admin.headers["X-CSRF-Token"] = "x" * 32
++    error(api.admin.request(method, url, json=payload), 403, "CSRF_INVALID")
++    del api.admin.headers["X-CSRF-Token"]
++    error(api.admin.request(method, url, json=payload), 422, "VALIDATION_ERROR")
++    assert catalog_state(api, row["id"]) == before
++
++
++@pytest.mark.parametrize("path", ["", "/{id}"])
++def test_reads_require_session(catalog_api: CatalogAPI, path: str) -> None:
++    api = catalog_api
++    row = api.create()
++    api.admin.cookies.clear()
++    error(api.admin.get(PREFIX + path.format(id=row["id"])), 401, "AUTH_REQUIRED")
++
++
++def test_list_filters_pagination_literal_search_and_sort(catalog_api: CatalogAPI) -> None:
++    api = catalog_api
++    for index in range(12):
++        api.create(canonical_name=f"CP-{index:02}", display_name=f"虚构 {index:02}")
++    wildcard = api.create(subject_type="REFERENCE_PART", canonical_name="CP-%_")
++    rows = api.engineer.get(
++        PREFIX, params={"page_size": 10, "page": 2, "subject_type": "COMPETITOR_PRODUCT"}
++    ).json()
++    assert rows["total"] == 12 and len(rows["items"]) == 2
++    assert [item["canonical_name"] for item in rows["items"]] == ["CP-10", "CP-11"]
++    exact = api.admin.get(PREFIX, params={"q": "%_"}).json()
++    assert exact["total"] == 1 and exact["items"][0]["id"] == wildcard["id"]
++    assert api.admin.get(PREFIX, params={"page": 9}).json()["items"] == []
++    error(api.admin.get(PREFIX, params={"page_size": 100}), 422, "VALIDATION_ERROR")
++    error(api.admin.get(PREFIX, params={"sort": "UNKNOWN"}), 422, "VALIDATION_ERROR")
++
++
++def test_user_creator_reference_blocks_deletion(catalog_api: CatalogAPI) -> None:
++    api = catalog_api
++    with api.factory() as db:
++        acting = actor(db, api)
++        creator = User(
++            username=f"creator-{uuid.uuid4().hex}",
++            display_name="虚构创建者",
++            password_hash="unused",
++            account_type="ADMIN",
++            is_active=False,
++            must_change_password=False,
++            revision=0,
++        )
++        db.add(creator)
++        db.flush()
++        db.add(
++            GeoSubject(
++                subject_type="REFERENCE_PART",
++                canonical_name="CP-X",
++                normalized_name="cp-x",
++                display_name="虚构参考型号",
++                created_by=creator.id,
++            )
++        )
++        db.commit()
++        projected = users_out(db, [creator], actor=acting)[0]
++        assert projected.deletion is not None and projected.deletion.blockers
++        with pytest.raises(AppError, match="仍被") as rejected:
++            delete_user(
++                db=db,
++                user_id=creator.id,
++                expected_revision=creator.revision,
++                actor=acting,
++                request_id="geo104-user-delete",
++            )
++        assert rejected.value.code == "USER_IN_USE"
++        db.rollback()
+--- /dev/null
++++ after/backend/tests/integration/test_geo_catalog_concurrency.py
+@@ -0,0 +1,242 @@
++"""GEO-104 多 Session 锁交错；等待以 PostgreSQL 阻塞事实而非猜测时长为准。"""
++
++from collections.abc import Callable
++from concurrent.futures import Future, ThreadPoolExecutor
++from queue import Queue
++from time import monotonic, sleep
++from uuid import UUID
++
++import pytest
++from sqlalchemy import select, text
++from sqlalchemy.orm import Session
++
++from app.errors import AppError
++from app.models.geo_catalog import GeoSubject
++from app.schemas.geo_catalog import (
++    GeoNamedSubjectCreate,
++    GeoNamedSubjectUpdate,
++    GeoOwnProductSubjectCreate,
++    GeoSubjectAliasCreate,
++)
++from app.services import geo_catalog as commands
++from app.services.geo_catalog_locks import lock_brands, lock_product, lock_subject
++from app.services.geo_catalog_policy import SubjectReferenceCounts
++from tests.integration.geo_catalog_support import PREFIX, CatalogAPI, actor, catalog_state
++from tests.integration.geo_catalog_support import catalog_api as catalog_api
++from tests.integration.geo_catalog_support import catalog_engine as catalog_engine
++
++pytestmark = pytest.mark.integration
++
++
++def start(
++    pool: ThreadPoolExecutor, api: CatalogAPI, operation: Callable[[Session], object]
++) -> tuple[Future, int]:
++    ready: Queue[int] = Queue()
++
++    def execute() -> object:
++        with api.factory() as db:
++            db.execute(text("SET LOCAL statement_timeout = '8s'"))
++            ready.put(db.execute(text("SELECT pg_backend_pid()")).scalar_one())
++            try:
++                return operation(db)
++            except AppError as error:
++                return error
++
++    future = pool.submit(execute)
++    return future, ready.get(timeout=5)
++
++
++def wait_blocked(api: CatalogAPI, pid: int) -> None:
++    deadline = monotonic() + 5
++    with api.engine.connect() as connection:
++        while monotonic() < deadline:
++            if connection.execute(
++                text("SELECT cardinality(pg_blocking_pids(:pid)) > 0"), {"pid": pid}
++            ).scalar_one():
++                return
++            sleep(0.01)
++    pytest.fail("等待者未进入预期 PostgreSQL 行锁阻塞")
++
++
++def test_concurrent_own_product_create_has_one_winner(catalog_api: CatalogAPI) -> None:
++    api = catalog_api
++    payload = GeoOwnProductSubjectCreate(subject_type="OWN_PRODUCT", product_id=api.product_id)
++    with ThreadPoolExecutor(max_workers=1) as pool, api.factory() as first:
++        lock_product(first, api.product_id)
++        future, pid = start(
++            pool,
++            api,
++            lambda db: commands.create_subject(
++                db=db, payload=payload, actor=actor(db, api), request_id="geo104-waiter"
++            ),
++        )
++        wait_blocked(api, pid)
++        winner = commands.create_subject(
++            db=first, payload=payload, actor=actor(first, api), request_id="geo104-winner"
++        )
++        loser = future.result(timeout=10)
++    assert isinstance(loser, AppError) and loser.code == "GEO_SUBJECT_PRODUCT_EXISTS"
++    with api.factory() as db:
++        assert list(
++            db.scalars(select(GeoSubject.id).where(GeoSubject.product_id == api.product_id))
++        ) == [winner.id]
++
++
++def test_concurrent_child_commands_compare_revision_after_lock(catalog_api: CatalogAPI) -> None:
++    api = catalog_api
++    row = api.create()
++    sid = UUID(row["id"])
++    payload = GeoSubjectAliasCreate(expected_revision=0, alias="并发别名", alias_kind="NAME")
++    with ThreadPoolExecutor(max_workers=1) as pool, api.factory() as first:
++        lock_subject(first, sid, 0)
++        future, pid = start(
++            pool,
++            api,
++            lambda db: commands.create_alias(
++                db=db,
++                subject_id=sid,
++                payload=payload,
++                actor=actor(db, api),
++                request_id="geo104-loser",
++            ),
++        )
++        wait_blocked(api, pid)
++        winner = commands.create_alias(
++            db=first,
++            subject_id=sid,
++            payload=payload,
++            actor=actor(first, api),
++            request_id="geo104-win",
++        )
++        loser = future.result(timeout=10)
++    assert winner.revision == 1
++    assert isinstance(loser, AppError) and loser.code == "REVISION_CONFLICT"
++    after = api.admin.get(f"{PREFIX}/{sid}").json()
++    assert after["revision"] == 1 and len(after["aliases"]) == 1
++
++
++@pytest.mark.parametrize("child_wins", [True, False])
++def test_brand_delete_and_child_create_share_parent_lock(
++    catalog_api: CatalogAPI, child_wins: bool
++) -> None:
++    api = catalog_api
++    brand = api.create(subject_type="COMPETITOR_BRAND")
++    bid = UUID(brand["id"])
++    payload = GeoNamedSubjectCreate(
++        subject_type="COMPETITOR_PRODUCT",
++        canonical_name="并发竞品",
++        display_name="并发竞品",
++        parent_subject_id=bid,
++    )
++
++    def create(db: Session):
++        return commands.create_subject(
++            db=db, payload=payload, actor=actor(db, api), request_id="geo104-child"
++        )
++
++    def delete(db: Session):
++        return commands.delete_subject(
++            db=db,
++            subject_id=bid,
++            expected_revision=0,
++            actor=actor(db, api),
++            request_id="geo104-parent-delete",
++        )
++
++    with ThreadPoolExecutor(max_workers=1) as pool, api.factory() as first:
++        lock_brands(first, {bid})
++        future, pid = start(pool, api, delete if child_wins else create)
++        wait_blocked(api, pid)
++        (create if child_wins else delete)(first)
++        result = future.result(timeout=10)
++    assert isinstance(result, AppError)
++    assert result.code == ("GEO_SUBJECT_IN_USE" if child_wins else "NOT_FOUND")
++    listing = api.admin.get(PREFIX).json()
++    assert listing["total"] == (2 if child_wins else 0)
++
++
++def test_parent_drift_while_waiting_is_rejected_even_if_revision_matches(
++    catalog_api: CatalogAPI,
++) -> None:
++    api = catalog_api
++    old = api.create(subject_type="COMPETITOR_BRAND")
++    new = api.create(subject_type="COMPETITOR_BRAND")
++    child = api.create(parent_subject_id=old["id"])
++    sid = UUID(child["id"])
++    with ThreadPoolExecutor(max_workers=1) as pool, api.factory() as first:
++        lock_brands(first, {UUID(old["id"])})
++        future, pid = start(
++            pool,
++            api,
++            lambda db: commands.set_subject_active(
++                db=db,
++                subject_id=sid,
++                expected_revision=1,
++                is_active=False,
++                actor=actor(db, api),
++                request_id="geo104-stale-lock-set",
++            ),
++        )
++        wait_blocked(api, pid)
++        commands.update_subject(
++            db=first,
++            subject_id=sid,
++            actor=actor(first, api),
++            request_id="geo104-reparent",
++            payload=GeoNamedSubjectUpdate(
++                subject_type="COMPETITOR_PRODUCT",
++                expected_revision=0,
++                parent_subject_id=UUID(new["id"]),
++            ),
++        )
++        result = future.result(timeout=10)
++    assert isinstance(result, AppError) and result.code == "REVISION_CONFLICT"
++    current = api.admin.get(f"{PREFIX}/{sid}").json()
++    assert current["is_active"] and current["parent_subject_id"] == new["id"]
++
++
++def test_partial_unique_constraint_is_final_guard_with_exact_field_mapping(
++    catalog_api: CatalogAPI, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    api = catalog_api
++    payload = GeoOwnProductSubjectCreate(subject_type="OWN_PRODUCT", product_id=api.product_id)
++    with api.factory() as db:
++        first = commands.create_subject(
++            db=db, actor=actor(db, api), payload=payload, request_id="geo104-first-identity"
++        )
++    before = catalog_state(api, str(first.id))
++    # 仅测试绕过友好预检查，证明真实 SQLSTATE/partial index 是最终裁决。
++    monkeypatch.setattr(commands, "_require_product_available", lambda *args: None)
++    with api.factory() as db, pytest.raises(AppError) as caught:
++        commands.create_subject(
++            db=db, actor=actor(db, api), payload=payload, request_id="geo104-duplicate-identity"
++        )
++    assert caught.value.code == "GEO_SUBJECT_PRODUCT_EXISTS"
++    assert caught.value.details["errors"][0]["loc"] == ["body", "product_id"]
++    assert catalog_state(api, str(first.id)) == before
++    assert api.admin.get(PREFIX).json()["total"] == 1
++
++
++def test_delete_fk_guard_is_precise_and_does_not_requery_failed_transaction(
++    catalog_api: CatalogAPI, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    api = catalog_api
++    brand = api.create(subject_type="COMPETITOR_BRAND")
++    api.create(parent_subject_id=brand["id"])
++    before = catalog_state(api, brand["id"])
++    # 模拟预检查之后出现引用；0044 的 RESTRICT FK 必须保留业务与审计。
++    monkeypatch.setattr(
++        commands,
++        "subject_references",
++        lambda db, ids: {key: SubjectReferenceCounts(0, 0, 0, 0, 0) for key in ids},
++    )
++    with api.factory() as db, pytest.raises(AppError) as caught:
++        commands.delete_subject(
++            db=db,
++            subject_id=UUID(brand["id"]),
++            expected_revision=0,
++            actor=actor(db, api),
++            request_id="geo104-fk-guard",
++        )
++    assert caught.value.code == "GEO_SUBJECT_IN_USE" and caught.value.details == {}
++    assert catalog_state(api, brand["id"]) == before
+--- /dev/null
++++ after/backend/tests/integration/test_geo_catalog_read_regressions.py
+@@ -0,0 +1,104 @@
++"""独立复核发现的真实认证并发与 Unicode 搜索反例。"""
++
++from concurrent.futures import ThreadPoolExecutor
++from threading import Event
++
++import pytest
++from sqlalchemy import event, text
++
++from tests.integration.geo_catalog_support import PREFIX, CatalogAPI
++from tests.integration.geo_catalog_support import catalog_api as catalog_api
++from tests.integration.geo_catalog_support import catalog_engine as catalog_engine
++
++pytestmark = pytest.mark.integration
++
++
++@pytest.mark.parametrize("path", ["", "/{id}"])
++def test_read_snapshot_does_not_flush_session_after_same_cookie_write(
++    catalog_api: CatalogAPI, path: str
++) -> None:
++    api = catalog_api
++    row = api.create()
++    paused, release = Event(), Event()
++    reader_connection = None
++    reader_updates: list[str] = []
++
++    def pause_reader(connection, cursor, statement, parameters, context, many):
++        nonlocal reader_connection
++        if "FROM sessions" in statement and not paused.is_set():
++            reader_connection = connection
++            paused.set()
++            assert release.wait(timeout=10)
++
++    def record_updates(connection, cursor, statement, parameters, context, many):
++        if connection is reader_connection and statement.lstrip().startswith("UPDATE sessions"):
++            reader_updates.append(statement)
++
++    event.listen(api.engine, "after_cursor_execute", pause_reader)
++    event.listen(api.engine, "before_cursor_execute", record_updates)
++    try:
++        with ThreadPoolExecutor(max_workers=1) as pool:
++            result = pool.submit(api.admin.get, PREFIX + path.format(id=row["id"]))
++            try:
++                assert paused.wait(timeout=5)
++                # 使用同一真实 Cookie 的命令提交 last_seen_at，而读取快照已建立。
++                api.create(canonical_name="并发的新对象")
++            finally:
++                release.set()
++            response = result.result(timeout=10)
++            assert response.status_code == 200
++            if path == "":
++                assert response.json()["total"] == 1
++            else:
++                assert response.json()["id"] == row["id"]
++    finally:
++        release.set()
++        event.remove(api.engine, "after_cursor_execute", pause_reader)
++        event.remove(api.engine, "before_cursor_execute", record_updates)
++    assert reader_updates == []
++
++
++@pytest.mark.parametrize(
++    ("field", "stored", "search"),
++    [
++        ("part_number", "ＰＳ-104-A", "ＰＳ-104-A"),
++        ("part_number", "ＰＳ-104-A", "ps-104-a"),
++        ("part_number", "Straße-104-A", "strasse-104-a"),
++        ("brand", "虚构 Straße", "STRASSE"),
++        ("brand", "ß" * 160, "ss"),
++    ],
++)
++def test_own_product_search_uses_current_unicode_identity(
++    catalog_api: CatalogAPI, field: str, stored: str, search: str
++) -> None:
++    api = catalog_api
++    with api.factory() as db:
++        # 列名来自封闭测试参数，值始终绑定；Product 可合法保留全角或展开字符。
++        db.execute(
++            text(f"UPDATE products SET {field}=:value WHERE id=:id"),
++            {"value": stored, "id": api.product_id},
++        )
++        db.commit()
++    response = api.admin.post(
++        PREFIX, json={"subject_type": "OWN_PRODUCT", "product_id": str(api.product_id)}
++    )
++    assert response.status_code == 201
++    sid = response.json()["id"]
++    result = api.admin.get(PREFIX, params={"q": search}).json()
++    assert result["total"] == 1 and result["items"][0]["id"] == sid
++    assert result["items"][0]["product"][field] == stored
++    if field == "part_number":
++        assert api.admin.get(PREFIX, params={"q": search.replace("-", "")}).json()["total"] == 0
++        assert (
++            api.admin.get(
++                PREFIX, params={"q": search.replace("-a", "-b").replace("-A", "-B")}
++            ).json()["total"]
++            == 0
++        )
++
++
++def test_display_name_search_uses_same_unicode_key(catalog_api: CatalogAPI) -> None:
++    api = catalog_api
++    row = api.create(canonical_name="一个不同型号", display_name="虚构 Straße-104")
++    result = api.admin.get(PREFIX, params={"q": "ＳＴＲＡＳＳＥ-104"}).json()
++    assert result["total"] == 1 and result["items"][0]["id"] == row["id"]
+--- /dev/null
++++ after/backend/tests/integration/test_geo_catalog_transactions.py
+@@ -0,0 +1,212 @@
++"""GEO-104 真实 PostgreSQL 失败原子性与一致读投影。"""
++
++from uuid import UUID
++
++import pytest
++from sqlalchemy import event, select, text
++from sqlalchemy.exc import IntegrityError
++
++from app.models.identity import AuditLog
++from app.schemas.geo_catalog import GeoNamedSubjectCreate, GeoNamedSubjectUpdate
++from app.services import geo_catalog as commands
++from app.services.audit_logs import get_audit_log
++from tests.integration.geo_catalog_support import PREFIX, CatalogAPI, actor, catalog_state
++from tests.integration.geo_catalog_support import catalog_api as catalog_api
++from tests.integration.geo_catalog_support import catalog_engine as catalog_engine
++
++pytestmark = pytest.mark.integration
++
++
++def test_patch_reparent_clear_and_immutable_type(catalog_api: CatalogAPI) -> None:
++    api = catalog_api
++    brand = api.create(subject_type="COMPETITOR_BRAND")
++    child = api.create()
++    changed = api.admin.patch(
++        f"{PREFIX}/{child['id']}",
++        json={
++            "subject_type": "COMPETITOR_PRODUCT",
++            "expected_revision": 0,
++            "canonical_name": "新的型号",
++            "parent_subject_id": brand["id"],
++        },
++    )
++    assert changed.status_code == 200
++    row = changed.json()
++    assert row["canonical_name"] == "新的型号" and row["revision"] == 1
++    assert row["parent"]["id"] == brand["id"] and row["description"] == ""
++    wrong = api.admin.patch(
++        f"{PREFIX}/{child['id']}",
++        json={
++            "subject_type": "OWN_PRODUCT",
++            "expected_revision": 1,
++            "parent_subject_id": child["id"],
++        },
++    )
++    assert wrong.status_code == 422
++    assert wrong.json()["error"]["details"]["errors"][0]["loc"] == ["body", "subject_type"]
++    clear = api.admin.patch(
++        f"{PREFIX}/{child['id']}",
++        json={
++            "subject_type": "COMPETITOR_PRODUCT",
++            "expected_revision": 1,
++            "parent_subject_id": None,
++            "description": "监测用途",
++        },
++    ).json()
++    assert clear["parent"] is None and clear["revision"] == 2
++    assert clear["canonical_name"] == "新的型号" and clear["description"] == "监测用途"
++    assert api.admin.get(f"{PREFIX}/{brand['id']}").json()["references"]["child_subject_count"] == 0
++
++
++def test_audit_failure_rolls_back_business_and_revision(
++    catalog_api: CatalogAPI, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    api = catalog_api
++    row = api.create()
++    before = catalog_state(api, row["id"])
++
++    def fail_audit(*args: object, **kwargs: object) -> None:
++        raise RuntimeError("test-only audit storage failure")
++
++    monkeypatch.setattr(commands, "append_audit", fail_audit)
++    with api.factory() as db, pytest.raises(RuntimeError, match="audit storage failure"):
++        commands.update_subject(
++            db=db,
++            actor=actor(db, api),
++            subject_id=UUID(row["id"]),
++            request_id="geo104-audit-fail",
++            payload=GeoNamedSubjectUpdate(
++                subject_type="COMPETITOR_PRODUCT", expected_revision=0, description="失败写入"
++            ),
++        )
++    assert catalog_state(api, row["id"]) == before
++
++
++def test_audit_constraint_failure_remains_unknown_and_atomic(
++    catalog_api: CatalogAPI, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    api = catalog_api
++    row = api.create()
++    before = catalog_state(api, row["id"])
++
++    def violate_audit(db, *args: object, **kwargs: object) -> None:
++        # 真实 FK 故障发生于审计阶段，不能按任何 Catalog 写约束重分类。
++        db.execute(
++            text(
++                "INSERT INTO audit_logs (id, action, target_type, details, "
++                "business_module, outcome, result_message, actor_id, request_id) "
++                "VALUES (gen_random_uuid(), 'geo_subject.updated', 'GeoSubject', '{}', "
++                "'CONFIGURATION', 'SUCCESS', '', gen_random_uuid(), 'geo104-fail')"
++            )
++        )
++
++    monkeypatch.setattr(commands, "append_audit", violate_audit)
++    with api.factory() as db, pytest.raises(IntegrityError) as caught:
++        commands.update_subject(
++            db=db,
++            actor=actor(db, api),
++            subject_id=UUID(row["id"]),
++            request_id="geo104-unknown",
++            payload=GeoNamedSubjectUpdate(
++                subject_type="COMPETITOR_PRODUCT", expected_revision=0, description="失败写入"
++            ),
++        )
++    assert caught.value.orig.sqlstate == "23503"
++    assert catalog_state(api, row["id"]) == before
++
++
++def test_commit_failure_rolls_back_instead_of_mapping_catalog_constraints(
++    catalog_api: CatalogAPI, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    api = catalog_api
++    row = api.create()
++    before = catalog_state(api, row["id"])
++    with api.factory() as db:
++        original = IntegrityError("test-only commit", {}, Exception("commit transport failure"))
++
++        def fail_commit() -> None:
++            raise original
++
++        monkeypatch.setattr(db, "commit", fail_commit)
++        with pytest.raises(IntegrityError) as caught:
++            commands.update_subject(
++                db=db,
++                actor=actor(db, api),
++                subject_id=UUID(row["id"]),
++                request_id="geo104-commit",
++                payload=GeoNamedSubjectUpdate(
++                    subject_type="COMPETITOR_PRODUCT", expected_revision=0, description="失败写入"
++                ),
++            )
++        assert caught.value is original
++    assert catalog_state(api, row["id"]) == before
++
++
++def test_list_uses_one_repeatable_snapshot(catalog_api: CatalogAPI) -> None:
++    api = catalog_api
++    row = api.create()
++    inserted = False
++
++    def insert_between_count_and_page(connection, cursor, statement, parameters, context, many):
++        nonlocal inserted
++        if not inserted and "count(*)" in statement and "geo_subjects" in statement:
++            inserted = True
++            with api.factory() as db:
++                commands.create_subject(
++                    db=db,
++                    actor=actor(db, api),
++                    request_id="geo104-between-queries",
++                    payload=GeoNamedSubjectCreate(
++                        subject_type="REFERENCE_PART",
++                        canonical_name="后来的型号",
++                        display_name="后来的型号",
++                    ),
++                )
++
++    event.listen(api.engine, "after_cursor_execute", insert_between_count_and_page)
++    try:
++        result = api.admin.get(PREFIX).json()
++    finally:
++        event.remove(api.engine, "after_cursor_execute", insert_between_count_and_page)
++    assert inserted and result["total"] == 1
++    assert [item["id"] for item in result["items"]] == [row["id"]]
++    assert api.admin.get(PREFIX).json()["total"] == 2
++
++
++def test_bulk_projection_query_cost_does_not_grow_with_subject_count(
++    catalog_api: CatalogAPI,
++) -> None:
++    api = catalog_api
++    api.create()
++    statements: list[str] = []
++
++    def record(connection, cursor, statement, parameters, context, many):
++        if statement.lstrip().upper().startswith("SELECT"):
++            statements.append(statement)
++
++    event.listen(api.engine, "before_cursor_execute", record)
++    try:
++        assert api.admin.get(PREFIX).json()["total"] == 1
++        single_cost = len(statements)
++        for index in range(12):
++            api.create(canonical_name=f"虚构型号{index}")
++        statements.clear()
++        assert len(api.admin.get(PREFIX).json()["items"]) == 13
++        assert len(statements) == single_cost
++    finally:
++        event.remove(api.engine, "before_cursor_execute", record)
++
++
++def test_catalog_audit_projection_and_deleted_tombstone(catalog_api: CatalogAPI) -> None:
++    api = catalog_api
++    row = api.create()
++    with api.factory() as db:
++        audit_id = db.scalars(select(AuditLog.id).where(AuditLog.target_id == row["id"])).one()
++        detail = get_audit_log(db, audit_id)
++        assert detail.related_entry.status == "AVAILABLE"
++        assert detail.related_entry.kind == "GeoSubject"
++        assert detail.facts == {"revision": 0, "is_active": True}
++    assert api.admin.delete(f"{PREFIX}/{row['id']}?expected_revision=0").status_code == 204
++    with api.factory() as db:
++        assert get_audit_log(db, audit_id).related_entry.status == "MISSING"
++        assert len(list(db.scalars(select(AuditLog).where(AuditLog.target_id == row["id"])))) == 2
+--- before/backend/tests/unit/test_contract.py
++++ after/backend/tests/unit/test_contract.py
+@@ -53,9 +53,9 @@
+     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+     document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+     operations = operation_map(document)
+-    assert len(operations) == 164
+-    assert len({operation["operationId"] for operation in operations.values()}) == 164
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1039
++    assert len(operations) == 176
++    assert len({operation["operationId"] for operation in operations.values()}) == 176
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1120
+ 
+     expected_parameter = {
+         "name": "X-Request-ID",
+@@ -144,6 +144,7 @@
+             "getContentTaskCreationOptions",
+             "listPlatformAccounts",
+             "getGeoMetrics",
++            "listGeoSubjects",
+         ),
+         ("201", "401", "403", "422"): (
+             "createQueryTopic",
+@@ -176,6 +177,7 @@
+             "compareContentVersions",
+             "listGeoObservationPublications",
+             "getFileRecord",
++            "getGeoSubject",
+         ),
+         ("200", "401", "403", "409", "422"): (
+             "putContentHumanizationPrompt",
+@@ -253,6 +255,14 @@
+             "getGeoInsights",
+             "abortFileUpload",
+             "getFileDownloadUrl",
++            "updateGeoSubject",
++            "enableGeoSubject",
++            "disableGeoSubject",
++            "createGeoSubjectAlias",
++            "updateGeoSubjectAlias",
++            "deleteGeoSubjectAlias",
++            "createGeoSubjectDomain",
++            "deleteGeoSubjectDomain",
+         ),
+         ("201", "401", "403", "404", "409", "422"): (
+             "submitProductFactReview",
+@@ -268,6 +278,7 @@
+             "createGeoObservation",
+             "createGeoOptimizationContentTask",
+             "createAIModel",
++            "createGeoSubject",
+         ),
+         ("201", "401", "403", "409", "422", "503"): (
+             "createPlatformLogoCandidate",
+@@ -294,6 +305,7 @@
+             "deletePlatformAccount",
+             "permanentlyDeletePublishedArticle",
+             "deleteGeoObservation",
++            "deleteGeoSubject",
+         ),
+         ("204", "401", "403", "404", "408", "409", "413", "422", "503"): (
+             "uploadFileContent",
+@@ -317,7 +329,7 @@
+         if isinstance(operation, dict) and "operationId" in operation
+     }
+ 
+-    assert len(expected) == 164
++    assert len(expected) == 176
+     assert set(operations) == set(expected)
+     for operation_id, operation in operations.items():
+         responses = operation["responses"]
+@@ -345,7 +357,7 @@
+         "getWorkbench",
+     }
+     assert len(validation_free) == 14
+-    assert sum("422" in statuses for statuses in expected.values()) == 150
++    assert sum("422" in statuses for statuses in expected.values()) == 162
+     assert {
+         operation_id for operation_id, statuses in expected.items() if "422" not in statuses
+     } == validation_free
+--- before/backend/tests/unit/test_geo_catalog_contract.py
++++ after/backend/tests/unit/test_geo_catalog_contract.py
+@@ -95,7 +95,8 @@
+             for nested in value:
+                 inspect(nested)
+ 
+-    inspect(document["x-geo-catalog-contract"])
++    inspect({path: item for path, item in document["paths"].items()
++             if path.startswith("/api/v1/geo/subjects")})
+     for name in names:
+         inspect(schemas[name])
+ 
+@@ -263,19 +264,15 @@
+         assert not valid(document, "GeoSubjectListPage", payload | patch)
+ 
+ 
+-def test_planned_operations_do_not_claim_runtime_and_preserve_security(
++def test_catalog_operations_are_active_and_preserve_security(
+     document: dict[str, Any],
+ ) -> None:
+-    catalog = document["x-geo-catalog-contract"]
+-    assert (catalog["status"], catalog["activation_task"]) == ("CONTRACT_ONLY", "GEO-104")
+-    operations = operation_map({"paths": catalog["paths"]})
++    assert "x-geo-catalog-contract" not in document
++    operations = {key: value for key, value in operation_map(document).items()
++                  if key[0].startswith("/api/v1/geo/subjects")}
+     assert len(operations) == 12
+     runtime = operation_map(document)
+-    assert set(runtime).isdisjoint(operations)
+-    assert (
+-        len({op["operationId"] for op in [*runtime.values(), *operations.values()]})
+-        == len(runtime) + 12
+-    )
++    assert len({op["operationId"] for op in runtime.values()}) == len(runtime)
+     domain_errors = set(document["components"]["schemas"]["GeoCatalogErrorCode"]["enum"])
+     seen_errors: set[str] = set()
+     for (path, method), op in operations.items():
+--- /dev/null
++++ after/backend/tests/unit/test_geo_catalog_errors.py
+@@ -0,0 +1,76 @@
++"""Catalog 约束错误的公共分类必须同时匹配 SQLSTATE 和约束名。"""
++
++from types import SimpleNamespace
++from unittest.mock import Mock
++from uuid import uuid4
++
++import pytest
++from sqlalchemy.exc import IntegrityError
++from sqlalchemy.orm import Session
++
++from app.errors import AppError
++from app.models.geo_catalog import GeoSubject
++from app.services import geo_catalog as catalog
++
++
++def database_error(state: str | None, constraint: str | None) -> IntegrityError:
++    original = Exception("uq_geo_subjects_active_own_product 23505")
++    original.sqlstate = state  # type: ignore[attr-defined]
++    original.diag = SimpleNamespace(constraint_name=constraint)  # type: ignore[attr-defined]
++    return IntegrityError("test-only SQL", {}, original)
++
++
++def invoke(kind: str, db: Session) -> None:
++    if kind in {"subject", "delete"}:
++        catalog._flush_subject(
++            db, GeoSubject(id=uuid4(), product_id=uuid4()), deleting=kind == "delete"
++        )
++    elif kind == "alias":
++        catalog._flush_alias(db)
++    else:
++        catalog._flush_domain(db)
++
++
++@pytest.mark.parametrize(
++    ("kind", "state", "constraint", "code"),
++    [
++        ("subject", "23505", "uq_geo_subjects_active_own_product", "GEO_SUBJECT_PRODUCT_EXISTS"),
++        ("subject", "23514", "ck_geo_subjects_parent_type", "GEO_SUBJECT_PARENT_INVALID"),
++        ("subject", "23514", "ck_geo_subjects_parent_not_self", "GEO_SUBJECT_PARENT_INVALID"),
++        ("delete", "23503", "fk_geo_subjects_parent_identity", "GEO_SUBJECT_IN_USE"),
++        ("alias", "23505", "uq_geo_subject_aliases_subject_normalized", "GEO_SUBJECT_ALIAS_EXISTS"),
++        ("domain", "23505", "uq_geo_subject_domains_subject_hostname", "GEO_SUBJECT_DOMAIN_EXISTS"),
++    ],
++)
++def test_exact_constraint_pair_maps_to_business_conflict(
++    kind: str, state: str, constraint: str, code: str
++) -> None:
++    db = Mock(spec=Session)
++    db.flush.side_effect = database_error(state, constraint)
++    with pytest.raises(AppError) as caught:
++        invoke(kind, db)
++    assert (caught.value.status_code, caught.value.code) == (409, code)
++
++
++@pytest.mark.parametrize(
++    ("kind", "state", "constraint"),
++    [
++        ("subject", "23503", "uq_geo_subjects_active_own_product"),
++        ("subject", "23505", "uq_unrelated"),
++        ("subject", None, "uq_geo_subjects_active_own_product"),
++        ("subject", "23505", None),
++        ("delete", "23505", "uq_geo_subjects_active_own_product"),
++        ("delete", "23503", "fk_unrelated"),
++        ("alias", "23514", "uq_geo_subject_aliases_subject_normalized"),
++        ("domain", "23505", "uq_geo_subject_aliases_subject_normalized"),
++    ],
++)
++def test_unknown_diagnostics_and_other_command_constraints_are_not_mapped(
++    kind: str, state: str | None, constraint: str | None
++) -> None:
++    original = database_error(state, constraint)
++    db = Mock(spec=Session)
++    db.flush.side_effect = original
++    with pytest.raises(IntegrityError) as caught:
++        invoke(kind, db)
++    assert caught.value is original
+--- before/backend/tests/unit/test_runtime_response_metadata.py
++++ after/backend/tests/unit/test_runtime_response_metadata.py
+@@ -644,9 +644,9 @@
+     runtime = app.openapi()
+     operations = _operation_map(runtime)
+ 
+-    assert len(operations) == 164
+-    assert len(set(operations)) == 164
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1039
++    assert len(operations) == 176
++    assert len(set(operations)) == 176
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1120
+     parameter_ref = {"$ref": "#/components/parameters/RequestIdHeader"}
+     header_ref = {"$ref": "#/components/headers/RequestIdResponseHeader"}
+     parameter_schema = {
+@@ -691,10 +691,10 @@
+     augmented = app.openapi()
+     stripped = _strip_request_context_metadata(augmented)
+ 
+-    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 875
++    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 944
+     assert sum(
+         len(operation["responses"]) for operation in _operation_map(stripped).values()
+-    ) == 875
++    ) == 944
+     assert compare_response_contracts(raw, stripped) == []
+     assert _operation_map(raw) == _operation_map(stripped)
+ 
+--- before/contracts/database.md
++++ after/contracts/database.md
+@@ -89,12 +89,12 @@
+ ### revision、锁、动作与删除
+ 
+ - Subject/Alias/Domain 是一个可变聚合。Subject 创建 revision=0；Subject PATCH/enable/disable、Alias create/update/delete、Domain create/delete 每次成功改变聚合后父 revision 恰好 +1、updated_at 更新，业务写入与最小成功审计同事务提交。子行无独立 revision；子命令的 expected_revision 是父版本。已处于目标 enable/disable 状态且 revision 当前时返回同一投影，不增版本、不重复成功审计；stale revision 始终先返回 REVISION_CONFLICT。PATCH 的有效字段值全部未变时同样无版本递增。
+-- 未来 Application Service 的统一锁序：涉及 OWN_PRODUCT 先锁 Product；品牌父级（旧、新，去重 UUID 升序）→目标 Subject（品牌目标也属于品牌锁阶段）→目标 Alias/Domain。读到的 parent/type 只用来确定锁集合，取得目标锁后复核 revision 和身份；发生变化拒绝，不自动重放。创建父子关系、品牌删除、子命令及将来新增业务引用必须遵守同一锁序。Router 不拥有事务/行锁/ORM 写入。
++- GEO-104 Application Service 的统一锁序：涉及 OWN_PRODUCT 先锁 Product；品牌父级（旧、新，去重 UUID 升序）→目标 Subject（品牌目标也属于品牌锁阶段）→目标 Alias/Domain。读到的 parent/type 只用来确定锁集合，取得目标锁后复核 revision 和身份；发生变化拒绝，不自动重放。创建父子关系、品牌删除、子命令及将来新增业务引用必须遵守同一锁序。Router 不拥有事务/行锁/ORM 写入。
+ - ADMIN 的 stage 为 ACTIVE/DISABLED，primary_task 分别为 MANAGE_SUBJECT/ENABLE_SUBJECT；UPDATE、CREATE_ALIAS、CREATE_DOMAIN 始终可尝试，按启停状态提供 DISABLE 或 ENABLE。ENGINEER 读取同一业务 stage，primary_task=MANAGE_SUBJECT（只读入口），所有资源及子资源 available_actions=[]、deletion=null。不从 primary_task 名称授予编辑权限。ADMIN 删除无直接引用时 deletion.blockers=[] 且有 DELETE；存在引用时去掉 DELETE 并返回非空正整数 blocker。无需为删除先停用未引用 Subject。子资源 ADMIN 动作为 Alias UPDATE/DELETE、Domain DELETE，不因历史运行而冻结当前字典。
+ - references 是当前直接引用的批量一致读取计数，不是持久化派生状态：CHILD_SUBJECT 对应 child_subject_count（含停用子级）；MONITORING_PLAN 对应 monitoring_plan_count（含暂停/归档计划）；OBSERVATION_RUN 对应 observation_run_count（所有引用过的运行，含失败/取消及历史）；ANALYSIS 对应 analysis_count（去重 analysis revision，不累计其中多条 mention/claim）；OPPORTUNITY 对应 opportunity_count（包括关闭机会）。每类独立去重，不跨类别相加作为总样本。未实施的引用域不存在对应行时计数为 0，不代表已实现该域查询能力。
+ - 所有新增对 Subject 的业务身份引用必须通过真实 RESTRICT FK/关系表及同一 Subject 行锁接入 deletion owner；不能仅在 JSON snapshot 中保存 UUID 后宣称没有历史引用。后续任务负责新增其实际引用查询、FK 和反例测试，本任务不定义这些域的表。已被历史引用的 Subject 永不物理删除，只停用；相关字典和父级变化只影响未来配置/快照，不更新既有 Run/Analysis/Review。
+ - Subject 删除只在持锁同事务重新统计上述直接引用后执行；仅 Alias/Domain 可随 Subject 聚合清理，绝不级联 Product、子 Subject、计划、运行、分析、机会或审计历史。Alias/Domain 单独删除只改变当前字典，历史消费者必须保存完整当时字典快照，不建立会阻止当前字典维护的历史子行 FK。
+-- Product 的删除服务/投影在 GEO-104 接线时必须增加 GEO Subject 直接引用（包含停用身份），FK RESTRICT 是最终防线。用户删除必须包含 created_by 业务引用。此处是后续接入义务；GEO-101 不改变既有 Product/User Schema、blocker enum、Service 或运行时行为。审计目标采用稳定 UUID 与受控摘要，删除后保留最小 tombstone，不因 target_id 标量记录而永久冻结无引用 Subject。
++- GEO-104 已将 GEO Subject 直接引用接入 Product 删除服务/投影（包含停用身份），公共 DeletionBlockerType 增加 GEO_SUBJECT，FK RESTRICT 是最终防线。用户删除包含 Subject.created_by 业务引用。审计目标采用稳定 UUID 与受控摘要，删除后保留最小 tombstone，不因 target_id 标量记录而永久冻结无引用 Subject。
+ 
+ ### HTTP 与精确错误映射
+ 
+@@ -113,7 +113,7 @@
+ 
+ ### 实施与恢复边界
+ 
+-GEO-101 只冻结合同。GEO-102 新增 `0044_geo_catalog`，仅添加三张表、约束、索引及身份守卫，不修改 0001～0043 或 migration_schema_v1，不回填或改写历史 Product/GEO 数据；迁移冻结自身 DDL，不导入运行时 ORM。隔离 PostgreSQL 16 的空库及含旧记录的 0043 前滚、metadata、直接 SQL 和唯一索引并发验证见 `.trellis/tasks/10-01-geo-102-catalog-orm/implement.md`。downgrade 以 SQLSTATE 55000 明确拒绝删除三表，保留 revision 和数据；恢复使用前滚修复或迁移前 PostgreSQL 备份。GEO-103 的请求/响应声明、Unicode/IDNA 规范化及领域/投影策略按本合同实现，没有新增 revision 或历史回填；实施与机器形状/实例验证见 `.trellis/tasks/10-01-geo-103-catalog-policy/implement.md`。入口保持关闭，CRUD/API/UI 尚未实施。
++GEO-101 只冻结合同。GEO-102 新增 `0044_geo_catalog`，仅添加三张表、约束、索引及身份守卫，不修改 0001～0043 或 migration_schema_v1，不回填或改写历史 Product/GEO 数据；迁移冻结自身 DDL，不导入运行时 ORM。隔离 PostgreSQL 16 的空库及含旧记录的 0043 前滚、metadata、直接 SQL 和唯一索引并发验证见 `.trellis/tasks/10-01-geo-102-catalog-orm/implement.md`。downgrade 以 SQLSTATE 55000 明确拒绝删除三表，保留 revision 和数据；恢复使用前滚修复或迁移前 PostgreSQL 备份。GEO-103 的请求/响应声明、Unicode/IDNA 规范化及领域/投影策略按本合同实现，没有新增 revision 或历史回填；实施与机器形状/实例验证见 `.trellis/tasks/10-01-geo-103-catalog-policy/implement.md`。GEO-104 已接线 12 个标准 OpenAPI 操作及 Catalog Application Service，拥有聚合锁、revision、精确映射和同事务成功审计。列表/详情由服务在认证读取前建立 REPEATABLE READ 并关闭 autoflush（认证 last_seen_at 不能在纯读快照中自动写入），请求内批量读取当前 Product、父级、字典及直接引用；未来尚不存在的四个引用域显式为零，不能据此声称已实现查询。审计登记十个 Catalog 成功动作，target_type=GeoSubject、target_id=稳定 Subject UUID；facts 仅 revision/is_active，不复制名称、描述、字典或产品事实。搜索在同一快照批量规范当前 Product/显示名称，与 q 统一 NFKC/Unicode 空白/casefold，不写身份副本；匹配 UUID 以单一 ARRAY 参数进入 SQL count/page。删除保留审计 tombstone。实施证据见 `.trellis/tasks/10-02-geo-104-catalog-api/implement.md`；无新 Alembic revision、历史回填或生产迁移。Catalog 页面由 GEO-105 实施。
+ 
+ ## Product Detail Read Projection
+ 
+--- before/contracts/openapi.yaml
++++ after/contracts/openapi.yaml
+@@ -19,767 +19,761 @@
+   - name: observation
+   - name: files
+   - name: configuration
+-x-geo-catalog-contract:
+-  task_id: GEO-101
+-  status: CONTRACT_ONLY
+-  activation_task: GEO-104
+-  description: GEO-101 只定义 Catalog 公共合同。此扩展的完整 Path Item 在 GEO-104 实现时迁入标准 paths 并删除该扩展；当前不是已部署接口。标准 components
+-    生成类型，现有 runtime drift gate 不增加豁免。
+-  paths:
+-    /api/v1/geo/subjects:
+-      get:
+-        tags:
+-        - geo-catalog
+-        operationId: listGeoSubjects
+-        security:
+-        - sessionCookie: []
+-        x-required-account-types:
+-        - ADMIN
+-        - ENGINEER
+-        parameters:
+-        - $ref: '#/components/parameters/RequestIdHeader'
+-        - name: q
+-          in: query
+-          schema:
+-            type: string
+-            maxLength: 240
+-        - name: subject_type
+-          in: query
+-          schema:
+-            $ref: '#/components/schemas/GeoSubjectType'
+-        - name: product_id
+-          in: query
+-          schema:
+-            type: string
+-            format: uuid
+-        - name: parent_subject_id
+-          in: query
+-          schema:
+-            type: string
+-            format: uuid
+-        - name: is_active
+-          in: query
+-          schema:
+-            type: boolean
+-        - name: sort
+-          in: query
+-          schema:
+-            type: string
+-            enum:
+-            - NAME_ASC
+-            - UPDATED_DESC
+-            default: NAME_ASC
+-        - $ref: '#/components/parameters/Page'
+-        - name: page_size
+-          in: query
+-          schema:
+-            type: integer
+-            enum:
+-            - 10
+-            - 20
+-            - 50
+-            default: 20
+-        responses:
+-          '200':
+-            description: Subject 聚合当前投影
+-            headers:
+-              X-Request-ID:
+-                $ref: '#/components/headers/RequestIdResponseHeader'
+-            content:
+-              application/json:
+-                schema:
+-                  $ref: '#/components/schemas/GeoSubjectListPage'
+-          '400':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '401':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '403':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '422':
+-            $ref: '#/components/responses/ErrorResponse'
+-        x-error-codes:
+-          '400':
+-          - VALIDATION_ERROR
+-          '401':
+-          - AUTH_REQUIRED
+-          '403':
+-          - PASSWORD_CHANGE_REQUIRED
+-          '422':
+-          - VALIDATION_ERROR
+-      post:
+-        tags:
+-        - geo-catalog
+-        operationId: createGeoSubject
+-        security:
+-        - sessionCookie: []
+-        x-required-account-types:
+-        - ADMIN
+-        parameters:
+-        - $ref: '#/components/parameters/RequestIdHeader'
+-        - $ref: '#/components/parameters/CsrfHeader'
+-        responses:
+-          '201':
+-            description: Subject 聚合当前投影
+-            headers:
+-              X-Request-ID:
+-                $ref: '#/components/headers/RequestIdResponseHeader'
+-            content:
+-              application/json:
+-                schema:
+-                  $ref: '#/components/schemas/GeoSubjectOut'
+-          '400':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '401':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '403':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '422':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '404':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '409':
+-            $ref: '#/components/responses/ErrorResponse'
+-        x-error-codes:
+-          '400':
+-          - VALIDATION_ERROR
+-          '401':
+-          - AUTH_REQUIRED
+-          '403':
+-          - PASSWORD_CHANGE_REQUIRED
+-          - PERMISSION_DENIED
+-          - CSRF_INVALID
+-          '422':
+-          - VALIDATION_ERROR
+-          '404':
+-          - NOT_FOUND
+-          '409':
+-          - GEO_SUBJECT_PRODUCT_EXISTS
+-          - GEO_SUBJECT_PARENT_INVALID
+-        requestBody:
+-          required: true
++  - name: geo-catalog
++paths:
++  /api/v1/geo/subjects:
++    get:
++      tags:
++      - geo-catalog
++      operationId: listGeoSubjects
++      security:
++      - sessionCookie: []
++      x-required-account-types:
++      - ADMIN
++      - ENGINEER
++      parameters:
++      - $ref: '#/components/parameters/RequestIdHeader'
++      - name: q
++        in: query
++        schema:
++          type: string
++          maxLength: 240
++      - name: subject_type
++        in: query
++        schema:
++          $ref: '#/components/schemas/GeoSubjectType'
++      - name: product_id
++        in: query
++        schema:
++          type: string
++          format: uuid
++      - name: parent_subject_id
++        in: query
++        schema:
++          type: string
++          format: uuid
++      - name: is_active
++        in: query
++        schema:
++          type: boolean
++      - name: sort
++        in: query
++        schema:
++          type: string
++          enum:
++          - NAME_ASC
++          - UPDATED_DESC
++          default: NAME_ASC
++      - $ref: '#/components/parameters/Page'
++      - name: page_size
++        in: query
++        schema:
++          type: integer
++          enum:
++          - 10
++          - 20
++          - 50
++          default: 20
++      responses:
++        '200':
++          description: Subject 聚合当前投影
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
+           content:
+             application/json:
+               schema:
+-                $ref: '#/components/schemas/GeoSubjectCreate'
+-    /api/v1/geo/subjects/{subject_id}:
+-      get:
+-        tags:
+-        - geo-catalog
+-        operationId: getGeoSubject
+-        security:
+-        - sessionCookie: []
+-        x-required-account-types:
+-        - ADMIN
+-        - ENGINEER
+-        parameters:
+-        - $ref: '#/components/parameters/RequestIdHeader'
+-        - name: subject_id
+-          in: path
+-          required: true
+-          schema:
+-            type: string
+-            format: uuid
+-        responses:
+-          '200':
+-            description: Subject 聚合当前投影
+-            headers:
+-              X-Request-ID:
+-                $ref: '#/components/headers/RequestIdResponseHeader'
+-            content:
+-              application/json:
+-                schema:
+-                  $ref: '#/components/schemas/GeoSubjectOut'
+-          '400':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '401':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '403':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '422':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '404':
+-            $ref: '#/components/responses/ErrorResponse'
+-        x-error-codes:
+-          '400':
+-          - VALIDATION_ERROR
+-          '401':
+-          - AUTH_REQUIRED
+-          '403':
+-          - PASSWORD_CHANGE_REQUIRED
+-          '422':
+-          - VALIDATION_ERROR
+-          '404':
+-          - NOT_FOUND
+-      patch:
+-        tags:
+-        - geo-catalog
+-        operationId: updateGeoSubject
+-        security:
+-        - sessionCookie: []
+-        x-required-account-types:
+-        - ADMIN
+-        parameters:
+-        - $ref: '#/components/parameters/RequestIdHeader'
+-        - name: subject_id
+-          in: path
+-          required: true
+-          schema:
+-            type: string
+-            format: uuid
+-        - $ref: '#/components/parameters/CsrfHeader'
+-        responses:
+-          '200':
+-            description: Subject 聚合当前投影
+-            headers:
+-              X-Request-ID:
+-                $ref: '#/components/headers/RequestIdResponseHeader'
+-            content:
+-              application/json:
+-                schema:
+-                  $ref: '#/components/schemas/GeoSubjectOut'
+-          '400':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '401':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '403':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '422':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '404':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '409':
+-            $ref: '#/components/responses/ErrorResponse'
+-        x-error-codes:
+-          '400':
+-          - VALIDATION_ERROR
+-          '401':
+-          - AUTH_REQUIRED
+-          '403':
+-          - PASSWORD_CHANGE_REQUIRED
+-          - PERMISSION_DENIED
+-          - CSRF_INVALID
+-          '422':
+-          - VALIDATION_ERROR
+-          '404':
+-          - NOT_FOUND
+-          '409':
+-          - REVISION_CONFLICT
+-          - GEO_SUBJECT_PARENT_INVALID
+-        requestBody:
+-          required: true
++                $ref: '#/components/schemas/GeoSubjectListPage'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        '422':
++        - VALIDATION_ERROR
++    post:
++      tags:
++      - geo-catalog
++      operationId: createGeoSubject
++      security:
++      - sessionCookie: []
++      x-required-account-types:
++      - ADMIN
++      parameters:
++      - $ref: '#/components/parameters/RequestIdHeader'
++      - $ref: '#/components/parameters/CsrfHeader'
++      responses:
++        '201':
++          description: Subject 聚合当前投影
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
+           content:
+             application/json:
+               schema:
+-                $ref: '#/components/schemas/GeoSubjectUpdate'
+-      delete:
+-        tags:
+-        - geo-catalog
+-        operationId: deleteGeoSubject
+-        security:
+-        - sessionCookie: []
+-        x-required-account-types:
+-        - ADMIN
+-        parameters:
+-        - $ref: '#/components/parameters/RequestIdHeader'
+-        - name: subject_id
+-          in: path
+-          required: true
+-          schema:
+-            type: string
+-            format: uuid
+-        - $ref: '#/components/parameters/CsrfHeader'
+-        - name: expected_revision
+-          in: query
+-          required: true
+-          schema:
+-            type: integer
+-            minimum: 0
+-        responses:
+-          '204':
+-            description: 删除完成
+-            headers:
+-              X-Request-ID:
+-                $ref: '#/components/headers/RequestIdResponseHeader'
+-          '400':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '401':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '403':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '422':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '404':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '409':
+-            $ref: '#/components/responses/ErrorResponse'
+-        x-error-codes:
+-          '400':
+-          - VALIDATION_ERROR
+-          '401':
+-          - AUTH_REQUIRED
+-          '403':
+-          - PASSWORD_CHANGE_REQUIRED
+-          - PERMISSION_DENIED
+-          - CSRF_INVALID
+-          '422':
+-          - VALIDATION_ERROR
+-          '404':
+-          - NOT_FOUND
+-          '409':
+-          - REVISION_CONFLICT
+-          - GEO_SUBJECT_IN_USE
+-        description: expected_revision 是父 Subject revision；Subject 删除复核真实直接引用；子删除只移除当前字典，不改写历史。
+-    /api/v1/geo/subjects/{subject_id}/enable:
+-      post:
+-        tags:
+-        - geo-catalog
+-        operationId: enableGeoSubject
+-        security:
+-        - sessionCookie: []
+-        x-required-account-types:
+-        - ADMIN
+-        parameters:
+-        - $ref: '#/components/parameters/RequestIdHeader'
+-        - name: subject_id
+-          in: path
+-          required: true
+-          schema:
+-            type: string
+-            format: uuid
+-        - $ref: '#/components/parameters/CsrfHeader'
+-        responses:
+-          '200':
+-            description: Subject 聚合当前投影
+-            headers:
+-              X-Request-ID:
+-                $ref: '#/components/headers/RequestIdResponseHeader'
+-            content:
+-              application/json:
+-                schema:
+-                  $ref: '#/components/schemas/GeoSubjectOut'
+-          '400':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '401':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '403':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '422':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '404':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '409':
+-            $ref: '#/components/responses/ErrorResponse'
+-        x-error-codes:
+-          '400':
+-          - VALIDATION_ERROR
+-          '401':
+-          - AUTH_REQUIRED
+-          '403':
+-          - PASSWORD_CHANGE_REQUIRED
+-          - PERMISSION_DENIED
+-          - CSRF_INVALID
+-          '422':
+-          - VALIDATION_ERROR
+-          '404':
+-          - NOT_FOUND
+-          '409':
+-          - REVISION_CONFLICT
+-          - GEO_SUBJECT_PRODUCT_EXISTS
+-        requestBody:
+-          required: true
++                $ref: '#/components/schemas/GeoSubjectOut'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++        '409':
++        - GEO_SUBJECT_PRODUCT_EXISTS
++        - GEO_SUBJECT_PARENT_INVALID
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoSubjectCreate'
++  /api/v1/geo/subjects/{subject_id}:
++    get:
++      tags:
++      - geo-catalog
++      operationId: getGeoSubject
++      security:
++      - sessionCookie: []
++      x-required-account-types:
++      - ADMIN
++      - ENGINEER
++      parameters:
++      - $ref: '#/components/parameters/RequestIdHeader'
++      - name: subject_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++      responses:
++        '200':
++          description: Subject 聚合当前投影
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
+           content:
+             application/json:
+               schema:
+-                $ref: '#/components/schemas/GeoSubjectRevisionRequest'
+-    /api/v1/geo/subjects/{subject_id}/disable:
+-      post:
+-        tags:
+-        - geo-catalog
+-        operationId: disableGeoSubject
+-        security:
+-        - sessionCookie: []
+-        x-required-account-types:
+-        - ADMIN
+-        parameters:
+-        - $ref: '#/components/parameters/RequestIdHeader'
+-        - name: subject_id
+-          in: path
+-          required: true
+-          schema:
+-            type: string
+-            format: uuid
+-        - $ref: '#/components/parameters/CsrfHeader'
+-        responses:
+-          '200':
+-            description: Subject 聚合当前投影
+-            headers:
+-              X-Request-ID:
+-                $ref: '#/components/headers/RequestIdResponseHeader'
+-            content:
+-              application/json:
+-                schema:
+-                  $ref: '#/components/schemas/GeoSubjectOut'
+-          '400':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '401':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '403':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '422':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '404':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '409':
+-            $ref: '#/components/responses/ErrorResponse'
+-        x-error-codes:
+-          '400':
+-          - VALIDATION_ERROR
+-          '401':
+-          - AUTH_REQUIRED
+-          '403':
+-          - PASSWORD_CHANGE_REQUIRED
+-          - PERMISSION_DENIED
+-          - CSRF_INVALID
+-          '422':
+-          - VALIDATION_ERROR
+-          '404':
+-          - NOT_FOUND
+-          '409':
+-          - REVISION_CONFLICT
+-        requestBody:
+-          required: true
++                $ref: '#/components/schemas/GeoSubjectOut'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++    patch:
++      tags:
++      - geo-catalog
++      operationId: updateGeoSubject
++      security:
++      - sessionCookie: []
++      x-required-account-types:
++      - ADMIN
++      parameters:
++      - $ref: '#/components/parameters/RequestIdHeader'
++      - name: subject_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++      - $ref: '#/components/parameters/CsrfHeader'
++      responses:
++        '200':
++          description: Subject 聚合当前投影
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
+           content:
+             application/json:
+               schema:
+-                $ref: '#/components/schemas/GeoSubjectRevisionRequest'
+-    /api/v1/geo/subjects/{subject_id}/aliases:
+-      post:
+-        tags:
+-        - geo-catalog
+-        operationId: createGeoSubjectAlias
+-        security:
+-        - sessionCookie: []
+-        x-required-account-types:
+-        - ADMIN
+-        parameters:
+-        - $ref: '#/components/parameters/RequestIdHeader'
+-        - name: subject_id
+-          in: path
+-          required: true
+-          schema:
+-            type: string
+-            format: uuid
+-        - $ref: '#/components/parameters/CsrfHeader'
+-        responses:
+-          '200':
+-            description: Subject 聚合当前投影
+-            headers:
+-              X-Request-ID:
+-                $ref: '#/components/headers/RequestIdResponseHeader'
+-            content:
+-              application/json:
+-                schema:
+-                  $ref: '#/components/schemas/GeoSubjectOut'
+-          '400':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '401':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '403':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '422':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '404':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '409':
+-            $ref: '#/components/responses/ErrorResponse'
+-        x-error-codes:
+-          '400':
+-          - VALIDATION_ERROR
+-          '401':
+-          - AUTH_REQUIRED
+-          '403':
+-          - PASSWORD_CHANGE_REQUIRED
+-          - PERMISSION_DENIED
+-          - CSRF_INVALID
+-          '422':
+-          - VALIDATION_ERROR
+-          '404':
+-          - NOT_FOUND
+-          '409':
+-          - REVISION_CONFLICT
+-          - GEO_SUBJECT_ALIAS_EXISTS
+-        requestBody:
+-          required: true
++                $ref: '#/components/schemas/GeoSubjectOut'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++        '409':
++        - REVISION_CONFLICT
++        - GEO_SUBJECT_PARENT_INVALID
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoSubjectUpdate'
++    delete:
++      tags:
++      - geo-catalog
++      operationId: deleteGeoSubject
++      security:
++      - sessionCookie: []
++      x-required-account-types:
++      - ADMIN
++      parameters:
++      - $ref: '#/components/parameters/RequestIdHeader'
++      - name: subject_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++      - $ref: '#/components/parameters/CsrfHeader'
++      - name: expected_revision
++        in: query
++        required: true
++        schema:
++          type: integer
++          minimum: 0
++      responses:
++        '204':
++          description: 删除完成
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++        '409':
++        - REVISION_CONFLICT
++        - GEO_SUBJECT_IN_USE
++      description: expected_revision 是父 Subject revision；Subject 删除复核真实直接引用；子删除只移除当前字典，不改写历史。
++  /api/v1/geo/subjects/{subject_id}/enable:
++    post:
++      tags:
++      - geo-catalog
++      operationId: enableGeoSubject
++      security:
++      - sessionCookie: []
++      x-required-account-types:
++      - ADMIN
++      parameters:
++      - $ref: '#/components/parameters/RequestIdHeader'
++      - name: subject_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++      - $ref: '#/components/parameters/CsrfHeader'
++      responses:
++        '200':
++          description: Subject 聚合当前投影
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
+           content:
+             application/json:
+               schema:
+-                $ref: '#/components/schemas/GeoSubjectAliasCreate'
+-    /api/v1/geo/subjects/{subject_id}/aliases/{alias_id}:
+-      patch:
+-        tags:
+-        - geo-catalog
+-        operationId: updateGeoSubjectAlias
+-        security:
+-        - sessionCookie: []
+-        x-required-account-types:
+-        - ADMIN
+-        parameters:
+-        - $ref: '#/components/parameters/RequestIdHeader'
+-        - name: subject_id
+-          in: path
+-          required: true
+-          schema:
+-            type: string
+-            format: uuid
+-        - name: alias_id
+-          in: path
+-          required: true
+-          schema:
+-            type: string
+-            format: uuid
+-        - $ref: '#/components/parameters/CsrfHeader'
+-        responses:
+-          '200':
+-            description: Subject 聚合当前投影
+-            headers:
+-              X-Request-ID:
+-                $ref: '#/components/headers/RequestIdResponseHeader'
+-            content:
+-              application/json:
+-                schema:
+-                  $ref: '#/components/schemas/GeoSubjectOut'
+-          '400':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '401':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '403':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '422':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '404':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '409':
+-            $ref: '#/components/responses/ErrorResponse'
+-        x-error-codes:
+-          '400':
+-          - VALIDATION_ERROR
+-          '401':
+-          - AUTH_REQUIRED
+-          '403':
+-          - PASSWORD_CHANGE_REQUIRED
+-          - PERMISSION_DENIED
+-          - CSRF_INVALID
+-          '422':
+-          - VALIDATION_ERROR
+-          '404':
+-          - NOT_FOUND
+-          '409':
+-          - REVISION_CONFLICT
+-          - GEO_SUBJECT_ALIAS_EXISTS
+-        requestBody:
+-          required: true
++                $ref: '#/components/schemas/GeoSubjectOut'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++        '409':
++        - REVISION_CONFLICT
++        - GEO_SUBJECT_PRODUCT_EXISTS
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoSubjectRevisionRequest'
++  /api/v1/geo/subjects/{subject_id}/disable:
++    post:
++      tags:
++      - geo-catalog
++      operationId: disableGeoSubject
++      security:
++      - sessionCookie: []
++      x-required-account-types:
++      - ADMIN
++      parameters:
++      - $ref: '#/components/parameters/RequestIdHeader'
++      - name: subject_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++      - $ref: '#/components/parameters/CsrfHeader'
++      responses:
++        '200':
++          description: Subject 聚合当前投影
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
+           content:
+             application/json:
+               schema:
+-                $ref: '#/components/schemas/GeoSubjectAliasUpdate'
+-      delete:
+-        tags:
+-        - geo-catalog
+-        operationId: deleteGeoSubjectAlias
+-        security:
+-        - sessionCookie: []
+-        x-required-account-types:
+-        - ADMIN
+-        parameters:
+-        - $ref: '#/components/parameters/RequestIdHeader'
+-        - name: subject_id
+-          in: path
+-          required: true
+-          schema:
+-            type: string
+-            format: uuid
+-        - name: alias_id
+-          in: path
+-          required: true
+-          schema:
+-            type: string
+-            format: uuid
+-        - $ref: '#/components/parameters/CsrfHeader'
+-        - name: expected_revision
+-          in: query
+-          required: true
+-          schema:
+-            type: integer
+-            minimum: 0
+-        responses:
+-          '200':
+-            description: 删除子实体后的 Subject 聚合投影
+-            headers:
+-              X-Request-ID:
+-                $ref: '#/components/headers/RequestIdResponseHeader'
+-            content:
+-              application/json:
+-                schema:
+-                  $ref: '#/components/schemas/GeoSubjectOut'
+-          '400':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '401':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '403':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '422':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '404':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '409':
+-            $ref: '#/components/responses/ErrorResponse'
+-        x-error-codes:
+-          '400':
+-          - VALIDATION_ERROR
+-          '401':
+-          - AUTH_REQUIRED
+-          '403':
+-          - PASSWORD_CHANGE_REQUIRED
+-          - PERMISSION_DENIED
+-          - CSRF_INVALID
+-          '422':
+-          - VALIDATION_ERROR
+-          '404':
+-          - NOT_FOUND
+-          '409':
+-          - REVISION_CONFLICT
+-        description: 使用父 Subject expected_revision；只删除当前字典条目，递增父 revision 并返回完整父投影，历史快照不变。
+-    /api/v1/geo/subjects/{subject_id}/domains:
+-      post:
+-        tags:
+-        - geo-catalog
+-        operationId: createGeoSubjectDomain
+-        security:
+-        - sessionCookie: []
+-        x-required-account-types:
+-        - ADMIN
+-        parameters:
+-        - $ref: '#/components/parameters/RequestIdHeader'
+-        - name: subject_id
+-          in: path
+-          required: true
+-          schema:
+-            type: string
+-            format: uuid
+-        - $ref: '#/components/parameters/CsrfHeader'
+-        responses:
+-          '200':
+-            description: Subject 聚合当前投影
+-            headers:
+-              X-Request-ID:
+-                $ref: '#/components/headers/RequestIdResponseHeader'
+-            content:
+-              application/json:
+-                schema:
+-                  $ref: '#/components/schemas/GeoSubjectOut'
+-          '400':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '401':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '403':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '422':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '404':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '409':
+-            $ref: '#/components/responses/ErrorResponse'
+-        x-error-codes:
+-          '400':
+-          - VALIDATION_ERROR
+-          '401':
+-          - AUTH_REQUIRED
+-          '403':
+-          - PASSWORD_CHANGE_REQUIRED
+-          - PERMISSION_DENIED
+-          - CSRF_INVALID
+-          '422':
+-          - VALIDATION_ERROR
+-          '404':
+-          - NOT_FOUND
+-          '409':
+-          - REVISION_CONFLICT
+-          - GEO_SUBJECT_DOMAIN_EXISTS
+-        requestBody:
+-          required: true
++                $ref: '#/components/schemas/GeoSubjectOut'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++        '409':
++        - REVISION_CONFLICT
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoSubjectRevisionRequest'
++  /api/v1/geo/subjects/{subject_id}/aliases:
++    post:
++      tags:
++      - geo-catalog
++      operationId: createGeoSubjectAlias
++      security:
++      - sessionCookie: []
++      x-required-account-types:
++      - ADMIN
++      parameters:
++      - $ref: '#/components/parameters/RequestIdHeader'
++      - name: subject_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++      - $ref: '#/components/parameters/CsrfHeader'
++      responses:
++        '200':
++          description: Subject 聚合当前投影
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
+           content:
+             application/json:
+               schema:
+-                $ref: '#/components/schemas/GeoSubjectDomainCreate'
+-    /api/v1/geo/subjects/{subject_id}/domains/{domain_id}:
+-      delete:
+-        tags:
+-        - geo-catalog
+-        operationId: deleteGeoSubjectDomain
+-        security:
+-        - sessionCookie: []
+-        x-required-account-types:
+-        - ADMIN
+-        parameters:
+-        - $ref: '#/components/parameters/RequestIdHeader'
+-        - name: subject_id
+-          in: path
+-          required: true
+-          schema:
+-            type: string
+-            format: uuid
+-        - name: domain_id
+-          in: path
+-          required: true
+-          schema:
+-            type: string
+-            format: uuid
+-        - $ref: '#/components/parameters/CsrfHeader'
+-        - name: expected_revision
+-          in: query
+-          required: true
+-          schema:
+-            type: integer
+-            minimum: 0
+-        responses:
+-          '200':
+-            description: 删除子实体后的 Subject 聚合投影
+-            headers:
+-              X-Request-ID:
+-                $ref: '#/components/headers/RequestIdResponseHeader'
+-            content:
+-              application/json:
+-                schema:
+-                  $ref: '#/components/schemas/GeoSubjectOut'
+-          '400':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '401':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '403':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '422':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '404':
+-            $ref: '#/components/responses/ErrorResponse'
+-          '409':
+-            $ref: '#/components/responses/ErrorResponse'
+-        x-error-codes:
+-          '400':
+-          - VALIDATION_ERROR
+-          '401':
+-          - AUTH_REQUIRED
+-          '403':
+-          - PASSWORD_CHANGE_REQUIRED
+-          - PERMISSION_DENIED
+-          - CSRF_INVALID
+-          '422':
+-          - VALIDATION_ERROR
+-          '404':
+-          - NOT_FOUND
+-          '409':
+-          - REVISION_CONFLICT
+-        description: 使用父 Subject expected_revision；只删除当前字典条目，递增父 revision 并返回完整父投影，历史快照不变。
+-paths:
++                $ref: '#/components/schemas/GeoSubjectOut'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++        '409':
++        - REVISION_CONFLICT
++        - GEO_SUBJECT_ALIAS_EXISTS
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoSubjectAliasCreate'
++  /api/v1/geo/subjects/{subject_id}/aliases/{alias_id}:
++    patch:
++      tags:
++      - geo-catalog
++      operationId: updateGeoSubjectAlias
++      security:
++      - sessionCookie: []
++      x-required-account-types:
++      - ADMIN
++      parameters:
++      - $ref: '#/components/parameters/RequestIdHeader'
++      - name: subject_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++      - name: alias_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++      - $ref: '#/components/parameters/CsrfHeader'
++      responses:
++        '200':
++          description: Subject 聚合当前投影
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoSubjectOut'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++        '409':
++        - REVISION_CONFLICT
++        - GEO_SUBJECT_ALIAS_EXISTS
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoSubjectAliasUpdate'
++    delete:
++      tags:
++      - geo-catalog
++      operationId: deleteGeoSubjectAlias
++      security:
++      - sessionCookie: []
++      x-required-account-types:
++      - ADMIN
++      parameters:
++      - $ref: '#/components/parameters/RequestIdHeader'
++      - name: subject_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++      - name: alias_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++      - $ref: '#/components/parameters/CsrfHeader'
++      - name: expected_revision
++        in: query
++        required: true
++        schema:
++          type: integer
++          minimum: 0
++      responses:
++        '200':
++          description: 删除子实体后的 Subject 聚合投影
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoSubjectOut'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++        '409':
++        - REVISION_CONFLICT
++      description: 使用父 Subject expected_revision；只删除当前字典条目，递增父 revision 并返回完整父投影，历史快照不变。
++  /api/v1/geo/subjects/{subject_id}/domains:
++    post:
++      tags:
++      - geo-catalog
++      operationId: createGeoSubjectDomain
++      security:
++      - sessionCookie: []
++      x-required-account-types:
++      - ADMIN
++      parameters:
++      - $ref: '#/components/parameters/RequestIdHeader'
++      - name: subject_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++      - $ref: '#/components/parameters/CsrfHeader'
++      responses:
++        '200':
++          description: Subject 聚合当前投影
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoSubjectOut'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++        '409':
++        - REVISION_CONFLICT
++        - GEO_SUBJECT_DOMAIN_EXISTS
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoSubjectDomainCreate'
++  /api/v1/geo/subjects/{subject_id}/domains/{domain_id}:
++    delete:
++      tags:
++      - geo-catalog
++      operationId: deleteGeoSubjectDomain
++      security:
++      - sessionCookie: []
++      x-required-account-types:
++      - ADMIN
++      parameters:
++      - $ref: '#/components/parameters/RequestIdHeader'
++      - name: subject_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++      - name: domain_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++      - $ref: '#/components/parameters/CsrfHeader'
++      - name: expected_revision
++        in: query
++        required: true
++        schema:
++          type: integer
++          minimum: 0
++      responses:
++        '200':
++          description: 删除子实体后的 Subject 聚合投影
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoSubjectOut'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++      x-error-codes:
++        '400':
++        - VALIDATION_ERROR
++        '401':
++        - AUTH_REQUIRED
++        '403':
++        - PASSWORD_CHANGE_REQUIRED
++        - PERMISSION_DENIED
++        - CSRF_INVALID
++        '422':
++        - VALIDATION_ERROR
++        '404':
++        - NOT_FOUND
++        '409':
++        - REVISION_CONFLICT
++      description: 使用父 Subject expected_revision；只删除当前字典条目，递增父 revision 并返回完整父投影，历史快照不变。
+   /api/health/live:
+     get:
+       tags: [health]
+@@ -5058,7 +5052,7 @@
+       enum: [ENABLED, DISABLED]
+     DeletionBlockerType:
+       type: string
+-      enum: [FACT_VERSION, CONTENT_TASK, GEO_OBSERVATION, CONTENT_VERSION, GENERATION_JOB, PUBLISHED_ARTICLE, PLATFORM_PROFILE, PLATFORM_ACCOUNT, PUBLICATION_WORK, PROTECTED_CONTENT_VERSION, PUBLISHED_CONTENT_ISSUE, GEO_OPTIMIZATION_SOURCE, USER_BUSINESS_HISTORY]
++      enum: [FACT_VERSION, CONTENT_TASK, GEO_OBSERVATION, GEO_SUBJECT, CONTENT_VERSION, GENERATION_JOB, PUBLISHED_ARTICLE, PLATFORM_PROFILE, PLATFORM_ACCOUNT, PUBLICATION_WORK, PROTECTED_CONTENT_VERSION, PUBLISHED_CONTENT_ISSUE, GEO_OPTIMIZATION_SOURCE, USER_BUSINESS_HISTORY]
+     DeletionBlocker:
+       type: object
+       additionalProperties: false
+--- before/docs/geo-monitoring/03-technical/02-data-architecture.md
++++ after/docs/geo-monitoring/03-technical/02-data-architecture.md
+@@ -72,9 +72,9 @@
+ 
+ ## 3. Catalog 表
+ 
+-## 3.1～3.3 Subject / Alias / Domain（GEO-101 合同 / GEO-102 ORM / GEO-103 策略）
+-
+-这三张表的唯一详细权威是 [根数据库合同的 GEO Catalog 章节](../../../contracts/database.md)。GEO-101 已被人工接受；GEO-102 已实现 ORM 注册与新迁移 `0044_geo_catalog`，并在隔离 PostgreSQL 16 验证前滚、metadata 和 SQL 约束。实际证据见 [GEO-102 实施记录](../../../.trellis/tasks/10-01-geo-102-catalog-orm/implement.md)。GEO-103 已实现 Schema、规范化、真实父子/歧义与无 I/O 的动作/删除投影，见 [GEO-103 实施记录](../../../.trellis/tasks/10-01-geo-103-catalog-policy/implement.md)；生产数据库迁移、CRUD Application Service/Router 尚未实施。
++## 3.1～3.3 Subject / Alias / Domain（GEO-101 合同 / GEO-102 ORM / GEO-103 策略 / GEO-104 服务）
++
++这三张表的唯一详细权威是 [根数据库合同的 GEO Catalog 章节](../../../contracts/database.md)。GEO-101 已被人工接受；GEO-102 已实现 ORM 注册与新迁移 `0044_geo_catalog`，并在隔离 PostgreSQL 16 验证前滚、metadata 和 SQL 约束。实际证据见 [GEO-102 实施记录](../../../.trellis/tasks/10-01-geo-102-catalog-orm/implement.md)。GEO-103 已实现 Schema、规范化、真实父子/歧义与无 I/O 的动作/删除投影，见 [GEO-103 实施记录](../../../.trellis/tasks/10-01-geo-103-catalog-policy/implement.md)；GEO-104 已实现 CRUD Application Service/Router、聚合锁及原子审计，见 [GEO-104 实施记录](../../../.trellis/tasks/10-02-geo-104-catalog-api/implement.md)。无新 revision、历史回填或生产迁移。
+ 
+ - `geo_subjects`：五种 subject_type；OWN_PRODUCT 仅绑定 Product，canonical_name/normalized_name/display_name 持久化为 NULL，公共名称从当前 Product 投影。其他类型保存监测身份，不能承载公司产品事实。
+ - Product 活动身份由 `uq_geo_subjects_active_own_product` partial unique 仲裁；停用历史可保留，enable 必须复核唯一性。不对非自有名称增加猜测性全局唯一。
+@@ -82,7 +82,7 @@
+ - `geo_subject_aliases`：NFKC/空白规范化后 casefold，保留标点与型号后缀；同 Subject normalized_alias 唯一（含停用），alias_kind=NAME/PART_NUMBER/ABBREVIATION/LEGACY，language_code 可空。跨对象重复保留为歧义，不能静默任选匹配。
+ - `geo_subject_domains`：IDNA2008/UTS #46 non-transitional + STD3 的 lowercase ASCII hostname，精确匹配、不执行网络调用；同 Subject hostname 唯一，跨对象共享保留歧义。relation_type=OWNED/OFFICIAL/DISTRIBUTOR/OTHER；当前只有 create/delete，is_active 恒 true。
+ - Subject 是两类子实体的 revision owner；子命令提交父 expected_revision，成功返回完整父投影。只有 Subject 聚合内 Alias/Domain 可 CASCADE；Product、父子与未来业务引用 RESTRICT，历史使用完整当时字典快照。
+-- 命名约束/索引已由 GEO-102 实施；GEO-103 的 Schema/领域策略建立规范化及投影，引用计数全部由调用方显式提供、不猜零。锁序、真实引用批量查询、写入/精确 HTTP 映射和 Product/User 生命周期接入义务由 GEO-104 按根合同实现。ORM 不自动递增 revision 或 updated_at；downgrade 明确拒绝删除三表，恢复使用前滚修复或迁移前备份。本任务不修改后续 EngineSurface/Profile 等目标合同。
++- 命名约束/索引已由 GEO-102 实施；GEO-103 的 Schema/领域策略建立规范化及投影，引用计数全部由调用方显式提供、不猜零。锁序、真实引用批量查询、写入/精确 HTTP 映射和 Product/User 生命周期接入由 GEO-104 按根合同实现。列表/详情采用一致快照与批量查询；当前只有子 Subject 引用表，后续域必须同时接入真实 FK、锁及查询。ORM 不自动递增 revision 或 updated_at；downgrade 明确拒绝删除三表，恢复使用前滚修复或迁移前备份。本任务不修改后续 EngineSurface/Profile 等目标合同。
+ 
+ ## 3.4 `geo_engine_surfaces`
+ 
+--- before/docs/geo-monitoring/03-technical/03-api-contract-design.md
++++ after/docs/geo-monitoring/03-technical/03-api-contract-design.md
+@@ -93,14 +93,14 @@
+ 
+ ### 3.1 GEO-101 公共合同与接线边界
+ 
+-以上 12 个操作已在 [根 OpenAPI](../../../contracts/openapi.yaml) 的 `x-geo-catalog-contract.paths` 冻结，状态 CONTRACT_ONLY。请求/响应和枚举在标准 components，生成类型只来自根合同。GEO-104 实现 Router 后把冻结 Path Item 迁入标准 paths 并删除扩展；当前 164 个实际 operation 继续接受严格 runtime drift gate，不增加豁免、不提供空成功 Router。
++GEO-104 已将以上 12 个冻结操作迁入 [根 OpenAPI](../../../contracts/openapi.yaml) 的标准 paths 并接线真实 Router/Application Service，删除 CONTRACT_ONLY 扩展。请求/响应和枚举在标准 components，generated types 只来自根合同；全部 176 个实际 operation 接受严格 runtime drift gate。实施与验证见 [GEO-104 证据](../../../.trellis/tasks/10-02-geo-104-catalog-api/implement.md)，状态 review；Catalog 页面仍由 GEO-105 实施。
+ 
+ - create 按 subject_type 判别：OWN_PRODUCT 只接收 Product 引用、可空品牌父级和监测用途说明，禁止提交名称或 Product 事实；其他类型提交监测名称且不能提交 product_id。
+ - PATCH 按 immutable subject_type 判别，提交 expected_revision 和至少一个可编辑字段；省略保留原值，parent=null 清空。请求 subject_type 必须与资源相同，不能改变类型/Product。
+ - SubjectOut 包含 parent/product 只读摘要、aliases/domains、当前 references、workflow_stage/primary_task/available_actions/deletion/revision。OWN_PRODUCT 名称从当前 Product 一致读取，不能回写。
+ - Alias/Domain 无独立 revision。所有子写命令携带父 expected_revision；成功包括子 DELETE 返回完整 SubjectOut（200）；Subject POST 为 201，Subject DELETE 为 204。
+ - ADMIN 具有真实 typed 写动作及 deletion blocker；ENGINEER 全部写动作为空、deletion=null。projection 不构成授权；所有写入口需 ADMIN/session/CSRF。
+-- 列表使用 q/subject_type/product_id/parent_subject_id/is_active/sort/page/page_size，页大小 10/20/50，返回 total；排序稳定 tie-break id。名称过滤读取当前 Product，前端不 join。
++- 列表使用 q/subject_type/product_id/parent_subject_id/is_active/sort/page/page_size，页大小 10/20/50，返回 total；排序稳定 tie-break id。q 与检索名称统一 NFKC/Unicode 空白/casefold 的字面子串，保留型号分隔符和后缀；当前 Product/显示名称在快照中批量规范后以匹配 UUID 过滤，规范字典键转义 SQL LIKE 通配符。读模型在同一 REPEATABLE READ 快照批量投影并关闭 autoflush，避免认证会话隐式写入，名称过滤读取当前 Product，前端不 join。
+ - 每个写操作逐项声明 400/401/403/404/409/422 的适用错误及 X-Request-ID。Catalog 五项领域错误由 GeoCatalogErrorCode 冻结；REVISION_CONFLICT 和统一认证/校验错误沿用现有合同。错误位置、精确 constraint 映射和删除 references 见 [数据库合同](../../../contracts/database.md)，未知完整性错误不猜测。
+ - 无 Catalog Idempotency-Key，重复创建返回唯一性冲突，stale revision 不自动重放。IDNA 转换和字典编辑只作用于当前配置，无 DNS/HTTP/外部 AI 调用。
+ 
+--- before/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
++++ after/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
+@@ -30,7 +30,7 @@
+ 
+ ### 2.1 监测对象
+ 
+-GEO-101 的公共/数据库合同已被人工接受，状态 done；公共 Schema 正反例见 `backend/tests/unit/test_geo_catalog_contract.py`。GEO-102 已落实三表 ORM、迁移、数据库身份守卫、真实父子约束及活动 OWN_PRODUCT 唯一并发仲裁，验证见 [GEO-102 实施证据](../../../.trellis/tasks/10-01-geo-102-catalog-orm/implement.md)。GEO-103 已实现闭合 Schema、Unicode/IDNA 规范化、真实父子/别名歧义及 stage/actions/deletion/当前 Product 只读投影，定向、声明机器形状与完整验证见 [GEO-103 实施证据](../../../.trellis/tasks/10-01-geo-103-catalog-policy/implement.md)。CRUD Service/API、页面、引用域真实查询及历史快照尚未实施，不能把此状态标记为整项需求已完成。
++GEO-101 的公共/数据库合同已被人工接受，状态 done；公共 Schema 正反例见 `backend/tests/unit/test_geo_catalog_contract.py`。GEO-102 已落实三表 ORM、迁移、数据库身份守卫、真实父子约束及活动 OWN_PRODUCT 唯一并发仲裁，验证见 [GEO-102 实施证据](../../../.trellis/tasks/10-01-geo-102-catalog-orm/implement.md)。GEO-103 已实现闭合 Schema、Unicode/IDNA 规范化、真实父子/别名歧义及 stage/actions/deletion/当前 Product 只读投影，定向、声明机器形状与完整验证见 [GEO-103 实施证据](../../../.trellis/tasks/10-01-geo-103-catalog-policy/implement.md)。GEO-104 已实现 CRUD Service/API、当前子 Subject 引用查询、Product/User 删除接入、原子审计、锁后 revision 与精确约束映射，证据见 [GEO-104 实施记录](../../../.trellis/tasks/10-02-geo-104-catalog-api/implement.md)。页面、未来计划/运行/分析/机会引用域和历史快照尚未实施，不能将整项能力标记完成。
+ 
+ | 需求 ID | 需求 | 验收 | 任务 |
+ |---|---|---|---|
+--- before/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ after/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -198,7 +198,7 @@
+   phase: R1
+   release: R1
+   title: 实现 GEO Catalog 应用服务和 API
+-  status: planned
++  status: in_progress
+   dependencies:
+   - GEO-103
+   areas:
+@@ -208,6 +208,8 @@
+   deliverables: CRUD、启停、删除、列表/详情、引用计数和审计。
+   tests: PostgreSQL 集成、并发唯一冲突、权限/CSRF。
+   acceptance: 有历史引用只能停用；错误映射只认精确约束。
++  trellis_task: .trellis/tasks/10-02-geo-104-catalog-api
++  validation_record: .trellis/tasks/10-02-geo-104-catalog-api/implement.md
+   required_docs:
+   - 01-product/02-geo-core-prd.md
+   - 02-business/02-domain-model.md
+--- before/docs/geo-monitoring/CHANGELOG.md
++++ after/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,12 @@
+ # 文档包变更记录
++
++## GEO-104 Catalog 应用服务与 API — 2026-10-02（review）
++
++- GEO-103 为 done；GEO-104 从 planned 进入 in_progress，完成本地验证后交付 review，人工验收前不标记 done。
++- 接线 12 个冻结 Catalog 操作并删除 CONTRACT_ONLY 扩展；总操作数 176，严格 runtime drift gate 保持，generated types 同步。公共删除 blocker 增加 GEO_SUBJECT，既有前端仅补删除/审计文案和运行时枚举适配，没有 Catalog 页面。
++- Application Service 拥有 Product→UUID 顺序品牌→Subject→子行锁序、锁后 identity/revision 校验、同态 no-op、精确 SQLSTATE/constraint 映射及业务/revision/成功审计同事务。读取采用 REPEATABLE READ 和批量投影；Product 身份读取当前事实，不保存副本。
++- 子 Subject（包含停用）真实引用阻止删除；Product/User 删除接入 Catalog 引用。未来四个未建表引用域显式零并保留接入义务。十个审计动作只保存稳定目标 UUID 与 revision/is_active，删除后保留 tombstone。
++- 无新 Alembic revision、历史回填、生产迁移、外部 AI/DNS/HTTP 调用。当前 head 0044 的隔离前滚、API/并发/事务证据和最低验证命令结果见 GEO-104 implement.md；GEO-105 及后续能力未实施。
+ 
+ ## GEO-103 Catalog Schema 与领域策略 — 2026-10-01（review）
+ 
+--- before/docs/geo-monitoring/README.md
++++ after/docs/geo-monitoring/README.md
+@@ -18,11 +18,13 @@
+ 
+ GEO-005 / R0 的共享虚构语料与独立分析金标见 [fixture 格式与敏感数据规则](../../backend/tests/fixtures/geo_analysis/README.md)，可用 `make test-geo-fixtures` 离线校验。后端与前端测试读取同一份版本化 JSON；实现范围、实际验证及状态见 [Task Brief](../../.trellis/tasks/10-01-geo-005-fixtures-gold/prd.md) 和 [实施证据](../../.trellis/tasks/10-01-geo-005-fixtures-gold/implement.md)。该目录不代表采集、分析或指标业务已经实现。
+ 
+-GEO-101 / R1 的 Catalog 公共与数据库合同已于 2026-10-01 经用户接受，状态为 `done`。权威为 [OpenAPI](../../contracts/openapi.yaml) 的标准 components/显式 CONTRACT_ONLY 操作扩展及 [数据库合同](../../contracts/database.md) 的 GEO Catalog 章节；合同范围与接受记录见 [GEO-101 Task Brief](../../.trellis/tasks/10-01-geo-101-catalog-contract/prd.md) 和 [实施证据](../../.trellis/tasks/10-01-geo-101-catalog-contract/implement.md)。
+-
+-GEO-102 / R1 已实现 Subject/Alias/Domain ORM、模型注册及新迁移 `0044_geo_catalog`，已于 2026-10-01 经用户接受，状态为 `done`。隔离 PostgreSQL 16 的空库/旧 head 前滚、metadata、直接 SQL 反例和活动 OWN_PRODUCT 并发唯一通过；指定静态、单元与完整集成检查及独立只读复核证据见 [Task Brief](../../.trellis/tasks/10-01-geo-102-catalog-orm/prd.md) 和 [实施记录](../../.trellis/tasks/10-01-geo-102-catalog-orm/implement.md)。尚未迁移生产数据库；GEO-104 CRUD Application Service/Router 和后续页面仍待实施。
+-
+-GEO-103 / R1 已实现 Catalog 请求/响应 Schema、Unicode/IDNA 规范化、真实父子与别名歧义策略、角色 stage/actions/deletion 及当前 Product 只读投影；交付状态为 `review`，等待人工验收。公共 Schema 生成声明与根合同一致，具体修改、98 项定向、后端 953/前端 863 项单元及 PostgreSQL 427 项集成证据见 [Task Brief](../../.trellis/tasks/10-01-geo-103-catalog-policy/prd.md) 和 [实施记录](../../.trellis/tasks/10-01-geo-103-catalog-policy/implement.md)。Catalog 操作仍为 CONTRACT_ONLY，未接线 CRUD/页面，也未实现 Batch/Run、采集或指标。
++GEO-101 / R1 的 Catalog 公共与数据库合同已于 2026-10-01 经用户接受，状态为 `done`。权威为 [OpenAPI](../../contracts/openapi.yaml) 的标准 components/paths 及 [数据库合同](../../contracts/database.md) 的 GEO Catalog 章节；合同范围与接受记录见 [GEO-101 Task Brief](../../.trellis/tasks/10-01-geo-101-catalog-contract/prd.md) 和 [实施证据](../../.trellis/tasks/10-01-geo-101-catalog-contract/implement.md)。
++
++GEO-102 / R1 已实现 Subject/Alias/Domain ORM、模型注册及新迁移 `0044_geo_catalog`，已于 2026-10-01 经用户接受，状态为 `done`。隔离 PostgreSQL 16 的空库/旧 head 前滚、metadata、直接 SQL 反例和活动 OWN_PRODUCT 并发唯一通过；指定静态、单元与完整集成检查及独立只读复核证据见 [Task Brief](../../.trellis/tasks/10-01-geo-102-catalog-orm/prd.md) 和 [实施记录](../../.trellis/tasks/10-01-geo-102-catalog-orm/implement.md)。尚未迁移生产数据库；GEO-104 CRUD Application Service/Router 实施状态见下文，后续页面仍待实施。
++
++GEO-103 / R1 已实现 Catalog 请求/响应 Schema、Unicode/IDNA 规范化、真实父子与别名歧义策略、角色 stage/actions/deletion 及当前 Product 只读投影；已于 2026-10-02 经用户接受，状态为 `done`。公共 Schema 生成声明与根合同一致，具体修改、98 项定向、后端 953/前端 863 项单元及 PostgreSQL 427 项集成证据见 [Task Brief](../../.trellis/tasks/10-01-geo-103-catalog-policy/prd.md) 和 [实施记录](../../.trellis/tasks/10-01-geo-103-catalog-policy/implement.md)。GEO-104 已接线 Catalog 操作；页面、Batch/Run、采集和指标仍未实施。
++
++GEO-104 / R1 已实现 Catalog 应用服务和 12 个 API，交付状态为 `review`。包括 CRUD、启停、列表/详情一致快照、当前直接引用计数、Product/User 生命周期接入及最小原子审计。锁、revision、精确错误映射及真实 PostgreSQL 并发/权限/CSRF 验证见 [Task Brief](../../.trellis/tasks/10-02-geo-104-catalog-api/prd.md) 和 [实施证据](../../.trellis/tasks/10-02-geo-104-catalog-api/implement.md)。无新 Alembic revision 或生产迁移；GEO-105 页面及其他后续任务保持待实施。
+ 
+ ## 1. 文档包用途
+ 
+--- before/frontend/src/app/auth/auth-provider.tsx
++++ after/frontend/src/app/auth/auth-provider.tsx
+@@ -102,6 +102,7 @@
+   'FACT_VERSION',
+   'CONTENT_TASK',
+   'GEO_OBSERVATION',
++  'GEO_SUBJECT',
+   'CONTENT_VERSION',
+   'GENERATION_JOB',
+   'PUBLISHED_ARTICLE',
+--- before/frontend/src/domains/audit/audit.model.ts
++++ after/frontend/src/domains/audit/audit.model.ts
+@@ -37,6 +37,7 @@
+   ['PublicationWork', 'NONE'],
+   ['PublishedContentIssue', 'NONE'],
+   ['GeoObservation', 'NONE'],
++  ['GeoSubject', 'NONE'],
+   ['PlatformProfile', 'NONE'],
+   ['PlatformProfileVersion', 'MISSING'],
+   ['PlatformAccount', 'AVAILABLE'],
+@@ -541,6 +542,16 @@
+   'publication_work.completed': '完成发布工作', 'published_article.permanently_deleted': '永久删除发布成果',
+   'query_topic.created': '创建问题主题', 'query_topic.updated': '更新问题主题', 'query_topic.deleted': '删除问题主题',
+   'geo_observation.deleted': '删除 GEO 观测',
++  'geo_subject.created': '创建 GEO 监测对象',
++  'geo_subject.updated': '更新 GEO 监测对象',
++  'geo_subject.enabled': '启用 GEO 监测对象',
++  'geo_subject.disabled': '停用 GEO 监测对象',
++  'geo_subject.deleted': '删除 GEO 监测对象',
++  'geo_subject_alias.created': '创建 GEO 别名',
++  'geo_subject_alias.updated': '更新 GEO 别名',
++  'geo_subject_alias.deleted': '删除 GEO 别名',
++  'geo_subject_domain.created': '创建 GEO 域名',
++  'geo_subject_domain.deleted': '删除 GEO 域名',
+ };
+ 
+ const auditFieldLabels: Record<string, string> = {
+--- before/frontend/src/domains/content/content-task-lifecycle.tsx
++++ after/frontend/src/domains/content/content-task-lifecycle.tsx
+@@ -283,6 +283,7 @@
+   FACT_VERSION: '事实版本',
+   CONTENT_TASK: '内容任务',
+   GEO_OBSERVATION: 'GEO 观测',
++  GEO_SUBJECT: 'GEO 监测对象',
+   CONTENT_VERSION: '内容版本',
+   GENERATION_JOB: '运行中的生成作业',
+   PUBLISHED_ARTICLE: '已发布成果',
+--- before/frontend/src/domains/product/product.model.ts
++++ after/frontend/src/domains/product/product.model.ts
+@@ -173,6 +173,7 @@
+     case 'FACT_VERSION': return '事实版本';
+     case 'CONTENT_TASK': return '内容任务';
+     case 'GEO_OBSERVATION': return 'GEO 观测';
++    case 'GEO_SUBJECT': return 'GEO 监测对象';
+     default: throw new Error(`Products API 返回了未知删除阻断类型：${blocker.type}`);
+   }
+ }
+--- before/frontend/src/shared/api/generated/schema.d.ts
++++ after/frontend/src/shared/api/generated/schema.d.ts
+@@ -4,6 +4,137 @@
+  */
+ 
+ export interface paths {
++    "/api/v1/geo/subjects": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get: operations["listGeoSubjects"];
++        put?: never;
++        post: operations["createGeoSubject"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/subjects/{subject_id}": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get: operations["getGeoSubject"];
++        put?: never;
++        post?: never;
++        /** @description expected_revision 是父 Subject revision；Subject 删除复核真实直接引用；子删除只移除当前字典，不改写历史。 */
++        delete: operations["deleteGeoSubject"];
++        options?: never;
++        head?: never;
++        patch: operations["updateGeoSubject"];
++        trace?: never;
++    };
++    "/api/v1/geo/subjects/{subject_id}/enable": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        post: operations["enableGeoSubject"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/subjects/{subject_id}/disable": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        post: operations["disableGeoSubject"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/subjects/{subject_id}/aliases": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        post: operations["createGeoSubjectAlias"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/subjects/{subject_id}/aliases/{alias_id}": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        post?: never;
++        /** @description 使用父 Subject expected_revision；只删除当前字典条目，递增父 revision 并返回完整父投影，历史快照不变。 */
++        delete: operations["deleteGeoSubjectAlias"];
++        options?: never;
++        head?: never;
++        patch: operations["updateGeoSubjectAlias"];
++        trace?: never;
++    };
++    "/api/v1/geo/subjects/{subject_id}/domains": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        post: operations["createGeoSubjectDomain"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/subjects/{subject_id}/domains/{domain_id}": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        post?: never;
++        /** @description 使用父 Subject expected_revision；只删除当前字典条目，递增父 revision 并返回完整父投影，历史快照不变。 */
++        delete: operations["deleteGeoSubjectDomain"];
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
+     "/api/health/live": {
+         parameters: {
+             query?: never;
+@@ -2174,7 +2305,7 @@
+         /** @enum {string} */
+         UserStatus: "ENABLED" | "DISABLED";
+         /** @enum {string} */
+-        DeletionBlockerType: "FACT_VERSION" | "CONTENT_TASK" | "GEO_OBSERVATION" | "CONTENT_VERSION" | "GENERATION_JOB" | "PUBLISHED_ARTICLE" | "PLATFORM_PROFILE" | "PLATFORM_ACCOUNT" | "PUBLICATION_WORK" | "PROTECTED_CONTENT_VERSION" | "PUBLISHED_CONTENT_ISSUE" | "GEO_OPTIMIZATION_SOURCE" | "USER_BUSINESS_HISTORY";
++        DeletionBlockerType: "FACT_VERSION" | "CONTENT_TASK" | "GEO_OBSERVATION" | "GEO_SUBJECT" | "CONTENT_VERSION" | "GENERATION_JOB" | "PUBLISHED_ARTICLE" | "PLATFORM_PROFILE" | "PLATFORM_ACCOUNT" | "PUBLICATION_WORK" | "PROTECTED_CONTENT_VERSION" | "PUBLISHED_CONTENT_ISSUE" | "GEO_OPTIMIZATION_SOURCE" | "USER_BUSINESS_HISTORY";
+         DeletionBlocker: {
+             type: components["schemas"]["DeletionBlockerType"];
+             count: number;
+@@ -5866,6 +5997,425 @@
+ }
+ export type $defs = Record<string, never>;
+ export interface operations {
++    listGeoSubjects: {
++        parameters: {
++            query?: {
++                q?: string;
++                subject_type?: components["schemas"]["GeoSubjectType"];
++                product_id?: string;
++                parent_subject_id?: string;
++                is_active?: boolean;
++                sort?: "NAME_ASC" | "UPDATED_DESC";
++                page?: components["parameters"]["Page"];
++                page_size?: 10 | 20 | 50;
++            };
++            header?: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path?: never;
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Subject 聚合当前投影 */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoSubjectListPage"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    createGeoSubject: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
++            };
++            path?: never;
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoSubjectCreate"];
++            };
++        };
++        responses: {
++            /** @description Subject 聚合当前投影 */
++            201: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoSubjectOut"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    getGeoSubject: {
++        parameters: {
++            query?: never;
++            header?: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                subject_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description Subject 聚合当前投影 */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoSubjectOut"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    deleteGeoSubject: {
++        parameters: {
++            query: {
++                expected_revision: number;
++            };
++            header: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
++            };
++            path: {
++                subject_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description 删除完成 */
++            204: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content?: never;
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    updateGeoSubject: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
++            };
++            path: {
++                subject_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoSubjectUpdate"];
++            };
++        };
++        responses: {
++            /** @description Subject 聚合当前投影 */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoSubjectOut"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    enableGeoSubject: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
++            };
++            path: {
++                subject_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoSubjectRevisionRequest"];
++            };
++        };
++        responses: {
++            /** @description Subject 聚合当前投影 */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoSubjectOut"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    disableGeoSubject: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
++            };
++            path: {
++                subject_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoSubjectRevisionRequest"];
++            };
++        };
++        responses: {
++            /** @description Subject 聚合当前投影 */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoSubjectOut"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    createGeoSubjectAlias: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
++            };
++            path: {
++                subject_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoSubjectAliasCreate"];
++            };
++        };
++        responses: {
++            /** @description Subject 聚合当前投影 */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoSubjectOut"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    deleteGeoSubjectAlias: {
++        parameters: {
++            query: {
++                expected_revision: number;
++            };
++            header: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
++            };
++            path: {
++                subject_id: string;
++                alias_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description 删除子实体后的 Subject 聚合投影 */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoSubjectOut"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    updateGeoSubjectAlias: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
++            };
++            path: {
++                subject_id: string;
++                alias_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoSubjectAliasUpdate"];
++            };
++        };
++        responses: {
++            /** @description Subject 聚合当前投影 */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoSubjectOut"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    createGeoSubjectDomain: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
++            };
++            path: {
++                subject_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoSubjectDomainCreate"];
++            };
++        };
++        responses: {
++            /** @description Subject 聚合当前投影 */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoSubjectOut"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
++    deleteGeoSubjectDomain: {
++        parameters: {
++            query: {
++                expected_revision: number;
++            };
++            header: {
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
++            };
++            path: {
++                subject_id: string;
++                domain_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody?: never;
++        responses: {
++            /** @description 删除子实体后的 Subject 聚合投影 */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoSubjectOut"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
+     getLiveHealth: {
+         parameters: {
+             query?: never;

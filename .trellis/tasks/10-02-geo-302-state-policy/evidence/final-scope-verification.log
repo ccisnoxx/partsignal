@@ -1,0 +1,4 @@
+15个文件均在计划范围内；4184起点文件除授权范围外完全保持，未删除。
+仅GEO-302 manifest变化：planned -> review；GEO-301 done，GEO-303 planned。
+OpenAPI仅8个新增Schema，paths和全部既有组件保持不变；generated只增加相应类型。
+全部增量diff已检查；新增行无尾部空白（由patch生成检查）。

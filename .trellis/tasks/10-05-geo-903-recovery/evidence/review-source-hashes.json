@@ -1,0 +1,11 @@
+{
+  "deploy/scripts/geo-recovery.py": "7f6731761d7e4736a4df4f2e6ee418ca21820bc54d11529367a148fde3024ab7",
+  "deploy/scripts/geo_recovery_bundle.py": "bba21d5956c0310919e36e97c9247480b146c8f3b649941a39c3165bf688186c",
+  "deploy/scripts/backup.sh": "a3f91ae9066cdc8388a6bded2352b3bbaeb72d923ae03f82125fac70be3685c0",
+  "deploy/scripts/restore-verify.sh": "fc158c38b24051581a65249fe535fa1a32e80d2326850bdba1d62f61930f2839",
+  "backend/app/tools/geo_recovery_scan.py": "146cb6a99233e58ee5bf8f7c683bbe0328182e466387f20b8c792fc3272961f2",
+  "backend/tests/unit/test_geo_recovery.py": "373db82fd16d1a90801ab6f9c34dbb9f17966c8c418f32682e2aea3a7f6282bf",
+  "backend/tests/integration/test_geo_recovery.py": "2d272054953702d560e5e94ae6391f14dcc2657a4c6b36a397c1f014945ab270",
+  ".trellis/tasks/10-05-geo-903-recovery/prd.md": "e36f3aa927121392ff0929253b2d2ed280e5cf1a34811b41e780bf9ea69303ca",
+  ".trellis/tasks/10-05-geo-903-recovery/design.md": "51bb8622ab3c36c13261436d05cb635968d2c164dd4a2b89351371d40dfd1ba4"
+}

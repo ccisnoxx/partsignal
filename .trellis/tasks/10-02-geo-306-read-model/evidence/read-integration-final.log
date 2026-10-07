@@ -1,0 +1,48 @@
+ Container partsignal-geo306-validation-fake-oss-1 Running 
+ Container partsignal-geo306-validation-postgres-1 Running 
+ Container partsignal-geo306-validation-redis-1 Running 
+ Container partsignal-geo306-validation-postgres-1 Waiting 
+ Container partsignal-geo306-validation-postgres-1 Healthy 
+ Container partsignal-geo306-validation-backend-test-run-c2614877846f Creating 
+ Container partsignal-geo306-validation-backend-test-run-c2614877846f Created 
+....F..........                                                          [100%]
+=================================== FAILURES ===================================
+_______________ test_filter_misses_literal_search_and_plan_scope _______________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_c39fd770fe...c19aceadb817'), surface=UUID('e057c3ce-69d2-43e2-a9be-193fbc60a6ea'), name='虚构计划-86b290c3-2757-4b04-bed1-c389fd4de345')
+
+    def test_filter_misses_literal_search_and_plan_scope(plans_api):
+        api = plans_api
+        ad_hoc = batch_run(api)[0]
+        plan = api.create(name="冻结计划 %_ 名称")
+        created = api.api.engineer.post(
+            BATCHES,
+            json={"source": "PLAN", "plan_id": plan["id"], "expected_revision": plan["revision"]},
+            headers={"Idempotency-Key": str(uuid4())},
+        )
+        assert created.status_code == 201, created.text
+        batch_id = created.json()["batch_id"]
+        for field in (
+            "batch_id",
+            "plan_id",
+            "subject_id",
+            "product_id",
+            "query_topic_id",
+            "prompt_variant_id",
+            "collection_profile_id",
+            "engine_surface_id",
+        ):
+            result = api.api.engineer.get(RUNS, params={field: str(uuid4())})
+            assert result.status_code == 200 and result.json()["total"] == 0
+        for field in ("plan_id", "subject_id"):
+            assert api.api.engineer.get(BATCHES, params={field: str(uuid4())}).json()["total"] == 0
+        for q in ("%", "_", "不存在的问题"):
+            assert api.api.engineer.get(RUNS, params={"q": q}).json()["total"] == 0
+>       assert api.api.engineer.get(RUNS, params={"q": "Plan问题"}).json()["total"] == 2
+E       assert 27 == 2
+
+tests/integration/test_geo_read_models.py:287: AssertionError
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_read_models.py::test_filter_misses_literal_search_and_plan_scope
+1 failed, 14 passed in 4.77s
+

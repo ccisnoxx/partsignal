@@ -1,0 +1,11 @@
+--- before/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
++++ docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
+@@ -30,7 +30,7 @@
+ 
+ ### 2.1 监测对象
+ 
+-GEO-101 只交付下表需求的公共/数据库合同，状态 review；Schema 正反例见 `backend/tests/unit/test_geo_catalog_contract.py`，实际验证见 [任务实施证据](../../../.trellis/tasks/10-01-geo-101-catalog-contract/implement.md)。数据库并发、领域守卫、API、页面及历史快照尚未实施，不能把此状态标记为整项需求已完成。
++GEO-101 的公共/数据库合同已被人工接受，状态 done；公共 Schema 正反例见 `backend/tests/unit/test_geo_catalog_contract.py`。GEO-102 已落实三表 ORM、迁移、数据库身份守卫、真实父子约束及活动 OWN_PRODUCT 唯一并发仲裁，验证见 [GEO-102 实施证据](../../../.trellis/tasks/10-01-geo-102-catalog-orm/implement.md)。规范化/领域策略、Service/API、页面及历史快照尚未实施，不能把此状态标记为整项需求已完成。
+ 
+ | 需求 ID | 需求 | 验收 | 任务 |
+ |---|---|---|---|

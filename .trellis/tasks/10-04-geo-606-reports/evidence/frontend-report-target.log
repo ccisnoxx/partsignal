@@ -1,0 +1,445 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/geo-reports src/app/navigation.test.ts
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+ ❯ src/domains/geo-reports/reports.test.tsx (4 tests | 1 failed) 149ms
+     × 无合格运行保留排除原因但不提供打印完成入口 22ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/domains/geo-reports/reports.test.tsx > GEO 报告公开展示和下载边界 > 无合格运行保留排除原因但不提供打印完成入口
+TestingLibraryElementError: Unable to find an element with the text: /仅有效复核/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33maria-labelledby[39m=[32m"geo-report-title"[39m
+      [33mclass[39m=[32m"min-w-0 space-y-5"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-wrap items-start justify-between gap-3"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"space-y-2"[39m
+        [36m>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"type-page-title"[39m
+            [33mid[39m=[32m"geo-report-title"[39m
+          [36m>[39m
+            [0mGEO 报告打印[0m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-text-secondary"[39m
+          [36m>[39m
+            [0m回答级监测报告 · 各指标独立展示[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"geo-report-controls flex flex-wrap gap-3"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"text-primary underline underline-offset-4"[39m
+            [33mhref[39m=[32m"/geo/reports?date_from=2026-09-01T00%3A00%3A00.000Z&date_to=2026-10-01T00%3A00%3A00.000Z&subject_ids=%5B%2211111111-1111-4111-8111-111111111111%22%5D&collection_modes=%5B%22MANUAL%22%5D&mention_mode=UNBRANDED"[39m
+          [36m>[39m
+            [0m返回报告预览[0m
+          [36m</a>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"group/button inline-flex shrink-0 items-center justify-center rounded-lg border bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-[length:var(--focus-ring-width)] focus-visible:ring-ring/50 focus-visible:ring-offset-[length:var(--focus-ring-offset)] focus-visible:ring-offset-background active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-[length:var(--focus-ring-width)] aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2"[39m
+            [33mdata-slot[39m=[32m"button"[39m
+            [33mtabindex[39m=[32m"0"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0m重新读取报告[0m
+          [36m</button>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<article[39m
+        [33maria-label[39m=[32m"回答级 GEO 报告内容"[39m
+        [33mclass[39m=[32m"geo-answer-report min-w-0 space-y-5"[39m
+      [36m>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"space-y-2"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"type-section-title"[39m
+          [36m>[39m
+            [0m报告范围与时间[0m
+          [36m</h2>[39m
+          [36m<p>[39m
+            [0m实时报告 · 重新读取会使用当前有效分析与复核，不代表归档快照。[0m
+          [36m</p>[39m
+          [36m<p>[39m
+            [0m数据截止 as_of：[0m
+            [0m2026/10/1 00:00:00 UTC[0m
+          [36m</p>[39m
+          [36m<p>[39m
+            [0m生成时间：[0m
+            [0m2026/10/1 00:00:00 UTC[0m
+          [36m</p>[39m
+          [36m<dl[39m
+            [33mclass[39m=[32m"grid min-w-0 gap-2 text-sm sm:grid-cols-2"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 break-all"[39m
+            [36m>[39m
+              [36m<dt[39m
+                [33mclass[39m=[32m"font-medium"[39m
+              [36m>[39m
+                [0mdate_from[0m
+              [36m</dt>[39m
+              [36m<dd>[39m
+                [0m2026-09-01T00:00:00.000Z[0m
+              [36m</dd>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 break-all"[39m
+            [36m>[39m
+              [36m<dt[39m
+                [33mclass[39m=[32m"font-medium"[39m
+              [36m>[39m
+                [0mdate_to[0m
+              [36m</dt>[39m
+              [36m<dd>[39m
+                [0m2026-10-01T00:00:00.000Z[0m
+              [36m</dd>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 break-all"[39m
+            [36m>[39m
+              [36m<dt[39m
+                [33mclass[39m=[32m"font-medium"[39m
+              [36m>[39m
+                [0msubject_ids[0m
+              [36m</dt>[39m
+              [36m<dd>[39m
+                [0m11111111-1111-4111-8111-111111111111[0m
+              [36m</dd>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 break-all"[39m
+            [36m>[39m
+              [36m<dt[39m
+                [33mclass[39m=[32m"font-medium"[39m
+              [36m>[39m
+                [0mcollection_modes[0m
+              [36m</dt>[39m
+              [36m<dd>[39m
+                [0mMANUAL[0m
+              [36m</dd>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 break-all"[39m
+            [36m>[39m
+              [36m<dt[39m
+                [33mclass[39m=[32m"font-medium"[39m
+              [36m>[39m
+                [0mmention_mode[0m
+              [36m</dt>[39m
+              [36m<dd>[39m
+                [0mUNBRANDED[0m
+              [36m</dd>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"min-w-0 break-all"[39m
+            [36m>[39m
+              [36m<dt[39m
+                [33mclass[39m=[32m"font-medium"[39m
+              [36m>[39m
+                [0mreview_policy[0m
+              [36m</dt>[39m
+              [36m<dd>[39m
+                [0mEFFECTIVE[0m
+              [36m</dd>[39m
+            [36m</div>[39m
+          [36m</dl>[39m
+        [36m</header>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"rounded-md border border-warning p-4"[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"font-medium"[39m
+          [36m>[39m
+            [0m报告不可用[0m
+          [36m</p>[39m
+          [36m<p>[39m
+            [0m当前筛选没有合格运行；请查看数据质量和排除原因。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"min-w-0 space-y-3 border-t border-border-subtle pt-4"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"type-section-title"[39m
+          [36m>[39m
+            [0m运行与数据质量[0m
+          [36m</h2>[39m
+          [36m<p>[39m
+            [0m候选运行 [0m
+            [0m5[0m
+            [0m · 合格运行 [0m
+            [0m0[0m
+            [0m · 排除运行 [0m
+            [0m2[0m
+            [0m · 独立维度 [0m
+            [0m1[0m
+          [36m</p>[39m
+          [36m<p>[39m
+            [0m状态：[0m
+            [0mCOMPLETED 3[0m
+          [36m</p>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"报告数据质量指标"[39m
+            [33mclass[39m=[32m"ps-table-region"[39m
+            [33mdata-slot[39m=[32m"table-region"[39m
+            [33mrole[39m=[32m"region"[39m
+            [33mtabindex[39m=[32m"0"[39m
+          [36m>[39m
+            [36m<table[39m
+              [33mclass[39m=[32m"ps-table geo-report-table-region"[39m
+            [36m>[39m
+              [36m<thead>[39m
+                [36m<tr>[39m
+                  [36m<th[39m
+                    [33mscope[39m=[32m"col"[39m
+                  [36m>[39m
+                    [0m指标[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mscope[39m=[32m"col"[39m
+                  [36m>[39m
+                    [0m值[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mscope[39m=[32m"col"[39m
+                  [36m>[39m
+                    [0m分子 / 分母[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mscope[39m=[32m"col"[39m
+                  [36m>[39m
+                    [0m样本与排除[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mscope[39m=[32m"col"[39m
+                  [36m>[39m
+                    [0m公式版本[0m
+                  [36m</th>[39m
+                [36m</tr>[39m
+              [36m</thead>[39m
+              [36m<tbody>[39m
+                [36m<tr>[39m
+                  [36m<th[39m
+                    [33mscope[39m=[32m"row"[39m
+                  [36m>[39m
+                    [0m合格运行比例[0m
+                  [36m</th>[39m
+                  [36m<td>[39m
+                    [0m67%[0m
+                  [36m</td>[39m
+                  [36m<td>[39m
+                    [0m1[0m
+                    [0m / [0m
+                    [0m17[0m
+                  [36m</td>[39m
+                  [36m<td>[39m
+                    [0m样本不足 · 仅观测[0m
+                    [0m；合格 [0m
+                    [0m3[0m
+                    [0m；排除 [0m
+                    [0m2[0m
+                    [0m；不可判断声明 [0m
+                    [0m1[0m
+                    [36m<ul>[39m
+                      [36m<li>[39m
+                        [0m尚需当前复核[0m
+                        [0m [0m
+                        [0m2[0m
+                      [36m</li>[39m
+                    [36m</ul>[39m
+                  [36m</td>[39m
+                  [36m<td>[39m
+                    [0mserver-metric-v1[0m
+                  [36m</td>[39m
+                [36m</tr>[39m
+              [36m</tbody>[39m
+            [36m</table>[39m
+          [36m</div>[39m
+          [36m<ul>[39m
+            [36m<li>[39m
+              [0m尚需当前复核[0m
+              [0m：[0m
+              [0m5[0m
+            [36m</li>[39m
+          [36m</ul>[39m
+          [36m<p>[39m
+            [0m共享域名：[0m
+            [0m0[0m
+            [0m 个运行 / [0m
+            [0m0[0m
+            [0m 条引用[0m
+          [36m</p>[39m
+          [36m<p>[39m
+            [0m质量说明：[0m
+            [0mMODEL_VERSION_UNKNOWN[0m
+          [36m</p>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"报告费用与覆盖"[39m
+            [33mclass[39m=[32m"ps-table-region"[39m
+            [33mdata-slot[39m=[32m"table-region"[39m
+            [33mrole[39m=[32m"region"[39m
+            [33mtabindex[39m=[32m"0"[39m
+          [36m>[39m
+            [36m<table[39m
+              [33mclass[39m=[32m"ps-table geo-report-table-region"[39m
+            [36m>[39m
+              [36m<thead>[39m
+                [36m<tr>[39m
+                  [36m<th[39m
+                    [33mscope[39m=[32m"col"[39m
+                  [36m>[39m
+                    [0m币种[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mscope[39m=[32m"col"[39m
+                  [36m>[39m
+                    [0m已报告运行[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mscope[39m=[32m"col"[39m
+                  [36m>[39m
+                    [0m已知总费用[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mscope[39m=[32m"col"[39m
+                  [36m>[39m
+                    [0m已知平均费用[0m
+                  [36m</th>[39m
+                [36m</tr>[39m
+              [36m</thead>[39m
+              [36m<tbody />[39m
+            [36m</table>[39m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"type-label"[39m
+            [36m>[39m
+              [0m采集版本分布[0m
+            [36m</h3>[39m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"type-label"[39m
+            [36m>[39m
+              [0m分析版本分布[0m
+            [36m</h3>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"min-w-0 space-y-3 border-t border-border-subtle pt-4"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"type-section-title"[39m
+          [36m>[39m
+            [0m机会[0m
+          [36m</h2>[39m
+          [36m<p>[39m
+            [0m机会数据尚未实现（NOT_IMPLEMENTED），当前报告不包含机会数量或行动结论。[0m
+          [36m</p>[39m
+        [36m</section>[39m
+        [36m<section[39m
+          [33mclass[39m=[32m"min-w-0 space-y-3 border-t border-border-subtle pt-4"[39m
+        [36m>[39m
+          [36m<h2[39m
+            [33mclass[39m=[32m"type-section-title"[39m
+          [36m>[39m
+            [0m公式与方法说明[0m
+          [36m</h2>[39m
+          [36m<ul>[39m
+            [36m<li>[39m
+              [0m实时报告，保持各采集维度独立[0m
+            [36m</li>[39m
+          [36m</ul>[39m
+          [36m<div[39m
+            [33maria-label[39m=[32m"报告公式字典"[39m
+            [33mclass[39m=[32m"ps-table-region"[39m
+            [33mdata-slot[39m=[32m"table-region"[39m
+            [33mrole[39m=[32m"region"[39m
+            [33mtabindex[39m=[32m"0"[39m
+          [36m>[39m
+            [36m<table[39m
+              [33mclass[39m=[32m"ps-table geo-report-table-region"[39m
+            [36m>[39m
+              [36m<thead>[39m
+                [36m<tr>[39m
+                  [36m<th[39m
+                    [33mscope[39m=[32m"col"[39m
+                  [36m>[39m
+                    [0m指标[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mscope[39m=[32m"col"[39m
+                  [36m>[39m
+                    [0m分子[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mscope[39m=[32m"col"[39m
+                  [36m>[39m
+                    [0m分母[0m
+                  [36m</th>[39m
+                  [36m<th[39m
+                    [33mscope[39m=[32m"col"[39m
+                  [36m>[39m
+                    [0m版本[0m
+                  [36m</th>[39m
+                [36m</tr>[39m
+              [36m</thead>[39m
+              [36m<tbody>[39m
+                [36m<tr>[39m
+                  [36m<th[39m
+                    [33mscope[39m=[32m"row"[39m
+                  [36m>[39m
+                    [0m自然可见率[0m
+                  [36m</th>[39m
+                  [36m<td>[39m
+                    [0m符合提及的合格运行[0m
+                  [36m</td>[39m
+                  [36m<td>[39m
+                    [0m未点名合格运行[0m
+                  [36m</td>[39m
+                  [36m<td>[39m
+                    [0mgeo-answer-v1[0m
+                  [36m</td>[39m
+                [36m</tr>[39m
+              [36m</tbody>[39m
+            [36m</table>[39m
+          [36m</div>[39m
+        [36m</section>[39m
+      [36m</article>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/domains/geo-reports/reports.test.tsx:50:19
+     48|     vi.spyOn(api, 'GET').mockResolvedValue(response(data)); renderPage…
+     49|     expect(await screen.findByText(/当前筛选没有合格运行/)).toBeInTheDocument();
+     50|     expect(screen.getByText(/仅有效复核/)).toBeInTheDocument();
+       |                   ^
+     51|     expect(screen.queryByRole('button', { name: '打印', exact: true })).…
+     52|     expect(screen.queryByRole('heading', { name: '当前周期指标、产品与平台矩阵、竞品 SO…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 6 passed (7)
+   Start at  03:42:41
+   Duration  585ms (transform 63ms, setup 95ms, import 175ms, tests 151ms, environment 414ms)
+

@@ -1,0 +1,145 @@
+{
+  "environment": {
+    "compose": "docker compose --env-file .env.example -p partsignal-geo106-validation -f deploy/compose.dev.yaml -f .trellis/tasks/10-02-geo-106-catalog-acceptance/evidence/compose-validation.yaml",
+    "postgres_host": "127.0.0.1:55446",
+    "database": "geo106_validation",
+    "redis": "redis://127.0.0.1:56386/14",
+    "credentials_source": "仅 .env.example 样例值，未读取生产凭据"
+  },
+  "checks": [
+    {
+      "command": "npm --prefix frontend run test -- src/domains/geo-catalog",
+      "log": "baseline-frontend.log",
+      "exit_code": 0,
+      "result": "63 passed"
+    },
+    {
+      "command": "make contract-check",
+      "log": "baseline-contract.log",
+      "exit_code": 0,
+      "result": "passed"
+    },
+    {
+      "command": "docker compose --env-file .env.example -p partsignal-geo106-validation -f deploy/compose.dev.yaml -f .trellis/tasks/10-02-geo-106-catalog-acceptance/evidence/compose-validation.yaml run --rm backend-test pytest tests/integration/test_geo_catalog_api.py tests/integration/test_geo_catalog_concurrency.py",
+      "log": "baseline-integration.log",
+      "exit_code": 0,
+      "result": "24 passed"
+    },
+    {
+      "command": "docker compose --env-file .env.example -p partsignal-geo106-validation -f deploy/compose.dev.yaml -f .trellis/tasks/10-02-geo-106-catalog-acceptance/evidence/compose-validation.yaml run --rm backend-test pytest tests/integration/test_geo_catalog_acceptance.py",
+      "log": "targeted-integration.log",
+      "exit_code": 1,
+      "result": "误断言 alias/domain 201；合同为 200"
+    },
+    {
+      "command": "docker compose --env-file .env.example -p partsignal-geo106-validation -f deploy/compose.dev.yaml -f .trellis/tasks/10-02-geo-106-catalog-acceptance/evidence/compose-validation.yaml run --rm backend-test pytest tests/integration/test_geo_catalog_acceptance.py",
+      "log": "targeted-integration-corrected.log",
+      "exit_code": 0,
+      "result": "1 passed"
+    },
+    {
+      "command": "PARTSIGNAL_E2E_SPEC=tests/e2e/catalog-real-stack.spec.ts deploy/scripts/e2e-local.sh",
+      "log": "targeted-e2e.log",
+      "exit_code": 1,
+      "result": "当前域名搜索未实现"
+    },
+    {
+      "command": "PARTSIGNAL_E2E_SPEC=tests/e2e/catalog-real-stack.spec.ts deploy/scripts/e2e-local.sh",
+      "log": "targeted-e2e-corrected.log",
+      "exit_code": 1,
+      "result": "已观测取消的精确审计/刷新时序"
+    },
+    {
+      "command": "PARTSIGNAL_E2E_SPEC=tests/e2e/catalog-real-stack.spec.ts deploy/scripts/e2e-local.sh",
+      "log": "targeted-e2e-final.log",
+      "exit_code": 0,
+      "result": "1 passed; secret clean; cleanup complete"
+    },
+    {
+      "command": "make lint",
+      "log": "lint.log",
+      "exit_code": 0,
+      "result": "passed"
+    },
+    {
+      "command": "make typecheck",
+      "log": "typecheck.log",
+      "exit_code": 0,
+      "result": "passed"
+    },
+    {
+      "command": "make test-unit",
+      "log": "test-unit.log",
+      "exit_code": 0,
+      "result": "backend 967 / frontend 926 passed"
+    },
+    {
+      "command": "make test-integration COMPOSE='docker compose --env-file .env.example -p partsignal-geo106-validation -f deploy/compose.dev.yaml -f .trellis/tasks/10-02-geo-106-catalog-acceptance/evidence/compose-validation.yaml'",
+      "log": "test-integration.log",
+      "exit_code": 0,
+      "result": "467 passed, 2 existing warnings"
+    },
+    {
+      "command": "npm --prefix frontend run test",
+      "log": "frontend-test.log",
+      "exit_code": 0,
+      "result": "926 passed"
+    },
+    {
+      "command": "npm --prefix frontend run typecheck",
+      "log": "frontend-typecheck.log",
+      "exit_code": 0,
+      "result": "passed"
+    },
+    {
+      "command": "git diff --check",
+      "log": "diff-check.log",
+      "exit_code": 0,
+      "result": "passed"
+    },
+    {
+      "command": "make e2e",
+      "log": "e2e.log",
+      "exit_code": 2,
+      "result": "21 real passed / 1 unrelated upload assertion failed; secret clean; cleanup complete"
+    },
+    {
+      "command": "npm --prefix frontend run e2e",
+      "log": "fixture-e2e.log",
+      "exit_code": 1,
+      "result": "497 passed, 46 skipped, 1 existing fact-workspace focus assertion failed; secret clean"
+    },
+    {
+      "command": "make verify COMPOSE='docker compose --env-file .env.example -p partsignal-geo106-validation -f deploy/compose.dev.yaml -f .trellis/tasks/10-02-geo-106-catalog-acceptance/evidence/compose-validation.yaml'",
+      "log": "verify.log",
+      "exit_code": 2,
+      "result": "contract/lint/typecheck/unit/integration(467)/build passed; real E2E 21 passed, unchanged upload assertion failed; secret clean; cleanup complete"
+    },
+    {
+      "command": "make test-deploy-scripts",
+      "log": "deploy-scripts.log",
+      "exit_code": 0,
+      "result": "passed; frontend container, fixtures/configuration, E2E lifecycle/secrets and deployment harness gates"
+    },
+    {
+      "command": "docker compose --env-file .env.example -p partsignal-geo106-validation -f deploy/compose.dev.yaml -f .trellis/tasks/10-02-geo-106-catalog-acceptance/evidence/compose-validation.yaml config --quiet",
+      "log": "dev-compose-config.log",
+      "exit_code": 0,
+      "result": "passed"
+    },
+    {
+      "command": "PARTSIGNAL_BACKEND_IMAGE=partsignal-backend PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 PARTSIGNAL_VERSION=test PARTSIGNAL_RUNTIME_ENV_FILE=/Users/sc/PycharmProjects/partsignal/.env PARTSIGNAL_DATA_ROOT=/Users/sc/PycharmProjects/partsignal/data docker compose --env-file .env -f deploy/compose.prod.yaml config --quiet",
+      "log": "prod-compose-config.log",
+      "exit_code": 0,
+      "result": "passed; read-only, no deployment"
+    }
+  ],
+  "final_status": "review",
+  "full_gate": "failed",
+  "cleanup": {
+    "task_compose": "removed_with_volumes",
+    "docker_running_containers": 0,
+    "colima": "Stopped",
+    "exit_code": 0
+  }
+}

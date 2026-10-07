@@ -1,0 +1,121 @@
+ Image partsignal-geo408-backend-test Pulling 
+ Image partsignal-geo408-backend-test pull access denied for partsignal-geo408-backend-test, repository does not exist or may require 'docker login' 
+ Image partsignal-geo408-backend-test Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 596B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 594B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 ...
+
+#4 [auth] astral-sh/uv:pull token for ghcr.io
+#4 DONE 0.0s
+
+#5 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#5 ...
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 1.6s
+
+#5 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#5 DONE 1.7s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 152B done
+#6 DONE 0.0s
+
+#7 FROM ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043
+#7 resolve ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043 0.0s done
+#7 DONE 0.0s
+
+#8 [runtime 1/7] FROM docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016
+#8 resolve docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016 0.0s done
+#8 DONE 0.0s
+
+#9 [internal] load build context
+#9 transferring context: 1.26MB 0.0s done
+#9 DONE 0.0s
+
+#10 [runtime 3/7] COPY --from=ghcr.io/astral-sh/uv:0.7.13 /uv /uvx /bin/
+#10 CACHED
+
+#11 [runtime 4/7] COPY pyproject.toml uv.lock* ./
+#11 CACHED
+
+#12 [runtime 2/7] WORKDIR /app
+#12 CACHED
+
+#13 [runtime 5/7] RUN uv sync --no-dev --no-install-project
+#13 CACHED
+
+#14 [runtime 6/7] COPY . .
+#14 DONE 0.1s
+
+#15 [runtime 7/7] RUN uv sync --no-dev
+#15 0.200 Resolved 88 packages in 1ms
+#15 0.202    Building partsignal-backend @ file:///app
+#15 3.539       Built partsignal-backend @ file:///app
+#15 3.560 Prepared 1 package in 3.35s
+#15 3.573 Installed 1 package in 15ms
+#15 4.177 Bytecode compiled 2466 files in 604ms
+#15 4.177  + partsignal-backend==0.1.0 (from file:///app)
+#15 DONE 4.2s
+
+#16 [test 1/1] RUN uv sync --all-extras
+#16 0.208 Resolved 88 packages in 3ms
+#16 1.001 Downloading pygments (1.2MiB)
+#16 1.190 Downloading mypy (13.1MiB)
+#16 1.356 Downloading ruff (10.5MiB)
+#16 1.960  Downloading pygments
+#16 2.762  Downloading ruff
+#16 3.453  Downloading mypy
+#16 3.456 Prepared 20 packages in 3.24s
+#16 3.679 Installed 20 packages in 222ms
+#16 5.089 Bytecode compiled 3437 files in 1.40s
+#16 5.092  + attrs==26.1.0
+#16 5.092  + coverage==7.15.0
+#16 5.092  + httpcore2==2.9.1
+#16 5.092  + httpx2==2.9.1
+#16 5.092  + iniconfig==2.3.0
+#16 5.092  + jsonschema==4.26.0
+#16 5.092  + jsonschema-specifications==2025.9.1
+#16 5.092  + librt==0.13.0
+#16 5.092  + mypy==1.20.2
+#16 5.092  + mypy-extensions==1.1.0
+#16 5.092  + pathspec==1.1.1
+#16 5.092  + pluggy==1.6.0
+#16 5.092  + pygments==2.20.0
+#16 5.092  + pytest==8.4.2
+#16 5.092  + pytest-cov==6.3.0
+#16 5.092  + referencing==0.37.0
+#16 5.092  + rpds-py==2026.6.3
+#16 5.092  + ruff==0.15.21
+#16 5.092  + truststore==0.10.4
+#16 5.092  + types-pyyaml==6.0.12.20260518
+#16 DONE 5.4s
+
+#17 exporting to image
+#17 exporting layers
+#17 exporting layers 5.0s done
+#17 exporting manifest sha256:a4abcd488983b16200fbbba647b228d11985c228df0783d0fe339470b7b7d223 done
+#17 exporting config sha256:4e31d871eb23e0590e274e61067a20a2d2e3dee8d2a378f9ddeda024fdccf07a done
+#17 exporting attestation manifest sha256:4c59a566e937f71a0b2603df6cea3cad2b5d0790f0863bf3878492af6e21f0f8 0.0s done
+#17 exporting manifest list sha256:786ec64053c2df71f6796b643e3b367a2dfe6095b9048ccf6e7d04d90a6003a4 0.0s done
+#17 naming to docker.io/library/partsignal-geo408-backend-test:latest done
+#17 unpacking to docker.io/library/partsignal-geo408-backend-test:latest
+#17 unpacking to docker.io/library/partsignal-geo408-backend-test:latest 2.7s done
+#17 DONE 7.8s
+
+#18 resolving provenance for metadata file
+#18 DONE 0.0s
+ Image partsignal-geo408-backend-test Built 
+ Volume partsignal-geo408_geo408-oss Creating 
+ Volume partsignal-geo408_geo408-oss Created 
+ Container partsignal-geo408-fake-oss-1 Creating 
+ Container partsignal-geo408-fake-oss-1 Created 
+ Container partsignal-geo408-fake-oss-1 Starting 
+ Container partsignal-geo408-fake-oss-1 Started 

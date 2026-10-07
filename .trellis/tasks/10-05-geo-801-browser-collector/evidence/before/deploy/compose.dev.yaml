@@ -1,0 +1,143 @@
+name: partsignal-dev
+
+x-backend: &backend
+  build:
+    context: ../backend
+  env_file:
+    - ../.env
+  volumes:
+    - ../backend:/app
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  networks: [partsignal-internal]
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - 127.0.0.1:55432:5432
+    volumes:
+      - partsignal-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks: [partsignal-internal]
+
+  redis:
+    image: redis:7.4-alpine
+    command: [redis-server, --appendonly, 'yes', --maxmemory, 96mb, --maxmemory-policy, noeviction]
+    ports:
+      - 127.0.0.1:56379:6379
+    volumes:
+      - partsignal-redis:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks: [partsignal-internal]
+
+  migrate:
+    <<: *backend
+    command: [uv, run, alembic, upgrade, head]
+    restart: 'no'
+
+  api:
+    <<: *backend
+    command: [uv, run, uvicorn, 'app.main:app', --host, 0.0.0.0, --port, '8000', --reload]
+    ports:
+      - 127.0.0.1:18000:8000
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/live')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  worker:
+    <<: *backend
+    command: [uv, run, celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --concurrency=1, --pidfile=/tmp/partsignal-worker.pid]
+    healthcheck:
+      test: [CMD, python, -c, "import os, pathlib; os.kill(int(pathlib.Path('/tmp/partsignal-worker.pid').read_text()), 0)"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+  scheduler:
+    <<: *backend
+    command: [uv, run, celery, -A, 'app.worker:celery_app', beat, --loglevel=INFO, --schedule, /tmp/partsignal-celerybeat, --pidfile=/tmp/partsignal-beat.pid]
+    healthcheck:
+      test: [CMD, python, -c, "import os, pathlib; os.kill(int(pathlib.Path('/tmp/partsignal-beat.pid').read_text()), 0)"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+  fake-oss:
+    <<: *backend
+    command: [python, -m, app.files.fake_server]
+    ports:
+      - 127.0.0.1:19001:9000
+    volumes:
+      - ../backend:/app
+      - partsignal-fake-oss:/data
+    depends_on: {}
+
+  frontend:
+    build:
+      context: ../frontend
+      target: development
+    environment:
+      VITE_API_BASE_URL: ''
+      VITE_API_PROXY_TARGET: http://api:8000
+    volumes:
+      - ../frontend:/app
+      - partsignal-node-modules:/app/node_modules
+    ports:
+      - 127.0.0.1:5173:5173
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [partsignal-internal]
+
+  backend-test:
+    <<: *backend
+    build:
+      context: ../backend
+      target: test
+    volumes:
+      - ../backend:/app
+      - ../contracts:/contracts:ro
+    environment:
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg://partsignal:partsignal_dev@postgres:5432/partsignal
+      REDIS_URL: redis://redis:6379/15
+      SESSION_SECRET: test-session-secret-at-least-32-bytes
+      PARTSIGNAL_SEED_ADMIN_PASSWORD: partsignal-admin-dev
+      PARTSIGNAL_SEED_ENGINEER_PASSWORD: partsignal-engineer-dev
+      # 测试成功路径调用显式 HTTP 替身；deterministic no-egress 由专门用例覆盖。
+      CONTENT_GENERATOR: openai-compatible
+      AI_CREDENTIAL_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      AI_ALLOW_LOCAL_HTTP: 'true'
+      OBJECT_STORAGE_BACKEND: development
+      OBJECT_STORAGE_ENDPOINT: http://fake-oss:9000
+    # 测试依赖已固化在 test 镜像，避免 bind mount 后 `uv run` 将环境同步回生产依赖。
+    command: [pytest, tests/integration]
+    profiles: [test]
+
+networks:
+  partsignal-internal:
+    name: partsignal-internal
+
+volumes:
+  partsignal-postgres:
+  partsignal-redis:
+  partsignal-fake-oss:
+  partsignal-node-modules:

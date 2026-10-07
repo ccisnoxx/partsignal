@@ -1,0 +1,67 @@
+......................................F......F......................     [100%]
+=================================== FAILURES ===================================
+__________________ test_claim_gold[review-no-comma-condition] __________________
+
+case = {'expected': {'claims': [{'claim_kind': 'REPLACEMENT_RELATION', 'severity': 'CRITICAL', 'subject_id': 'subject-base', ...RRECT']}, 'fact_body': '在 3.3 V 供电时可替代 GEORF-915T。', 'fact_status': 'APPROVED', 'id': 'review-no-comma-condition', ...}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_claim_gold(case: dict[str, Any]) -> None:
+        scope = subjects(case["subject_ids"])
+        facts = candidates()
+        facts[0] = replace(
+            facts[0],
+            status=FactVersionStatus(case["fact_status"]),
+            body_markdown=case["fact_body"]
+            if case["fact_body"] is not None
+            else facts[0].body_markdown,
+        )
+        result = assess_claims(case["text"], scope, freeze_fact_versions(scope, facts))
+        assert result.rule_set_version == CLAIM_RULE_VERSION
+        expected = [
+            {**row, "subject_id": identity(row["subject_id"])} for row in case["expected"]["claims"]
+        ]
+>       assert [
+            {
+                "subject_id": row.subject_id,
+                "claim_kind": row.claim_kind,
+                "verdict": row.verdict,
+                "severity": row.severity,
+            }
+            for row in result.assessments
+        ] == expected
+E       AssertionError: assert [{'claim_kind...NJUDGEABLE'>}] == [{'claim_kind... 'INCORRECT'}]
+E         
+E         At index 0 diff: {'subject_id': UUID('05a8bb67-688f-51a1-aee5-621dc46a000b'), 'claim_kind': <GeoClaimKind.REPLACEMENT_RELATION: 'REPLACEMENT_RELATION'>, 'verdict': <GeoClaimVerdict.UNJUDGEABLE: 'UNJUDGEABLE'>, 'severity': <GeoClaimSeverity.MEDIUM: 'MEDIUM'>} != {'subject_id': UUID('05a8bb67-688f-51a1-aee5-621dc46a000b'), 'claim_kind': 'REPLACEMENT_RELATION', 'verdict': 'INCORRECT', 'severity': 'CRITICAL'}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_claims.py:64: AssertionError
+__________________ test_shared_claim_gold[gold-model-suffix] ___________________
+
+case = {'answer_id': 'answer-model-suffix', 'category': 'model_suffix', 'expected': {'citations': [], 'claims': [{'claim_type...独立的 1.8 V 器件。', 'label': 'CONSIDERED', 'rank': None, 'subject_id': 'subject-suffix'}], ...}, 'id': 'gold-model-suffix'}
+
+    @pytest.mark.parametrize("case", SHARED["gold"]["cases"], ids=lambda row: row["id"])
+    def test_shared_claim_gold(case: dict[str, Any]) -> None:
+        corpus = SHARED["corpus"]
+        answer = next(row for row in corpus["answers"] if row["id"] == case["answer_id"])
+        question = next(row for row in corpus["questions"] if row["id"] == answer["question_id"])
+        scope = subjects(question["subject_ids"])
+        result = assess_claims(answer["text"], scope, freeze_fact_versions(scope, candidates()))
+        expected = case["expected"]["claims"]
+        assert len(result.assessments) == len(expected)
+        for actual, gold in zip(result.assessments, expected, strict=True):
+            assert actual.subject_id == identity(gold["subject_id"])
+            assert actual.fact_version_id == identity(gold["fact_version_id"])
+            kind = "REPLACEMENT_RELATION" if gold["claim_type"] == "REPLACEMENT" else gold["claim_type"]
+            assert actual.claim_kind == kind
+            assert actual.claim_text == gold["excerpt"]
+>           assert actual.verdict == gold["verdict"] and actual.severity == gold["severity"]
+E           AssertionError: assert (<GeoClaimVerd...'UNJUDGEABLE'> == 'ACCURATE'
+E             
+E             - ACCURATE
+E             + UNJUDGEABLE)
+
+backend/tests/unit/test_geo_claims.py:97: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_claims.py::test_claim_gold[review-no-comma-condition]
+FAILED backend/tests/unit/test_geo_claims.py::test_shared_claim_gold[gold-model-suffix]
+2 failed, 66 passed in 0.46s

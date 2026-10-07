@@ -1,0 +1,14 @@
+F.
+======================================================================
+FAIL: test_explicit_recovery_entry_exists (__main__.UpgradeRecoveryTests.test_explicit_recovery_entry_exists)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 61, in test_explicit_recovery_entry_exists
+    self.assertTrue(callable(getattr(owner, "recover_upgrade", None)), "缺少显式恢复入口")
+AssertionError: False is not true : 缺少显式恢复入口
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.003s
+
+FAILED (failures=1)
+Production upgrade 数据所有权与候选绑定校验通过。

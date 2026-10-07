@@ -1,0 +1,8 @@
+{
+  "command": [
+    "make",
+    "test-unit"
+  ],
+  "exit_code": 2,
+  "duration_seconds": 58.47
+}

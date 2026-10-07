@@ -1,0 +1,25 @@
+
+> partsignal-browser-collector@0.1.0 test
+> node --test tests/*.test.mjs
+
+✔ 默认关闭与父子配置拒绝；未知值不回退 (0.457125ms)
+✔ 仅 UUID 入口；开关和热停止不领取 lease；未实现采集显式拒绝 (3.096667ms)
+✔ 健康需要实际 runtime 结果；失败摘要不暴露异常；无任务 HTTP 入口 (12.147834ms)
+✔ RSA-OAEP SHA256/AES-GCM 封装在内存恢复相同 storage state (3.275541ms)
+✔ 错误私钥和跨 reference/profile/expiry 绑定全部拒绝 (1.714833ms)
+✔ nonce/wrapped key/ciphertext/tag/AAD 篡改均无法恢复 (5.279708ms)
+✔ 算法、封装闭合、重复 JSON 键和非标准 Base64 被拒绝 (0.666292ms)
+✔ 过期材料、非法日期和过期 Cookie 不进入 consumer (1.634667ms)
+✔ 恢复资料仍检查 storage state 的结构与秘密错误边界 (5.01125ms)
+✔ 每次消费重新授权；撤销拒绝先于读取私钥，保留的资料在 finally 清空 (4.592958ms)
+✔ consumer 失败也清空引用且摘要不泄露秘密 (1.888084ms)
+✔ 私钥权限、缺失、目录和任意层 symlink 均拒绝 (1.717875ms)
+✔ 授权返回损坏材料时不调用 consumer 且错误不带异常正文 (0.515583ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 241.517625

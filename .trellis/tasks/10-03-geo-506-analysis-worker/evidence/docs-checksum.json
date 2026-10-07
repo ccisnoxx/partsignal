@@ -1,0 +1,12 @@
+{
+  "command": [
+    "shasum",
+    "-a",
+    "256",
+    "-c",
+    "SHA256SUMS"
+  ],
+  "cwd": "docs/geo-monitoring",
+  "exit_code": 0,
+  "files_verified": 116
+}

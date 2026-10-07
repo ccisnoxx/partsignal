@@ -1,0 +1,10 @@
+{
+  "command": [
+    "make",
+    "test-integration",
+    "COMPOSE=docker compose -p partsignal-geo701-validation -f .trellis/tasks/10-04-geo-701-rule-configuration/evidence/validation-compose.yaml"
+  ],
+  "started_at": "2026-10-04T14:35:42.365676+00:00",
+  "duration_seconds": 503.2628396669752,
+  "exit_code": 0
+}

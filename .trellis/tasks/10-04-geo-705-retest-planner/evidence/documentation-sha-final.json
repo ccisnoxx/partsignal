@@ -1,0 +1,11 @@
+{
+  "argv": [
+    "shasum",
+    "-a",
+    "256",
+    "-c",
+    "SHA256SUMS"
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 0.022
+}

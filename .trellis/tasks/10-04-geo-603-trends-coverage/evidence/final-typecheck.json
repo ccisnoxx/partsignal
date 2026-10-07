@@ -1,0 +1,10 @@
+{
+  "argv": [
+    "make",
+    "typecheck"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "exit_code": 0,
+  "started_at": "2026-10-04T07:25:44.704245+00:00",
+  "finished_at": "2026-10-04T07:25:55.013517+00:00"
+}

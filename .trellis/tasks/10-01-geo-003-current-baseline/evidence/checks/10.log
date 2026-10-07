@@ -1,0 +1,81 @@
+
+> partsignal-frontend-v2@0.1.0 e2e
+> tests/e2e/run-with-secret-scan.sh tests/e2e/geo-observations.spec.ts tests/e2e/new-geo-observation.spec.ts tests/e2e/geo-observation-detail.spec.ts tests/e2e/geo-observation-correction.spec.ts tests/e2e/geo-topics.spec.ts tests/e2e/geo-insights.spec.ts --project=foundation-desktop
+
+[WebServer] (node:90568) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [plugin builtin:vite-reporter] 
+[WebServer] (!) Some chunks are larger than 500 kB after minification. Consider:
+[WebServer] - Using dynamic import() to code-split the application
+[WebServer] - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[WebServer] (node:90578) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:90600) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 57 tests using 1 worker
+
+(node:90608) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [foundation-desktop] › tests/e2e/geo-insights.spec.ts:6:1 › direct URL 映射筛选并完整呈现 read model、替代数据和精确 drill-down (337ms)
+  ✓   2 [foundation-desktop] › tests/e2e/geo-insights.spec.ts:27:1 › 筛选写回 canonical URL，reset 与浏览器历史恢复 (478ms)
+  ✓   3 [foundation-desktop] › tests/e2e/geo-insights.spec.ts:41:1 › loading、首次错误重试与 empty/unavailable 状态彼此区分 (493ms)
+  ✓   4 [foundation-desktop] › tests/e2e/geo-insights.spec.ts:62:1 › 优化 Dialog 按需读取 options，以响应 ID 导航并携带稳定命令头 (792ms)
+  ✓   5 [foundation-desktop] › tests/e2e/geo-insights.spec.ts:80:1 › 优化 POST pending 时取消、Escape 与外点都不能重建命令会话 (596ms)
+  ✓   6 [foundation-desktop] › tests/e2e/geo-insights.spec.ts:100:1 › stale/409 不自动重放，保留选择并要求显式刷新 (952ms)
+  ✓   7 [foundation-desktop] › tests/e2e/geo-insights.spec.ts:127:1 › stale 刷新后来源消失仍保留目标与 request ID，并禁止再次 POST (747ms)
+  ✓   8 [foundation-desktop] › tests/e2e/geo-insights.spec.ts:144:1 › 后台撤销优化来源或创建选项失败时旧选择可见但不能提交 (722ms)
+  ✓   9 [foundation-desktop] › tests/e2e/geo-insights.spec.ts:177:1 › 后台创建选项撤销已批准事实版本后阻止旧目标 POST (712ms)
+  ✓  10 [foundation-desktop] › tests/e2e/geo-insights.spec.ts:195:1 › 打印报告使用相同查询，只呈现只读数据并调用浏览器打印 (274ms)
+  ✓  11 [foundation-desktop] › tests/e2e/geo-insights.spec.ts:257:1 › Screen 打印入口完整保留七项筛选并支持浏览器历史 (288ms)
+  ✓  12 [foundation-desktop] › tests/e2e/geo-insights.spec.ts:270:1 › 打印报告规范化参数，并区分 loading、error、empty 与 unavailable (493ms)
+  ✓  13 [foundation-desktop] › tests/e2e/geo-observation-correction.spec.ts:48:1 › 从 Detail CORRECT 入口进入，历史 ID 先 replace 到服务端 canonical 尾 (557ms)
+  ✓  14 [foundation-desktop] › tests/e2e/geo-observation-correction.spec.ts:81:1 › 校验显式事实；上传失败只重试 complete，POST 防重复并按响应 ID 交接 (1.1s)
+  ✓  15 [foundation-desktop] › tests/e2e/geo-observation-correction.spec.ts:161:5 › 更正冲突 › publication-conflict 不重放；显式刷新按 ID 合并草稿、证据和新尾 (1.6s)
+  ✓  16 [foundation-desktop] › tests/e2e/geo-observation-correction.spec.ts:161:5 › 更正冲突 › successor-conflict 不重放；显式刷新按 ID 合并草稿、证据和新尾 (1.6s)
+  ✓  17 [foundation-desktop] › tests/e2e/geo-observation-correction.spec.ts:212:1 › successor 后显式上下文刷新失败仍冻结旧尾并保留草稿与 request ID (919ms)
+  ✓  18 [foundation-desktop] › tests/e2e/geo-observation-correction.spec.ts:240:1 › 链上下文不完整后禁止重放，显式 GET 失败也不能用缓存旧数据解冻 (921ms)
+  ✓  19 [foundation-desktop] › tests/e2e/geo-observation-correction.spec.ts:264:1 › upload complete 悬停跨布局时阻止 POST，成功后仅提交新证据 (940ms)
+  ✓  20 [foundation-desktop] › tests/e2e/geo-observation-correction.spec.ts:290:1 › 空白草稿开始上传后，离开仍需确认 (576ms)
+  ✓  21 [foundation-desktop] › tests/e2e/geo-observation-correction.spec.ts:309:1 › 后台读取撤销更正资格后冻结旧上下文与写入入口 (755ms)
+  ✓  22 [foundation-desktop] › tests/e2e/geo-observation-correction.spec.ts:328:1 › loading、404、403、Legacy 与提交时权限变化均明确且保留输入 (3.1s)
+  ✓  23 [foundation-desktop] › tests/e2e/geo-observation-correction.spec.ts:363:1 › DirtyGuard、键盘主动作与 375/768/1024/1440 布局可达 (469ms)
+  ✓  24 [foundation-desktop] › tests/e2e/geo-observation-detail.spec.ts:8:1 › List 进入 Detail，direct URL、refresh、Back 和 Forward 保持 canonical route (430ms)
+  ✓  25 [foundation-desktop] › tests/e2e/geo-observation-detail.spec.ts:28:1 › Manual 一次请求展示 selected record、完整 chain、direct evidence 和 tail actions (692ms)
+  ✓  26 [foundation-desktop] › tests/e2e/geo-observation-detail.spec.ts:77:1 › Legacy 只展示合同真实存在的 recommendation、citation 与 frozen article (161ms)
+  ✓  27 [foundation-desktop] › tests/e2e/geo-observation-detail.spec.ts:93:1 › loading、409、retry 与 contract error 均不回退到旧 GET (255ms)
+  ✓  28 [foundation-desktop] › tests/e2e/geo-observation-detail.spec.ts:112:1 › 404、403 和普通读取失败明确展示错误，不使用旧单条 GET (683ms)
+  ✓  29 [foundation-desktop] › tests/e2e/geo-observation-detail.spec.ts:130:1 › 删除确认期间后台撤销尾节点动作，确认禁用且焦点回到标题 (659ms)
+  ✓  30 [foundation-desktop] › tests/e2e/geo-observation-detail.spec.ts:150:1 › DELETE 409 冻结旧确认，显式重载后需重新打开并人工确认 (1.4s)
+  ✓  31 [foundation-desktop] › tests/e2e/geo-observation-detail.spec.ts:179:1 › 375/768/1024/1440 无根级横向溢出且键盘可达 (167ms)
+  ✓  32 [foundation-desktop] › tests/e2e/geo-observations.spec.ts:5:1 › 八列紧凑列表只提供 canonical links 和服务端投影动作 (235ms)
+  ✓  33 [foundation-desktop] › tests/e2e/geo-observations.spec.ts:31:1 › URL 参数逐项映射 API，支持排序、分页和 canonical replace (679ms)
+  ✓  34 [foundation-desktop] › tests/e2e/geo-observations.spec.ts:77:1 › Query Topic resolve URL 精确映射服务端筛选并可清除 (179ms)
+  ✓  35 [foundation-desktop] › tests/e2e/geo-observations.spec.ts:86:1 › loading、empty、filtered-empty、error 与 retry 诚实可见 (587ms)
+  ✓  36 [foundation-desktop] › tests/e2e/geo-observations.spec.ts:108:1 › 键盘 Dialog 返回焦点，删除只发送一次且携带 CSRF (908ms)
+  ✓  37 [foundation-desktop] › tests/e2e/geo-observations.spec.ts:130:1 › 375/768/1024/1440 页面根无横向溢出，表格只在区域内滚动 (165ms)
+  ✓  38 [foundation-desktop] › tests/e2e/geo-observations.spec.ts:147:1 › 确认删除期间背景移除行仍保留 Dialog，取消后焦点回到标题 (672ms)
+  ✓  39 [foundation-desktop] › tests/e2e/geo-topics.spec.ts:5:1 › 五列只消费服务端动作，primary 携带 canonical handoff，引用链接精确可解析 (645ms)
+  ✓  40 [foundation-desktop] › tests/e2e/geo-topics.spec.ts:48:1 › 引用 Dialog 从当前 exact list projection 实时更新 (355ms)
+  ✓  41 [foundation-desktop] › tests/e2e/geo-topics.spec.ts:72:1 › 删除 Dialog 按最新 blocker/资格原位切换，并以最新 revision 确认 (460ms)
+  ✓  42 [foundation-desktop] › tests/e2e/geo-topics.spec.ts:125:1 › 删除确认在 exact list fetching/error/目标消失时保持阻断 (402ms)
+  ✓  43 [foundation-desktop] › tests/e2e/geo-topics.spec.ts:172:1 › 搜索、排序、分页进入 URL/API，direct、refresh、Back/Forward 保持 canonical (690ms)
+  ✓  44 [foundation-desktop] › tests/e2e/geo-topics.spec.ts:204:1 › loading、empty、filtered-empty、error/retry 与四档根宽度状态诚实 (589ms)
+  ✓  45 [foundation-desktop] › tests/e2e/geo-topics.spec.ts:237:1 › 创建与更新携带 CSRF/revision；409 保留草稿并只在显式 reload 后恢复 (1.2s)
+  ✓  46 [foundation-desktop] › tests/e2e/geo-topics.spec.ts:323:1 › DELETE 只对服务端允许的行出现，确认后只发送一次 expected_revision (903ms)
+  ✓  47 [foundation-desktop] › tests/e2e/geo-topics.spec.ts:350:1 › DELETE 409 不自动重放，显式 reload revision 后才允许再次确认 (722ms)
+  ✓  48 [foundation-desktop] › tests/e2e/geo-topics.spec.ts:403:1 › DELETE 引用竞态显示服务端最新类型、数量和 canonical resolve links (497ms)
+  ✓  49 [foundation-desktop] › tests/e2e/new-geo-observation.spec.ts:62:1 › 列表 Primary、直接访问和刷新都进入 canonical 创建 Workspace (418ms)
+  ✓  50 [foundation-desktop] › tests/e2e/new-geo-observation.spec.ts:76:1 › queryTopicId 与 geoPlatform handoff 支持 direct URL 与刷新，不存在 Topic 时明确阻止提交 (411ms)
+  ✓  51 [foundation-desktop] › tests/e2e/new-geo-observation.spec.ts:99:1 › 候选 loading 诚实可见且阻止创建 (431ms)
+  ✓  52 [foundation-desktop] › tests/e2e/new-geo-observation.spec.ts:111:1 › 候选 empty 提供可用出口且阻止创建 (420ms)
+  ✓  53 [foundation-desktop] › tests/e2e/new-geo-observation.spec.ts:124:1 › 客户端校验显式事实；上传后 POST 防重复并 canonical handoff (2.1s)
+  ✓  54 [foundation-desktop] › tests/e2e/new-geo-observation.spec.ts:186:1 › 证据 complete 未结束且跨布局时不能创建，完成后才提交附件 (2.2s)
+  ✓  55 [foundation-desktop] › tests/e2e/new-geo-observation.spec.ts:212:1 › 空白表单上传期间离开需确认，保留上传后可继续校验 (555ms)
+  ✓  56 [foundation-desktop] › tests/e2e/new-geo-observation.spec.ts:236:1 › 候选冲突不重放创建，显式刷新后保留输入并允许人工重试 (2.2s)
+  ✓  57 [foundation-desktop] › tests/e2e/new-geo-observation.spec.ts:256:1 › DirtyGuard 覆盖 Cancel，Back/Forward 可恢复 canonical 页面；四档宽度无溢出 (1.1s)
+
+  57 passed (51.0s)
+E2E_SECRET_SCAN status=clean
+E2E_RESULT playwright=0 secret_scan=0

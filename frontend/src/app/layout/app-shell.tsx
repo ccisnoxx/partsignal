@@ -180,16 +180,18 @@ function MobileNavigation({
       <SheetTrigger render={<IconButton aria-label="打开主导航" variant="ghost" className="lg:hidden" />}>
         <MenuIcon />
       </SheetTrigger>
-      <SheetContent side="left" className="w-[min(20rem,88vw)]">
-        <SheetHeader>
+      <SheetContent side="left" className="w-[min(20rem,88vw)] overflow-hidden">
+        <SheetHeader className="shrink-0">
           <SheetTitle>PartSignal 导航</SheetTitle>
           <SheetDescription>选择工作区或系统管理入口。</SheetDescription>
         </SheetHeader>
-        <Navigation
-          activeNavId={activeNavId}
-          isAdmin={isAdmin}
-          onNavigate={() => onOpenChange(false)}
-        />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <Navigation
+            activeNavId={activeNavId}
+            isAdmin={isAdmin}
+            onNavigate={() => onOpenChange(false)}
+          />
+        </div>
       </SheetContent>
     </Sheet>
   );

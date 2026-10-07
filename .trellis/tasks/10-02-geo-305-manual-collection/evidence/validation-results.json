@@ -1,0 +1,189 @@
+{
+  "task": "GEO-305",
+  "state": "review",
+  "checks": [
+    {
+      "name": "baseline_unit",
+      "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_run_policy.py backend/tests/unit/test_geo_batch_policy.py backend/tests/unit/test_geo_answer_contract.py backend/tests/unit/test_geo_batch_creation_contract.py",
+      "exit_code": 0,
+      "log": "baseline-unit.log",
+      "result": {
+        "passed": 1401
+      }
+    },
+    {
+      "name": "baseline_integration",
+      "command": "docker --context colima compose -f .trellis/tasks/10-02-geo-305-manual-collection/evidence/compose.validation.yaml run --rm backend-test pytest tests/integration/test_geo_batch_creation.py tests/integration/test_geo_answers.py tests/integration/test_geo_answer_files.py",
+      "exit_code": 0,
+      "log": "baseline-integration.log",
+      "result": {
+        "passed": 56
+      }
+    },
+    {
+      "name": "manual_unit",
+      "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_manual_collection_contract.py",
+      "exit_code": 0,
+      "log": "manual-unit.log",
+      "result": {
+        "passed": 18
+      }
+    },
+    {
+      "name": "manual_integration",
+      "command": "docker --context colima compose -f .trellis/tasks/10-02-geo-305-manual-collection/evidence/compose.validation.yaml run --rm backend-test pytest tests/integration/test_geo_manual_collection.py",
+      "exit_code": 0,
+      "log": "manual-integration.log",
+      "result": {
+        "passed": 21
+      }
+    },
+    {
+      "name": "manual_boundaries",
+      "command": "docker --context colima compose -f .trellis/tasks/10-02-geo-305-manual-collection/evidence/compose.validation.yaml run --rm backend-test pytest tests/integration/test_geo_manual_collection_boundaries.py",
+      "exit_code": 0,
+      "log": "manual-boundaries.log",
+      "result": {
+        "passed": 7
+      }
+    },
+    {
+      "name": "migration_pair",
+      "command": "docker --context colima compose -f .trellis/tasks/10-02-geo-305-manual-collection/evidence/compose.validation.yaml run --rm backend-test pytest tests/integration/test_geo_manual_migration.py tests/integration/test_geo_answer_migration.py -x",
+      "exit_code": 0,
+      "log": "manual-migration.log",
+      "result": {
+        "passed": 2,
+        "warnings": 4
+      }
+    },
+    {
+      "name": "review_fix",
+      "command": "docker --context colima compose -f .trellis/tasks/10-02-geo-305-manual-collection/evidence/compose.validation.yaml run --rm backend-test pytest tests/integration/test_geo_manual_collection_boundaries.py tests/integration/test_geo_manual_migration.py -x",
+      "exit_code": 0,
+      "log": "review-fix.log",
+      "result": {
+        "passed": 19,
+        "warnings": 2
+      }
+    },
+    {
+      "name": "draft_validator_red_green",
+      "command": "docker --context colima compose -f .trellis/tasks/10-02-geo-305-manual-collection/evidence/compose.validation.yaml run --rm -T backend-test python - < .trellis/tasks/10-02-geo-305-manual-collection/evidence/draft-validator-red-green.py",
+      "exit_code": 0,
+      "log": "draft-validator-red-green.log",
+      "result": {
+        "old_accepted_new_rejected_cases": 5
+      }
+    },
+    {
+      "name": "contract_generate",
+      "command": "make contract-generate",
+      "exit_code": 0,
+      "log": "contract-generate.log",
+      "result": {
+        "result": "generated"
+      }
+    },
+    {
+      "name": "contract_check",
+      "command": "make contract-check",
+      "exit_code": 0,
+      "log": "contract-check.log",
+      "result": {
+        "runtime_and_generated_types": "consistent"
+      }
+    },
+    {
+      "name": "lint",
+      "command": "make lint",
+      "exit_code": 0,
+      "log": "make-lint.log",
+      "result": {
+        "ruff": "passed",
+        "eslint": "passed"
+      }
+    },
+    {
+      "name": "typecheck",
+      "command": "make typecheck",
+      "exit_code": 0,
+      "log": "make-typecheck.log",
+      "result": {
+        "mypy_source_files": 137,
+        "tsc": "passed"
+      }
+    },
+    {
+      "name": "unit",
+      "command": "make test-unit",
+      "exit_code": 0,
+      "log": "make-test-unit.log",
+      "result": {
+        "backend_passed": 2704,
+        "frontend_passed": 1067
+      }
+    },
+    {
+      "name": "integration",
+      "command": "make test-integration COMPOSE='docker --context colima compose -f .trellis/tasks/10-02-geo-305-manual-collection/evidence/compose.validation.yaml'",
+      "exit_code": 0,
+      "log": "make-test-integration.log",
+      "result": {
+        "passed": 755,
+        "warnings": 16
+      }
+    },
+    {
+      "name": "diff_check",
+      "command": "git diff --check",
+      "exit_code": 0,
+      "log": "git-diff-check.log",
+      "result": {
+        "diagnostics": []
+      }
+    }
+  ],
+  "initial_failures": [
+    {
+      "command": "make test-unit",
+      "log": "make-test-unit-initial.log",
+      "result": {
+        "backend_failed": 6,
+        "backend_passed": 2698
+      },
+      "cause": "新端点/响应清单、既有nullable默认annotation和新增真实文件引用使原固定断言过期；按根合同及引用owner修正后定向和完整检查通过。"
+    },
+    {
+      "command": "make test-integration COMPOSE='docker --context colima compose -f .trellis/tasks/10-02-geo-305-manual-collection/evidence/compose.validation.yaml'",
+      "log": "make-test-integration-initial.log",
+      "result": {
+        "failed": 1,
+        "passed": 742
+      },
+      "cause": "旧migration head断言固定0050；改为0051和实际downgrade安全停止合同，定向迁移及最终完整检查通过。"
+    }
+  ],
+  "warnings": "集成16条警告为既有SQLAlchemy metadata循环FK与dialect_options比较警告；比较通过，未声称无警告。",
+  "not_run": [
+    {
+      "command": "make verify",
+      "reason": "GEO-305所需完整lint/typecheck/unit/integration及合同检查已分别执行；未提前执行GEO-308阶段门禁。"
+    },
+    {
+      "command": "make build",
+      "reason": "前端只更新generated OpenAPI类型，tsc和合同一致性通过，无页面或打包配置变更。"
+    },
+    {
+      "command": "browser E2E / browser matrix",
+      "reason": "本任务无页面、路由或交互变更；API完整旅程、session/CSRF、并发和证据由真实PostgreSQL与本地OSS集成覆盖。"
+    },
+    {
+      "command": "real AI platform / collector / machine analysis",
+      "reason": "任务明确范围外；分析回执诚实标记NOT_IMPLEMENTED。"
+    }
+  ],
+  "environment": "隔离PostgreSQL/Redis/fake-OSS，验证后清理并恢复初始Colima/Docker context；见environment-restored.json。",
+  "scope_evidence": "final-scope-check.json",
+  "independent_review_digest": "SUBAGENT_EXECUTION_DIGEST.json"
+}

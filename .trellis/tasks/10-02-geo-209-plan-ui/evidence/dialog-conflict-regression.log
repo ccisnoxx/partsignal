@@ -1,0 +1,294 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/geo-plans/plans-page.test.tsx
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+ ❯ src/domains/geo-plans/plans-page.test.tsx (9 tests | 1 failed) 1246ms
+     × 409后关闭重开确认且后台版本已刷新，仍须显式读取，保留复制输入 157ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/domains/geo-plans/plans-page.test.tsx > 计划真实路由与状态工作区 > 409后关闭重开确认且后台版本已刷新，仍须显式读取，保留复制输入
+TestingLibraryElementError: Unable to find an accessible element with the role "textbox" and name "新计划名称"
+
+Here are the accessible roles:
+
+  main:
+
+  Name "":
+  [36m<main[39m
+    [33mclass[39m=[32m"min-h-[calc(100vh-4rem)] p-3 outline-none md:p-4 lg:p-5"[39m
+    [33mid[39m=[32m"main-content"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  region:
+
+  Name "监测计划":
+  [36m<section[39m
+    [33maria-labelledby[39m=[32m"plans-title"[39m
+    [33mclass[39m=[32m"min-w-0 space-y-5"[39m
+  [36m/>[39m
+
+  Name "监测计划列表工作区":
+  [36m<section[39m
+    [33maria-label[39m=[32m"监测计划列表工作区"[39m
+    [33mclass[39m=[32m"min-w-0 space-y-3"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  navigation:
+
+  Name "表格分页":
+  [36m<nav[39m
+    [33maria-label[39m=[32m"表格分页"[39m
+    [33mclass[39m=[32m"flex flex-col gap-2 border-t border-border-subtle px-3 py-2 text-sm text-text-secondary sm:flex-row sm:items-center sm:justify-between"[39m
+  [36m/>[39m
+
+  --------------------------------------------------dialog:
+
+  Name "确认复制为新计划":
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"base-ui-_r_5p_"[39m
+    [33maria-labelledby[39m=[32m"base-ui-_r_5o_"[39m
+    [33mclass[39m=[32m"fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"[39m
+    [33mdata-base-ui-focusable[39m=[32m""[39m
+    [33mdata-nested[39m=[32m""[39m
+    [33mdata-open[39m=[32m""[39m
+    [33mdata-slot[39m=[32m"dialog-content"[39m
+    [33mdata-starting-style[39m=[32m""[39m
+    [33mid[39m=[32m"_r_5g_"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"--nested-dialogs: 0;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "确认复制为新计划":
+  [36m<h2[39m
+    [33mclass[39m=[32m"font-heading text-base leading-none font-medium"[39m
+    [33mdata-slot[39m=[32m"dialog-title"[39m
+    [33mid[39m=[32m"base-ui-_r_5o_"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-sm text-muted-foreground *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-foreground"[39m
+    [33mdata-slot[39m=[32m"dialog-description"[39m
+    [33mid[39m=[32m"base-ui-_r_5p_"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "新计划名称 请填写计划名称":
+  [36m<input[39m
+    [33maria-describedby[39m=[32m"plan-copy-error"[39m
+    [33maria-invalid[39m=[32m"true"[39m
+    [33mclass[39m=[32m"h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[length:var(--focus-ring-width)] focus-visible:ring-ring/50 focus-visible:ring-offset-[length:var(--focus-ring-offset)] focus-visible:ring-offset-background disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-muted disabled:text-text-disabled aria-invalid:border-destructive aria-invalid:ring-[length:var(--focus-ring-width)] aria-invalid:ring-destructive/20 md:text-sm"[39m
+    [33mdata-slot[39m=[32m"input"[39m
+    [33mid[39m=[32m"plan-copy-name"[39m
+    [33mmaxlength[39m=[32m"200"[39m
+    [33mname[39m=[32m"name"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "取消":
+  [36m<button[39m
+    [33mclass[39m=[32m"group/button inline-flex shrink-0 items-center justify-center rounded-lg border bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-[length:var(--focus-ring-width)] focus-visible:ring-ring/50 focus-visible:ring-offset-[length:var(--focus-ring-offset)] focus-visible:ring-offset-background active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-[length:var(--focus-ring-width)] aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2"[39m
+    [33mdata-slot[39m=[32m"button"[39m
+    [33mtabindex[39m=[32m"0"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "确认操作":
+  [36m<button[39m
+    [33mclass[39m=[32m"group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-[length:var(--focus-ring-width)] focus-visible:ring-ring/50 focus-visible:ring-offset-[length:var(--focus-ring-offset)] focus-visible:ring-offset-background active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-[length:var(--focus-ring-width)] aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 bg-primary text-primary-foreground hover:bg-[var(--interaction-primary-hover)] active:bg-[var(--interaction-primary-active)] h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2"[39m
+    [33mdata-disabled[39m=[32m""[39m
+    [33mdata-slot[39m=[32m"button"[39m
+    [33mdisabled[39m=[32m""[39m
+    [33mtabindex[39m=[32m"0"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "关闭":
+  [36m<button[39m
+    [33mclass[39m=[32m"group/button inline-flex shrink-0 items-center justify-center border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-[length:var(--focus-ring-width)] focus-visible:ring-ring/50 focus-visible:ring-offset-[length:var(--focus-ring-offset)] focus-visible:ring-offset-background active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-[length:var(--focus-ring-width)] aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg absolute top-2 right-2"[39m
+    [33mdata-slot[39m=[32m"dialog-close"[39m
+    [33mtabindex[39m=[32m"0"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m"overflow-y: hidden; overflow-x: hidden;"[39m
+[36m>[39m
+  [36m<div[39m
+    [33mdata-base-ui-inert[39m=[32m""[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"min-h-screen bg-surface-app text-text-primary lg:grid lg:grid-cols-[13rem_minmax(0,1fr)]"[39m
+    [36m>[39m
+      [36m<a[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"fixed top-2 left-2 z-[70] -translate-y-20 rounded-md bg-primary px-3 py-2 text-primary-foreground shadow-md transition-transform focus:translate-y-0 focus:outline-none focus:ring-3 focus:ring-ring/50"[39m
+        [33mhref[39m=[32m"#main-content"[39m
+      [36m>[39m
+        [0m跳到主内容[0m
+      [36m</a>[39m
+      [36m<aside[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"hidden min-h-screen border-r border-border-subtle bg-surface-panel lg:flex lg:flex-col"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex h-16 items-center border-b border-border-subtle px-4"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"font-heading text-base font-semibold"[39m
+          [36m>[39m
+            [0mPartSignal[0m
+          [36m</span>[39m
+        [36m</div>[39m
+        [36m<nav[39m
+          [33maria-label[39m=[32m"主导航"[39m
+          [33mclass[39m=[32m"flex-1 space-y-5 p-3"[39m
+        [36m>[39m
+          [36m<section[39m
+            [33maria-labelledby[39m=[32m"nav-工作区"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[39m=[32m"mb-1 px-2 type-label text-text-muted"[39m
+              [33mid[39m=[32m"nav-工作区"[39m
+            [36m>[39m
+              [0m工作区[0m
+            [36m</h2>[39m
+            [36m<ul[39m
+              [33mclass[39m=[32m"space-y-1"[39m
+            [36m>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"flex min-h-9 items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 text-text-secondary hover:bg-surface-raised hover:text-text-primary"[39m
+                  [33mhref[39m=[32m"/"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-layout-dashboard size-4"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<rect[39m
+                      [33mheight[39m=[32m"9"[39m
+                      [33mrx[39m=[32m"1"[39m
+                      [33mwidth[39m=[32m"7"[39m
+                      [33mx[39m=[32m"3"[39m
+                      [33my[39m=[32m"3"[39m
+                    [36m/>[39m
+                    [36m<rect[39m
+                      [33mheight[39m=[32m"5"[39m
+                      [33mrx[39m=[32m"1"[39m
+                      [33mwidth[39m=[32m"7"[39m
+                      [33mx[39m=[32m"14"[39m
+                      [33my[39m=[32m"3"[39m
+                    [36m/>[39m
+                    [36m<rect[39m
+                      [33mheight[39m=[32m"9"[39m
+                      [33mrx[39m=[32m"1"[39m
+                      [33mwidth[39m=[32m"7"[39m
+                      [33mx[39m=[32m"14"[39m
+                      [33my[39m=[32m"12"[39m
+                    [36m/>[39m
+                    [36m<rect[39m
+                      [33mheight[39m=[32m"5"[39m
+                      [33mrx[39m=[32m"1"[39m
+                      [33mwidth[39m=[32m"7"[39m
+                      [33mx[39m=[32m"3"[39m
+                      [33my[39m=[32m"16"[39m
+                    [36m/>[39m
+                  [36m</svg>[39m
+                  [0m工作台[0m
+                [36m</a>[39m
+              [36m</li>[39m
+              [36m<li>[39m
+                [36m<a[39m
+                  [33mclass[39m=[32m"flex min-h-9 items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 text-text-secondary hover:bg-surface-raised hover:text-text-primary"[39m
+                  [33mhref[39m=[32m"/products"[39m
+                [36m>[39m
+                  [36m<svg[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"lucide lucide-boxes size-4"[39m
+                    [33mfill[39m=[32m"none"[39m
+                    [33mheight[39m=[32m"24"[39m
+                    [33mstroke[39m=[32m"currentColor"[39m
+                    [33mstroke-linecap[39m=[32m"round"[39m
+                    [33mstroke-linejoin[39m=[32m"round"[39m
+                    [33mstroke-width[39m=[32m"2"[39m
+                    [33mviewBox[39m=[32m"0 0 24 24"[39m
+                    [33mwidth[39m=[32m"24"[39m
+                    [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                  [36m>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"m7 16.5-4.74-2.85"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"m7 16.5 5-3"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M7 16.5v5.17"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"m17 16.5-5-3"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"m17 16.5 4.74-2.85"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M17 16.5v5.17"[39m
+                    [36m/>[39m
+                    [36m<path[39m
+                      [33md[39m=[32m"M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z"[39m
+                  ...
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/domains/geo-plans/plans-page.test.tsx:61:30
+     59|     const { client } = renderPlans(); const driver = await action('复制为…
+     60|     await driver.clear(screen.getByRole('textbox', { name: '新计划名称' }));
+     61|     await driver.type(screen.getByRole('textbox', { name: '新计划名称' }), …
+       |                              ^
+     62|     await driver.click(screen.getByRole('button', { name: '确认操作' })); …
+     63|     await driver.click(screen.getByRole('button', { name: '取消' }));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 passed (9)
+   Start at  13:09:14
+   Duration  2.51s (transform 810ms, setup 46ms, import 958ms, tests 1.25s, environment 206ms)
+

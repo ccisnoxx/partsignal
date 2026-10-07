@@ -1,0 +1,16 @@
+{
+  "name": "linux-compose-staging-env-copied",
+  "command": [
+    "python3",
+    "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/check-linux-staging.py"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "c6b310f568798a6f068869870c648189ff7d604d",
+  "dirty": true,
+  "started_at": "2026-10-07T06:41:21.583373+00:00",
+  "ended_at": "2026-10-07T06:41:25.312166+00:00",
+  "exit_code": 0,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/linux-compose-staging-env-copied.log",
+  "log_sha256": "a3e29dda3d8955faface3c2d58cbd2167cb30ebf9c1b42724cb44427b537f177"
+}

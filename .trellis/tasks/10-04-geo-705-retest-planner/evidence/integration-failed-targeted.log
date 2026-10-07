@@ -1,0 +1,8 @@
+ Container geo705-validation-backend-test-run-a74c2760beef Creating 
+ Container geo705-validation-backend-test-run-a74c2760beef Created 
+
+no tests ran in 0.11s
+ERROR: not found: /app/tests/integration/test_migrations.py::test_old_head_upgrade_preserves_data
+(no match in any of [<Module test_migrations.py>])
+
+

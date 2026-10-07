@@ -1,0 +1,7 @@
+{"file": "contracts/openapi.yaml", "reason": "Catalog 12 个运行时操作及公共生成类型的唯一权威"}
+{"file": "contracts/database.md", "reason": "Catalog 锁序、revision、精确约束和引用删除 owner"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "事务、Session、FK 和应用服务边界"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "显式 AppError 与精确 IntegrityError 分类"}
+{"file": ".trellis/spec/backend/available-actions-contract.md", "reason": "当前角色 stage/actions/deletion 服务端投影"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "本任务指定检查、证据复用及风险定向验证"}
+{"file": "docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md", "reason": "GEO-104 交付/验收及 GEO-105 范围外边界"}

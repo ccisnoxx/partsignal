@@ -1,0 +1,8 @@
+{"file": "contracts/openapi.yaml", "reason": "704三行动及generated类型的唯一API合同"}
+{"file": "contracts/database.md", "reason": "704来源、幂等、目标守卫及历史不变量"}
+{"file": ".trellis/tasks/10-04-geo-704-action-integration/design.md", "reason": "本任务目标服务所有权、原子事务和锁序"}
+{"file": "docs/geo-monitoring/04-delivery/task-manifest.yaml", "reason": "唯一704范围、703 done、后续705 planned"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "行锁、revision、不可变和事务组合"}
+{"file": ".trellis/spec/backend/publication-workbench-guidelines.md", "reason": "Issue与Repair及归档聚合删除合同"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "明确失败和403/409/422映射"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "只消费generated协议，无第二套状态机"}

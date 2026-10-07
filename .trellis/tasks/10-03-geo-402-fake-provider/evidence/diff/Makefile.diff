@@ -1,0 +1,23 @@
+--- initial/Makefile
++++ candidate/Makefile
+@@ -3,7 +3,7 @@
+ UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
+ UV := UV_CACHE_DIR=$(UV_CACHE_DIR) uv
+ 
+-.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate initialize-accounts lint typecheck test-unit test-integration e2e build build-frontend verify test-deploy-scripts test-frontend-container staging-redeploy-fast down test-geo-fixtures
++.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate initialize-accounts lint typecheck test-unit test-integration e2e build build-frontend verify test-deploy-scripts test-frontend-container staging-redeploy-fast down test-geo-fixtures test-geo-collector-contract
+ 
+ bootstrap:
+ 	@test -f .env || cp .env.example .env
+@@ -65,7 +65,11 @@
+ test-geo-fixtures:
+ 	$(UV) run --project backend python deploy/scripts/check-geo-fixtures.py
+ 
++test-geo-collector-contract:
++	$(UV) run --project backend python deploy/scripts/test-geo-collector-contract.py
++
+ test-deploy-scripts: test-frontend-container
++	$(UV) run --project backend python deploy/scripts/test-geo-collector-contract.py
+ 	$(UV) run --project backend python deploy/scripts/check-geo-fixtures.py
+ 	$(UV) run --project backend python deploy/scripts/test-geo-configuration.py
+ 	deploy/scripts/test-e2e-run-lifecycle.sh

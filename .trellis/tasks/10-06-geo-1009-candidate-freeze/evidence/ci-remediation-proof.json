@@ -1,0 +1,35 @@
+{
+  "observed_at": "2026-10-07T05:37:48.601746+00:00",
+  "ci_run_id": 37572374117,
+  "ci_source_commit": "0b232f2ce268c7e78836a2f2ce811c9eaa45944c",
+  "ci_conclusion": "failure",
+  "failure_boundary": "make build test-deploy-scripts -> test-frontend-container.sh -> GNU grep ERE CRLF match",
+  "passed": {
+    "backend_unit": 3865,
+    "frontend_unit": 1308,
+    "frontend_shards": [
+      591,
+      717
+    ],
+    "postgres_integration": 1253,
+    "postgres_warnings": 45,
+    "postgres_duration_seconds": 1958.72,
+    "pg16_restore_integration": 6
+  },
+  "not_executed": [
+    "余下deploy checks",
+    "远端E2E",
+    "Compose config末端检查",
+    "main合并",
+    "clean main完整门禁",
+    "RC冻结",
+    "生产验收"
+  ],
+  "candidate_files_sha256": {
+    "deploy/scripts/test-frontend-container.sh": "52b2d9fa4c4d933af7ba6f5515363d567ec1a77badca61eb26c7be7d9401a894",
+    ".github/workflows/ci.yml": "4dc2d14fd4a04da8b91da0621971d4196318a98b308aa506fcb4e61b99e75523",
+    ".trellis/spec/infra/ci-execution.md": "1d940f072876712c69ea0c070fe6f72cf853b6b3c54720ec5ef4ef49ed80e0fe"
+  },
+  "test_scope": "原生Mac完整frontend-container PASS；真实HTTP/资产+Linux GNU grep旧脚本exit1、新脚本exit0；CI分组静态比较和实际shellguard full/delivery=0、unknown=2。没有新全量运行。",
+  "extra_ci_authorized": false
+}

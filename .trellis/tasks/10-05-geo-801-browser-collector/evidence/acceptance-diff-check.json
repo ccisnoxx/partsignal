@@ -1,0 +1,28 @@
+{
+  "command": [
+    "git",
+    "diff",
+    "--check"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "exit_code": 0,
+  "result": "通过；无输出",
+  "log": ".trellis/tasks/10-05-geo-801-browser-collector/evidence/acceptance-diff-check.log",
+  "modified_files": [
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/SHA256SUMS",
+    ".trellis/tasks/10-05-geo-801-browser-collector/task.json",
+    ".trellis/tasks/10-05-geo-801-browser-collector/prd.md",
+    ".trellis/tasks/10-05-geo-801-browser-collector/implement.md"
+  ],
+  "added_evidence_files": [
+    ".trellis/tasks/10-05-geo-801-browser-collector/evidence/acceptance-before.json",
+    ".trellis/tasks/10-05-geo-801-browser-collector/evidence/acceptance-diff-check.json",
+    ".trellis/tasks/10-05-geo-801-browser-collector/evidence/acceptance-diff-check.log"
+  ],
+  "other_tasks_changed": false,
+  "functional_tests_rerun": false,
+  "committed": false,
+  "pushed": false,
+  "archived": false
+}

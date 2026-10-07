@@ -1,0 +1,19 @@
+{
+  "new_status_entries": [
+    "?? backend/app/routers/geo_monitoring_plans.py",
+    "?? backend/app/schemas/geo_plan_management.py",
+    "?? backend/app/services/geo_plan_commands.py",
+    "?? backend/app/services/geo_plan_locks.py",
+    "?? backend/app/services/geo_plan_policy.py",
+    "?? backend/app/services/geo_plan_queries.py",
+    "?? backend/tests/integration/geo_plans_support.py",
+    "?? backend/tests/integration/test_geo_plan_api.py",
+    "?? backend/tests/integration/test_geo_plan_concurrency.py",
+    "?? backend/tests/integration/test_geo_plan_reads.py",
+    "?? backend/tests/integration/test_geo_plan_transactions.py",
+    "?? backend/tests/unit/test_geo_plan_management.py"
+  ],
+  "removed_status_entries": [],
+  "scoped_maintained_file_count": 31,
+  "task_status": "review"
+}

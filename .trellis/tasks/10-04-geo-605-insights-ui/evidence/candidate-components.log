@@ -1,0 +1,36 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/geo-insights src/app/navigation.test.ts
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+ ❯ src/domains/geo-insights/insights-page.test.tsx (10 tests | 1 failed) 716ms
+     × 筛选变化时取消旧请求并清除明细，迟到旧结果不能覆盖新意图 64ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/domains/geo-insights/insights-page.test.tsx > 回答洞察组件与异步边界 > 筛选变化时取消旧请求并清除明细，迟到旧结果不能覆盖新意图
+Error: expect(element).not.toBeInTheDocument()
+
+expected document not to contain element, found <p
+  class="font-medium"
+>
+  虚构监测产品
+</p> instead
+ ❯ src/domains/geo-insights/insights-page.test.tsx:77:46
+     75|     expect(signal?.aborted).toBe(true);
+     76|     await act(async () => release(response(answerInsights())));
+     77|     expect(screen.queryByText('虚构监测产品')).not.toBeInTheDocument();
+       |                                              ^
+     78|   });
+     79|   it('应用筛选校验时间和ID，不发送无效输入，成功时清除cell与分页', async () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  1 failed | 23 passed (24)
+   Start at  02:07:12
+   Duration  1.52s (transform 309ms, setup 436ms, import 643ms, tests 1.08s, environment 1.19s)
+

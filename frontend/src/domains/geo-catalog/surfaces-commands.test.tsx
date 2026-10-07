@@ -1,0 +1,112 @@
+import { act, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { api } from '@/shared/api/client';
+import { surfacesKeys } from './surfaces.api';
+import { failure, mockSurfaceReads, openAction, profileFixture, profileId, renderSurfaces, response, surfaceFixture, surfaceId } from './surfaces.test-support';
+
+beforeAll(() => Object.defineProperty(window, 'matchMedia', { configurable: true, value: vi.fn(() => ({ matches: true, media: '', onchange: null, addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn(), dispatchEvent: vi.fn() })) }));
+afterEach(() => vi.restoreAllMocks());
+describe('GEO 配置动作和删除确认', () => {
+  it('启停动作先确认，使用当前 detail revision，只有服务端 token 提供动作', async () => {
+    mockSurfaceReads();
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(response(surfaceFixture({ workflow_stage: 'ACTIVE', available_actions: ['UPDATE', 'DISABLE'], summary: { ...surfaceFixture().summary, revision: 6, is_active: true } })));
+    const { queryClient } = renderSurfaces();
+    const driver = await openAction('启用观测面');
+    expect(post).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole('dialog', { name: '确认启用观测面' });
+    await act(async () => queryClient.setQueryData(surfacesKeys.surface(surfaceId), surfaceFixture({ summary: { ...surfaceFixture().summary, revision: 5 } })));
+    await driver.click(within(dialog).getByRole('button', { name: '确认操作' }));
+    await waitFor(() => expect(post).toHaveBeenCalledOnce());
+    expect(post.mock.calls[0]).toMatchObject(['/api/v1/geo/engine-surfaces/{surface_id}/enable', { body: { expected_revision: 5 }, params: { path: { surface_id: surfaceId } } }]);
+    expect(await screen.findByText('启用观测面已完成。')).toBeVisible();
+    await driver.click(screen.getByRole('button', { name: '更多操作：测试观测面' }));
+    expect(await screen.findByRole('menuitem', { name: '停用观测面' })).toBeVisible();
+    expect(screen.queryByRole('menuitem', { name: '启用观测面' })).not.toBeInTheDocument();
+  });
+  it('服务端 activation blockers 提供阻断解释，未批准 BROWSER 没有启用命令或测试入口', async () => {
+    const base = profileFixture();
+    mockSurfaceReads(undefined, () => profileFixture({ summary: { ...base.summary, collection_mode: 'BROWSER' }, configuration: null, workflow_stage: 'BLOCKED', primary_task: 'RESOLVE_BLOCKERS', available_actions: [], activation_blockers: [{ code: 'ADAPTER_NOT_APPROVED', field: 'adapter_key' }, { code: 'COMPLIANCE_NOT_APPROVED', field: 'compliance_status' }, { code: 'PROFILE_NOT_TESTED', field: 'last_test_status' }] }));
+    const post = vi.spyOn(api, 'POST');
+    renderSurfaces(`/configuration/geo-surfaces?tab=profiles&profile_id=${profileId}`);
+    expect(await screen.findByText(/适配器未批准/)).toBeVisible();
+    expect(screen.getByText(/合规尚未批准/)).toBeVisible();
+    expect(screen.getByText(/配置尚未通过测试/)).toBeVisible();
+    expect(screen.getByRole('button', { name: '查看启用条件' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: '更多操作：人工采集配置' })).not.toBeInTheDocument();
+    expect(post).not.toHaveBeenCalled();
+  });
+  it('删除条件按服务端 blocker 显示计数和精确下钻，同 revision projection 更新撤销确认', async () => {
+    mockSurfaceReads();
+    const remove = vi.spyOn(api, 'DELETE');
+    const { queryClient } = renderSurfaces();
+    const driver = await openAction('删除观测面');
+    const dialog = await screen.findByRole('dialog', { name: '确认删除观测面' });
+    await act(async () => queryClient.setQueryData(surfacesKeys.surface(surfaceId), surfaceFixture({ available_actions: ['UPDATE', 'ENABLE'], deletion: { blockers: [{ type: 'COLLECTION_PROFILE', count: 2 }] } })));
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: '确认操作' })).toBeDisabled());
+    expect(within(dialog).getByText('采集配置：2')).toBeVisible();
+    expect(within(dialog).getByRole('link', { name: '查看引用' })).toHaveAttribute('href', `/configuration/geo-surfaces?tab=profiles&surface_id=${surfaceId}`);
+    await driver.click(within(dialog).getByRole('button', { name: '确认操作' }));
+    expect(remove).not.toHaveBeenCalled();
+    await driver.click(within(dialog).getByRole('button', { name: '取消' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: '更多操作：测试观测面' })).toHaveFocus());
+    await driver.click(screen.getByRole('button', { name: '更多操作：测试观测面' }));
+    expect(await screen.findByRole('menuitem', { name: '查看删除条件' })).toBeVisible();
+    expect(screen.queryByRole('menuitem', { name: '删除观测面' })).not.toBeInTheDocument();
+  });
+  it('删除 409 冻结确认，被动刷新不解冻，显式重读后仍须用户确认', async () => {
+    let current = profileFixture();
+    mockSurfaceReads(undefined, () => current);
+    const remove = vi.spyOn(api, 'DELETE').mockResolvedValueOnce(failure('GEO_CONFIGURATION_IN_USE')).mockResolvedValueOnce({ response: new Response(null, { status: 204 }) } as never);
+    const { queryClient, router } = renderSurfaces(`/configuration/geo-surfaces?tab=profiles&profile_id=${profileId}`);
+    const driver = await openAction('删除采集配置', '人工采集配置');
+    const dialog = await screen.findByRole('dialog', { name: '确认删除采集配置' });
+    await driver.click(within(dialog).getByRole('button', { name: '确认操作' }));
+    expect(await within(dialog).findByText(/surfaces-request-test/)).toBeVisible();
+    current = profileFixture({ summary: { ...current.summary, revision: 9 } });
+    await act(async () => queryClient.setQueryData(surfacesKeys.profile(profileId), current));
+    expect(within(dialog).getByRole('button', { name: '确认操作' })).toBeDisabled();
+    expect(remove).toHaveBeenCalledOnce();
+    await driver.click(within(dialog).getByRole('button', { name: '重新读取并重新确认' }));
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: '确认操作' })).toBeEnabled());
+    expect(remove).toHaveBeenCalledOnce();
+    await driver.click(within(dialog).getByRole('button', { name: '确认操作' }));
+    await waitFor(() => expect(router.state.location.search.profile_id).toBeUndefined());
+    expect(remove).toHaveBeenCalledTimes(2);
+    expect(remove.mock.calls[1]?.[1]).toMatchObject({ params: { query: { expected_revision: 9 } } });
+  });
+  it('删除成功保留最新筛选 URL，活动详情不重新 GET 已删除资源', async () => {
+    let deleted = false;
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/geo/collection-profiles') return response({ items: deleted ? [] : [profileFixture()], page: 1, page_size: 20, total: deleted ? 0 : 1 });
+      if (path === '/api/v1/geo/collection-profiles/{profile_id}') { if (deleted) throw new Error('已删除详情不应被重新读取'); return response(profileFixture()); }
+      throw new Error(`未声明请求：${path}`);
+    });
+    const remove = vi.spyOn(api, 'DELETE').mockImplementation(async () => { deleted = true; return { response: new Response(null, { status: 204 }) } as never; });
+    const { router } = renderSurfaces(`/configuration/geo-surfaces?tab=profiles&profile_id=${profileId}&q=原过滤`);
+    const driver = await openAction('删除采集配置', '人工采集配置');
+    const dialog = await screen.findByRole('dialog', { name: '确认删除采集配置' });
+    await act(() => router.navigate({ to: '/configuration/geo-surfaces', search: { tab: 'profiles', profile_id: profileId, q: '最新过滤' } }));
+    await driver.click(within(dialog).getByRole('button', { name: '确认操作' }));
+    await waitFor(() => expect(router.state.location.search.profile_id).toBeUndefined());
+    expect(router.state.location.search.q).toBe('最新过滤');
+    expect(remove).toHaveBeenCalledOnce();
+    expect(get.mock.calls.filter((call) => call[0] === '/api/v1/geo/collection-profiles/{profile_id}')).toHaveLength(1);
+    expect(await screen.findByText('采集配置已删除。')).toBeVisible();
+  });
+  it('未知 Adapter 422 保留 API 草稿，不能伪造成功或发起连接测试', async () => {
+    mockSurfaceReads();
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(failure('GEO_ADAPTER_UNKNOWN', 422));
+    renderSurfaces(`/configuration/geo-surfaces?tab=profiles&surface_id=${surfaceId}&new=1`);
+    const driver = await import('@testing-library/user-event').then(({ default: userEvent }) => userEvent.setup());
+    await driver.click(await screen.findByRole('combobox', { name: '采集模式' }));
+    await driver.click(await screen.findByRole('option', { name: 'API' }));
+    await driver.type(screen.getByRole('textbox', { name: '采集配置名称' }), '显式 API 配置');
+    await driver.type(screen.getByRole('textbox', { name: '适配器标识' }), 'unregistered_api');
+    await driver.type(screen.getByRole('spinbutton', { name: '温度' }), '0.5');
+    await driver.click(screen.getByRole('button', { name: '创建采集配置' }));
+    expect(await screen.findByText(/surfaces-request-test/)).toBeVisible();
+    expect(screen.getByRole('textbox', { name: '适配器标识' })).toHaveValue('unregistered_api');
+    expect(post).toHaveBeenCalledOnce();
+    expect(post.mock.calls[0]).toMatchObject(['/api/v1/geo/collection-profiles', { body: { collection_mode: 'API', adapter_key: 'unregistered_api', ai_channel_id: null, ai_model_id: null, login_state: 'NOT_APPLICABLE', settings: { temperature: 0.5, max_output_tokens: null } } }]);
+  });
+});

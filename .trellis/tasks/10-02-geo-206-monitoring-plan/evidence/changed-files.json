@@ -1,0 +1,207 @@
+{
+  "files": [
+    {
+      "path": "backend/alembic/versions/0047_geo_monitoring_plans.py",
+      "kind": "new",
+      "added": 213,
+      "removed": 0
+    },
+    {
+      "path": "backend/app/models/__init__.py",
+      "kind": "modified",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "backend/app/models/geo_monitoring_plans.py",
+      "kind": "new",
+      "added": 180,
+      "removed": 0
+    },
+    {
+      "path": "backend/app/schemas/geo_monitoring_plans.py",
+      "kind": "new",
+      "added": 199,
+      "removed": 0
+    },
+    {
+      "path": "backend/app/schemas/geo_prompt_variants.py",
+      "kind": "modified",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "backend/app/schemas/geo_surface_management.py",
+      "kind": "modified",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "backend/app/services/geo_catalog.py",
+      "kind": "modified",
+      "added": 4,
+      "removed": 1
+    },
+    {
+      "path": "backend/app/services/geo_catalog_queries.py",
+      "kind": "modified",
+      "added": 16,
+      "removed": 2
+    },
+    {
+      "path": "backend/app/services/geo_prompt_variant_queries.py",
+      "kind": "modified",
+      "added": 33,
+      "removed": 5
+    },
+    {
+      "path": "backend/app/services/geo_prompt_variants.py",
+      "kind": "modified",
+      "added": 8,
+      "removed": 2
+    },
+    {
+      "path": "backend/app/services/geo_surface_commands.py",
+      "kind": "modified",
+      "added": 20,
+      "removed": 4
+    },
+    {
+      "path": "backend/app/services/geo_surface_projections.py",
+      "kind": "modified",
+      "added": 8,
+      "removed": 2
+    },
+    {
+      "path": "backend/app/services/geo_surface_queries.py",
+      "kind": "modified",
+      "added": 23,
+      "removed": 1
+    },
+    {
+      "path": "backend/app/services/identity.py",
+      "kind": "modified",
+      "added": 3,
+      "removed": 0
+    },
+    {
+      "path": "backend/tests/integration/test_geo_monitoring_plans.py",
+      "kind": "new",
+      "added": 490,
+      "removed": 0
+    },
+    {
+      "path": "backend/tests/integration/test_geo_plan_reference_api.py",
+      "kind": "new",
+      "added": 197,
+      "removed": 0
+    },
+    {
+      "path": "backend/tests/integration/test_geo_questions_api.py",
+      "kind": "modified",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "backend/tests/integration/test_geo_surfaces_profiles.py",
+      "kind": "modified",
+      "added": 20,
+      "removed": 6
+    },
+    {
+      "path": "backend/tests/integration/test_migrations.py",
+      "kind": "modified",
+      "added": 3,
+      "removed": 3
+    },
+    {
+      "path": "backend/tests/unit/test_geo_monitoring_plan_contract.py",
+      "kind": "new",
+      "added": 218,
+      "removed": 0
+    },
+    {
+      "path": "contracts/database.md",
+      "kind": "modified",
+      "added": 56,
+      "removed": 4
+    },
+    {
+      "path": "contracts/openapi.yaml",
+      "kind": "modified",
+      "added": 426,
+      "removed": 1
+    },
+    {
+      "path": "docs/geo-monitoring/02-business/02-domain-model.md",
+      "kind": "modified",
+      "added": 3,
+      "removed": 0
+    },
+    {
+      "path": "docs/geo-monitoring/03-technical/02-data-architecture.md",
+      "kind": "modified",
+      "added": 4,
+      "removed": 2
+    },
+    {
+      "path": "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+      "kind": "modified",
+      "added": 2,
+      "removed": 0
+    },
+    {
+      "path": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+      "kind": "modified",
+      "added": 4,
+      "removed": 1
+    },
+    {
+      "path": "docs/geo-monitoring/CHANGELOG.md",
+      "kind": "modified",
+      "added": 8,
+      "removed": 0
+    },
+    {
+      "path": "docs/geo-monitoring/README.md",
+      "kind": "modified",
+      "added": 6,
+      "removed": 0
+    },
+    {
+      "path": "docs/geo-monitoring/SHA256SUMS",
+      "kind": "modified",
+      "added": 6,
+      "removed": 6
+    },
+    {
+      "path": "frontend/src/domains/geo-catalog/surfaces.model.ts",
+      "kind": "modified",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "frontend/src/domains/geo-questions/question-detail.tsx",
+      "kind": "modified",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "frontend/src/shared/api/generated/schema.d.ts",
+      "kind": "modified",
+      "added": 205,
+      "removed": 2
+    }
+  ],
+  "deleted": [],
+  "snapshot_note": {
+    "excluded_unchanged_tracked_paths": [
+      "docs/GEO多平台内容运营系统方案设计.md",
+      "docs/GEO系统前后端技术与部署方案.md",
+      "docs/GEO项目会话归档.md",
+      "docs/Hostdzire部署上线流程.md",
+      "docs/Hostdzire部署附录.md"
+    ],
+    "reason": "初始清单未解码非ASCII路径；这些跟踪文件与HEAD一致，不属于本任务。"
+  }
+}

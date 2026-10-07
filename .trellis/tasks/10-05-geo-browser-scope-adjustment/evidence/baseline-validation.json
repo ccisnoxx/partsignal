@@ -1,0 +1,364 @@
+{
+  "manifest": {
+    "tasks": 71,
+    "statuses": [
+      "planned",
+      "ready",
+      "in_progress",
+      "review",
+      "done",
+      "blocked"
+    ],
+    "acyclic": true
+  },
+  "links": {
+    "checked": 537,
+    "broken": [
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-003",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-004",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-005",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-101",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-102",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-103",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-104",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-105",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-106",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-201",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-202",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-203",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-204",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-205",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-206",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-207",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-208",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-209",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-301",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-302",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-303",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-304",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-305",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-306",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-307",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-308",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-401",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-402",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-403",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-404",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-405",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-406",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-407",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-408",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-501",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-502",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-503",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-504",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-505",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-506",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-507",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-508",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-601",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-602",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-603",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-604",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-605",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-606",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-607",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-701",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-702",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-703",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-704",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-705",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-706",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-707",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-801",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-802",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-803",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-804",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-805",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-806",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-807",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-901",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-902",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-903",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-904",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-905",
+        "error": "missing_anchor"
+      },
+      {
+        "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+        "target": "#geo-906",
+        "error": "missing_anchor"
+      }
+    ]
+  }
+}

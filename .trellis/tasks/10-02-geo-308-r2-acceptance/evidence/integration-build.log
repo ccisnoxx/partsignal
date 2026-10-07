@@ -1,0 +1,131 @@
+ Image partsignal-geo308-validation-backend-test Building 
+ Image partsignal-geo308-validation-fake-oss Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.16kB done
+#1 DONE 0.0s
+
+#2 [backend-test internal] load build definition from Dockerfile
+#2 transferring dockerfile: 594B done
+#2 DONE 0.0s
+
+#3 [fake-oss internal] load metadata for docker.io/library/python:3.12-slim
+#3 ...
+
+#4 [auth] astral-sh/uv:pull token for ghcr.io
+#4 DONE 0.0s
+
+#5 [fake-oss internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#5 DONE 1.8s
+
+#3 [fake-oss internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 1.7s
+
+#6 [backend-test internal] load .dockerignore
+#6 transferring context: 152B done
+#6 DONE 0.0s
+
+#7 [backend-test runtime 1/7] FROM docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016
+#7 resolve docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016 done
+#7 DONE 0.0s
+
+#8 [backend-test] FROM ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043
+#8 resolve ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043 0.0s done
+#8 DONE 0.0s
+
+#9 [fake-oss internal] load build context
+#9 transferring context: 1.85MB 0.0s done
+#9 DONE 0.0s
+
+#10 [backend-test runtime 2/7] WORKDIR /app
+#10 CACHED
+
+#11 [backend-test runtime 3/7] COPY --from=ghcr.io/astral-sh/uv:0.7.13 /uv /uvx /bin/
+#11 CACHED
+
+#12 [backend-test runtime 4/7] COPY pyproject.toml uv.lock* ./
+#12 CACHED
+
+#13 [backend-test runtime 5/7] RUN uv sync --no-dev --no-install-project
+#13 CACHED
+
+#14 [fake-oss runtime 6/7] COPY . .
+#14 DONE 0.1s
+
+#14 [backend-test runtime 6/7] COPY . .
+#14 DONE 0.1s
+
+#15 [backend-test runtime 7/7] RUN uv sync --no-dev
+#15 0.248 Resolved 88 packages in 4ms
+#15 0.267    Building partsignal-backend @ file:///app
+#15 3.700       Built partsignal-backend @ file:///app
+#15 3.700 Prepared 1 package in 3.43s
+#15 3.703 Installed 1 package in 2ms
+#15 3.909 Bytecode compiled 2466 files in 205ms
+#15 3.909  + partsignal-backend==0.1.0 (from file:///app)
+#15 DONE 3.9s
+
+#16 [backend-test test 1/1] RUN uv sync --all-extras
+#16 0.116 Resolved 88 packages in 0.47ms
+#16 0.996 Downloading mypy (13.1MiB)
+#16 1.346 Downloading pygments (1.2MiB)
+#16 1.370 Downloading ruff (10.5MiB)
+#16 1.686  Downloading pygments
+#16 2.569  Downloading ruff
+#16 2.792  Downloading mypy
+#16 2.793 Prepared 20 packages in 2.67s
+#16 2.854 Installed 20 packages in 60ms
+#16 3.232 Bytecode compiled 3437 files in 377ms
+#16 3.232  + attrs==26.1.0
+#16 3.232  + coverage==7.15.0
+#16 3.232  + httpcore2==2.9.1
+#16 3.232  + httpx2==2.9.1
+#16 3.232  + iniconfig==2.3.0
+#16 3.232  + jsonschema==4.26.0
+#16 3.232  + jsonschema-specifications==2025.9.1
+#16 3.232  + librt==0.13.0
+#16 3.232  + mypy==1.20.2
+#16 3.232  + mypy-extensions==1.1.0
+#16 3.232  + pathspec==1.1.1
+#16 3.232  + pluggy==1.6.0
+#16 3.232  + pygments==2.20.0
+#16 3.232  + pytest==8.4.2
+#16 3.232  + pytest-cov==6.3.0
+#16 3.232  + referencing==0.37.0
+#16 3.232  + rpds-py==2026.6.3
+#16 3.232  + ruff==0.15.21
+#16 3.232  + truststore==0.10.4
+#16 3.232  + types-pyyaml==6.0.12.20260518
+#16 DONE 3.4s
+
+#16 [backend-test test 1/1] RUN uv sync --all-extras
+#16 DONE 3.4s
+
+#17 [fake-oss] exporting to image
+#17 exporting layers
+#17 exporting layers 3.3s done
+#17 exporting manifest sha256:3d81f7344576149c3f8fec93ca4015123d634bfc16837cfc33f174b4df8c562d done
+#17 exporting config sha256:9425fa22ee030c5e3c6aafd68ecaccbe0993add984cc09ae479815d2c3be7c01 done
+#17 exporting attestation manifest sha256:a331da7d00df33b03fc6e2fa841c1bc3805a61e164311bd11e3c196c135dd67d 0.0s done
+#17 exporting manifest list sha256:ccb141ce8dfe738d3cd0ceb5fc076b4ca8e014e7dcc11cdaf83f5ffc1d8538dd done
+#17 naming to docker.io/library/partsignal-geo308-validation-fake-oss:latest done
+#17 unpacking to docker.io/library/partsignal-geo308-validation-fake-oss:latest
+#17 unpacking to docker.io/library/partsignal-geo308-validation-fake-oss:latest 1.0s done
+#17 DONE 4.3s
+
+#18 [backend-test] exporting to image
+#18 exporting layers 3.3s done
+#18 exporting manifest sha256:cf0ec2bc67f1bbe9182bf4936940c236688f3108db4b1180a47f6e04da2b7b4f done
+#18 exporting config sha256:8c4dab76eefb6b92343562ac2db8f78048fdbbf00303ec3726a4018c96a429be done
+#18 exporting attestation manifest sha256:bd513e0ef4c60d223334a074be8c6fa1d1cd0643b84fe218f5e2986815cd68b6 0.0s done
+#18 exporting manifest list sha256:f3309d552af0492314d5f5d1e83601727c9fc23b12c0aaf99ad5158807483f19 done
+#18 naming to docker.io/library/partsignal-geo308-validation-backend-test:latest done
+#18 unpacking to docker.io/library/partsignal-geo308-validation-backend-test:latest 1.0s done
+#18 DONE 4.3s
+
+#19 [backend-test] resolving provenance for metadata file
+#19 DONE 0.0s
+
+#20 [fake-oss] resolving provenance for metadata file
+#20 DONE 0.0s
+ Image partsignal-geo308-validation-backend-test Built 
+ Image partsignal-geo308-validation-fake-oss Built 

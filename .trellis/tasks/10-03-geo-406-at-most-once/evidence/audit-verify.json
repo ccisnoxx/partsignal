@@ -1,0 +1,85 @@
+{
+  "report_type": "MULTI_AGENT_AUDIT_BUNDLE_REPORT",
+  "report_version": 1,
+  "status": "passed",
+  "audit_id": "20261003T110351Z-geo-406-c1fe5ce3",
+  "audit_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T110351Z-geo-406-c1fe5ce3",
+  "bundle_status": "closed",
+  "artifact_count": 8,
+  "size_bytes": 14167,
+  "summary": {
+    "plan_count": 1,
+    "executed_attempt_count": 1,
+    "accepted_attempt_count": 1,
+    "independent_review_count": 1,
+    "attention_required": false,
+    "anomaly_count": 0
+  },
+  "artifacts": [
+    {
+      "path": "01-independent-review.dispatches/geo406-review-a1.json",
+      "kind": "dispatch_json",
+      "size_bytes": 168,
+      "sha256": "40322815e125911c9fd673836bbb835fcc627705cc080a3122aba7f1b7e75329",
+      "task_name": "geo406_review",
+      "agent_type": "critical_reviewer"
+    },
+    {
+      "path": "01-independent-review.draft.json",
+      "kind": "draft_plan_json",
+      "size_bytes": 1496,
+      "sha256": "e936fc89a79efb35bedeebf00147c5e349612d51eabdfb1d784e3c764c5b07f7",
+      "schema_version": 5,
+      "plan_id": "geo406-independent-review"
+    },
+    {
+      "path": "01-independent-review.execution.json",
+      "kind": "execution_json",
+      "size_bytes": 1755,
+      "sha256": "4bf231303d6202ec95156ac977b87098fb72659da531ce1cdd649a7b89461753",
+      "schema_version": 6,
+      "plan_id": "geo406-independent-review"
+    },
+    {
+      "path": "01-independent-review.plan.json",
+      "kind": "generated_plan_json",
+      "size_bytes": 2511,
+      "sha256": "12ce1469cfe2539bf32f64a9b3ca99cc0dd543776c47c47295ac702b236253ee",
+      "schema_version": 5,
+      "planner_version": "1.5.1",
+      "plan_id": "geo406-independent-review"
+    },
+    {
+      "path": "01-independent-review.summary.json",
+      "kind": "summary_json",
+      "size_bytes": 3076,
+      "sha256": "16699c747e703d41da605f4a333a8406a3e74486784a614122ebc3787493db6f",
+      "schema_version": 3,
+      "plan_id": "geo406-independent-review"
+    },
+    {
+      "path": "01-independent-review.summary.txt",
+      "kind": "summary_text",
+      "size_bytes": 2539,
+      "sha256": "eb09b2742c784f83b65745852760b14df54b61b5858113e3cfac2ad3fab94e03"
+    },
+    {
+      "path": "SUBAGENT_EXECUTION_DIGEST.json",
+      "kind": "digest_json",
+      "size_bytes": 1757,
+      "sha256": "08c947d0fc84dee3d0bb127b6f24de0f919b6bcad0e5544cbb14418fdce72bb3",
+      "schema_version": 3,
+      "plan_ids": [
+        "geo406-independent-review"
+      ]
+    },
+    {
+      "path": "SUBAGENT_EXECUTION_DIGEST.md",
+      "kind": "digest_markdown",
+      "size_bytes": 865,
+      "sha256": "0329f4025bb03a7027f53c66b022f966fe3f642b33816f160f17d5b49a7f61fc"
+    }
+  ],
+  "errors": [],
+  "warnings": []
+}

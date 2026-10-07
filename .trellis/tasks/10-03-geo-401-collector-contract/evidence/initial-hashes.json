@@ -1,0 +1,14 @@
+{
+  "backend/app/collectors/registry.py": "db8d486d5c6951e02c7a05526e06c949edba59a0a6d5292b748a89d875cd81e6",
+  "backend/app/schemas/geo_runs.py": "3a66caed105a3dffa3c41c1c2b6f21cee28f51e9befaf06df4947ee91ff5801b",
+  "backend/app/schemas/geo_answers.py": "adcf509d1563607b4ac1c96b49849bd69c59e123c383f7c5e124cc39bb42860b",
+  "contracts/openapi.yaml": "36d10d43e0891b948eeb4fde5a669df62e81233b7dcab61cffaeb9064eff187b",
+  "contracts/database.md": "0167333c26e575852d14c7df5691d1df05476d54fbafdf9392472848d072c483",
+  "docs/geo-monitoring/README.md": "28a5a0117ad43b227b2c5e836d32f2811cd7199f415c01168ac76ffa3947a656",
+  "docs/geo-monitoring/03-technical/01-technical-architecture.md": "2ce491f8dbf89639aabbf59b5afb7a3fd43520e40e7848e4e9e3049c85436689",
+  "docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md": "504aa595621dad9a7dee12cc697911977aa9e6092a907672455281525fa9571a",
+  "docs/geo-monitoring/03-technical/07-testing-and-quality.md": "1c0ce7b0d258f858fc466d5c3f58b6efcba06212eaae3f4337569867625acc40",
+  "docs/geo-monitoring/04-delivery/task-manifest.yaml": "1c1fae0b8557dfed9a7f4ae1669b89444d6dc839b74d883b801dd2c22b7689d1",
+  "docs/geo-monitoring/SHA256SUMS": "583a22f52b07f8ab45d7df10a9a74320485e1f7b34388b1b38ef68809caa90a3",
+  "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md": "73ed77167c08a7a7a130608ab75d74ae6dc47360c99b6323aa745443330ca192"
+}

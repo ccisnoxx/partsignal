@@ -1,0 +1,206 @@
+ Image partsignal-geo506-backend-test Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 607B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 594B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 ...
+
+#4 [auth] astral-sh/uv:pull token for ghcr.io
+#4 DONE 0.0s
+
+#5 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#5 ...
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 1.7s
+
+#5 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#5 DONE 1.8s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 152B done
+#6 DONE 0.0s
+
+#7 FROM ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043
+#7 resolve ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043 0.0s done
+#7 DONE 0.0s
+
+#8 [runtime 1/7] FROM docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016
+#8 resolve docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016 0.0s done
+#8 DONE 0.0s
+
+#9 [internal] load build context
+#9 transferring context: 275.70kB 0.0s done
+#9 DONE 0.0s
+
+#10 [runtime 4/7] COPY pyproject.toml uv.lock* ./
+#10 CACHED
+
+#11 [runtime 2/7] WORKDIR /app
+#11 CACHED
+
+#12 [runtime 3/7] COPY --from=ghcr.io/astral-sh/uv:0.7.13 /uv /uvx /bin/
+#12 CACHED
+
+#13 [runtime 5/7] RUN uv sync --no-dev --no-install-project
+#13 CACHED
+
+#14 [runtime 6/7] COPY . .
+#14 DONE 0.1s
+
+#15 [runtime 7/7] RUN uv sync --no-dev
+#15 0.139 Resolved 88 packages in 0.81ms
+#15 0.140    Building partsignal-backend @ file:///app
+#15 3.429       Built partsignal-backend @ file:///app
+#15 3.429 Prepared 1 package in 3.28s
+#15 3.432 Installed 1 package in 2ms
+#15 3.586 Bytecode compiled 2466 files in 154ms
+#15 3.586  + partsignal-backend==0.1.0 (from file:///app)
+#15 DONE 3.6s
+
+#16 [test 1/1] RUN uv sync --all-extras
+#16 0.084 Resolved 88 packages in 0.36ms
+#16 0.996 Downloading pygments (1.2MiB)
+#16 1.157 Downloading mypy (13.1MiB)
+#16 1.305 Downloading ruff (10.5MiB)
+#16 1.680  Downloading pygments
+#16 2.559  Downloading ruff
+#16 2.827  Downloading mypy
+#16 2.827 Prepared 20 packages in 2.74s
+#16 2.884 Installed 20 packages in 56ms
+#16 3.426 Bytecode compiled 3437 files in 542ms
+#16 3.426  + attrs==26.1.0
+#16 3.426  + coverage==7.15.0
+#16 3.426  + httpcore2==2.9.1
+#16 3.426  + httpx2==2.9.1
+#16 3.426  + iniconfig==2.3.0
+#16 3.426  + jsonschema==4.26.0
+#16 3.426  + jsonschema-specifications==2025.9.1
+#16 3.426  + librt==0.13.0
+#16 3.426  + mypy==1.20.2
+#16 3.426  + mypy-extensions==1.1.0
+#16 3.426  + pathspec==1.1.1
+#16 3.426  + pluggy==1.6.0
+#16 3.426  + pygments==2.20.0
+#16 3.426  + pytest==8.4.2
+#16 3.426  + pytest-cov==6.3.0
+#16 3.426  + referencing==0.37.0
+#16 3.426  + rpds-py==2026.6.3
+#16 3.426  + ruff==0.15.21
+#16 3.426  + truststore==0.10.4
+#16 3.426  + types-pyyaml==6.0.12.20260518
+#16 DONE 3.6s
+
+#17 exporting to image
+#17 exporting layers
+#17 exporting layers 2.9s done
+#17 exporting manifest sha256:5c7b5319265537ba6b7aae0d14bd2b5553d76d8d273e804d0bab35cb0543a4d5
+#17 exporting manifest sha256:5c7b5319265537ba6b7aae0d14bd2b5553d76d8d273e804d0bab35cb0543a4d5 done
+#17 exporting config sha256:1bfcbe28fb2e07ade46db2adcd1176c25d56e0bd992d9e1c480e1ca6a6573686 done
+#17 exporting attestation manifest sha256:7f1d0a275eef136e2dfc0df6f292873cc3826ec3a7787a10532cb16f2d833881 done
+#17 exporting manifest list sha256:7210d2f374dffec77cf9408ff0c3ac78c3b730c469feb7c7b30188a5c249e3cf done
+#17 naming to docker.io/library/partsignal-geo506-backend-test:latest done
+#17 unpacking to docker.io/library/partsignal-geo506-backend-test:latest
+#17 unpacking to docker.io/library/partsignal-geo506-backend-test:latest 0.7s done
+#17 DONE 3.7s
+
+#18 resolving provenance for metadata file
+#18 DONE 0.0s
+ Image partsignal-geo506-backend-test Built 
+ Network partsignal-geo506-validation_default Creating 
+ Network partsignal-geo506-validation_default Created 
+ Volume partsignal-geo506-validation_geo506-oss Creating 
+ Volume partsignal-geo506-validation_geo506-oss Created 
+ Volume partsignal-geo506-validation_geo506-postgres Creating 
+ Volume partsignal-geo506-validation_geo506-postgres Created 
+ Container partsignal-geo506-validation-fake-oss-1 Creating 
+ Container partsignal-geo506-validation-postgres-1 Creating 
+ Container partsignal-geo506-validation-redis-1 Creating 
+ Container partsignal-geo506-validation-postgres-1 Created 
+ Container partsignal-geo506-validation-fake-oss-1 Created 
+ Container partsignal-geo506-validation-redis-1 Created 
+ Container partsignal-geo506-validation-redis-1 Starting 
+ Container partsignal-geo506-validation-postgres-1 Starting 
+ Container partsignal-geo506-validation-fake-oss-1 Starting 
+ Container partsignal-geo506-validation-redis-1 Started 
+ Container partsignal-geo506-validation-fake-oss-1 Started 
+ Container partsignal-geo506-validation-postgres-1 Started 
+ Image partsignal-geo506-backend-test Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.12kB done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 594B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 ...
+
+#4 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#4 DONE 0.2s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 0.3s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 152B done
+#5 DONE 0.0s
+
+#6 FROM ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043
+#6 resolve ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043 done
+#6 DONE 0.0s
+
+#7 [runtime 1/7] FROM docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016
+#7 resolve docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016 done
+#7 DONE 0.0s
+
+#8 [internal] load build context
+#8 transferring context: 62.26kB 0.0s done
+#8 DONE 0.0s
+
+#9 [runtime 5/7] RUN uv sync --no-dev --no-install-project
+#9 CACHED
+
+#10 [runtime 7/7] RUN uv sync --no-dev
+#10 CACHED
+
+#11 [runtime 6/7] COPY . .
+#11 CACHED
+
+#12 [runtime 3/7] COPY --from=ghcr.io/astral-sh/uv:0.7.13 /uv /uvx /bin/
+#12 CACHED
+
+#13 [runtime 2/7] WORKDIR /app
+#13 CACHED
+
+#14 [runtime 4/7] COPY pyproject.toml uv.lock* ./
+#14 CACHED
+
+#15 [test 1/1] RUN uv sync --all-extras
+#15 CACHED
+
+#16 exporting to image
+#16 exporting layers done
+#16 exporting manifest sha256:ca2d311295a628e4c5c492ed887420d8ed307300ae1598f672520e2414487353 done
+#16 exporting config sha256:597b134cf5a122e7347d7211ed8cf3f926a2d7ecbbdcbc46a90c6048a2e7fafc done
+#16 exporting attestation manifest sha256:4d684a2d91815a9557624a75ec4909d14b92fe7bb2190258dbfd5e03e2dd8460 done
+#16 exporting manifest list sha256:91f03ad11b7d9b9a76329ffea4adb89a1d88464e64dd118870683e7da85d0e23 done
+#16 naming to docker.io/library/partsignal-geo506-backend-test:latest done
+#16 unpacking to docker.io/library/partsignal-geo506-backend-test:latest done
+#16 DONE 0.0s
+
+#17 resolving provenance for metadata file
+#17 DONE 0.0s
+ Image partsignal-geo506-backend-test Built 
+ Container partsignal-geo506-validation-postgres-1 Waiting 
+ Container partsignal-geo506-validation-postgres-1 Healthy 
+ Container partsignal-geo506-validation-backend-test-run-8d13b9ea026f Creating 
+ Container partsignal-geo506-validation-backend-test-run-8d13b9ea026f Created 
+.....................                                                    [100%]
+21 passed in 9.41s

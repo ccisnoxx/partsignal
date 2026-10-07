@@ -1,0 +1,5 @@
+{
+  "command": "node --input-type=module -",
+  "stdin": "import assert from 'node:assert/strict';\nimport { readConfiguration, admissionCode } from './browser-collector/src/service.mjs';\nconst configuration = readConfiguration({});\nassert.equal(configuration.enabled, false);\nassert.equal(configuration.monitoring, false);\nassert.equal(admissionCode(configuration), 'COLLECTOR_DISABLED');\nconsole.log('readConfiguration({}): Browser=false; monitoring=false; admission=COLLECTOR_DISABLED');\n",
+  "exit_code": 0
+}

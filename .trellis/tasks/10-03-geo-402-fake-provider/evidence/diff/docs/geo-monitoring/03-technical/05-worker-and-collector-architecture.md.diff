@@ -1,0 +1,31 @@
+--- initial/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
++++ candidate/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
+@@ -176,7 +176,7 @@
+ schedule_identity = sha256(plan_id + canonical_utc_scheduled_for)
+ ```
+ 
+-GEO-301 已定义数据库唯一 `(plan_id, scheduled_for)` 及非空 SHA256 摘要索引；身份不含 plan_revision，计划更新不能使同窗口再次创建。GEO-303内部批次工厂已规范化aware窗口为UTC微秒时间，创建身份使用固定命名空间与计划ID，不含revision；同窗口重放首次批次。仅首次新窗口要求ACTIVE CRON及当前资格。窗口计算、扫描、补跑与调度执行由GEO-402实施，工厂不派发Redis或调用Collector。
++GEO-301 已定义数据库唯一 `(plan_id, scheduled_for)` 及非空 SHA256 摘要索引；身份不含 plan_revision，计划更新不能使同窗口再次创建。GEO-303内部批次工厂已规范化aware窗口为UTC微秒时间，创建身份使用固定命名空间与计划ID，不含revision；同窗口重放首次批次。仅首次新窗口要求ACTIVE CRON及当前资格。窗口计算、扫描、补跑与调度执行仍为后续任务，按WBS和manifest分配；GEO-402仅建设fake provider与合同套件，工厂不派发Redis或调用Collector。
+ 
+ ### 6.2 时区和错过窗口
+ 
+@@ -510,3 +510,19 @@
+ [Task Brief](../../../.trellis/tasks/10-03-geo-401-collector-contract/prd.md) 与
+ [实施证据](../../../.trellis/tasks/10-03-geo-401-collector-contract/implement.md)，交付状态以
+ [任务清单](../04-delivery/task-manifest.yaml) 为准。
++
++
++## 当前 R3：GEO-402 本地 fake provider 与合同套件
++
++`backend/app/geo_fake_server.py` 为独立回环 TCP 服务，实例隔离且线程安全，支持实际超时、
++断连、重定向、声明/流式大小超限、非法 JSON/回答及正常原文/引用/元数据。场景按 Run
++UUID 脚本化，统计只保留次数、请求 SHA256 和长度；重复请求如实追加，不由 fake 去重。
++控制协议和完整模式见 [测试说明](../../../backend/tests/fixtures/geo_provider/README.md)。
++
++`tests.geo_collector_contract` 可供后续 adapter 复用，检查发送回调、请求哈希、单次调用、
++无 retry/redirect、原始结果和稳定错误。当前只用测试专用驱动自测，并独立验证已有
++pinned transport 的真实网络故障；默认 Registry 仍只有 manual，不新增业务命令、
++Profile 测试、Worker、数据库或 Browser 能力。生产发送隔离和恢复仍由后续任务证明。
++
++`make test-geo-collector-contract` 在输出前扫描日志和临时产物；CI 只允许本地请求。
++实现与实际验证见 [GEO-402 记录](../../../.trellis/tasks/10-03-geo-402-fake-provider/implement.md)。

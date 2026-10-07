@@ -1,0 +1,7 @@
+{"file": "frontend/AGENTS.md", "reason": "GEO-209开发/验收合同"}
+{"file": ".trellis/spec/frontend/visual-system.md", "reason": "GEO-209开发/验收合同"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "GEO-209开发/验收合同"}
+{"file": "docs/geo-monitoring/03-technical/04-frontend-architecture.md", "reason": "GEO-209开发/验收合同"}
+{"file": "contracts/openapi.yaml", "reason": "GEO-209开发/验收合同"}
+{"file": ".trellis/spec/infra/e2e-isolation.md", "reason": "R1人工监测真实栈与清理边界"}
+{"file": "docs/geo-monitoring/04-delivery/task-manifest.yaml", "reason": "GEO-209允许执行与GEO-208 done依赖"}

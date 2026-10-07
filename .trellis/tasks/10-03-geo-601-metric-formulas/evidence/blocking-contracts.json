@@ -1,0 +1,48 @@
+{
+  "authority": "docs/geo-monitoring/05-decisions/ADR-004-no-unified-geo-score.md:36",
+  "review": "docs/geo-monitoring/05-decisions/GEO-002-architecture-review.md:142",
+  "status": "blocked",
+  "conflicts": [
+    {
+      "metric": "首位推荐率",
+      "prd": {
+        "file": "docs/geo-monitoring/01-product/02-geo-core-prd.md",
+        "line": 1111,
+        "denominator": "推荐适用有效运行数"
+      },
+      "methodology": {
+        "file": "docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md",
+        "line": 173,
+        "denominator": "存在可靠推荐顺序的合格运行数"
+      },
+      "example": {
+        "top_rank_runs": 1,
+        "recommendation_applicable_runs": 2,
+        "reliable_order_runs": 1,
+        "prd_value": "0.5",
+        "methodology_value": "1"
+      }
+    },
+    {
+      "metric": "严重错误运行率",
+      "prd": {
+        "file": "docs/geo-monitoring/01-product/02-geo-core-prd.md",
+        "line": 1120,
+        "denominator": "有效运行数"
+      },
+      "methodology": {
+        "file": "docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md",
+        "line": 334,
+        "denominator": "有可判断声明的合格运行数"
+      },
+      "example": {
+        "critical_error_runs": 1,
+        "eligible_runs": 2,
+        "assessable_runs": 1,
+        "prd_value": "0.5",
+        "methodology_value": "1"
+      }
+    }
+  ],
+  "decision_received": false
+}

@@ -1,0 +1,8 @@
+# 最终文案收口后验证
+# npm run test -- src/domains/geo-runs/batch-create.test.tsx && npx eslint src/domains/geo-runs/batch-create.tsx src/domains/geo-runs/batch-create.test.tsx
+# exit_code=0
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  21:49:20
+   Duration  1.85s (transform 732ms, setup 82ms, import 1.06s, tests 269ms, environment 380ms)

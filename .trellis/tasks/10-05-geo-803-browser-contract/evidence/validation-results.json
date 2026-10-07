@@ -1,0 +1,139 @@
+{
+  "task": "GEO-803",
+  "status": "review",
+  "results": [
+    {
+      "command": "npm --prefix browser-collector test && npm --prefix browser-collector run typecheck",
+      "stage": "baseline",
+      "exit_code": 0,
+      "passed": 13,
+      "evidence": "baseline.md"
+    },
+    {
+      "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_browser_boundary.py backend/tests/unit/test_geo_collector_contract.py backend/tests/unit/test_geo_collector_suite.py -q",
+      "stage": "baseline",
+      "exit_code": 0,
+      "passed": 113,
+      "evidence": "baseline.md"
+    },
+    {
+      "command": "make test-geo-browser-contract",
+      "stage": "initial",
+      "exit_code": 2,
+      "passed": 26,
+      "failed": 1,
+      "cause": "被中止导航提交错误页与下一次同页导航竞争",
+      "resolution": "关闭被拒绝页面，新建本地页面，保持网络拒绝",
+      "evidence": "contract-initial.log"
+    },
+    {
+      "command": "make test-geo-browser-contract",
+      "stage": "final",
+      "exit_code": 0,
+      "passed": 27,
+      "skipped": 0,
+      "typed_results": 18,
+      "secret_scan": 0,
+      "evidence": "contract-host-final.log"
+    },
+    {
+      "command": "make test-geo-browser-contract GEO_BROWSER_CONTRACT_CONTAINER=1",
+      "stage": "final",
+      "exit_code": 0,
+      "passed": 27,
+      "skipped": 0,
+      "typed_results": 18,
+      "secret_scan": 0,
+      "runtime": "Linux Chromium非root sandbox，network none，最小只读挂载",
+      "evidence": "contract-container-final.log"
+    },
+    {
+      "command": "make contract-check",
+      "exit_code": 0,
+      "result": "FastAPI/OpenAPI/generated一致",
+      "evidence": "contract-check.log"
+    },
+    {
+      "command": "make lint",
+      "exit_code": 0,
+      "evidence": "lint.log"
+    },
+    {
+      "command": "UV_CACHE_DIR=.cache/uv uv run --project backend ruff check deploy/scripts/test-geo-browser-contract.py",
+      "exit_code": 0,
+      "result": "All checks passed；工具结果确认"
+    },
+    {
+      "command": "make typecheck",
+      "exit_code": 0,
+      "evidence": "typecheck.log",
+      "coverage": "既有Browser src checkJs/backend239/frontend；新测试JS由lint语法与真实执行验证"
+    },
+    {
+      "command": "make test-unit",
+      "exit_code": 0,
+      "passed": {
+        "browser": 13,
+        "backend": 3726,
+        "frontend": 1285
+      },
+      "evidence": "test-unit.log"
+    },
+    {
+      "command": "make e2e",
+      "exit_code": 0,
+      "environment": "DATABASE_URL本地55432开发库；REDIS_URL本地56379/14，不复制连接凭据",
+      "passed": {
+        "browser_contract": 27,
+        "real_stack": 32,
+        "geo_modes": {
+          "enabled": 1,
+          "api-disabled": 1,
+          "monitoring-disabled": 1
+        },
+        "frontend_artifact": 498
+      },
+      "skipped": {
+        "geo_modes_each": 1,
+        "frontend_artifact": 74
+      },
+      "skip_reason": "既有项目/环境模式选择",
+      "secret_scan": 0,
+      "cleanup": "4临时PG库、每轮Redis键/端口/存储全部清理",
+      "evidence": "e2e.log"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "evidence": "diff-check.log"
+    },
+    {
+      "command": "git diff --no-index --check /dev/null <新增维护文件>",
+      "result": "11份新增源码/Task Brief/记录空白检查通过",
+      "evidence": "final-checks.json"
+    },
+    {
+      "command": "CI YAML解析与任务增量静态断言",
+      "exit_code": 0,
+      "evidence": "ci-static-check.json"
+    }
+  ],
+  "not_run": [
+    {
+      "scope": "真实AI/staging/生产/远程CI",
+      "reason": "本任务完全本地且不含真实Adapter或试点授权"
+    },
+    {
+      "scope": "独立全量integration/performance/verify",
+      "reason": "无业务/PG/Worker/迁移变更；未完成R7阶段，不触发阶段全门禁；已执行定向基线、权威合同、unit及指定E2E"
+    },
+    {
+      "scope": "120秒超时/强制取消故障注入",
+      "reason": "外层生命周期异常路径源码自审，未故意耗尽deadline"
+    },
+    {
+      "scope": "独立make build",
+      "reason": "本任务无产品frontend变化，make e2e已执行tsc+Vite production build；不重复Docker镜像构建"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+[0;34m=== Validating Context Files ===[0m
+Target dir: /Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-02-geo-308-r2-acceptance
+
+  [1;33mimplement.jsonl:3: Warning: docs/geo-monitoring/04-delivery/task-manifest.yaml is 61101 bytes, exceeds context_injection.max_file_bytes (32768); injection will truncate it[0m
+  [1;33mimplement.jsonl:6: Warning: contracts/database.md is 162184 bytes, exceeds context_injection.max_file_bytes (32768); injection will truncate it[0m
+  [1;33mimplement.jsonl:7: Warning: contracts/openapi.yaml is 631753 bytes, exceeds context_injection.max_file_bytes (32768); injection will truncate it[0m
+  [0;32mimplement.jsonl: ✓ (10 entries)[0m
+  [1;33mcheck.jsonl:3: Warning: docs/geo-monitoring/04-delivery/task-manifest.yaml is 61101 bytes, exceeds context_injection.max_file_bytes (32768); injection will truncate it[0m
+  [1;33mcheck.jsonl:6: Warning: contracts/database.md is 162184 bytes, exceeds context_injection.max_file_bytes (32768); injection will truncate it[0m
+  [1;33mcheck.jsonl:7: Warning: contracts/openapi.yaml is 631753 bytes, exceeds context_injection.max_file_bytes (32768); injection will truncate it[0m
+  [0;32mcheck.jsonl: ✓ (10 entries)[0m
+
+[0;32m✓ All validations passed[0m

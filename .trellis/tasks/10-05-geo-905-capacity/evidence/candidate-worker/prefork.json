@@ -1,0 +1,9 @@
+{
+  "concurrency": 10,
+  "messages": 20,
+  "runs": 10,
+  "provider_calls": 10,
+  "collection_seconds": 2.0780240840103943,
+  "pool": "prefork",
+  "external_platform_calls": 0
+}

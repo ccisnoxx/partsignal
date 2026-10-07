@@ -1,0 +1,15 @@
+{
+  "observed_at": "2026-10-07T05:41:10.980747+00:00",
+  "review_commit": "28e921112aadb9f00da9449f71c4a616babc972d",
+  "validation_candidate_hashes_match_fixed_git_commit": {
+    "deploy/scripts/test-frontend-container.sh": true,
+    ".github/workflows/ci.yml": true,
+    ".trellis/spec/infra/ci-execution.md": true
+  },
+  "application_tests_dependencies_and_full_commands_equal_0b": true,
+  "test_scope_difference": [
+    "deploy/scripts/test-frontend-container.sh",
+    ".github/workflows/ci.yml"
+  ],
+  "ci_success_not_claimed": true
+}

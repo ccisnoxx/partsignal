@@ -1,0 +1,30 @@
+{
+  "scope": "LOCAL_DOCKER_ENGINE_ONLY_NOT_TARGET_PRODUCTION",
+  "checked_at": "2026-10-05T18:31:15.945566+00:00",
+  "target_environment": null,
+  "production_verdict": "NOT_VERIFIED",
+  "local_inventory_status": "READABLE",
+  "local_partsignal_container_count": 4,
+  "local_running_browser_service_count": 0,
+  "local_browser_container_count": 0,
+  "local_services": [
+    {
+      "name": "partsignal-dev-fake-oss-1",
+      "state": "exited"
+    },
+    {
+      "name": "partsignal-dev-postgres-1",
+      "state": "running"
+    },
+    {
+      "name": "partsignal-dev-redis-1",
+      "state": "running"
+    }
+  ],
+  "limitations": [
+    "本机Docker清单不能证明远程目标状态",
+    "未读取生产runtime环境或数据库",
+    "未检查未声明的受保护卷/密钥/遗留材料",
+    "本轮测试backend-test不是生产API/Worker/Scheduler"
+  ]
+}

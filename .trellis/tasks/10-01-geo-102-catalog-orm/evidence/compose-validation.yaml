@@ -1,0 +1,25 @@
+# 隔离项目使用样例配置与独立 volume/network，避免触碰既有开发数据。
+services:
+  postgres:
+    environment:
+      POSTGRES_DB: geo102_validation
+      POSTGRES_USER: partsignal
+      POSTGRES_PASSWORD: partsignal_dev
+    ports: !override
+      - 127.0.0.1:55439:5432
+  redis:
+    ports: !reset []
+  fake-oss:
+    image: partsignal-dev-fake-oss:latest
+    env_file: !override
+      - ../.env.example
+    ports: !reset []
+  backend-test:
+    image: partsignal-dev-backend-test:latest
+    env_file: !override
+      - ../.env.example
+    environment:
+      DATABASE_URL: postgresql+psycopg://partsignal:partsignal_dev@postgres:5432/geo102_validation
+networks:
+  partsignal-internal:
+    name: partsignal-geo102-validation

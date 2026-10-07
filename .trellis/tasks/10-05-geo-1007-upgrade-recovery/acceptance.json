@@ -1,0 +1,22 @@
+{
+  "task_id": "GEO-1007",
+  "delivery_scope_id": "GEO-1008",
+  "status": "ACCEPTED",
+  "accepted_commit": "baea420fb8a479d66d578d3f4fd91d38086b8c29",
+  "accepted_at": "2026-10-06T19:23:00.401149+00:00",
+  "authorization": "本会话用户2026-10-06第五项明确条件授权：复审APPROVE后写GEO-1007单项接受记录",
+  "independent_review_ref": "evidence/execution-owner-remediation/independent-review-baea420f.md",
+  "independent_review_result": "APPROVE",
+  "scope": "GEO-1007恢复增量及对应调用边界",
+  "whole_branch_accepted": false,
+  "production_recovery_accepted": false,
+  "rc_frozen": false,
+  "remaining_gates": [
+    "entire release blocker matrix",
+    "whole branch PR review",
+    "branch full verify and CI",
+    "clean main full verify",
+    "same commit archive/images/manifest/RC",
+    "production/现场独立门禁"
+  ]
+}

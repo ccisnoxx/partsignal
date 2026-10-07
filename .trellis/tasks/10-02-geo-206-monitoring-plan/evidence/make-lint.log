@@ -1,0 +1,36 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+E501 Line too long (101 > 100)
+   --> backend/tests/integration/test_geo_monitoring_plans.py:366:101
+    |
+364 |     "statement,constraint",
+365 |     [
+366 |         ("UPDATE geo_monitoring_plan_subjects SET role='UNKNOWN' WHERE plan_id=%s", "subjects_role"),
+    |                                                                                                     ^
+367 |         ("UPDATE geo_monitoring_plan_subjects SET role='REFERENCE' WHERE plan_id=%s", "primary_required"),
+368 |         ("DELETE FROM geo_monitoring_plan_prompts WHERE plan_id=%s", "prompt_required"),
+    |
+
+E501 Line too long (106 > 100)
+   --> backend/tests/integration/test_geo_monitoring_plans.py:367:101
+    |
+365 |     [
+366 |         ("UPDATE geo_monitoring_plan_subjects SET role='UNKNOWN' WHERE plan_id=%s", "subjects_role"),
+367 |         ("UPDATE geo_monitoring_plan_subjects SET role='REFERENCE' WHERE plan_id=%s", "primary_required"),
+    |                                                                                                     ^^^^^^
+368 |         ("DELETE FROM geo_monitoring_plan_prompts WHERE plan_id=%s", "prompt_required"),
+369 |         ("DELETE FROM geo_monitoring_plan_profiles WHERE plan_id=%s", "profile_required"),
+    |
+
+E501 Line too long (107 > 100)
+   --> backend/tests/integration/test_geo_monitoring_plans.py:381:101
+    |
+379 |             conn.execute(statement, (identity,))
+380 |             conn.commit()
+381 |         prefix = "ck_geo_monitoring_plan_" if constraint == "subjects_role" else "ck_geo_monitoring_plans_"
+    |                                                                                                     ^^^^^^^
+382 |         assert error.value.diag.constraint_name == prefix + constraint
+383 |         conn.rollback()
+    |
+
+Found 3 errors.
+make: *** [lint] Error 1

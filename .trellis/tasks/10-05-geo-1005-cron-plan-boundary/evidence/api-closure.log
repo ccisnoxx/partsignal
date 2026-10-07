@@ -1,0 +1,5 @@
+# 最终文案收口后验证
+# npm run api:generate && npm run api:check
+# exit_code=0
+🚀 ../contracts/openapi.yaml → /var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/partsignal-v2-openapi-tIOBDv/schema.d.ts [289.5ms]
+OpenAPI 类型与根合同一致。

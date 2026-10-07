@@ -29,6 +29,7 @@ from app.models.geo_files import (
     GeoObservationCitation,
     GeoObservationPublication,
 )
+from app.models.geo_opportunities import GeoOpportunityAction
 from app.models.identity import AuditLog, User
 from app.models.product_facts import FactVersion, Product
 from app.models.publication import (
@@ -931,6 +932,7 @@ def open_published_content_issue(
     payload: PublishedContentIssueCreate,
     actor: User,
     request_id: str,
+    commit: bool = True,
 ) -> PublishedContentIssueOut:
     """为健康发布成果打开唯一的当前内容问题。"""
     article = db.scalar(
@@ -965,7 +967,8 @@ def open_published_content_issue(
         db.rollback()
         raise _published_content_issue_conflict() from error
     result = published_content_issue_out(db, issue)
-    db.commit()
+    if commit:
+        db.commit()
     return result
 
 
@@ -991,6 +994,7 @@ def create_repair_task(
     payload: PublishedContentRepairTaskCreate,
     actor: User,
     request_id: str,
+    commit: bool = True,
 ) -> ContentTask:
     """从开放内容问题创建继承原产品和平台的唯一修复任务。"""
     issue = db.scalar(
@@ -1014,12 +1018,17 @@ def create_repair_task(
     if work is None:
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容问题关联的发布成果不存在", 409)
     original_task = task_for_work(db, work)
-    product = db.get(Product, original_task.product_id)
-    if product is None or product.status != "ACTIVE":
-        raise AppError("INVALID_STATE_TRANSITION", "已停用产品不能创建修复任务", 409)
     if work.platform_profile_id is None:
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "原发布平台已删除，不能创建修复任务", 409)
     profile = lock_active_platform(db, work.platform_profile_id)
+    product = db.scalar(
+        select(Product)
+        .where(Product.id == original_task.product_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if product is None or product.status != "ACTIVE":
+        raise AppError("INVALID_STATE_TRANSITION", "已停用产品不能创建修复任务", 409)
     if (
         original_task.query_topic_id is not None
         and db.get(QueryTopic, original_task.query_topic_id) is None
@@ -1053,7 +1062,8 @@ def create_repair_task(
             raise
         db.rollback()
         raise _repair_task_exists() from error
-    db.commit()
+    if commit:
+        db.commit()
     return task
 
 
@@ -1172,6 +1182,7 @@ def _raise_if_published_article_in_use(scope: _PublishedArticleDeletionScope) ->
     labels = {
         "GEO_OBSERVATION": "GEO 观测",
         "GEO_OPTIMIZATION_SOURCE": "GEO 优化来源",
+        "GEO_OPPORTUNITY_ACTION": "GEO 机会行动",
     }
     raise in_use(
         "PUBLISHED_ARTICLE_IN_USE",
@@ -1667,7 +1678,15 @@ def delete_content_task(
     scope = _task_deletion_scope(db, task)
     if any(job.status in {"PENDING", "RUNNING"} for job in scope.jobs):
         raise AppError("CONTENT_TASK_BUSY", "任务仍有运行中的生成作业", 409)
-    if scope.articles or scope.geo_article_relation_count:
+    action_count = db.scalar(
+        select(func.count())
+        .select_from(GeoOpportunityAction)
+        .where(
+            GeoOpportunityAction.target_type == "ContentTask",
+            GeoOpportunityAction.target_id == task.id,
+        )
+    )
+    if scope.articles or scope.geo_article_relation_count or action_count:
         raise AppError(
             "CONTENT_TASK_REQUIRES_ARCHIVE",
             "成功发布或产生 GEO 关系的任务必须先归档",
@@ -1750,3 +1769,66 @@ def permanently_delete_content_task(
         ),
     )
     db.commit()
+
+
+@dataclass(frozen=True)
+class PublicationActionIdentity:
+    """发布领域对外提供的稳定行动身份，不公开ORM或正文。"""
+
+    product_id: uuid.UUID
+    query_topic_id: uuid.UUID | None
+    fact_version_id: uuid.UUID
+    platform_profile_id: uuid.UUID | None
+    published_article_id: uuid.UUID
+    published_content_issue_id: uuid.UUID | None
+
+
+def publication_action_identity(
+    *,
+    db: Session,
+    article_id: uuid.UUID | None = None,
+    issue_id: uuid.UUID | None = None,
+    expected_issue_revision: int | None = None,
+) -> PublicationActionIdentity:
+    """在原目标锁边界验证开放Issue/Article，供跨域原子行动复用。"""
+    if issue_id is not None:
+        issue = db.scalar(
+            select(PublishedContentIssue)
+            .where(PublishedContentIssue.id == issue_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if issue is None:
+            raise not_found("发布后内容问题")
+        if issue.revision != expected_issue_revision:
+            raise AppError("REVISION_CONFLICT", "发布后内容问题已被其他请求修改", 409)
+        if issue.status != "OPEN":
+            raise AppError("INVALID_STATE_TRANSITION", "只有开放问题可以关联行动", 409)
+        article_id = issue.published_article_id
+    else:
+        article = db.scalar(
+            select(PublishedArticle.id).where(PublishedArticle.id == article_id).with_for_update()
+        )
+        if article is None:
+            raise not_found("发布成果")
+    row = db.execute(
+        select(
+            ContentTask.product_id,
+            ContentTask.query_topic_id,
+            ContentTask.fact_version_id,
+            PublicationWork.platform_profile_id,
+        )
+        .join(PublicationWork, PublicationWork.content_task_id == ContentTask.id)
+        .join(PublishedArticle, PublishedArticle.id == PublicationWork.id)
+        .where(PublishedArticle.id == article_id)
+    ).one_or_none()
+    if row is None or article_id is None:
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布行动来源不存在", 409)
+    return PublicationActionIdentity(
+        row.product_id,
+        row.query_topic_id,
+        row.fact_version_id,
+        row.platform_profile_id,
+        article_id,
+        issue_id,
+    )

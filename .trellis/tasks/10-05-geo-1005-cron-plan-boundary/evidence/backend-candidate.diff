@@ -1,0 +1,661 @@
+--- a/backend/app/schemas/geo_plan_management.py
++++ b/backend/app/schemas/geo_plan_management.py
+@@ -27,6 +27,7 @@
+ 
+ 
+ class GeoPlanWorkflowStage(StrEnum):
++    UNSUPPORTED_SCHEDULE = "UNSUPPORTED_SCHEDULE"
+     CONFIGURATION_REQUIRED = "CONFIGURATION_REQUIRED"
+     READY = "READY"
+     ACTIVE = "ACTIVE"
+@@ -43,12 +44,14 @@
+ 
+ 
+ class GeoPlanDeletion(ContractModel):
+-    blockers: list[Literal["PLAN_NOT_DISABLED", "ARCHIVED", "HAS_BATCH_HISTORY"]]
++    blockers: list[
++        Literal["PLAN_NOT_DISABLED", "ARCHIVED", "HAS_BATCH_HISTORY", "SCHEDULE_UNSUPPORTED"]
++    ]
+ 
+ 
+ class GeoPlanRunEntry(ContractModel):
+     available: Literal[False]
+-    reason_code: Literal["UI_NOT_IMPLEMENTED"]
++    reason_code: Literal["UI_NOT_IMPLEMENTED", "GEO_PLAN_CRON_UNSUPPORTED"]
+ 
+ 
+ class GeoMonitoringPlanCopy(GeoMonitoringPlanRevisionRequest):
+--- a/backend/app/services/geo_plan_commands.py
++++ b/backend/app/services/geo_plan_commands.py
+@@ -32,6 +32,7 @@
+     require_eligible,
+     require_mutable,
+     require_references,
++    require_supported_schedule,
+     transition,
+ )
+ from app.services.geo_plan_queries import (
+@@ -150,6 +151,7 @@
+ def _create(
+     db: Session, value: GeoMonitoringPlanConfiguration, actor: User, request_id: str, action: str
+ ) -> GeoMonitoringPlanDetail:
++    require_supported_schedule(value.schedule_kind)
+     preview = previews(db, [value])[0]
+     require_references(preview)
+     plan = GeoMonitoringPlan(
+@@ -171,6 +173,7 @@
+ ) -> GeoMonitoringPlanDetail:
+     with command(db, actor) as current:
+         value = canonical_configuration(payload)
++        require_supported_schedule(value.schedule_kind)
+         lock_resources(db, [value])
+         return _create(db, value, current, request_id, "created")
+ 
+@@ -181,6 +184,8 @@
+     with command(db, actor) as current:
+         value = canonical_configuration(payload)
+         plan, before = lock_plan(db, plan_id, payload.expected_revision, value)
++        require_supported_schedule(before.schedule_kind)
++        require_supported_schedule(value.schedule_kind)
+         require_mutable(Status(plan.status))
+         preview = previews(db, [value])[0]
+         require_references(preview)
+@@ -218,6 +223,7 @@
+ ) -> GeoMonitoringPlanDetail:
+     with command(db, actor) as current:
+         plan, value = lock_plan(db, plan_id, expected_revision)
++        require_supported_schedule(value.schedule_kind)
+         target = transition(Status(plan.status), operation)
+         preview = previews(db, [value])[0]
+         if target == Status.ACTIVE:
+@@ -252,7 +258,8 @@
+     *, db: Session, plan_id: UUID, expected_revision: int, actor: User, request_id: str
+ ) -> None:
+     with command(db, actor) as current:
+-        plan, _ = lock_plan(db, plan_id, expected_revision)
++        plan, value = lock_plan(db, plan_id, expected_revision)
++        require_supported_schedule(value.schedule_kind)
+         require_mutable(Status(plan.status))
+         if plan.status != Status.DISABLED:
+             raise AppError(
+--- a/backend/app/services/geo_batches.py
++++ b/backend/app/services/geo_batches.py
+@@ -36,7 +36,12 @@
+ from app.services.geo_ops_runtime import observe
+ from app.services.geo_plan_configuration import canonical_configuration
+ from app.services.geo_plan_locks import command, lock_plan, lock_resources
+-from app.services.geo_plan_policy import require_eligible, require_mutable, require_references
++from app.services.geo_plan_policy import (
++    require_eligible,
++    require_mutable,
++    require_references,
++    require_supported_schedule,
++)
+ from app.services.geo_plans import PlanMatrixSelection, RunMatrixBuilder, load_matrix_facts
+ from app.services.geo_rules import freeze_current_rules
+ 
+@@ -108,6 +113,7 @@
+     identity: str | None,
+     request_id: str | None,
+ ) -> GeoObservationBatch:
++    require_supported_schedule(value.schedule_kind)
+     # 当前规则只在创建边界读取一次；幂等重放在进入本函数前返回原快照。
+     rules = freeze_current_rules(db)
+     value = value.model_copy(update={"rule_set_revision": rules.revision})
+@@ -238,6 +244,7 @@
+             return result
+         if isinstance(payload, GeoPlanBatchCreate):
+             plan, value = lock_plan(db, payload.plan_id, payload.expected_revision)
++            require_supported_schedule(value.schedule_kind)
+             require_mutable(GeoMonitoringPlanStatus(plan.status))
+         else:
+             plan = None
+@@ -294,6 +301,7 @@
+             if initial is None:
+                 raise not_found("监测计划")
+             plan, value = lock_plan(db, plan_id, initial.revision)
++            require_supported_schedule(value.schedule_kind)
+             if plan.status != "ACTIVE" or value.schedule_kind != "CRON":
+                 raise AppError("INVALID_STATE_TRANSITION", "调度只允许活动 CRON 计划", 409)
+             batch = _create(
+--- a/backend/app/services/geo_plan_policy.py
++++ b/backend/app/services/geo_plan_policy.py
+@@ -4,6 +4,7 @@
+ 
+ from app.errors import AppError
+ from app.schemas.geo_monitoring_plans import GeoMonitoringPlanStatus as Status
++from app.schemas.geo_monitoring_plans import GeoPlanScheduleKind
+ from app.schemas.geo_plan_management import (
+     GeoPlanAction as Action,
+ )
+@@ -19,6 +20,16 @@
+ from app.schemas.geo_plan_preview import GeoMonitoringPlanPreview
+ 
+ type PlanTransition = Literal["activate", "pause", "resume", "archive"]
++
++
++def require_supported_schedule(schedule_kind: GeoPlanScheduleKind) -> None:
++    """V1.0 无生产到期入口；保留历史 CRON，但禁止写入和首次执行。"""
++    if schedule_kind == GeoPlanScheduleKind.CRON:
++        raise AppError(
++            "GEO_PLAN_CRON_UNSUPPORTED",
++            "V1.0 不支持 CRON 计划；历史计划只读，请新建人工计划或人工批次",
++            409,
++        )
+ 
+ 
+ def require_mutable(status: Status) -> None:
+@@ -41,8 +52,18 @@
+ 
+ 
+ def projection(
+-    status: Status, *, eligible: bool
++    status: Status,
++    *,
++    eligible: bool,
++    schedule_kind: GeoPlanScheduleKind = GeoPlanScheduleKind.MANUAL_ONLY,
+ ) -> tuple[Stage, Task, list[Action], GeoPlanDeletion]:
++    if schedule_kind == GeoPlanScheduleKind.CRON:
++        return (
++            Stage.UNSUPPORTED_SCHEDULE,
++            Task.VIEW_HISTORY,
++            [],
++            GeoPlanDeletion(blockers=["SCHEDULE_UNSUPPORTED"]),
++        )
+     if status == Status.ARCHIVED:
+         return (
+             Stage.ARCHIVED,
+--- a/backend/app/services/geo_plan_queries.py
++++ b/backend/app/services/geo_plan_queries.py
+@@ -134,7 +134,9 @@
+     preview: GeoMonitoringPlanPreview,
+     batch_count: int = 0,
+ ) -> GeoMonitoringPlanDetail:
+-    stage, task, actions, deletion = projection(Status(plan.status), eligible=not preview.blockers)
++    stage, task, actions, deletion = projection(
++        Status(plan.status), eligible=not preview.blockers, schedule_kind=value.schedule_kind
++    )
+     if batch_count:
+         actions = [action for action in actions if action != "DELETE"]
+         deletion.blockers.append("HAS_BATCH_HISTORY")
+@@ -147,7 +149,12 @@
+             "primary_task": task,
+             "available_actions": actions,
+             "deletion": deletion,
+-            "run_entry": GeoPlanRunEntry(available=False, reason_code="UI_NOT_IMPLEMENTED"),
++            "run_entry": GeoPlanRunEntry(
++                available=False,
++                reason_code="GEO_PLAN_CRON_UNSUPPORTED"
++                if value.schedule_kind == GeoPlanScheduleKind.CRON
++                else "UI_NOT_IMPLEMENTED",
++            ),
+         }
+     )
+ 
+--- a/backend/tests/unit/test_geo_plan_management.py
++++ b/backend/tests/unit/test_geo_plan_management.py
+@@ -8,12 +8,13 @@
+ 
+ from app.errors import AppError
+ from app.schemas.geo_monitoring_plans import GeoMonitoringPlanStatus as Status
++from app.schemas.geo_monitoring_plans import GeoPlanScheduleKind
+ from app.schemas.geo_plan_management import (
+     GeoMonitoringPlanCopy,
+     GeoMonitoringPlanDetail,
+     GeoMonitoringPlanListPage,
+ )
+-from app.services.geo_plan_policy import projection, transition
++from app.services.geo_plan_policy import projection, require_supported_schedule, transition
+ 
+ 
+ @pytest.mark.parametrize("state", list(Status))
+@@ -80,3 +81,21 @@
+     run = paths["/api/v1/geo/monitoring-plans/{plan_id}/run"]["post"]
+     assert "201" in run["responses"] and "501" not in run["responses"]
+ 
++
++@pytest.mark.parametrize("state", list(Status))
++@pytest.mark.parametrize("eligible", [True, False])
++def test_historical_cron_projection_is_readonly(state, eligible):
++    stage, task, actions, deletion = projection(
++        state, eligible=eligible, schedule_kind=GeoPlanScheduleKind.CRON
++    )
++    assert stage == "UNSUPPORTED_SCHEDULE"
++    assert task == "VIEW_HISTORY" and actions == []
++    assert deletion.blockers == ["SCHEDULE_UNSUPPORTED"]
++
++
++def test_v1_schedule_boundary():
++    require_supported_schedule(GeoPlanScheduleKind.MANUAL_ONLY)
++    with pytest.raises(AppError) as caught:
++        require_supported_schedule(GeoPlanScheduleKind.CRON)
++    assert caught.value.code == "GEO_PLAN_CRON_UNSUPPORTED"
++    assert caught.value.status_code == 409
+--- a/backend/tests/integration/geo_recovery_support.py
++++ b/backend/tests/integration/geo_recovery_support.py
+@@ -11,7 +11,7 @@
+ import sys
+ import time
+ from datetime import UTC, datetime, timedelta
+-from uuid import UUID, uuid4
++from uuid import uuid4
+ 
+ import pytest
+ from sqlalchemy import create_engine, text
+@@ -20,9 +20,10 @@
+ from app.models.ai_generation import AIChannel, AIChannelHeader
+ from app.models.geo_files import FileRecord
+ from app.models.geo_runs import GeoObservationRun
+-from app.services import geo_analysis_runs, geo_batches
++from app.services import geo_analysis_runs
+ from app.services.credentials import CredentialCipher
+ from app.services.storage import DevelopmentEvidenceStorage
++from tests.integration.geo_cron_support import historical_scheduled_batch
+ from tests.integration.geo_plans_support import plans_api as plans_api
+ from tests.integration.geo_questions_support import questions_api as questions_api
+ from tests.integration.test_geo_manual_collection import batch_run, payload, submit
+@@ -252,13 +253,8 @@
+         assert review.status_code == 201, review.text
+         with api.api.factory() as db:
+             assert db.get(GeoObservationRun, run.id).status == "COMPLETED"
+-        plan = api.create(schedule_kind="CRON", cron_expression="0 * * * *")
+-        assert api.action(plan, "activate").status_code == 200
+         window = datetime(2026, 10, 5, tzinfo=UTC)
+-        with api.api.factory() as db:
+-            scheduled = geo_batches.create_scheduled_batch(
+-                db=db, plan_id=UUID(plan["id"]), scheduled_for=window
+-            )
++        plan, scheduled = historical_scheduled_batch(api, window)
+         for name, value in (
+             ("backup-key", base64.b64encode(os.urandom(32))),
+             (
+--- a/backend/tests/integration/test_geo_batch_creation.py
++++ b/backend/tests/integration/test_geo_batch_creation.py
+@@ -17,6 +17,7 @@
+ from app.models.identity import AuditLog, User
+ from app.schemas.geo_batch_creation import GeoAdHocBatchCreate, GeoPlanBatchCreate
+ from app.services import geo_batches
++from tests.integration.geo_cron_support import historical_scheduled_batch
+ from tests.integration.geo_plans_support import (
+     PREFIX,
+     PlansAPI,
+@@ -322,43 +323,47 @@
+         assert db.get(GeoEngineSurface, api.surface).first_referenced_at is None
+ 
+ 
+-def test_schedule_concurrent_window_identity_ignores_revision(plans_api: PlansAPI):
+-    api = plans_api
+-    row = api.create(schedule_kind="CRON", cron_expression="0 * * * *")
+-    active = api.action(row, "activate").json()
++def test_historical_schedule_replay_is_readonly_and_new_window_rejected(
++    plans_api: PlansAPI, monkeypatch
++):
++    api = plans_api
+     window = datetime(2026, 10, 3, tzinfo=UTC)
++    row, receipt = historical_scheduled_batch(api, window)
++    before = counts(api)
+     barrier = Barrier(2)
+ 
+-    def attempt():
++    def forbidden_dispatch(*args, **kwargs):
++        raise AssertionError("历史回执重放不得投递 Redis")
++
++    monkeypatch.setattr(geo_batches, "dispatch_created_batch", forbidden_dispatch)
++
++    def replay():
+         barrier.wait(timeout=5)
+         with api.api.factory() as db:
+             return geo_batches.create_scheduled_batch(
+                 db=db, plan_id=UUID(row["id"]), scheduled_for=window
+             )
+ 
+-    before = counts(api)
+     with ThreadPoolExecutor(max_workers=2) as pool:
+-        receipts = list(pool.map(lambda _: attempt(), range(2)))
+-    assert receipts[0] == receipts[1]
+-    assert tuple(a - b for a, b in zip(counts(api), before, strict=True)) == (1, 3, 0, 1, 0)
+-    paused = api.action(active, "pause").json()
+-    assert paused["revision"] != active["revision"]
+-    with api.api.factory() as db:
+-        replay = geo_batches.create_scheduled_batch(
++        assert list(pool.map(lambda _: replay(), range(2))) == [receipt, receipt]
++    with api.api.factory() as db:
++        same_window = geo_batches.create_scheduled_batch(
+             db=db,
+             plan_id=UUID(row["id"]),
+             scheduled_for=window.astimezone(timezone(timedelta(hours=8))),
+         )
+-        assert replay == receipts[0]
+-        with pytest.raises(AppError, match="调度"):
++        assert same_window == receipt
++        with pytest.raises(AppError) as caught:
+             geo_batches.create_scheduled_batch(
+                 db=db, plan_id=UUID(row["id"]), scheduled_for=window + timedelta(hours=1)
+             )
+-        batch = db.get(GeoObservationBatch, receipts[0].batch_id)
+-        assert (
+-            batch.created_by is None and batch.plan_snapshot["plan_revision"] == active["revision"]
+-        )
++        assert caught.value.code == "GEO_PLAN_CRON_UNSUPPORTED"
++        batch = db.get(GeoObservationBatch, receipt.batch_id)
++        assert batch.created_by is None
+         assert batch.schedule_identity == geo_batches.schedule_identity(UUID(row["id"]), window)
++        assert batch.plan_snapshot["schedule_kind"] == "CRON"
++    assert counts(api) == before
++    assert api.api.engineer.get(f"{PREFIX}/{row['id']}").json() == row
+ 
+ 
+ def test_creation_rejects_untrusted_fields_and_auth_failures(plans_api: PlansAPI):
+--- a/backend/tests/integration/geo_cron_support.py
++++ b/backend/tests/integration/geo_cron_support.py
+@@ -0,0 +1,93 @@
++"""只在测试中构造升级前的 CRON 数据，不绕过运行时版本守卫。"""
++
++from uuid import UUID, uuid4
++
++from sqlalchemy import select, text
++
++from app.models.geo_batch_creation import GeoBatchSubject
++from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
++from app.schemas.geo_batch_creation import GeoBatchCreated
++from app.services.geo_batches import schedule_identity
++from tests.integration.geo_plans_support import PREFIX, PlansAPI
++
++
++def historical_cron(api: PlansAPI, status: str = "ACTIVE") -> dict:
++    row = api.create()
++    with api.api.factory() as db:
++        db.execute(
++            text(
++                "UPDATE geo_monitoring_plans SET schedule_kind='CRON', "
++                "cron_expression='0 * * * *', status=:status WHERE id=:id"
++            ),
++            {"id": row["id"], "status": status},
++        )
++        db.commit()
++    return api.api.engineer.get(f"{PREFIX}/{row['id']}").json()
++
++
++def historical_scheduled_batch(api: PlansAPI, window) -> tuple[dict, GeoBatchCreated]:
++    # 先用受支持的人工入口取得完整冻结输入，再 INSERT 升级前的历史聚合。
++    manual = api.create()
++    response = api.api.engineer.post(
++        f"{PREFIX}/{manual['id']}/run",
++        json={"expected_revision": manual["revision"]},
++        headers={"Idempotency-Key": f"historical-template-{uuid4()}"},
++    )
++    assert response.status_code == 201, response.text
++    plan = historical_cron(api)
++    with api.api.factory() as db:
++        source = db.get(GeoObservationBatch, UUID(response.json()["batch_id"]))
++        snapshot = source.plan_snapshot | {
++            "plan_id": plan["id"],
++            "plan_revision": plan["revision"],
++            "schedule_kind": "CRON",
++            "cron_expression": plan["cron_expression"],
++        }
++        batch = GeoObservationBatch(
++            **{c.name: getattr(source, c.name) for c in GeoObservationBatch.__table__.columns}
++            | {
++                "id": uuid4(),
++                "plan_id": UUID(plan["id"]),
++                "trigger_type": "SCHEDULED",
++                "scheduled_for": window,
++                "schedule_identity": schedule_identity(UUID(plan["id"]), window),
++                "created_by": None,
++                "plan_snapshot": snapshot,
++                "status": "PLANNED",
++                "revision": 0,
++            }
++        )
++        db.add(batch)
++        db.flush()
++        for source_run in db.scalars(
++            select(GeoObservationRun).where(GeoObservationRun.batch_id == source.id)
++        ):
++            db.add(
++                GeoObservationRun(
++                    **{
++                        c.name: getattr(source_run, c.name)
++                        for c in GeoObservationRun.__table__.columns
++                        if c.computed is None
++                    }
++                    | {"id": uuid4(), "batch_id": batch.id}
++                )
++            )
++        for subject in db.scalars(
++            select(GeoBatchSubject).where(GeoBatchSubject.batch_id == source.id)
++        ):
++            db.add(
++                GeoBatchSubject(
++                    **{c.name: getattr(subject, c.name) for c in GeoBatchSubject.__table__.columns}
++                    | {"batch_id": batch.id}
++                )
++            )
++        db.flush()
++        batch.status = "QUEUED"
++        batch.revision = 1
++        db.commit()
++        plan = api.api.engineer.get(f"{PREFIX}/{plan['id']}").json()
++        return plan, GeoBatchCreated(
++            batch_id=batch.id,
++            requested_run_count=batch.requested_run_count,
++            created_at=batch.created_at,
++        )
+--- a/backend/tests/integration/test_geo_cron_boundary.py
++++ b/backend/tests/integration/test_geo_cron_boundary.py
+@@ -0,0 +1,214 @@
++"""GEO-1005：真实 PG/API 的版本边界，拒绝不产生执行或 Broker 副作用。"""
++
++from concurrent.futures import ThreadPoolExecutor
++from datetime import UTC, datetime
++from threading import Barrier
++from uuid import UUID, uuid4
++
++import pytest
++import redis
++from sqlalchemy import text
++
++from app.errors import AppError
++from app.services import geo_batches
++from tests.integration.geo_cron_support import historical_cron
++from tests.integration.geo_plans_support import PREFIX, PlansAPI
++from tests.integration.geo_plans_support import plans_api as plans_api
++from tests.integration.geo_plans_support import questions_api as questions_api
++from tests.integration.geo_plans_support import questions_engine as questions_engine
++from tests.unit.test_geo_surface_contract import contract as contract
++from tests.unit.test_geo_surface_contract import validate
++
++pytestmark = pytest.mark.integration
++BATCHES = "/api/v1/geo/observation-batches"
++TABLES = (
++    "geo_monitoring_plans",
++    "geo_monitoring_plan_subjects",
++    "geo_monitoring_plan_prompts",
++    "geo_monitoring_plan_profiles",
++    "geo_observation_batches",
++    "geo_observation_runs",
++    "geo_batch_creation_requests",
++    "geo_batch_subjects",
++    "geo_prompt_variants",
++    "geo_engine_surfaces",
++    "geo_collection_profiles",
++    "geo_rule_set_revisions",
++    "geo_rule_set_current",
++    "audit_logs",
++)
++
++
++def snapshot(api: PlansAPI) -> dict[str, str]:
++    with api.api.factory() as db:
++        return {
++            table: db.scalar(
++                text(
++                    "SELECT md5(COALESCE(string_agg(row::text, ',' ORDER BY row::text), '')) "
++                    f"FROM (SELECT to_jsonb(t) AS row FROM {table} t) source"
++                )
++            )
++            for table in TABLES
++        }
++
++
++def rejected(response) -> None:
++    assert response.status_code == 409, response.text
++    error = response.json()["error"]
++    assert error["code"] == "GEO_PLAN_CRON_UNSUPPORTED"
++    assert error["message"] == "V1.0 不支持 CRON 计划；历史计划只读，请新建人工计划或人工批次"
++    assert error["details"] == {}
++    assert error["request_id"] == response.headers["X-Request-ID"]
++
++
++@pytest.fixture
++def no_redis(monkeypatch):
++    def forbidden(*args, **kwargs):
++        raise AssertionError("拒绝路径不得到达批次派发或 Redis")
++
++    monkeypatch.setattr(redis.Redis, "execute_command", forbidden)
++    monkeypatch.setattr(geo_batches, "dispatch_created_batch", forbidden)
++
++
++def test_cron_create_rejected_without_writes(plans_api: PlansAPI, no_redis):
++    api = plans_api
++    before = snapshot(api)
++    rejected(
++        api.api.engineer.post(
++            PREFIX, json=api.payload(schedule_kind="CRON", cron_expression="0 * * * *")
++        )
++    )
++    # 版本拒绝先于资源资格，未知资源不应促成保存一个 CRON 草稿。
++    rejected(
++        api.api.admin.post(
++            PREFIX,
++            json=api.payload(
++                schedule_kind="CRON",
++                cron_expression="0 * * * *",
++                collection_profile_ids=[str(uuid4())],
++            ),
++        )
++    )
++    assert snapshot(api) == before
++
++
++@pytest.mark.parametrize("status", ["DISABLED", "ACTIVE", "PAUSED", "ARCHIVED"])
++def test_historical_cron_is_readonly_for_all_commands(
++    plans_api: PlansAPI, status, contract, no_redis
++):
++    api = plans_api
++    row = historical_cron(api, status)
++    before = snapshot(api)
++    path = f"{PREFIX}/{row['id']}"
++    assert row["status"] == status and row["schedule_kind"] == "CRON"
++    assert row["workflow_stage"] == "UNSUPPORTED_SCHEDULE"
++    assert row["primary_task"] == "VIEW_HISTORY" and row["available_actions"] == []
++    assert row["run_entry"] == {"available": False, "reason_code": "GEO_PLAN_CRON_UNSUPPORTED"}
++    assert row["deletion"]["blockers"] == ["SCHEDULE_UNSUPPORTED"]
++    validate(contract, "GeoMonitoringPlanDetail", row)
++    for op in ("activate", "resume", "pause", "archive", "copy"):
++        rejected(api.action(row, op, **({"name": "不得创建的副本"} if op == "copy" else {})))
++    # CRON->MANUAL 的显式更新同样修改历史，因此拒绝。
++    rejected(api.api.engineer.patch(path, json=api.payload(expected_revision=row["revision"])))
++    rejected(
++        api.api.engineer.patch(
++            path,
++            json=api.payload(
++                expected_revision=row["revision"], schedule_kind="CRON", cron_expression="1 * * * *"
++            ),
++        )
++    )
++    rejected(api.api.engineer.delete(path, params={"expected_revision": row["revision"]}))
++    rejected(
++        api.api.engineer.post(
++            f"{path}/run",
++            json={"expected_revision": row["revision"]},
++            headers={"Idempotency-Key": "cron-run"},
++        )
++    )
++    rejected(
++        api.api.engineer.post(
++            BATCHES,
++            json={"source": "PLAN", "plan_id": row["id"], "expected_revision": row["revision"]},
++            headers={"Idempotency-Key": "cron-batch"},
++        )
++    )
++    with api.api.factory() as db:
++        with pytest.raises(AppError) as caught:
++            geo_batches.create_scheduled_batch(
++                db=db, plan_id=UUID(row["id"]), scheduled_for=datetime(2026, 10, 5, tzinfo=UTC)
++            )
++        assert caught.value.code == "GEO_PLAN_CRON_UNSUPPORTED"
++    assert api.api.engineer.get(path).json() == row
++    listed = api.api.engineer.get(PREFIX, params={"q": api.name, "schedule_kind": "CRON"}).json()
++    assert row in listed["items"]
++    assert snapshot(api) == before
++
++
++@pytest.mark.parametrize("state", ["DISABLED", "ACTIVE", "PAUSED"])
++def test_manual_cannot_be_changed_to_cron(plans_api: PlansAPI, state, no_redis):
++    api = plans_api
++    row = api.create()
++    if state != "DISABLED":
++        row = api.action(row, "activate").json()
++    if state == "PAUSED":
++        row = api.action(row, "pause").json()
++    before = snapshot(api)
++    rejected(
++        api.api.engineer.patch(
++            f"{PREFIX}/{row['id']}",
++            json=api.payload(
++                expected_revision=row["revision"], schedule_kind="CRON", cron_expression="0 * * * *"
++            ),
++        )
++    )
++    assert api.api.engineer.get(f"{PREFIX}/{row['id']}").json() == row
++    assert snapshot(api) == before
++
++
++def test_parallel_legacy_cron_first_windows_are_rejected(plans_api: PlansAPI, no_redis):
++    api = plans_api
++    row = historical_cron(api)
++    before = snapshot(api)
++    barrier = Barrier(2)
++
++    def attempt(_):
++        barrier.wait(timeout=5)
++        with api.api.factory() as db:
++            with pytest.raises(AppError) as caught:
++                geo_batches.create_scheduled_batch(
++                    db=db, plan_id=UUID(row["id"]), scheduled_for=datetime(2026, 10, 5, tzinfo=UTC)
++                )
++            return caught.value.code
++
++    with ThreadPoolExecutor(max_workers=2) as pool:
++        assert list(pool.map(attempt, range(2))) == ["GEO_PLAN_CRON_UNSUPPORTED"] * 2
++    assert snapshot(api) == before
++
++
++def test_manual_create_activate_run_and_adhoc_remain_available(plans_api: PlansAPI, monkeypatch):
++    api = plans_api
++
++    def forbidden(*args, **kwargs):
++        raise AssertionError("MANUAL 采集不应访问 Redis")
++
++    monkeypatch.setattr(redis.Redis, "execute_command", forbidden)
++    row = api.create(repeat_count=2)
++    row = api.action(row, "activate").json()
++    assert row["status"] == "ACTIVE" and row["workflow_stage"] == "ACTIVE"
++    assert row["schedule_kind"] == "MANUAL_ONLY"
++    response = api.api.engineer.post(
++        f"{PREFIX}/{row['id']}/run",
++        json={"expected_revision": row["revision"]},
++        headers={"Idempotency-Key": "manual-supported"},
++    )
++    assert response.status_code == 201, response.text
++    assert response.json()["requested_run_count"] == 2
++    response = api.api.engineer.post(
++        BATCHES,
++        json={"source": "AD_HOC", "configuration": api.payload(repeat_count=1)},
++        headers={"Idempotency-Key": "adhoc-supported"},
++    )
++    assert response.status_code == 201, response.text
++    assert response.json()["requested_run_count"] == 1
++    assert api.api.engineer.get(f"{PREFIX}/{row['id']}").json()["revision"] == row["revision"]

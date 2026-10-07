@@ -1,0 +1,47 @@
+.............F/Users/sc/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/json/encoder.py:414: ResourceWarning: unclosed file <_io.FileIO name=3 mode='rb' closefd=True>
+  def _iterencode(o, _current_indent_level):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/Users/sc/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/json/encoder.py:414: ResourceWarning: unclosed file <_io.FileIO name=5 mode='rb' closefd=True>
+  def _iterencode(o, _current_indent_level):
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+....
+======================================================================
+FAIL: test_sigterm_parent_holds_lock_until_child_exits (__main__.UpgradeRecoveryTests.test_sigterm_parent_holds_lock_until_child_exits)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 387, in test_sigterm_parent_holds_lock_until_child_exits
+    await_file("ready")
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 383, in await_file
+    self.fail(f"missing event: {name}")
+AssertionError: missing event: ready
+
+----------------------------------------------------------------------
+Ran 18 tests in 5.189s
+
+FAILED (failures=1)
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级恢复已记录；重放同一回执，不重新切换候选。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。
+Production 数据阶段已更新为 UPGRADE_PREPARED。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。
+升级恢复已记录；重放同一回执，不重新切换候选。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。

@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_metric_trends.py",
+    "backend/tests/unit/test_geo_answer_insights.py",
+    "backend/tests/unit/test_geo_metrics.py",
+    "backend/tests/unit/test_geo_metric_inputs.py",
+    "backend/tests/unit/test_geo_overview.py",
+    "backend/tests/unit/test_contract.py",
+    "backend/tests/unit/test_runtime_response_metadata.py"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "exit_code": 1,
+  "started_at": "2026-10-04T07:13:38.947562+00:00",
+  "finished_at": "2026-10-04T07:13:59.124531+00:00"
+}

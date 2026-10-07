@@ -1,0 +1,13 @@
+# GEO-204 资格边界
+
+collectors/registry.py 拥有不可变 adapter 元数据和纯配置约束，services/geo_collector_eligibility.py 拥有共用的当前运行资格。运行时只注册 manual；API/BROWSER 的测试项是明确的无I/O元数据实例，不是生产实现。注册自动adapter需要显式批准及允许环境，metadata没有collect/estimate/transport工厂，不提前实现GEO-401。
+
+内部不可变快照与API/ORM明确转换。services/geo_collection_profiles.py从PostgreSQL以单次列查询加载当前Profile、Surface、可空model/channel事实，关闭该查询autoflush，不读取密钥正文、Header、URL或provider参数，也不依赖identity map。Profile闭合结构复用GEO-203 Schema校验，不维护第二份settings规则。纯策略不保存资格或ORM对象。
+
+effective capabilities是Surface和adapter的交集；answer_text必需，显式要求的能力缺失返回blocker，不因Surface支持API能力而假定manual支持usage/cost。REQUESTED/REQUIRED搜索需adapter声明支持相应策略，REQUIRED另外要求web_search_signal，不推断某次回答实际搜索。模式、surface、语言/地区/login限制按明确登记判断。
+
+新监测总开关关闭阻断本任务新Profile资格；MANUAL不依赖API/BROWSER子开关、自动合规批准或连接测试，保留人工保底。该策略不接入现有文章关系GEO/历史只读或已经提交的人工结果。API/BROWSER要求子开关、启用Surface/Profile、APPROVED合规、approved adapter与允许环境、Profile测试PASSED；模型型API另外要求当前精确同渠道模型、channel/model启用、model PASSED与已配置credential。adapter-only必须明确登记且两引用均空，不在解绑时改为另一adapter。
+
+返回固定code/field组成的blockers，未知adapter单独失败，异常不回显输入、名字、secret或底层异常。require_eligible是内部守卫，不定义HTTP mapper。未来Plan preview和Worker重用相同result；Worker在其锁/lease/发送边界重新加载当前事实和进程开关。此结果是配置资格，不是数据分级、预算、session健康、URL/DNS/TLS、lease或发送的完整授权。
+
+无持久化、状态机、revision、锁、幂等或迁移改变。未来变更继续遵守既有写锁序和事务owner；当前读服务不加锁且不能作为TOCTOU锁替代。

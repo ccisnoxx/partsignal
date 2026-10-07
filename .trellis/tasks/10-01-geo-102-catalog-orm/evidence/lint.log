@@ -1,0 +1,611 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/tests/integration/test_geo_catalog.py:3:1
+   |
+ 1 |   """Catalog 前滚、metadata 与直接 SQL 最终防线；只使用隔离 PostgreSQL。"""
+ 2 |
+ 3 | / from __future__ import annotations
+ 4 | |
+ 5 | | import subprocess
+ 6 | | import sys
+ 7 | | import time
+ 8 | | import uuid
+ 9 | | from collections.abc import Iterator
+10 | | from concurrent.futures import ThreadPoolExecutor
+11 | | from dataclasses import dataclass
+12 | | from pathlib import Path
+13 | | from typing import Any
+14 | |
+15 | | import psycopg
+16 | | import pytest
+17 | | from psycopg import sql
+18 | | from sqlalchemy import create_engine, inspect
+19 | | from sqlalchemy.orm import Session
+20 | |
+21 | | from alembic.autogenerate import compare_metadata
+22 | | from alembic.migration import MigrationContext
+23 | | from app.db import Base
+24 | | from app.models.geo_catalog import GeoSubject, GeoSubjectAlias, GeoSubjectDomain
+25 | | from tests.integration.test_migrations import run_alembic, temporary_database
+   | |_____________________________________________________________________________^
+26 |
+27 |   pytestmark = pytest.mark.integration
+   |
+help: Organize imports
+
+E501 Line too long (105 > 100)
+   --> backend/tests/integration/test_geo_catalog.py:118:101
+    |
+116 |                 connection.execute(
+117 |                     "INSERT INTO products (id, part_number, normalized_part_number, brand, "
+118 |                     "normalized_brand, category, status, revision, facts_revision, facts_body_markdown) "
+    |                                                                                                     ^^^^^
+119 |                     "VALUES (%s, %s, %s, '虚构品牌', '虚构品牌', '测试类别', 'ACTIVE', 0, 0, '原有产品事实')",
+120 |                     (ids[key], f"PS-{key}", f"ps-{key}"),
+    |
+
+E501 Line too long (110 > 100)
+   --> backend/tests/integration/test_geo_catalog.py:119:86
+    |
+117 |                     "INSERT INTO products (id, part_number, normalized_part_number, brand, "
+118 |                     "normalized_brand, category, status, revision, facts_revision, facts_body_markdown) "
+119 |                     "VALUES (%s, %s, %s, '虚构品牌', '虚构品牌', '测试类别', 'ACTIVE', 0, 0, '原有产品事实')",
+    |                                                                                                     ^^^^^^^^^^
+120 |                     (ids[key], f"PS-{key}", f"ps-{key}"),
+121 |                 )
+    |
+
+E501 Line too long (103 > 100)
+   --> backend/tests/integration/test_geo_catalog.py:285:101
+    |
+283 |                         while time.monotonic() < deadline:
+284 |                             if observer.execute(
+285 |                                 "SELECT wait_event_type = 'Lock' FROM pg_stat_activity WHERE pid = %s",
+    |                                                                                                     ^^^
+286 |                                 (pid,),
+287 |                             ).fetchone() == (True,):
+    |
+
+F811 Redefinition of unused `catalog_database` from line 15
+  --> backend/tests/integration/test_geo_catalog_constraints.py:40:5
+   |
+38 | )
+39 | def test_subject_check_rejects_direct_sql(
+40 |     catalog_database: CatalogDatabase,
+   |     ^^^^^^^^^^^^^^^^ `catalog_database` redefined here
+41 |     catalog_connection: psycopg.Connection[Any],
+42 |     patch: dict[str, Any],
+   |
+  ::: backend/tests/integration/test_geo_catalog_constraints.py:15:5
+   |
+13 |     CatalogDatabase,
+14 |     catalog_connection,  # noqa: F401
+15 |     catalog_database,  # noqa: F401
+   |     ---------------- previous definition of `catalog_database` here
+16 |     insert_row,
+17 |     insert_subject,
+   |
+help: Remove definition: `catalog_database`
+
+F811 Redefinition of unused `catalog_connection` from line 14
+  --> backend/tests/integration/test_geo_catalog_constraints.py:41:5
+   |
+39 | def test_subject_check_rejects_direct_sql(
+40 |     catalog_database: CatalogDatabase,
+41 |     catalog_connection: psycopg.Connection[Any],
+   |     ^^^^^^^^^^^^^^^^^^ `catalog_connection` redefined here
+42 |     patch: dict[str, Any],
+43 |     constraint: str,
+   |
+  ::: backend/tests/integration/test_geo_catalog_constraints.py:14:5
+   |
+12 | from tests.integration.test_geo_catalog import (
+13 |     CatalogDatabase,
+14 |     catalog_connection,  # noqa: F401
+   |     ------------------ previous definition of `catalog_connection` here
+15 |     catalog_database,  # noqa: F401
+16 |     insert_row,
+   |
+help: Remove definition: `catalog_connection`
+
+F811 Redefinition of unused `catalog_database` from line 15
+  --> backend/tests/integration/test_geo_catalog_constraints.py:52:5
+   |
+50 | @pytest.mark.parametrize("field", ["canonical_name", "normalized_name", "display_name"])
+51 | def test_own_product_rejects_duplicate_name_storage(
+52 |     catalog_database: CatalogDatabase, catalog_connection: psycopg.Connection[Any], field: str
+   |     ^^^^^^^^^^^^^^^^ `catalog_database` redefined here
+53 | ) -> None:
+54 |     with pytest.raises(psycopg.Error) as error, catalog_connection.transaction():
+   |
+  ::: backend/tests/integration/test_geo_catalog_constraints.py:15:5
+   |
+13 |     CatalogDatabase,
+14 |     catalog_connection,  # noqa: F401
+15 |     catalog_database,  # noqa: F401
+   |     ---------------- previous definition of `catalog_database` here
+16 |     insert_row,
+17 |     insert_subject,
+   |
+help: Remove definition: `catalog_database`
+
+F811 Redefinition of unused `catalog_connection` from line 14
+  --> backend/tests/integration/test_geo_catalog_constraints.py:52:40
+   |
+50 | @pytest.mark.parametrize("field", ["canonical_name", "normalized_name", "display_name"])
+51 | def test_own_product_rejects_duplicate_name_storage(
+52 |     catalog_database: CatalogDatabase, catalog_connection: psycopg.Connection[Any], field: str
+   |                                        ^^^^^^^^^^^^^^^^^^ `catalog_connection` redefined here
+53 | ) -> None:
+54 |     with pytest.raises(psycopg.Error) as error, catalog_connection.transaction():
+   |
+  ::: backend/tests/integration/test_geo_catalog_constraints.py:14:5
+   |
+12 | from tests.integration.test_geo_catalog import (
+13 |     CatalogDatabase,
+14 |     catalog_connection,  # noqa: F401
+   |     ------------------ previous definition of `catalog_connection` here
+15 |     catalog_database,  # noqa: F401
+16 |     insert_row,
+   |
+help: Remove definition: `catalog_connection`
+
+F811 Redefinition of unused `catalog_database` from line 15
+   --> backend/tests/integration/test_geo_catalog_constraints.py:124:5
+    |
+122 | )
+123 | def test_parent_type_and_actual_parent_identity(
+124 |     catalog_database: CatalogDatabase,
+    |     ^^^^^^^^^^^^^^^^ `catalog_database` redefined here
+125 |     catalog_connection: psycopg.Connection[Any],
+126 |     kind: str,
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:15:5
+    |
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+ 15 |     catalog_database,  # noqa: F401
+    |     ---------------- previous definition of `catalog_database` here
+ 16 |     insert_row,
+ 17 |     insert_subject,
+    |
+help: Remove definition: `catalog_database`
+
+F811 Redefinition of unused `catalog_connection` from line 14
+   --> backend/tests/integration/test_geo_catalog_constraints.py:125:5
+    |
+123 | def test_parent_type_and_actual_parent_identity(
+124 |     catalog_database: CatalogDatabase,
+125 |     catalog_connection: psycopg.Connection[Any],
+    |     ^^^^^^^^^^^^^^^^^^ `catalog_connection` redefined here
+126 |     kind: str,
+127 |     parent: str | None,
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:14:5
+    |
+ 12 | from tests.integration.test_geo_catalog import (
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+    |     ------------------ previous definition of `catalog_connection` here
+ 15 |     catalog_database,  # noqa: F401
+ 16 |     insert_row,
+    |
+help: Remove definition: `catalog_connection`
+
+F811 Redefinition of unused `catalog_database` from line 15
+   --> backend/tests/integration/test_geo_catalog_constraints.py:148:5
+    |
+147 | def test_self_parent_is_rejected(
+148 |     catalog_database: CatalogDatabase, catalog_connection: psycopg.Connection[Any]
+    |     ^^^^^^^^^^^^^^^^ `catalog_database` redefined here
+149 | ) -> None:
+150 |     subject_id = uuid.uuid4()
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:15:5
+    |
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+ 15 |     catalog_database,  # noqa: F401
+    |     ---------------- previous definition of `catalog_database` here
+ 16 |     insert_row,
+ 17 |     insert_subject,
+    |
+help: Remove definition: `catalog_database`
+
+F811 Redefinition of unused `catalog_connection` from line 14
+   --> backend/tests/integration/test_geo_catalog_constraints.py:148:40
+    |
+147 | def test_self_parent_is_rejected(
+148 |     catalog_database: CatalogDatabase, catalog_connection: psycopg.Connection[Any]
+    |                                        ^^^^^^^^^^^^^^^^^^ `catalog_connection` redefined here
+149 | ) -> None:
+150 |     subject_id = uuid.uuid4()
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:14:5
+    |
+ 12 | from tests.integration.test_geo_catalog import (
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+    |     ------------------ previous definition of `catalog_connection` here
+ 15 |     catalog_database,  # noqa: F401
+ 16 |     insert_row,
+    |
+help: Remove definition: `catalog_connection`
+
+F811 Redefinition of unused `catalog_database` from line 15
+   --> backend/tests/integration/test_geo_catalog_constraints.py:166:5
+    |
+165 | def test_active_product_unique_includes_reenable(
+166 |     catalog_database: CatalogDatabase, catalog_connection: psycopg.Connection[Any]
+    |     ^^^^^^^^^^^^^^^^ `catalog_database` redefined here
+167 | ) -> None:
+168 |     connection, ids = catalog_connection, catalog_database.ids
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:15:5
+    |
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+ 15 |     catalog_database,  # noqa: F401
+    |     ---------------- previous definition of `catalog_database` here
+ 16 |     insert_row,
+ 17 |     insert_subject,
+    |
+help: Remove definition: `catalog_database`
+
+F811 Redefinition of unused `catalog_connection` from line 14
+   --> backend/tests/integration/test_geo_catalog_constraints.py:166:40
+    |
+165 | def test_active_product_unique_includes_reenable(
+166 |     catalog_database: CatalogDatabase, catalog_connection: psycopg.Connection[Any]
+    |                                        ^^^^^^^^^^^^^^^^^^ `catalog_connection` redefined here
+167 | ) -> None:
+168 |     connection, ids = catalog_connection, catalog_database.ids
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:14:5
+    |
+ 12 | from tests.integration.test_geo_catalog import (
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+    |     ------------------ previous definition of `catalog_connection` here
+ 15 |     catalog_database,  # noqa: F401
+ 16 |     insert_row,
+    |
+help: Remove definition: `catalog_connection`
+
+E501 Line too long (117 > 100)
+   --> backend/tests/integration/test_geo_catalog_constraints.py:184:101
+    |
+182 |     for statement, params in [
+183 |         (
+184 |             "INSERT INTO geo_subjects (id, subject_type, product_id, created_by) VALUES (%s, 'OWN_PRODUCT', %s, %s)",
+    |                                                                                                     ^^^^^^^^^^^^^^^^^
+185 |             (uuid.uuid4(), ids["other_product"], ids["actor"]),
+186 |         ),
+    |
+
+F811 Redefinition of unused `catalog_database` from line 15
+   --> backend/tests/integration/test_geo_catalog_constraints.py:201:5
+    |
+199 | @pytest.mark.parametrize("field", ["subject_type", "product_id", "created_by", "created_at"])
+200 | def test_subject_identity_guard(
+201 |     catalog_database: CatalogDatabase, catalog_connection: psycopg.Connection[Any], field: str
+    |     ^^^^^^^^^^^^^^^^ `catalog_database` redefined here
+202 | ) -> None:
+203 |     connection, ids = catalog_connection, catalog_database.ids
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:15:5
+    |
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+ 15 |     catalog_database,  # noqa: F401
+    |     ---------------- previous definition of `catalog_database` here
+ 16 |     insert_row,
+ 17 |     insert_subject,
+    |
+help: Remove definition: `catalog_database`
+
+F811 Redefinition of unused `catalog_connection` from line 14
+   --> backend/tests/integration/test_geo_catalog_constraints.py:201:40
+    |
+199 | @pytest.mark.parametrize("field", ["subject_type", "product_id", "created_by", "created_at"])
+200 | def test_subject_identity_guard(
+201 |     catalog_database: CatalogDatabase, catalog_connection: psycopg.Connection[Any], field: str
+    |                                        ^^^^^^^^^^^^^^^^^^ `catalog_connection` redefined here
+202 | ) -> None:
+203 |     connection, ids = catalog_connection, catalog_database.ids
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:14:5
+    |
+ 12 | from tests.integration.test_geo_catalog import (
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+    |     ------------------ previous definition of `catalog_connection` here
+ 15 |     catalog_database,  # noqa: F401
+ 16 |     insert_row,
+    |
+help: Remove definition: `catalog_connection`
+
+E501 Line too long (120 > 100)
+   --> backend/tests/integration/test_geo_catalog_constraints.py:222:96
+    |
+220 |     assert error.value.sqlstate == "55000"
+221 |     connection.execute(
+222 |         "UPDATE geo_subjects SET description = '新监测用途', revision = revision + 1, updated_at = now() WHERE id = %s",
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^
+223 |         (subject,),
+224 |     )
+    |
+
+F811 Redefinition of unused `catalog_database` from line 15
+   --> backend/tests/integration/test_geo_catalog_constraints.py:243:5
+    |
+241 | )
+242 | def test_alias_checks(
+243 |     catalog_database: CatalogDatabase,
+    |     ^^^^^^^^^^^^^^^^ `catalog_database` redefined here
+244 |     catalog_connection: psycopg.Connection[Any],
+245 |     patch: dict[str, Any],
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:15:5
+    |
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+ 15 |     catalog_database,  # noqa: F401
+    |     ---------------- previous definition of `catalog_database` here
+ 16 |     insert_row,
+ 17 |     insert_subject,
+    |
+help: Remove definition: `catalog_database`
+
+F811 Redefinition of unused `catalog_connection` from line 14
+   --> backend/tests/integration/test_geo_catalog_constraints.py:244:5
+    |
+242 | def test_alias_checks(
+243 |     catalog_database: CatalogDatabase,
+244 |     catalog_connection: psycopg.Connection[Any],
+    |     ^^^^^^^^^^^^^^^^^^ `catalog_connection` redefined here
+245 |     patch: dict[str, Any],
+246 |     constraint: str,
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:14:5
+    |
+ 12 | from tests.integration.test_geo_catalog import (
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+    |     ------------------ previous definition of `catalog_connection` here
+ 15 |     catalog_database,  # noqa: F401
+ 16 |     insert_row,
+    |
+help: Remove definition: `catalog_connection`
+
+F811 Redefinition of unused `catalog_database` from line 15
+   --> backend/tests/integration/test_geo_catalog_constraints.py:289:5
+    |
+287 | )
+288 | def test_hostname_sql_boundary(
+289 |     catalog_database: CatalogDatabase, catalog_connection: psycopg.Connection[Any], hostname: str
+    |     ^^^^^^^^^^^^^^^^ `catalog_database` redefined here
+290 | ) -> None:
+291 |     with pytest.raises(psycopg.Error) as error, catalog_connection.transaction():
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:15:5
+    |
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+ 15 |     catalog_database,  # noqa: F401
+    |     ---------------- previous definition of `catalog_database` here
+ 16 |     insert_row,
+ 17 |     insert_subject,
+    |
+help: Remove definition: `catalog_database`
+
+F811 Redefinition of unused `catalog_connection` from line 14
+   --> backend/tests/integration/test_geo_catalog_constraints.py:289:40
+    |
+287 | )
+288 | def test_hostname_sql_boundary(
+289 |     catalog_database: CatalogDatabase, catalog_connection: psycopg.Connection[Any], hostname: str
+    |                                        ^^^^^^^^^^^^^^^^^^ `catalog_connection` redefined here
+290 | ) -> None:
+291 |     with pytest.raises(psycopg.Error) as error, catalog_connection.transaction():
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:14:5
+    |
+ 12 | from tests.integration.test_geo_catalog import (
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+    |     ------------------ previous definition of `catalog_connection` here
+ 15 |     catalog_database,  # noqa: F401
+ 16 |     insert_row,
+    |
+help: Remove definition: `catalog_connection`
+
+F811 Redefinition of unused `catalog_database` from line 15
+   --> backend/tests/integration/test_geo_catalog_constraints.py:316:5
+    |
+314 | )
+315 | def test_domain_checks(
+316 |     catalog_database: CatalogDatabase,
+    |     ^^^^^^^^^^^^^^^^ `catalog_database` redefined here
+317 |     catalog_connection: psycopg.Connection[Any],
+318 |     patch: dict[str, Any],
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:15:5
+    |
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+ 15 |     catalog_database,  # noqa: F401
+    |     ---------------- previous definition of `catalog_database` here
+ 16 |     insert_row,
+ 17 |     insert_subject,
+    |
+help: Remove definition: `catalog_database`
+
+F811 Redefinition of unused `catalog_connection` from line 14
+   --> backend/tests/integration/test_geo_catalog_constraints.py:317:5
+    |
+315 | def test_domain_checks(
+316 |     catalog_database: CatalogDatabase,
+317 |     catalog_connection: psycopg.Connection[Any],
+    |     ^^^^^^^^^^^^^^^^^^ `catalog_connection` redefined here
+318 |     patch: dict[str, Any],
+319 |     constraint: str,
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:14:5
+    |
+ 12 | from tests.integration.test_geo_catalog import (
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+    |     ------------------ previous definition of `catalog_connection` here
+ 15 |     catalog_database,  # noqa: F401
+ 16 |     insert_row,
+    |
+help: Remove definition: `catalog_connection`
+
+F811 Redefinition of unused `catalog_database` from line 15
+   --> backend/tests/integration/test_geo_catalog_constraints.py:337:5
+    |
+336 | def test_dictionary_uniqueness_and_cross_subject_ambiguity(
+337 |     catalog_database: CatalogDatabase, catalog_connection: psycopg.Connection[Any]
+    |     ^^^^^^^^^^^^^^^^ `catalog_database` redefined here
+338 | ) -> None:
+339 |     connection, ids = catalog_connection, catalog_database.ids
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:15:5
+    |
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+ 15 |     catalog_database,  # noqa: F401
+    |     ---------------- previous definition of `catalog_database` here
+ 16 |     insert_row,
+ 17 |     insert_subject,
+    |
+help: Remove definition: `catalog_database`
+
+F811 Redefinition of unused `catalog_connection` from line 14
+   --> backend/tests/integration/test_geo_catalog_constraints.py:337:40
+    |
+336 | def test_dictionary_uniqueness_and_cross_subject_ambiguity(
+337 |     catalog_database: CatalogDatabase, catalog_connection: psycopg.Connection[Any]
+    |                                        ^^^^^^^^^^^^^^^^^^ `catalog_connection` redefined here
+338 | ) -> None:
+339 |     connection, ids = catalog_connection, catalog_database.ids
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:14:5
+    |
+ 12 | from tests.integration.test_geo_catalog import (
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+    |     ------------------ previous definition of `catalog_connection` here
+ 15 |     catalog_database,  # noqa: F401
+ 16 |     insert_row,
+    |
+help: Remove definition: `catalog_connection`
+
+F811 Redefinition of unused `catalog_database` from line 15
+   --> backend/tests/integration/test_geo_catalog_constraints.py:400:5
+    |
+398 | )
+399 | def test_external_deletion_is_restricted(
+400 |     catalog_database: CatalogDatabase,
+    |     ^^^^^^^^^^^^^^^^ `catalog_database` redefined here
+401 |     catalog_connection: psycopg.Connection[Any],
+402 |     target: str,
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:15:5
+    |
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+ 15 |     catalog_database,  # noqa: F401
+    |     ---------------- previous definition of `catalog_database` here
+ 16 |     insert_row,
+ 17 |     insert_subject,
+    |
+help: Remove definition: `catalog_database`
+
+F811 Redefinition of unused `catalog_connection` from line 14
+   --> backend/tests/integration/test_geo_catalog_constraints.py:401:5
+    |
+399 | def test_external_deletion_is_restricted(
+400 |     catalog_database: CatalogDatabase,
+401 |     catalog_connection: psycopg.Connection[Any],
+    |     ^^^^^^^^^^^^^^^^^^ `catalog_connection` redefined here
+402 |     target: str,
+403 |     constraint: str,
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:14:5
+    |
+ 12 | from tests.integration.test_geo_catalog import (
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+    |     ------------------ previous definition of `catalog_connection` here
+ 15 |     catalog_database,  # noqa: F401
+ 16 |     insert_row,
+    |
+help: Remove definition: `catalog_connection`
+
+F811 Redefinition of unused `catalog_database` from line 15
+   --> backend/tests/integration/test_geo_catalog_constraints.py:428:5
+    |
+427 | def test_subject_delete_cascades_only_current_dictionary(
+428 |     catalog_database: CatalogDatabase, catalog_connection: psycopg.Connection[Any]
+    |     ^^^^^^^^^^^^^^^^ `catalog_database` redefined here
+429 | ) -> None:
+430 |     connection = catalog_connection
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:15:5
+    |
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+ 15 |     catalog_database,  # noqa: F401
+    |     ---------------- previous definition of `catalog_database` here
+ 16 |     insert_row,
+ 17 |     insert_subject,
+    |
+help: Remove definition: `catalog_database`
+
+F811 Redefinition of unused `catalog_connection` from line 14
+   --> backend/tests/integration/test_geo_catalog_constraints.py:428:40
+    |
+427 | def test_subject_delete_cascades_only_current_dictionary(
+428 |     catalog_database: CatalogDatabase, catalog_connection: psycopg.Connection[Any]
+    |                                        ^^^^^^^^^^^^^^^^^^ `catalog_connection` redefined here
+429 | ) -> None:
+430 |     connection = catalog_connection
+    |
+   ::: backend/tests/integration/test_geo_catalog_constraints.py:14:5
+    |
+ 12 | from tests.integration.test_geo_catalog import (
+ 13 |     CatalogDatabase,
+ 14 |     catalog_connection,  # noqa: F401
+    |     ------------------ previous definition of `catalog_connection` here
+ 15 |     catalog_database,  # noqa: F401
+ 16 |     insert_row,
+    |
+help: Remove definition: `catalog_connection`
+
+E501 Line too long (104 > 100)
+  --> backend/tests/unit/test_geo_catalog_metadata.py:45:101
+   |
+43 |     ddl = str(CreateTable(table).compile(dialect=dialect))
+44 |     assert (
+45 |         "CONSTRAINT fk_geo_subjects_parent_identity FOREIGN KEY(parent_subject_id, parent_subject_type)"
+   |                                                                                                     ^^^^
+46 |         in ddl
+47 |     )
+   |
+
+E501 Line too long (101 > 100)
+  --> backend/tests/unit/test_geo_catalog_metadata.py:49:101
+   |
+47 |     )
+48 |     assert (
+49 |         "REFERENCES geo_subjects (id, subject_type) MATCH FULL ON DELETE RESTRICT ON UPDATE RESTRICT"
+   |                                                                                                     ^
+50 |         in ddl
+51 |     )
+   |
+
+Found 32 errors.
+[*] 1 fixable with the `--fix` option.
+make: *** [lint] Error 1

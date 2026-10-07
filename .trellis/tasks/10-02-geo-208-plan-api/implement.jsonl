@@ -1,0 +1,7 @@
+{"file": "contracts/openapi.yaml", "reason": "公共Plan操作与闭合读模型"}
+{"file": "contracts/database.md", "reason": "四表完整性、锁、版本、不可变和审计边界"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "PostgreSQL、事务与精确映射"}
+{"file": ".trellis/spec/backend/available-actions-contract.md", "reason": "服务端typed状态/主任务/动作owner"}
+{"file": "docs/geo-monitoring/04-delivery/task-manifest.yaml", "reason": "GEO-207 done与208授权范围"}
+{"file": "docs/geo-monitoring/02-business/03-workflows-and-state-machines.md", "reason": "Plan四态与归档"}
+{"file": ".trellis/tasks/10-02-geo-208-plan-api/design.md", "reason": "RC命令与RR读边界"}

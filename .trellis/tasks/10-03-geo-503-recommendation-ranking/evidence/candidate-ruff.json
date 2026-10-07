@@ -1,0 +1,17 @@
+{
+  "command": [
+    "env",
+    "UV_CACHE_DIR=.cache/uv",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "ruff",
+    "check",
+    "backend/app/services/geo_analysis.py",
+    "backend/app/services/geo_recommendation_rules.py",
+    "backend/tests/unit/test_geo_recommendations.py",
+    "backend/tests/geo_fixtures.py"
+  ],
+  "exit_code": 0
+}

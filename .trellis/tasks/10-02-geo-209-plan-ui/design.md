@@ -1,0 +1,13 @@
+# GEO-209 设计与 preflight
+
+唯一服务端权威：GEO-208完整配置/详情/preview。无需新API/DB。目标文档的最近批次、下次执行、成功率尚未实现；当前页面不展示虚构字段。ACTIVE CREATE_REVISION映射现有PATCH；ARCHIVED只读且COPY命令创建独立身份。run_entry NOT_IMPLEMENTED禁用说明。
+
+Route只search/prefetch/composition；Domain拥有列表、详情、动作、八步向导和preview。列表筛选与selected/new/edit在URL；只有编辑身份变更重挂向导，Query更新不reset草稿。选择读取既有Subject/Variant/Profile分页摘要，仅用于选择展示，不join业务资格或详情。
+
+向导RHF默认配置和显式subject角色；最后preview以完整Create请求POST，不写数据库。显示所有服务端数量、known/unknown费用和定位。preview保留其请求快照；当前草稿变化即失效，旧异步preview不得覆盖。最后保存须当前预览；结构完整DISABLED/PAUSED可保存运行阻断并在详情修复，ACTIVE修改仍由服务器拒绝。保存后新计划先DISABLED，再从canonical详情动作显式确认启用。
+
+编辑baseline revision与输入独立于cache；409冻结提交，显式fetch最新canonical供比较，保留本地全部输入并更新baseline，不自动replay；每次提交仍先preview。命令pending同步ref防双击，取消相关列表/详情GET后canonical写缓存；principal和mounted守卫每次await后检查。关闭与路由/Back/刷新由DirtyGuard保护。typed动作注册只映射无资格推导。
+
+验证优先定向URL/component/真实纵向UI，随后用户要求make e2e与verify完整门禁；保存原失败和修复证据。无新依赖、真实AI或外部写入。
+
+恢复说明：Trellis自动context注入对state-management.md与大OpenAPI有32KiB截断警告。本次已人工按相关最小维护单元读取完整Plan端点/Schema/状态管理规范及generated类型；后续恢复须按Plan符号读取，不能依赖截断注入代替权威合同。

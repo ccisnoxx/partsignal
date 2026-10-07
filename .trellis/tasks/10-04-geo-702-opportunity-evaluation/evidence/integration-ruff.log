@@ -1,0 +1,118 @@
+E501 Line too long (112 > 100)
+  --> backend/tests/integration/test_geo_opportunities.py:79:101
+   |
+77 |     results = evaluate(api,filters)
+78 |     with api.harness.factory() as db:
+79 |         rows = list(db.scalars(select(Evaluation).where(Evaluation.id.in_([r.evaluation_id for r in results]))))
+   |                                                                                                     ^^^^^^^^^^^^
+80 |         assert rows and not any(r.opportunity_id for r in rows)
+81 |         codes = {r.result_snapshot["rule_code"] for r in rows}
+   |
+
+E501 Line too long (103 > 100)
+  --> backend/tests/integration/test_geo_opportunities.py:91:101
+   |
+91 | def test_concurrent_service_dedup_replay_and_new_review_append_preserve_first_trigger(api,monkeypatch):
+   |                                                                                                     ^^^
+92 |     case,filters,correction = prepared(api)
+93 |     original = service._capture
+   |
+
+E501 Line too long (108 > 100)
+   --> backend/tests/integration/test_geo_opportunities.py:115:101
+    |
+113 |         frozen=deepcopy(first.trigger_snapshot)
+114 |         revision=first.revision
+115 |         assert db.scalar(select(func.count()).select_from(Source).where(Source.opportunity_id==identity))==1
+    |                                                                                                     ^^^^^^^^
+116 |     assert all(r.replayed for r in evaluate(api,filters))
+117 |     assert api.submit(case,decision="CORRECTED",correction_payload=correction).status_code==201
+    |
+
+E501 Line too long (108 > 100)
+   --> backend/tests/integration/test_geo_opportunities.py:136:101
+    |
+134 |     with api.harness.factory() as db:
+135 |         assert db.get(Opportunity,identity).trigger_snapshot==frozen
+136 |         assert db.scalar(select(func.count()).select_from(Source).where(Source.opportunity_id==identity))==2
+    |                                                                                                     ^^^^^^^^
+    |
+
+E501 Line too long (102 > 100)
+   --> backend/tests/integration/test_geo_opportunities.py:146:95
+    |
+144 |         db.execute(text("UPDATE geo_opportunities SET status='DISMISSED',revision=revision+1,"
+145 |             "resolved_at=clock_timestamp(),resolved_by=:actor,resolution_code='NOT_APPLICABLE',"
+146 |             "resolution_comment='虚构关闭原因' WHERE id=:id"),{"id":identity,"actor":api.engineer_id})
+    |                                                                                                     ^^
+147 |     suppressed=critical(api,evaluate(api,filters))
+148 |     assert suppressed.disposition=="SUPPRESSED" and suppressed.opportunity_id is None
+    |
+
+E501 Line too long (116 > 100)
+   --> backend/tests/integration/test_geo_opportunities.py:187:101
+    |
+185 |                 assert error.orig.sqlstate=="23505"
+186 |                 assert error.orig.diag.constraint_name=="uq_geo_opportunity_open_identity"
+187 |                 assert db.scalar(select(func.count()).select_from(Source).where(Source.opportunity_id==identity))==0
+    |                                                                                                     ^^^^^^^^^^^^^^^^
+188 |                 return "duplicate"
+    |
+
+E501 Line too long (103 > 100)
+   --> backend/tests/integration/test_geo_opportunities.py:208:98
+    |
+206 |         service._append_sources(db,old_id,result)
+207 |         db.execute(text("UPDATE geo_opportunities SET status='DISMISSED',revision=revision+1,"
+208 |             "resolved_at=:closed,resolved_by=:actor,resolution_code='OLD',resolution_comment='旧周期' "
+    |                                                                                                     ^^^
+209 |             "WHERE id=:id"),{"id":old_id,"actor":api.engineer_id,"closed":now-timedelta(days=31)})
+210 |     first=critical(api,evaluate(api,filters))
+    |
+
+B017 Do not assert blind exception: `Exception`
+   --> backend/tests/integration/test_geo_opportunities.py:226:18
+    |
+224 |             "UPDATE geo_opportunities SET status='DISMISSED',revision=revision+1 WHERE id=:id",
+225 |         ):
+226 |             with pytest.raises(Exception):
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^
+227 |                 db.execute(text(sql),{"id":first.opportunity_id})
+228 |             db.rollback()
+    |
+
+B017 Do not assert blind exception: `Exception`
+   --> backend/tests/integration/test_geo_opportunities.py:230:14
+    |
+228 |             db.rollback()
+229 |         source=db.scalar(select(Source).where(Source.opportunity_id==first.opportunity_id))
+230 |         with pytest.raises(Exception):
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^
+231 |             db.execute(text("DELETE FROM geo_opportunity_sources WHERE id=:id"),{"id":source.id})
+232 |         db.rollback()
+    |
+
+F841 Local variable `result` is assigned to but never used
+   --> backend/tests/integration/test_geo_opportunities.py:257:5
+    |
+255 | def test_model_metadata_and_subject_history_reference_projection(api):
+256 |     _,filters,_=prepared(api)
+257 |     result=critical(api,evaluate(api,filters))
+    |     ^^^^^^
+258 |     from app.services.geo_catalog_queries import subject_references
+259 |     with api.harness.factory() as db:
+    |
+help: Remove assignment to unused variable `result`
+
+E501 Line too long (136 > 100)
+   --> backend/tests/integration/test_geo_opportunities.py:266:101
+    |
+264 | …
+265 | …={"compare_type":True,"compare_server_default":True,
+266 | …flected,compared:obj.name in tables if kind=="table" else obj.table.name in tables})
+    |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+267 | …a)==[]
+    |
+
+Found 11 errors.
+No fixes available (1 hidden fix can be enabled with the `--unsafe-fixes` option).

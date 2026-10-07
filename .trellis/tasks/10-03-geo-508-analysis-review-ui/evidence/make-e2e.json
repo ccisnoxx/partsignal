@@ -1,0 +1,7 @@
+{
+  "command": [
+    "make",
+    "e2e"
+  ],
+  "exit_code": 2
+}

@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "env",
+    "UV_CACHE_DIR=.cache/uv",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_retest_recovery.py::test_stability_recovery_preserves_frozen_rule_repeat_gate_above_sample_policy"
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 0.776
+}

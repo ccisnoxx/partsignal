@@ -1,0 +1,32 @@
+
+> partsignal-frontend-v2@0.1.0 typecheck
+> tsc -b --pretty false
+
+src/domains/geo-reports/report-page.tsx(24,22): error TS2719: Type '{ as_of: string; generated_at: string; source_mode: "LIVE"; filters: { date_from: string; date_to: string; subject_ids?: string[] | undefined; product_ids?: string[] | undefined; query_topic_ids?: string[] | undefined; ... 9 more ...; review_policy: "REVIEWED_ONLY" | "EFFECTIVE"; }; ... 5 more ...; exports: { ...; }...' is not assignable to type '{ as_of: string; generated_at: string; source_mode: "LIVE"; filters: { date_from: string; date_to: string; subject_ids?: string[] | undefined; product_ids?: string[] | undefined; query_topic_ids?: string[] | undefined; ... 9 more ...; review_policy: "REVIEWED_ONLY" | "EFFECTIVE"; }; ... 5 more ...; exports: { ...; }...'. Two different types with this name exist, but they are unrelated.
+  The types of 'insights.current_cells' are incompatible between these types.
+    Type '{ cell_key: string; subject_id: string; product_id: string | null; display_name: string; selected_subject: boolean; dimensions: { query_topic_id: string; query_topic_revision: number; prompt_variant_id: string; ... 19 more ...; window_key: string; }; sov_subject_ids: string[]; metrics: { ...; }[]; }[]' is not assignable to type '{ cell_key: string; subject_id: string; product_id: string | null; display_name: string; selected_subject: boolean; dimensions: { query_topic_id: string; query_topic_revision: number; prompt_variant_id: string; ... 19 more ...; window_key: string; }; sov_subject_ids: string[]; metrics: { ...; }[]; }[]'. Two different types with this name exist, but they are unrelated.
+      Type '{ cell_key: string; subject_id: string; product_id: string | null; display_name: string; selected_subject: boolean; dimensions: { query_topic_id: string; query_topic_revision: number; prompt_variant_id: string; ... 19 more ...; window_key: string; }; sov_subject_ids: string[]; metrics: { ...; }[]; }' is not assignable to type '{ cell_key: string; subject_id: string; product_id: string | null; display_name: string; selected_subject: boolean; dimensions: { query_topic_id: string; query_topic_revision: number; prompt_variant_id: string; ... 19 more ...; window_key: string; }; sov_subject_ids: string[]; metrics: { ...; }[]; }'. Two different types with this name exist, but they are unrelated.
+        The types of 'dimensions.subject_versions' are incompatible between these types.
+          Type '(string | number)[][]' is not assignable to type '[string, number][]'.
+            Type '(string | number)[]' is not assignable to type '[string, number]'.
+              Target requires 2 element(s) but source may have fewer.
+src/domains/geo-reports/reports.test.tsx(51,55): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement | null', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement | null', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+src/domains/geo-reports/reports.test.tsx(56,72): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined, waitForElementOptions?: waitForOptions | undefined): Promise<HTMLElement>', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined, waitForElementOptions?: waitForOptions | undefined): Promise<HTMLElement>', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+src/domains/geo-reports/reports.test.tsx(58,57): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement | null', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement | null', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+src/domains/geo-reports/reports.test.tsx(62,120): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement | null', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement | null', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.

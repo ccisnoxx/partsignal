@@ -1,0 +1,29 @@
+{
+  "owned_changed_files": 39,
+  "unowned_initial_hash_changes": [],
+  "initial_hash_coverage": 7346,
+  "not_hash_covered": "敏感环境文件及Git引号编码路径未覆盖；本任务无这些路径写入",
+  "other_manifest_tasks_unchanged": true,
+  "dependencies_done": [
+    "GEO-304",
+    "GEO-005"
+  ],
+  "task_status": "review",
+  "existing_paths_unchanged": true,
+  "existing_schema_changes": [
+    "DeletionBlockerType"
+  ],
+  "new_schema_components": 24,
+  "doc_hash_entries_refreshed": [
+    "docs/geo-monitoring/01-product/02-geo-core-prd.md",
+    "docs/geo-monitoring/02-business/02-domain-model.md",
+    "docs/geo-monitoring/02-business/03-workflows-and-state-machines.md",
+    "docs/geo-monitoring/03-technical/02-data-architecture.md",
+    "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/README.md"
+  ],
+  "final_preservation_rechecked": true,
+  "refreshed_doc_hashes_match": true
+}

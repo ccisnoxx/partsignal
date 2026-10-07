@@ -1,0 +1,2154 @@
+--- before/backend/app/audit_types.py
++++ backend/app/audit_types.py
+@@ -102,6 +102,7 @@
+         "geo_collection_profile.enabled",
+         "geo_collection_profile.disabled",
+         "geo_collection_profile.deleted",
++        "geo_collection_profile.tested",
+         "geo_subject.created",
+         "geo_subject.updated",
+         "geo_subject.enabled",
+--- before/backend/app/routers/geo_surface_management.py
++++ backend/app/routers/geo_surface_management.py
+@@ -27,8 +27,29 @@
+ from app.services import geo_surface_commands as commands
+ from app.services import geo_surface_queries as queries
+ from app.services.geo_catalog_queries import read_snapshot
++from app.services.geo_profile_tests import test_profile as run_profile_test
+ 
+ router = APIRouter(prefix="/api/v1/geo", tags=["geo-surface-management"])
++
++
++@router.post(
++    "/collection-profiles/{profile_id}/test",
++    response_model=GeoCollectionProfileRead,
++    operation_id="testGeoCollectionProfile",
++    responses=error_responses(401, 403, 404, 409, 422),
++)
++def test_profile(
++    profile_id: UUID,
++    payload: GeoConfigurationRevisionRequest,
++    request: Request,
++    db: DbSession,
++    admin: AdminUser,
++    _csrf: CsrfProtected,
++) -> GeoCollectionProfileRead:
++    return run_profile_test(
++        db=db, profile_id=profile_id, expected_revision=payload.expected_revision,
++        actor=admin, request_id=request.state.request_id,
++    )
+ 
+ 
+ @router.get(
+--- before/backend/app/collectors/registry.py
++++ backend/app/collectors/registry.py
+@@ -131,6 +131,7 @@
+     web_search_policies: frozenset[GeoWebSearchPolicy]
+     environments: frozenset[str]
+     approved: bool = False
++    connection_test_supported: bool = False
+     model_protocol: str | None = None
+     languages: frozenset[str] | None = None
+     regions: frozenset[str] | None = None
+@@ -242,9 +243,23 @@
+         return self.resolve(profile.adapter_key).validate_profile(profile)
+ 
+ 
+-# 只有已实现的人工配置元数据。自动 adapter 由后续交付显式登记，不能占位假成功。
++# API 仅有已实现的固定连接诊断；采集仍未批准，GEO-404 实现后再开放。
+ collector_registry = CollectorRegistry(
+     (
++        CollectorRegistration(
++            key="openai-compatible-chat",
++            version="1",
++            collection_mode=GeoCollectionMode.API,
++            capabilities=frozenset({CollectorCapability.ANSWER_TEXT}),
++            surface_kinds=frozenset({GeoSurfaceKind.MODEL_API}),
++            login_states=frozenset({GeoProfileLoginState.NOT_APPLICABLE}),
++            web_search_policies=frozenset(
++                {GeoWebSearchPolicy.UNKNOWN, GeoWebSearchPolicy.NOT_APPLICABLE}
++            ),
++            environments=frozenset({"development", "test", "staging", "production"}),
++            model_protocol="openai-compatible-chat-completions",
++            connection_test_supported=True,
++        ),
+         CollectorRegistration(
+             key="manual",
+             version="1",
+--- before/backend/app/models/geo_surfaces.py
++++ backend/app/models/geo_surfaces.py
+@@ -155,6 +155,16 @@
+             name=conv("ck_geo_collection_profiles_test"),
+         ),
+         CheckConstraint("revision >= 0", name=conv("ck_geo_collection_profiles_revision")),
++        CheckConstraint(
++            "(last_test_error_code IS NULL AND last_test_error_summary IS NULL) OR "
++            "(last_test_status = 'FAILED' AND last_test_error_code IS NOT NULL "
++            "AND last_test_error_summary IS NOT NULL)",
++            name=conv("ck_geo_collection_profiles_test_error"),
++        ),
++        CheckConstraint(
++            "test_attempt_id IS NULL OR (last_test_status = 'UNTESTED' AND NOT is_active)",
++            name=conv("ck_geo_collection_profiles_test_attempt"),
++        ),
+         Index("ix_geo_collection_profiles_surface_active", "engine_surface_id", "is_active"),
+         Index("ix_geo_collection_profiles_model", "ai_model_id", "ai_channel_id"),
+         Index("ix_geo_collection_profiles_creator", "created_by"),
+@@ -186,6 +196,9 @@
+         String(16), nullable=False, default="UNTESTED", server_default="UNTESTED"
+     )
+     last_tested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
++    last_test_error_code: Mapped[str | None] = mapped_column(String(64))
++    last_test_error_summary: Mapped[str | None] = mapped_column(String(500))
++    test_attempt_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+     revision: Mapped[int] = mapped_column(
+         Integer, nullable=False, default=0, server_default=text("0")
+     )
+--- before/backend/app/schemas/geo_surface_management.py
++++ backend/app/schemas/geo_surface_management.py
+@@ -33,6 +33,7 @@
+     ENABLE = "ENABLE"
+     DISABLE = "DISABLE"
+     DELETE = "DELETE"
++    TEST = "TEST"
+ 
+ 
+ class GeoConfigurationWorkflowStage(StrEnum):
+@@ -68,6 +69,24 @@
+ class GeoProfileActivationBlocker(ContractModel):
+     code: ProfileBlockerCode
+     field: str
++
++
++class GeoProfileTestErrorCode(StrEnum):
++    AI_URL_FORBIDDEN = "AI_URL_FORBIDDEN"
++    AI_REDIRECT_FORBIDDEN = "AI_REDIRECT_FORBIDDEN"
++    AI_PROVIDER_TIMEOUT = "AI_PROVIDER_TIMEOUT"
++    AI_PROVIDER_UNAVAILABLE = "AI_PROVIDER_UNAVAILABLE"
++    AI_PROVIDER_ERROR = "AI_PROVIDER_ERROR"
++    AI_RESPONSE_TOO_LARGE = "AI_RESPONSE_TOO_LARGE"
++    AI_RESPONSE_INVALID = "AI_RESPONSE_INVALID"
++    AI_CREDENTIAL_INVALID = "AI_CREDENTIAL_INVALID"
++    CREDENTIAL_DECRYPTION_FAILED = "CREDENTIAL_DECRYPTION_FAILED"
++    INVALID_HEADER = "INVALID_HEADER"
++
++
++class GeoProfileTestError(ContractModel):
++    code: GeoProfileTestErrorCode
++    summary: str = Field(min_length=1, max_length=500)
+ 
+ 
+ class GeoEngineSurfaceSummary(ContractModel):
+@@ -119,6 +138,8 @@
+     available_actions: list[GeoConfigurationAction]
+     deletion: GeoConfigurationDeletionProjection | None
+     activation_blockers: list[GeoProfileActivationBlocker] | None
++    test_blockers: list[GeoProfileActivationBlocker] | None
++    test_error: GeoProfileTestError | None
+ 
+ 
+ class GeoEngineSurfaceListPage(ContractModel):
+--- before/backend/app/services/geo_surface_projections.py
++++ backend/app/services/geo_surface_projections.py
+@@ -13,6 +13,7 @@
+     GeoEngineSurfaceRead,
+     GeoEngineSurfaceSummary,
+     GeoProfileActivationBlocker,
++    GeoProfileTestError,
+ )
+ from app.schemas.geo_surface_management import (
+     GeoConfigurationAction as Action,
+@@ -139,8 +140,17 @@
+             available_actions=[],
+             deletion=None,
+             activation_blockers=None,
++            test_blockers=None,
++            test_error=None,
+         )
++    test_eligibility = facts.eligibility(
++        registry=collectors.collector_registry,
++        configuration=settings,
++        connection_test=True,
++    )
+     actions = [Action.UPDATE]
++    if test_eligibility.eligible:
++        actions.append(Action.TEST)
+     if profile.is_active:
+         actions.append(Action.DISABLE)
+     elif not blockers:
+@@ -198,4 +208,13 @@
+             )
+         ),
+         activation_blockers=blockers,
+-    )
++        test_blockers=[
++            GeoProfileActivationBlocker(code=item.code, field=item.field)
++            for item in test_eligibility.blockers
++        ],
++        test_error=GeoProfileTestError.model_validate(
++            {"code": profile.last_test_error_code, "summary": profile.last_test_error_summary}
++        )
++        if profile.last_test_error_code is not None
++        else None,
++    )
+--- before/backend/app/services/geo_collector_eligibility.py
++++ backend/app/services/geo_collector_eligibility.py
+@@ -62,6 +62,7 @@
+     registry: CollectorRegistry = collector_registry,
+     model: ModelQualification | None = None,
+     required_capabilities: frozenset[CollectorCapability] = frozenset(),
++    connection_test: bool = False,
+ ) -> ProfileEligibility:
+     """配置资格只有一个 owner；执行方必须在自己的事务/发送边界重读当前事实。"""
+     blockers: list[ProfileBlocker] = []
+@@ -93,7 +94,16 @@
+         ProfileBlockerCode.MONITORING_DISABLED,
+         "GEO_MONITORING_ENABLED",
+     )
+-    block(not profile.is_active, ProfileBlockerCode.PROFILE_DISABLED, "is_active")
++    block(
++        connection_test and not adapter.connection_test_supported,
++        ProfileBlockerCode.MODE_UNSUPPORTED,
++        "collection_mode",
++    )
++    block(
++        not connection_test and not profile.is_active,
++        ProfileBlockerCode.PROFILE_DISABLED,
++        "is_active",
++    )
+     block(not surface.is_active, ProfileBlockerCode.SURFACE_DISABLED, "engine_surface.is_active")
+     block(
+         switches.environment not in adapter.environments,
+@@ -119,15 +129,22 @@
+         )
+ 
+     if profile.collection_mode != GeoCollectionMode.MANUAL:
+-        block(not adapter.approved, ProfileBlockerCode.ADAPTER_NOT_APPROVED, "adapter_key")
++        block(
++            not connection_test and not adapter.approved,
++            ProfileBlockerCode.ADAPTER_NOT_APPROVED,
++            "adapter_key",
++        )
+         block(
+             surface.compliance_status != GeoComplianceStatus.APPROVED,
+             ProfileBlockerCode.COMPLIANCE_NOT_APPROVED,
+             "engine_surface.compliance_status",
+         )
+         block(
+-            profile.last_test_status != GeoProfileTestStatus.PASSED
+-            or profile.last_tested_at is None,
++            not connection_test
++            and (
++                profile.last_test_status != GeoProfileTestStatus.PASSED
++                or profile.last_tested_at is None
++            ),
+             ProfileBlockerCode.PROFILE_NOT_TESTED,
+             "last_test_status",
+         )
+--- before/backend/app/services/geo_collection_profiles.py
++++ backend/app/services/geo_collection_profiles.py
+@@ -50,6 +50,7 @@
+         configuration: Settings,
+         assume_active: bool = False,
+         required_capabilities: frozenset[CollectorCapability] = frozenset(),
++        connection_test: bool = False,
+     ) -> ProfileEligibility:
+         return evaluate_profile(
+             replace(self.profile, is_active=True) if assume_active else self.profile,
+@@ -57,6 +58,7 @@
+             registry=registry,
+             model=self.model,
+             required_capabilities=required_capabilities,
++            connection_test=connection_test,
+             switches=GeoRuntimeSwitches(
+                 configuration.environment,
+                 configuration.geo_monitoring_enabled,
+--- before/backend/app/services/openai_client.py
++++ backend/app/services/openai_client.py
+@@ -151,7 +151,7 @@
+         timeout_seconds: int,
+         model_id: str,
+         request_parameters: dict[str, Any],
+-    ) -> None:
++    ) -> str:
+         """发送最小消息验证模型连接，不套用业务草稿 Schema。"""
+         response = self._request(
+             "POST",
+@@ -173,6 +173,7 @@
+                 raise TypeError
+         except (ValueError, KeyError, IndexError, TypeError) as error:
+             raise AppError("AI_RESPONSE_INVALID", "连接测试响应结构无效", 502) from error
++        return content
+ 
+     def complete(
+         self,
+--- before/backend/app/services/geo_surface_commands.py
++++ backend/app/services/geo_surface_commands.py
+@@ -347,6 +347,9 @@
+             # 管理更新不能创建测试事实，任何真实配置变化都失效旧测试并停用。
+             profile.last_test_status = "UNTESTED"
+             profile.last_tested_at = None
++            profile.last_test_error_code = None
++            profile.last_test_error_summary = None
++            profile.test_attempt_id = None
+             profile.is_active = False
+             _changed(profile)
+             _flush_business(db)
+--- before/backend/tests/unit/test_contract.py
++++ backend/tests/unit/test_contract.py
+@@ -53,9 +53,9 @@
+     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+     document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+     operations = operation_map(document)
+-    assert len(operations) == 218
+-    assert len({operation["operationId"] for operation in operations.values()}) == 218
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1402
++    assert len(operations) == 219
++    assert len({operation["operationId"] for operation in operations.values()}) == 219
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1409
+ 
+     expected_parameter = {
+         "name": "X-Request-ID",
+@@ -276,6 +276,7 @@
+             "disableGeoEngineSurface",
+             "updateGeoCollectionProfile",
+             "enableGeoCollectionProfile",
++            "testGeoCollectionProfile",
+             "disableGeoCollectionProfile",
+             "updateGeoPromptVariant",
+             "enableGeoPromptVariant",
+@@ -371,7 +372,7 @@
+         if isinstance(operation, dict) and "operationId" in operation
+     }
+ 
+-    assert len(expected) == 218
++    assert len(expected) == 219
+     assert set(operations) == set(expected)
+     for operation_id, operation in operations.items():
+         responses = operation["responses"]
+@@ -399,7 +400,7 @@
+         "getWorkbench",
+     }
+     assert len(validation_free) == 14
+-    assert sum("422" in statuses for statuses in expected.values()) == 204
++    assert sum("422" in statuses for statuses in expected.values()) == 205
+     assert {
+         operation_id for operation_id, statuses in expected.items() if "422" not in statuses
+     } == validation_free
+--- before/backend/tests/unit/test_geo_collector_registry.py
++++ backend/tests/unit/test_geo_collector_registry.py
+@@ -130,9 +130,11 @@
+     return {item.code for item in result.blockers}
+ 
+ 
+-def test_only_manual_is_registered_and_keys_are_exact() -> None:
++def test_implemented_configuration_metadata_is_registered_and_keys_are_exact() -> None:
+     assert collector_registry.resolve("manual").collection_mode == Mode.MANUAL
+-    for key in ("unknown", "Manual", "manual ", "openai-compatible-chat", "browser-chatgpt"):
++    diagnostic = collector_registry.resolve("openai-compatible-chat")
++    assert diagnostic.connection_test_supported and not diagnostic.approved
++    for key in ("unknown", "Manual", "manual ", "browser-chatgpt"):
+         with pytest.raises(UnknownCollectorAdapter):
+             collector_registry.resolve(key)
+         with pytest.raises(UnknownCollectorAdapter):
+--- before/backend/tests/unit/test_runtime_response_metadata.py
++++ backend/tests/unit/test_runtime_response_metadata.py
+@@ -647,9 +647,9 @@
+     runtime = app.openapi()
+     operations = _operation_map(runtime)
+ 
+-    assert len(operations) == 218
+-    assert len(set(operations)) == 218
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1402
++    assert len(operations) == 219
++    assert len(set(operations)) == 219
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1409
+     parameter_ref = {"$ref": "#/components/parameters/RequestIdHeader"}
+     header_ref = {"$ref": "#/components/headers/RequestIdResponseHeader"}
+     parameter_schema = {
+@@ -694,10 +694,10 @@
+     augmented = app.openapi()
+     stripped = _strip_request_context_metadata(augmented)
+ 
+-    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1184
++    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1190
+     assert sum(
+         len(operation["responses"]) for operation in _operation_map(stripped).values()
+-    ) == 1184
++    ) == 1190
+     # 安装版本的 FastAPI 省略 None 默认；这里只移除已声明且显式恢复的 nullable annotation。
+     raw_settings = raw["components"]["schemas"]["GeoApiSettings"]["properties"]
+     stripped_settings = stripped["components"]["schemas"]["GeoApiSettings"]["properties"]
+--- before/backend/tests/integration/test_geo_answer_migration.py
++++ backend/tests/integration/test_geo_answer_migration.py
+@@ -27,7 +27,7 @@
+     with psycopg.connect(db.url) as conn:
+         assert (
+             conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+-            == "0051_geo_manual_collection"
++            == "0052_geo_profile_tests"
+         )
+         assert existing_rows(conn) == db.runs.before
+         assert (
+@@ -63,10 +63,10 @@
+     )
+     assert (
+         stopped.returncode != 0
+-        and "0051 人工提交身份不可安全降级" in stopped.stdout + stopped.stderr
++        and "0052 资格失效不可恢复为旧测试事实" in stopped.stdout + stopped.stderr
+     )
+     with psycopg.connect(db.url) as conn:
+         assert (
+             conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+-            == "0051_geo_manual_collection"
++            == "0052_geo_profile_tests"
+         )
+--- before/backend/tests/integration/test_geo_surfaces_profiles.py
++++ backend/tests/integration/test_geo_surfaces_profiles.py
+@@ -194,8 +194,22 @@
+                         False if metadata.table.name == "ai_models" else None
+                     ),
+                     "include_object": lambda obj, name, kind, reflected, compared: (
+-                        kind != "table"
+-                        or name in {"geo_engine_surfaces", "geo_collection_profiles", "ai_models"}
++                        (
++                            kind != "table"
++                            or name
++                            in {"geo_engine_surfaces", "geo_collection_profiles", "ai_models"}
++                        )
++                        # 0046 历史验收不比较0052新增字段；新head由0052测试核对。
++                        and not (
++                            kind == "column"
++                            and obj.table.name == "geo_collection_profiles"
++                            and name
++                            in {
++                                "last_test_error_code",
++                                "last_test_error_summary",
++                                "test_attempt_id",
++                            }
++                        )
+                     ),
+                 },
+             )
+@@ -237,6 +251,8 @@
+     assert row["is_active"] is False and row["revision"] == 0
+     assert row["last_test_status"] == "UNTESTED" and row["last_tested_at"] is None
+     row["settings"] = row.pop("settings_json")
++    for internal in ("last_test_error_code", "last_test_error_summary", "test_attempt_id"):
++        row.pop(internal)
+     output = TypeAdapter(GeoCollectionProfileOut).validate_python(row).model_dump_json()
+     for secret in ["fictional-encrypted-marker", "api_key", "Cookie", "headers", "session_path"]:
+         assert secret not in output
+--- before/backend/tests/integration/test_geo_surface_management_transactions.py
++++ backend/tests/integration/test_geo_surface_management_transactions.py
+@@ -248,7 +248,7 @@
+         db.execute(text("DELETE FROM ai_models WHERE id=:id"), {"id": model})
+         assert cached.ai_model_id == model
+         db.commit()
+-    response = api.admin.post(f"{PROFILES}/{pid}/enable", json={"expected_revision": 4})
++    response = api.admin.post(f"{PROFILES}/{pid}/enable", json={"expected_revision": 5})
+     assert response.status_code == 409
+     assert "MODEL_BINDING_REQUIRED" in response.text
+     engineer = api.engineer.get(f"{PROFILES}/{pid}").json()
+--- before/backend/tests/integration/test_geo_monitoring_plans.py
++++ backend/tests/integration/test_geo_monitoring_plans.py
+@@ -46,7 +46,15 @@
+ 
+ def existing_rows(conn: psycopg.Connection[Any]) -> list[Any]:
+     return [
+-        conn.execute(f"SELECT to_jsonb(t) FROM {name} t ORDER BY id").fetchall()
++        conn.execute(
++            "SELECT to_jsonb(t)"
++            + (
++                "-ARRAY['last_test_error_code','last_test_error_summary','test_attempt_id']"
++                if name == "geo_collection_profiles"
++                else ""
++            )
++            + f" FROM {name} t ORDER BY id"
++        ).fetchall()
+         for name in [
+             "users",
+             "query_topics",
+--- before/backend/tests/integration/test_migrations.py
++++ backend/tests/integration/test_migrations.py
+@@ -326,7 +326,7 @@
+ 
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0051_geo_manual_collection",)
++            assert cursor.fetchone() == ("0052_geo_profile_tests",)
+             cursor.execute(
+                 "SELECT tablename FROM pg_tables "
+                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
+@@ -484,10 +484,10 @@
+             text=True,
+         )
+         assert downgrade.returncode != 0
+-        assert "0051 人工提交身份不可安全降级" in downgrade.stdout + downgrade.stderr
++        assert "0052 资格失效不可恢复为旧测试事实" in downgrade.stdout + downgrade.stderr
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0051_geo_manual_collection",)
++            assert cursor.fetchone() == ("0052_geo_profile_tests",)
+ 
+ 
+ @pytest.mark.integration
+--- before/backend/tests/integration/test_geo_surface_management_concurrency.py
++++ backend/tests/integration/test_geo_surface_management_concurrency.py
+@@ -200,9 +200,25 @@
+         first.execute(text("UPDATE ai_models SET is_enabled=false WHERE id=:id"), {"id": model})
+         first.commit()
+         denied = future.result(timeout=10)
+-    assert isinstance(denied, AppError) and denied.code == "GEO_PROFILE_INELIGIBLE"
+-    assert {item["code"] for item in denied.details["blockers"]} == {"MODEL_DISABLED"}
+-    assert state(api, "geo_collection_profiles", str(pid)) == before
++    assert isinstance(denied, AppError) and denied.code == "REVISION_CONFLICT"
++    assert (
++        api.admin.get(f"/api/v1/geo/collection-profiles/{pid}").json()["summary"][
++            "last_test_status"
++        ]
++        == "UNTESTED"
++    )
++    after, after_audit = state(api, "geo_collection_profiles", str(pid))
++    prior, prior_audit = before
++    assert after_audit == prior_audit
++    assert after["updated_at"] >= prior["updated_at"]
++    assert after == {
++        **prior,
++        "updated_at": after["updated_at"],
++        "revision": prior["revision"] + 1,
++        "is_active": False,
++        "last_test_status": "UNTESTED",
++        "last_tested_at": None,
++    }
+ 
+ 
+ def test_authentication_heartbeat_is_discarded_before_user_lock(surface_api: SurfaceAPI) -> None:
+--- before/backend/tests/integration/test_geo_profile_eligibility.py
++++ backend/tests/integration/test_geo_profile_eligibility.py
+@@ -167,8 +167,12 @@
+     # DB 的成对 SET NULL 不会更新旧实例；必须用列投影重读，而不是复用 PASSED。
+     assert rows.profile.ai_model_id == old_model and rows.profile.ai_channel_id == old_channel
+     result = qualified(rows)
+-    assert {b.code for b in result.blockers} == {ProfileBlockerCode.MODEL_BINDING_REQUIRED}
+-    assert result.profile_revision == 0
++    assert {b.code for b in result.blockers} == {
++        ProfileBlockerCode.MODEL_BINDING_REQUIRED,
++        ProfileBlockerCode.PROFILE_DISABLED,
++        ProfileBlockerCode.PROFILE_NOT_TESTED,
++    }
++    assert result.profile_revision == 1
+     current = rows.db.execute(
+         select(
+             GeoCollectionProfile.ai_model_id,
+@@ -176,7 +180,7 @@
+             GeoCollectionProfile.last_test_status,
+         ).where(GeoCollectionProfile.id == rows.profile.id)
+     ).one()
+-    assert current == (None, None, "PASSED")
++    assert current == (None, None, "UNTESTED")
+ 
+ 
+ def test_current_columns_ignore_dirty_cache_do_not_autoflush_or_load_secrets(
+@@ -214,7 +218,11 @@
+     )
+     assert rows.model.is_enabled
+     result = qualified(rows)
+-    assert {b.code for b in result.blockers} == {ProfileBlockerCode.MODEL_DISABLED}
++    assert {b.code for b in result.blockers} == {
++        ProfileBlockerCode.MODEL_DISABLED,
++        ProfileBlockerCode.PROFILE_DISABLED,
++        ProfileBlockerCode.PROFILE_NOT_TESTED,
++    }
+ 
+ 
+ def test_default_registry_does_not_recognize_test_metadata_and_missing_profile_is_404(
+--- before/backend/tests/integration/test_geo_manual_migration.py
++++ backend/tests/integration/test_geo_manual_migration.py
+@@ -38,7 +38,7 @@
+     with psycopg.connect(db.url) as conn:
+         assert (
+             conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+-            == "0051_geo_manual_collection"
++            == "0052_geo_profile_tests"
+         )
+         assert (
+             conn.execute(
+@@ -80,12 +80,12 @@
+     )
+     assert (
+         stopped.returncode != 0
+-        and "0051 人工提交身份不可安全降级" in stopped.stdout + stopped.stderr
++        and "0052 资格失效不可恢复为旧测试事实" in stopped.stdout + stopped.stderr
+     )
+     with psycopg.connect(db.url) as conn:
+         assert (
+             conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+-            == "0051_geo_manual_collection"
++            == "0052_geo_profile_tests"
+         )
+         assert (
+             conn.execute(
+--- before/frontend/src/domains/geo-catalog/surfaces.test-support.tsx
++++ frontend/src/domains/geo-catalog/surfaces.test-support.tsx
+@@ -24,7 +24,7 @@
+ function profileFixture(overrides: Partial<Profile> = {}): Profile {
+   const configuration: components['schemas']['GeoManualProfileOut'] = { id: profileId, name: '人工采集配置', engine_surface_id: surfaceId, collection_mode: 'MANUAL', adapter_key: 'manual', language_code: 'zh-cn', region_code: 'CN', web_search_policy: 'UNKNOWN', login_state: 'ANONYMOUS', ai_channel_id: null, ai_model_id: null, settings: { require_screenshot: true }, is_active: false, last_test_status: 'UNTESTED', last_tested_at: null, revision: 7, created_by: user.id, created_at: time, updated_at: time };
+   const summary: Profile['summary'] = { id: profileId, name: configuration.name, engine_surface_id: surfaceId, engine_surface: surfaceFixture().summary, collection_mode: 'MANUAL', language_code: 'zh-cn', region_code: 'CN', web_search_policy: 'UNKNOWN', login_state: 'ANONYMOUS', is_active: false, last_test_status: 'UNTESTED', last_tested_at: null, revision: 7, created_at: time, updated_at: time };
+-  return { summary, configuration, workflow_stage: 'DISABLED', primary_task: 'MANAGE_PROFILE', available_actions: ['UPDATE', 'ENABLE', 'DELETE'], deletion: { blockers: [] }, activation_blockers: [], ...overrides };
++  return { summary, configuration, workflow_stage: 'DISABLED', primary_task: 'MANAGE_PROFILE', available_actions: ['UPDATE', 'ENABLE', 'DELETE'], deletion: { blockers: [] }, activation_blockers: [], test_blockers: [], test_error: null, ...overrides };
+ }
+ function response<T>(data: T) { return { data, response: Response.json(data) } as never; }
+ function failure(code = 'REVISION_CONFLICT', status = 409) {
+--- before/frontend/src/domains/geo-catalog/surfaces-detail.tsx
++++ frontend/src/domains/geo-catalog/surfaces-detail.tsx
+@@ -10,7 +10,7 @@
+ import { CatalogNotice } from './catalog-controls';
+ import { ProfileForm } from './profile-form';
+ import { SurfaceForm } from './surface-form';
+-import { deleteProfile, deleteSurface, setProfileActive, setSurfaceActive, surfacesKeys } from './surfaces.api';
++import { deleteProfile, deleteSurface, setProfileActive, setSurfaceActive, surfacesKeys, testProfile } from './surfaces.api';
+ import { SurfacesRequestError, surfacesErrorMessage } from './surfaces-error';
+ import { actionLabel, activationLabels, complianceLabels, deletionLabels, kindLabels, loginLabels, modeLabels, stageLabels, testLabels, webPolicyLabels, type ConfigurationAction, type ConfigurationResource, type Profile, type Surface } from './surfaces.model';
+ import { shouldBlockSurfacesNavigation } from './surfaces-search.model';
+@@ -37,6 +37,7 @@
+     continuation.assertCurrent();
+     const id = resource.summary.id;
+     if (action === 'DELETE') { if (profile) await deleteProfile(id, revision, token); else await deleteSurface(id, revision, token); return undefined; }
++    if (action === 'TEST') { if (!profile) throw new Error('观测面不支持连接测试'); return testProfile(id, revision, token); }
+     return profile ? setProfileActive(id, revision, action === 'ENABLE', token) : setSurfaceActive(id, revision, action === 'ENABLE', token);
+   } });
+   const held = error instanceof SurfacesRequestError && error.status === 409;
+@@ -64,7 +65,7 @@
+       await client.cancelQueries({ queryKey: key });
+       if (!continuation.isCurrent() || !mounted.current) return;
+       setIntent(undefined); setError(undefined);
+-      if (canonical) { client.setQueryData(key, canonical); onSaved(canonical); setMessage(`${actionLabel(intent.action, profile)}已完成。`); }
++      if (canonical) { client.setQueryData(key, canonical); onSaved(canonical); setMessage(intent.action === 'TEST' && 'test_error' in canonical ? canonical.summary.last_test_status === 'PASSED' ? '连接测试通过，采集配置仍未启用。' : '连接测试失败，请检查错误摘要和当前配置。' : `${actionLabel(intent.action, profile)}已完成。`); }
+       else onDeleted();
+     } catch (failure) { if ((!continuation || continuation.isCurrent()) && mounted.current) setError(failure); }
+     finally { inFlight.current = false; }
+@@ -81,17 +82,17 @@
+     } catch (failure) { if ((!continuation || continuation.isCurrent()) && mounted.current) setError(failure); }
+     finally { if ((!continuation || continuation.isCurrent()) && mounted.current) setRefreshing(false); }
+   }
+-  const overflow: OverflowRowAction[] = resource.available_actions.map((action) => ({ key: action, command: action, label: actionLabel(action, profile), enabled: !editing && !unavailable && (action === 'UPDATE' || !reading), ...(action === 'DELETE' ? { intent: 'danger' as const, confirmation: 'custom' as const } : { intent: 'secondary' as const, ...(action !== 'UPDATE' ? { confirmation: 'custom' as const } : {}) }) }));
++  const overflow: OverflowRowAction[] = resource.available_actions.map((action) => ({ key: action, command: action, label: actionLabel(action, profile), enabled: !busy && !editing && !unavailable && (action === 'UPDATE' || !reading), ...(action === 'DELETE' ? { intent: 'danger' as const, confirmation: 'custom' as const } : { intent: 'secondary' as const, ...(action !== 'UPDATE' ? { confirmation: 'custom' as const } : {}) }) }));
+   if (blockedDelete) {
+     const deleteIndex = overflow.findIndex((item) => item.key === 'DELETE');
+     if (deleteIndex >= 0) overflow.splice(deleteIndex, 1);
+-    overflow.push({ key: 'VIEW_DELETION', command: 'VIEW_DELETION', label: '查看删除条件', enabled: !editing && !unavailable, intent: 'secondary', confirmation: 'custom' });
++    overflow.push({ key: 'VIEW_DELETION', command: 'VIEW_DELETION', label: '查看删除条件', enabled: !busy && !editing && !unavailable, intent: 'secondary', confirmation: 'custom' });
+   }
+   function saved(canonical: ConfigurationResource) { onSaved(canonical); setMessage('已保存当前配置。'); }
+   const summary = resource.summary;
+   return <section aria-label={profile ? '采集配置详情' : '观测面详情'} className="min-w-0 space-y-4 rounded-xl border border-border-default bg-surface-panel p-4">
+     <DirtyGuard shouldBlockNavigation={({ current, next }) => shouldBlockSurfacesNavigation(current, next)} when={busy} />
+-    <header className="flex min-w-0 flex-wrap items-start justify-between gap-3"><div className="min-w-0 space-y-2"><h2 className="type-section-title break-words">{summary.name}</h2><div className="flex flex-wrap items-center gap-2 text-sm"><Badge variant={resource.workflow_stage === 'ACTIVE' ? 'success' : resource.workflow_stage === 'BLOCKED' ? 'warning' : 'secondary'}>{stageLabels[resource.workflow_stage]}</Badge><span>Revision {summary.revision}</span></div></div><div className="shrink-0"><RowActions objectLabel={summary.name} onCommand={(action, focus) => { if (action === 'UPDATE') onEdit(); else if (action === 'ENABLE' || action === 'DISABLE' || action === 'DELETE' || action === 'VIEW_DELETION') begin(action, focus); else throw new Error('GEO 配置返回未知命令'); }} overflow={overflow} /></div></header>
++    <header className="flex min-w-0 flex-wrap items-start justify-between gap-3"><div className="min-w-0 space-y-2"><h2 className="type-section-title break-words">{summary.name}</h2><div className="flex flex-wrap items-center gap-2 text-sm"><Badge variant={resource.workflow_stage === 'ACTIVE' ? 'success' : resource.workflow_stage === 'BLOCKED' ? 'warning' : 'secondary'}>{stageLabels[resource.workflow_stage]}</Badge><span>Revision {summary.revision}</span></div></div><div className="shrink-0"><RowActions objectLabel={summary.name} onCommand={(action, focus) => { if (action === 'UPDATE') onEdit(); else if (action === 'ENABLE' || action === 'DISABLE' || action === 'DELETE' || action === 'TEST' || action === 'VIEW_DELETION') begin(action, focus); else throw new Error('GEO 配置返回未知命令'); }} overflow={overflow} /></div></header>
+     {message && <CatalogNotice>{message}</CatalogNotice>}
+     {!resource.configuration && <CatalogNotice>当前为只读摘要。配置由管理员维护。</CatalogNotice>}
+     <dl className="grid min-w-0 gap-3 text-sm sm:grid-cols-2">
+@@ -109,16 +110,18 @@
+     {resource.configuration && !editing && <ConfigurationView resource={resource} />}
+     {!profile && <Button onClick={onProfiles} type="button" variant="outline">查看此观测面的采集配置</Button>}
+     {profile && resource.activation_blockers !== null && <section aria-label="启用条件" className="space-y-2 border-t border-border-subtle pt-3"><h3 className="type-section-title">启用条件</h3>{resource.activation_blockers.length ? <CatalogNotice><ul className="list-disc space-y-1 pl-5">{resource.activation_blockers.map((blocker, index) => <li key={`${blocker.code}:${blocker.field}:${index}`}>{activationLabels[blocker.code]} <span className="text-text-muted">（{blocker.field}）</span></li>)}</ul></CatalogNotice> : <p className="text-sm" role="status">服务端当前没有启用阻断；提交时会再次核实。</p>}</section>}
++    {profile && resource.test_error && <CatalogNotice error><p>连接测试错误：{resource.test_error.summary}</p><p className="text-sm">错误代码：{resource.test_error.code}</p></CatalogNotice>}
++    {profile && resource.test_blockers !== null && <section aria-label="连接测试条件" className="space-y-2 border-t border-border-subtle pt-3"><h3 className="type-section-title">连接测试条件</h3>{resource.test_blockers.length ? <ul className="list-disc space-y-1 pl-5 text-sm">{resource.test_blockers.map((blocker, index) => <li key={`${blocker.code}:${blocker.field}:${index}`}>{activationLabels[blocker.code]}（{blocker.field}）</li>)}</ul> : <p className="text-sm">可从更多操作测试连接。测试不创建业务运行，成功不自动启用。</p>}</section>}
+     {resource.deletion && <DeletionConditions resource={resource} />}
+     {editing && (profile ? resource.configuration && <ProfileForm onCancel={onCloseEditor} onReload={async () => await onReload() as Profile} onSaved={saved} profile={resource} token={token} unavailable={unavailable} /> : resource.configuration && <SurfaceForm onCancel={onCloseEditor} onReload={async () => await onReload() as Surface} onSaved={saved} surface={resource} token={token} unavailable={unavailable} />)}
+     <Dialog onOpenChange={(open) => { if (!open && !busy) setIntent(undefined); }} open={Boolean(intent)}>
+       <DialogContent finalFocus={() => returnFocus.current?.isConnected ? returnFocus.current : null} showCloseButton={!busy}>
+-        <DialogHeader><DialogTitle>{intent?.action === 'VIEW_DELETION' ? '删除条件' : `确认${intent ? actionLabel(intent.action, profile) : '操作'}`}</DialogTitle><DialogDescription>{summary.name} · 当前 Revision {summary.revision}。{intent?.action === 'DELETE' ? '删除不能撤销；当前引用与历史保护由服务端再次核实。' : '只改变当前配置，不执行采集或测试，不改写历史。'}</DialogDescription></DialogHeader>
++        <DialogHeader><DialogTitle>{intent?.action === 'VIEW_DELETION' ? '删除条件' : `确认${intent ? actionLabel(intent.action, profile) : '操作'}`}</DialogTitle><DialogDescription>{summary.name} · 当前 Revision {summary.revision}。{intent?.action === 'DELETE' ? '删除不能撤销；当前引用与历史保护由服务端再次核实。' : intent?.action === 'TEST' ? '向当前模型发送一次固定诊断请求，验证连接与回答正文能力。不创建业务运行，成功后仍需单独启用。' : '只改变当前配置，不执行采集或测试，不改写历史。'}</DialogDescription></DialogHeader>
+         {Boolean(error) && <CatalogNotice error>{surfacesErrorMessage(error)}</CatalogNotice>}
+         {intent?.action === 'VIEW_DELETION' || intent?.action === 'DELETE' && blockedDelete ? <DeletionConditions resource={resource} /> : null}
+         {intent?.action !== 'VIEW_DELETION' && !canConfirm && <CatalogNotice error>服务端当前未提供此动作，请关闭或显式重新读取。</CatalogNotice>}
+         {(held || error || !canConfirm) && <Button disabled={busy} onClick={() => void reloadIntent()} type="button" variant="outline">重新读取并重新确认</Button>}
+-        <DialogFooter><Button disabled={busy} onClick={() => setIntent(undefined)} type="button" variant="outline">取消</Button>{intent?.action !== 'VIEW_DELETION' && <Button disabled={busy || held || !canConfirm || !token} onClick={() => void confirm()} type="button" variant={intent?.action === 'DELETE' ? 'destructive' : 'default'}>{mutation.isPending ? '提交中…' : '确认操作'}</Button>}</DialogFooter>
++        <DialogFooter><Button disabled={busy} onClick={() => setIntent(undefined)} type="button" variant="outline">取消</Button>{intent?.action !== 'VIEW_DELETION' && <Button disabled={busy || held || !canConfirm || !token} onClick={() => void confirm()} type="button" variant={intent?.action === 'DELETE' ? 'destructive' : 'default'}>{mutation.isPending ? intent?.action === 'TEST' ? '测试中…' : '提交中…' : '确认操作'}</Button>}</DialogFooter>
+       </DialogContent>
+     </Dialog>
+   </section>;
+--- before/frontend/src/domains/geo-catalog/profile-form.tsx
++++ frontend/src/domains/geo-catalog/profile-form.tsx
+@@ -31,7 +31,7 @@
+       <fieldset className="min-w-0 space-y-4" disabled={busy || !allowed}>
+         {profile ? <p className="break-words text-sm">所属观测面：{profile.summary.engine_surface.name}（{profile.summary.engine_surface_id}） · 采集模式：{modeLabels[profile.summary.collection_mode]}。所属与模式不可修改。</p> : <div className="grid min-w-0 gap-4 sm:grid-cols-2"><SurfaceTextField description="从观测面详情进入可预填 ID；也可输入现有观测面的 UUID。" label="所属观测面 ID" maxLength={36} name="engine_surface_id" required /><FormField id="surfaces-collection_mode" label="采集模式" name="collection_mode" render={({ field, inputId, ...aria }) => <CatalogSelect choices={modes.map((value) => ({ value, label: modeLabels[value] }))} describedBy={aria['aria-describedby']} id={inputId} invalid={aria['aria-invalid']} label="采集模式" onChange={(value) => { field.onChange(value); form.setValue('adapter_key', value === 'MANUAL' ? 'manual' : '', { shouldDirty: true }); form.setValue('login_state', value === 'API' ? 'NOT_APPLICABLE' : 'ANONYMOUS', { shouldDirty: true }); form.setValue('ai_channel_id', '', { shouldDirty: true }); form.setValue('ai_model_id', '', { shouldDirty: true }); }} value={field.value} />} /></div>}
+         <SurfaceTextField label="采集配置名称" name="name" required />
+-        {mode === 'MANUAL' ? <p className="text-sm">适配器：manual（固定）</p> : <SurfaceTextField description="填写服务端登记的适配器。当前默认仅登记 manual；未知适配器会被服务端明确拒绝。" label="适配器标识" maxLength={100} name="adapter_key" required />}
++        {mode === 'MANUAL' ? <p className="text-sm">适配器：manual（固定）</p> : <SurfaceTextField description="填写服务端登记的适配器。API 可使用 openai-compatible-chat 进行连接诊断；采集资格待后续批准。未知适配器会被服务端明确拒绝。" label="适配器标识" maxLength={100} name="adapter_key" required />}
+         <div className="grid min-w-0 gap-4 sm:grid-cols-2"><SurfaceTextField label="语言标签" maxLength={16} name="language_code" required /><SurfaceTextField label="地区代码" maxLength={2} name="region_code" required /></div>
+         <div className="grid min-w-0 gap-4 sm:grid-cols-2"><SurfaceChoiceField choices={Object.entries(webPolicyLabels).map(([value, label]) => ({ value, label }))} label="搜索策略" name="web_search_policy" />{mode === 'API' ? <p className="self-center text-sm">登录状态：不适用</p> : <SurfaceChoiceField choices={(['ANONYMOUS', 'AUTHENTICATED'] as const).map((value) => ({ value, label: loginLabels[value] }))} label="登录状态" name="login_state" />}</div>
+         <FormSection title="模式设置">
+--- before/frontend/src/domains/geo-catalog/surfaces.api.ts
++++ frontend/src/domains/geo-catalog/surfaces.api.ts
+@@ -79,6 +79,11 @@
+   if (!result.data) throw surfacesRequestError(active ? '启用采集配置' : '停用采集配置', result);
+   return result.data as Profile;
+ }
++async function testProfile(id: string, expectedRevision: number, token: string | null) {
++  const result = await api.POST('/api/v1/geo/collection-profiles/{profile_id}/test', { body: { expected_revision: expectedRevision }, params: { path: { profile_id: canonicalUuid(id) }, header: { 'X-CSRF-Token': requireSurfacesCsrf(token) } } });
++  if (!result.data) throw surfacesRequestError('测试采集配置连接', result);
++  return result.data as Profile;
++}
+ async function deleteSurface(id: string, expectedRevision: number, token: string | null) {
+   const result = await api.DELETE('/api/v1/geo/engine-surfaces/{surface_id}', { params: { path: { surface_id: canonicalUuid(id) }, query: { expected_revision: expectedRevision }, header: { 'X-CSRF-Token': requireSurfacesCsrf(token) } } });
+   if (result.response.status !== 204) throw surfacesRequestError('删除观测面', result);
+@@ -90,4 +95,4 @@
+   if (result.response.status !== 204) throw surfacesRequestError('删除采集配置', result);
+   await result.response.text();
+ }
+-export { surfacesKeys, surfaceListQueryOptions, profileListQueryOptions, surfaceQueryOptions, profileQueryOptions, createSurface, updateSurface, createProfile, updateProfile, setSurfaceActive, setProfileActive, deleteSurface, deleteProfile };
++export { surfacesKeys, surfaceListQueryOptions, profileListQueryOptions, surfaceQueryOptions, profileQueryOptions, createSurface, updateSurface, createProfile, updateProfile, setSurfaceActive, setProfileActive, testProfile, deleteSurface, deleteProfile };
+--- before/frontend/src/domains/geo-catalog/surfaces.model.ts
++++ frontend/src/domains/geo-catalog/surfaces.model.ts
+@@ -35,6 +35,7 @@
+     case 'UPDATE': return `编辑${noun}`;
+     case 'ENABLE': return `启用${noun}`;
+     case 'DISABLE': return `停用${noun}`;
++    case 'TEST': return '测试连接';
+     case 'DELETE': return `删除${noun}`;
+     default: return assertNever(action);
+   }
+--- before/frontend/src/domains/audit/audit.model.ts
++++ frontend/src/domains/audit/audit.model.ts
+@@ -559,6 +559,7 @@
+   'geo_collection_profile.updated': '更新 GEO 采集配置',
+   'geo_collection_profile.enabled': '启用 GEO 采集配置',
+   'geo_collection_profile.disabled': '停用 GEO 采集配置',
++  'geo_collection_profile.tested': '保存 GEO 连接测试结果',
+   'geo_collection_profile.deleted': '删除 GEO 采集配置',
+   'geo_subject.created': '创建 GEO 监测对象',
+   'geo_subject.updated': '更新 GEO 监测对象',
+--- before/frontend/src/domains/geo-plans/plan-wizard.test.tsx
++++ frontend/src/domains/geo-plans/plan-wizard.test.tsx
+@@ -31,7 +31,7 @@
+   return { id: variantId, query_topic_id: otherId, prompt_text: label, mention_mode: 'UNBRANDED', language_code: 'zh-cn', region_code: 'CN', priority: 'STANDARD', is_active: true, revision: 1, first_referenced_at: null, created_by: id, created_at: time, updated_at: time, query_topic: { id: otherId, canonical_question: '测试主题', intent_type: 'REPLACEMENT', revision: 1 }, workflow_stage: 'ACTIVE', primary_task: 'EDIT', available_actions: ['UPDATE'], deletion: { blockers: [] }, run_entry: { available: false, reason_code: 'NOT_IMPLEMENTED' } };
+ }
+ function profile(): components['schemas']['GeoCollectionProfileRead'] {
+-  return { summary: { id: profileId, name: '工程师采集摘要', engine_surface_id: otherId, engine_surface: { id: otherId, name: '人工观测面', slug: 'manual-site', surface_kind: 'MANUAL_SITE', provider_brand: 'CUSTOM', compliance_status: 'NOT_REVIEWED', capabilities: { answer_text: true, citations: false, web_search_signal: false, model_version: false, usage: false, cost: false }, is_active: true, revision: 1, created_at: time, updated_at: time }, collection_mode: 'MANUAL', language_code: 'zh-cn', region_code: 'CN', login_state: 'ANONYMOUS', web_search_policy: 'UNKNOWN', is_active: true, last_test_status: 'UNTESTED', last_tested_at: null, revision: 1, created_at: time, updated_at: time }, configuration: null, workflow_stage: 'ACTIVE', primary_task: 'VIEW_SUMMARY', available_actions: [], deletion: null, activation_blockers: null };
++  return { summary: { id: profileId, name: '工程师采集摘要', engine_surface_id: otherId, engine_surface: { id: otherId, name: '人工观测面', slug: 'manual-site', surface_kind: 'MANUAL_SITE', provider_brand: 'CUSTOM', compliance_status: 'NOT_REVIEWED', capabilities: { answer_text: true, citations: false, web_search_signal: false, model_version: false, usage: false, cost: false }, is_active: true, revision: 1, created_at: time, updated_at: time }, collection_mode: 'MANUAL', language_code: 'zh-cn', region_code: 'CN', login_state: 'ANONYMOUS', web_search_policy: 'UNKNOWN', is_active: true, last_test_status: 'UNTESTED', last_tested_at: null, revision: 1, created_at: time, updated_at: time }, configuration: null, workflow_stage: 'ACTIVE', primary_task: 'VIEW_SUMMARY', available_actions: [], deletion: null, activation_blockers: null, test_blockers: null, test_error: null };
+ }
+ function response<T>(data: T) { return { data, response: Response.json(data) } as never; }
+ function failure(status = 409) {
+--- before/frontend/src/shared/api/generated/schema.d.ts
++++ frontend/src/shared/api/generated/schema.d.ts
+@@ -2757,6 +2757,26 @@
+         put?: never;
+         /** Submit Manual Observation */
+         post: operations["submitGeoManualObservation"];
++        delete?: never;
++        options?: never;
++        head?: never;
++        patch?: never;
++        trace?: never;
++    };
++    "/api/v1/geo/collection-profiles/{profile_id}/test": {
++        parameters: {
++            query?: never;
++            header?: never;
++            path?: never;
++            cookie?: never;
++        };
++        get?: never;
++        put?: never;
++        /**
++         * Test Profile
++         * @description 管理员固定连接及 answer_text 能力诊断。先预留 revision 并停用，事务外 pinned 出网，完成时重验依赖版本；不创建业务 Run，成功不自动启用。provider 失败以安全 test_error 和 FAILED 返回200，过期结果409。诊断仅支持 openai-compatible-chat，采集仍未批准。
++         */
++        post: operations["testGeoCollectionProfile"];
+         delete?: never;
+         options?: never;
+         head?: never;
+@@ -7072,6 +7092,17 @@
+             /** Total */
+             total: number;
+         };
++        /** GeoProfileTestError */
++        GeoProfileTestError: {
++            code: components["schemas"]["GeoProfileTestErrorCode"];
++            /** Summary */
++            summary: string;
++        };
++        /**
++         * GeoProfileTestErrorCode
++         * @enum {string}
++         */
++        GeoProfileTestErrorCode: "AI_URL_FORBIDDEN" | "AI_REDIRECT_FORBIDDEN" | "AI_PROVIDER_TIMEOUT" | "AI_PROVIDER_UNAVAILABLE" | "AI_PROVIDER_ERROR" | "AI_RESPONSE_TOO_LARGE" | "AI_RESPONSE_INVALID" | "AI_CREDENTIAL_INVALID" | "CREDENTIAL_DECRYPTION_FAILED" | "INVALID_HEADER";
+         /** GeoCollectionProfileRead */
+         GeoCollectionProfileRead: {
+             summary: components["schemas"]["GeoCollectionProfileSummary"];
+@@ -7084,6 +7115,9 @@
+             deletion: components["schemas"]["GeoConfigurationDeletionProjection"] | null;
+             /** Activation Blockers */
+             activation_blockers: components["schemas"]["GeoProfileActivationBlocker"][] | null;
++            /** Test Blockers */
++            test_blockers: components["schemas"]["GeoProfileActivationBlocker"][] | null;
++            test_error: components["schemas"]["GeoProfileTestError"] | null;
+         };
+         /** GeoCollectionProfileSummary */
+         GeoCollectionProfileSummary: {
+@@ -7129,7 +7163,7 @@
+          * GeoConfigurationAction
+          * @enum {string}
+          */
+-        GeoConfigurationAction: "UPDATE" | "ENABLE" | "DISABLE" | "DELETE";
++        GeoConfigurationAction: "UPDATE" | "ENABLE" | "DISABLE" | "DELETE" | "TEST";
+         /** GeoConfigurationDeletionBlocker */
+         GeoConfigurationDeletionBlocker: {
+             type: components["schemas"]["GeoConfigurationDeletionBlockerType"];
+@@ -16096,4 +16130,40 @@
+             503: components["responses"]["ErrorResponse"];
+         };
+     };
++    testGeoCollectionProfile: {
++        parameters: {
++            query?: never;
++            header: {
++                "X-CSRF-Token": string;
++                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
++            };
++            path: {
++                profile_id: string;
++            };
++            cookie?: never;
++        };
++        requestBody: {
++            content: {
++                "application/json": components["schemas"]["GeoConfigurationRevisionRequest"];
++            };
++        };
++        responses: {
++            /** @description Successful Response */
++            200: {
++                headers: {
++                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
++                    [name: string]: unknown;
++                };
++                content: {
++                    "application/json": components["schemas"]["GeoCollectionProfileRead"];
++                };
++            };
++            400: components["responses"]["ErrorResponse"];
++            401: components["responses"]["ErrorResponse"];
++            403: components["responses"]["ErrorResponse"];
++            404: components["responses"]["ErrorResponse"];
++            409: components["responses"]["ErrorResponse"];
++            422: components["responses"]["ErrorResponse"];
++        };
++    };
+ }
+--- before/contracts/openapi.yaml
++++ contracts/openapi.yaml
+@@ -7607,6 +7607,60 @@
+       - ADMIN
+       - ENGINEER
+ 
++  /api/v1/geo/collection-profiles/{profile_id}/test:
++    post:
++      tags:
++      - geo-surface-management
++      summary: Test Profile
++      operationId: testGeoCollectionProfile
++      security:
++      - sessionCookie: []
++      parameters:
++      - name: profile_id
++        in: path
++        required: true
++        schema:
++          type: string
++          format: uuid
++          title: Profile Id
++      - name: X-CSRF-Token
++        in: header
++        required: true
++        schema:
++          type: string
++          minLength: 32
++          title: X-Csrf-Token
++      - $ref: '#/components/parameters/RequestIdHeader'
++      requestBody:
++        required: true
++        content:
++          application/json:
++            schema:
++              $ref: '#/components/schemas/GeoConfigurationRevisionRequest'
++      responses:
++        '200':
++          description: Successful Response
++          content:
++            application/json:
++              schema:
++                $ref: '#/components/schemas/GeoCollectionProfileRead'
++          headers:
++            X-Request-ID:
++              $ref: '#/components/headers/RequestIdResponseHeader'
++        '401':
++          $ref: '#/components/responses/ErrorResponse'
++        '403':
++          $ref: '#/components/responses/ErrorResponse'
++        '404':
++          $ref: '#/components/responses/ErrorResponse'
++        '409':
++          $ref: '#/components/responses/ErrorResponse'
++        '422':
++          $ref: '#/components/responses/ErrorResponse'
++        '400':
++          $ref: '#/components/responses/ErrorResponse'
++      description: 管理员固定连接及 answer_text 能力诊断。先预留 revision 并停用，事务外 pinned 出网，完成时重验依赖版本；不创建业务 Run，成功不自动启用。provider
++        失败以安全 test_error 和 FAILED 返回200，过期结果409。诊断仅支持 openai-compatible-chat，采集仍未批准。
+ components:
+   securitySchemes:
+     sessionCookie:
+@@ -14696,6 +14750,35 @@
+       - page_size
+       - total
+       title: GeoCollectionProfileListPage
++    GeoProfileTestError:
++      properties:
++        code:
++          $ref: '#/components/schemas/GeoProfileTestErrorCode'
++        summary:
++          type: string
++          maxLength: 500
++          minLength: 1
++          title: Summary
++      additionalProperties: false
++      type: object
++      required:
++      - code
++      - summary
++      title: GeoProfileTestError
++    GeoProfileTestErrorCode:
++      type: string
++      enum:
++      - AI_URL_FORBIDDEN
++      - AI_REDIRECT_FORBIDDEN
++      - AI_PROVIDER_TIMEOUT
++      - AI_PROVIDER_UNAVAILABLE
++      - AI_PROVIDER_ERROR
++      - AI_RESPONSE_TOO_LARGE
++      - AI_RESPONSE_INVALID
++      - AI_CREDENTIAL_INVALID
++      - CREDENTIAL_DECRYPTION_FAILED
++      - INVALID_HEADER
++      title: GeoProfileTestErrorCode
+     GeoCollectionProfileRead:
+       properties:
+         summary:
+@@ -14734,6 +14817,17 @@
+             type: array
+           - type: 'null'
+           title: Activation Blockers
++        test_blockers:
++          anyOf:
++          - items:
++              $ref: '#/components/schemas/GeoProfileActivationBlocker'
++            type: array
++          - type: 'null'
++          title: Test Blockers
++        test_error:
++          anyOf:
++          - $ref: '#/components/schemas/GeoProfileTestError'
++          - type: 'null'
+       additionalProperties: false
+       type: object
+       required:
+@@ -14744,6 +14838,8 @@
+       - available_actions
+       - deletion
+       - activation_blockers
++      - test_blockers
++      - test_error
+       title: GeoCollectionProfileRead
+     GeoCollectionProfileSummary:
+       properties:
+@@ -14830,6 +14926,7 @@
+       - ENABLE
+       - DISABLE
+       - DELETE
++      - TEST
+       title: GeoConfigurationAction
+     GeoConfigurationDeletionBlocker:
+       properties:
+--- before/contracts/database.md
++++ contracts/database.md
+@@ -108,7 +108,9 @@
+ | web_search_policy | varchar(24) | UNKNOWN / REQUESTED / REQUIRED / NOT_APPLICABLE；配置意图，不是实际搜索事实 |
+ | settings_json | JSONB DEFAULT '{}' | 按模式闭合非敏感配置，见下表；未知键/嵌套JSON/类型/范围明确拒绝 |
+ | is_active / revision | boolean false / integer 0 | 无自动启用 |
+-| last_test_status / last_tested_at | varchar(16) UNTESTED / timestamptz NULL | UNTESTED⇔时间空；PASSED/FAILED必须有时间；测试实施属于后续任务 |
++| last_test_status / last_tested_at | varchar(16) UNTESTED / timestamptz NULL | UNTESTED⇔时间空；PASSED/FAILED必须有时间；GEO-403 固定诊断事实；成功不自动启用 |
++| last_test_error_code / last_test_error_summary | varchar(64/500) NULL | 两空或 FAILED 两非空；固定安全代码/摘要，不保存外部消息 |
++| test_attempt_id | UUID NULL | 内部诊断预留，非空必须 UNTESTED 且停用；不公开 |
+ | created_by | UUID | fk_geo_collection_profiles_creator → users.id RESTRICT |
+ | created_at / updated_at | timestamptz now() | 创建追溯不变 |
+ 
+@@ -131,6 +133,14 @@
+ GEO-205 写命令锁序为User→AIChannel→AIModel→Surface→Profile；服务负责事务、expected_revision CAS 和最小成功审计。测试结果的写入与过期检查由 GEO-403 接入；本阶段无队列或外部调用。User.created_by两表引用接入现有批量删除预检/投影，RESTRICT提供最终防线。
+ 
+ 唯一冲突仅`23505 + uq_geo_engine_surfaces_slug / uq_geo_collection_profiles_surface_name`；模型归属由`23503 + fk_geo_collection_profiles_model_channel`保证。GEO-205 在业务 flush 边界映射已登记的唯一键与引用约束；未知异常保持失败，不能按文本或宽泛SQLSTATE猜测。非法结构仍受本节具名`23514`保护。downgrade以55000拒绝删表，恢复用前滚修复或迁移前备份。
++
++### GEO-403 API Profile 诊断与当前资格失效
++
++`0052_geo_profile_tests` 增加可空错误字段和内部预留 UUID、成对错误/预留状态 CHECK。前滚清除旧 API 测试资格并停用，revision 恰好递增一次；不修改 Run、Answer 或历史快照。已停用且 UNTESTED 的配置不生成无意义 revision。迁移保持前向修复策略，55000 拒绝恢复旧测试事实。
++
++管理员 test 锁序 User→Channel→Model→Surface→Profile：预留 UUID、清资格与错误、停用/revision+1 后提交；网络不持有数据库锁；完成重锁重验 Profile revision/token、Surface/Channel/Model revisions 与当前身份/开关/能力，然后写 PASSED 或 FAILED/时间、清 token/revision+1。成功不启用、不创建业务 Batch/Run、不发队列消息。中断保留 UNTESTED/停用，管理员可从最新 revision 显式再次测试；旧请求409，绝不覆盖后来的意图。永久 SUCCESS 审计表示诊断结果命令已提交，`facts.test_status` 如实记录 PASSED/FAILED。
++
++数据库触发器是当前资格失效 owner：Profile 实质配置（含绑定/语言/地区/登录/搜索/settings）、Channel 地址/协议/超时/凭据/启用、Header 变化、Model ID/参数/启用/测试资格/测试时间、Surface 类型/合规/能力/启用变化，使关联 API Profile UNTESTED、清时间/错误/token并停用。依赖批量失效按 Profile UUID 锁定，仅改变确有资格/预留的行，不反向锁上游。删除 Channel/Model 先失效再按旧 FK 成对 SET NULL，解绑不再虚构第二个 revision。配置更新 no-op 不失效；只更新业务历史引用不失效。
+ 
+ ### GEO-205 管理命令与安全读模型
+ 
+--- before/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -689,7 +689,7 @@
+   phase: R3
+   release: R3
+   title: 实现 API Profile 连接测试和能力验证
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-402
+   - GEO-205
+--- before/docs/geo-monitoring/03-technical/03-api-contract-design.md
++++ docs/geo-monitoring/03-technical/03-api-contract-design.md
+@@ -127,7 +127,7 @@
+ 
+ 列表支持 `q/is_active/sort/page/page_size`，页大小 10/20/50；Surface 另支持 `surface_kind`，Profile 另支持 `engine_surface_id/collection_mode`。读模型使用同一 REPEATABLE READ 快照与批量查询。PATCH/启停必填 `expected_revision`，DELETE 通过必填 query 参数提交该值；stale revision 返回 409，无自动重放或 Idempotency-Key。
+ 
+-创建一律停用且 Profile 为 UNTESTED。Profile 实际配置变化清除旧测试事实并停用；无变化不递增 revision 或写成功审计。启用使用当前共享资格策略，未通过 BROWSER 合规/批准/环境/测试等门禁时返回 `GEO_PROFILE_INELIGIBLE` 与非敏感 blocker。当前运行时只登记 manual；未知自动 adapter 在写配置时显式失败。本任务不提供 `/test`；连接测试由 GEO-403、浏览器会话由 GEO-806 拥有。
++创建一律停用且 Profile 为 UNTESTED。Profile 实际配置变化清除旧测试事实并停用；无变化不递增 revision 或写成功审计。启用使用当前共享资格策略，未通过 BROWSER 合规/批准/环境/测试等门禁时返回 `GEO_PROFILE_INELIGIBLE` 与非敏感 blocker。GEO-403 增加已实现的 `openai-compatible-chat` 连接诊断登记，采集批准仍为 false；未知 adapter 仍显式失败。浏览器会话由 GEO-806 拥有。
+ 
+ | 状态 | 管理错误码 | 条件 |
+ |---|---|---|
+@@ -139,6 +139,14 @@
+ | 422 | `GEO_ADAPTER_UNKNOWN` / `GEO_PROFILE_CONFIGURATION_INVALID` | adapter 未登记或配置不满足其闭合合同 |
+ 
+ 权限/CSRF/NOT_FOUND 沿用现有 ErrorEnvelope。业务写入与最小白名单审计在同一事务；锁顺序和历史引用合同见 `contracts/database.md` 的 GEO-205 管理命令章节。
++
++### GEO-403 连接诊断
++
++`POST /geo/collection-profiles/{profile_id}/test` / `testGeoCollectionProfile`：管理员 + CSRF，body 为必填 `expected_revision`，200 返回 canonical `GeoCollectionProfileRead`。Profile 读模型增加服务端 `TEST` 动作、`test_blockers` 与固定安全 `test_error {code, summary}`；工程师两字段为 null。未通过门禁返回 `GEO_PROFILE_INELIGIBLE` 409；过期或并发结果 `REVISION_CONFLICT` 409。provider/凭据/SSRF/TLS/响应失败提交 FAILED/时间和固定安全摘要后返回200，不回显响应正文、URL、Header 或 exception message。
++
++固定诊断使用当前渠道/模型参数与 Profile temperature，固定 user 消息 `hi`、stream=false，未指定 Profile 输出上限时保留模型参数；显式覆盖沿用模型的 max_completion_tokens 键（若无则使用 max_tokens），不为未指定上限的模型注入另一个键，不使用业务问题/品牌/草稿 Schema，不解析采集引用/usage/cost。只有 answer_text 为明确已实现能力；REQUESTED/REQUIRED 搜索策略显式阻断。复用 pinned transport 和共享资格策略；诊断只豁免 Profile 启用、旧测试和采集批准，仍要求 API/main 开关、批准且启用的 Surface、模型及渠道已启用、模型已测试、协议/凭据/能力匹配。
++
++预留/完成各递增一次 revision，网络期间无行锁。结果只适用于预留和当前依赖 revisions；中断保持 UNTESTED/停用，可从最新版本显式再试。成功不启用，不创建业务 Run/Batch 或业务指标。启用仍需另一个显式命令并满足全部采集资格；GEO-404 完成前 adapter 尚未批准采集。依赖失效与迁移见根 database 合同。
+ 
+ ### 4.1 能力响应
+ 
+--- before/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
++++ docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
+@@ -47,8 +47,8 @@
+ `backend/app/collectors/registry.py` 已建立不可变 `CollectorRegistry` 和
+ `CollectorRegistration`：精确 key、版本、固定模式、能力、surface/login/search/语言/地区限制、
+ 允许环境及自动 adapter 批准状态。重复 key 拒绝，未知 key 抛 `UnknownCollectorAdapter`，
+-不按 provider_brand、URL 或名称选择替代实现。默认只登记 `manual`；API/BROWSER 名称仍是
+-后续实现示例，不登记可执行占位。该注册边界没有 collect/estimate/provider 工厂。
++不按 provider_brand、URL 或名称选择替代实现。GEO-403 起登记 `manual` 与只支持固定诊断的 `openai-compatible-chat`；
++后者仅声明 answer_text 且采集 approved=false，GEO-404 前无 collect 实现。BROWSER 不登记占位。该注册边界没有 collect/estimate/provider 工厂。
+ 
+ `validate_profile` 复用 GEO-203 闭合配置合同，返回固定 code/field 的非敏感 blocker。
+ `services/geo_collector_eligibility.py::evaluate_profile` 是 Plan preview 与 Worker 共用的
+@@ -60,7 +60,7 @@
+ MANUAL 不依赖自动子开关、合规批准或连接测试；自动模式要求自己的子开关、APPROVED Surface、
+ approved adapter 与 Profile PASSED/测试时间。模型型 API 要求当前精确绑定、channel/model
+ 启用、model PASSED、凭据已配置及匹配协议；adapter-only 必须明确登记并且两引用为空。
+-AI 删除后保留的 PASSED 不构成资格，不会自动改用 adapter-only 或 manual。
++GEO-403 起 AI 删除先清除 Profile 当前资格并停用再成对解绑，不会自动改用 adapter-only 或 manual。
+ 
+ `services/geo_collection_profiles.py::profile_eligibility` 以一次 PostgreSQL 列查询映射内部
+ 不可变快照，查询禁止 autoflush、绕过 ORM identity map，不读取密钥/密文正文、Header、
+@@ -521,7 +521,7 @@
+ 
+ `tests.geo_collector_contract` 可供后续 adapter 复用，检查发送回调、请求哈希、单次调用、
+ 无 retry/redirect、原始结果和稳定错误。当前只用测试专用驱动自测，并独立验证已有
+-pinned transport 的真实网络故障；默认 Registry 仍只有 manual，不新增业务命令、
++pinned transport 的真实网络故障；GEO-402 当时默认 Registry 只有 manual；GEO-403 后诊断登记见上节。本测试基础设施不新增业务命令、
+ Profile 测试、Worker、数据库或 Browser 能力。生产发送隔离和恢复仍由后续任务证明。
+ 
+ `make test-geo-collector-contract` 在输出前扫描日志和临时产物；CI 只允许本地请求。
+--- /dev/null
++++ backend/alembic/versions/0052_geo_profile_tests.py
+@@ -0,0 +1,21 @@
++"""API Profile 当前诊断资格与依赖失效；不修改业务历史。"""
++
++from pathlib import Path
++
++from alembic import op
++
++revision = "0052_geo_profile_tests"
++down_revision = "0051_geo_manual_collection"
++branch_labels = None
++depends_on = None
++
++
++def upgrade() -> None:
++    op.execute((Path(__file__).resolve().parents[1] / "sql/0052_geo_profile_tests.sql").read_text())
++
++
++def downgrade() -> None:
++    op.execute("""DO $$ BEGIN
++        RAISE EXCEPTION '0052 资格失效不可恢复为旧测试事实；关闭 API 开关并前向修复'
++            USING ERRCODE='55000';
++    END $$;""")
+--- /dev/null
++++ backend/alembic/sql/0052_geo_profile_tests.sql
+@@ -0,0 +1,105 @@
++ALTER TABLE geo_collection_profiles
++    ADD COLUMN last_test_error_code varchar(64),
++    ADD COLUMN last_test_error_summary varchar(500),
++    ADD COLUMN test_attempt_id uuid,
++    ADD CONSTRAINT ck_geo_collection_profiles_test_error CHECK (
++        (last_test_error_code IS NULL AND last_test_error_summary IS NULL) OR
++        (last_test_status = 'FAILED' AND last_test_error_code IS NOT NULL
++         AND last_test_error_summary IS NOT NULL)),
++    ADD CONSTRAINT ck_geo_collection_profiles_test_attempt CHECK (
++        test_attempt_id IS NULL OR (last_test_status = 'UNTESTED' AND NOT is_active));
++
++-- 上游已经持有自己的锁；这里只按稳定 UUID 获取当前 Profile，不反向锁上游。
++CREATE FUNCTION geo_invalidate_profile_tests(ids uuid[]) RETURNS void LANGUAGE plpgsql AS $$
++DECLARE profile_id uuid;
++BEGIN
++    FOR profile_id IN SELECT id FROM geo_collection_profiles
++        WHERE id = ANY(ids) AND collection_mode = 'API' ORDER BY id FOR UPDATE
++    LOOP
++        UPDATE geo_collection_profiles SET
++            last_test_status='UNTESTED', last_tested_at=NULL,
++            last_test_error_code=NULL, last_test_error_summary=NULL,
++            test_attempt_id=NULL, is_active=false, revision=revision+1,
++            updated_at=greatest(updated_at, clock_timestamp())
++        WHERE id=profile_id AND (last_test_status<>'UNTESTED' OR last_tested_at IS NOT NULL
++            OR last_test_error_code IS NOT NULL OR last_test_error_summary IS NOT NULL
++            OR test_attempt_id IS NOT NULL OR is_active);
++    END LOOP;
++END $$;
++
++-- 旧 API 测试没有本次诊断的凭据/能力保证；只失效当前资格，保留全部历史快照。
++SELECT geo_invalidate_profile_tests(array_agg(id)) FROM geo_collection_profiles
++    WHERE collection_mode='API';
++
++CREATE FUNCTION geo_reset_profile_test_configuration() RETURNS trigger LANGUAGE plpgsql AS $$
++BEGIN
++    IF NEW.collection_mode <> 'API' THEN RETURN NEW; END IF;
++    -- 模型删除先失效资格，再由既有 FK 成对解绑；FK 不虚构第二个 revision。
++    IF pg_trigger_depth()>1 AND NEW.ai_channel_id IS NULL AND NEW.ai_model_id IS NULL
++        AND to_jsonb(NEW)-ARRAY['ai_channel_id','ai_model_id'] =
++            to_jsonb(OLD)-ARRAY['ai_channel_id','ai_model_id'] THEN
++        RETURN NEW;
++    END IF;
++    IF ROW(NEW.name,NEW.adapter_key,NEW.ai_channel_id,NEW.ai_model_id,NEW.language_code,
++           NEW.region_code,NEW.login_state,NEW.web_search_policy,NEW.settings_json)
++       IS DISTINCT FROM
++       ROW(OLD.name,OLD.adapter_key,OLD.ai_channel_id,OLD.ai_model_id,OLD.language_code,
++           OLD.region_code,OLD.login_state,OLD.web_search_policy,OLD.settings_json) THEN
++        NEW.last_test_status='UNTESTED'; NEW.last_tested_at=NULL;
++        NEW.last_test_error_code=NULL; NEW.last_test_error_summary=NULL;
++        NEW.test_attempt_id=NULL; NEW.is_active=false;
++    END IF;
++    RETURN NEW;
++END $$;
++CREATE TRIGGER geo_collection_profile_00_test BEFORE UPDATE ON geo_collection_profiles
++    FOR EACH ROW EXECUTE FUNCTION geo_reset_profile_test_configuration();
++
++CREATE FUNCTION geo_invalidate_dependency_profile_tests() RETURNS trigger LANGUAGE plpgsql AS $$
++DECLARE ids uuid[]; dependency_id uuid;
++BEGIN
++    dependency_id := OLD.id;
++    IF TG_TABLE_NAME='ai_channels' THEN
++        IF TG_OP='UPDATE' AND ROW(NEW.base_url,NEW.protocol_type,NEW.timeout_seconds,
++               NEW.api_key_ciphertext,NEW.is_enabled) IS NOT DISTINCT FROM
++             ROW(OLD.base_url,OLD.protocol_type,OLD.timeout_seconds,
++               OLD.api_key_ciphertext,OLD.is_enabled) THEN RETURN NEW; END IF;
++        SELECT array_agg(id) INTO ids FROM geo_collection_profiles
++            WHERE ai_channel_id=dependency_id;
++    ELSIF TG_TABLE_NAME='ai_models' THEN
++        IF TG_OP='UPDATE' AND ROW(NEW.model_id,NEW.request_parameters,NEW.is_enabled,
++               NEW.test_status,NEW.last_tested_at) IS NOT DISTINCT FROM
++             ROW(OLD.model_id,OLD.request_parameters,OLD.is_enabled,
++               OLD.test_status,OLD.last_tested_at) THEN RETURN NEW; END IF;
++        SELECT array_agg(id) INTO ids FROM geo_collection_profiles
++            WHERE ai_model_id=dependency_id;
++    ELSE
++        IF ROW(NEW.surface_kind,NEW.compliance_status,NEW.capabilities,NEW.is_active)
++            IS NOT DISTINCT FROM
++           ROW(OLD.surface_kind,OLD.compliance_status,OLD.capabilities,OLD.is_active)
++           THEN RETURN NEW; END IF;
++        SELECT array_agg(id) INTO ids FROM geo_collection_profiles
++            WHERE engine_surface_id=dependency_id;
++    END IF;
++    PERFORM geo_invalidate_profile_tests(ids);
++    IF TG_OP='DELETE' THEN RETURN OLD; END IF;
++    RETURN NEW;
++END $$;
++CREATE TRIGGER geo_channel_profile_tests BEFORE UPDATE OR DELETE ON ai_channels
++    FOR EACH ROW EXECUTE FUNCTION geo_invalidate_dependency_profile_tests();
++CREATE TRIGGER geo_model_profile_tests BEFORE UPDATE OR DELETE ON ai_models
++    FOR EACH ROW EXECUTE FUNCTION geo_invalidate_dependency_profile_tests();
++CREATE TRIGGER geo_surface_profile_tests BEFORE UPDATE ON geo_engine_surfaces
++    FOR EACH ROW EXECUTE FUNCTION geo_invalidate_dependency_profile_tests();
++
++CREATE FUNCTION geo_invalidate_header_profile_tests() RETURNS trigger LANGUAGE plpgsql AS $$
++DECLARE channel_id uuid; ids uuid[];
++BEGIN
++    IF TG_OP='UPDATE' AND to_jsonb(NEW) IS NOT DISTINCT FROM to_jsonb(OLD) THEN RETURN NEW; END IF;
++    IF TG_OP='DELETE' THEN channel_id:=OLD.channel_id; ELSE channel_id:=NEW.channel_id; END IF;
++    SELECT array_agg(id) INTO ids FROM geo_collection_profiles WHERE ai_channel_id=channel_id;
++    PERFORM geo_invalidate_profile_tests(ids);
++    IF TG_OP='DELETE' THEN RETURN OLD; END IF;
++    RETURN NEW;
++END $$;
++CREATE TRIGGER geo_header_profile_tests AFTER INSERT OR UPDATE OR DELETE ON ai_channel_headers
++    FOR EACH ROW EXECUTE FUNCTION geo_invalidate_header_profile_tests();
+--- /dev/null
++++ backend/app/services/geo_profile_tests.py
+@@ -0,0 +1,203 @@
++"""固定 API 诊断：预留当前资格、无锁出网、按依赖版本提交安全结果。"""
++
++from dataclasses import dataclass
++from datetime import UTC, datetime
++from typing import Any
++from uuid import UUID, uuid4
++
++from sqlalchemy.orm import Session
++
++from app.audit import append_audit
++from app.audit_types import AuditEntry, AuditModule, AuditOutcome
++from app.collectors import registry as collectors
++from app.config import settings
++from app.errors import AppError
++from app.models.ai_generation import AIChannel, AIModel
++from app.models.geo_surfaces import GeoCollectionProfile
++from app.models.identity import User
++from app.schemas.common import AccountType
++from app.schemas.geo_surface_management import GeoCollectionProfileRead
++from app.services.ai_configuration import request_credentials
++from app.services.geo_collection_profiles import load_profile_facts
++from app.services.geo_surface_locks import command, lock_profile, revision_conflict
++from app.services.geo_surface_queries import profiles_read
++from app.services.openai_client import OpenAICompatibleClient
++
++# 禁止拼接 provider 正文、URL、Header 或 exception message。
++ERROR_SUMMARIES = {
++    "AI_URL_FORBIDDEN": "连接地址未通过网络安全校验",
++    "AI_REDIRECT_FORBIDDEN": "服务返回了禁止的重定向",
++    "AI_PROVIDER_TIMEOUT": "连接测试超时，请检查服务状态后重新测试",
++    "AI_PROVIDER_UNAVAILABLE": "网络连接或 TLS 验证失败",
++    "AI_PROVIDER_ERROR": "服务拒绝了诊断请求，请检查模型和凭据配置",
++    "AI_RESPONSE_TOO_LARGE": "服务响应超过允许大小",
++    "AI_RESPONSE_INVALID": "服务未返回有效的非空回答正文",
++    "AI_CREDENTIAL_INVALID": "渠道凭据格式无效",
++    "CREDENTIAL_DECRYPTION_FAILED": "渠道凭据无法读取，请重新配置",
++    "INVALID_HEADER": "渠道请求头配置无效",
++}
++
++
++@dataclass(frozen=True)
++class TestReservation:
++    attempt_id: UUID
++    revision: int
++    surface_revision: int
++    channel_revision: int
++    model_revision: int
++    arguments: dict[str, Any]
++    credential_error: str | None
++
++
++def _require_testable(db: Session, profile: GeoCollectionProfile) -> None:
++    eligibility = load_profile_facts(db, [profile.id])[profile.id].eligibility(
++        registry=collectors.collector_registry,
++        configuration=settings,
++        connection_test=True,
++    )
++    if not eligibility.eligible:
++        raise AppError(
++            "GEO_PROFILE_INELIGIBLE",
++            "采集配置当前无法进行连接测试",
++            409,
++            {
++                "blockers": [
++                    {"code": item.code.value, "field": item.field} for item in eligibility.blockers
++                ]
++            },
++        )
++    # 诊断实现与批准采集分开：不得把未来登记的 adapter 默认为这个协议。
++    if profile.adapter_key != "openai-compatible-chat":
++        raise AppError("GEO_PROFILE_INELIGIBLE", "此 adapter 尚未实现连接测试", 409)
++
++
++def _bindings(db: Session, profile: GeoCollectionProfile) -> tuple[AIChannel, AIModel]:
++    channel = db.get(AIChannel, profile.ai_channel_id, populate_existing=True)
++    model = db.get(AIModel, profile.ai_model_id, populate_existing=True)
++    if channel is None or model is None:
++        raise revision_conflict()
++    return channel, model
++
++
++def _changed(profile: GeoCollectionProfile) -> None:
++    profile.revision += 1
++    profile.updated_at = max(datetime.now(UTC), profile.updated_at)
++
++
++def _reserve(db: Session, actor: User, profile_id: UUID, expected_revision: int) -> TestReservation:
++    with command(db, actor):
++        profile = lock_profile(db, profile_id, expected_revision)
++        _require_testable(db, profile)
++        channel, model = _bindings(db, profile)
++        surface_revision = load_profile_facts(db, [profile.id])[profile.id].surface.revision
++        error_code = None
++        api_key = ""
++        headers: dict[str, str] = {}
++        try:
++            api_key, headers = request_credentials(db, channel)
++        except AppError as error:
++            if error.code not in ERROR_SUMMARIES:
++                raise
++            error_code = error.code
++        parameters = dict(model.request_parameters)
++        if profile.settings_json.get("temperature") is not None:
++            parameters["temperature"] = profile.settings_json["temperature"]
++        # 不注入模型未选择的输出参数：既有协议可能显式使用 max_completion_tokens。
++        # Profile 的显式覆盖沿用该键；未指定覆盖时原样保留模型参数。
++        output_limit = profile.settings_json.get("max_output_tokens")
++        if output_limit is not None:
++            limit_key = (
++                "max_completion_tokens" if "max_completion_tokens" in parameters else "max_tokens"
++            )
++            parameters[limit_key] = output_limit
++        attempt_id = uuid4()
++        profile.test_attempt_id = attempt_id
++        profile.is_active = False
++        profile.last_test_status = "UNTESTED"
++        profile.last_tested_at = None
++        profile.last_test_error_code = None
++        profile.last_test_error_summary = None
++        _changed(profile)
++        db.flush()
++        reservation = TestReservation(
++            attempt_id,
++            profile.revision,
++            surface_revision,
++            channel.revision,
++            model.revision,
++            {
++                "base_url": channel.base_url,
++                "api_key": api_key,
++                "headers": headers,
++                "timeout_seconds": channel.timeout_seconds,
++                "model_id": model.model_id,
++                "request_parameters": parameters,
++            },
++            error_code,
++        )
++        db.commit()
++        return reservation
++
++
++def test_profile(
++    *, db: Session, profile_id: UUID, expected_revision: int, actor: User, request_id: str
++) -> GeoCollectionProfileRead:
++    reservation = _reserve(db, actor, profile_id, expected_revision)
++    error_code = reservation.credential_error
++    if error_code is None:
++        try:
++            content = OpenAICompatibleClient(
++                allow_local_http=settings.ai_allow_local_http
++            ).test_connection(**reservation.arguments)
++            if not content.strip() or "\x00" in content:
++                raise AppError("AI_RESPONSE_INVALID", "诊断回答无效", 502)
++        except AppError as error:
++            if error.code not in ERROR_SUMMARIES:
++                raise
++            error_code = error.code
++    # 认证缓存和网络前的 ORM 状态不是完成授权。重新按固定锁序获取当前事实。
++    db.expire_all()
++    with command(db, actor) as current:
++        profile = lock_profile(db, profile_id, reservation.revision)
++        channel, model = _bindings(db, profile)
++        facts = load_profile_facts(db, [profile.id])[profile.id]
++        if (
++            profile.test_attempt_id != reservation.attempt_id
++            or channel.revision != reservation.channel_revision
++            or model.revision != reservation.model_revision
++            or facts.surface.revision != reservation.surface_revision
++        ):
++            raise revision_conflict()
++        _require_testable(db, profile)
++        profile.test_attempt_id = None
++        profile.last_test_status = "FAILED" if error_code is not None else "PASSED"
++        profile.last_tested_at = datetime.now(UTC)
++        profile.last_test_error_code = error_code
++        profile.last_test_error_summary = ERROR_SUMMARIES[error_code] if error_code else None
++        profile.is_active = False
++        _changed(profile)
++        db.flush()
++        # 永久审计的 SUCCESS 表示命令已提交；诊断成败单独存 test_status。
++        append_audit(
++            db,
++            AuditEntry(
++                actor_id=current.id,
++                business_module=AuditModule.CONFIGURATION,
++                action="geo_collection_profile.tested",
++                target_type="GeoCollectionProfile",
++                target_id=profile.id,
++                request_id=request_id,
++                outcome=AuditOutcome.SUCCESS,
++                result_message="GEO 连接测试结果已保存",
++                details={
++                    "facts": {
++                        "revision": profile.revision,
++                        "is_active": False,
++                        "test_status": profile.last_test_status,
++                    }
++                },
++            ),
++        )
++        result = profiles_read(db, [profile], actor_type=AccountType.ADMIN)[0]
++        db.commit()
++        return result
+--- /dev/null
++++ backend/tests/unit/test_geo_profile_test_policy.py
+@@ -0,0 +1,80 @@
++"""连接诊断只豁免旧 Profile 资格，不能越过开关、合规或能力。"""
++
++from dataclasses import replace
++from uuid import uuid4
++
++import pytest
++
++from app.collectors.registry import CollectorCapability as Capability
++from app.collectors.registry import ProfileBlockerCode as Code
++from app.collectors.registry import collector_registry
++from app.schemas.geo_surfaces import GeoCollectionMode as Mode
++from app.schemas.geo_surfaces import GeoProfileTestStatus as Status
++from app.schemas.geo_surfaces import GeoWebSearchPolicy as Search
++from app.services.geo_collector_eligibility import evaluate_profile
++from tests.unit.test_geo_collector_registry import SWITCHES, model, profile, surface
++
++
++def test_real_diagnostic_registration_is_not_approved_collection():
++    s = surface()
++    p = profile(
++        s,
++        Mode.API,
++        adapter_key="openai-compatible-chat",
++        ai_channel_id=uuid4(),
++        ai_model_id=uuid4(),
++        is_active=False,
++        last_test_status=Status.UNTESTED,
++        last_tested_at=None,
++    )
++    result = evaluate_profile(p, s, switches=SWITCHES, model=model(p), connection_test=True)
++    assert result.eligible and result.capabilities == {Capability.ANSWER_TEXT}
++    collection = evaluate_profile(p, s, switches=SWITCHES, model=model(p))
++    assert {b.code for b in collection.blockers} == {
++        Code.PROFILE_DISABLED,
++        Code.PROFILE_NOT_TESTED,
++        Code.ADAPTER_NOT_APPROVED,
++    }
++    assert collector_registry.resolve(p.adapter_key).approved is False
++    blocked = evaluate_profile(
++        replace(p, web_search_policy=Search.REQUIRED),
++        s,
++        switches=SWITCHES,
++        model=model(p),
++        connection_test=True,
++    )
++    assert {b.code for b in blocked.blockers} == {
++        Code.SEARCH_POLICY_UNSUPPORTED,
++        Code.CAPABILITY_UNSUPPORTED,
++    }
++
++
++@pytest.mark.parametrize(
++    "gate,code",
++    [
++        ("api", Code.API_COLLECTION_DISABLED),
++        ("monitoring", Code.MONITORING_DISABLED),
++        ("model", Code.MODEL_NOT_TESTED),
++        ("surface", Code.SURFACE_DISABLED),
++    ],
++)
++def test_diagnostic_requires_current_egress_gates(gate, code):
++    s = surface(is_active=gate != "surface")
++    p = profile(
++        s,
++        Mode.API,
++        adapter_key="openai-compatible-chat",
++        ai_channel_id=uuid4(),
++        ai_model_id=uuid4(),
++    )
++    switches = replace(
++        SWITCHES, api_collection_enabled=gate != "api", monitoring_enabled=gate != "monitoring"
++    )
++    result = evaluate_profile(
++        p,
++        s,
++        switches=switches,
++        model=model(p, test_status="UNTESTED" if gate == "model" else "PASSED"),
++        connection_test=True,
++    )
++    assert {b.code for b in result.blockers} == {code}
+--- /dev/null
++++ backend/tests/integration/geo_profile_test_support.py
+@@ -0,0 +1,145 @@
++"""真实 TLS fake provider 与生产 pinned transport；仅测试层路由至 loopback。"""
++
++import json
++import socket
++import ssl
++import threading
++from collections.abc import Iterator
++from datetime import UTC, datetime
++from pathlib import Path
++from typing import cast
++from uuid import uuid4
++
++import pytest
++
++from app.config import settings
++from app.geo_fake_server import GeoFakeServer
++from app.models.ai_generation import AIChannel, AIChannelHeader, AIModel
++from app.services import geo_profile_tests
++from app.services.credentials import CredentialCipher
++from app.services.openai_client import OpenAICompatibleClient
++from app.services.pinned_http import PinnedHTTPTransport
++from tests.integration.geo_surface_management_support import SurfaceAPI
++from tests.integration.test_ai_egress_https import PeerOverrideSocket, write_local_ca
++
++HOST = "geo-provider.test"
++PUBLIC_IP = "93.184.216.34"
++
++
++@pytest.fixture
++def https_provider(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[GeoFakeServer]:
++    ca, certificate, key = write_local_ca(tmp_path, HOST)
++    server = GeoFakeServer()
++    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
++    context.load_cert_chain(certificate, key)
++    server.socket = context.wrap_socket(server.socket, server_side=True)
++    thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.02})
++    thread.start()
++    client_context = ssl.create_default_context(cafile=str(ca))
++
++    def connector(address, timeout):
++        return cast(
++            socket.socket,
++            PeerOverrideSocket(
++                socket.create_connection(("127.0.0.1", server.server_port), timeout), PUBLIC_IP
++            ),
++        )
++
++    server.test_request_bodies = []
++
++    class TestDeadlineTransport(PinnedHTTPTransport):
++        def request(self, **kwargs):
++            # 测试截止更严格以缩短 timeout 场景；地址/peer/TLS/发送/解析保持生产实现。
++            if kwargs.get("body") is not None:
++                server.test_request_bodies.append(json.loads(kwargs["body"]))
++            kwargs["timeout_seconds"] = min(kwargs["timeout_seconds"], 1)
++            return super().request(**kwargs)
++
++    transport = TestDeadlineTransport(
++        allow_local_http=False,
++        resolver=lambda host, port, **kwargs: [
++            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", (PUBLIC_IP, port))
++        ],
++        connector=connector,
++        tls_wrapper=lambda connection, host: client_context.wrap_socket(
++            connection, server_hostname=host
++        ),
++    )
++    monkeypatch.setattr(
++        geo_profile_tests,
++        "OpenAICompatibleClient",
++        lambda **kwargs: OpenAICompatibleClient(allow_local_http=False, transport=transport),
++    )
++    server.test_transport = transport
++    try:
++        yield server
++    finally:
++        server.shutdown()
++        server.server_close()
++        thread.join(timeout=5)
++        assert not thread.is_alive()
++
++
++def api_profile(
++    api: SurfaceAPI, monkeypatch: pytest.MonkeyPatch, *, model_parameters: dict | None = None
++) -> tuple[dict, AIChannel, AIModel, str]:
++    monkeypatch.setattr(settings, "geo_api_collection_enabled", True)
++    monkeypatch.setattr(settings, "ai_credential_encryption_key", "A" * 43 + "=")
++    call_id = str(uuid4())
++    with api.factory() as db:
++        channel_id = uuid4()
++        channel = AIChannel(
++            id=channel_id,
++            name="虚构诊断渠道",
++            description="本地 TLS 替身",
++            protocol_type="openai-compatible-chat-completions",
++            provider_brand="CUSTOM",
++            base_url=f"https://{HOST}/v1",
++            api_key_ciphertext=CredentialCipher(settings.ai_credential_encryption_key).encrypt(
++                "fake-secret-never-persist-plaintext",
++                associated_data=f"ai_channel:{channel_id}:api_key",
++            ),
++            api_key_updated_at=datetime.now(UTC),
++            timeout_seconds=10,
++            is_enabled=True,
++            revision=0,
++            created_by=api.admin_id,
++        )
++        db.add(channel)
++        db.flush()
++        model = AIModel(
++            channel_id=channel.id,
++            display_name="虚构模型",
++            model_id="fake-model",
++            request_parameters=model_parameters or {},
++            is_enabled=True,
++            test_status="PASSED",
++            last_tested_at=datetime.now(UTC),
++            revision=0,
++            created_by=api.admin_id,
++        )
++        db.add(model)
++        db.add(
++            AIChannelHeader(
++                channel_id=channel.id,
++                name="X-GEO-Attempt-ID",
++                normalized_name="x-geo-attempt-id",
++                is_sensitive=False,
++                plain_value=call_id,
++            )
++        )
++        db.commit()
++    surface = api.surface(surface_kind="MODEL_API", compliance_status="APPROVED")
++    sid = surface["summary"]["id"]
++    enabled = api.admin.post(
++        f"/api/v1/geo/engine-surfaces/{sid}/enable", json={"expected_revision": 0}
++    )
++    assert enabled.status_code == 200, enabled.text
++    profile = api.profile(
++        surface,
++        "API",
++        adapter_key="openai-compatible-chat",
++        ai_channel_id=str(channel.id),
++        ai_model_id=str(model.id),
++    )
++    return profile, channel, model, call_id
+--- /dev/null
++++ backend/tests/integration/test_geo_profile_tests.py
+@@ -0,0 +1,259 @@
++"""GEO-403 真 HTTP/身份/PG/pinned TLS 诊断及当前资格失效。"""
++
++# ruff: noqa: F811
++
++from datetime import UTC, datetime
++from uuid import UUID
++
++import pytest
++from sqlalchemy import func, select, text
++
++from app.config import settings
++from app.geo_fake_server import FakeMode, FakeScenario
++from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
++from app.models.geo_surfaces import GeoCollectionProfile
++from app.models.identity import AuditLog
++from tests.integration.geo_profile_test_support import api_profile, https_provider  # noqa: F401
++from tests.integration.geo_surface_management_support import (  # noqa: F401
++    PROFILES,
++    SurfaceAPI,
++    surface_api,
++    surface_engine,
++)
++
++pytestmark = pytest.mark.integration
++
++
++def test_success_does_not_create_business_runs_or_enable(
++    surface_api: SurfaceAPI, https_provider, monkeypatch
++):
++    profile, _, _, call_id = api_profile(surface_api, monkeypatch)
++    pid = profile["summary"]["id"]
++    with surface_api.factory() as db:
++        counts = tuple(
++            db.scalar(select(func.count()).select_from(table))
++            for table in (GeoObservationBatch, GeoObservationRun)
++        )
++    result = surface_api.admin.post(f"{PROFILES}/{pid}/test", json={"expected_revision": 0})
++    assert result.status_code == 200, result.text
++    current = result.json()
++    assert current["summary"]["last_test_status"] == "PASSED"
++    assert current["summary"]["last_tested_at"] is not None
++    assert current["summary"]["revision"] == 2
++    assert current["summary"]["is_active"] is False and "ENABLE" not in current["available_actions"]
++    assert current["test_error"] is None and current["test_blockers"] == []
++    assert {b["code"] for b in current["activation_blockers"]} == {"ADAPTER_NOT_APPROVED"}
++    duplicate = surface_api.admin.post(f"{PROFILES}/{pid}/test", json={"expected_revision": 0})
++    assert duplicate.status_code == 409
++    assert https_provider.state.snapshot(UUID(call_id))["count"] == 1
++    with surface_api.factory() as db:
++        assert counts == tuple(
++            db.scalar(select(func.count()).select_from(table))
++            for table in (GeoObservationBatch, GeoObservationRun)
++        )
++        audit = db.scalar(
++            select(AuditLog).where(
++                AuditLog.target_id == pid, AuditLog.action == "geo_collection_profile.tested"
++            )
++        )
++        assert audit is not None and audit.details["facts"]["test_status"] == "PASSED"
++    engineer = surface_api.engineer.get(f"{PROFILES}/{pid}").json()
++    assert engineer["test_error"] is None and engineer["test_blockers"] is None
++    assert engineer["configuration"] is None and engineer["available_actions"] == []
++
++
++@pytest.mark.parametrize(
++    "mode,code",
++    [
++        (FakeMode.AUTH_401, "AI_PROVIDER_ERROR"),
++        (FakeMode.RATE_LIMIT, "AI_PROVIDER_ERROR"),
++        (FakeMode.REDIRECT, "AI_REDIRECT_FORBIDDEN"),
++        (FakeMode.TIMEOUT, "AI_PROVIDER_TIMEOUT"),
++        (FakeMode.DISCONNECT, "AI_PROVIDER_UNAVAILABLE"),
++        (FakeMode.OVERSIZE, "AI_RESPONSE_TOO_LARGE"),
++        (FakeMode.OVERSIZE_CHUNKED, "AI_RESPONSE_TOO_LARGE"),
++        (FakeMode.INVALID_JSON, "AI_RESPONSE_INVALID"),
++        (FakeMode.EMPTY_ANSWER, "AI_RESPONSE_INVALID"),
++    ],
++)
++def test_provider_failure_safe_result_and_no_retry(
++    surface_api, https_provider, monkeypatch, mode, code
++):
++    profile, _, _, call_id = api_profile(surface_api, monkeypatch)
++    https_provider.state.configure(
++        UUID(call_id), FakeScenario(mode=mode, echo_sensitive=True, delay_seconds=5.0)
++    )
++    response = surface_api.admin.post(
++        f"{PROFILES}/{profile['summary']['id']}/test", json={"expected_revision": 0}
++    )
++    assert response.status_code == 200, response.text
++    result = response.json()
++    assert result["summary"]["last_test_status"] == "FAILED"
++    assert result["summary"]["is_active"] is False
++    assert result["test_error"]["code"] == code
++    assert "fake-secret" not in response.text and "Bearer" not in response.text
++    assert https_provider.state.snapshot(UUID(call_id))["count"] == 1
++    assert https_provider.state.snapshot(UUID(call_id))["redirect_hits"] == 0
++
++
++@pytest.mark.parametrize("gate", ["permission", "csrf", "switch", "search", "compliance"])
++def test_blocked_before_egress(surface_api, https_provider, monkeypatch, gate):
++    profile, _, _, call_id = api_profile(surface_api, monkeypatch)
++    pid = profile["summary"]["id"]
++    client = surface_api.admin
++    if gate == "permission":
++        client = surface_api.engineer
++    elif gate == "csrf":
++        client.headers.pop("X-CSRF-Token")
++    elif gate == "switch":
++        monkeypatch.setattr(settings, "geo_api_collection_enabled", False)
++    elif gate == "search":
++        with surface_api.factory() as db:
++            db.execute(
++                text(
++                    "UPDATE geo_collection_profiles SET web_search_policy='REQUIRED', "
++                    "revision=revision+1 WHERE id=:id"
++                ),
++                {"id": pid},
++            )
++            db.commit()
++    elif gate == "compliance":
++        with surface_api.factory() as db:
++            db.execute(
++                text(
++                    "UPDATE geo_engine_surfaces SET compliance_status='SUSPENDED', "
++                    "revision=revision+1 WHERE id=:id"
++                ),
++                {"id": profile["summary"]["engine_surface_id"]},
++            )
++            db.commit()
++    response = client.post(
++        f"{PROFILES}/{pid}/test", json={"expected_revision": 1 if gate == "search" else 0}
++    )
++    assert response.status_code == {"permission": 403, "csrf": 422}.get(gate, 409), response.text
++    assert https_provider.state.snapshot(UUID(call_id))["count"] == 0
++
++
++@pytest.mark.parametrize(
++    "dependency", ["profile", "channel", "model", "surface", "header", "delete"]
++)
++def test_dependency_change_invalidates_current_test(
++    surface_api, https_provider, monkeypatch, dependency
++):
++    profile, channel, model, _ = api_profile(surface_api, monkeypatch)
++    pid = profile["summary"]["id"]
++    result = surface_api.admin.post(f"{PROFILES}/{pid}/test", json={"expected_revision": 0})
++    assert result.status_code == 200, result.text
++    sql, params = {
++        "profile": (
++            "UPDATE geo_collection_profiles SET region_code='US',revision=revision+1 WHERE id=:id",
++            {"id": pid},
++        ),
++        "channel": (
++            "UPDATE ai_channels SET base_url='https://changed.test/v1',revision=revision+1 "
++            "WHERE id=:id",
++            {"id": channel.id},
++        ),
++        "model": (
++            "UPDATE ai_models SET request_parameters='{}',last_tested_at=:now,revision=revision+1 "
++            "WHERE id=:id",
++            {"id": model.id, "now": datetime.now(UTC)},
++        ),
++        "surface": (
++            "UPDATE geo_engine_surfaces SET compliance_status='SUSPENDED',revision=revision+1 "
++            "WHERE id=:id",
++            {"id": profile["summary"]["engine_surface_id"]},
++        ),
++        "header": (
++            "UPDATE ai_channel_headers SET plain_value='changed' WHERE channel_id=:id",
++            {"id": channel.id},
++        ),
++        "delete": ("DELETE FROM ai_models WHERE id=:id", {"id": model.id}),
++    }[dependency]
++    with surface_api.factory() as db:
++        db.execute(text(sql), params)
++        db.commit()
++        current = db.get(GeoCollectionProfile, UUID(pid))
++        assert current.last_test_status == "UNTESTED" and current.last_tested_at is None
++        assert current.is_active is False and current.revision == 3
++        assert current.test_attempt_id is None and current.last_test_error_code is None
++        if dependency == "delete":
++            assert current.ai_model_id is None and current.ai_channel_id is None
++
++
++@pytest.mark.parametrize("failure", ["tls", "dns", "peer"])
++def test_security_failures_do_not_send_credentials_or_prompt(
++    surface_api, https_provider, monkeypatch, failure
++):
++    import socket
++    import ssl
++    from typing import cast
++
++    from tests.integration.test_ai_egress_https import PeerOverrideSocket
++
++    profile, _, _, call_id = api_profile(surface_api, monkeypatch)
++    transport = https_provider.test_transport
++    if failure == "tls":
++        context = ssl.create_default_context()
++        monkeypatch.setattr(
++            transport,
++            "_tls_wrapper",
++            lambda connection, host: context.wrap_socket(connection, server_hostname=host),
++        )
++    elif failure == "dns":
++        monkeypatch.setattr(
++            transport,
++            "_resolver",
++            lambda host, port, **kwargs: [
++                (
++                    socket.AF_INET,
++                    socket.SOCK_STREAM,
++                    socket.IPPROTO_TCP,
++                    "",
++                    ("93.184.216.34", port),
++                ),
++                (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("127.0.0.1", port)),
++            ],
++        )
++    else:
++        monkeypatch.setattr(
++            transport,
++            "_connector",
++            lambda address, timeout: cast(
++                socket.socket,
++                PeerOverrideSocket(
++                    socket.create_connection(("127.0.0.1", https_provider.server_port), timeout),
++                    "8.8.8.8",
++                ),
++            ),
++        )
++    response = surface_api.admin.post(
++        f"{PROFILES}/{profile['summary']['id']}/test", json={"expected_revision": 0}
++    )
++    assert response.status_code == 200, response.text
++    assert response.json()["summary"]["last_test_status"] == "FAILED"
++    assert response.json()["test_error"]["code"] == (
++        "AI_PROVIDER_UNAVAILABLE" if failure == "tls" else "AI_URL_FORBIDDEN"
++    )
++    assert https_provider.state.snapshot(UUID(call_id))["count"] == 0
++
++
++@pytest.mark.parametrize("parameters", [{}, {"max_tokens": 32}, {"max_completion_tokens": 32}])
++def test_diagnostic_respects_the_tested_model_output_parameter(
++    surface_api, https_provider, monkeypatch, parameters
++):
++    profile, _, _, call_id = api_profile(surface_api, monkeypatch, model_parameters=parameters)
++    response = surface_api.admin.post(
++        f"{PROFILES}/{profile['summary']['id']}/test", json={"expected_revision": 0}
++    )
++    assert response.status_code == 200, response.text
++    assert response.json()["summary"]["last_test_status"] == "PASSED"
++    assert https_provider.test_request_bodies == [
++        {
++            "model": "fake-model",
++            "messages": [{"role": "user", "content": "hi"}],
++            "stream": False,
++            **parameters,
++        }
++    ]
++    assert https_provider.state.snapshot(UUID(call_id))["count"] == 1
+--- /dev/null
++++ backend/tests/integration/test_geo_profile_test_races.py
+@@ -0,0 +1,110 @@
++"""有真实网络请求的 PG 交错：重复命令、旧依赖和后来的测试预留。"""
++
++# ruff: noqa: F811
++from concurrent.futures import ThreadPoolExecutor
++from threading import Event, Lock
++from uuid import UUID
++
++import pytest
++from sqlalchemy import text
++
++from app.errors import AppError
++from app.services import geo_profile_tests
++from tests.integration.geo_profile_test_support import api_profile, https_provider  # noqa: F401
++from tests.integration.geo_surface_management_support import (  # noqa: F401
++    PROFILES,
++    actor,
++    surface_api,
++    surface_engine,
++)
++
++pytestmark = pytest.mark.integration
++
++
++@pytest.mark.parametrize("interleaving", ["duplicate", "model", "header", "new-test"])
++def test_inflight_completion_cannot_overwrite_current_intent(
++    surface_api, https_provider, monkeypatch, interleaving
++):
++    profile, channel, model, call_id = api_profile(surface_api, monkeypatch)
++    pid = UUID(profile["summary"]["id"])
++    received, release = Event(), Event()
++    factory = geo_profile_tests.OpenAICompatibleClient
++    count_lock = Lock()
++    calls = 0
++
++    class PausedClient:
++        def test_connection(self, **arguments):
++            nonlocal calls
++            with count_lock:
++                calls += 1
++                first = calls == 1
++            content = factory().test_connection(**arguments)
++            if first:
++                received.set()
++                assert release.wait(10), "交错测试未释放网络完成"
++            return content
++
++    monkeypatch.setattr(
++        geo_profile_tests, "OpenAICompatibleClient", lambda **kwargs: PausedClient()
++    )
++
++    def run():
++        with surface_api.factory() as db:
++            return geo_profile_tests.test_profile(
++                db=db,
++                actor=actor(db, surface_api),
++                profile_id=pid,
++                expected_revision=0,
++                request_id="geo403-race-request",
++            )
++
++    with ThreadPoolExecutor(max_workers=1) as executor:
++        future = executor.submit(run)
++        try:
++            assert received.wait(10), "固定诊断没有到达真实 fake HTTPS"
++            if interleaving == "duplicate":
++                duplicate = surface_api.admin.post(
++                    f"{PROFILES}/{pid}/test", json={"expected_revision": 0}
++                )
++                assert duplicate.status_code == 409
++            elif interleaving == "new-test":
++                newer = surface_api.admin.post(
++                    f"{PROFILES}/{pid}/test", json={"expected_revision": 1}
++                )
++                assert newer.status_code == 200, newer.text
++                assert newer.json()["summary"]["last_test_status"] == "PASSED"
++            else:
++                with surface_api.factory() as db:
++                    if interleaving == "model":
++                        db.execute(
++                            text(
++                                "UPDATE ai_models SET model_id='new-model',revision=revision+1 "
++                                "WHERE id=:id"
++                            ),
++                            {"id": model.id},
++                        )
++                    else:
++                        db.execute(
++                            text(
++                                "UPDATE ai_channel_headers SET plain_value='new-header' "
++                                "WHERE channel_id=:id"
++                            ),
++                            {"id": channel.id},
++                        )
++                    db.commit()
++        finally:
++            release.set()
++        if interleaving == "duplicate":
++            assert future.result(timeout=10).summary.last_test_status == "PASSED"
++        else:
++            with pytest.raises(AppError) as failure:
++                future.result(timeout=10)
++            assert failure.value.code == "REVISION_CONFLICT"
++    current = surface_api.admin.get(f"{PROFILES}/{pid}").json()
++    assert current["summary"]["is_active"] is False
++    assert current["summary"]["last_test_status"] == (
++        "PASSED" if interleaving in {"duplicate", "new-test"} else "UNTESTED"
++    )
++    assert https_provider.state.snapshot(UUID(call_id))["count"] == (
++        2 if interleaving == "new-test" else 1
++    )
+--- /dev/null
++++ backend/tests/integration/test_geo_profile_test_migration.py
+@@ -0,0 +1,78 @@
++"""0052 失效旧 API 资格，保持旧配置与业务历史，ORM 和新增列一致。"""
++
++from datetime import UTC, datetime
++
++import psycopg
++import pytest
++from alembic.autogenerate import compare_metadata
++from alembic.migration import MigrationContext
++from sqlalchemy import create_engine
++
++from app.db import Base
++from tests.integration.test_geo_surfaces_profiles import (
++    insert_profile,
++    insert_surface,
++    prepared_surface_database,
++    snapshot,
++)
++from tests.integration.test_migrations import run_alembic
++
++pytestmark = pytest.mark.integration
++
++
++def test_0052_forward_invalidates_only_current_api_qualification():
++    with prepared_surface_database("0051_geo_manual_collection") as db:
++        with psycopg.connect(db.url) as conn:
++            surface = insert_surface(conn, db)
++            tested = insert_profile(
++                conn,
++                db,
++                surface,
++                "API",
++                name="旧测试配置",
++                ai_channel_id=db.channel,
++                ai_model_id=db.model,
++                is_active=True,
++                last_test_status="PASSED",
++                last_tested_at=datetime.now(UTC),
++            )
++            manual = insert_profile(conn, db, surface, "MANUAL", name="旧人工配置")
++            before = snapshot(conn)
++            manual_before = conn.execute(
++                "SELECT to_jsonb(p) FROM geo_collection_profiles p WHERE id=%s", (manual,)
++            ).fetchone()[0]
++        run_alembic(db.env, db.backend_dir, "head")
++        with psycopg.connect(db.url) as conn:
++            assert snapshot(conn) == before
++            current = conn.execute(
++                "SELECT last_test_status,last_tested_at,is_active,revision,"
++                "last_test_error_code,last_test_error_summary,test_attempt_id "
++                "FROM geo_collection_profiles WHERE id=%s",
++                (tested,),
++            ).fetchone()
++            assert current == ("UNTESTED", None, False, 1, None, None, None)
++            manual_after = conn.execute(
++                "SELECT to_jsonb(p)-ARRAY['last_test_error_code',"
++                "'last_test_error_summary','test_attempt_id'] FROM geo_collection_profiles p "
++                "WHERE id=%s",
++                (manual,),
++            ).fetchone()[0]
++            assert manual_after == manual_before
++        engine = create_engine(db.url.replace("postgresql://", "postgresql+psycopg://"))
++        try:
++            with engine.connect() as conn:
++                context = MigrationContext.configure(
++                    conn,
++                    opts={
++                        "compare_type": True,
++                        "compare_server_default": True,
++                        "include_object": lambda obj, name, kind, reflected, compared: (
++                            obj.name == "geo_collection_profiles"
++                            if kind == "table"
++                            else obj.table.name == "geo_collection_profiles"
++                        ),
++                    },
++                )
++                assert compare_metadata(context, Base.metadata) == []
++        finally:
++            engine.dispose()
+--- /dev/null
++++ frontend/src/domains/geo-catalog/surfaces-profile-test.test.tsx
+@@ -0,0 +1,55 @@
++import { act, screen, waitFor, within } from '@testing-library/react';
++import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
++import { api } from '@/shared/api/client';
++import { failure, mockSurfaceReads, openAction, profileFixture, profileId, renderSurfaces, response } from './surfaces.test-support';
++
++beforeAll(() => Object.defineProperty(window, 'matchMedia', { configurable: true, value: vi.fn(() => ({ matches: false, media: '', onchange: null, addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn(), dispatchEvent: vi.fn() })) }));
++afterEach(() => vi.restoreAllMocks());
++const entry = `/configuration/geo-surfaces?tab=profiles&profile_id=${profileId}`;
++function testable() { return profileFixture({ available_actions: ['UPDATE', 'TEST'], workflow_stage: 'BLOCKED', activation_blockers: [{ code: 'ADAPTER_NOT_APPROVED', field: 'adapter_key' }] }); }
++describe('API Profile 连接诊断', () => {
++  it.each(['PASSED', 'FAILED'] as const)('确认和等待后展示服务端 %s，不发送 enable', async (status) => {
++    mockSurfaceReads(undefined, testable);
++    let resolve!: (value: ReturnType<typeof response>) => void;
++    const post = vi.spyOn(api, 'POST').mockImplementation(() => new Promise((done) => { resolve = done; }));
++    renderSurfaces(entry);
++    const driver = await openAction('测试连接', '人工采集配置');
++    const dialog = await screen.findByRole('dialog', { name: '确认测试连接' });
++    expect(within(dialog).getByText(/不创建业务运行/)).toBeVisible();
++    expect(post).not.toHaveBeenCalled();
++    await driver.click(within(dialog).getByRole('button', { name: '确认操作' }));
++    expect(await within(dialog).findByRole('button', { name: '测试中…' })).toBeDisabled();
++    expect(within(dialog).getByRole('button', { name: '取消' })).toBeDisabled();
++    const base = testable();
++    await act(async () => resolve(response({ ...base, summary: { ...base.summary, revision: 9, last_test_status: status, last_tested_at: '2026-10-03T10:00:00Z' }, test_error: status === 'FAILED' ? { code: 'AI_PROVIDER_TIMEOUT', summary: '连接测试超时，请检查服务状态后重新测试' } : null })));
++    expect(await screen.findByText(status === 'PASSED' ? '连接测试通过，采集配置仍未启用。' : '连接测试失败，请检查错误摘要和当前配置。')).toBeVisible();
++    if (status === 'FAILED') expect(screen.getByText(/连接测试错误：连接测试超时/)).toBeVisible();
++    expect(post).toHaveBeenCalledOnce();
++    expect(post.mock.calls[0]).toMatchObject(['/api/v1/geo/collection-profiles/{profile_id}/test', { body: { expected_revision: 7 }, params: { path: { profile_id: profileId }, header: { 'X-CSRF-Token': 'surfaces-csrf' } } }]);
++  });
++  it('409 不重发，显式重读后重新确认使用最新 revision', async () => {
++    let current = testable();
++    mockSurfaceReads(undefined, () => current);
++    const post = vi.spyOn(api, 'POST').mockResolvedValueOnce(failure()).mockResolvedValueOnce(response(testable()));
++    renderSurfaces(entry);
++    const driver = await openAction('测试连接', '人工采集配置');
++    const dialog = await screen.findByRole('dialog', { name: '确认测试连接' });
++    await driver.click(within(dialog).getByRole('button', { name: '确认操作' }));
++    await waitFor(() => expect(within(dialog).getByRole('button', { name: '确认操作' })).toBeDisabled());
++    expect(post).toHaveBeenCalledOnce();
++    current = { ...current, summary: { ...current.summary, revision: 8 } };
++    await driver.click(within(dialog).getByRole('button', { name: '重新读取并重新确认' }));
++    await waitFor(() => expect(within(dialog).getByRole('button', { name: '确认操作' })).toBeEnabled());
++    expect(post).toHaveBeenCalledOnce();
++    await driver.click(within(dialog).getByRole('button', { name: '确认操作' }));
++    await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
++    expect(post.mock.calls[1]?.[1]).toMatchObject({ body: { expected_revision: 8 } });
++  });
++  it('服务端不给 TEST 时只显示诊断阻断，没有测试入口', async () => {
++    mockSurfaceReads(undefined, () => profileFixture({ available_actions: ['UPDATE'], test_blockers: [{ code: 'MODEL_NOT_TESTED', field: 'ai_model_id' }] }));
++    renderSurfaces(entry);
++    await screen.findByRole('heading', { name: '人工采集配置' });
++    expect(screen.getByText(/模型尚未通过测试/)).toBeVisible();
++    expect(screen.queryByRole('menuitem', { name: '测试连接' })).not.toBeInTheDocument();
++  });
++});

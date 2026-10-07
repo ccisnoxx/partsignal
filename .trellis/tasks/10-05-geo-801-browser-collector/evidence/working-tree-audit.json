@@ -1,0 +1,38 @@
+{
+  "baseline_changed": [
+    "backend/app/services/geo_runs.py",
+    "deploy/scripts/test-geo-configuration.py",
+    "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/SHA256SUMS",
+    "Makefile",
+    "deploy/compose.dev.yaml",
+    "deploy/compose.prod.yaml",
+    "deploy/compose.staging.yaml"
+  ],
+  "new_source_files": [
+    "backend/tests/integration/test_geo_browser_boundary.py",
+    "backend/tests/unit/test_geo_browser_boundary.py",
+    "browser-collector/.dockerignore",
+    "browser-collector/.gitignore",
+    "browser-collector/Dockerfile",
+    "browser-collector/README.md",
+    "browser-collector/package-lock.json",
+    "browser-collector/package.json",
+    "browser-collector/src/healthcheck.mjs",
+    "browser-collector/src/main.mjs",
+    "browser-collector/src/service.mjs",
+    "browser-collector/tests/service.test.mjs",
+    "browser-collector/tsconfig.json",
+    "deploy/compose.geo-browser.yaml",
+    "deploy/geo-browser-control/STOP",
+    "deploy/geo-browser-seccomp.json",
+    "deploy/scripts/test-geo-browser.py"
+  ],
+  "baseline_missing": [],
+  "contracts_migrations_unchanged": true,
+  "only_GEO801_manifest_changed": true,
+  "new_file_whitespace": "通过；no-index exit1表示新增差异，无whitespace诊断"
+}

@@ -1,0 +1,118 @@
+docker build -f frontend/Dockerfile -t partsignal-frontend-v2:test frontend
+#0 building with "colima" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 339B 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 0.8s
+
+#3 [internal] load metadata for docker.io/library/nginx:1.27-alpine
+#3 DONE 0.8s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 137B done
+#4 DONE 0.0s
+
+#5 [development 1/5] FROM docker.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+#5 resolve docker.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 0.0s done
+#5 DONE 0.0s
+
+#6 [stage-2 1/3] FROM docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+#6 resolve docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10 0.0s done
+#6 DONE 0.0s
+
+#7 [internal] load build context
+#7 transferring context: 39.93kB 0.0s done
+#7 DONE 0.0s
+
+#8 [development 3/5] COPY package.json package-lock.json ./
+#8 CACHED
+
+#9 [stage-2 2/3] COPY --from=build /app/dist /usr/share/nginx/html
+#9 CACHED
+
+#10 [development 2/5] WORKDIR /app
+#10 CACHED
+
+#11 [development 4/5] RUN npm ci
+#11 CACHED
+
+#12 [development 5/5] COPY . .
+#12 CACHED
+
+#13 [build 1/1] RUN npm run build
+#13 CACHED
+
+#14 [stage-2 3/3] COPY nginx.conf /etc/nginx/conf.d/default.conf
+#14 CACHED
+
+#15 exporting to image
+#15 exporting layers done
+#15 exporting manifest sha256:db863c94276cd2840169c2c20229f2e302f0b6ac37f6c502796327adc64b6d30 done
+#15 exporting config sha256:717c63027bf0783886eb34e87b559cf4a603252cf257514dd7496b2dd7ac7714 done
+#15 exporting attestation manifest sha256:1a92124a59ee146341f288416719109421cceffc9a7ffb370baca0ff8e462b4d 0.0s done
+#15 exporting manifest list sha256:116fc8f7d753b648339d4a524fca04dc90826947603a499b1b8ad56ea97db410 done
+#15 naming to docker.io/library/partsignal-frontend-v2:test done
+#15 unpacking to docker.io/library/partsignal-frontend-v2:test done
+#15 DONE 0.1s
+deploy/scripts/test-frontend-container.sh
+canonical Frontend 容器 fallback、缓存和 source map 自检通过
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/test-geo-browser.py
+Compose dev/staging/prod：默认无Browser；profile/资源/网络/凭据隔离通过
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/test-geo-collector-contract.py
+........................................................................ [ 37%]
+........................................................................ [ 74%]
+..................................................                       [100%]
+194 passed in 10.58s
+GEO_CONTRACT_RESULT tests=0 secret_scan=0 external_network=blocked
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/check-geo-fixtures.py
+GEO fixture v1 校验通过：{'products': 2, 'questions': 4, 'answers': 13, 'citations': 4}；金标=13；外部调用=0
+GEO-502 提及金标 v1 校验通过：场景=28；外部调用=0
+GEO-503 推荐金标 v1 校验通过：场景=63；外部调用=0
+GEO-505 声明金标 v1 校验通过：场景=47；外部调用=0
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/test-geo-configuration.py
+GEO Compose/Settings/API/Worker/Beat：18 组配置一致，启动外部调用为 0
+deploy/scripts/test-e2e-run-lifecycle.sh
+E2E_LIFECYCLE_CASE name=int-scan-fails status=begin
+E2E_LIFECYCLE_CASE name=int-scan-fails status=passed
+E2E_LIFECYCLE_CASE name=term-clean status=begin
+E2E_LIFECYCLE_CASE name=term-clean status=passed
+E2E_LIFECYCLE_CASE name=playwright-wins status=begin
+E2E_LIFECYCLE_CASE name=playwright-wins status=passed
+E2E_LIFECYCLE_CASE name=scan-wins status=begin
+E2E_LIFECYCLE_CASE name=scan-wins status=passed
+E2E_LIFECYCLE_CASE name=cleanup-wins status=begin
+E2E_LIFECYCLE_CASE name=cleanup-wins status=passed
+E2E_LIFECYCLE_CASE name=stubborn-escalates status=begin
+E2E_LIFECYCLE_CASE name=stubborn-escalates status=passed
+E2E_LIFECYCLE_TEST status=passed
+deploy/scripts/test-e2e-database-lifecycle.sh
+E2E_DATABASE_LIFECYCLE_TEST scenarios=5 status=passed
+frontend/tests/helpers/test-secret-artifact-post-run.sh
+E2E_POST_RUN_SECRET_TEST status=passed
+deploy/scripts/test-deploy-staging.sh
+canonical Frontend Nginx 安全头、Markdown、HTML 与 DOM sink 校验通过
+Preview env preparation: 2 positive / 6 negative; automatic secrets, no overwrite/output, staging boundary passed
+Staging archive env allowlist: 3 public templates allowed / 6 private-or-unknown entries rejected
+预发布 full/fast 与 Production canonical Frontend 边界自检通过
+deploy/scripts/test-deploy-production-cleanup.sh
+Production harness canonical TMPDIR 与 cleanup 生命周期回归检查通过
+deploy/scripts/test-deploy-production.sh
+canonical Frontend Nginx 安全头、Markdown、HTML 与 DOM sink 校验通过
+Production network identity static: 3 networks / 7 services passed
+Engine existing-label reuse: api passed
+Engine existing-label reuse: migrate passed
+Engine existing-label reuse: postgres passed
+Engine existing-label reuse: redis passed
+Engine existing-label reuse: worker passed
+Engine existing-label reuse: scheduler passed
+Engine existing-label reuse: frontend passed
+Engine old-label rejection: partsignal-staging-internal passed
+Engine old-label rejection: partsignal-staging-egress passed
+Engine old-label rejection: partsignal-staging-edge passed
+Production Engine network compatibility: 7 positive / 3 negative; containers=0 networks=0
+Production input readiness: 2 positive / 37 negative; substitution rejected before deployment; secrets not echoed
+deploy/activate/rollback identity: 3 paths / 8 local operations / manifest-first passed
+Production V2 编排、两阶段激活、可续跑数据状态机与候选清单合同自检通过

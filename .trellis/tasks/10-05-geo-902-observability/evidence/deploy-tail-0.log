@@ -1,0 +1,13 @@
+E2E_LIFECYCLE_CASE name=int-scan-fails status=begin
+E2E_LIFECYCLE_CASE name=int-scan-fails status=passed
+E2E_LIFECYCLE_CASE name=term-clean status=begin
+E2E_LIFECYCLE_CASE name=term-clean status=passed
+E2E_LIFECYCLE_CASE name=playwright-wins status=begin
+E2E_LIFECYCLE_CASE name=playwright-wins status=passed
+E2E_LIFECYCLE_CASE name=scan-wins status=begin
+E2E_LIFECYCLE_CASE name=scan-wins status=passed
+E2E_LIFECYCLE_CASE name=cleanup-wins status=begin
+E2E_LIFECYCLE_CASE name=cleanup-wins status=passed
+E2E_LIFECYCLE_CASE name=stubborn-escalates status=begin
+E2E_LIFECYCLE_CASE name=stubborn-escalates status=passed
+E2E_LIFECYCLE_TEST status=passed

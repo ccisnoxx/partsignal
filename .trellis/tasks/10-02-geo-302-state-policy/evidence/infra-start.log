@@ -1,0 +1,131 @@
+ Image partsignal-geo302-backend-test Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 607B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 594B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 ...
+
+#4 [auth] astral-sh/uv:pull token for ghcr.io
+#4 DONE 0.0s
+
+#5 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#5 ...
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 1.7s
+
+#5 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#5 DONE 2.0s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 152B done
+#6 DONE 0.0s
+
+#7 FROM ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043
+#7 resolve ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043 done
+#7 DONE 0.0s
+
+#8 [runtime 1/7] FROM docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016
+#8 resolve docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016 done
+#8 DONE 0.0s
+
+#9 [internal] load build context
+#9 transferring context: 613.17kB 0.0s done
+#9 DONE 0.0s
+
+#10 [runtime 3/7] COPY --from=ghcr.io/astral-sh/uv:0.7.13 /uv /uvx /bin/
+#10 CACHED
+
+#11 [runtime 2/7] WORKDIR /app
+#11 CACHED
+
+#12 [runtime 4/7] COPY pyproject.toml uv.lock* ./
+#12 CACHED
+
+#13 [runtime 5/7] RUN uv sync --no-dev --no-install-project
+#13 CACHED
+
+#14 [runtime 6/7] COPY . .
+#14 DONE 0.1s
+
+#15 [runtime 7/7] RUN uv sync --no-dev
+#15 0.150 Resolved 88 packages in 1ms
+#15 0.155    Building partsignal-backend @ file:///app
+#15 3.518       Built partsignal-backend @ file:///app
+#15 3.518 Prepared 1 package in 3.36s
+#15 3.520 Installed 1 package in 1ms
+#15 3.631 Bytecode compiled 2466 files in 110ms
+#15 3.631  + partsignal-backend==0.1.0 (from file:///app)
+#15 DONE 3.6s
+
+#16 [test 1/1] RUN uv sync --all-extras
+#16 0.093 Resolved 88 packages in 0.32ms
+#16 1.031 Downloading pygments (1.2MiB)
+#16 1.170 Downloading mypy (13.1MiB)
+#16 1.170 Downloading ruff (10.5MiB)
+#16 1.774  Downloading pygments
+#16 2.901  Downloading ruff
+#16 3.029  Downloading mypy
+#16 3.029 Prepared 20 packages in 2.93s
+#16 3.076 Installed 20 packages in 47ms
+#16 3.398 Bytecode compiled 3437 files in 321ms
+#16 3.398  + attrs==26.1.0
+#16 3.398  + coverage==7.15.0
+#16 3.398  + httpcore2==2.9.1
+#16 3.398  + httpx2==2.9.1
+#16 3.398  + iniconfig==2.3.0
+#16 3.398  + jsonschema==4.26.0
+#16 3.398  + jsonschema-specifications==2025.9.1
+#16 3.398  + librt==0.13.0
+#16 3.398  + mypy==1.20.2
+#16 3.398  + mypy-extensions==1.1.0
+#16 3.398  + pathspec==1.1.1
+#16 3.398  + pluggy==1.6.0
+#16 3.398  + pygments==2.20.0
+#16 3.398  + pytest==8.4.2
+#16 3.398  + pytest-cov==6.3.0
+#16 3.398  + referencing==0.37.0
+#16 3.398  + rpds-py==2026.6.3
+#16 3.398  + ruff==0.15.21
+#16 3.398  + truststore==0.10.4
+#16 3.398  + types-pyyaml==6.0.12.20260518
+#16 DONE 3.5s
+
+#17 exporting to image
+#17 exporting layers
+#17 exporting layers 2.9s done
+#17 exporting manifest sha256:c608c305f2503ecb9d38d2e1a18ed4281fa4393bf8336ed972bead0f978408f1 done
+#17 exporting config sha256:5715f57b1ed81787fadfe612db28007e89794cad4949ee9a7a2854e48b4adaf4 done
+#17 exporting attestation manifest sha256:8d337925bea133341b9cac80b00b16d4d71350e9eafc46d1a74ea95513a2916e done
+#17 exporting manifest list sha256:19b47ddcd3a443153e9dcc4111ca6bb5c7af36f0f6f6f542206ab5c667027a07 done
+#17 naming to docker.io/library/partsignal-geo302-backend-test:latest done
+#17 unpacking to docker.io/library/partsignal-geo302-backend-test:latest
+#17 unpacking to docker.io/library/partsignal-geo302-backend-test:latest 0.7s done
+#17 DONE 3.6s
+
+#18 resolving provenance for metadata file
+#18 DONE 0.0s
+ Image partsignal-geo302-backend-test Built 
+ Network partsignal-geo302-validation_default Creating 
+ Network partsignal-geo302-validation_default Created 
+ Volume partsignal-geo302-validation_geo302-postgres Creating 
+ Volume partsignal-geo302-validation_geo302-postgres Created 
+ Volume partsignal-geo302-validation_geo302-oss Creating 
+ Volume partsignal-geo302-validation_geo302-oss Created 
+ Container partsignal-geo302-validation-fake-oss-1 Creating 
+ Container partsignal-geo302-validation-postgres-1 Creating 
+ Container partsignal-geo302-validation-redis-1 Creating 
+ Container partsignal-geo302-validation-redis-1 Created 
+ Container partsignal-geo302-validation-fake-oss-1 Created 
+ Container partsignal-geo302-validation-postgres-1 Created 
+ Container partsignal-geo302-validation-redis-1 Starting 
+ Container partsignal-geo302-validation-fake-oss-1 Starting 
+ Container partsignal-geo302-validation-postgres-1 Starting 
+ Container partsignal-geo302-validation-fake-oss-1 Started 
+ Container partsignal-geo302-validation-postgres-1 Started 
+ Container partsignal-geo302-validation-redis-1 Started 

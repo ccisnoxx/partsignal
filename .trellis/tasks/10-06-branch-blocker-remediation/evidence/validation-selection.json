@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-06T20:11:33.007069+00:00",
+  "baseline_sha": "8b2e0dc842be82cf9c2dc01f64d07bdaa4cf319c",
+  "implementation_checks": {
+    "backend": "two affected unit files and six affected PG integration modules",
+    "frontend": "affected Vitest files, owned ESLint, typecheck"
+  },
+  "candidate_checks": [
+    "single fresh independent readonly review of repair diff and six previously confirmed findings",
+    "single run-verify wrapper against clean code commit",
+    "one workflow_dispatch ci run against same pushed SHA"
+  ],
+  "reuse": [
+    "baea420f GEO-1007 runtime/rootfs/archives/real Compose/signal/failure/schema tests: source inputs unchanged",
+    "successful targeted worker checks without primary duplication"
+  ],
+  "repeat_policy": "First diagnose any failed stage; rerun only failed/affected checks after a relevant fix, never reset all successful gates. Unrelated newly exposed failure is classified, not silently weakened.",
+  "release_stage": "No merge/main/RC this repair stage; fixed branch gate does not substitute later clean main gate."
+}

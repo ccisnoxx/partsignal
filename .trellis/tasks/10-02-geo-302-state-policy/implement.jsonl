@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/available-actions-contract.md", "reason": "服务端动作与命令守卫共用资格"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "非法转换与命令错误稳定失败"}
+{"file": "docs/geo-monitoring/02-business/03-workflows-and-state-machines.md", "reason": "状态边、终态、最新attempt及当前交付边界"}
+{"file": "docs/geo-monitoring/05-decisions/ADR-003-separate-collection-analysis-review.md", "reason": "不重采集分析失败，不倒退终态"}

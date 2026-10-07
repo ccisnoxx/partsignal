@@ -1,0 +1,39 @@
+{
+  "id": "geo-1004-catalog-current-actor",
+  "name": "geo-1004-catalog-current-actor",
+  "title": "GEO-1004 Catalog 当前用户权限竞态修复",
+  "description": "修复 GEO Catalog 旧 ADMIN 身份写入竞态：权威 User/Session 锁后重验，失败原子性与 PostgreSQL 并发验证。",
+  "status": "completed",
+  "dev_type": "backend",
+  "scope": "geo-catalog",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-05",
+  "completedAt": "2026-10-07",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": "8d2e528cce0f804b224bf9b78e02bb2651f6ac62",
+  "pr_url": "https://github.com/ccisnoxx/partsignal/pull/1",
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "backend/app/deps.py",
+    "backend/app/services/current_actor.py",
+    "backend/app/services/geo_catalog.py",
+    "backend/app/services/identity.py",
+    "backend/tests/integration/test_geo_catalog_current_actor.py",
+    "contracts/database.md"
+  ],
+  "notes": "实现与独立复核完成。单元151、Catalog PostgreSQL75、Identity定向5、contract-check通过；本任务diff-check通过，全仓diff-check仅受既有GEO-1001评审文档尾随空白影响。未提交/发布。 2026-10-07：依据用户条件授权、组合CI成功与独立审查，接受实现/本地验证并completed；生产及同main候选门禁不自动继承，接受记录见docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md。",
+  "meta": {
+    "multi_agent_audit_id": "20261006T041834Z-geo-1004-f3525610",
+    "delivery_status": "done",
+    "accepted_commit": "8d2e528cce0f804b224bf9b78e02bb2651f6ac62",
+    "accepted_at": "2026-10-07T09:41:01.437699+00:00",
+    "acceptance_record": "docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md"
+  }
+}

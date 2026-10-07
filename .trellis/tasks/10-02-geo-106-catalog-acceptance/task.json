@@ -1,0 +1,39 @@
+{
+  "id": "geo-106-catalog-acceptance",
+  "name": "geo-106-catalog-acceptance",
+  "title": "GEO-106：完成 Catalog 纵向验收和产品引导",
+  "description": "Catalog 真实 API 纵向验收、产品事实不变和当前能力使用指南",
+  "status": "completed",
+  "dev_type": "fullstack",
+  "scope": "GEO-106",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-02",
+  "completedAt": "2026-10-02",
+  "branch": "geo/GEO-106",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "backend/tests/integration/test_geo_catalog_acceptance.py",
+    "frontend/tests/e2e/catalog-real-stack.spec.ts",
+    "deploy/scripts/e2e-local.sh",
+    "docs/geo-monitoring/01-product/04-catalog-user-guide.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml"
+  ],
+  "notes": "GEO-106 本地实现与验证证据已交付；2026-10-02 本会话用户人工审查并接受实现与测试证据。manifest=done，Trellis=completed。原始完整门禁失败及已知限制记录保留；本次仅记录验收，不改变其他任务状态、不实施后续任务、不提交或归档。",
+  "meta": {
+    "review_date": "2026-10-02",
+    "manifest_status": "done",
+    "accepted_at": "2026-10-02",
+    "accepted_by": "本会话用户",
+    "accepted_scope": "GEO-106 Catalog 纵向验收、产品引导及已记录的实现与测试证据；不包含 GEO-502、GEO-504 或其他后续任务。",
+    "acceptance_basis": "用户明确表示：我已经人工审查并接受 GEO-106 的实现与测试证据。"
+  }
+}

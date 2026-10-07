@@ -1,0 +1,80 @@
+[
+  {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_configuration.py backend/tests/unit/test_geo_production_boundary.py backend/tests/unit/test_geo_worker_configuration.py backend/tests/unit/test_cli.py backend/tests/unit/test_security_and_publication.py",
+    "exit_code": 0,
+    "result": "152 passed in 7.73s"
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend python deploy/scripts/test-geo-configuration.py",
+    "exit_code": 0,
+    "result": "17 startup positive / production Browser startup negative; shared final Settings, no network; production all profiles/shell override zero Browser/session"
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend python deploy/scripts/test-geo-browser.py",
+    "exit_code": 0,
+    "result": "dev/staging profile isolation preserved; production default/geo-browser/* config no Browser/session"
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend python deploy/scripts/test-geo-browser-contract.py",
+    "exit_code": 0,
+    "result": "27 passed; typed_results=18; secret_scan=0; external_network=blocked"
+  },
+  {
+    "command": "npm --prefix browser-collector test",
+    "exit_code": 0,
+    "result": "14 passed"
+  },
+  {
+    "command": "npm --prefix browser-collector run typecheck",
+    "exit_code": 0
+  },
+  {
+    "command": "npm --prefix browser-collector run lint",
+    "exit_code": 0
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv deploy/scripts/test-deploy-production.sh",
+    "exit_code": 0,
+    "result": "production network identity, 7 Engine positive/3 negative, runtime input 2 positive/37 negative, deploy/activate/rollback local operations/manifest-first/production state machine passed; containers=0 networks=0",
+    "earlier_failure": "test fixture PARTSIGNAL_RUNTIME_ENV_FILE replacement changed config path but initial assertion still referenced .env.example; assertion corrected, final run passed"
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend ruff check backend/app/config.py backend/app/cli.py backend/tests/unit/test_geo_configuration.py backend/tests/unit/test_geo_production_boundary.py backend/tests/unit/test_cli.py deploy/scripts/check-production-inputs.py deploy/scripts/test-geo-configuration.py",
+    "exit_code": 0,
+    "earlier_failure": "new test import ordering corrected"
+  },
+  {
+    "command": "sh -n deploy/scripts/deploy.sh deploy/scripts/activate-production.sh deploy/scripts/rollback-production-frontend.sh deploy/scripts/test-deploy-production.sh",
+    "exit_code": 0
+  },
+  {
+    "command": "python3 .trellis/scripts/task.py validate .trellis/tasks/10-05-geo-1003-production-browser-ban",
+    "exit_code": 0
+  },
+  {
+    "command": "git diff --check",
+    "exit_code": 2,
+    "result": "未改 GEO-1001 审计既存 12 处尾空格；本任务无新增尾空格"
+  },
+  {
+    "command": "manifest before/after PyYAML equality check",
+    "exit_code": 0,
+    "result": "80 tasks; only GEO-1003 updated, review; all other history/states unchanged",
+    "earlier_failure": "wrong uv project relative to docs cwd; corrected workdir to repository root, used installed backend PyYAML"
+  },
+  {
+    "command": "shasum -a 256 -c SHA256SUMS (cwd docs/geo-monitoring)",
+    "exit_code": 0,
+    "result": "GEO document package checksums all passed"
+  },
+  {
+    "command": "AST/regex exact allowlist runbook/producer/consumer",
+    "exit_code": 0,
+    "result": "9 files equal"
+  },
+  {
+    "command": "work-plan audit-verify current audit bundle",
+    "exit_code": 0,
+    "result": "closed/passed, anomalies=0"
+  }
+]

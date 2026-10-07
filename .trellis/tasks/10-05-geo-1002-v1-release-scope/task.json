@@ -1,0 +1,37 @@
+{
+  "id": "geo-1002-v1-release-scope",
+  "name": "geo-1002-v1-release-scope",
+  "title": "GEO-1002 冻结 GEO Core V1.0 人工优先发布范围和发布门禁",
+  "description": "文档与任务治理：接受 ADR-007，定义 GEO-1002 至 GEO-1010 与 R9A；不修改运行代码、根合同或部署脚本",
+  "status": "completed",
+  "dev_type": "docs",
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-05",
+  "completedAt": "2026-10-07",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": "8d2e528cce0f804b224bf9b78e02bb2651f6ac62",
+  "pr_url": "https://github.com/ccisnoxx/partsignal/pull/1",
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "docs/geo-monitoring"
+  ],
+  "notes": "2026-10-05：文档范围和发布门禁冻结交付 review，不自行 done；后续任务 planned，生产仍 NO-GO。离线验证通过；完整 diff 检查保留未改审计的 12 处既存尾空格，详见 implement。 2026-10-07：依据用户条件授权、组合CI成功与独立审查，接受实现/本地验证并completed；生产及同main候选门禁不自动继承，接受记录见docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md。",
+  "meta": {
+    "manifest_id": "GEO-1002",
+    "delivery_status": "done",
+    "audit_id": "20261006T034504Z-geo-1002-v1-release-scope-2b036082",
+    "independent_review_record": ".trellis/tasks/10-05-geo-1002-v1-release-scope/evidence/independent-review.md",
+    "validation_record": ".trellis/tasks/10-05-geo-1002-v1-release-scope/implement.md",
+    "accepted_commit": "8d2e528cce0f804b224bf9b78e02bb2651f6ac62",
+    "accepted_at": "2026-10-07T09:41:01.437699+00:00",
+    "acceptance_record": "docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md"
+  }
+}

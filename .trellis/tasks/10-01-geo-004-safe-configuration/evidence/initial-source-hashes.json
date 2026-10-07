@@ -1,0 +1,19 @@
+{
+  "backend/app/config.py": "a67dd9d36ca4cc919bb8e720b2761670146f656b15969a460546562de88b364e",
+  ".env.example": "a2046f4db654c425351cb84da76f6419edd22dccddeee6354bf9c9f46f1a913f",
+  ".env.production.example": "deb730cab831ec181c8686e860d3cdb713d27bcbbd9706d43c03b83fe09ab9e1",
+  "deploy/scripts/check-production-inputs.py": "824d88312404d5039309e1d8f66cf737466b5b190b7298b31279633c92569521",
+  "docs/production-configuration.md": "ed08f5e6cb36af2adc3eff9c5829184a6f543258694a87d42fa29ab547fd9543",
+  "docs/geo-monitoring/03-technical/01-technical-architecture.md": "8fa88aa30ae6fd358b18e15b8fd3014de90258e54bd017452a45d7655c84367e",
+  "docs/geo-monitoring/03-technical/08-deployment-and-operations.md": "a2d119c7de270d57069f7e217bd94f7e4a3f81364aa0ec2cc5c99b9885ddb115",
+  "docs/geo-monitoring/CHANGELOG.md": "93f943f964c5343a33dd1d9032cd12f2099421990052deea87f89f58f651c1a7",
+  "docs/geo-monitoring/SHA256SUMS": "ed1234a14758d8235893d7a37e87e945d9e271eebde3061ab13f37ff83071364",
+  "docs/geo-monitoring/04-delivery/task-manifest.yaml": "0586e1d9b438b5cf8dfc8638fa34e3bc84ffe0cabaaf04079e19796c1264a751",
+  "contracts/openapi.yaml": "4f863d4c03093cb3008073c2a2defbad7d32ee1928a3cd1e18fce8bb262de148",
+  "contracts/database.md": "99488b759c0927670a64f0087d9d43f4d473dd8d577f1832c0577b35acce301c",
+  "backend/app/main.py": "72f20aa9af4281e5dcd6b736b73c1c396af22ab0531bafb2f592a4cbc22b0faf",
+  "backend/app/worker.py": "f8da76ab87674d8f9b026f35dcc176ea32977d03b63f2da9d2e359961ead6e01",
+  "deploy/compose.dev.yaml": "91393ca42eb1362e968df343eb162815e95a0a851f5c1c134d9d61486b52013c",
+  "deploy/compose.staging.yaml": "34d9f8c61877dcce6334bef91bf46dfadd5b642cd0b2bbcbc43cd134efd6f4fd",
+  "deploy/compose.prod.yaml": "0e3e642de57ee6d631a861a586743f47c02dc95e70045a3eb24708a73a6ede29"
+}

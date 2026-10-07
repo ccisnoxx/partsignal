@@ -1,0 +1,17 @@
+{
+  "name": "production-diagnostic",
+  "command": [
+    "/bin/bash",
+    "-c",
+    "set -E; trap 'printf \"\u5931\u8d25\u4f4d\u7f6e\uff1a%s:%s\uff0c\u72b6\u6001=%s\\n\" \"$0\" \"$LINENO\" \"$?\" >&2' ERR; source \"$0\"",
+    "deploy/scripts/test-deploy-production.sh"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "sha": "137a9fc6b9a47ca980eb9265ac57be6b96a47b1f",
+  "dirty": true,
+  "started_at": "2026-10-06T19:04:31.590402+00:00",
+  "ended_at": "2026-10-06T19:04:47.259423+00:00",
+  "exit_code": 1,
+  "log": "/Users/sc/.codex/reviews/partsignal/geo1007-owner-remediation-20261006T190127Z/logs/production-diagnostic.log",
+  "log_sha256": "e918a9a0ab228eb237c6429bd695eda323d3a439882501d940fa39455366c9b3"
+}

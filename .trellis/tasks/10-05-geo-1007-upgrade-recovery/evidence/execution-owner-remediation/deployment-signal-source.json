@@ -1,0 +1,15 @@
+{
+  "name": "deployment-signal-source",
+  "command": [
+    "python3",
+    "deploy/scripts/test-upgrade-registry-order.py"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "sha": "137a9fc6b9a47ca980eb9265ac57be6b96a47b1f",
+  "dirty": true,
+  "started_at": "2026-10-06T19:09:01.151757+00:00",
+  "ended_at": "2026-10-06T19:09:15.326681+00:00",
+  "exit_code": 0,
+  "log": "/Users/sc/.codex/reviews/partsignal/geo1007-owner-remediation-20261006T190127Z/logs/deployment-signal-source.log",
+  "log_sha256": "282c7ea186495f31c3380abd8a8be3f1b2db93acb61ed0c7d4b9ef53d6d67670"
+}

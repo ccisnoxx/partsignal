@@ -1,0 +1,11 @@
+{
+  "recorded_at": "2026-10-07T08:53:35.258599+00:00",
+  "source": "0475a776056b7689721a42af90766fb94c13c6ed",
+  "run_id": 37594203220,
+  "prepared_writer": "accept-after-fifth-delivery.py",
+  "prepared_writer_sha256": "2a9c75900e54c2221d29a799b14ed354ee5c3729671054d649eaa71789b3dc51",
+  "executed": false,
+  "success_guard_satisfied": false,
+  "published_acceptance": false,
+  "reason": "固定run最终FAILURE；预备接受记录未写入仓库。不得运行该旧写入器制造SUCCESS。"
+}

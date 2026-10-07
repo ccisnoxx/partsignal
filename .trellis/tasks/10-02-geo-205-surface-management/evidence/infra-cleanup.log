@@ -1,0 +1,39 @@
+ Container partsignal-geo205-validation-fake-oss-1 Stopping 
+ Container partsignal-geo205-validation-postgres-1 Stopping 
+ Container partsignal-geo205-validation-redis-1 Stopping 
+ Container partsignal-geo205-validation-postgres-1 Stopped 
+ Container partsignal-geo205-validation-postgres-1 Removing 
+ Container partsignal-geo205-validation-postgres-1 Removed 
+ Container partsignal-geo205-validation-redis-1 Stopped 
+ Container partsignal-geo205-validation-redis-1 Removing 
+ Container partsignal-geo205-validation-redis-1 Removed 
+ Container partsignal-geo205-validation-fake-oss-1 Stopped 
+ Container partsignal-geo205-validation-fake-oss-1 Removing 
+ Container partsignal-geo205-validation-fake-oss-1 Removed 
+ Network partsignal-geo205-validation_default Removing 
+ Volume partsignal-geo205-validation_geo205-oss Removing 
+ Volume partsignal-geo205-validation_geo205-postgres Removing 
+ Volume partsignal-geo205-validation_geo205-oss Removed 
+ Volume partsignal-geo205-validation_geo205-postgres Removed 
+ Network partsignal-geo205-validation_default Removed 
+time="2026-10-02T10:38:52-07:00" level=info msg="stopping colima"
+time="2026-10-02T10:38:52-07:00" level=info msg="stopping ..." context=docker
+Stopping 'docker.service', but its triggering units are still active:
+docker.socket
+colima
+time="2026-10-02T10:38:52-07:00" level=info msg="stopping ..." context=vm
+time="2026-10-02T10:38:52-07:00" level=info msg="Sending SIGINT to hostagent process 49659"
+time="2026-10-02T10:38:52-07:00" level=info msg="Waiting for the host agent and the driver processes to shut down"
+time="2026-10-02T10:38:52-07:00" level=info msg="[hostagent] Received SIGINT, shutting down the host agent"
+time="2026-10-02T10:38:52-07:00" level=info msg="[hostagent] Shutting down the host agent"
+time="2026-10-02T10:38:52-07:00" level=info msg="[hostagent] Stopping forwarding \"/var/run/docker.sock\" (guest) to \"/Users/sc/.colima/default/docker.sock\" (host)"
+time="2026-10-02T10:38:52-07:00" level=info msg="[hostagent] Stopping forwarding \"/var/run/containerd/containerd.sock\" (guest) to \"/Users/sc/.colima/default/containerd.sock\" (host)"
+time="2026-10-02T10:38:52-07:00" level=info msg="[hostagent] Stopping forwarding \"/var/run/docker.sock\" (guest) to \"/Users/sc/.colima/docker.sock\" (host)"
+time="2026-10-02T10:38:52-07:00" level=info msg="[hostagent] Unmounting disk \"colima\""
+time="2026-10-02T10:38:52-07:00" level=info msg="[hostagent] Shutting down VZ"
+time="2026-10-02T10:38:53-07:00" level=info msg="[hostagent] [VZ] - vm state change: stopped"
+time="2026-10-02T10:38:53-07:00" level=info msg="Waiting for the instance to shut down"
+time="2026-10-02T10:38:53-07:00" level=info msg="The instance colima has shut down"
+time="2026-10-02T10:38:54-07:00" level=info msg=done
+default
+Current context is now "default"

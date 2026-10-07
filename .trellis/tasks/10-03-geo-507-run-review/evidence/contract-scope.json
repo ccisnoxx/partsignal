@@ -1,0 +1,28 @@
+{
+  "new_operation": "reviewGeoObservationRun",
+  "new_components": [
+    "GeoAnalysisResult",
+    "GeoCitationClassificationOut",
+    "GeoReviewHistoryItem",
+    "GeoReviewedResults",
+    "GeoRunAnalysisDetail",
+    "GeoRunReviewCreated",
+    "GeoRunReviewRequest"
+  ],
+  "changed_components": [
+    "GeoRunDataQuality",
+    "GeoRunDetail"
+  ],
+  "other_operations_unchanged": true,
+  "frozen_migrations_unchanged": [
+    "backend/alembic/sql/0054_geo_analysis_guards.sql",
+    "backend/alembic/sql/0054_geo_analysis_tables.sql",
+    "backend/alembic/sql/0054_geo_analysis_validation.sql",
+    "backend/alembic/sql/0054_geo_current_analysis.sql",
+    "backend/alembic/sql/0054_geo_review_guards.sql",
+    "backend/alembic/sql/0055_geo_analysis_worker_guards.sql",
+    "backend/alembic/sql/0055_geo_analysis_worker_tables.sql",
+    "backend/alembic/versions/0054_geo_analysis_contract.py",
+    "backend/alembic/versions/0055_geo_analysis_worker.py"
+  ]
+}

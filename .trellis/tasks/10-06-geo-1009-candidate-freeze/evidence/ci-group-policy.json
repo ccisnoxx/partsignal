@@ -1,0 +1,22 @@
+{
+  "name": "ci-group-policy",
+  "command": [
+    "env",
+    "UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "python",
+    "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/check-ci-groups.py"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "14dd7594452e4080826b15f64683eb3990450704",
+  "dirty": true,
+  "started_at": "2026-10-07T05:35:38.738331+00:00",
+  "ended_at": "2026-10-07T05:35:38.882062+00:00",
+  "exit_code": 0,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/ci-group-policy.log",
+  "log_sha256": "103342e0f738ae1bc51e62f9bed2a2d240b223c76bc8576203964c5ae572302e"
+}

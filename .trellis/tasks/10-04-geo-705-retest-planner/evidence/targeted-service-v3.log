@@ -1,0 +1,36 @@
+ Container geo705-validation-backend-test-run-353006aefc3c Creating 
+ Container geo705-validation-backend-test-run-353006aefc3c Created 
+......F
+=================================== FAILURES ===================================
+______________ test_http_permission_csrf_validation_and_revision _______________
+
+retest_case = (PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_31b31ba5d...e-07b7-46ac-8ea1-f163d782189e'), {'baseline_batch_id': 'fdb3776e-07b7-46ac-8ea1-f163d782189e', 'expected_revision': 3})
+
+    def test_http_permission_csrf_validation_and_revision(retest_case):
+        case = retest_case
+        api = case[0].api
+        path = f"{PATH}/{case[1]}/retest"
+        from fastapi.testclient import TestClient
+    
+        from app.main import app
+    
+        with TestClient(app) as anonymous:
+            assert anonymous.post(path, json=case[3]).status_code == 401
+>       assert (
+            api.engineer.post(
+                path, json=case[3], headers={"X-CSRF-Token": "wrong", "Idempotency-Key": str(uuid4())}
+            ).status_code
+            == 403
+        )
+E       AssertionError: assert 422 == 403
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+E        +    where <Response [422 Unprocessable Entity]> = post('/api/v1/geo/opportunities/ab5cc771-85e6-4145-be44-d3705b21e75a/retest', json={'baseline_batch_id': 'fdb3776e-07b7-46ac-8ea1-f163d782189e', 'expected_revision': 3}, headers={'Idempotency-Key': 'f18ae735-647f-41d5-9341-f668adc69242', 'X-CSRF-Token': 'wrong'})
+E        +      where post = <starlette.testclient.TestClient object at 0xe423d3aa8500>.post
+E        +        where <starlette.testclient.TestClient object at 0xe423d3aa8500> = QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_31b31ba5d3), factory=se...e.testclient.TestClient object at 0xe423d3aa9fa0>, engineer=<starlette.testclient.TestClient object at 0xe423d3aa8500>).engineer
+
+tests/integration/test_geo_retests.py:208: AssertionError
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_retests.py::test_http_permission_csrf_validation_and_revision
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 6 passed in 3.28s
+

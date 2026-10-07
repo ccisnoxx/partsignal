@@ -1,0 +1,18 @@
+✔ RSA-OAEP SHA256/AES-GCM 封装在内存恢复相同 storage state (4.256334ms)
+✔ 错误私钥和跨 reference/profile/expiry 绑定全部拒绝 (2.692208ms)
+✔ nonce/wrapped key/ciphertext/tag/AAD 篡改均无法恢复 (6.322ms)
+✔ 算法、封装闭合、重复 JSON 键和非标准 Base64 被拒绝 (0.857125ms)
+✔ 过期材料、非法日期和过期 Cookie 不进入 consumer (2.453083ms)
+✔ 恢复资料仍检查 storage state 的结构与秘密错误边界 (5.618875ms)
+✔ 每次消费重新授权；撤销拒绝先于读取私钥，保留的资料在 finally 清空 (1.973625ms)
+✔ consumer 失败也清空引用且摘要不泄露秘密 (1.891208ms)
+✔ 私钥权限、缺失、目录和任意层 symlink 均拒绝 (1.771208ms)
+✔ 授权返回损坏材料时不调用 consumer 且错误不带异常正文 (0.230375ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 177.494917

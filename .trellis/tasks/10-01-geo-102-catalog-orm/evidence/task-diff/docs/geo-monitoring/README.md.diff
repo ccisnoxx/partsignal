@@ -1,0 +1,13 @@
+--- before/docs/geo-monitoring/README.md
++++ docs/geo-monitoring/README.md
+@@ -18,7 +18,9 @@
+ 
+ GEO-005 / R0 的共享虚构语料与独立分析金标见 [fixture 格式与敏感数据规则](../../backend/tests/fixtures/geo_analysis/README.md)，可用 `make test-geo-fixtures` 离线校验。后端与前端测试读取同一份版本化 JSON；实现范围、实际验证及状态见 [Task Brief](../../.trellis/tasks/10-01-geo-005-fixtures-gold/prd.md) 和 [实施证据](../../.trellis/tasks/10-01-geo-005-fixtures-gold/implement.md)。该目录不代表采集、分析或指标业务已经实现。
+ 
+-GEO-101 / R1 的 Catalog 公共与数据库合同已定义，当前进入 review，尚无 Catalog ORM、迁移、Service、Router 或页面。权威为 [OpenAPI](../../contracts/openapi.yaml) 的标准 components/显式 CONTRACT_ONLY 操作扩展及 [数据库合同](../../contracts/database.md) 的 GEO Catalog 章节。范围与验证见 [Task Brief](../../.trellis/tasks/10-01-geo-101-catalog-contract/prd.md) 和 [实施证据](../../.trellis/tasks/10-01-geo-101-catalog-contract/implement.md)；GEO-102～104 负责后续实施及接线。
++GEO-101 / R1 的 Catalog 公共与数据库合同已于 2026-10-01 经用户接受，状态为 `done`。权威为 [OpenAPI](../../contracts/openapi.yaml) 的标准 components/显式 CONTRACT_ONLY 操作扩展及 [数据库合同](../../contracts/database.md) 的 GEO Catalog 章节；合同范围与接受记录见 [GEO-101 Task Brief](../../.trellis/tasks/10-01-geo-101-catalog-contract/prd.md) 和 [实施证据](../../.trellis/tasks/10-01-geo-101-catalog-contract/implement.md)。
++
++GEO-102 / R1 已实现 Subject/Alias/Domain ORM、模型注册及新迁移 `0044_geo_catalog`，交付状态为 `review`，等待人工验收。隔离 PostgreSQL 16 的空库/旧 head 前滚、metadata、直接 SQL 反例和活动 OWN_PRODUCT 并发唯一通过；指定静态、单元与完整集成检查及独立只读复核证据见 [Task Brief](../../.trellis/tasks/10-01-geo-102-catalog-orm/prd.md) 和 [实施记录](../../.trellis/tasks/10-01-geo-102-catalog-orm/implement.md)。尚未迁移生产数据库；GEO-103 策略、GEO-104 Service/Router 和后续页面仍待实施。
+ 
+ ## 1. 文档包用途
+ 

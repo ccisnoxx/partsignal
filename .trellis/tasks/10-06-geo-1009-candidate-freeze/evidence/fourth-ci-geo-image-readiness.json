@@ -1,0 +1,16 @@
+{
+  "name": "fourth-ci-geo-image-readiness",
+  "command": [
+    "python3",
+    "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/run-geo-image-readiness.py"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "8fd843471de6d455cafba20da11d81a82b7dd305",
+  "dirty": true,
+  "started_at": "2026-10-07T08:06:52.348174+00:00",
+  "ended_at": "2026-10-07T08:08:16.358627+00:00",
+  "exit_code": 0,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/fourth-ci-geo-image-readiness.log",
+  "log_sha256": "477603aa17f461ce749cac7c430e23678f1555dc215474f918f53818f4e3ebed"
+}

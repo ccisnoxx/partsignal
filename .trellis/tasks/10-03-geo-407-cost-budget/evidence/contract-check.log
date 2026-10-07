@@ -1,0 +1,35 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python -m app.tools.contract_check contracts/openapi.yaml
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/sc/PycharmProjects/partsignal/backend/app/tools/contract_check.py", line 1466, in <module>
+    main()
+  File "/Users/sc/PycharmProjects/partsignal/backend/app/tools/contract_check.py", line 1455, in main
+    failures = check(args.contract_path)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/app/tools/contract_check.py", line 1391, in check
+    from app.main import app
+  File "/Users/sc/PycharmProjects/partsignal/backend/app/main.py", line 18, in <module>
+    from app.config import settings
+  File "/Users/sc/PycharmProjects/partsignal/backend/app/config.py", line 17, in <module>
+    class Settings(BaseSettings):
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/pydantic/_internal/_model_construction.py", line 256, in __new__
+    complete_model_class(
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/pydantic/_internal/_model_construction.py", line 690, in complete_model_class
+    cls.__pydantic_validator__ = create_schema_validator(
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/pydantic/plugin/_schema_validator.py", line 53, in create_schema_validator
+    return SchemaValidator(schema, config, _use_prebuilt=_use_prebuilt)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pydantic_core._pydantic_core.SchemaError: Error building "function-after" validator:
+  SchemaError: Error building "function-after" validator:
+  SchemaError: Error building "model" validator:
+  SchemaError: Error building "model-fields" validator:
+  SchemaError: Field "geo_daily_budget_currency":
+  SchemaError: Error building "default" validator:
+  SchemaError: Error building "str" validator:
+  SchemaError: regex parse error:
+    ^[A-Z]{3}$(?![\s\S])
+              ^^^
+error: look-around, including look-ahead and look-behind, is not supported
+make: *** [contract-check] Error 1

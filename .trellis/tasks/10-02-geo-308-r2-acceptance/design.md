@@ -1,0 +1,13 @@
+# GEO-308 验收设计
+
+测试补缺而不改变生产合同。对真正已提交的人工aggregate，通过新Session逐项攻击，再以全行JSON比较证明失败回滚与证据保留。数据库反例精确匹配SQLSTATE+constraint，并证明会话rollback后仍可查询。
+
+并发测试以锁拥有者与观察者两连接确定顺序：测试事件只暂停已经取得的真实锁，不改变生产锁。pg_blocking_pids必须包含指定持有者，不能以线程同时启动冒充锁证据。两个actor避免同用户User锁掩盖Batch/Run争用。所有等待有截止和finally释放。
+
+取消没有生产命令；只测试既有策略+SQL存储writer对manual-submit的竞争，不能宣称HTTP/UI取消、取消审计或草稿清理已实现。正式提交、revision与幂等继续来自现有Application Service。生产状态/guard不为测试修改。
+
+旧文章观测E2E复用现有更正链及优化任务纵向场景，补导航和书签刷新并检验新运行中心入口。文件字节从真实签名GET检验，不依赖浏览器可能不提供的postDataBuffer。独立ENGINEER账号替代共享seed改密污染；不重置他人账号、不降低密码/CSRF要求。
+
+运行中心随机suffix可能是数字形式；使用已安装TanStack Router defaultParseSearch解析URL后比较q，避免把JSON引号编码误判为搜索状态漂移。不修改生产URL序列化。
+
+完整verify复现问题库同一URL语义缺口：E2E直接拼接q=科学计数法，Router把它解析为number导致筛选清空。只在测试调用者用defaultStringifySearch构造URL，保持生产schema不变；用数值测试输入保证每次覆盖。

@@ -1,0 +1,875 @@
+E2E_SECRET_REGISTRATION status=ready
+
+> partsignal-frontend-v2@0.1.0 build
+> tsc -b && vite build --config vite.config.ts
+
+vite v8.2.1 building client environment for production...
+[2K
+transforming...✓ 3007 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                    0.57 kB │ gzip:   0.34 kB
+dist/assets/index-Btqa2CjT.css                                    83.46 kB │ gzip:  14.39 kB
+dist/assets/queryOptions-Dfvzj6n2.js                               0.03 kB │ gzip:   0.05 kB
+dist/assets/route-5zGdn2Pu.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-AFUjE5vR.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-Bdkyf40J.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-BnOgN25L.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-CACU0Ncw.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-CAUin8c-.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-CtPZVZSG.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-DM9PFocW.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-DZLPx2O5.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-Dfp-b3_F.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-DrhND8Ss.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-DwBi_ZMu.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-SgbaIUWS.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-Tim3UNye.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/coerce-B78vORRP.js                                     0.08 kB │ gzip:   0.10 kB
+dist/assets/isElementDisabled-KSuuBj8D.js                          0.11 kB │ gzip:   0.11 kB
+dist/assets/not-found-i5RsCZif.js                                  0.11 kB │ gzip:   0.11 kB
+dist/assets/chevron-right-CZUYejgz.js                              0.13 kB │ gzip:   0.14 kB
+dist/assets/canonical-uuid-BTSOyHjG.js                             0.13 kB │ gzip:   0.13 kB
+dist/assets/matchContext-B0YTMpvO.js                               0.16 kB │ gzip:   0.14 kB
+dist/assets/settings.ai-CipVaq6G.js                                0.21 kB │ gzip:   0.20 kB
+dist/assets/geo-rules-BWrkKy45.js                                  0.21 kB │ gzip:   0.20 kB
+dist/assets/_taskId_.editor-_qjLAkbp.js                            0.22 kB │ gzip:   0.20 kB
+dist/assets/_taskId_.review-zeX8OAEE.js                            0.22 kB │ gzip:   0.20 kB
+dist/assets/route-DFljbmbX.js                                      0.22 kB │ gzip:   0.20 kB
+dist/assets/system.audit-qBeF2bb1.js                               0.22 kB │ gzip:   0.20 kB
+dist/assets/system.users-0TM8kiXu.js                               0.22 kB │ gzip:   0.20 kB
+dist/assets/settings.prompts-9jQdIs2s.js                           0.22 kB │ gzip:   0.20 kB
+dist/assets/print-1ZzneeRB.js                                      0.22 kB │ gzip:   0.18 kB
+dist/assets/_taskId-Vsd3-0WC.js                                    0.22 kB │ gzip:   0.21 kB
+dist/assets/settings.platforms.types-C4NjYBws.js                   0.22 kB │ gzip:   0.21 kB
+dist/assets/versions_._versionId-BW6wP3pa.js                       0.22 kB │ gzip:   0.21 kB
+dist/assets/_platformId-BeKfjBVf.js                                0.22 kB │ gzip:   0.20 kB
+dist/assets/settings.ai_._channelId-Z_MUrH5D.js                    0.22 kB │ gzip:   0.20 kB
+dist/assets/_observationId-B3QjNhkV.js                             0.23 kB │ gzip:   0.21 kB
+dist/assets/useControlled-DMK4Pb-8.js                              0.24 kB │ gzip:   0.21 kB
+dist/assets/skeleton-Ged3Zc9T.js                                   0.24 kB │ gzip:   0.20 kB
+dist/assets/table-shell-BGuXgMNH.js                                0.33 kB │ gzip:   0.24 kB
+dist/assets/usePopupHandleStore-BirVG9ro.js                        0.35 kB │ gzip:   0.25 kB
+dist/assets/reports-DrjRbyyp.js                                    0.42 kB │ gzip:   0.29 kB
+dist/assets/table-toolbar-JNNhOzlg.js                              0.42 kB │ gzip:   0.27 kB
+dist/assets/table-skeleton-G-FjuOli.js                             0.45 kB │ gzip:   0.35 kB
+dist/assets/route-error-Bl0menBv.js                                0.46 kB │ gzip:   0.31 kB
+dist/assets/_productId-Cu3oT6KN.js                                 0.49 kB │ gzip:   0.35 kB
+dist/assets/_productId_.facts-C-S7KVKf.js                          0.50 kB │ gzip:   0.36 kB
+dist/assets/_productId_.facts_.versions_._versionId-996oc21h.js    0.50 kB │ gzip:   0.36 kB
+dist/assets/_productId_.facts_.review-CtF33cCX.js                  0.50 kB │ gzip:   0.37 kB
+dist/assets/_observationId_.correct-DHL12dqm.js                    0.51 kB │ gzip:   0.37 kB
+dist/assets/useCompositeItem-BGClVRCY.js                           0.54 kB │ gzip:   0.37 kB
+dist/assets/empty-table-DARB4g0g.js                                0.55 kB │ gzip:   0.33 kB
+dist/assets/_observationId_.correct-BhD51Jxi.js                    0.58 kB │ gzip:   0.31 kB
+dist/assets/content-version.model-BVKgM5xI.js                      0.61 kB │ gzip:   0.43 kB
+dist/assets/detail-section-Dm8gVxQG.js                             0.63 kB │ gzip:   0.34 kB
+dist/assets/return-to-BzbJXkRi.js                                  0.63 kB │ gzip:   0.39 kB
+dist/assets/workbench.api-Cm9VqJUK.js                              0.71 kB │ gzip:   0.46 kB
+dist/assets/route-Do6Dxmmm.js                                      0.72 kB │ gzip:   0.50 kB
+dist/assets/geo-rules-DnzCs45g.js                                  0.83 kB │ gzip:   0.56 kB
+dist/assets/textarea-CPcbKIlY.js                                   0.83 kB │ gzip:   0.43 kB
+dist/assets/timeline-BSjJ8olh.js                                   0.94 kB │ gzip:   0.49 kB
+dist/assets/form-field-B911B1W8.js                                 0.98 kB │ gzip:   0.54 kB
+dist/assets/rowSortingFeature-DOu8Zjqq.js                          1.02 kB │ gzip:   0.49 kB
+dist/assets/geo-observation-actions-C2i_qn8N.js                    1.09 kB │ gzip:   0.67 kB
+dist/assets/print-CSxKYKyo.js                                      1.20 kB │ gzip:   0.67 kB
+dist/assets/product-deletion-dialog-588zrCQN.js                    1.20 kB │ gzip:   0.76 kB
+dist/assets/security-_cDdnE_Z.js                                   1.22 kB │ gzip:   0.65 kB
+dist/assets/filter-bar-D-I3VqGA.js                                 1.23 kB │ gzip:   0.72 kB
+dist/assets/new-Bul7BEu7.js                                        1.26 kB │ gzip:   0.73 kB
+dist/assets/form-layout-B0Bgsdpq.js                                1.29 kB │ gzip:   0.69 kB
+dist/assets/print-tSGhAg7T.js                                      1.31 kB │ gzip:   0.75 kB
+dist/assets/login-reyqDFVT.js                                      1.31 kB │ gzip:   0.71 kB
+dist/assets/reports.api-DOwUXAn6.js                                1.39 kB │ gzip:   0.85 kB
+dist/assets/file-transfer-bcVkqTxX.js                              1.41 kB │ gzip:   0.83 kB
+dist/assets/useBaseUiId-C9V7pCeo.js                                1.42 kB │ gzip:   0.80 kB
+dist/assets/table-pagination-CStvXXO8.js                           1.48 kB │ gzip:   0.81 kB
+dist/assets/auth-page-frame-DoVKxoBO.js                            1.49 kB │ gzip:   0.74 kB
+dist/assets/badge-DofVsWMx.js                                      1.57 kB │ gzip:   0.70 kB
+dist/assets/audit.api-eq5Nf80n.js                                  1.62 kB │ gzip:   0.76 kB
+dist/assets/sticky-action-bar-Bo1fYZzG.js                          1.62 kB │ gzip:   0.86 kB
+dist/assets/versions_._versionId-BpLK8FYy.js                       1.72 kB │ gzip:   0.89 kB
+dist/assets/_productId_.facts_.versions_._versionId-BKUPOeZW.js    1.77 kB │ gzip:   0.89 kB
+dist/assets/workspace-shell-CvF4Z--Q.js                            1.77 kB │ gzip:   0.83 kB
+dist/assets/reports-C9hMaX4n.js                                    1.77 kB │ gzip:   0.97 kB
+dist/assets/insights-Cq50eMHJ.js                                   1.82 kB │ gzip:   0.98 kB
+dist/assets/articles-Dnwu18pr.js                                   1.83 kB │ gzip:   0.97 kB
+dist/assets/_articleId-CF2EyGPq.js                                 1.96 kB │ gzip:   1.09 kB
+dist/assets/_productId_.facts_.versions-B0h3h7sM.js                1.97 kB │ gzip:   1.06 kB
+dist/assets/new-PT7FCfxV.js                                        1.97 kB │ gzip:   1.08 kB
+dist/assets/catalog-controls-BlndqY87.js                           1.98 kB │ gzip:   0.89 kB
+dist/assets/overview-D45F4hP9.js                                   1.99 kB │ gzip:   1.08 kB
+dist/assets/_taskId-CweOyMcl.js                                    2.00 kB │ gzip:   1.06 kB
+dist/assets/issues-gMEzcV6h.js                                     2.00 kB │ gzip:   1.05 kB
+dist/assets/answers-Q-ZZD732.js                                    2.02 kB │ gzip:   1.09 kB
+dist/assets/settings.platforms.types-Q9eDIhJS.js                   2.05 kB │ gzip:   1.04 kB
+dist/assets/_observationId-BEyB4ycy.js                             2.09 kB │ gzip:   1.09 kB
+dist/assets/work-Vp3FDdGx.js                                       2.11 kB │ gzip:   1.10 kB
+dist/assets/new-DlWohGQx.js                                        2.12 kB │ gzip:   1.19 kB
+dist/assets/useStore-G3HF39DP.js                                   2.17 kB │ gzip:   0.93 kB
+dist/assets/_productId-DSG9vyLN.js                                 2.18 kB │ gzip:   1.12 kB
+dist/assets/platforms-BdMDCA1A.js                                  2.19 kB │ gzip:   1.14 kB
+dist/assets/_taskId_.review-qWo68aN0.js                            2.20 kB │ gzip:   1.14 kB
+dist/assets/_productId_.facts_.review-Bo2M2eTN.js                  2.21 kB │ gzip:   1.13 kB
+dist/assets/useRegisterFieldControl-BcstcGLC.js                    2.25 kB │ gzip:   1.07 kB
+dist/assets/tasks-Ca6kwaoL.js                                      2.25 kB │ gzip:   1.17 kB
+dist/assets/_productId_.facts-CYzk3zKc.js                          2.25 kB │ gzip:   1.17 kB
+dist/assets/_issueId-BvRF4O90.js                                   2.26 kB │ gzip:   1.25 kB
+dist/assets/observations-G8ckONzW.js                               2.28 kB │ gzip:   1.18 kB
+dist/assets/_taskId_.editor-Cw8Fl6Bn.js                            2.29 kB │ gzip:   1.19 kB
+dist/assets/dialog-DmePLyHK.js                                     2.33 kB │ gzip:   0.91 kB
+dist/assets/plans-Hzgl6cp0.js                                      2.34 kB │ gzip:   1.25 kB
+dist/assets/system.audit-Da49fcGq.js                               2.35 kB │ gzip:   1.18 kB
+dist/assets/topics-VJJZHwhY.js                                     2.38 kB │ gzip:   1.23 kB
+dist/assets/input-BctqO2IH.js                                      2.47 kB │ gzip:   1.25 kB
+dist/assets/dirty-guard-C_ZKw2vs.js                                2.58 kB │ gzip:   1.23 kB
+dist/assets/settings.ai-DbbnZmLi.js                                2.64 kB │ gzip:   1.35 kB
+dist/assets/prompt.api-DzGm0lBb.js                                 2.65 kB │ gzip:   1.01 kB
+dist/assets/products-CKJy74QD.js                                   2.74 kB │ gzip:   1.41 kB
+dist/assets/useCompositeListItem-u8lPl9Q5.js                       3.11 kB │ gzip:   1.41 kB
+dist/assets/security-CcTGE9dq.js                                   3.12 kB │ gzip:   1.52 kB
+dist/assets/settings.ai_._channelId-BogswVDq.js                    3.13 kB │ gzip:   1.57 kB
+dist/assets/login-1dFvQLYk.js                                      3.14 kB │ gzip:   1.52 kB
+dist/assets/zod-C1u0HXxU.js                                        3.31 kB │ gzip:   1.24 kB
+dist/assets/sheet-bN9NdJx3.js                                      3.73 kB │ gzip:   1.44 kB
+dist/assets/audit-detail-content-DMxvNL2K.js                       3.90 kB │ gzip:   1.61 kB
+dist/assets/print-Cd8cbd6N.js                                      4.13 kB │ gzip:   1.66 kB
+dist/assets/Match-CkwEZkRF.js                                      4.38 kB │ gzip:   1.72 kB
+dist/assets/product.model-SIU-2ew1.js                              4.40 kB │ gzip:   2.01 kB
+dist/assets/new-CzkxDvHY.js                                        4.49 kB │ gzip:   1.96 kB
+dist/assets/overview-C_GJL4mt.js                                   4.75 kB │ gzip:   1.93 kB
+dist/assets/_workId-DV6k9Ve0.js                                    4.75 kB │ gzip:   2.43 kB
+dist/assets/insights.model-CtAChhtI.js                             4.77 kB │ gzip:   2.51 kB
+dist/assets/insight-filters-rqrGozJR.js                            4.84 kB │ gzip:   2.40 kB
+dist/assets/lazyRouteComponent-Q6-84jhQ.js                         4.88 kB │ gzip:   1.75 kB
+dist/assets/settings.prompts-BoVOCzxD.js                           4.92 kB │ gzip:   2.42 kB
+dist/assets/issues-CXlNy57P.js                                     5.10 kB │ gzip:   2.13 kB
+dist/assets/_productId_.facts_.versions-DW_mMSC7.js                5.26 kB │ gzip:   2.36 kB
+dist/assets/composite-D3grXdmQ.js                                  5.88 kB │ gzip:   2.28 kB
+dist/assets/articles-B39x15HT.js                                   5.96 kB │ gzip:   2.41 kB
+dist/assets/geo-evidence-upload-B73Yo7-W.js                        6.15 kB │ gzip:   2.67 kB
+dist/assets/client-C6dNGmfD.js                                     6.59 kB │ gzip:   2.58 kB
+dist/assets/principal-epoch-1sT-YUbO.js                            6.87 kB │ gzip:   2.33 kB
+dist/assets/globalFilteringFeature-BM9wgKEU.js                     6.95 kB │ gzip:   1.98 kB
+dist/assets/plans.api-CSsTjaGQ.js                                  7.47 kB │ gzip:   3.16 kB
+dist/assets/_app-Dy44loO9.js                                       7.72 kB │ gzip:   2.58 kB
+dist/assets/_platformId-CMSA9EOW.js                                7.74 kB │ gzip:   3.47 kB
+dist/assets/insights.api-CKpynYSM.js                               7.79 kB │ gzip:   2.67 kB
+dist/assets/QueryClientProvider-Bi8hvFQP.js                        7.81 kB │ gzip:   3.04 kB
+dist/assets/product.api-Ccnb7TcC.js                                7.94 kB │ gzip:   2.60 kB
+dist/assets/_productId_.facts_.versions_._versionId-BQI0jvDr.js    8.18 kB │ gzip:   2.62 kB
+dist/assets/geo-rules-DPlATJBT.js                                  8.38 kB │ gzip:   3.62 kB
+dist/assets/jsx-runtime-B-hcVAMW.js                                8.55 kB │ gzip:   3.26 kB
+dist/assets/x-vups0wOE.js                                          8.72 kB │ gzip:   3.14 kB
+dist/assets/questions-D0H0qt84.js                                  8.80 kB │ gzip:   3.89 kB
+dist/assets/new-cxZm4YdR.js                                        8.99 kB │ gzip:   3.80 kB
+dist/assets/geo-entities-DBlbWChX.js                               9.09 kB │ gzip:   3.63 kB
+dist/assets/products-DoFUKS8J.js                                   9.24 kB │ gzip:   3.71 kB
+dist/assets/tasks-Dj4aOdhK.js                                      9.26 kB │ gzip:   3.57 kB
+dist/assets/platform.api-xkKjVbzG.js                               9.71 kB │ gzip:   3.25 kB
+dist/assets/geo-insights-report-UxWORATc.js                       10.34 kB │ gzip:   2.88 kB
+dist/assets/opportunities-CLyCu9VL.js                             10.66 kB │ gzip:   4.34 kB
+dist/assets/versions_._versionId-Dud06_fV.js                      12.02 kB │ gzip:   3.82 kB
+dist/assets/tabs-BuC3hAM_.js                                      12.50 kB │ gzip:   4.72 kB
+dist/assets/system.audit-C3xSUmLw.js                              12.54 kB │ gzip:   4.38 kB
+dist/assets/observations-CZ0jyyFP.js                              12.54 kB │ gzip:   4.87 kB
+dist/assets/content-task-lifecycle-C4eoFmuR.js                    12.58 kB │ gzip:   4.70 kB
+dist/assets/system.users-CsiIONUs.js                              12.93 kB │ gzip:   5.51 kB
+dist/assets/insights-UYOzFjSr.js                                  13.42 kB │ gzip:   4.92 kB
+dist/assets/runs-CaRRdkcQ.js                                      13.62 kB │ gzip:   5.10 kB
+dist/assets/route-B7lFOWS0.js                                     14.07 kB │ gzip:   5.29 kB
+dist/assets/report-page-diFvaOFl.js                               14.11 kB │ gzip:   4.41 kB
+dist/assets/geo-rules-DZIXljUh.js                                 14.20 kB │ gzip:   5.36 kB
+dist/assets/_taskId-DnAvIc3O.js                                   14.87 kB │ gzip:   4.62 kB
+dist/assets/content.api-BjgTNYlB.js                               14.90 kB │ gzip:   4.32 kB
+dist/assets/_productId_.facts_.review-4-If-cI9.js                 15.87 kB │ gzip:   5.65 kB
+dist/assets/work-C6Cutd3G.js                                      15.92 kB │ gzip:   5.20 kB
+dist/assets/publication.api-D_tWka1G.js                           16.20 kB │ gzip:   4.80 kB
+dist/assets/_articleId-Gx2omtPl.js                                16.27 kB │ gzip:   5.43 kB
+dist/assets/useQuery-C44PsoTH.js                                  16.32 kB │ gzip:   5.47 kB
+dist/assets/insight-page-frame-DzEOhC1t.js                        16.34 kB │ gzip:   5.28 kB
+dist/assets/settings.platforms.types-xL1-dBlR.js                  16.45 kB │ gzip:   5.93 kB
+dist/assets/new-Cl-ty608.js                                       16.97 kB │ gzip:   6.06 kB
+dist/assets/platforms-Beb5wZLb.js                                 17.07 kB │ gzip:   6.18 kB
+dist/assets/auth-provider-C1FP_EhK.js                             17.09 kB │ gzip:   6.21 kB
+dist/assets/_productId_.facts-D92v599w.js                         17.36 kB │ gzip:   5.84 kB
+dist/assets/_taskId_.review-BRUrJzIv.js                           17.51 kB │ gzip:   6.08 kB
+dist/assets/settings.ai-BOLqIUAD.js                               17.54 kB │ gzip:   6.33 kB
+dist/assets/_productId-C36d5ucz.js                                17.59 kB │ gzip:   5.90 kB
+dist/assets/row-actions-BaNKxcpH.js                               17.90 kB │ gzip:   6.59 kB
+dist/assets/_observationId-Cm1HZfGK.js                            18.05 kB │ gzip:   5.76 kB
+dist/assets/geo.api-BNHKCfaq.js                                   18.53 kB │ gzip:   5.93 kB
+dist/assets/geo-surfaces-BW9iq3J_.js                              18.88 kB │ gzip:   6.99 kB
+dist/assets/link-D3jGVc4V.js                                      19.54 kB │ gzip:   7.58 kB
+dist/assets/_issueId-AbEWPe5a.js                                  19.62 kB │ gzip:   6.52 kB
+dist/assets/topics-BZo2VLHU.js                                    20.02 kB │ gzip:   7.06 kB
+dist/assets/audit.model-BwxaFBbK.js                               20.43 kB │ gzip:   6.44 kB
+dist/assets/ai-channel-workspace.model-B-nqyXK-.js                20.72 kB │ gzip:   6.32 kB
+dist/assets/_observationId_.correct-C295vgr4.js                   24.46 kB │ gzip:   8.25 kB
+dist/assets/answers-B0ddKDB2.js                                   28.41 kB │ gzip:   7.97 kB
+dist/assets/_workId-ly0AwKyg.js                                   28.55 kB │ gzip:   8.91 kB
+dist/assets/questions-Du0PCPNb.js                                 28.85 kB │ gzip:   9.24 kB
+dist/assets/select-Cq8n_NQA.js                                    30.10 kB │ gzip:  10.91 kB
+dist/assets/settings.prompts-CJR0Z5-a.js                          30.84 kB │ gzip:   9.99 kB
+dist/assets/system.users--NcFM812.js                              31.04 kB │ gzip:   9.76 kB
+dist/assets/geo-entities-BK23zNsM.js                              35.34 kB │ gzip:  10.94 kB
+dist/assets/icon-button-rcW1kEFX.js                               36.26 kB │ gzip:  12.08 kB
+dist/assets/providers-Bv-0bv6h.js                                 36.34 kB │ gzip:  10.82 kB
+dist/assets/column-header-BR61_b5d.js                             36.45 kB │ gzip:  11.43 kB
+dist/assets/ToolbarRootContext-NQWDsf1V.js                        36.62 kB │ gzip:  14.02 kB
+dist/assets/index.esm-CDk9jdcJ.js                                 37.59 kB │ gzip:  13.14 kB
+dist/assets/_taskId_.editor-BGznIuOd.js                           37.93 kB │ gzip:  11.55 kB
+dist/assets/_platformId-Co8McfbQ.js                               38.94 kB │ gzip:  11.60 kB
+dist/assets/createLucideIcon-YVagg9ly.js                          39.80 kB │ gzip:  14.03 kB
+dist/assets/button-BZhX1_Og.js                                    40.12 kB │ gzip:  13.54 kB
+dist/assets/route-BjqJMG8P.js                                     43.48 kB │ gzip:  15.62 kB
+dist/assets/settings.ai_._channelId-BEzdt6C9.js                   49.69 kB │ gzip:  13.69 kB
+dist/assets/plans-_Tq8eU9Y.js                                     50.94 kB │ gzip:  15.79 kB
+dist/assets/geo-surfaces-ZicM2BQY.js                              52.99 kB │ gzip:  15.97 kB
+dist/assets/opportunities-BDrODQOX.js                             61.09 kB │ gzip:  16.46 kB
+dist/assets/schemas-D4JTeD_A.js                                   69.76 kB │ gzip:  18.61 kB
+dist/assets/runs-BSlWnkF5.js                                      95.05 kB │ gzip:  27.29 kB
+dist/assets/index-Cdf8fHlK.js                                    189.11 kB │ gzip:  60.52 kB
+dist/assets/markdown-editor-D-y4e3hs.js                          729.88 kB │ gzip: 245.01 kB
+
+✓ built in 529ms
+已创建或确认管理员和内容工程师账号。
+  ➜  Local:   http://127.0.0.1:4174/
+INFO:     127.0.0.1:64639 - "GET /api/health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64642 - "GET /v1/models HTTP/1.1" 200 OK
+
+> partsignal-frontend-v2@0.1.0 e2e:raw
+> playwright test tests/e2e/geo-(loop|review)-real-stack.spec.ts --project=foundation-desktop
+
+
+Running 2 tests using 1 worker
+
+INFO:     127.0.0.1:64648 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64655 - "GET /api/v1/products/1c2862b6-c848-4c6c-8b8a-55f2d2a027e5/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/products/1c2862b6-c848-4c6c-8b8a-55f2d2a027e5/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/products/1c2862b6-c848-4c6c-8b8a-55f2d2a027e5/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "PUT /api/v1/products/1c2862b6-c848-4c6c-8b8a-55f2d2a027e5/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/products/1c2862b6-c848-4c6c-8b8a-55f2d2a027e5/fact-review-submissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "POST /api/v1/products/1c2862b6-c848-4c6c-8b8a-55f2d2a027e5/fact-review-submissions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64655 - "GET /api/v1/products/1c2862b6-c848-4c6c-8b8a-55f2d2a027e5/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/products/1c2862b6-c848-4c6c-8b8a-55f2d2a027e5/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/fact-versions/32cb46f5-3ee1-43ef-8b92-6a5c698e93a9/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "POST /api/v1/fact-versions/32cb46f5-3ee1-43ef-8b92-6a5c698e93a9/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/products/1c2862b6-c848-4c6c-8b8a-55f2d2a027e5/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/geo/subjects?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/products?search=&page=1&page_size=10&sort=MODEL_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64664 - "GET /api/v1/geo/subjects?page=1&page_size=10&sort=NAME_ASC&subject_type=OWN_BRAND HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "GET /api/v1/products?search=GEO707-8e0a957a&page=1&page_size=10&sort=MODEL_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/geo/subjects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "POST /api/v1/geo/subjects HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64655 - "GET /api/v1/geo/subjects/582c85a2-0bc5-4ef3-9899-26d0d2c87f62 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "GET /api/v1/geo/subjects?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "GET /api/v1/geo/engine-surfaces?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/geo/engine-surfaces HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "POST /api/v1/geo/engine-surfaces HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64666 - "GET /api/v1/geo/engine-surfaces?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/geo/engine-surfaces/c6eaabe3-3cfa-4c2f-a479-327cc93c2229 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/geo/engine-surfaces/c6eaabe3-3cfa-4c2f-a479-327cc93c2229/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "POST /api/v1/geo/engine-surfaces/c6eaabe3-3cfa-4c2f-a479-327cc93c2229/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/geo/engine-surfaces?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/geo/collection-profiles?page=1&page_size=20&sort=NAME_ASC&engine_surface_id=c6eaabe3-3cfa-4c2f-a479-327cc93c2229 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/geo/collection-profiles HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "POST /api/v1/geo/collection-profiles HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64666 - "GET /api/v1/geo/collection-profiles/49bd50e6-1ab1-4209-bfdc-fad163af734d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/geo/collection-profiles?page=1&page_size=20&sort=NAME_ASC&engine_surface_id=c6eaabe3-3cfa-4c2f-a479-327cc93c2229 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/geo/collection-profiles/49bd50e6-1ab1-4209-bfdc-fad163af734d/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "POST /api/v1/geo/collection-profiles/49bd50e6-1ab1-4209-bfdc-fad163af734d/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/geo/collection-profiles?page=1&page_size=20&sort=NAME_ASC&engine_surface_id=c6eaabe3-3cfa-4c2f-a479-327cc93c2229 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/query-topics/list-items?sort=QUESTION_ASC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/query-topics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "POST /api/v1/query-topics HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64655 - "GET /api/v1/query-topics/list-items?sort=QUESTION_ASC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/geo/prompt-variants?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/query-topics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/geo/query-topics/c38beb4e-fdab-41dd-ae7e-dfadf2340000/prompt-variants HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "POST /api/v1/geo/query-topics/c38beb4e-fdab-41dd-ae7e-dfadf2340000/prompt-variants HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64655 - "GET /api/v1/geo/prompt-variants?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64655 - "GET /api/v1/geo/monitoring-plans?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "GET /api/v1/geo/subjects?q=8e0a957a&page=1&page_size=10&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "GET /api/v1/geo/prompt-variants?q=8e0a957a&page=1&page_size=10&sort=TEXT_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "GET /api/v1/geo/collection-profiles?q=8e0a957a&page=1&page_size=10&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/geo/monitoring-plans/preview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "POST /api/v1/geo/monitoring-plans/preview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/geo/monitoring-plans HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "POST /api/v1/geo/monitoring-plans HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64666 - "GET /api/v1/geo/monitoring-plans?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "POST /api/v1/platform-types HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64681 - "POST /api/v1/platform-profiles HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64681 - "POST /api/v1/platform-accounts HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64666 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "GET /api/v1/geo/monitoring-plans?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "GET /api/v1/geo/monitoring-plans?q=GEO707%20%E4%BA%94%E6%AC%A1%E4%BA%BA%E5%B7%A5%E5%9F%BA%E7%BA%BF%208e0a957a&page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/geo/monitoring-plans/b846a1a4-6551-4030-8015-9690e6a7a36d/run HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "POST /api/v1/geo/monitoring-plans/b846a1a4-6551-4030-8015-9690e6a7a36d/run HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64666 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64691 - "GET /api/v1/geo/observation-runs?sort=CREATED_DESC&page=1&page_size=20&batch_id=b6cef06c-71a5-4f4e-b23a-4f9b6cc8499c&latest_only=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "GET /api/v1/geo/observation-batches/b6cef06c-71a5-4f4e-b23a-4f9b6cc8499c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs?batch_id=b6cef06c-71a5-4f4e-b23a-4f9b6cc8499c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64691 - "GET /api/v1/geo/observation-runs/a4318666-0ef6-486e-99e6-c675c707d991/manual-entry HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "GET /api/v1/geo/observation-batches/b6cef06c-71a5-4f4e-b23a-4f9b6cc8499c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/files/upload-intents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "POST /api/v1/files/upload-intents HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/files/8419d804-6c4b-4df0-940f-a7def7c4facc/content HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "PUT /api/v1/files/8419d804-6c4b-4df0-940f-a7def7c4facc/content HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/files/8419d804-6c4b-4df0-940f-a7def7c4facc/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "POST /api/v1/files/8419d804-6c4b-4df0-940f-a7def7c4facc/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/files/8419d804-6c4b-4df0-940f-a7def7c4facc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/geo/observation-runs/a4318666-0ef6-486e-99e6-c675c707d991/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "PUT /api/v1/geo/observation-runs/a4318666-0ef6-486e-99e6-c675c707d991/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/geo/observation-runs/a4318666-0ef6-486e-99e6-c675c707d991/manual-submit HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "POST /api/v1/geo/observation-runs/a4318666-0ef6-486e-99e6-c675c707d991/manual-submit HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64691 - "GET /api/v1/geo/observation-batches/b6cef06c-71a5-4f4e-b23a-4f9b6cc8499c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/a4318666-0ef6-486e-99e6-c675c707d991 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "GET /api/v1/geo/observation-runs/a4318666-0ef6-486e-99e6-c675c707d991 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/a4318666-0ef6-486e-99e6-c675c707d991 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/a4318666-0ef6-486e-99e6-c675c707d991 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/a4318666-0ef6-486e-99e6-c675c707d991 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/a4318666-0ef6-486e-99e6-c675c707d991 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/a4318666-0ef6-486e-99e6-c675c707d991 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/a4318666-0ef6-486e-99e6-c675c707d991 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/a4318666-0ef6-486e-99e6-c675c707d991 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/a4318666-0ef6-486e-99e6-c675c707d991 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "GET /api/v1/geo/observation-runs/cd39840e-07eb-4799-a824-e5757b0b29c7/manual-entry HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64691 - "GET /api/v1/geo/observation-batches/b6cef06c-71a5-4f4e-b23a-4f9b6cc8499c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64691 - "POST /api/v1/files/upload-intents HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/files/21946707-b7d0-4a95-a8ee-b7afd8828cff/content HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64691 - "PUT /api/v1/files/21946707-b7d0-4a95-a8ee-b7afd8828cff/content HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/files/21946707-b7d0-4a95-a8ee-b7afd8828cff/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64691 - "POST /api/v1/files/21946707-b7d0-4a95-a8ee-b7afd8828cff/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/files/21946707-b7d0-4a95-a8ee-b7afd8828cff HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/geo/observation-runs/cd39840e-07eb-4799-a824-e5757b0b29c7/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64691 - "PUT /api/v1/geo/observation-runs/cd39840e-07eb-4799-a824-e5757b0b29c7/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/geo/observation-runs/cd39840e-07eb-4799-a824-e5757b0b29c7/manual-submit HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64691 - "POST /api/v1/geo/observation-runs/cd39840e-07eb-4799-a824-e5757b0b29c7/manual-submit HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64666 - "GET /api/v1/geo/observation-batches/b6cef06c-71a5-4f4e-b23a-4f9b6cc8499c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64691 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "GET /api/v1/geo/observation-runs/cd39840e-07eb-4799-a824-e5757b0b29c7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cd39840e-07eb-4799-a824-e5757b0b29c7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cd39840e-07eb-4799-a824-e5757b0b29c7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cd39840e-07eb-4799-a824-e5757b0b29c7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cd39840e-07eb-4799-a824-e5757b0b29c7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cd39840e-07eb-4799-a824-e5757b0b29c7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cd39840e-07eb-4799-a824-e5757b0b29c7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cd39840e-07eb-4799-a824-e5757b0b29c7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cd39840e-07eb-4799-a824-e5757b0b29c7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cd39840e-07eb-4799-a824-e5757b0b29c7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64691 - "GET /api/v1/geo/observation-runs/c5decf64-edba-4ece-8df8-05df96165077/manual-entry HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "GET /api/v1/geo/observation-batches/b6cef06c-71a5-4f4e-b23a-4f9b6cc8499c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "POST /api/v1/files/upload-intents HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/files/d65579b6-81fd-4cea-9a73-310ffaf87d9e/content HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "PUT /api/v1/files/d65579b6-81fd-4cea-9a73-310ffaf87d9e/content HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/files/d65579b6-81fd-4cea-9a73-310ffaf87d9e/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "POST /api/v1/files/d65579b6-81fd-4cea-9a73-310ffaf87d9e/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/files/d65579b6-81fd-4cea-9a73-310ffaf87d9e HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/geo/observation-runs/c5decf64-edba-4ece-8df8-05df96165077/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "PUT /api/v1/geo/observation-runs/c5decf64-edba-4ece-8df8-05df96165077/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64656 - "OPTIONS /api/v1/geo/observation-runs/c5decf64-edba-4ece-8df8-05df96165077/manual-submit HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "POST /api/v1/geo/observation-runs/c5decf64-edba-4ece-8df8-05df96165077/manual-submit HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64691 - "GET /api/v1/geo/observation-batches/b6cef06c-71a5-4f4e-b23a-4f9b6cc8499c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64666 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c5decf64-edba-4ece-8df8-05df96165077 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "GET /api/v1/geo/observation-runs/c5decf64-edba-4ece-8df8-05df96165077 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c5decf64-edba-4ece-8df8-05df96165077 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c5decf64-edba-4ece-8df8-05df96165077 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c5decf64-edba-4ece-8df8-05df96165077 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c5decf64-edba-4ece-8df8-05df96165077 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c5decf64-edba-4ece-8df8-05df96165077 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c5decf64-edba-4ece-8df8-05df96165077 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "GET /api/v1/geo/observation-batches/b6cef06c-71a5-4f4e-b23a-4f9b6cc8499c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64739 - "GET /api/v1/geo/observation-runs/c5decf64-edba-4ece-8df8-05df96165077 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c5decf64-edba-4ece-8df8-05df96165077 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c5decf64-edba-4ece-8df8-05df96165077 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c5decf64-edba-4ece-8df8-05df96165077 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64739 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64739 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/observation-runs/cea7ee22-a13c-433c-b8cd-c9cf573dbe62/manual-entry HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "GET /api/v1/geo/observation-batches/b6cef06c-71a5-4f4e-b23a-4f9b6cc8499c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "POST /api/v1/files/upload-intents HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64741 - "OPTIONS /api/v1/files/25e80110-50bf-4db7-b1af-79064730c10d/content HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "PUT /api/v1/files/25e80110-50bf-4db7-b1af-79064730c10d/content HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:64741 - "OPTIONS /api/v1/files/25e80110-50bf-4db7-b1af-79064730c10d/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "POST /api/v1/files/25e80110-50bf-4db7-b1af-79064730c10d/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/files/25e80110-50bf-4db7-b1af-79064730c10d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64741 - "OPTIONS /api/v1/geo/observation-runs/cea7ee22-a13c-433c-b8cd-c9cf573dbe62/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "PUT /api/v1/geo/observation-runs/cea7ee22-a13c-433c-b8cd-c9cf573dbe62/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64741 - "OPTIONS /api/v1/geo/observation-runs/cea7ee22-a13c-433c-b8cd-c9cf573dbe62/manual-submit HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "POST /api/v1/geo/observation-runs/cea7ee22-a13c-433c-b8cd-c9cf573dbe62/manual-submit HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/observation-batches/b6cef06c-71a5-4f4e-b23a-4f9b6cc8499c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cea7ee22-a13c-433c-b8cd-c9cf573dbe62 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64739 - "GET /api/v1/geo/observation-runs/cea7ee22-a13c-433c-b8cd-c9cf573dbe62 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cea7ee22-a13c-433c-b8cd-c9cf573dbe62 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cea7ee22-a13c-433c-b8cd-c9cf573dbe62 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cea7ee22-a13c-433c-b8cd-c9cf573dbe62 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cea7ee22-a13c-433c-b8cd-c9cf573dbe62 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cea7ee22-a13c-433c-b8cd-c9cf573dbe62 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cea7ee22-a13c-433c-b8cd-c9cf573dbe62 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cea7ee22-a13c-433c-b8cd-c9cf573dbe62 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cea7ee22-a13c-433c-b8cd-c9cf573dbe62 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64739 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64739 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64739 - "GET /api/v1/geo/observation-runs/aab9cad1-4324-42f7-9fa5-52dd3f58953f/manual-entry HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "GET /api/v1/geo/observation-batches/b6cef06c-71a5-4f4e-b23a-4f9b6cc8499c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "POST /api/v1/files/upload-intents HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64741 - "OPTIONS /api/v1/files/a163b1f7-6af3-43e6-9f77-c7da61c4ae7e/content HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "PUT /api/v1/files/a163b1f7-6af3-43e6-9f77-c7da61c4ae7e/content HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:64741 - "OPTIONS /api/v1/files/a163b1f7-6af3-43e6-9f77-c7da61c4ae7e/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "POST /api/v1/files/a163b1f7-6af3-43e6-9f77-c7da61c4ae7e/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/files/a163b1f7-6af3-43e6-9f77-c7da61c4ae7e HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64741 - "OPTIONS /api/v1/geo/observation-runs/aab9cad1-4324-42f7-9fa5-52dd3f58953f/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "PUT /api/v1/geo/observation-runs/aab9cad1-4324-42f7-9fa5-52dd3f58953f/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64741 - "OPTIONS /api/v1/geo/observation-runs/aab9cad1-4324-42f7-9fa5-52dd3f58953f/manual-submit HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "POST /api/v1/geo/observation-runs/aab9cad1-4324-42f7-9fa5-52dd3f58953f/manual-submit HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64739 - "GET /api/v1/geo/observation-batches/b6cef06c-71a5-4f4e-b23a-4f9b6cc8499c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64692 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/aab9cad1-4324-42f7-9fa5-52dd3f58953f HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/observation-runs/aab9cad1-4324-42f7-9fa5-52dd3f58953f HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/aab9cad1-4324-42f7-9fa5-52dd3f58953f HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/aab9cad1-4324-42f7-9fa5-52dd3f58953f HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/aab9cad1-4324-42f7-9fa5-52dd3f58953f HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/aab9cad1-4324-42f7-9fa5-52dd3f58953f HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/aab9cad1-4324-42f7-9fa5-52dd3f58953f HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/aab9cad1-4324-42f7-9fa5-52dd3f58953f HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/aab9cad1-4324-42f7-9fa5-52dd3f58953f HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/aab9cad1-4324-42f7-9fa5-52dd3f58953f HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-batches/b6cef06c-71a5-4f4e-b23a-4f9b6cc8499c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/observation-batches/b6cef06c-71a5-4f4e-b23a-4f9b6cc8499c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/geo/observation-runs/aab9cad1-4324-42f7-9fa5-52dd3f58953f HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a/comparison HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/geo/opportunities?page=1&page_size=20&sort=PRIORITY_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a?source_page=1&source_page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a/acknowledge HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "POST /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a/acknowledge HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a/comparison HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/opportunities?page=1&page_size=20&sort=PRIORITY_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a?source_page=1&source_page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "POST /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a/actions/content-task HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/content-tasks/8a1796b9-b1d8-4c9a-91f1-ca81dbaf06f2/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/content-tasks/8a1796b9-b1d8-4c9a-91f1-ca81dbaf06f2/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/content-tasks/8a1796b9-b1d8-4c9a-91f1-ca81dbaf06f2/manual-versions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "POST /api/v1/content-tasks/8a1796b9-b1d8-4c9a-91f1-ca81dbaf06f2/manual-versions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64777 - "GET /api/v1/content-tasks/8a1796b9-b1d8-4c9a-91f1-ca81dbaf06f2/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/content-versions/7af8e443-f167-43c8-a599-110b26320cc6/submit-review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "POST /api/v1/content-versions/7af8e443-f167-43c8-a599-110b26320cc6/submit-review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/content-tasks/8a1796b9-b1d8-4c9a-91f1-ca81dbaf06f2/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/content-tasks/8a1796b9-b1d8-4c9a-91f1-ca81dbaf06f2/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/content-tasks/8a1796b9-b1d8-4c9a-91f1-ca81dbaf06f2/review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/content-versions/7af8e443-f167-43c8-a599-110b26320cc6/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "POST /api/v1/content-versions/7af8e443-f167-43c8-a599-110b26320cc6/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/content-tasks/8a1796b9-b1d8-4c9a-91f1-ca81dbaf06f2/review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/content-tasks/8a1796b9-b1d8-4c9a-91f1-ca81dbaf06f2/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/publication-works?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/publication-workbench-summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/publication-ready-items HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/publication-works HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "POST /api/v1/publication-works HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64780 - "GET /api/v1/publication-workbench-summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/publication-works?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/publication-ready-items HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/publication-works/462eba9d-f8ec-45b1-83cb-1103fddddf6a/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/publication-works/462eba9d-f8ec-45b1-83cb-1103fddddf6a/result HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "PUT /api/v1/publication-works/462eba9d-f8ec-45b1-83cb-1103fddddf6a/result HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/publication-works/462eba9d-f8ec-45b1-83cb-1103fddddf6a/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/publication-works/462eba9d-f8ec-45b1-83cb-1103fddddf6a/verifications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "POST /api/v1/publication-works/462eba9d-f8ec-45b1-83cb-1103fddddf6a/verifications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/publication-works/462eba9d-f8ec-45b1-83cb-1103fddddf6a/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/content-tasks/8a1796b9-b1d8-4c9a-91f1-ca81dbaf06f2/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/published-articles/462eba9d-f8ec-45b1-83cb-1103fddddf6a HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a/retest-preview?baseline_batch_id=b6cef06c-71a5-4f4e-b23a-4f9b6cc8499c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "POST /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a/retest HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs?batch_id=4ba1a2d0-acf1-4560-b0e9-dc5f87d0f9e6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64777 - "GET /api/v1/geo/observation-runs/030c27ca-74e6-4742-87f5-f3aff2e53db5/manual-entry HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/geo/observation-batches/4ba1a2d0-acf1-4560-b0e9-dc5f87d0f9e6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "POST /api/v1/files/upload-intents HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/files/7c76b025-d921-47e7-906d-1b43944c1043/content HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "PUT /api/v1/files/7c76b025-d921-47e7-906d-1b43944c1043/content HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/files/7c76b025-d921-47e7-906d-1b43944c1043/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "POST /api/v1/files/7c76b025-d921-47e7-906d-1b43944c1043/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/files/7c76b025-d921-47e7-906d-1b43944c1043 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/geo/observation-runs/030c27ca-74e6-4742-87f5-f3aff2e53db5/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "PUT /api/v1/geo/observation-runs/030c27ca-74e6-4742-87f5-f3aff2e53db5/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/geo/observation-runs/030c27ca-74e6-4742-87f5-f3aff2e53db5/manual-submit HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "POST /api/v1/geo/observation-runs/030c27ca-74e6-4742-87f5-f3aff2e53db5/manual-submit HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64777 - "GET /api/v1/geo/observation-batches/4ba1a2d0-acf1-4560-b0e9-dc5f87d0f9e6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/observation-runs/030c27ca-74e6-4742-87f5-f3aff2e53db5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/030c27ca-74e6-4742-87f5-f3aff2e53db5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/030c27ca-74e6-4742-87f5-f3aff2e53db5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/030c27ca-74e6-4742-87f5-f3aff2e53db5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/030c27ca-74e6-4742-87f5-f3aff2e53db5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/030c27ca-74e6-4742-87f5-f3aff2e53db5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/030c27ca-74e6-4742-87f5-f3aff2e53db5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/030c27ca-74e6-4742-87f5-f3aff2e53db5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/030c27ca-74e6-4742-87f5-f3aff2e53db5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/030c27ca-74e6-4742-87f5-f3aff2e53db5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/observation-runs/c4ffef32-10f4-4e70-8f96-6f34e5d8fd4d/manual-entry HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/geo/observation-batches/4ba1a2d0-acf1-4560-b0e9-dc5f87d0f9e6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "POST /api/v1/files/upload-intents HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/files/189ad26d-768c-42e0-a111-d56c7cd03c08/content HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "PUT /api/v1/files/189ad26d-768c-42e0-a111-d56c7cd03c08/content HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/files/189ad26d-768c-42e0-a111-d56c7cd03c08/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "POST /api/v1/files/189ad26d-768c-42e0-a111-d56c7cd03c08/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/files/189ad26d-768c-42e0-a111-d56c7cd03c08 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/geo/observation-runs/c4ffef32-10f4-4e70-8f96-6f34e5d8fd4d/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "PUT /api/v1/geo/observation-runs/c4ffef32-10f4-4e70-8f96-6f34e5d8fd4d/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/geo/observation-runs/c4ffef32-10f4-4e70-8f96-6f34e5d8fd4d/manual-submit HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "POST /api/v1/geo/observation-runs/c4ffef32-10f4-4e70-8f96-6f34e5d8fd4d/manual-submit HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/observation-batches/4ba1a2d0-acf1-4560-b0e9-dc5f87d0f9e6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/observation-runs/c4ffef32-10f4-4e70-8f96-6f34e5d8fd4d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c4ffef32-10f4-4e70-8f96-6f34e5d8fd4d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c4ffef32-10f4-4e70-8f96-6f34e5d8fd4d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c4ffef32-10f4-4e70-8f96-6f34e5d8fd4d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c4ffef32-10f4-4e70-8f96-6f34e5d8fd4d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c4ffef32-10f4-4e70-8f96-6f34e5d8fd4d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c4ffef32-10f4-4e70-8f96-6f34e5d8fd4d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c4ffef32-10f4-4e70-8f96-6f34e5d8fd4d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c4ffef32-10f4-4e70-8f96-6f34e5d8fd4d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c4ffef32-10f4-4e70-8f96-6f34e5d8fd4d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/geo/observation-batches/4ba1a2d0-acf1-4560-b0e9-dc5f87d0f9e6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/observation-runs/dd6df9aa-ca39-4711-bbae-7cefc9a92110/manual-entry HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "POST /api/v1/files/upload-intents HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/files/de760c30-faef-4993-9873-30cfa9a6af24/content HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "PUT /api/v1/files/de760c30-faef-4993-9873-30cfa9a6af24/content HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/files/de760c30-faef-4993-9873-30cfa9a6af24/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "POST /api/v1/files/de760c30-faef-4993-9873-30cfa9a6af24/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/files/de760c30-faef-4993-9873-30cfa9a6af24 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/geo/observation-runs/dd6df9aa-ca39-4711-bbae-7cefc9a92110/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "PUT /api/v1/geo/observation-runs/dd6df9aa-ca39-4711-bbae-7cefc9a92110/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/geo/observation-runs/dd6df9aa-ca39-4711-bbae-7cefc9a92110/manual-submit HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "POST /api/v1/geo/observation-runs/dd6df9aa-ca39-4711-bbae-7cefc9a92110/manual-submit HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64780 - "GET /api/v1/geo/observation-batches/4ba1a2d0-acf1-4560-b0e9-dc5f87d0f9e6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/dd6df9aa-ca39-4711-bbae-7cefc9a92110 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64832 - "GET /api/v1/geo/observation-runs/dd6df9aa-ca39-4711-bbae-7cefc9a92110 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/dd6df9aa-ca39-4711-bbae-7cefc9a92110 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/dd6df9aa-ca39-4711-bbae-7cefc9a92110 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/dd6df9aa-ca39-4711-bbae-7cefc9a92110 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/dd6df9aa-ca39-4711-bbae-7cefc9a92110 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/dd6df9aa-ca39-4711-bbae-7cefc9a92110 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/dd6df9aa-ca39-4711-bbae-7cefc9a92110 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/dd6df9aa-ca39-4711-bbae-7cefc9a92110 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/dd6df9aa-ca39-4711-bbae-7cefc9a92110 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64832 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64832 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64832 - "GET /api/v1/geo/observation-runs/f170b881-84f3-4a81-88c0-5f2fc39a55e5/manual-entry HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/observation-batches/4ba1a2d0-acf1-4560-b0e9-dc5f87d0f9e6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "POST /api/v1/files/upload-intents HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/files/b1e7e12c-e5c3-4a57-ae12-73f7978371e8/content HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "PUT /api/v1/files/b1e7e12c-e5c3-4a57-ae12-73f7978371e8/content HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/files/b1e7e12c-e5c3-4a57-ae12-73f7978371e8/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "POST /api/v1/files/b1e7e12c-e5c3-4a57-ae12-73f7978371e8/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/files/b1e7e12c-e5c3-4a57-ae12-73f7978371e8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/geo/observation-runs/f170b881-84f3-4a81-88c0-5f2fc39a55e5/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "PUT /api/v1/geo/observation-runs/f170b881-84f3-4a81-88c0-5f2fc39a55e5/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/geo/observation-runs/f170b881-84f3-4a81-88c0-5f2fc39a55e5/manual-submit HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "POST /api/v1/geo/observation-runs/f170b881-84f3-4a81-88c0-5f2fc39a55e5/manual-submit HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64832 - "GET /api/v1/geo/observation-batches/4ba1a2d0-acf1-4560-b0e9-dc5f87d0f9e6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/f170b881-84f3-4a81-88c0-5f2fc39a55e5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/geo/observation-runs/f170b881-84f3-4a81-88c0-5f2fc39a55e5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/f170b881-84f3-4a81-88c0-5f2fc39a55e5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/f170b881-84f3-4a81-88c0-5f2fc39a55e5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/f170b881-84f3-4a81-88c0-5f2fc39a55e5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/f170b881-84f3-4a81-88c0-5f2fc39a55e5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/f170b881-84f3-4a81-88c0-5f2fc39a55e5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/f170b881-84f3-4a81-88c0-5f2fc39a55e5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/f170b881-84f3-4a81-88c0-5f2fc39a55e5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/f170b881-84f3-4a81-88c0-5f2fc39a55e5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/geo/observation-runs/25e64524-5c36-4b2c-9a62-b5b519e80bd9/manual-entry HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/observation-batches/4ba1a2d0-acf1-4560-b0e9-dc5f87d0f9e6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "POST /api/v1/files/upload-intents HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/files/5de78edc-8214-46b9-b23c-6d00c71a7ba2/content HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "PUT /api/v1/files/5de78edc-8214-46b9-b23c-6d00c71a7ba2/content HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/files/5de78edc-8214-46b9-b23c-6d00c71a7ba2/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "POST /api/v1/files/5de78edc-8214-46b9-b23c-6d00c71a7ba2/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/files/5de78edc-8214-46b9-b23c-6d00c71a7ba2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/geo/observation-runs/25e64524-5c36-4b2c-9a62-b5b519e80bd9/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "PUT /api/v1/geo/observation-runs/25e64524-5c36-4b2c-9a62-b5b519e80bd9/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/geo/observation-runs/25e64524-5c36-4b2c-9a62-b5b519e80bd9/manual-submit HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "POST /api/v1/geo/observation-runs/25e64524-5c36-4b2c-9a62-b5b519e80bd9/manual-submit HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64780 - "GET /api/v1/geo/observation-batches/4ba1a2d0-acf1-4560-b0e9-dc5f87d0f9e6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/25e64524-5c36-4b2c-9a62-b5b519e80bd9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64832 - "GET /api/v1/geo/observation-runs/25e64524-5c36-4b2c-9a62-b5b519e80bd9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/25e64524-5c36-4b2c-9a62-b5b519e80bd9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/25e64524-5c36-4b2c-9a62-b5b519e80bd9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/25e64524-5c36-4b2c-9a62-b5b519e80bd9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/25e64524-5c36-4b2c-9a62-b5b519e80bd9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/25e64524-5c36-4b2c-9a62-b5b519e80bd9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/25e64524-5c36-4b2c-9a62-b5b519e80bd9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/25e64524-5c36-4b2c-9a62-b5b519e80bd9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/25e64524-5c36-4b2c-9a62-b5b519e80bd9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-batches/4ba1a2d0-acf1-4560-b0e9-dc5f87d0f9e6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a/comparison?retest_batch_id=4ba1a2d0-acf1-4560-b0e9-dc5f87d0f9e6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64832 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64832 - "GET /api/v1/geo/opportunities?page=1&page_size=20&sort=PRIORITY_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a?source_page=1&source_page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a/comparison?retest_batch_id=4ba1a2d0-acf1-4560-b0e9-dc5f87d0f9e6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64785 - "OPTIONS /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a/resolve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "POST /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a/resolve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/geo/opportunities?page=1&page_size=20&sort=PRIORITY_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a?source_page=1&source_page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64832 - "GET /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a/comparison?retest_batch_id=4ba1a2d0-acf1-4560-b0e9-dc5f87d0f9e6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64832 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64832 - "GET /api/v1/geo/opportunities?page=1&page_size=20&sort=PRIORITY_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a?source_page=1&source_page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a/comparison?retest_batch_id=4ba1a2d0-acf1-4560-b0e9-dc5f87d0f9e6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/opportunities/40e78f29-9003-4c52-af56-65aa16b9b37a/comparison?retest_batch_id=4ba1a2d0-acf1-4560-b0e9-dc5f87d0f9e6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/a4318666-0ef6-486e-99e6-c675c707d991 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cd39840e-07eb-4799-a824-e5757b0b29c7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c5decf64-edba-4ece-8df8-05df96165077 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/cea7ee22-a13c-433c-b8cd-c9cf573dbe62 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/aab9cad1-4324-42f7-9fa5-52dd3f58953f HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/030c27ca-74e6-4742-87f5-f3aff2e53db5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/c4ffef32-10f4-4e70-8f96-6f34e5d8fd4d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/dd6df9aa-ca39-4711-bbae-7cefc9a92110 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/f170b881-84f3-4a81-88c0-5f2fc39a55e5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/25e64524-5c36-4b2c-9a62-b5b519e80bd9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/fact-versions/32cb46f5-3ee1-43ef-8b92-6a5c698e93a9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/audit-logs?target_type=GeoOpportunity&target_id=40e78f29-9003-4c52-af56-65aa16b9b37a&page_size=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/audit-logs/4c2318f2-a89a-4e78-b44e-6d085b31e513 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/audit-logs?page=1&page_size=20&created_from=2026-10-02T21%3A17%3A24.128Z&created_to=2026-10-05T21%3A17%3A24.128Z&action=geo_opportunity.opened&target_type=GeoOpportunity&target_id=40e78f29-9003-4c52-af56-65aa16b9b37a HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/audit-logs/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64832 - "GET /api/v1/audit-logs/4c2318f2-a89a-4e78-b44e-6d085b31e513 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/audit-logs/752c629d-80b9-4b4a-8367-e648c5d7b50e HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64832 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64832 - "GET /api/v1/audit-logs?page=1&page_size=20&created_from=2026-10-02T21%3A17%3A24.732Z&created_to=2026-10-05T21%3A17%3A24.732Z&action=geo_opportunity.acknowledged&target_type=GeoOpportunity&target_id=40e78f29-9003-4c52-af56-65aa16b9b37a HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/audit-logs/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/audit-logs/752c629d-80b9-4b4a-8367-e648c5d7b50e HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/audit-logs/d6c76788-638a-4a42-bba9-a9ba3dd805d5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/audit-logs/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/audit-logs?page=1&page_size=20&created_from=2026-10-02T21%3A17%3A25.334Z&created_to=2026-10-05T21%3A17%3A25.334Z&action=geo_opportunity.action_linked&target_type=GeoOpportunity&target_id=40e78f29-9003-4c52-af56-65aa16b9b37a HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/audit-logs/d6c76788-638a-4a42-bba9-a9ba3dd805d5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/audit-logs/adaf0176-80f3-43d9-9df6-50420ddfcfc8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64738 - "GET /api/v1/audit-logs?page=1&page_size=20&created_from=2026-10-02T21%3A17%3A25.932Z&created_to=2026-10-05T21%3A17%3A25.932Z&action=geo.retest.created&target_type=GeoOpportunity&target_id=40e78f29-9003-4c52-af56-65aa16b9b37a HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/audit-logs/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64832 - "GET /api/v1/audit-logs/adaf0176-80f3-43d9-9df6-50420ddfcfc8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/audit-logs/e1473b4c-bf48-478a-beec-977ae9b3afd6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64832 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64832 - "GET /api/v1/audit-logs?page=1&page_size=20&created_from=2026-10-02T21%3A17%3A26.544Z&created_to=2026-10-05T21%3A17%3A26.544Z&action=geo_opportunity.resolved&target_type=GeoOpportunity&target_id=40e78f29-9003-4c52-af56-65aa16b9b37a HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64780 - "GET /api/v1/audit-logs/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64832 - "GET /api/v1/audit-logs/e1473b4c-bf48-478a-beec-977ae9b3afd6 HTTP/1.1" 200 OK
+  ✓  1 [foundation-desktop] › tests/e2e/geo-loop-real-stack.spec.ts:24:1 › 五次覆盖缺口 → 确认与内容发布 → 五次严格复测恢复 → 人工显式解决 → 历史与审计保留 (1.1m)
+INFO:     127.0.0.1:64681 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64681 - "GET /api/v1/products/34ec0fb1-1311-4838-8933-e4359b7cca40/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "PUT /api/v1/products/34ec0fb1-1311-4838-8933-e4359b7cca40/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "POST /api/v1/products/34ec0fb1-1311-4838-8933-e4359b7cca40/fact-review-submissions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64681 - "POST /api/v1/fact-versions/8ecea018-6631-4d35-a4f7-7abae7f70047/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "POST /api/v1/geo/subjects HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64681 - "POST /api/v1/geo/engine-surfaces HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64681 - "POST /api/v1/geo/engine-surfaces/79e940a4-3f7d-4f8e-907a-7ab58db7022d/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "POST /api/v1/geo/collection-profiles HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64681 - "POST /api/v1/geo/collection-profiles/533741a0-6342-4021-a10a-7b7b680a613a/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "POST /api/v1/query-topics HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64681 - "POST /api/v1/geo/query-topics/037759fb-665b-44b9-a7bf-734056296fed/prompt-variants HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64681 - "POST /api/v1/geo/monitoring-plans HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64889 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64889 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64889 - "GET /api/v1/geo/monitoring-plans?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64889 - "GET /api/v1/geo/monitoring-plans?q=GEO508%20%E5%A4%8D%E6%A0%B8%2057f8cfc7&page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64895 - "OPTIONS /api/v1/geo/monitoring-plans/b039dd6b-507a-4d4b-9f24-fab82e52f9d5/run HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64889 - "POST /api/v1/geo/monitoring-plans/b039dd6b-507a-4d4b-9f24-fab82e52f9d5/run HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64889 - "GET /api/v1/geo/observation-batches?sort=CREATED_DESC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64897 - "GET /api/v1/geo/observation-runs?sort=CREATED_DESC&page=1&page_size=20&batch_id=e1e830c6-6b18-4faf-a12d-0d09fdd4bcbd&latest_only=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64889 - "GET /api/v1/geo/observation-batches/e1e830c6-6b18-4faf-a12d-0d09fdd4bcbd HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64889 - "GET /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64889 - "GET /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159/manual-entry HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64895 - "OPTIONS /api/v1/files/upload-intents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64889 - "POST /api/v1/files/upload-intents HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64895 - "OPTIONS /api/v1/files/1ebc67b4-f188-4e4b-9af6-287484e19e97/content HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64889 - "PUT /api/v1/files/1ebc67b4-f188-4e4b-9af6-287484e19e97/content HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:64895 - "OPTIONS /api/v1/files/1ebc67b4-f188-4e4b-9af6-287484e19e97/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64889 - "POST /api/v1/files/1ebc67b4-f188-4e4b-9af6-287484e19e97/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64895 - "OPTIONS /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64889 - "PUT /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159/manual-draft HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64895 - "OPTIONS /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159/manual-submit HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64889 - "POST /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159/manual-submit HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64897 - "GET /api/v1/geo/observation-batches/e1e830c6-6b18-4faf-a12d-0d09fdd4bcbd HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64889 - "GET /api/v1/geo/observation-runs?sort=CREATED_DESC&page=1&page_size=20&batch_id=e1e830c6-6b18-4faf-a12d-0d09fdd4bcbd&latest_only=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64903 - "GET /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64920 - "GET /api/v1/geo/observation-runs?sort=CREATED_DESC&page=1&page_size=20&batch_id=e1e830c6-6b18-4faf-a12d-0d09fdd4bcbd&latest_only=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64903 - "GET /api/v1/geo/observation-batches/e1e830c6-6b18-4faf-a12d-0d09fdd4bcbd HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64920 - "GET /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64922 - "OPTIONS /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159/review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64920 - "POST /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159/review HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64923 - "GET /api/v1/geo/observation-batches/e1e830c6-6b18-4faf-a12d-0d09fdd4bcbd HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64920 - "GET /api/v1/geo/observation-runs?sort=CREATED_DESC&page=1&page_size=20&batch_id=e1e830c6-6b18-4faf-a12d-0d09fdd4bcbd&latest_only=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64903 - "GET /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64903 - "POST /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159/review HTTP/1.1" 201 Created
+INFO:     127.0.0.1:64923 - "GET /api/v1/geo/observation-batches/e1e830c6-6b18-4faf-a12d-0d09fdd4bcbd HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64903 - "GET /api/v1/geo/observation-runs?sort=CREATED_DESC&page=1&page_size=20&batch_id=e1e830c6-6b18-4faf-a12d-0d09fdd4bcbd&latest_only=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64920 - "GET /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64681 - "GET /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64920 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64920 - "GET /api/v1/geo/observation-runs?sort=CREATED_DESC&page=1&page_size=20&batch_id=e1e830c6-6b18-4faf-a12d-0d09fdd4bcbd&latest_only=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64920 - "GET /api/v1/geo/observation-batches/e1e830c6-6b18-4faf-a12d-0d09fdd4bcbd HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64903 - "GET /api/v1/geo/observation-runs/0f1593e9-6d4a-431b-a4ed-61e5171d8159 HTTP/1.1" 200 OK
+  ✓  2 [foundation-desktop] › tests/e2e/geo-review-real-stack.spec.ts:20:1 › 严重声明禁止默认确认；人工确认与修正追加且原文、机器结果和历史可追溯 (8.4s)
+
+  2 passed (1.3m)
+E2E_SECRET_SCAN status=clean
+E2E_RESULT playwright=0 secret_scan=0
+
+worker: Warm shutdown (MainProcess)
+E2E_CLEANUP redis_db=13 keys=1 status=deleted
+E2E_CLEANUP ports=8000,9001,4174,19009 status=released
+E2E_CLEANUP database=partsignal_e2e_20261005_affe1d2236b18a58b70d64b203bf00f6 status=dropped
+E2E_CLEANUP storage=/var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T//partsignal-e2e-storage.PuIDL8 status=removed
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+INFO  [alembic.runtime.migration] Running upgrade 0050_geo_answer_evidence -> 0051_geo_manual_collection, 人工草稿和不可变提交身份；不回填或修改已提交证据。
+INFO  [alembic.runtime.migration] Running upgrade 0051_geo_manual_collection -> 0052_geo_profile_tests, API Profile 当前诊断资格与依赖失效；不修改业务历史。
+INFO  [alembic.runtime.migration] Running upgrade 0052_geo_profile_tests -> 0053_geo_collection_admission, 加法保存预算预留与发送限速事实，历史 Run 和原始证据保持不变。
+INFO  [alembic.runtime.migration] Running upgrade 0053_geo_collection_admission -> 0054_geo_analysis_contract, 分析输入/结果、追加复核与限定 current pointer；不回填历史证据。
+INFO  [alembic.runtime.migration] Running upgrade 0054_geo_analysis_contract -> 0055_geo_analysis_worker, 分析执行租约与引用结果；不回填或重写已有 revision。
+INFO  [alembic.runtime.migration] Running upgrade 0055_geo_analysis_worker -> 0056_geo_run_review, 受控人工复核发布；历史机器结果与Review不回填、不改写。
+INFO  [alembic.runtime.migration] Running upgrade 0056_geo_run_review -> 0057_geo_insight_indexes, GEO-607：洞察日期候选索引，不改变历史数据或业务约束。
+INFO  [alembic.runtime.migration] Running upgrade 0057_geo_insight_indexes -> 0058_geo_rule_configuration, GEO-701：当前规则配置和不可变 revision 历史，不回填既有评估。
+INFO  [alembic.runtime.migration] Running upgrade 0058_geo_rule_configuration -> 0059_geo_opportunities, GEO-702：机会、追加来源/行动/评估及真实 Batch 来源外键。
+INFO  [alembic.runtime.migration] Running upgrade 0059_geo_opportunities -> 0060_geo_opportunity_actions, GEO-704：行动来源快照、幂等回执与目标生命周期保护。
+INFO  [alembic.runtime.migration] Running upgrade 0060_geo_opportunity_actions -> 0061_geo_retests, GEO-705：严格复测冻结基线、幂等回执和提交时矩阵验证。
+INFO  [alembic.runtime.migration] Running upgrade 0061_geo_retests -> 0062_geo_opportunity_decisions, GEO-706：加法保存显式处理和不可变比较证据，不回填历史。
+INFO  [alembic.runtime.migration] Running upgrade 0062_geo_opportunity_decisions -> 0063_geo_browser_sessions, GEO-802：仅增加受保护会话引用、撤销事实与审计动作。
+INFO  [alembic.runtime.migration] Running upgrade 0063_geo_browser_sessions -> 0064_geo_retention, GEO 终态草稿清理墓碑；不改已提交证据、不回填历史。
+INFO  [alembic.runtime.migration] Running upgrade 0064_geo_retention -> 0065_geo_observability, GEO有限运行健康元数据；加法迁移，不回填或修改业务历史。
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+INFO:     Started server process [47181]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:9001 (Press CTRL+C to quit)
+INFO:     Started server process [47180]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:19009 (Press CTRL+C to quit)
+INFO:     Started server process [47179]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+(node:47218) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [47181]
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [47180]
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [47179]

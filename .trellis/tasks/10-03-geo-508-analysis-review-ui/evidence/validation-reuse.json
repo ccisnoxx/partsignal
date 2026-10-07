@@ -1,0 +1,49 @@
+{
+  "status": "reused_checks_confirmed",
+  "verify_command": [
+    "make",
+    "verify",
+    "-o",
+    "contract-check",
+    "-o",
+    "test-integration",
+    "-o",
+    "build-frontend",
+    "-o",
+    "e2e",
+    "COMPOSE=docker compose -p partsignal-geo508-validation -f .trellis/tasks/10-03-geo-508-analysis-review-ui/evidence/validation-compose.yaml"
+  ],
+  "reused": {
+    "contract-check": {
+      "source": "make-verify.log",
+      "evidence": "首轮合同检查通过；253个受保护文件与任务前像一致"
+    },
+    "test-integration": {
+      "source": "make-verify.log",
+      "passed": 973,
+      "evidence": "后续只改tests/geo_e2e_runtime.py；integration无此模块调用，业务服务/迁移/用例/环境输入未变"
+    },
+    "e2e": {
+      "source": "make-e2e-candidate.json",
+      "exit_code": 0,
+      "canonical_passed": 27,
+      "geo_modes_passed": 3,
+      "ui_matrix_passed": 498,
+      "ui_matrix_expected_skipped": 60,
+      "evidence": "最终完整make e2e退出0；敏感扫描和精确清理通过"
+    },
+    "build-frontend": {
+      "source": "make-verify.log",
+      "evidence": "首轮前端Docker构建成功；之后前端源码/依赖/配置未变"
+    }
+  },
+  "rerun": [
+    "lint",
+    "typecheck",
+    "test-unit",
+    "backend build",
+    "test-deploy-scripts",
+    "compose development/prod config"
+  ],
+  "reason": "复用未失效的通过证据；首轮make verify非零保留，不假称完整无参数重跑；backend Docker COPY包含测试入口，本轮仍重新构建后端，只有前端构建复用"
+}

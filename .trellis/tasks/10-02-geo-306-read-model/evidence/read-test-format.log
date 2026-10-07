@@ -1,0 +1,105 @@
+E501 Line too long (145 > 100)
+  --> backend/tests/integration/test_geo_read_consistency.py:34:101
+   |
+32 | …evels)
+33 | … in statements)
+34 | …ers" in sql or "ai_channel_headers" in sql or "lease_token" in sql for sql in statements)
+   |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+35 | …
+   |
+
+E501 Line too long (121 > 100)
+  --> backend/tests/integration/test_geo_read_consistency.py:42:101
+   |
+40 |     run = batch_run(api)[0]
+41 |     with api.api.factory() as db:
+42 |         before = list(db.scalars(select(SessionRecord.last_seen_at).where(SessionRecord.user_id == api.api.engineer_id)))
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^
+43 |     small_detail, detail_count = capture(api, prefix(run))
+44 |     _, batch_count = capture(api, f"{BATCHES}/{run.batch_id}")
+   |
+
+E501 Line too long (113 > 100)
+  --> backend/tests/integration/test_geo_read_consistency.py:49:101
+   |
+47 |     dense = batch_run(api, repeats=10)
+48 |     screenshot, _ = evidence(api)
+49 |     citations = [{"original_url": f"https://fixture.test/{index}", "position": index + 1} for index in range(40)]
+   |                                                                                                     ^^^^^^^^^^^^^
+50 |     submitted = submit(api, run, payload(run, screenshot_file_id=str(screenshot), citations=citations))
+51 |     assert submitted.status_code == 201, submitted.text
+   |
+
+E501 Line too long (103 > 100)
+  --> backend/tests/integration/test_geo_read_consistency.py:50:101
+   |
+48 |     screenshot, _ = evidence(api)
+49 |     citations = [{"original_url": f"https://fixture.test/{index}", "position": index + 1} for index in range(40)]
+50 |     submitted = submit(api, run, payload(run, screenshot_file_id=str(screenshot), citations=citations))
+   |                                                                                                     ^^^
+51 |     assert submitted.status_code == 201, submitted.text
+52 |     for _ in range(10):
+   |
+
+E501 Line too long (120 > 100)
+  --> backend/tests/integration/test_geo_read_consistency.py:62:101
+   |
+60 |     assert capture(api, f"{BATCHES}/{dense[0].batch_id}/runs")[1] == 7
+61 |     with api.api.factory() as db:
+62 |         after = list(db.scalars(select(SessionRecord.last_seen_at).where(SessionRecord.user_id == api.api.engineer_id)))
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^
+63 |     assert before == after
+   |
+
+E501 Line too long (136 > 100)
+  --> backend/tests/integration/test_geo_read_consistency.py:78:101
+   |
+76 | …
+77 | …
+78 | …rofiles SET is_active=false,revision=revision+1 WHERE id=:id"), {"id": api.profile})
+   |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+79 | …
+   |
+
+E501 Line too long (102 > 100)
+  --> backend/tests/integration/test_geo_read_consistency.py:92:101
+   |
+90 |     assert value["items"][0]["available_actions"] == ["ENTER_MANUAL_OBSERVATION"]
+91 |     current = api.api.engineer.get(RUNS, params={"subject_id": str(api.subject)}).json()
+92 |     assert current["total"] == 2 and all(not item["collection_eligible"] for item in current["items"])
+   |                                                                                                     ^^
+   |
+
+E501 Line too long (131 > 100)
+   --> backend/tests/integration/test_geo_read_consistency.py:99:101
+    |
+ 97 |     run = batch_run(api)[0]
+ 98 |     screenshot, _ = evidence(api)
+ 99 |     value = payload(run, screenshot_file_id=str(screenshot), citations=[{"original_url": "https://fixture.test/a", "position": 1}])
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+100 |     submitted = False
+    |
+
+E501 Line too long (106 > 100)
+   --> backend/tests/integration/test_geo_read_consistency.py:104:101
+    |
+102 |     def after_run(conn, cursor, statement, parameters, context, many):
+103 |         nonlocal submitted
+104 |         if submitted or "FROM geo_observation_runs LEFT OUTER JOIN geo_answer_snapshots" not in statement:
+    |                                                                                                     ^^^^^^
+105 |             return
+106 |         submitted = True
+    |
+
+E501 Line too long (106 > 100)
+   --> backend/tests/integration/test_geo_read_consistency.py:116:101
+    |
+114 |         event.remove(api.api.engine, "after_cursor_execute", after_run)
+115 |     assert submitted and observed["run"]["status"] == "PENDING"
+116 |     assert observed["answer"] is None and observed["evidence_files"] == [] and observed["citations"] == []
+    |                                                                                                     ^^^^^^
+117 |     assert observed["batch"]["summary"]["status_counts"]["pending"] == 1
+118 |     assert [event["event"] for event in observed["timeline"]] == ["CREATED"]
+    |
+
+Found 10 errors.

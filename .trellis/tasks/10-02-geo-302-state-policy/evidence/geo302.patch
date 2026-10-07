@@ -1,0 +1,1351 @@
+--- a/backend/app/schemas/geo_run_workflow.py
++++ b/backend/app/schemas/geo_run_workflow.py
+@@ -0,0 +1,71 @@
++"""回答级运行与批次的独立动作投影；接线方必须显式给出全部字段。"""
++
++from enum import StrEnum
++
++from app.schemas.base import ContractModel
++from app.schemas.geo_runs import GeoBatchStatus
++
++
++class GeoRunWorkflowStage(StrEnum):
++    MANUAL_ENTRY_REQUIRED = "MANUAL_ENTRY_REQUIRED"
++    QUEUED = "QUEUED"
++    COLLECTION_IN_PROGRESS = "COLLECTION_IN_PROGRESS"
++    ANALYSIS_PENDING = "ANALYSIS_PENDING"
++    ANALYSIS_IN_PROGRESS = "ANALYSIS_IN_PROGRESS"
++    REVIEW_REQUIRED = "REVIEW_REQUIRED"
++    COMPLETED = "COMPLETED"
++    RETRYABLE_FAILURE = "RETRYABLE_FAILURE"
++    HISTORICAL_FAILURE = "HISTORICAL_FAILURE"
++    CANCELLED = "CANCELLED"
++    BUDGET_BLOCKED = "BUDGET_BLOCKED"
++
++
++class GeoRunPrimaryTask(StrEnum):
++    ENTER_MANUAL_OBSERVATION = "ENTER_MANUAL_OBSERVATION"
++    VIEW_EXECUTION_PROGRESS = "VIEW_EXECUTION_PROGRESS"
++    VIEW_REVIEW = "VIEW_REVIEW"
++    VIEW_OBSERVATION = "VIEW_OBSERVATION"
++    HANDLE_FAILURE = "HANDLE_FAILURE"
++    VIEW_FAILURE = "VIEW_FAILURE"
++
++
++class GeoRunAction(StrEnum):
++    ENTER_MANUAL_OBSERVATION = "ENTER_MANUAL_OBSERVATION"
++    CANCEL = "CANCEL"
++    RETRY = "RETRY"
++
++
++class GeoBatchWorkflowStage(StrEnum):
++    PREPARING = "PREPARING"
++    QUEUED = "QUEUED"
++    MANUAL_ENTRY_REQUIRED = "MANUAL_ENTRY_REQUIRED"
++    IN_PROGRESS = "IN_PROGRESS"
++    COMPLETED = "COMPLETED"
++    PARTIAL = "PARTIAL"
++    FAILED = "FAILED"
++    CANCELLED = "CANCELLED"
++    BUDGET_BLOCKED = "BUDGET_BLOCKED"
++
++
++class GeoBatchPrimaryTask(StrEnum):
++    VIEW_EXECUTION_PROGRESS = "VIEW_EXECUTION_PROGRESS"
++    ENTER_MANUAL_OBSERVATIONS = "ENTER_MANUAL_OBSERVATIONS"
++    VIEW_RESULTS = "VIEW_RESULTS"
++    HANDLE_FAILURE = "HANDLE_FAILURE"
++
++
++class GeoBatchAction(StrEnum):
++    CANCEL = "CANCEL"
++
++
++class GeoRunWorkflowProjection(ContractModel):
++    workflow_stage: GeoRunWorkflowStage
++    primary_task: GeoRunPrimaryTask
++    available_actions: list[GeoRunAction]
++
++
++class GeoBatchWorkflowProjection(ContractModel):
++    status: GeoBatchStatus
++    workflow_stage: GeoBatchWorkflowStage
++    primary_task: GeoBatchPrimaryTask
++    available_actions: list[GeoBatchAction]
+--- a/backend/app/services/geo_batch_policy.py
++++ b/backend/app/services/geo_batch_policy.py
+@@ -0,0 +1,167 @@
++"""Batch 是完整 Run 集合的投影，不接受缓存状态或前端分页作为事实。"""
++
++from collections.abc import Iterable, Mapping
++from dataclasses import dataclass
++
++from app.schemas.common import AccountType
++from app.schemas.geo_run_workflow import (
++    GeoBatchAction,
++    GeoBatchWorkflowProjection,
++    GeoRunAction,
++)
++from app.schemas.geo_run_workflow import (
++    GeoBatchPrimaryTask as Task,
++)
++from app.schemas.geo_run_workflow import (
++    GeoBatchWorkflowStage as Stage,
++)
++from app.schemas.geo_runs import GeoBatchStatus as Status
++from app.schemas.geo_runs import GeoRunStatus
++from app.services.geo_run_policy import (
++    TERMINAL_RUN_STATUSES,
++    RunCommandAvailability,
++    RunState,
++    cancellable,
++    run_workflow,
++)
++
++
++@dataclass(frozen=True)
++class BatchRunState:
++    """调用方提供同一 Batch 的完整历史；cell key 来自数据库生成列。"""
++
++    run_cell_key: str
++    attempt_no: int
++    state: RunState
++
++
++def latest_cell_attempts(
++    runs: Iterable[BatchRunState], *, requested_run_count: int, matrix_committed: bool
++) -> tuple[BatchRunState, ...]:
++    """保留编号最大的尝试，不择优答案；缺失初始 cell 或重复 attempt 显式失败。"""
++    if type(requested_run_count) is not int or requested_run_count < 1:
++        raise ValueError("请求数量必须是正整数")
++    latest: dict[str, BatchRunState] = {}
++    roots: set[str] = set()
++    identities: set[tuple[str, int]] = set()
++    for run in runs:
++        if not run.run_cell_key or type(run.attempt_no) is not int or run.attempt_no < 1:
++            raise ValueError("采样单元和尝试编号必须有效")
++        key = (run.run_cell_key, run.attempt_no)
++        if key in identities:
++            raise ValueError("同一采样单元的尝试编号重复")
++        identities.add(key)
++        if run.attempt_no == 1:
++            roots.add(run.run_cell_key)
++        if run.run_cell_key not in latest or latest[run.run_cell_key].attempt_no < run.attempt_no:
++            latest[run.run_cell_key] = run
++    if not matrix_committed:
++        # PLANNED 仅表达未提交的准备态，不能掩盖已运行或带后继的集合。
++        if any(
++            run.attempt_no != 1 or run.state.status != GeoRunStatus.PENDING
++            for run in latest.values()
++        ):
++            raise ValueError("未提交矩阵只能包含初始 PENDING")
++        if len(roots) > requested_run_count:
++            raise ValueError("初始矩阵超出请求数量")
++        return ()
++    if len(roots) != requested_run_count or roots != latest.keys():
++        raise ValueError("批次投影必须提供全部初始采样单元及其尝试历史")
++    if any(run.state.has_successor for run in latest.values()):
++        raise ValueError("批次投影遗漏了已存在的后继尝试")
++    return tuple(latest[key] for key in sorted(latest))
++
++
++def _status(latest: tuple[BatchRunState, ...]) -> Status:
++    if not latest:
++        return Status.PLANNED
++    states = {run.state.status for run in latest}
++    if states == {GeoRunStatus.PENDING}:
++        return Status.QUEUED
++    if states - TERMINAL_RUN_STATUSES:
++        return Status.RUNNING
++    if states == {GeoRunStatus.COMPLETED}:
++        return Status.COMPLETED
++    if GeoRunStatus.COMPLETED in states:
++        return Status.PARTIAL
++    if GeoRunStatus.BUDGET_BLOCKED in states:
++        return Status.BUDGET_BLOCKED
++    if GeoRunStatus.FAILED in states:
++        return Status.FAILED
++    return Status.CANCELLED
++
++
++def batch_status(
++    runs: Iterable[BatchRunState], *, requested_run_count: int, matrix_committed: bool
++) -> Status:
++    return _status(
++        latest_cell_attempts(
++            runs, requested_run_count=requested_run_count, matrix_committed=matrix_committed
++        )
++    )
++
++
++def batch_workflow(
++    runs: Iterable[BatchRunState],
++    *,
++    requested_run_count: int,
++    matrix_committed: bool,
++    actor_type: AccountType,
++    actor_active: bool,
++    collection_eligibility: Mapping[str, bool],
++    run_commands: RunCommandAvailability,
++    cancel_available: bool,
++) -> GeoBatchWorkflowProjection:
++    AccountType(actor_type)
++    latest = latest_cell_attempts(
++        runs, requested_run_count=requested_run_count, matrix_committed=matrix_committed
++    )
++    status = _status(latest)
++    if set(collection_eligibility) != {run.run_cell_key for run in latest}:
++        raise ValueError("必须逐 cell 显式提供当前采集资格")
++    workflows = [
++        run_workflow(
++            run.state,
++            actor_type=actor_type,
++            actor_active=actor_active,
++            collection_eligible=collection_eligibility[run.run_cell_key],
++            commands=run_commands,
++        )
++        for run in latest
++    ]
++    manual_entry = any(
++        GeoRunAction.ENTER_MANUAL_OBSERVATION in w.available_actions for w in workflows
++    )
++    retry = any(GeoRunAction.RETRY in w.available_actions for w in workflows)
++    stages = {
++        Status.PLANNED: Stage.PREPARING,
++        Status.QUEUED: Stage.QUEUED,
++        Status.RUNNING: Stage.IN_PROGRESS,
++        Status.COMPLETED: Stage.COMPLETED,
++        Status.PARTIAL: Stage.PARTIAL,
++        Status.FAILED: Stage.FAILED,
++        Status.CANCELLED: Stage.CANCELLED,
++        Status.BUDGET_BLOCKED: Stage.BUDGET_BLOCKED,
++    }
++    stage = Stage.MANUAL_ENTRY_REQUIRED if manual_entry else stages[status]
++    task = Task.VIEW_EXECUTION_PROGRESS
++    if manual_entry:
++        task = Task.ENTER_MANUAL_OBSERVATIONS
++    elif retry:
++        task = Task.HANDLE_FAILURE
++    elif status in {
++        Status.COMPLETED,
++        Status.PARTIAL,
++        Status.FAILED,
++        Status.CANCELLED,
++        Status.BUDGET_BLOCKED,
++    }:
++        task = Task.VIEW_RESULTS
++    actions = (
++        [GeoBatchAction.CANCEL]
++        if actor_active and cancel_available and any(cancellable(run.state) for run in latest)
++        else []
++    )
++    return GeoBatchWorkflowProjection(
++        status=status, workflow_stage=stage, primary_task=task, available_actions=actions
++    )
+--- a/backend/app/services/geo_run_policy.py
++++ b/backend/app/services/geo_run_policy.py
+@@ -0,0 +1,217 @@
++"""Run 首次工作链及命令资格的唯一纯策略；不拥有事务或外部调用。"""
++
++from dataclasses import dataclass
++from datetime import datetime
++
++from app.errors import AppError
++from app.schemas.common import AccountType
++from app.schemas.geo_run_workflow import (
++    GeoRunAction as Action,
++)
++from app.schemas.geo_run_workflow import (
++    GeoRunPrimaryTask as Task,
++)
++from app.schemas.geo_run_workflow import (
++    GeoRunWorkflowProjection,
++)
++from app.schemas.geo_run_workflow import (
++    GeoRunWorkflowStage as Stage,
++)
++from app.schemas.geo_runs import GeoExternalCallState as External
++from app.schemas.geo_runs import GeoRunCommandErrorCode as Error
++from app.schemas.geo_runs import GeoRunErrorStage, GeoRunStatus
++from app.schemas.geo_surfaces import GeoCollectionMode
++
++TERMINAL_RUN_STATUSES = frozenset(
++    {
++        GeoRunStatus.COMPLETED,
++        GeoRunStatus.FAILED,
++        GeoRunStatus.CANCELLED,
++        GeoRunStatus.BUDGET_BLOCKED,
++    }
++)
++_TRANSITIONS = {
++    GeoRunStatus.PENDING: frozenset(
++        {
++            GeoRunStatus.RUNNING,
++            GeoRunStatus.COLLECTED,
++            GeoRunStatus.FAILED,
++            GeoRunStatus.CANCELLED,
++            GeoRunStatus.BUDGET_BLOCKED,
++        }
++    ),
++    GeoRunStatus.RUNNING: frozenset(
++        {GeoRunStatus.PENDING, GeoRunStatus.COLLECTED, GeoRunStatus.FAILED}
++    ),
++    GeoRunStatus.COLLECTED: frozenset({GeoRunStatus.ANALYZING}),
++    GeoRunStatus.ANALYZING: frozenset(
++        {GeoRunStatus.COMPLETED, GeoRunStatus.NEEDS_REVIEW, GeoRunStatus.FAILED}
++    ),
++    GeoRunStatus.NEEDS_REVIEW: frozenset({GeoRunStatus.COMPLETED}),
++}
++
++
++@dataclass(frozen=True)
++class RunState:
++    """由锁内数据库事实显式转换，不从 ORM、UI 或当前 Profile 猜测历史模式。"""
++
++    status: GeoRunStatus
++    collection_mode: GeoCollectionMode
++    external_call_state: External
++    error_stage: GeoRunErrorStage | None
++    has_answer: bool
++    has_successor: bool
++
++    def __post_init__(self) -> None:
++        object.__setattr__(self, "status", GeoRunStatus(self.status))
++        object.__setattr__(self, "collection_mode", GeoCollectionMode(self.collection_mode))
++        object.__setattr__(self, "external_call_state", External(self.external_call_state))
++        if self.error_stage is not None:
++            object.__setattr__(self, "error_stage", GeoRunErrorStage(self.error_stage))
++
++
++@dataclass(frozen=True)
++class RunCommandAvailability:
++    """接线能力而非推测：未实现的命令必须传 false，没有默认成功能力。"""
++
++    manual_entry: bool
++    cancel: bool
++    retry: bool
++
++
++@dataclass(frozen=True)
++class UnsentLeaseRecovery:
++    """调用服务撤销旧 token 后的证据；不得仅凭发送状态实施恢复。"""
++
++    lease_expires_at: datetime
++    now: datetime
++    lease_revoked: bool
++
++    def permits_recovery(self) -> bool:
++        if self.now.utcoffset() is None or self.lease_expires_at.utcoffset() is None:
++            raise ValueError("lease 恢复时间必须带时区")
++        return self.lease_revoked and self.lease_expires_at <= self.now
++
++
++def cancellable(state: RunState) -> bool:
++    return (
++        state.status == GeoRunStatus.PENDING
++        and state.external_call_state == External.NOT_STARTED
++        and not state.has_answer
++    )
++
++
++def retryable(state: RunState) -> bool:
++    return (
++        state.status in {GeoRunStatus.FAILED, GeoRunStatus.BUDGET_BLOCKED}
++        and state.error_stage == GeoRunErrorStage.COLLECTION
++        and not state.has_answer
++        and not state.has_successor
++    )
++
++
++def require_cancellable(state: RunState) -> None:
++    if not cancellable(state):
++        raise AppError(Error.GEO_RUN_ALREADY_STARTED, "只能取消尚未开始的运行", 409)
++
++
++def require_retryable(state: RunState) -> None:
++    if state.has_successor:
++        raise AppError(Error.GEO_RUN_HAS_SUCCESSOR, "该尝试已有后继，请查看最新尝试", 409)
++    if not retryable(state):
++        raise AppError(Error.GEO_RUN_NOT_RETRYABLE, "只有无原始答案的采集失败可以创建新尝试", 409)
++
++
++def _invalid_transition() -> AppError:
++    return AppError("INVALID_STATE_TRANSITION", "当前运行状态或执行事实不允许此转换", 409)
++
++
++def run_transition(
++    state: RunState, target: GeoRunStatus, *, recovery: UnsentLeaseRecovery | None = None
++) -> GeoRunStatus:
++    """只裁决边和事实；lease 获取、结果原子提交、revision 与错误字段仍由命令 owner 写入。"""
++    try:
++        target = GeoRunStatus(target)
++    except ValueError as error:
++        raise _invalid_transition() from error
++    if target not in _TRANSITIONS.get(state.status, frozenset()):
++        raise _invalid_transition()
++    manual = state.collection_mode == GeoCollectionMode.MANUAL
++    if state.status == GeoRunStatus.PENDING:
++        allowed = state.external_call_state == External.NOT_STARTED
++        if target == GeoRunStatus.COLLECTED:
++            allowed = allowed and manual and state.has_answer
++        else:
++            allowed = allowed and not state.has_answer
++            if target in {GeoRunStatus.RUNNING, GeoRunStatus.BUDGET_BLOCKED}:
++                allowed = allowed and not manual
++    elif state.status == GeoRunStatus.RUNNING:
++        allowed = not manual
++        if target == GeoRunStatus.PENDING:
++            allowed = (
++                allowed
++                and state.external_call_state == External.NOT_STARTED
++                and not state.has_answer
++                and recovery is not None
++                and recovery.permits_recovery()
++            )
++        elif target == GeoRunStatus.COLLECTED:
++            allowed = (
++                allowed and state.has_answer and state.external_call_state == External.COMPLETED
++            )
++        else:
++            allowed = allowed and not state.has_answer
++    else:
++        allowed = state.has_answer and (
++            state.external_call_state == External.COMPLETED
++            or (manual and state.external_call_state == External.NOT_STARTED)
++        )
++    if not allowed:
++        raise _invalid_transition()
++    return target
++
++
++def run_workflow(
++    state: RunState,
++    *,
++    actor_type: AccountType,
++    actor_active: bool,
++    collection_eligible: bool,
++    commands: RunCommandAvailability,
++) -> GeoRunWorkflowProjection:
++    """投影与守卫共用资格；角色、当前执行门禁与真实接线能力都不能由前端补全。"""
++    AccountType(actor_type)
++    actions: list[Action] = []
++    manual_pending = state.collection_mode == GeoCollectionMode.MANUAL and cancellable(state)
++    if actor_active:
++        if manual_pending and collection_eligible and commands.manual_entry:
++            actions.append(Action.ENTER_MANUAL_OBSERVATION)
++        if cancellable(state) and commands.cancel:
++            actions.append(Action.CANCEL)
++        if retryable(state) and collection_eligible and commands.retry:
++            actions.append(Action.RETRY)
++    stages = {
++        GeoRunStatus.PENDING: Stage.MANUAL_ENTRY_REQUIRED if manual_pending else Stage.QUEUED,
++        GeoRunStatus.RUNNING: Stage.COLLECTION_IN_PROGRESS,
++        GeoRunStatus.COLLECTED: Stage.ANALYSIS_PENDING,
++        GeoRunStatus.ANALYZING: Stage.ANALYSIS_IN_PROGRESS,
++        GeoRunStatus.NEEDS_REVIEW: Stage.REVIEW_REQUIRED,
++        GeoRunStatus.COMPLETED: Stage.COMPLETED,
++        GeoRunStatus.FAILED: Stage.RETRYABLE_FAILURE
++        if Action.RETRY in actions
++        else Stage.HISTORICAL_FAILURE,
++        GeoRunStatus.CANCELLED: Stage.CANCELLED,
++        GeoRunStatus.BUDGET_BLOCKED: Stage.BUDGET_BLOCKED,
++    }
++    task = Task.VIEW_EXECUTION_PROGRESS
++    if Action.ENTER_MANUAL_OBSERVATION in actions:
++        task = Task.ENTER_MANUAL_OBSERVATION
++    elif state.status == GeoRunStatus.NEEDS_REVIEW:
++        task = Task.VIEW_REVIEW
++    elif state.status == GeoRunStatus.COMPLETED:
++        task = Task.VIEW_OBSERVATION
++    elif state.status in {GeoRunStatus.FAILED, GeoRunStatus.BUDGET_BLOCKED}:
++        task = Task.HANDLE_FAILURE if Action.RETRY in actions else Task.VIEW_FAILURE
++    return GeoRunWorkflowProjection(
++        workflow_stage=stages[state.status], primary_task=task, available_actions=actions
++    )
+--- a/backend/tests/unit/test_geo_batch_policy.py
++++ b/backend/tests/unit/test_geo_batch_policy.py
+@@ -0,0 +1,242 @@
++"""批次状态的完整组合表与最新尝试/集合边界。"""
++
++from dataclasses import replace
++from itertools import product
++
++import pytest
++
++from app.schemas.common import AccountType
++from app.schemas.geo_runs import GeoBatchStatus as Batch
++from app.schemas.geo_runs import GeoRunStatus as Status
++from app.schemas.geo_surfaces import GeoCollectionMode as Mode
++from app.services.geo_batch_policy import BatchRunState, batch_status, batch_workflow
++from tests.unit.test_geo_run_policy import COMMANDS, NO_COMMANDS, state
++
++
++def rows(*statuses: Status) -> list[BatchRunState]:
++    return [BatchRunState(str(index), 1, state(status)) for index, status in enumerate(statuses)]
++
++
++@pytest.mark.parametrize("statuses", product(Status, repeat=3))
++def test_complete_batch_projection_table(statuses: tuple[Status, ...]) -> None:
++    # 独立按合同计数，覆盖全部非终态优先及终态混合，不读取实现常量。
++    completed = statuses.count(Status.COMPLETED)
++    waiting = sum(
++        status
++        in {Status.PENDING, Status.RUNNING, Status.COLLECTED, Status.ANALYZING, Status.NEEDS_REVIEW}
++        for status in statuses
++    )
++    if statuses.count(Status.PENDING) == 3:
++        expected = Batch.QUEUED
++    elif waiting:
++        expected = Batch.RUNNING
++    elif completed == 3:
++        expected = Batch.COMPLETED
++    elif completed:
++        expected = Batch.PARTIAL
++    elif statuses.count(Status.BUDGET_BLOCKED):
++        expected = Batch.BUDGET_BLOCKED
++    elif statuses.count(Status.FAILED):
++        expected = Batch.FAILED
++    else:
++        expected = Batch.CANCELLED
++    actual = batch_status(rows(*statuses), requested_run_count=3, matrix_committed=True)
++    assert actual == expected
++
++
++def test_uncommitted_planned_and_committed_pending_are_distinct() -> None:
++    assert batch_status([], requested_run_count=3, matrix_committed=False) == Batch.PLANNED
++    assert (
++        batch_status(rows(Status.PENDING), requested_run_count=3, matrix_committed=False)
++        == Batch.PLANNED
++    )
++    assert (
++        batch_status(rows(Status.PENDING), requested_run_count=1, matrix_committed=True)
++        == Batch.QUEUED
++    )
++
++
++@pytest.mark.parametrize(
++    "latest,expected",
++    [
++        (Status.PENDING, Batch.QUEUED),
++        (Status.RUNNING, Batch.RUNNING),
++        (Status.COMPLETED, Batch.COMPLETED),
++        (Status.FAILED, Batch.FAILED),
++        (Status.BUDGET_BLOCKED, Batch.BUDGET_BLOCKED),
++    ],
++)
++def test_retry_reprojects_cache_without_counting_old_failure(
++    latest: Status, expected: Batch
++) -> None:
++    history = [
++        BatchRunState("cell", 1, state(Status.FAILED, has_successor=True)),
++        BatchRunState("cell", 2, state(latest)),
++    ]
++    assert batch_status(iter(history), requested_run_count=1, matrix_committed=True) == expected
++    assert batch_status(reversed(history), requested_run_count=1, matrix_committed=True) == expected
++    assert history[0].state.status == Status.FAILED
++
++
++def test_latest_attempt_selection_does_not_choose_successful_answer() -> None:
++    # 即使非法旁路给出历史成功，投影也不能按答案好坏择优；链合法性由0048检查。
++    history = [
++        BatchRunState("cell", 1, state(Status.COMPLETED)),
++        BatchRunState("cell", 2, state(Status.FAILED)),
++    ]
++    assert batch_status(history, requested_run_count=1, matrix_committed=True) == Batch.FAILED
++
++
++def test_complete_roots_cannot_hide_an_existing_latest_successor() -> None:
++    history = [
++        BatchRunState("cell", 1, state(Status.FAILED, has_successor=True)),
++        BatchRunState("cell", 2, state(Status.PENDING)),
++    ]
++    assert batch_status(history, requested_run_count=1, matrix_committed=True) == Batch.QUEUED
++    with pytest.raises(ValueError, match="后继"):
++        batch_status(history[:1], requested_run_count=1, matrix_committed=True)
++
++
++@pytest.mark.parametrize(
++    "records,count,committed",
++    [
++        ([], 1, True),
++        (rows(Status.PENDING), 2, True),
++        (rows(Status.PENDING, Status.PENDING), 1, True),
++        ([BatchRunState("cell", 2, state(Status.PENDING))], 1, True),
++        (rows(Status.PENDING) * 2, 1, True),
++        ([BatchRunState("", 1, state(Status.PENDING))], 1, True),
++        ([BatchRunState("cell", 0, state(Status.PENDING))], 1, True),
++        (rows(Status.RUNNING), 1, False),
++        ([BatchRunState("cell", 2, state(Status.PENDING))], 1, False),
++        (rows(Status.PENDING, Status.PENDING), 1, False),
++        (rows(Status.PENDING), 0, True),
++    ],
++)
++def test_missing_invalid_or_partial_history_fails(
++    records: list[BatchRunState], count: int, committed: bool
++) -> None:
++    with pytest.raises(ValueError):
++        batch_status(records, requested_run_count=count, matrix_committed=committed)
++
++
++@pytest.mark.parametrize(
++    "mode,eligible,expected_stage,expected_task",
++    [
++        (Mode.MANUAL, True, "MANUAL_ENTRY_REQUIRED", "ENTER_MANUAL_OBSERVATIONS"),
++        (Mode.MANUAL, False, "QUEUED", "VIEW_EXECUTION_PROGRESS"),
++        (Mode.API, True, "QUEUED", "VIEW_EXECUTION_PROGRESS"),
++    ],
++)
++def test_pending_batch_workflow(
++    mode: Mode, eligible: bool, expected_stage: str, expected_task: str
++) -> None:
++    records = [BatchRunState("cell", 1, state(Status.PENDING, mode))]
++    out = batch_workflow(
++        records,
++        requested_run_count=1,
++        matrix_committed=True,
++        actor_type=AccountType.ENGINEER,
++        actor_active=True,
++        collection_eligibility={"cell": eligible},
++        run_commands=COMMANDS,
++        cancel_available=True,
++    )
++    assert (out.status, out.workflow_stage, out.primary_task) == (
++        Batch.QUEUED,
++        expected_stage,
++        expected_task,
++    )
++    assert out.available_actions == ["CANCEL"]
++
++
++@pytest.mark.parametrize(
++    "status,stage,task",
++    [
++        (Status.RUNNING, "IN_PROGRESS", "VIEW_EXECUTION_PROGRESS"),
++        (Status.NEEDS_REVIEW, "IN_PROGRESS", "VIEW_EXECUTION_PROGRESS"),
++        (Status.COMPLETED, "COMPLETED", "VIEW_RESULTS"),
++        (Status.FAILED, "FAILED", "HANDLE_FAILURE"),
++        (Status.CANCELLED, "CANCELLED", "VIEW_RESULTS"),
++        (Status.BUDGET_BLOCKED, "BUDGET_BLOCKED", "HANDLE_FAILURE"),
++    ],
++)
++def test_batch_stage_and_primary(status: Status, stage: str, task: str) -> None:
++    out = batch_workflow(
++        rows(status),
++        requested_run_count=1,
++        matrix_committed=True,
++        actor_type=AccountType.ADMIN,
++        actor_active=True,
++        collection_eligibility={"0": True},
++        run_commands=COMMANDS,
++        cancel_available=True,
++    )
++    assert (out.workflow_stage, out.primary_task) == (stage, task)
++    assert out.available_actions == []
++
++
++def test_partial_cancellation_preserves_finished_and_started_runs() -> None:
++    records = rows(Status.COMPLETED, Status.RUNNING, Status.PENDING)
++    out = batch_workflow(
++        records,
++        requested_run_count=3,
++        matrix_committed=True,
++        actor_type=AccountType.ENGINEER,
++        actor_active=True,
++        collection_eligibility=dict.fromkeys(["0", "1", "2"], False),
++        run_commands=NO_COMMANDS,
++        cancel_available=True,
++    )
++    assert out.available_actions == ["CANCEL"]
++    cancelled = [*records[:2], replace(records[2], state=state(Status.CANCELLED))]
++    assert batch_status(cancelled, requested_run_count=3, matrix_committed=True) == Batch.RUNNING
++    finished = [cancelled[0], replace(cancelled[1], state=state(Status.COMPLETED)), cancelled[2]]
++    assert batch_status(finished, requested_run_count=3, matrix_committed=True) == Batch.PARTIAL
++
++
++def test_mixed_profiles_do_not_share_one_eligibility_boolean() -> None:
++    records = [
++        BatchRunState("manual", 1, state(Status.PENDING, Mode.MANUAL)),
++        BatchRunState("auto", 1, state(Status.FAILED)),
++    ]
++    out = batch_workflow(
++        records,
++        requested_run_count=2,
++        matrix_committed=True,
++        actor_type=AccountType.ADMIN,
++        actor_active=True,
++        collection_eligibility={"manual": False, "auto": True},
++        run_commands=COMMANDS,
++        cancel_available=True,
++    )
++    assert out.primary_task == "HANDLE_FAILURE"
++    with pytest.raises(ValueError, match="逐 cell"):
++        batch_workflow(
++            records,
++            requested_run_count=2,
++            matrix_committed=True,
++            actor_type=AccountType.ADMIN,
++            actor_active=True,
++            collection_eligibility={"auto": True},
++            run_commands=COMMANDS,
++            cancel_available=True,
++        )
++
++
++@pytest.mark.parametrize("active,available", product([False, True], repeat=2))
++def test_batch_cancel_respects_actor_and_command_availability(
++    active: bool, available: bool
++) -> None:
++    out = batch_workflow(
++        rows(Status.PENDING),
++        requested_run_count=1,
++        matrix_committed=True,
++        actor_type=AccountType.ADMIN,
++        actor_active=active,
++        collection_eligibility={"0": True},
++        run_commands=NO_COMMANDS,
++        cancel_available=available,
++    )
++    assert out.available_actions == (["CANCEL"] if active and available else [])
++    assert out.primary_task == "VIEW_EXECUTION_PROGRESS"
+--- a/backend/tests/unit/test_geo_run_policy.py
++++ b/backend/tests/unit/test_geo_run_policy.py
+@@ -0,0 +1,283 @@
++"""运行完整边表、终态和执行事实；预期来自业务合同而非读取策略表。"""
++
++from dataclasses import replace
++from datetime import UTC, datetime, timedelta
++from itertools import product
++
++import pytest
++
++from app.errors import AppError
++from app.schemas.common import AccountType
++from app.schemas.geo_run_workflow import GeoRunAction
++from app.schemas.geo_runs import GeoExternalCallState as External
++from app.schemas.geo_runs import GeoRunErrorStage as ErrorStage
++from app.schemas.geo_runs import GeoRunStatus as Status
++from app.schemas.geo_surfaces import GeoCollectionMode as Mode
++from app.services.geo_run_policy import (
++    RunCommandAvailability,
++    RunState,
++    UnsentLeaseRecovery,
++    cancellable,
++    require_cancellable,
++    require_retryable,
++    retryable,
++    run_transition,
++    run_workflow,
++)
++
++NOW = datetime(2026, 10, 2, tzinfo=UTC)
++COMMANDS = RunCommandAvailability(manual_entry=True, cancel=True, retry=True)
++NO_COMMANDS = RunCommandAvailability(manual_entry=False, cancel=False, retry=False)
++COMMON_EDGES = {
++    (Status.PENDING, Status.FAILED),
++    (Status.PENDING, Status.CANCELLED),
++    (Status.COLLECTED, Status.ANALYZING),
++    (Status.ANALYZING, Status.COMPLETED),
++    (Status.ANALYZING, Status.NEEDS_REVIEW),
++    (Status.ANALYZING, Status.FAILED),
++    (Status.NEEDS_REVIEW, Status.COMPLETED),
++}
++AUTO_EDGES = {
++    (Status.PENDING, Status.RUNNING),
++    (Status.PENDING, Status.BUDGET_BLOCKED),
++    (Status.RUNNING, Status.PENDING),
++    (Status.RUNNING, Status.COLLECTED),
++    (Status.RUNNING, Status.FAILED),
++}
++
++
++def state(status: Status, mode: Mode = Mode.API, **patch: object) -> RunState:
++    answer = status in {Status.COLLECTED, Status.ANALYZING, Status.NEEDS_REVIEW, Status.COMPLETED}
++    value = RunState(
++        status=status,
++        collection_mode=mode,
++        external_call_state=External.COMPLETED
++        if answer and mode != Mode.MANUAL
++        else External.NOT_STARTED,
++        error_stage=ErrorStage.COLLECTION
++        if status in {Status.FAILED, Status.BUDGET_BLOCKED}
++        else None,
++        has_answer=answer,
++        has_successor=False,
++    )
++    return replace(value, **patch)
++
++
++@pytest.mark.parametrize("source,target,mode", product(Status, Status, Mode))
++def test_complete_run_transition_table(source: Status, target: Status, mode: Mode) -> None:
++    current = state(source, mode)
++    if target == Status.COLLECTED:
++        current = replace(current, has_answer=True)
++        if source == Status.RUNNING:
++            current = replace(current, external_call_state=External.COMPLETED)
++    allowed = (source, target) in COMMON_EDGES
++    allowed |= mode != Mode.MANUAL and (source, target) in AUTO_EDGES
++    allowed |= mode == Mode.MANUAL and (source, target) == (Status.PENDING, Status.COLLECTED)
++    recovery = UnsentLeaseRecovery(NOW, NOW, lease_revoked=True)
++    if allowed:
++        assert run_transition(current, target, recovery=recovery) == target
++    else:
++        with pytest.raises(AppError) as caught:
++            run_transition(current, target, recovery=recovery)
++        assert (caught.value.code, caught.value.status_code, caught.value.details) == (
++            "INVALID_STATE_TRANSITION",
++            409,
++            {},
++        )
++
++
++@pytest.mark.parametrize("external", External)
++@pytest.mark.parametrize("expired,revoked,has_answer", product([False, True], repeat=3))
++def test_unsent_recovery_requires_all_evidence(
++    external: External, expired: bool, revoked: bool, has_answer: bool
++) -> None:
++    current = state(Status.RUNNING, external_call_state=external, has_answer=has_answer)
++    evidence = UnsentLeaseRecovery(
++        NOW if expired else NOW + timedelta(seconds=1), NOW, lease_revoked=revoked
++    )
++    if external == External.NOT_STARTED and expired and revoked and not has_answer:
++        assert run_transition(current, Status.PENDING, recovery=evidence) == Status.PENDING
++    else:
++        with pytest.raises(AppError, match="当前运行状态"):
++            run_transition(current, Status.PENDING, recovery=evidence)
++
++
++def test_recovery_is_not_an_ordinary_return_edge() -> None:
++    with pytest.raises(AppError):
++        run_transition(state(Status.RUNNING), Status.PENDING)
++    with pytest.raises(ValueError, match="带时区"):
++        run_transition(
++            state(Status.RUNNING),
++            Status.PENDING,
++            recovery=UnsentLeaseRecovery(NOW.replace(tzinfo=None), NOW, True),
++        )
++
++
++@pytest.mark.parametrize("mode", Mode)
++@pytest.mark.parametrize(
++    "source,target",
++    [
++        (Status.PENDING, Status.COLLECTED),
++        (Status.RUNNING, Status.COLLECTED),
++        (Status.COLLECTED, Status.ANALYZING),
++        (Status.ANALYZING, Status.COMPLETED),
++        (Status.ANALYZING, Status.NEEDS_REVIEW),
++        (Status.NEEDS_REVIEW, Status.COMPLETED),
++    ],
++)
++def test_no_successful_progress_without_answer(mode: Mode, source: Status, target: Status) -> None:
++    with pytest.raises(AppError):
++        run_transition(state(source, mode, has_answer=False), target)
++
++
++@pytest.mark.parametrize("external", [External.NOT_STARTED, External.SENT, External.UNKNOWN])
++def test_automatic_collection_requires_completed_external_call(external: External) -> None:
++    with pytest.raises(AppError):
++        run_transition(
++            state(Status.RUNNING, has_answer=True, external_call_state=external), Status.COLLECTED
++        )
++
++
++@pytest.mark.parametrize("status,external,has_answer", product(Status, External, [False, True]))
++def test_cancel_qualification_and_guard(
++    status: Status, external: External, has_answer: bool
++) -> None:
++    current = state(status, external_call_state=external, has_answer=has_answer)
++    expected = status == Status.PENDING and external == External.NOT_STARTED and not has_answer
++    assert cancellable(current) == expected
++    if expected:
++        require_cancellable(current)
++    else:
++        with pytest.raises(AppError) as caught:
++            require_cancellable(current)
++        assert caught.value.code == "GEO_RUN_ALREADY_STARTED"
++        assert caught.value.status_code == 409
++
++
++@pytest.mark.parametrize(
++    "status,stage,answer,successor",
++    product(Status, [None, *ErrorStage], [False, True], [False, True]),
++)
++def test_retry_qualification_and_error_priority(
++    status: Status, stage: ErrorStage | None, answer: bool, successor: bool
++) -> None:
++    current = state(status, error_stage=stage, has_answer=answer, has_successor=successor)
++    expected = (
++        status in {Status.FAILED, Status.BUDGET_BLOCKED}
++        and stage == ErrorStage.COLLECTION
++        and not answer
++        and not successor
++    )
++    assert retryable(current) == expected
++    if expected:
++        require_retryable(current)
++    else:
++        with pytest.raises(AppError) as caught:
++            require_retryable(current)
++        assert caught.value.code == (
++            "GEO_RUN_HAS_SUCCESSOR" if successor else "GEO_RUN_NOT_RETRYABLE"
++        )
++        assert caught.value.status_code == 409
++
++
++@pytest.mark.parametrize("status,mode,actor", product(Status, Mode, AccountType))
++def test_workflow_uses_same_qualification(status: Status, mode: Mode, actor: AccountType) -> None:
++    current = state(status, mode)
++    projection = run_workflow(
++        current, actor_type=actor, actor_active=True, collection_eligible=True, commands=COMMANDS
++    )
++    expected = []
++    if status == Status.PENDING:
++        if mode == Mode.MANUAL:
++            expected.append("ENTER_MANUAL_OBSERVATION")
++        expected.append("CANCEL")
++    if status in {Status.FAILED, Status.BUDGET_BLOCKED}:
++        expected.append("RETRY")
++    assert projection.available_actions == expected
++    if GeoRunAction.CANCEL in projection.available_actions:
++        require_cancellable(current)
++    if GeoRunAction.RETRY in projection.available_actions:
++        require_retryable(current)
++
++
++@pytest.mark.parametrize(
++    "status,stage,task",
++    [
++        (Status.RUNNING, "COLLECTION_IN_PROGRESS", "VIEW_EXECUTION_PROGRESS"),
++        (Status.COLLECTED, "ANALYSIS_PENDING", "VIEW_EXECUTION_PROGRESS"),
++        (Status.ANALYZING, "ANALYSIS_IN_PROGRESS", "VIEW_EXECUTION_PROGRESS"),
++        (Status.NEEDS_REVIEW, "REVIEW_REQUIRED", "VIEW_REVIEW"),
++        (Status.COMPLETED, "COMPLETED", "VIEW_OBSERVATION"),
++        (Status.FAILED, "RETRYABLE_FAILURE", "HANDLE_FAILURE"),
++        (Status.CANCELLED, "CANCELLED", "VIEW_EXECUTION_PROGRESS"),
++        (Status.BUDGET_BLOCKED, "BUDGET_BLOCKED", "HANDLE_FAILURE"),
++    ],
++)
++def test_stage_and_primary_task(status: Status, stage: str, task: str) -> None:
++    out = run_workflow(
++        state(status),
++        actor_type=AccountType.ENGINEER,
++        actor_active=True,
++        collection_eligible=True,
++        commands=COMMANDS,
++    )
++    assert (out.workflow_stage, out.primary_task) == (stage, task)
++
++
++@pytest.mark.parametrize(
++    "active,eligible,commands", product([False, True], [False, True], [COMMANDS, NO_COMMANDS])
++)
++def test_current_permissions_eligibility_and_installed_commands(
++    active: bool, eligible: bool, commands: RunCommandAvailability
++) -> None:
++    manual = run_workflow(
++        state(Status.PENDING, Mode.MANUAL),
++        actor_type=AccountType.ADMIN,
++        actor_active=active,
++        collection_eligible=eligible,
++        commands=commands,
++    )
++    assert (GeoRunAction.ENTER_MANUAL_OBSERVATION in manual.available_actions) == (
++        active and eligible and commands.manual_entry
++    )
++    assert (GeoRunAction.CANCEL in manual.available_actions) == (active and commands.cancel)
++    failed = run_workflow(
++        state(Status.FAILED),
++        actor_type=AccountType.ADMIN,
++        actor_active=active,
++        collection_eligible=eligible,
++        commands=commands,
++    )
++    can_retry = active and eligible and commands.retry
++    assert failed.available_actions == (["RETRY"] if can_retry else [])
++    assert failed.workflow_stage == ("RETRYABLE_FAILURE" if can_retry else "HISTORICAL_FAILURE")
++
++
++@pytest.mark.parametrize(
++    "patch",
++    [
++        {"error_stage": ErrorStage.ANALYSIS, "has_answer": True},
++        {"error_stage": ErrorStage.REVIEW, "has_answer": True},
++        {"has_successor": True},
++        {"has_answer": True},
++    ],
++)
++def test_same_failed_status_does_not_imply_retry(patch: dict[str, object]) -> None:
++    current = state(Status.FAILED, **patch)
++    out = run_workflow(
++        current,
++        actor_type=AccountType.ADMIN,
++        actor_active=True,
++        collection_eligible=True,
++        commands=COMMANDS,
++    )
++    assert out.available_actions == []
++    assert (out.workflow_stage, out.primary_task) == ("HISTORICAL_FAILURE", "VIEW_FAILURE")
++
++
++def test_unknown_state_and_target_fail_explicitly() -> None:
++    with pytest.raises(ValueError):
++        state(Status.PENDING, collection_mode="UNKNOWN")
++    with pytest.raises(AppError) as caught:
++        run_transition(state(Status.PENDING), "UNKNOWN")  # type: ignore[arg-type]
++    assert caught.value.code == "INVALID_STATE_TRANSITION"
+--- a/backend/tests/unit/test_geo_run_workflow_contract.py
++++ b/backend/tests/unit/test_geo_run_workflow_contract.py
+@@ -0,0 +1,72 @@
++"""独立动作组件的required/typed合同与真实wire正反例。"""
++
++from typing import Any
++
++import pytest
++from jsonschema.exceptions import ValidationError as JsonError
++from pydantic import ValidationError
++
++from app.schemas import geo_run_workflow as schemas
++from tests.unit.test_geo_run_contract import (
++    annotations_removed,
++    contract,
++    validate,
++)
++
++__all__ = ["contract"]
++
++
++@pytest.mark.parametrize(
++    "model", [schemas.GeoRunWorkflowProjection, schemas.GeoBatchWorkflowProjection]
++)
++def test_all_workflow_components_match_openapi(contract: dict[str, Any], model: type) -> None:
++    component = model.model_json_schema(ref_template="#/components/schemas/{model}")
++    definitions = component.pop("$defs", {})
++    assert annotations_removed(
++        contract["components"]["schemas"][model.__name__]
++    ) == annotations_removed(component)
++    for name, definition in definitions.items():
++        assert annotations_removed(contract["components"]["schemas"][name]) == annotations_removed(
++            definition
++        )
++
++
++@pytest.mark.parametrize(
++    "model,payload",
++    [
++        (
++            schemas.GeoRunWorkflowProjection,
++            {
++                "workflow_stage": "MANUAL_ENTRY_REQUIRED",
++                "primary_task": "ENTER_MANUAL_OBSERVATION",
++                "available_actions": ["ENTER_MANUAL_OBSERVATION", "CANCEL"],
++            },
++        ),
++        (
++            schemas.GeoBatchWorkflowProjection,
++            {
++                "status": "FAILED",
++                "workflow_stage": "FAILED",
++                "primary_task": "HANDLE_FAILURE",
++                "available_actions": [],
++            },
++        ),
++    ],
++)
++def test_real_dump_and_required_closed_tokens(
++    contract: dict[str, Any], model: type, payload: dict[str, Any]
++) -> None:
++    parsed = model.model_validate(payload)
++    validate(contract, model.__name__, parsed.model_dump(mode="json"))
++    invalid = [
++        payload | {"secret": "虚构值"},
++        payload | {"available_actions": ["UNKNOWN"]},
++        payload | {"workflow_stage": "UNKNOWN"},
++        payload | {"primary_task": "UNKNOWN"},
++    ]
++    invalid.extend({k: v for k, v in payload.items() if k != missing} for missing in payload)
++    for value in invalid:
++        with pytest.raises(ValidationError):
++            model.model_validate(value)
++        with pytest.raises(JsonError):
++            validate(contract, model.__name__, value)
+--- a/contracts/database.md
++++ b/contracts/database.md
+@@ -839,3 +839,11 @@
+ - JSONB数据库检查保护闭合快照外壳、标量叶子/UUID身份、模式settings、身份对齐；Pydantic完整校验所有typed字段与集合。旁路SQL不能增加配置秘密键；自由业务文本不作为凭据通道。PUBLIC声明本身不授予外发许可，执行边界仍须依据权威分级/授权检查，301无外发。
+ - Prompt/Profile/Plan/User RESTRICT为最后历史防线；303必须在首次真实工厂创建时接入历史锁存、引用查询、删除动作/精确映射与现有资源锁序。Subject字典保存在完整快照；303设置/维护真实历史删除阻断，301不伪造历史计数。source_opportunity_id未来FK尚未实施，RETEST业务仍不可用。
+ - downgrade明确55000拒绝删除历史；恢复用前向修复或迁移前备份。本次没有历史数据迁移或生产迁移。
++
++### GEO-302 状态策略与数据库衔接
++
++`geo_run_policy` / `geo_batch_policy` 只接收由权威数据库事实显式转换的不可变状态对象，不查询或写入 ORM。Run 四终态无出边；retry 是同 cell 追加 attempt 的资格，不更新前序；cancel 仅 PENDING/NOT_STARTED/无答案。完整合法边、最新 attempt 的 Batch 投影优先级及动作门禁见 [业务状态机](../docs/geo-monitoring/02-business/03-workflows-and-state-machines.md#31-geo-302-确定性投影)。
++
++Batch 投影要求完整初始矩阵与历史，不接受分页或缓存作为事实，不择优答案。每 cell 最大 attempt_no 决定状态，retry 后 Batch 缓存可再次 QUEUED/RUNNING，原 Run 仍不可变。逐 cell 当前 Profile/资源资格与 actor/真实命令接线能力是动作投影输入，不写入历史快照。
++
++RUNNING 的未发送恢复还要求过期租约及 token 已撤销，不能以 NOT_STARTED 单独判定；后续写入 owner 必须锁内校验 token/期限/状态，撤销旧 lease 并实际 UPDATE revision+1。读时动作不代替该写入校验。现有锁顺序、单后继唯一索引、revision 和 0048 终态/外发进度守卫继续仲裁；本任务不新增事务、幂等存储、锁或数据库守卫，也没有 Alembic revision、数据回填或历史迁移。
+--- a/contracts/openapi.yaml
++++ b/contracts/openapi.yaml
+@@ -16122,3 +16122,65 @@
+       - GEO_SCHEDULE_WINDOW_EXISTS
+       title: GeoRunCommandErrorCode
+       type: string
++
++    GeoRunWorkflowStage:
++      type: string
++      enum: [MANUAL_ENTRY_REQUIRED, QUEUED, COLLECTION_IN_PROGRESS, ANALYSIS_PENDING, ANALYSIS_IN_PROGRESS, REVIEW_REQUIRED, COMPLETED, RETRYABLE_FAILURE, HISTORICAL_FAILURE, CANCELLED, BUDGET_BLOCKED]
++      title: GeoRunWorkflowStage
++
++    GeoRunPrimaryTask:
++      type: string
++      enum: [ENTER_MANUAL_OBSERVATION, VIEW_EXECUTION_PROGRESS, VIEW_REVIEW, VIEW_OBSERVATION, HANDLE_FAILURE, VIEW_FAILURE]
++      title: GeoRunPrimaryTask
++
++    GeoRunAction:
++      type: string
++      enum: [ENTER_MANUAL_OBSERVATION, CANCEL, RETRY]
++      title: GeoRunAction
++
++    GeoBatchWorkflowStage:
++      type: string
++      enum: [PREPARING, QUEUED, MANUAL_ENTRY_REQUIRED, IN_PROGRESS, COMPLETED, PARTIAL, FAILED, CANCELLED, BUDGET_BLOCKED]
++      title: GeoBatchWorkflowStage
++
++    GeoBatchPrimaryTask:
++      type: string
++      enum: [VIEW_EXECUTION_PROGRESS, ENTER_MANUAL_OBSERVATIONS, VIEW_RESULTS, HANDLE_FAILURE]
++      title: GeoBatchPrimaryTask
++
++    GeoBatchAction:
++      type: string
++      enum: [CANCEL]
++      title: GeoBatchAction
++
++    GeoRunWorkflowProjection:
++      type: object
++      additionalProperties: false
++      properties:
++        workflow_stage:
++          $ref: '#/components/schemas/GeoRunWorkflowStage'
++        primary_task:
++          $ref: '#/components/schemas/GeoRunPrimaryTask'
++        available_actions:
++          type: array
++          items:
++            $ref: '#/components/schemas/GeoRunAction'
++      required: [workflow_stage, primary_task, available_actions]
++      title: GeoRunWorkflowProjection
++
++    GeoBatchWorkflowProjection:
++      type: object
++      additionalProperties: false
++      properties:
++        status:
++          $ref: '#/components/schemas/GeoBatchStatus'
++        workflow_stage:
++          $ref: '#/components/schemas/GeoBatchWorkflowStage'
++        primary_task:
++          $ref: '#/components/schemas/GeoBatchPrimaryTask'
++        available_actions:
++          type: array
++          items:
++            $ref: '#/components/schemas/GeoBatchAction'
++      required: [status, workflow_stage, primary_task, available_actions]
++      title: GeoBatchWorkflowProjection
+--- a/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
++++ b/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
+@@ -102,7 +102,23 @@
+     BUDGET_BLOCKED --> [*]
+ ```
+ 
+-批次状态从每个 cell 的最新 attempt 确定性投影，不允许用户任意设置；保存值仅缓存，显式 retry 可重新投影，原终态 Run 不变。COMPLETED 是全部 cell 成功，PARTIAL 为成功与失败/取消/预算混合；无成功时按预算阻断、失败或全取消分类，存在非终态优先处理。纯策略和动作由 GEO-302 实施，GEO-301 只定义数据边界。
++批次状态从每个 cell 的最新 attempt 确定性投影，不允许用户任意设置；保存值仅缓存，显式 retry 可重新投影，原终态 Run 不变。COMPLETED 是全部 cell 成功，PARTIAL 为成功与失败/取消/预算混合；无成功时按预算阻断、失败或全取消分类，存在非终态优先处理。GEO-302 已实现下述纯策略和独立动作组件，GEO-301 定义数据库最终防线；创建和执行接线仍由后续任务负责。
++
++### 3.1 GEO-302 确定性投影
++
++输入必须是同一 Batch 的完整 cell/attempt 集合，不能使用分页结果或历史最佳答案。已提交矩阵的初始 attempt1 数必须等于 `requested_run_count`，每个 cell 取最大 `attempt_no`；缺 cell、缺初始 attempt、重复编号或选中的最新 attempt 仍有后继均明确失败。`has_successor` 必须来自数据库存在性事实，不能只在输入子集内计算。未提交准备态只允许初始 PENDING，投影 PLANNED；已提交空集不是成功。
++
++| 按顺序判断最新 attempts | Batch status |
++|---|---|
++| 全部 PENDING | QUEUED |
++| 存在非终态，包含 NEEDS_REVIEW | RUNNING |
++| 全部 COMPLETED | COMPLETED |
++| 至少一个 COMPLETED，与其他终态混合 | PARTIAL |
++| 无成功且至少一个 BUDGET_BLOCKED | BUDGET_BLOCKED |
++| 无成功、无预算阻断且至少一个 FAILED | FAILED |
++| 全部 CANCELLED | CANCELLED |
++
++Batch CANCEL 仅当存在可取消的最新 Run、actor 活动且命令已接线时出现，只作用于 PENDING，保留已开始与终态 Run。Batch 无整体 RETRY 动作；重试定位具体失败 Run。人工录入优先成为主任务，其次是可重试失败处理，再是终态结果查看或执行进度。各 cell 的当前采集资格独立提供，不能共用一个 Profile 资格布尔值。
+ 
+ ## 4. Run 状态机
+ 
+@@ -110,10 +126,13 @@
+ stateDiagram-v2
+     [*] --> PENDING
+     PENDING --> RUNNING: lease acquired
++    PENDING --> COLLECTED: manual answer committed
++    PENDING --> FAILED: pre-claim eligibility/configuration failure
+     PENDING --> BUDGET_BLOCKED: budget gate before external call
+     PENDING --> CANCELLED: cancel
+     RUNNING --> COLLECTED: raw answer committed
+     RUNNING --> FAILED: collection failed/unknown outcome
++    RUNNING --> PENDING: expired unsent lease revoked
+     COLLECTED --> ANALYZING: analysis claimed
+     ANALYZING --> COMPLETED: analysis completed, no review required
+     ANALYZING --> NEEDS_REVIEW: low confidence/risk gate
+@@ -147,6 +166,16 @@
+ - 采集阶段 FAILED/BUDGET_BLOCKED 的用户重试：创建同 Batch/cell 的 `attempt_no + 1` 新 run，完整复制原输入，前序不存在即拒绝，唯一后继阻止分叉；分析阶段失败只重跑 AnalysisRevision；
+ - 原尝试不修改、不删除；
+ - 迟到结果必须检查当前状态和 lease token，不能覆盖终态。
++
++### 4.3 GEO-302 策略与动作边界
++
++`geo_run_policy` 是合法边和 retry/cancel 资格的唯一纯策略。人工模式只能从 PENDING 原子提交答案到 COLLECTED，不经过 RUNNING/预算外发门禁；自动模式必须先 RUNNING，成功提交必须有原始答案且 `external_call_state=COMPLETED`。采集后推进必须保有答案。PENDING 资格/配置失败可进入 FAILED，允许保存明确的采集错误。
++
++RUNNING→PENDING 必须同时满足自动模式、没有答案、NOT_STARTED、租约过期和旧 token 已撤销；调用服务在锁内提供带时区的时间与撤销证据。SENT/UNKNOWN 不允许该恢复边。四种终态没有任何出边，包括同态转换；非法边统一 409 `INVALID_STATE_TRANSITION`。
++
++取消资格仅为 PENDING、NOT_STARTED 且无答案；守卫失败为 409 `GEO_RUN_ALREADY_STARTED`。采集重试仅为 FAILED/BUDGET_BLOCKED、COLLECTION、无答案且无后继；已有后继优先返回 409 `GEO_RUN_HAS_SUCCESSOR`，其他情况为 409 `GEO_RUN_NOT_RETRYABLE`。retry 资格不修改前序状态，分析/复核失败不投影采集 RETRY。
++
++独立 `GeoRunWorkflowProjection` / `GeoBatchWorkflowProjection` 的 stage、primary_task、available_actions 全部 required 且为闭合 enum，前端不能从 status 补算动作。ADMIN/ENGINEER 的业务执行权限一致；停用 actor 无动作。人工录入与 RETRY 还要求当前采集资格，CANCEL 保留安全停止能力。真实命令接线能力必须显式提供；未实现的命令传 false，不能展示可执行假入口。读投影不是写授权，后续命令须在同一事务、最新数据库事实和锁内重新裁决。RunState 在转换判断时包含本次原子提交拟写入的答案/外发完成事实；调用服务仍负责原子写入、错误字段、lease、revision 与审计，本任务不执行这些写操作。
+ 
+ ## 5. 人工采集流程
+ 
+--- a/docs/geo-monitoring/03-technical/03-api-contract-design.md
++++ b/docs/geo-monitoring/03-technical/03-api-contract-design.md
+@@ -534,3 +534,9 @@
+ - async 命令使用 202 并返回目标资源，而不是空成功；
+ - request/response 中不回显敏感配置；
+ - 生成前端类型后必须执行 contract check。
++
++## 16. GEO-302 当前交付：独立 workflow 组件
++
++根 OpenAPI 新增 `GeoRunWorkflowProjection`、`GeoBatchWorkflowProjection`，以及各自的 WorkflowStage、PrimaryTask、Action 六个闭合 enum；所有对象字段必填，未知 token/扩展字段失败。Batch 投影还返回 `status`，Run 投影消费 GEO-301 的状态事实。
++
++本次不改变 GEO-301 基础 Out，不新增 operation；服务端纯策略生成 `workflow_stage`、`primary_task`、`available_actions`。人工录入、取消、重试只有 actor/逐 cell 当前资格/真实接线能力满足时才投影；后续读 API 组合投影，命令锁内重验。具体合法边及投影优先级以 [业务状态机](../02-business/03-workflows-and-state-machines.md) 为准。前端仅重生成 OpenAPI 类型，无路由、query key、URL 或页面变化。
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -487,7 +487,7 @@
+   phase: R2
+   release: R2
+   title: 实现 Batch/Run 状态策略与动作投影
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-301
+   areas:
+@@ -502,6 +502,7 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  review_note: 2026-10-02实现与本地验证完成；Run合法边/四终态/恢复证据、Batch最新attempt投影及typed actions已实现，8个公共组件与generated同步，无HTTP/Worker或新迁移。1355定向、2636后端单元、1067前端单元、656集成及全部指定门禁通过；独立复核遗漏后继P2已修复并先红后绿。精确命令、0048既有前滚、环境清理和限制见GEO-302 Task Brief与implement.md；等待人工接受，未自行done。
+ - id: GEO-303
+   phase: R2
+   release: R2
+--- a/docs/geo-monitoring/CHANGELOG.md
++++ b/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,12 @@
+ # 文档包变更记录
++
++## GEO-302 Batch/Run 状态策略与动作投影 — 2026-10-02（review）
++
++- GEO-301已人工done；GEO-302 planned→in_progress→review，等待人工接受，未实现GEO-303。
++- Run合法边/终态/模式与答案事实、过期撤销lease恢复、采集retry/cancel资格和typed workflow；非法转换稳定409，retry追加attempt而非回退。
++- Batch以完整初始cell集合的最新attempt确定性投影，非终态优先，不择优答案；独立复核发现遗漏真实后继会误投影，先红后绿修复并复核。
++- 新增8个独立OpenAPI组件和generated类型，无operation、数据库schema/Alembic revision、HTTP/Worker、页面或真实外部调用。
++- 最终1355定向、2636后端单元/1067前端单元、656集成以及contract/lint/type/diff门禁通过。既有0048隔离前滚、精确命令、复核审计和环境清理见 [实施证据](../../.trellis/tasks/10-02-geo-302-state-policy/implement.md)。
+ 
+ ## GEO-301 Batch/Run 数据契约 — 2026-10-02（review）
+ 
+--- a/docs/geo-monitoring/README.md
++++ b/docs/geo-monitoring/README.md
+@@ -239,4 +239,6 @@
+ 
+ GEO-209 / R1 已完成监测计划 UI 实现及本地验证，交付状态为 `review`，提供 `/geo/plans` 列表、详情、八步向导、服务端预览、状态确认和 dirty/409 输入保护；无前端最终 run_count 计算、Batch/Run、调度执行或外部采集。完整门禁保留三项范围外既有用例失败，未将失败记为通过。当前状态以 [任务清单](./04-delivery/task-manifest.yaml) 为准，范围与逐项验证见 [Task Brief](../../.trellis/tasks/10-02-geo-209-plan-ui/prd.md) 和 [实施证据](../../.trellis/tasks/10-02-geo-209-plan-ui/implement.md)。
+ 
+-GEO-301 / R2 已建立独立回答级 Batch/Run 公共组件、两表 ORM 与 0048 加法迁移。快照/身份和 Run 终态冻结，初始 cell 数在提交时精确校验，attempt 追加继承且无分叉，Batch 状态保存为可重建缓存；旧 GeoObservation 不改不迁移。契约见 [OpenAPI](../../contracts/openapi.yaml) 和 [数据库合同](../../contracts/database.md#geo-batch--run-合同geo-301--r2)，范围与验证见 [Task Brief](../../.trellis/tasks/10-02-geo-301-batch-run/prd.md) 和 [实施证据](../../.trellis/tasks/10-02-geo-301-batch-run/implement.md)。当前任务等待人工 review，不代表创建/状态命令/答案/Collector 已实现。
++GEO-301 / R2 已建立独立回答级 Batch/Run 公共组件、两表 ORM 与 0048 加法迁移。快照/身份和 Run 终态冻结，初始 cell 数在提交时精确校验，attempt 追加继承且无分叉，Batch 状态保存为可重建缓存；旧 GeoObservation 不改不迁移。契约见 [OpenAPI](../../contracts/openapi.yaml) 和 [数据库合同](../../contracts/database.md#geo-batch--run-合同geo-301--r2)，范围与验证见 [Task Brief](../../.trellis/tasks/10-02-geo-301-batch-run/prd.md) 和 [实施证据](../../.trellis/tasks/10-02-geo-301-batch-run/implement.md)。已于2026-10-02人工接受，状态done；不代表创建/状态命令/答案/Collector 已实现。
++
++GEO-302 / R2 已实现 Run 合法边、终态守卫、采集 retry/cancel 资格、每 cell 最新 attempt 的 Batch 状态和独立 typed workflow/actions；非法转换稳定409，缺失矩阵或遗漏已存在后继明确失败。公共组件与 generated 类型同步，无 HTTP/Worker 接线、数据库迁移或新页面。当前状态以 [任务清单](./04-delivery/task-manifest.yaml) 为准；范围和实际验证见 [Task Brief](../../.trellis/tasks/10-02-geo-302-state-policy/prd.md) 与 [实施证据](../../.trellis/tasks/10-02-geo-302-state-policy/implement.md)。
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -5,11 +5,11 @@
+ 7ea6985cdc63749a10c73b801f69349dc2f0ac797b9aa87622723f26b988bcbe  ./01-product/03-information-architecture-and-page-spec.md
+ 3892c8f83318ee460de04960a5162b4d777db06eb731a5999cdee946cd8042e3  ./02-business/01-business-architecture.md
+ b83d66bbfd444de8b78d5bd5dcbab7f44ef69d85d562806ac118ac50448c5bd7  ./02-business/02-domain-model.md
+-f545f14452428d75cb3790424c2f1be949dd34c327704eb54345af60367a692a  ./02-business/03-workflows-and-state-machines.md
++9a34e74fb76d0e2fd522ea359a5d760c3a9813664a7c51c7db92c21df9ee7e8b  ./02-business/03-workflows-and-state-machines.md
+ 30e1976c61c18150724cf4b89ead9e2d960b0cea729ba377b06c7c384c264899  ./02-business/04-monitoring-methodology-and-metrics.md
+ 2ce491f8dbf89639aabbf59b5afb7a3fd43520e40e7848e4e9e3049c85436689  ./03-technical/01-technical-architecture.md
+ 9ea4924e09f0649897c19b7168dcb24c65ac5bf1d026d669c8d46ec0c0b206f9  ./03-technical/02-data-architecture.md
+-8c567c4c67d2278f2c483e93ac83c056ec76ae1aa812c5386e786dc687fa5077  ./03-technical/03-api-contract-design.md
++04e74273781cb367d73700124d434fc193a5e0ccec074767ac9fd850a24e0de8  ./03-technical/03-api-contract-design.md
+ 0652e70d9ce21aa7af1025db76e6f70153170f7eb196dded86342299743852e4  ./03-technical/04-frontend-architecture.md
+ fca200933d31b46ff82d25f0130dda678d13a7b33d854cb30b44ab3929c8f308  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+@@ -102,13 +102,13 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-2769f5de46ecbc057bf7d75fb8566c41324546e6ca5c1ba6b01a8f8a6e095d7a  ./04-delivery/task-manifest.yaml
++516a871832ce9d91e4f49c7440bee53218e79325f1cfb60f6e9bdb3867ae0f26  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 09d2ba6a3d8f07ca61309d0a9d4a557c30a1d16853d73139e15b43ca6f1303bb  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-aee8e373c58b055f8ea640a043fc32cef30ffe011afb7cc7e37fd2aa8e09b933  ./CHANGELOG.md
+-bb7a10ee1b36fd93e9a45d193a3eb84d46779b8907d48440cb9a946339390b15  ./README.md
++c59ddb8959e456b36a18c89ca714056b65066f90647c25b8cb241dbd654e6fb5  ./CHANGELOG.md
++106b56671c5d1f1eeb111febebacadbabd62739fb1340dfcbac6c6f0f73b8072  ./README.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+--- a/frontend/src/shared/api/generated/schema.d.ts
++++ b/frontend/src/shared/api/generated/schema.d.ts
+@@ -7943,6 +7943,49 @@
+          * @enum {string}
+          */
+         GeoRunCommandErrorCode: "GEO_RUN_NOT_MANUAL" | "GEO_RUN_NOT_PENDING" | "GEO_RUN_ALREADY_STARTED" | "GEO_RUN_NOT_RETRYABLE" | "GEO_RUN_HAS_SUCCESSOR" | "GEO_SCHEDULE_WINDOW_EXISTS";
++        /**
++         * GeoRunWorkflowStage
++         * @enum {string}
++         */
++        GeoRunWorkflowStage: "MANUAL_ENTRY_REQUIRED" | "QUEUED" | "COLLECTION_IN_PROGRESS" | "ANALYSIS_PENDING" | "ANALYSIS_IN_PROGRESS" | "REVIEW_REQUIRED" | "COMPLETED" | "RETRYABLE_FAILURE" | "HISTORICAL_FAILURE" | "CANCELLED" | "BUDGET_BLOCKED";
++        /**
++         * GeoRunPrimaryTask
++         * @enum {string}
++         */
++        GeoRunPrimaryTask: "ENTER_MANUAL_OBSERVATION" | "VIEW_EXECUTION_PROGRESS" | "VIEW_REVIEW" | "VIEW_OBSERVATION" | "HANDLE_FAILURE" | "VIEW_FAILURE";
++        /**
++         * GeoRunAction
++         * @enum {string}
++         */
++        GeoRunAction: "ENTER_MANUAL_OBSERVATION" | "CANCEL" | "RETRY";
++        /**
++         * GeoBatchWorkflowStage
++         * @enum {string}
++         */
++        GeoBatchWorkflowStage: "PREPARING" | "QUEUED" | "MANUAL_ENTRY_REQUIRED" | "IN_PROGRESS" | "COMPLETED" | "PARTIAL" | "FAILED" | "CANCELLED" | "BUDGET_BLOCKED";
++        /**
++         * GeoBatchPrimaryTask
++         * @enum {string}
++         */
++        GeoBatchPrimaryTask: "VIEW_EXECUTION_PROGRESS" | "ENTER_MANUAL_OBSERVATIONS" | "VIEW_RESULTS" | "HANDLE_FAILURE";
++        /**
++         * GeoBatchAction
++         * @enum {string}
++         */
++        GeoBatchAction: "CANCEL";
++        /** GeoRunWorkflowProjection */
++        GeoRunWorkflowProjection: {
++            workflow_stage: components["schemas"]["GeoRunWorkflowStage"];
++            primary_task: components["schemas"]["GeoRunPrimaryTask"];
++            available_actions: components["schemas"]["GeoRunAction"][];
++        };
++        /** GeoBatchWorkflowProjection */
++        GeoBatchWorkflowProjection: {
++            status: components["schemas"]["GeoBatchStatus"];
++            workflow_stage: components["schemas"]["GeoBatchWorkflowStage"];
++            primary_task: components["schemas"]["GeoBatchPrimaryTask"];
++            available_actions: components["schemas"]["GeoBatchAction"][];
++        };
+     };
+     responses: {
+         /** @description 业务或校验错误 */

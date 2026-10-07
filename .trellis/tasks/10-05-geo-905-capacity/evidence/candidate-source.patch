@@ -1,0 +1,836 @@
+--- a/.env.example
++++ b/.env.example
+@@ -28,7 +28,7 @@
+ PARTSIGNAL_SEED_ENGINEER_PASSWORD=partsignal-engineer-dev
+ CELERY_CONCURRENCY=1
+ 
+-# CELERY_CONCURRENCY 是历史记录字段；当前 Compose worker command 固定 --concurrency=1。
++# CELERY_CONCURRENCY 在进程启动时生效，范围1–10；提升前须验证内存与Profile准入容量。
+ # AI 运行时。供应商、模型、API Key 属于数据库配置，不由 env 加载。
+ # Production clean-init 首次录入使用受控 TTY bootstrap；后续由 AI Channel 管理。
+ # deterministic 兼容值关闭正式生成/自然化/重试，不产生假 AI 内容；真实业务需 openai-compatible。
+--- a/.env.production.example
++++ b/.env.production.example
+@@ -36,7 +36,7 @@
+ # 首次空库初始化账号密码：分别随机生成，至少 12 字符；非日常密码重置接口。
+ PARTSIGNAL_SEED_ADMIN_PASSWORD=
+ PARTSIGNAL_SEED_ENGINEER_PASSWORD=
+-# 历史记录字段：当前 Compose worker command 固定 --concurrency=1。
++# Worker进程启动时读取，范围1–10；默认1，目标环境容量验证后再提高。
+ CELERY_CONCURRENCY=1
+ 
+ # AI provider/model/API Key 不放入这个文件，详见 AI 初始化模板。
+--- a/Makefile
++++ b/Makefile
+@@ -3,7 +3,7 @@
+ UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
+ UV := UV_CACHE_DIR=$(UV_CACHE_DIR) uv
+ 
+-.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate initialize-accounts lint typecheck test-unit test-integration e2e build build-frontend verify test-deploy-scripts test-frontend-container staging-redeploy-fast down test-geo-fixtures test-geo-collector-contract test-geo-performance test-geo-browser test-geo-browser-contract test-geo-recovery
++.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate initialize-accounts lint typecheck test-unit test-integration e2e build build-frontend verify test-deploy-scripts test-frontend-container staging-redeploy-fast down test-geo-fixtures test-geo-collector-contract test-geo-performance test-geo-browser test-geo-browser-contract test-geo-recovery test-geo-capacity
+ 
+ bootstrap:
+ 	@test -f .env || cp .env.example .env
+@@ -79,6 +79,9 @@
+ test-geo-browser-contract:
+ 	$(UV) run --project backend python deploy/scripts/test-geo-browser-contract.py $(if $(filter 1,$(GEO_BROWSER_CONTRACT_CONTAINER)),--container,)
+ 
++test-geo-capacity:
++	$(COMPOSE) run --rm -e GEO_PERF_PHASE=candidate -e GEO_CAPACITY_PHASE=candidate -e GEO_CAPACITY_OUTPUT=/app/tests/performance/.results/geo905/candidate backend-test pytest -s tests/performance/test_geo_capacity.py tests/performance/test_geo_worker_capacity.py
++
+ test-geo-performance:
+ 	$(COMPOSE) run --rm -e GEO_PERF_PHASE=candidate -e GEO_PERF_OUTPUT=/app/tests/performance/.results/candidate backend-test pytest -s tests/performance/test_geo_insight_performance.py
+ 
+--- a/backend/app/config.py
++++ b/backend/app/config.py
+@@ -35,6 +35,9 @@
+         "redis://localhost:6379/0",
+         validation_alias=AliasChoices("REDIS_URL", "PARTSIGNAL_REDIS_URL"),
+         repr=False,
++    )
++    celery_concurrency: int = Field(
++        default=1, ge=1, le=10, validation_alias=AliasChoices("CELERY_CONCURRENCY")
+     )
+     session_secret: str = Field(
+         DEVELOPMENT_SESSION_SECRET,
+--- a/backend/app/services/geo_read_queries.py
++++ b/backend/app/services/geo_read_queries.py
+@@ -129,15 +129,18 @@
+ def _page(
+     query: Select[Any], model: type[Batch] | type[Run], filters: GeoReadFilters
+ ) -> Select[Any]:
+-    order = (
++    return (
++        query.order_by(*_order(model, filters))
++        .offset((filters.page - 1) * filters.page_size)
++        .limit(filters.page_size)
++    )
++
++
++def _order(model: type[Batch] | type[Run], filters: GeoReadFilters) -> tuple[Any, Any]:
++    return (
+         (model.created_at.desc(), model.id.desc())
+         if filters.sort == "CREATED_DESC"
+         else (model.created_at, model.id)
+-    )
+-    return (
+-        query.order_by(*order)
+-        .offset((filters.page - 1) * filters.page_size)
+-        .limit(filters.page_size)
+     )
+ 
+ 
+@@ -234,7 +237,9 @@
+         _batch(db, batch_id)
+     elif isinstance(filters, GeoGlobalRunFilters):
+         batch_id = filters.batch_id
+-    query = _window(_run_query(), Run, filters)
++    # 深分页只排序/跳过稳定ID与时间；冻结JSON和关联投影仅加载已选中的一页。
++    # 两段SQL位于同一RR快照，保持全部过滤、latest和确定性排序语义。
++    query = _window(select(Run.id, Run.created_at), Run, filters)
+     successor = aliased(Run)
+     if filters.latest_only:
+         query = query.where(
+@@ -274,7 +279,10 @@
+             .icontains(filters.q.strip(), autoescape=True)
+         )
+     total = db.scalar(select(func.count()).select_from(query.subquery()))
+-    rows = db.execute(_page(query, Run, filters)).mappings().all()
++    page = _page(query, Run, filters).subquery()
++    rows = db.execute(
++        _run_query().join(page, Run.id == page.c.id).order_by(*_order(Run, filters))
++    ).mappings().all()
+     profiles = load_profile_facts(db, list({r["collection_profile_id"] for r in rows}))
+     return GeoRunListPage(
+         items=[projection.run_item(dict(row), profiles, actor) for row in rows],
+--- a/backend/app/worker.py
++++ b/backend/app/worker.py
+@@ -34,6 +34,7 @@
+     task_acks_late=True,
+     task_reject_on_worker_lost=True,
+     worker_prefetch_multiplier=1,
++    worker_concurrency=settings.celery_concurrency,
+     broker_connection_retry_on_startup=True,
+     broker_transport_options={"socket_connect_timeout": 5, "socket_timeout": 5},
+     beat_scheduler="app.geo_ops_health:GeoHealthScheduler",
+--- a/backend/tests/performance/README.md
++++ b/backend/tests/performance/README.md
+@@ -36,3 +36,14 @@
+ 该 fixture 覆盖短回答、单引用、20产品和单个手工采集环境，每产品重复同一模板；
+ 高输入多样性、长回答、多引用、多平台、
+ 真实网络和目标 VPS 容量验收属于 GEO-905，不能由本地结果推断生产启用。
++
++
++# GEO-905容量诊断
++
++```sh
++make test-geo-capacity
++```
++
++新增100k认证列表/深页/复核筛选、批次/状态与详情P95和实际EXPLAIN，以及不缓冲的100000行ASGI导出/断流/RSS测量。创建1000个唯一root并测量锁内状态投影；threads和真实prefork十路消费稳定UUID，重复20条消息只调用本地模拟站10次。原始样本、计划与资源记录保存在`.results/geo905/candidate/`，测试失败仍保留已完成场景。Worker观测连接也隔离到fixture库，不能写默认开发库。两种phase由Make强制candidate。
++
++该目标的列表500ms/详情800ms/创建5s/CSV稳定区间32MiB是本地诊断门槛。PSS为采样观测而非完整高水位，不使用它推断资源余量；prefork默认单并发、提高前需核对容器限额。100k fixture的数据形态和30天8400候选限制仍按上文披露。目标环境/冻结阈值、长回答/多引用/高输入多样性及30天100k密度未由这个目标证明，见仓库GEO-905容量记录。独立运行性能门禁，避免与完整integration争用资源；对失败先诊断再重测。
+--- a/backend/tests/unit/test_geo_worker_configuration.py
++++ b/backend/tests/unit/test_geo_worker_configuration.py
+@@ -10,6 +10,7 @@
+ )
+ 
+ PARAMETERS = {
++    "CELERY_CONCURRENCY": (1, 1, 10),
+     "GEO_PENDING_REDISPATCH_SECONDS": (120, 1, 86400),
+     "GEO_COLLECTION_FINALIZE_GRACE_SECONDS": (120, 1, 3600),
+     "GEO_RECOVERY_SCAN_SECONDS": (60, 5, 3600),
+@@ -35,4 +36,33 @@
+ 
+ 
+ def test_existing_runtime_can_omit_all_geo_settings(tmp_path):
+-    check_runtime(tmp_path, dict.fromkeys([*GEO_FLAGS, *PARAMETERS]), "PASSED", None)
++    check_runtime(tmp_path, dict.fromkeys([*GEO_FLAGS, *[p for p in PARAMETERS
++                                                   if p != "CELERY_CONCURRENCY"]]),
++                  "PASSED", None)
++
++
++def test_worker_consumes_concurrency_without_compose_override(tmp_path):
++    """进程启动后的真实Celery consumer接受env，部署命令不覆盖它。"""
++    import os
++    import subprocess
++    import sys
++    from pathlib import Path
++
++    root = Path(__file__).resolve().parents[3]
++    code = """
++from celery.worker.worker import WorkController
++from app.worker import celery_app
++controller = WorkController.__new__(WorkController)
++controller.app = celery_app
++controller.setup_defaults()
++print(controller.concurrency)
++"""
++    for concurrency in (1, 10):
++        result = subprocess.run(
++            [sys.executable, "-c", code], cwd=tmp_path, capture_output=True, text=True,
++            env={**os.environ, "APP_ENV": "test", "CELERY_CONCURRENCY": str(concurrency),
++                 "PYTHONPATH": str(root / "backend")}, check=True,
++        )
++        assert result.stdout.strip() == str(concurrency)
++    for name in ("dev", "staging", "prod"):
++        assert "--concurrency" not in (root / f"deploy/compose.{name}.yaml").read_text()
+--- a/deploy/compose.dev.yaml
++++ b/deploy/compose.dev.yaml
+@@ -67,7 +67,7 @@
+ 
+   worker:
+     <<: *backend
+-    command: [uv, run, celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --concurrency=1, --pidfile=/tmp/partsignal-worker.pid]
++    command: [uv, run, celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --pidfile=/tmp/partsignal-worker.pid]
+     healthcheck:
+       test: [CMD, python, -m, app.geo_observability, health, worker]
+       interval: 30s
+--- a/deploy/compose.prod.yaml
++++ b/deploy/compose.prod.yaml
+@@ -46,7 +46,7 @@
+   worker:
+     <<: *backend
+     profiles: [production-async]
+-    command: [celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --concurrency=1, --pidfile=/tmp/partsignal-worker.pid]
++    command: [celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --pidfile=/tmp/partsignal-worker.pid]
+     restart: unless-stopped
+     mem_limit: 1g
+     cpus: 1.5
+--- a/deploy/compose.staging.yaml
++++ b/deploy/compose.staging.yaml
+@@ -104,7 +104,7 @@
+ 
+   worker:
+     <<: *backend
+-    command: [celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --concurrency=1, --pidfile=/tmp/partsignal-worker.pid]
++    command: [celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --pidfile=/tmp/partsignal-worker.pid]
+     restart: unless-stopped
+     mem_limit: 512m
+     cpus: 0.75
+--- a/docs/geo-monitoring/03-technical/07-testing-and-quality.md
++++ b/docs/geo-monitoring/03-technical/07-testing-and-quality.md
+@@ -595,3 +595,12 @@
+ ## GEO-903 隔离备份恢复验证
+ 
+ `backend/tests/unit/test_geo_recovery_boundaries.py`保护独立backup key/AAD流式认证加密、损坏/错误密钥/危险target拒绝与有材料不得N/A。`backend/tests/integration/test_geo_recovery.py`配合`geo_recovery_support.py`创建独立来源并执行custom dump/restore；既有HTTP人工提交/实际分析/复核形成历史，恢复后比对每表与全部RunDetail/Overview摘要、实际API key与敏感Header解密、截图/raw真实字节/HEAD，以及旧plan/window并发去重、恢复答案同值UPDATE的23514守卫和SIGTERM资源清理。缺失对象必须明确MISSING且不造完整恢复；扫描只读且不修改业务状态。具体命令、环境、首次失败与剩余限制见[903实施证据](../../../.trellis/tasks/10-05-geo-903-recovery/implement.md)。普通验证不访问真实AI/Browser/生产OSS；全量发布门禁留906。
++
++
++## GEO-905 本地容量诊断门禁
++
++`make test-geo-capacity`独立于普通unit/integration，使用临时PG16并迁移至head。固定两种phase为candidate，不能继承旧GEO-607 baseline移除索引的分支。100k+存量下认证HTTP首/第4000页、复核筛选、批次/状态筛选与详情预热2次/采20样本，nearest-rank P95；实际GEO SQL保存EXPLAIN ANALYZE BUFFERS JSON。列表500ms、详情800ms、创建1000个唯一root<5s是本地诊断值，最终目标环境阈值仍依§12冻结，不把它们称为已验收VPS合同。
++
++CSV通过实际ASGI send逐块消费100000行，不用缓冲全量的TestClient。验证固定as_of、日期DESC/id ASC顺序、行数、RSS稳定区间增长<32MiB、首块<2s、正常及1000行提前取消后连接回池。Worker覆盖threads/prefork十路及20条重复消息只产生10次本地模拟请求；threads的业务与观测均绑定fixture库，Redis专用UUID队列退出时清理。prefork记录进程数及采样PSS，默认生产adapter资格不被测试入口修改。
++
++数据形态仍为20个冻结输入、短回答、单引用、365天100k存量，30天当前8400候选；不覆盖30天100k密度、高输入多样性、长回答、多引用或目标VPS资源边界。完整结果和失败分类见[容量记录](../04-delivery/12-r8-capacity-hardening.md)。
+--- a/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
++++ b/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
+@@ -524,3 +524,10 @@
+ ## 当前 R8：GEO-903 一致性集合和隔离恢复
+ 
+ 备份清单、静默窗口、认证加密、一次性owner数据库/对象树、Run Detail/指标/凭据对账、历史调度窗口及PENDING/RUNNING处置以[恢复Runbook](./09-backup-recovery-runbook.md)为当前操作入口。OpenAPI/schema/head不变；不启动consumer，不对生产OSS写入。Browser N/A须有实际部署、配置、PG与材料依据，存在材料转入802专用保护/恢复/撤销分支，不能因延期豁免。生产904/906检查和灾难切换不由本地演练代替。
++
++
++## GEO-905 Worker容量配置
++
++`CELERY_CONCURRENCY`现由Settings在进程启动时读取，默认1、范围1..10，并传给Celery worker_concurrency。三套Compose不再固定CLI单并发。该字段以前只作历史记录，升级前须核对已有值；越界显式启动失败。env文件变化需受控recreate，不代表运行进程已加载。prefetch=1、acks_late、reject_on_worker_lost保持。Profile max_concurrency/每分钟限制、预算和PG发送账本独立裁决，增加进程数不授予外发资格。
++
++本地虚构资料的十路prefork最终观测约801MiB采样PSS（主进程加十子进程），高于staging的512MiB Worker限额；不能将该环境直接设为10。production的1GiB也不能仅凭此观测推断足够余量。默认仍为1；本任务不调整实际runtime、容器内存限额或部署。提升容量须以目标环境的长回答/多引用、持续采集和分析并发实测冻结上限。任务证据与未完成边界见[容量记录](../04-delivery/12-r8-capacity-hardening.md)。
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -1600,7 +1600,7 @@
+   phase: R8
+   release: R8
+   title: 完成大数据量性能和容量硬化
+-  status: planned
++  status: blocked
+   dependencies:
+   - GEO-607
+   - GEO-902
+@@ -1618,6 +1618,9 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  trellis_task: .trellis/tasks/10-05-geo-905-capacity
++  execution_note: "2026-10-05：607/902 done和人工接受已核对；Task Brief、preflight及基线已执行，目标环境/冻结阈值待明确；开始范围内容量硬化，不实施906。"
++  blocked_note: "2026-10-05：窄键分页、真实Worker启动并发及100k/1000批次/CSV/threads-prefork/查询计划本地交付完成；最终容量4 passed，lint/typecheck/diff-check通过，完整integration原命令1170 passed/6恢复工具setup errors，显式本地PG16补验证6 passed。目标环境规格、授权测试入口及冻结阈值仍缺失，命中用户限定的必需外部输入缺失条件，in_progress→blocked；本地801MiB prefork样本不能推断staging512MiB或production1GiB余量，未证明高密度/长回答/多引用持续负载。精确结果、失败分类和恢复条件见Trellis implement与12-r8-capacity-hardening.md；不虚构review/done，不提交/部署或实施906。"
+ - id: GEO-906
+   phase: R8
+   release: R8
+--- a/docs/geo-monitoring/CHANGELOG.md
++++ b/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,13 @@
+ # 文档包变更记录
++
++## GEO-905 / R8 大数据量性能和容量硬化 — 2026-10-05（blocked）
++
++- Run列表先窄键分页再加载一页完整投影，保留过滤、total、current/latest、RR与确定性排序；本地100k深页P95由1.008s降至0.169s，临时写274MiB降至3.3MiB。复用现有索引，不引入物化业务权威。
++- CELERY_CONCURRENCY成为真实启动配置，默认1、范围1..10，三套Compose不再固定覆盖；不改变PG准入、锁、lease/SENT、预算、prefetch、重投或实际部署容量。
++- 新容量入口4项通过：100021存量、1000根批次、100000行实际ASGI流及取消释放、10路threads/prefork重复消息与真实查询计划。prefork约801MiB采样PSS超过staging512MiB，不能直接提高实际并发。
++- lint/typecheck/diff-check通过；完整integration原命令1170 passed/6 setup errors，缺显式PG恢复工具；修正本地环境后6项补验证通过，保留原失败及争用负载性能失败记录。
++- 无OpenAPI/数据库/ORM/Alembic/前端/业务公式/历史变化。目标环境入口与冻结阈值缺失，依用户限定停止条件in_progress→blocked，不自行done，不实施906、提交或部署。
++- 文件增量、精确命令、独立复核和负载局限见[容量记录](./04-delivery/12-r8-capacity-hardening.md)及[实施证据](../../.trellis/tasks/10-05-geo-905-capacity/implement.md)。
+ 
+ ## GEO-904 / R8 安全与合规专项复核 — 2026-10-05（blocked）
+ 
+--- a/docs/geo-monitoring/README.md
++++ b/docs/geo-monitoring/README.md
+@@ -426,3 +426,6 @@
+ 实际证据见[Task Brief](../../.trellis/tasks/10-05-geo-903-recovery/prd.md)与
+ [实施记录](../../.trellis/tasks/10-05-geo-903-recovery/implement.md)。只交付review，等待人工接受；
+ Browser N/A只适用于新建演练来源的检查证据，生产false/无会话由904/906另核实。
++
++
++GEO-905 / R8 实施Run列表先窄键分页再投影、真实Worker启动并发配置，以及100k列表/CSV、1000根矩阵、threads/prefork并发和EXPLAIN诊断门禁。代码与本地检查完成，目标环境与冻结阈值仍待明确，当前blocked；本地结果不能当作VPS验收。范围、真实失败/补验证、资源限制及状态见[容量记录](./04-delivery/12-r8-capacity-hardening.md)、[Task Brief](../../.trellis/tasks/10-05-geo-905-capacity/prd.md)和[实施证据](../../.trellis/tasks/10-05-geo-905-capacity/implement.md)。没有新API/数据库迁移、业务物化缓存或生产部署，不实施906。
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -14,8 +14,8 @@
+ a0291d4a77609a1db741e3adc84d19ab712ac3ffff8c49f8572ac09b1c5327eb  ./03-technical/04-frontend-architecture.md
+ daf8f8cec2dfb8996c316ca259ae6eea161d944337f340ce9c6180bc9c87c0f5  ./03-technical/05-worker-and-collector-architecture.md
+ 596532a0304d246a9051872ebed910156983b9fd2cd146ef234fd6700e07c1eb  ./03-technical/06-security-and-compliance.md
+-f4837f0ba8319aabbd6bcc96057cd2fc80c740777a83f7854cf3c98adbac212a  ./03-technical/07-testing-and-quality.md
+-d221bc4e4709e48be9302fbe16dac798c54fd125287fbfe4a04b3ab98fe0bc1d  ./03-technical/08-deployment-and-operations.md
++351dc8f784a3f84f8a844e2cb3f2d67c9cd77852159eb8690b19e66cd758d4b6  ./03-technical/07-testing-and-quality.md
++1ea72f1c6dfa1073686e62f0f6f0cee1caefae9ed4d12e7d8ad5accc2578d137  ./03-technical/08-deployment-and-operations.md
+ 46f6d9585856b518af06b01863b0e25b3b00906ffde987d7453fcf810a85db93  ./04-delivery/01-implementation-roadmap.md
+ eee6ed49f55846ab63c464b2696112b270572e050b43195bdb2a9fddb8122613  ./04-delivery/02-work-breakdown-structure.md
+ fe8eb7c838c0616c6330ba9c9cc0b4c2c1d51a07d682e325764a74bff3283afd  ./04-delivery/03-requirement-traceability-matrix.md
+@@ -106,18 +106,19 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-a64a803f789f0fd9a19686d36ccff15568bff06a4e80f830f83662d5b3e4e3dc  ./04-delivery/task-manifest.yaml
++b82e8d5f0920545da244e7f369c02a9757d1974192dcfd08f3139ce1f82f0808  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 8f4f24331d4ea91574e5a4a56c3eacd9d89e193011c48f8d9f5e413198793909  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-ee06fdedfc7fee499c31cb0ca11ae89f1ecdbf263f8b36318d54532290dcac7c  ./CHANGELOG.md
+-628a431db021fda93fb7e8cc28a8eba108fbcdc1e33e5e6f538f41e1dcd747c4  ./README.md
++e5ce198e552514b03f29203b70f8ba335edaba5a03f2f9fa199ea28daa490f1f  ./CHANGELOG.md
++6ef404b993a1e2257185eddeba38c59639ab4bdc0869fcdd27a072754d3ca245  ./README.md
+ 670f9d9e94e3a36b849691f8531a30433ea0253f234b855d08331b6d2b1905cd  ./04-delivery/10-r6-opportunity-acceptance.md
+ 2ecb8425899de5f1ae4f6a1f0b130f93aba201fbc9c084856d6893835d0484e9  ./02-business/05-manual-geo-observation-sop.md
+ 063efdbae17e86fc90ff7e6cff80ecdfdb6eee1e37416e5e3179531c7260a7cd  ./04-delivery/09-r4-analysis-acceptance.md
+ 2fbec827c69bc5ed179ee8752b252ef1419f97392c38b6770c9184fa9ba641ba  ./05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
+ 48ee02798a720cd1c74067e040677bf18947e56933521c2d409b4feb81cc4c0e  ./03-technical/09-backup-recovery-runbook.md
+ 8701bf8f2226438836d4977f1e75de52e18fbfae1100865984ca02f55e596380  ./04-delivery/11-r8-security-review.md
++7f8a497ed5d19102cdeab9d30fec7e6939e0db185bd82f8dfe3431c835f4cd13  ./04-delivery/12-r8-capacity-hardening.md
+--- a/docs/production-configuration.md
++++ b/docs/production-configuration.md
+@@ -49,7 +49,7 @@
+ | `SESSION_COOKIE_SECURE` | 固定 `true` |
+ | `CORS_ALLOWED_ORIGINS` | 实际 HTTPS 站点 origin；本环境为 `https://geo.962850.xyz`，无路径、无通配符 |
+ | `PARTSIGNAL_SEED_ADMIN_PASSWORD`、`PARTSIGNAL_SEED_ENGINEER_PASSWORD` | 首次分别生成至少 32 随机字节的 URL-safe 值；应用底层最小值为 12 字符；只负责空库创建 `admin`/`content_editor`，不覆盖现有账号密码 |
+-| `CELERY_CONCURRENCY` | 历史记录字段；实际 Compose worker command 固定 `--concurrency=1` |
++| `CELERY_CONCURRENCY` | 启动时读取，默认 `1`，范围 `1..10`；Celery prefetch=1，提升并发前须测目标环境内存、数据库连接和 Profile 准入限制 |
+ | `CONTENT_GENERATOR` | Production 固定 `openai-compatible`；`deterministic` 会被 Settings 启动校验拒绝。开发/预览保留该值为业务 no-egress，不能产生假 AI 成功 |
+ | `AI_CREDENTIAL_ENCRYPTION_KEY` | 独立随机 32 字节经 Base64 编码；与数据库备份成对保护，不能随发布轮换 |
+ | `AI_ALLOW_LOCAL_HTTP` | 固定 `false` |
+--- /dev/null
++++ b/backend/tests/performance/test_geo_capacity.py
+@@ -0,0 +1,166 @@
++"""GEO-905：实际认证请求、100k流发送与生命周期测量，不缓冲响应正文。"""
++
++import asyncio
++import csv
++import gc
++import json
++import math
++import os
++import time
++from pathlib import Path
++from urllib.parse import urlencode
++
++import psycopg
++import pytest
++from sqlalchemy import event
++
++from app.main import app
++from tests.integration.geo_reviews_support import (
++    analysis_engine,
++    answer_database,
++    harness,
++    plan_database,
++    review_api,
++    run_database,
++)
++from tests.integration.test_geo_overview import overview_api
++from tests.performance.seed_geo import seed
++
++__all__ = ["analysis_engine", "answer_database", "harness", "plan_database", "review_api",
++           "run_database", "overview_api"]
++pytestmark = pytest.mark.performance
++
++
++def rss_bytes():
++    # 目标运行入口是Linux容器；不把平台不可用猜成0。
++    return int(Path('/proc/self/statm').read_text().split()[1]) * os.sysconf('SC_PAGE_SIZE')
++
++
++def write(output, name, value):
++    output.mkdir(parents=True, exist_ok=True)
++    (output / name).write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
++
++
++async def export(api, query, *, stop_after=None):
++    stats = {"rows": 0, "bytes": 0, "chunks": 0, "rss_samples": [], "as_of": None}
++    previous = None
++    started = time.perf_counter()
++    first = None
++
++    async def receive():
++        return {"type": "http.request", "body": b"", "more_body": False}
++
++    async def send(message):
++        nonlocal first, previous
++        if message['type'] == 'http.response.start':
++            assert message['status'] == 200
++            headers = dict(message['headers'])
++            assert headers[b'cache-control'] == b'no-store'
++            stats['as_of'] = headers[b'x-report-as-of'].decode()
++            return
++        body = message.get('body', b'')
++        if not body:
++            return
++        first = first or time.perf_counter() - started
++        stats['chunks'] += 1
++        stats['bytes'] += len(body)
++        records = csv.reader(body.decode('utf-8-sig').splitlines())
++        if stats['chunks'] == 1:
++            columns = next(records)
++            stats['columns'] = columns
++        for record in records:
++            row = dict(zip(stats['columns'], record, strict=True))
++            assert row['as_of'] == stats['as_of']
++            key = row['created_at'], row['run_id']
++            if previous:
++                assert key[0] < previous[0] or (key[0] == previous[0] and key[1] > previous[1])
++            previous = key
++            stats['rows'] += 1
++        if stats['rows'] % 1000 == 0:
++            stats['rss_samples'].append([stats['rows'], rss_bytes()])
++        if stop_after and stats['rows'] >= stop_after:
++            raise asyncio.CancelledError()
++
++    cookie = '; '.join(f'{key}={value}' for key, value in api.engineer.cookies.items())
++    scope = {"type": "http", "asgi": {"version": "3.0", "spec_version": "2.4"},
++             "http_version": "1.1", "method": "GET", "scheme": "http",
++             "path": "/api/v1/geo/reports/runs.csv", "raw_path": b"/api/v1/geo/reports/runs.csv",
++             "query_string": urlencode(query).encode(), "root_path": "",
++             "headers": [(b'host', b'testserver'), (b'cookie', cookie.encode())],
++             "client": ('127.0.0.1', 10000), "server": ('testserver', 80)}
++    try:
++        await app(scope, receive, send)
++    except asyncio.CancelledError:
++        if not stop_after:
++            raise
++    stats['seconds'] = time.perf_counter() - started
++    stats['first_chunk_seconds'] = first
++    return stats
++
++
++def test_100k_capacity_queries_and_stream(overview_api):
++    api = overview_api
++    output = Path(os.environ.get('GEO_CAPACITY_OUTPUT', '/tmp/geo905-capacity'))
++    cases = seed(api, output)
++    engine = api.harness.factory.kw['bind']
++    query = {"created_from": "2025-10-01T00:00:00Z", "created_to": "2026-10-02T00:00:00Z"}
++    captured = []
++
++    def capture(_conn, _cursor, statement, parameters, _context, _executemany):
++        if statement.lstrip().upper().startswith('SELECT') and 'geo_' in statement:
++            captured.append((statement, parameters))
++
++    event.listen(engine, 'before_cursor_execute', capture)
++    results, plans = {}, {}
++    try:
++        scenarios = [
++            ('runs_first', '/api/v1/geo/observation-runs', query, .5),
++            ('runs_deep', '/api/v1/geo/observation-runs', query | {'page': 4000}, .5),
++            ('runs_review', '/api/v1/geo/observation-runs', query | {'needs_review': 'true'}, .5),
++            ('batches', '/api/v1/geo/observation-batches', query, .5),
++            ('batches_status', '/api/v1/geo/observation-batches',
++             query | {'status': 'RUNNING'}, .5),
++            ('run_detail', f'/api/v1/geo/observation-runs/{cases[0].run_id}', {}, .8),
++        ]
++        for name, path, filters, limit in scenarios:
++            timings, counts = [], []
++            for iteration in range(22):
++                captured.clear()
++                start = time.perf_counter()
++                response = api.engineer.get(path, params=filters)
++                assert response.status_code == 200, response.text
++                value = response.json()
++                assert value.get('items', [value])
++                if 'runs_' in name:
++                    assert value['total'] == (17500 if name == 'runs_review' else 100000)
++                if iteration >= 2:
++                    timings.append(time.perf_counter() - start)
++                    counts.append(len(captured))
++            p95 = sorted(timings)[math.ceil(len(timings) * .95) - 1]
++            assert len(set(counts)) == 1
++            results[name] = {'p95_seconds': p95, 'target_seconds': limit,
++                             'samples_seconds': timings, 'select_counts': counts,
++                             'passed': p95 < limit}
++            with psycopg.connect(api.harness.database.url) as conn:
++                plans[name] = [conn.execute('EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ' + sql,
++                                           args).fetchone()[0][0] for sql, args in captured]
++            write(output, 'capacity-queries.json', results)
++            write(output, 'capacity-plans.json', plans)
++            print(f'{name}: P95={p95:.3f}s', flush=True)
++    finally:
++        event.remove(engine, 'before_cursor_execute', capture)
++    if os.environ.get('GEO_CAPACITY_PHASE', 'candidate') != 'baseline':
++        assert all(row['passed'] for row in results.values()), results
++    gc.collect()
++    stream_query = {'date_from': query['created_from'], 'date_to': query['created_to']}
++    before = engine.pool.checkedout()
++    stats = asyncio.run(export(api, stream_query))
++    write(output, 'stream.json', stats)
++    assert stats['rows'] == 100000 and stats['chunks'] >= 100000
++    assert stats['first_chunk_seconds'] < 2.0
++    warm = next(value for n, value in stats['rss_samples'] if n >= 5000)
++    assert max(value for n, value in stats['rss_samples'] if n >= 5000) - warm < 32 * 1024**2
++    assert engine.pool.checkedout() == before
++    aborted = asyncio.run(export(api, stream_query, stop_after=1000))
++    write(output, 'stream-cancel.json', aborted)
++    assert aborted['rows'] == 1000 and engine.pool.checkedout() == before
+--- /dev/null
++++ b/backend/tests/performance/test_geo_worker_capacity.py
+@@ -0,0 +1,248 @@
++"""1000-root投影成本及真实Redis/Celery十路并发；仅使用本地provider。"""
++
++import base64
++import json
++import os
++import subprocess
++import sys
++import threading
++import time
++from pathlib import Path
++from uuid import UUID, uuid4
++
++import pytest
++from celery.contrib.testing.worker import start_worker
++from redis import Redis
++from sqlalchemy import select
++
++from app.config import settings
++from app.geo_fake_server import running_geo_fake
++from app.models.geo_answers import GeoAnswerSnapshot
++from app.models.geo_observability import GeoOperationHealth
++from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
++from app.services import geo_analysis_dispatch
++from app.services.geo_run_lifecycle import database_now, refresh_batch
++from app.worker import celery_app, collect_geo_run
++from tests.integration.geo_plans_support import (
++    plans_api,
++    questions_api,
++    questions_engine,
++)
++from tests.integration.geo_worker_support import prepared_worker_graph
++from tests.integration.test_geo_batch_creation import create, large_matrix
++from tests.integration.test_geo_collection_admission import profile_limits
++
++__all__ = ['plans_api', 'questions_api', 'questions_engine']
++pytestmark = pytest.mark.performance
++
++
++def save(name, value):
++    output = Path(os.environ.get('GEO_CAPACITY_OUTPUT', '/tmp/geo905-capacity'))
++    output.mkdir(parents=True, exist_ok=True)
++    (output / name).write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
++
++
++def test_1000_batch_creation_and_projection(plans_api):
++    api = plans_api
++    payload = large_matrix(api)
++    start = time.perf_counter()
++    response = create(api, payload, 'capacity-1000')
++    seconds = time.perf_counter() - start
++    assert response.status_code == 201, response.text
++    batch_id = UUID(response.json()['batch_id'])
++    samples = []
++    for _ in range(22):
++        with api.api.factory.begin() as db:
++            batch = db.scalar(select(GeoObservationBatch)
++                              .where(GeoObservationBatch.id == batch_id).with_for_update())
++            now = database_now(db)
++            started = time.perf_counter()
++            refresh_batch(db, batch, now)
++            samples.append(time.perf_counter() - started)
++            assert batch.status == 'QUEUED' and batch.revision == 1
++    with api.api.factory() as db:
++        rows = db.execute(select(GeoObservationRun.run_cell_key, GeoObservationRun.attempt_no)
++                          .where(GeoObservationRun.batch_id == batch_id)).all()
++    assert len(rows) == len({r.run_cell_key for r in rows}) == 1000
++    assert {r.attempt_no for r in rows} == {1}
++    save('batch.json', {'roots': len(rows), 'creation_seconds': seconds,
++                        'projection_samples_seconds': samples[2:],
++                        'projection_p95_seconds': sorted(samples[2:])[18]})
++    assert seconds < 5.0
++    assert create(api, payload, 'capacity-1000').json() == response.json()
++
++
++def test_ten_celery_workers_claim_and_duplicate_messages(plans_api, monkeypatch):
++    queue = f'geo905-{uuid4().hex}'
++    redis = Redis.from_url(settings.redis_url)
++    barrier = threading.Barrier(10, timeout=15)
++    with (running_geo_fake() as provider,
++          prepared_worker_graph(plans_api, monkeypatch, provider) as graph):
++        # 无db参数的Celery/heartbeat观测也必须写本fixture，不能污染持久开发库。
++        engine = graph.api.api.factory.kw['bind']
++        monkeypatch.setattr(settings, 'database_url',
++                            engine.url.render_as_string(hide_password=False))
++        profile_limits(graph, concurrency=10, per_minute=600)
++        first = graph.create(repeat_count=10)
++        with graph.api.api.factory() as db:
++            batch_id = db.get(GeoObservationRun, first).batch_id
++            identities = list(db.scalars(select(GeoObservationRun.id)
++                                         .where(GeoObservationRun.batch_id == batch_id)))
++        # 十个真实HTTP请求必须同时到达：证明外部I/O没有持有批次/准入锁。
++        original = provider.state.record
++
++        def concurrent(identity, body):
++            result = original(identity, body)
++            barrier.wait()
++            return result
++
++        monkeypatch.setattr(provider.state, 'record', concurrent)
++        # 本测量只拥有采集，不在默认队列生成不被消费的分析消息。
++        monkeypatch.setattr(geo_analysis_dispatch, 'dispatch_collected_run',
++                            lambda *_args: False)
++        monkeypatch.setattr('app.worker.dispatch_collected_run', lambda *_args: False)
++        completed = set()
++        finished = threading.Event()
++        errors = []
++
++        def received(sender=None, **kwargs):
++            if sender.name == collect_geo_run.name:
++                if kwargs.get('state') != 'SUCCESS':
++                    errors.append(kwargs.get('state'))
++                completed.add(kwargs['task_id'])
++                if len(completed) == 20:
++                    finished.set()
++
++        from celery.signals import task_postrun
++
++        task_postrun.connect(received, weak=False)
++        started = time.perf_counter()
++        try:
++            for identity in identities * 2:
++                collect_geo_run.apply_async(args=[str(identity)], queue=queue, retry=False)
++            messages = redis.lrange(queue, 0, -1)
++            assert len(messages) == 20
++            for raw in messages:
++                message = json.loads(raw)
++                body = json.loads(base64.b64decode(message['body']))
++                assert len(body[0]) == 1 and UUID(body[0][0]) in identities
++                assert body[1] == {}
++            with start_worker(celery_app, pool='threads', concurrency=10, queues=[queue],
++                              perform_ping_check=False, shutdown_timeout=20, loglevel='ERROR'):
++                assert finished.wait(30), '十路采集未在限时内完成'
++            assert not errors
++            with graph.api.api.factory() as db:
++                rows = list(db.scalars(select(GeoObservationRun)
++                                       .where(GeoObservationRun.batch_id == batch_id)))
++                answers = list(db.scalars(select(GeoAnswerSnapshot.run_id)
++                                          .where(GeoAnswerSnapshot.run_id.in_(identities))))
++            assert len(rows) == len(answers) == 10
++            assert all(r.status == 'COLLECTED' and r.external_call_state == 'COMPLETED'
++                       and r.lease_token is None for r in rows)
++            calls = provider.state.snapshot(graph.call_id)['count']
++            assert calls == 10 and redis.llen(queue) == 0
++            with graph.api.api.factory() as db:
++                health = db.get(GeoOperationHealth, 'collect_task')
++                assert health.success_count == 20 and health.failure_count == 0
++            save('workers.json', {'concurrency': 10, 'messages': 20, 'runs': len(rows),
++                                  'provider_calls': calls,
++                                  'seconds': time.perf_counter() - started,
++                                  'pool': 'threads', 'external_platform_calls': 0})
++        finally:
++            task_postrun.disconnect(received)
++            redis.delete(queue)
++            redis.close()
++
++
++def test_ten_prefork_processes_consume_startup_configuration(plans_api, monkeypatch):
++    """独立进程使用实际Settings/PG/Redis；虚构adapter资格只存在于测试入口。"""
++    queue = f'geo905-prefork-{uuid4().hex}'
++    barrier = threading.Barrier(10, timeout=15)
++    with (running_geo_fake() as provider,
++          prepared_worker_graph(plans_api, monkeypatch, provider) as graph):
++        profile_limits(graph, concurrency=10, per_minute=600)
++        first = graph.create(repeat_count=10)
++        with graph.api.api.factory() as db:
++            batch_id = db.get(GeoObservationRun, first).batch_id
++            identities = list(db.scalars(select(GeoObservationRun.id)
++                                         .where(GeoObservationRun.batch_id == batch_id)))
++        original = provider.state.record
++
++        def concurrent(identity, body):
++            result = original(identity, body)
++            barrier.wait()
++            return result
++
++        monkeypatch.setattr(provider.state, 'record', concurrent)
++        code = """
++import sys
++from dataclasses import replace
++from types import MappingProxyType
++from app.collectors.registry import collector_registry
++import app.worker as worker
++# 仅fixture的虚构采集资格；不改变生产注册目录，不自动外发分析消息。
++entry = replace(collector_registry.resolve('openai-compatible-chat'), approved=True)
++collector_registry._entries = MappingProxyType({'manual': collector_registry.resolve('manual'),
++                                              entry.key: entry})
++worker.dispatch_collected_run = lambda *_: False
++worker.celery_app.conf.task_default_queue = sys.argv[1]
++worker.celery_app.worker_main(['worker', '--pool=prefork', '-Q', sys.argv[1],
++                             '--loglevel=ERROR', '--without-gossip', '--without-mingle'])
++"""
++        engine = graph.api.api.factory.kw['bind']
++        environment = {**os.environ, 'APP_ENV': 'test', 'CELERY_CONCURRENCY': '10',
++                       'DATABASE_URL': engine.url.render_as_string(hide_password=False),
++                       'GEO_MONITORING_ENABLED': 'true', 'GEO_API_COLLECTION_ENABLED': 'true',
++                       'AI_ALLOW_LOCAL_HTTP': 'true'}
++        with Redis.from_url(settings.redis_url) as redis:
++            started = time.perf_counter()
++            peak_pss = 0
++            max_processes = 0
++            # 不转储子进程env或原始Celery日志；失败只输出固定状态。
++            worker = subprocess.Popen([sys.executable, '-c', code, queue], env=environment,
++                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
++            try:
++                for identity in identities * 2:
++                    collect_geo_run.apply_async(args=[str(identity)], queue=queue, retry=False)
++                deadline = time.monotonic() + 45
++                while time.monotonic() < deadline:
++                    assert worker.poll() is None, 'prefork进程提前退出'
++                    children = Path(f'/proc/{worker.pid}/task/{worker.pid}/children')
++                    processes = [str(worker.pid), *children.read_text().split()]
++                    pss = 0
++                    for pid in processes:
++                        memory = Path(f'/proc/{pid}/smaps_rollup').read_text().splitlines()
++                        pss += int(next(line.split()[1] for line in memory
++                                        if line.startswith('Pss:'))) * 1024
++                    peak_pss = max(peak_pss, pss)
++                    max_processes = max(max_processes, len(processes))
++                    with graph.api.api.factory() as db:
++                        states = list(db.scalars(select(GeoObservationRun.status)
++                                                 .where(GeoObservationRun.id.in_(identities))))
++                    if states == ['COLLECTED'] * 10 and redis.llen(queue) == 0:
++                        break
++                    time.sleep(.2)
++                else:
++                    pytest.fail('十路prefork未在限时内完成')
++                elapsed = time.perf_counter() - started
++                worker.terminate()  # warm shutdown：消费中的重复消息完成后退出。
++                assert worker.wait(timeout=20) == 0
++                assert max_processes == 11 and peak_pss > 0
++                assert provider.state.snapshot(graph.call_id)['count'] == 10
++                with graph.api.api.factory() as db:
++                    answers = list(db.scalars(select(GeoAnswerSnapshot.run_id)
++                                              .where(GeoAnswerSnapshot.run_id.in_(identities))))
++                    assert len(answers) == 10
++                save('prefork.json', {'concurrency': 10, 'messages': 20, 'runs': 10,
++                                      'provider_calls': 10, 'collection_seconds': elapsed,
++                                      'pool': 'prefork', 'peak_sampled_pss_bytes': peak_pss,
++                                      'process_count': max_processes, 'external_platform_calls': 0})
++            finally:
++                if worker.poll() is None:
++                    worker.terminate()
++                    try:
++                        worker.wait(timeout=20)
++                    except subprocess.TimeoutExpired:
++                        worker.kill()
++                        worker.wait(timeout=5)
++                redis.delete(queue)
+--- /dev/null
++++ b/docs/geo-monitoring/04-delivery/12-r8-capacity-hardening.md
+@@ -0,0 +1,82 @@
++# GEO-905 / R8 容量硬化实施与验证记录
++
++当前状态为blocked：代码与本地容量检查完成，目标环境规格、测试入口授权及冻结阈值缺失。
++状态以task-manifest为准；本记录不构成目标VPS验收或GEO-906发布授权。
++
++## 依据与执行边界
++
++GEO-607、GEO-902均done并有人工接受，GEO-905允许planned进入执行。
++按Task Brief完成preflight和当前行为基线，manifest改为in_progress。根树包含大量前序任务改动，
++本次只维护905增量，before/源码patch保留归因依据；未提交、部署或实施906。
++
++目标环境规格、入口授权与冻结阈值尚待输入。PRD列表/详情2s、洞察3s是既有合同，
++技术测试文档500ms/800ms/2s/创建5s为建议，要求目标环境验证后冻结。
++本地Docker仅2CPU、4095643648字节内存，PG16.15/Python3.12.14，不能冒充VPS验收。
++
++## 实现
++
++Run列表先在同一RR快照按所有既有过滤选ID/created_at、确定性排序与offset/limit，
++再按选定一页加载完整冻结输入、答案、当前分析复核及资格投影。
++过滤/total/latest/current、ASC-DESC和同时间UUID顺序保持；Router/状态机/指标未改。
++基线第4000页P95=1.008s，实际计划对宽JSON行做external merge，临时写35120块约274MiB；
++最终独立负载候选深页0.169s、内层仅24字节键，页内PK加载20行，临时419块约3.3MiB，
++实际SQL执行88.742ms。相同本地fixture深页HTTP P95下降83.3%；不外推至目标环境。
++
++不新增索引/物化：实测瓶颈由分页前数据宽度解决，复用0057日期索引、Run PK和后继/答案/复核索引。
++现有Batch缓存可由完整历史重建；读取和授权不依赖缓存状态。继续实时RR从PG权威事实派生，
++Redis只传稳定ID，不维护业务缓存。不以修改指标或历史来换性能。
++
++CELERY_CONCURRENCY现在为真实启动参数，默认1、范围1..10；三套Compose移除固定CLI1覆盖。
++prefetch1、acks_late、失联重投、PG准入/预算锁、lease/SENT裁决和事务外I/O不变。
++配置变化需受控recreate；不调整实际runtime或部署限额。
++
++## 已取得的证据
++
++| 检查 | 实际结果 |
++|---|---|
++| 既有100k R5洞察门禁 | 1 passed；全局洞察P95=2.875s、总览1.546s，产品查询0.153–0.272s；满足原3s，不证明建议2s |
++| 905读取定向回归 | read_models/runs/review_reads/read_consistency 46 passed，固定查询数、RR交错/排序/过滤覆盖 |
++| 1000批次与Worker隔离修正 | 3 passed；1000唯一root、幂等重放；threads/prefork各20消息、10答案、10本地请求；观测在fixture计数20/0 |
++| Worker启动配置 | 7 passed，真实consumer读取env1/10及三套Compose不覆盖 |
++| 初始100k列表/导出基线 | 首0.177s、深1.008s、复核0.157s、批次0.014s、状态0.159s、详情0.008s；保存实际EXPLAIN |
++| 100k CSV基线 | 100000有序行/100000块/93015708字节，36.109s，首块44ms；5000行后RSS增长1155072字节；正常与1000行断流均回池 |
++| 首次候选容量门禁 | 1 failed/3 passed；深页0.263s已改善，状态筛选0.590s未达500ms；与完整integration争用资源，保留失败并在其退出后重测 |
++| 最终make test-geo-capacity | 4 passed / 540.12s；100021存量，100000候选；列表首/深/复核P95=0.067/0.169/0.069s，批次/状态=0.013/0.165s，详情=0.008s |
++| 最终1000-run批次 | 创建0.662s（单次）、锁内投影P95=0.065s；1000唯一root与幂等重放验证通过 |
++| 最终CSV | 100000有序行/100000块/93015708字节，51.182s，首块47ms；5000行后RSS采样增长1273856字节；正常与1000行断流均回池 |
++| 最终10路Worker | threads及prefork各20消息/10Run/10本地请求；prefork采集1.696s、11进程采样PSS=840221696字节（801.3MiB）；无真实平台调用 |
++| make lint / make typecheck | 候选执行均exit0；后端249源码typecheck通过；最终lint在Worker隔离修复后exit0 |
++| make test-integration | 原命令1170 passed/6 setup errors/43 warnings，缺显式PG恢复工具；未称原命令通过 |
++| 恢复6项补验证 | 显式PG16容器工具/独立来源与目标，6 passed；不重跑已通过的1170项 |
++| git diff --check | 实施及收尾均exit0，增量diff另行保存并核对 |
++
++最终容量门禁在完整integration退出后独立运行。每个HTTP场景预热2次/20样本、nearest-rank，
++验证非空/100000实际候选/复核17500；真实SQL EXPLAIN ANALYZE BUFFERS JSON保留。
++CSV实际ASGI发送不缓冲全量；threads和prefork只用本地fake，唯一UUID队列清理。
++全部样本/计划/日志及精确恢复工具命令见[Trellis实施记录](../../../.trellis/tasks/10-05-geo-905-capacity/implement.md)。
++
++## 独立复核及隔离
++
++fresh critical_reviewer复核最终生产源码及修复后测试，未确认未修复的问题。
++确认并修正threads无db参数观测使用默认连接、Make旧baseline phase可能移除0057索引两项P2。
++本次默认开发库实测没有geo_operation_health表，未观察到虚构运维计数落库；修复仍保护已到0065的环境。
++复核没有替代最终性能或目标环境验证。审计digest与写入证据等级记录在Trellis。
++
++## 合同、迁移、安全和限制
++
++OpenAPI/generated、数据库合同/ORM、Alembic均无新增；head仍0065_geo_observability。
++测试临时库成功前滚到head，无历史回填/破坏性迁移或生产执行；无需新增迁移回滚。
++应用事务、锁顺序、revision、幂等键/发送边界、审计与不可变守卫保持；CSV白名单/防注入和认证/CSRF/SSRF/TLS未放宽。
++前端路由/query key/URL状态/页面无变化。所有业务文本/对象/平台均虚构；无真实AI调用。
++
++fixture为20冻结输入、短回答、单引用、365天100k存量，30天当前8400候选；
++未证明30天100k密度、高输入多样性、长回答、多引用、持续运行或目标VPS容量上限。
++prefork主加10子进程最终采样PSS约801MiB，高于staging512MiB限额；production1GiB余量也未获验证，不能直接提高实际并发。
++未运行生产迁移/部署、远端CI、browser真实平台、完整E2E或GEO-906。后续仅在本任务补齐目标环境和冻结输入后完成容量验收，906仍为独立后续任务。
++
++## 停止与恢复条件
++
++manifest与Trellis均in_progress→blocked，命中用户限定的“完成本任务必需的外部输入或人工授权缺失”。
++不因上述已分类的本地setup错误或已通过的性能重测阻断，也不虚构review/done。
++恢复需提供目标环境资源规格、明确授权的测试入口、冻结阈值和代表性数据负载；
++也可明确接受本地隔离环境及其阈值/负载为验收目标，再按该定义补齐未覆盖证据。

@@ -1,0 +1,114 @@
+....................................FF......FFF...........               [100%]
+=================================== FAILURES ===================================
+___________________ test_shared_claim_gold[gold-exact-model] ___________________
+
+case = {'answer_id': 'answer-exact-model', 'category': 'exact_model', 'expected': {'citations': [{'citation_id': 'citation-ow...构雾桥晶元的 GEOFX-731Q。', 'label': 'RECOMMENDED', 'rank': 1, 'subject_id': 'subject-base'}], ...}, 'id': 'gold-exact-model'}
+
+    @pytest.mark.parametrize("case", SHARED["gold"]["cases"], ids=lambda row: row["id"])
+    def test_shared_claim_gold(case: dict[str, Any]) -> None:
+        corpus = SHARED["corpus"]
+        answer = next(row for row in corpus["answers"] if row["id"] == case["answer_id"])
+        question = next(row for row in corpus["questions"] if row["id"] == answer["question_id"])
+        scope = subjects(question["subject_ids"])
+        result = assess_claims(answer["text"], scope, freeze_fact_versions(scope, candidates()))
+        expected = case["expected"]["claims"]
+        assert len(result.assessments) == len(expected)
+        for actual, gold in zip(result.assessments, expected, strict=True):
+            assert actual.subject_id == identity(gold["subject_id"])
+            assert actual.fact_version_id == identity(gold["fact_version_id"])
+>           kind = "REPLACEMENT_RELATION" if gold["type"] == "REPLACEMENT" else gold["type"]
+                                             ^^^^^^^^^^^^
+E           KeyError: 'type'
+
+backend/tests/unit/test_geo_claims.py:78: KeyError
+__________________ test_shared_claim_gold[gold-model-suffix] ___________________
+
+case = {'answer_id': 'answer-model-suffix', 'category': 'model_suffix', 'expected': {'citations': [], 'claims': [{'claim_type...独立的 1.8 V 器件。', 'label': 'CONSIDERED', 'rank': None, 'subject_id': 'subject-suffix'}], ...}, 'id': 'gold-model-suffix'}
+
+    @pytest.mark.parametrize("case", SHARED["gold"]["cases"], ids=lambda row: row["id"])
+    def test_shared_claim_gold(case: dict[str, Any]) -> None:
+        corpus = SHARED["corpus"]
+        answer = next(row for row in corpus["answers"] if row["id"] == case["answer_id"])
+        question = next(row for row in corpus["questions"] if row["id"] == answer["question_id"])
+        scope = subjects(question["subject_ids"])
+        result = assess_claims(answer["text"], scope, freeze_fact_versions(scope, candidates()))
+        expected = case["expected"]["claims"]
+        assert len(result.assessments) == len(expected)
+        for actual, gold in zip(result.assessments, expected, strict=True):
+            assert actual.subject_id == identity(gold["subject_id"])
+            assert actual.fact_version_id == identity(gold["fact_version_id"])
+>           kind = "REPLACEMENT_RELATION" if gold["type"] == "REPLACEMENT" else gold["type"]
+                                             ^^^^^^^^^^^^
+E           KeyError: 'type'
+
+backend/tests/unit/test_geo_claims.py:78: KeyError
+_____________ test_shared_claim_gold[gold-conditional-replacement] _____________
+
+case = {'answer_id': 'answer-conditional-replacement', 'category': 'conditional_replacement', 'expected': {'citations': [], '...15T。', 'label': 'CONSIDERED', 'rank': None, 'subject_id': 'subject-base'}], ...}, 'id': 'gold-conditional-replacement'}
+
+    @pytest.mark.parametrize("case", SHARED["gold"]["cases"], ids=lambda row: row["id"])
+    def test_shared_claim_gold(case: dict[str, Any]) -> None:
+        corpus = SHARED["corpus"]
+        answer = next(row for row in corpus["answers"] if row["id"] == case["answer_id"])
+        question = next(row for row in corpus["questions"] if row["id"] == answer["question_id"])
+        scope = subjects(question["subject_ids"])
+        result = assess_claims(answer["text"], scope, freeze_fact_versions(scope, candidates()))
+        expected = case["expected"]["claims"]
+        assert len(result.assessments) == len(expected)
+        for actual, gold in zip(result.assessments, expected, strict=True):
+            assert actual.subject_id == identity(gold["subject_id"])
+            assert actual.fact_version_id == identity(gold["fact_version_id"])
+>           kind = "REPLACEMENT_RELATION" if gold["type"] == "REPLACEMENT" else gold["type"]
+                                             ^^^^^^^^^^^^
+E           KeyError: 'type'
+
+backend/tests/unit/test_geo_claims.py:78: KeyError
+_______________ test_shared_claim_gold[gold-parameter-conflict] ________________
+
+case = {'answer_id': 'answer-parameter-conflict', 'category': 'parameter_conflict', 'expected': {'citations': [], 'claims': [...Q', 'mentioned': True, 'subject_ids': ['subject-base']}], 'recommendations': [], ...}, 'id': 'gold-parameter-conflict'}
+
+    @pytest.mark.parametrize("case", SHARED["gold"]["cases"], ids=lambda row: row["id"])
+    def test_shared_claim_gold(case: dict[str, Any]) -> None:
+        corpus = SHARED["corpus"]
+        answer = next(row for row in corpus["answers"] if row["id"] == case["answer_id"])
+        question = next(row for row in corpus["questions"] if row["id"] == answer["question_id"])
+        scope = subjects(question["subject_ids"])
+        result = assess_claims(answer["text"], scope, freeze_fact_versions(scope, candidates()))
+        expected = case["expected"]["claims"]
+        assert len(result.assessments) == len(expected)
+        for actual, gold in zip(result.assessments, expected, strict=True):
+            assert actual.subject_id == identity(gold["subject_id"])
+            assert actual.fact_version_id == identity(gold["fact_version_id"])
+>           kind = "REPLACEMENT_RELATION" if gold["type"] == "REPLACEMENT" else gold["type"]
+                                             ^^^^^^^^^^^^
+E           KeyError: 'type'
+
+backend/tests/unit/test_geo_claims.py:78: KeyError
+_______________ test_shared_claim_gold[gold-insufficient-facts] ________________
+
+case = {'answer_id': 'answer-insufficient-facts', 'category': 'insufficient_facts', 'expected': {'citations': [], 'claims': [...Q', 'mentioned': True, 'subject_ids': ['subject-base']}], 'recommendations': [], ...}, 'id': 'gold-insufficient-facts'}
+
+    @pytest.mark.parametrize("case", SHARED["gold"]["cases"], ids=lambda row: row["id"])
+    def test_shared_claim_gold(case: dict[str, Any]) -> None:
+        corpus = SHARED["corpus"]
+        answer = next(row for row in corpus["answers"] if row["id"] == case["answer_id"])
+        question = next(row for row in corpus["questions"] if row["id"] == answer["question_id"])
+        scope = subjects(question["subject_ids"])
+        result = assess_claims(answer["text"], scope, freeze_fact_versions(scope, candidates()))
+        expected = case["expected"]["claims"]
+        assert len(result.assessments) == len(expected)
+        for actual, gold in zip(result.assessments, expected, strict=True):
+            assert actual.subject_id == identity(gold["subject_id"])
+            assert actual.fact_version_id == identity(gold["fact_version_id"])
+>           kind = "REPLACEMENT_RELATION" if gold["type"] == "REPLACEMENT" else gold["type"]
+                                             ^^^^^^^^^^^^
+E           KeyError: 'type'
+
+backend/tests/unit/test_geo_claims.py:78: KeyError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_claims.py::test_shared_claim_gold[gold-exact-model]
+FAILED backend/tests/unit/test_geo_claims.py::test_shared_claim_gold[gold-model-suffix]
+FAILED backend/tests/unit/test_geo_claims.py::test_shared_claim_gold[gold-conditional-replacement]
+FAILED backend/tests/unit/test_geo_claims.py::test_shared_claim_gold[gold-parameter-conflict]
+FAILED backend/tests/unit/test_geo_claims.py::test_shared_claim_gold[gold-insufficient-facts]
+5 failed, 53 passed in 0.51s

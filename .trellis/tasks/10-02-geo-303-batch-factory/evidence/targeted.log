@@ -1,0 +1,28 @@
+.................................................F
+=================================== FAILURES ===================================
+___ test_static_request_context_metadata_covers_all_operations_and_responses ___
+
+    def test_static_request_context_metadata_covers_all_operations_and_responses() -> None:
+        """静态合同逐操作声明 request ID、400 信封和全部 response Header。"""
+        contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+        document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+        operations = operation_map(document)
+>       assert len(operations) == 209
+E       AssertionError: assert 210 == 209
+E        +  where 210 = len({('/api/health/live', 'get'): {'operationId': 'getLiveHealth', 'parameters': [{'$ref': '#/components/parameters/Reques...ef': '#/components/responses/ErrorResponse'}, '403': {'$ref': '#/components/responses/ErrorResponse'}, ...}, ...}, ...})
+
+backend/tests/unit/test_contract.py:56: AssertionError
+=============================== warnings summary ===============================
+tests/integration/test_geo_batch_creation_migration.py::test_forward_preserves_nonempty_frozen_inputs_and_matches_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_batch_creation_migration.py:82: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_batch_creation_migration.py::test_forward_preserves_nonempty_frozen_inputs_and_matches_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_batch_creation_migration.py:82: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_contract.py::test_static_request_context_metadata_covers_all_operations_and_responses
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 49 passed, 2 warnings in 10.40s

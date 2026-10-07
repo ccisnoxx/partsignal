@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dataset_id",
+    "fixture_version",
+    "synthetic",
+    "additional_subjects",
+    "cases"
+  ],
+  "properties": {
+    "dataset_id": {
+      "const": "geo-503-recommendations-v1"
+    },
+    "fixture_version": {
+      "const": "1.0.0"
+    },
+    "synthetic": {
+      "const": true
+    },
+    "additional_subjects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "subject_type",
+          "aliases"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\u0000]*$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\u0000]*$"
+          },
+          "subject_type": {
+            "enum": [
+              "COMPETITOR_PRODUCT"
+            ]
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]*$"
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "text",
+          "subject_ids",
+          "expected"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\u0000]*$"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[^\\u0000]*$"
+          },
+          "subject_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[^\\u0000]*$"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "expected": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "recommendations",
+              "review_required_reasons"
+            ],
+            "properties": {
+              "recommendations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "subject_id",
+                    "recommendation",
+                    "rank"
+                  ],
+                  "properties": {
+                    "subject_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^[^\\u0000]*$"
+                    },
+                    "recommendation": {
+                      "enum": [
+                        "RECOMMENDED",
+                        "NOT_RECOMMENDED",
+                        "CONSIDERED",
+                        "UNKNOWN"
+                      ]
+                    },
+                    "rank": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "minimum": 1,
+                      "maximum": 2147483647
+                    }
+                  }
+                }
+              },
+              "review_required_reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "pattern": "^[^\\u0000]*$"
+                },
+                "uniqueItems": true
+              }
+            }
+          }
+        }
+      },
+      "minItems": 1
+    }
+  }
+}

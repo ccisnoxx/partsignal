@@ -1,0 +1,22 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "-p",
+    "partsignal-geo701-validation",
+    "-f",
+    ".trellis/tasks/10-04-geo-701-rule-configuration/evidence/validation-compose.yaml",
+    "run",
+    "--rm",
+    "backend-test",
+    "pytest",
+    "tests/integration/test_geo_rules.py",
+    "tests/integration/test_geo_batch_creation.py",
+    "tests/integration/test_geo_batch_creation_migration.py",
+    "tests/integration/test_geo_run_migration.py",
+    "tests/integration/test_migrations.py::test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent"
+  ],
+  "started_at": "2026-10-04T15:00:30.220543+00:00",
+  "duration_seconds": 14.462342499988154,
+  "exit_code": 0
+}

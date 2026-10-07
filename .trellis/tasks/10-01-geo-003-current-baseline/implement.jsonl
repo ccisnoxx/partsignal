@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/10-01-geo-003-current-baseline/prd.md", "reason": "GEO-003 只读范围、验收与停止条件"}
+{"file": "docs/geo-monitoring/04-delivery/task-manifest.yaml", "reason": "GEO-003 门禁、依赖与最终 review 状态"}
+{"file": "docs/geo-monitoring/05-decisions/GEO-002-architecture-review.md", "reason": "已接受 ADR 范围和目标合同待对齐项"}
+{"file": "docs/geo-monitoring/04-delivery/06-current-geo-baseline.md", "reason": "已冻结当前事实与未来模型边界"}

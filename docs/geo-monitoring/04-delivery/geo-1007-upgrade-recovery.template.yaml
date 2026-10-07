@@ -1,0 +1,122 @@
+# 低敏证据模板；不是 candidate manifest 或批准。禁止凭据、DSN、正文和原始 dump。
+record_kind: upgrade_artifact_forward_recovery
+task_id: GEO-1007
+delivery_scope_id: GEO-1008
+record_status: TEMPLATE_NOT_EXECUTED
+recorded_at_utc: null
+target:
+  environment_id: null
+  operator: null
+  maintenance_window_ref: null
+  public_maintenance_503_evidence_ref: null
+  stopped_project_and_data_mount_evidence_ref: null
+  maintenance_lock_evidence_ref: null
+authorization:
+  recovery_id: null # upr_YYYYMMDD_HHMMSS；每次显式接管唯一
+  approval_ref: null
+  approver: null
+  approved_at_utc: null
+  exact_operation_ref: null
+failed_candidate:
+  release_id: null
+  manifest_sha256: null
+  protected_manifest_ref: null
+  source_archive_sha256: null
+  failure_id: null
+  attempt_id: null
+  stage: null
+  exit_code: null
+  worker_exit_code: null
+  supervisor_observed_exit_evidence_ref: null
+  signal: null
+  failed_at: null
+  failure_kind: null
+  failure_record_evidence_ref: null
+  pre_activation_declaration_approval_ref: null
+  phase_at_failure: null
+  schema_head_before_failure: null
+  schema_head_after_failure: null
+  migration_commit_evidence_ref: null
+  artifact_failure_evidence_ref: null
+  offline_failed_image_migration_tree_match_ref: null
+  failed_execution_cache_policy_evidence_ref: null
+  failed_execution_runtime_fingerprint_ref: null
+  frozen_migration_image_id: null
+  frozen_migration_reference: null
+  frozen_migration_repo_digest_ref: null
+  original_new_candidate_rejection_ref: null
+  original_frontend_rollback_rejection_ref: null
+fixed_candidate:
+  release_id: null
+  manifest_sha256: null
+  protected_manifest_ref: null
+  source_archive_sha256: null
+  image_id_and_repo_digest_evidence_ref: null
+  tracked_file_verification_ref: null
+  expected_schema_head: null
+  migration_tree_sha256: null # Alembic Python/SQL/ini；完整运行时另有独立指纹
+  migration_runtime_version: null
+  migration_runtime_sha256: null
+  environment_sha256: null
+  actual_base_filesystem_match_ref: null
+  whole_migration_image_rootfs_match_ref: null
+  compose_uses_frozen_migration_image_ref: null
+  archive_and_current_tree_match_ref: null
+  offline_image_migration_tree_match_ref: null
+execution:
+  recovery_command_evidence_ref: null
+  atomic_state_and_receipt_ref: null
+  phase_after_recovery: null # 必须 UPGRADE_DEPLOYING；此处不代表 initialized
+  repeat_or_interruption_result: NOT_VERIFIED
+  deploy_integrity_and_schema_probe: NOT_VERIFIED
+  post_migration_required_tables_evidence_ref: null
+  deploy_readiness: NOT_VERIFIED
+  external_services_gate_ref: null
+  activation_approval_ref: null
+  activation_result: NOT_VERIFIED
+  public_traffic_approval_ref: null
+  phase_at_completion: null
+data:
+  protected_backup_ref: null
+  existing_table_digest_comparison_ref: null
+  historical_data_integrity_result: NOT_VERIFIED
+counterexamples:
+  wrong_failed_identity: NOT_VERIFIED
+  wrong_manifest_or_tracked_hash: NOT_VERIFIED
+  wrong_image_or_old_artifact: NOT_VERIFIED
+  changed_schema_or_migration_tree: NOT_VERIFIED
+  changed_external_app_helper: NOT_VERIFIED
+  changed_migration_image_identity: NOT_VERIFIED
+  changed_python_dependency_or_base_runtime: NOT_VERIFIED
+  app_unchecked_hash_cache: NOT_VERIFIED
+  missing_pre_migration_runtime_proof: NOT_VERIFIED
+  healthy_candidate_without_failure: NOT_VERIFIED
+  public_failure_recorder_fabrication: NOT_VERIFIED
+  correct_head_missing_core_table: NOT_VERIFIED
+  retry_invalidates_previous_failure: NOT_VERIFIED
+  prepared_failure_blocks_activation: NOT_VERIFIED
+  migration_cache_inside_or_outside_tree: NOT_VERIFIED
+  runtime_or_host_cache_prefix: NOT_VERIFIED
+  historical_runtime_prefix_removed_without_proof: NOT_VERIFIED
+  active_services_or_data_mount: NOT_VERIFIED
+  concurrent_lock: NOT_VERIFIED
+  before_and_after_atomic_interruption: NOT_VERIFIED
+  conflicting_repeat: NOT_VERIFIED
+  sigterm_and_child_lifecycle: NOT_VERIFIED
+  sigint_and_child_lifecycle: NOT_VERIFIED
+  self_opened_or_locked_fd_cannot_bypass_supervisor: NOT_VERIFIED
+  recovery_failure_remains_maintenance: NOT_VERIFIED
+isolation:
+  postgres_and_compose_owner_ref: null
+  fixture_or_target: null
+  cleanup_result: NOT_VERIFIED
+  shared_resources_unchanged_ref: null
+review:
+  independent_review_ref: null
+  unresolved_findings: null
+  human_acceptance: NOT_VERIFIED
+safe_stop:
+  current_phase_and_candidate_ref: null
+  unresolved_input: null
+  recovery_owner: null
+  next_authorized_action: null

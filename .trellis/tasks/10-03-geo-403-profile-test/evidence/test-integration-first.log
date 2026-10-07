@@ -1,0 +1,2057 @@
+docker compose -p partsignal-geo403 -f .trellis/tasks/10-03-geo-403-profile-test/evidence/validation-compose.yaml run --rm backend-test
+ Container partsignal-geo403-postgres-1 Running 
+ Container partsignal-geo403-redis-1 Running 
+ Container partsignal-geo403-fake-oss-1 Running 
+ Container partsignal-geo403-postgres-1 Waiting 
+ Container partsignal-geo403-postgres-1 Healthy 
+ Container partsignal-geo403-backend-test-run-2fe96d51f0d6 Creating 
+ Container partsignal-geo403-backend-test-run-2fe96d51f0d6 Created 
+........................................................................ [  8%]
+........................................F............................... [ 17%]
+........................................................................ [ 26%]
+........................................................................ [ 35%]
+..................FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF.......... [ 44%]
+........................................................................ [ 53%]
+..................................................................FFFFFF [ 62%]
+FFFFFFFFFF.........................................................F.... [ 71%]
+.......F..FFFF.........................................................F [ 79%]
+........................................................................ [ 88%]
+........................................................................ [ 97%]
+...................                                                      [100%]
+=================================== FAILURES ===================================
+____________ test_forward_keeps_nonempty_history_and_matches_models ____________
+
+answer_database = AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal...ind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]]), legacy_run=UUID('5d43344c-b2a0-4d6f-a853-945b17e48dbc'))
+
+    def test_forward_keeps_nonempty_history_and_matches_models(answer_database: AnswerDatabase):
+        db = answer_database
+        with psycopg.connect(db.url) as conn:
+>           assert (
+                conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+                == "0051_geo_manual_collection"
+            )
+E           AssertionError: assert '0052_geo_profile_tests' == '0051_geo_manual_collection'
+E             
+E             - 0051_geo_manual_collection
+E             + 0052_geo_profile_tests
+
+tests/integration/test_geo_answer_migration.py:28: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+INFO  [alembic.runtime.migration] Running upgrade 0050_geo_answer_evidence -> 0051_geo_manual_collection, 人工草稿和不可变提交身份；不回填或修改已提交证据。
+INFO  [alembic.runtime.migration] Running upgrade 0051_geo_manual_collection -> 0052_geo_profile_tests, API Profile 当前诊断资格与依赖失效；不修改业务历史。
+__________ test_entry_draft_revision_noop_conflict_and_file_retention __________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...721c4517f9e1'), surface=UUID('e94294ff-fb64-46bb-86aa-21740b7990ab'), name='虚构计划-784570ca-a973-42b5-827e-8ebb739572ea')
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:142: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...721c4517f9e1'), surface=UUID('e94294ff-fb64-46bb-86aa-21740b7990ab'), name='虚构计划-784570ca-a973-42b5-827e-8ebb739572ea')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"0cff961a-a220-455a-ae61-721c4517f9e1","related_resource_id":null}]},"request_id":"1808f27e-2f4d-4e0e-b34a-552462ba205c"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+INFO  [alembic.runtime.migration] Running upgrade 0050_geo_answer_evidence -> 0051_geo_manual_collection, 人工草稿和不可变提交身份；不回填或修改已提交证据。
+INFO  [alembic.runtime.migration] Running upgrade 0051_geo_manual_collection -> 0052_geo_profile_tests, API Profile 当前诊断资格与依赖失效；不修改业务历史。
+_____________ test_submit_freezes_all_once_replay_and_no_analysis ______________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...67ac3fd123b3'), surface=UUID('63e4120d-4548-4cb9-8fb0-bd2d7d0b1179'), name='虚构计划-d4abd633-590a-4863-8ef9-c76ba6c4b30d')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe396ef715280>
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:173: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...67ac3fd123b3'), surface=UUID('63e4120d-4548-4cb9-8fb0-bd2d7d0b1179'), name='虚构计划-d4abd633-590a-4863-8ef9-c76ba6c4b30d')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"e43008f0-4c06-47df-8bfe-67ac3fd123b3","related_resource_id":null}]},"request_id":"7791ffe2-e2e0-4a0f-b84e-202739c17621"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+____________ test_submit_failure_is_atomic[empty-GEO_ANSWER_EMPTY] _____________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...d79aa948515d'), surface=UUID('61b6cd16-e1bf-4b81-99b7-bd7df389dbfe'), name='虚构计划-d0a7a8a4-59b4-4ae1-83ae-ba8b2687a0e9')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe396ef717680>
+case = 'empty', code = 'GEO_ANSWER_EMPTY'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:249: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...d79aa948515d'), surface=UUID('61b6cd16-e1bf-4b81-99b7-bd7df389dbfe'), name='虚构计划-d0a7a8a4-59b4-4ae1-83ae-ba8b2687a0e9')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"a283fcae-1a48-4cc0-a4ee-d79aa948515d","related_resource_id":null}]},"request_id":"c749f45d-dfb2-41d9-a602-d9ca4a599e38"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_______ test_submit_failure_is_atomic[no_evidence-GEO_EVIDENCE_REQUIRED] _______
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...f656584b9995'), surface=UUID('1d231776-0fae-4a3f-acf0-2920c22d72f0'), name='虚构计划-bc941e28-c0d2-4ee0-a06c-de978fdcaee6')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe396ef7df7d0>
+case = 'no_evidence', code = 'GEO_EVIDENCE_REQUIRED'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:249: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...f656584b9995'), surface=UUID('1d231776-0fae-4a3f-acf0-2920c22d72f0'), name='虚构计划-bc941e28-c0d2-4ee0-a06c-de978fdcaee6')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"cd50700e-b84b-4b8c-b434-f656584b9995","related_resource_id":null}]},"request_id":"3208b118-d379-4959-938d-5c5bf7f272fa"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_______ test_submit_failure_is_atomic[raw_only-GEO_SCREENSHOT_REQUIRED] ________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...cd8b5945fad7'), surface=UUID('c3df09f1-4568-4090-8148-4496aead00fe'), name='虚构计划-08cc30d1-179d-4245-8f45-7c79effe92e8')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe396ef7bcef0>
+case = 'raw_only', code = 'GEO_SCREENSHOT_REQUIRED'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:249: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...cd8b5945fad7'), surface=UUID('c3df09f1-4568-4090-8148-4496aead00fe'), name='虚构计划-08cc30d1-179d-4245-8f45-7c79effe92e8')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"831b1d32-9082-455c-b158-cd8b5945fad7","related_resource_id":null}]},"request_id":"53b4a0f9-2862-407c-a664-42b510b8b334"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_________ test_submit_failure_is_atomic[missing-FILE_INTEGRITY_FAILED] _________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...626fd3ae3172'), surface=UUID('5cbb3977-fcaa-4e11-9578-73e1e5c13af9'), name='虚构计划-2aa7be4d-c568-4007-adc9-46c22fcd9e28')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe396ef7dea20>
+case = 'missing', code = 'FILE_INTEGRITY_FAILED'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:249: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...626fd3ae3172'), surface=UUID('5cbb3977-fcaa-4e11-9578-73e1e5c13af9'), name='虚构计划-2aa7be4d-c568-4007-adc9-46c22fcd9e28')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"e88fe741-8c1b-4c1d-9d82-626fd3ae3172","related_resource_id":null}]},"request_id":"78cb4ff1-70e1-4762-9241-6bd80be81b0c"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+____________ test_submit_failure_is_atomic[owner-PERMISSION_DENIED] ____________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...0ec32cae4ea2'), surface=UUID('a24728c4-be58-4a63-a7a7-cd4b19c17157'), name='虚构计划-dbd52bc7-6fd1-423c-96b1-3dc05ee9f846')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe396ef7f7e90>
+case = 'owner', code = 'PERMISSION_DENIED'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:249: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...0ec32cae4ea2'), surface=UUID('a24728c4-be58-4a63-a7a7-cd4b19c17157'), name='虚构计划-dbd52bc7-6fd1-423c-96b1-3dc05ee9f846')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"90127829-c7e6-4041-a2fd-0ec32cae4ea2","related_resource_id":null}]},"request_id":"844dc51d-5ad6-4dd0-8952-8e15b47f572d"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_________ test_submit_failure_is_atomic[public-FILE_INTEGRITY_FAILED] __________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...d35af65b9fc3'), surface=UUID('e407c499-a839-404d-9fbb-7de9c7561384'), name='虚构计划-e2d4b16b-57d7-4a29-81fc-d795400e460d')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe396ef715280>
+case = 'public', code = 'FILE_INTEGRITY_FAILED'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:249: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...d35af65b9fc3'), surface=UUID('e407c499-a839-404d-9fbb-7de9c7561384'), name='虚构计划-e2d4b16b-57d7-4a29-81fc-d795400e460d')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"402c0de4-cbd7-498c-b27c-d35af65b9fc3","related_resource_id":null}]},"request_id":"220944fb-dab3-423d-a0bd-c6da29c37dfa"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+____________ test_submit_failure_is_atomic[future-VALIDATION_ERROR] ____________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...d8f2bbdb6d55'), surface=UUID('25bfb7d3-d4a1-4cdd-9a8d-8002aa9000c0'), name='虚构计划-b5b01220-bef7-490b-b47b-9c6a93029a7a')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe396ef7f5970>
+case = 'future', code = 'VALIDATION_ERROR'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:249: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...d8f2bbdb6d55'), surface=UUID('25bfb7d3-d4a1-4cdd-9a8d-8002aa9000c0'), name='虚构计划-b5b01220-bef7-490b-b47b-9c6a93029a7a')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"2a2d2559-8ee4-49c7-8723-d8f2bbdb6d55","related_resource_id":null}]},"request_id":"49fcffc6-2c95-48fa-af5a-6bef1956e5ac"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+____________ test_submit_failure_is_atomic[before-VALIDATION_ERROR] ____________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...d304f5e3e5e9'), surface=UUID('645024b7-0180-4aff-8c36-9311ff949a3b'), name='虚构计划-20840977-fce2-4c60-b97a-bc09eb67c18c')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe396ef715790>
+case = 'before', code = 'VALIDATION_ERROR'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:249: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...d304f5e3e5e9'), surface=UUID('645024b7-0180-4aff-8c36-9311ff949a3b'), name='虚构计划-20840977-fce2-4c60-b97a-bc09eb67c18c')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"4d9c9d26-0070-49d4-b932-d304f5e3e5e9","related_resource_id":null}]},"request_id":"70d63f42-0359-4748-9a22-234dcb33cf65"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+__________ test_submit_failure_is_atomic[revision-REVISION_CONFLICT] ___________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...8c9938c41418'), surface=UUID('d07ea416-60d1-4c6a-9f52-927fa6ded726'), name='虚构计划-fbe05141-f070-4e31-8ed6-047086a7a3d1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe39704a24e90>
+case = 'revision', code = 'REVISION_CONFLICT'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:249: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...8c9938c41418'), surface=UUID('d07ea416-60d1-4c6a-9f52-927fa6ded726'), name='虚构计划-fbe05141-f070-4e31-8ed6-047086a7a3d1')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"7911d7a3-fe88-4353-ae6b-8c9938c41418","related_resource_id":null}]},"request_id":"9894345c-4fe3-4546-bf07-3cc41b0bf93b"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_____ test_submit_failure_is_atomic[object_missing-FILE_INTEGRITY_FAILED] ______
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...97a4ee88e414'), surface=UUID('42b74f05-cdde-424d-8284-f012c7aacebc'), name='虚构计划-5de202f1-019a-47ec-a7d4-6b86a5d529d0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe396ef61ab40>
+case = 'object_missing', code = 'FILE_INTEGRITY_FAILED'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:249: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...97a4ee88e414'), surface=UUID('42b74f05-cdde-424d-8284-f012c7aacebc'), name='虚构计划-5de202f1-019a-47ec-a7d4-6b86a5d529d0')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"37789419-4463-4599-aa56-97a4ee88e414","related_resource_id":null}]},"request_id":"af9379ba-f31a-4322-89e3-b8694700c6d5"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_____ test_submit_failure_is_atomic[object_changed-FILE_INTEGRITY_FAILED] ______
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...7f6c1154eb1e'), surface=UUID('d67d0f30-225f-45a5-b99e-387d7d89dd1a'), name='虚构计划-4d6e5c76-ce38-423a-acbc-b51e6ace6ae5')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe396ef62ea50>
+case = 'object_changed', code = 'FILE_INTEGRITY_FAILED'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:249: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...7f6c1154eb1e'), surface=UUID('d67d0f30-225f-45a5-b99e-387d7d89dd1a'), name='虚构计划-4d6e5c76-ce38-423a-acbc-b51e6ace6ae5')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"c02612ba-13fb-4e0a-8009-7f6c1154eb1e","related_resource_id":null}]},"request_id":"f70752c1-07f9-41dc-af78-cd8261ca48db"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+________ test_submit_failure_is_atomic[storage-DEPENDENCY_UNAVAILABLE] _________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...91d9eac51e7a'), surface=UUID('28b5e27b-a880-4ae3-96d3-48fd8d1c80f4'), name='虚构计划-00b8b895-4909-4b7a-8586-dcdb234d73e2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe396ef7bd550>
+case = 'storage', code = 'DEPENDENCY_UNAVAILABLE'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:249: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...91d9eac51e7a'), surface=UUID('28b5e27b-a880-4ae3-96d3-48fd8d1c80f4'), name='虚构计划-00b8b895-4909-4b7a-8586-dcdb234d73e2')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"45de94dd-54e9-4963-9a13-91d9eac51e7a","related_resource_id":null}]},"request_id":"ee53cbf5-860d-47ab-bdbc-d781ef7b6b2c"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_ test_optional_screenshot_still_requires_evidence_and_submission_can_include_unsaved_edits _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...f27a3561af6f'), surface=UUID('7d830a48-ac3a-4d47-afbf-8b42ca9b8fbc'), name='虚构计划-58373921-c91c-41f1-b54e-7f65d60c21b5')
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:290: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...f27a3561af6f'), surface=UUID('7d830a48-ac3a-4d47-afbf-8b42ca9b8fbc'), name='虚构计划-58373921-c91c-41f1-b54e-7f65d60c21b5')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"d230012b-cd18-49c0-a9e5-f27a3561af6f","related_resource_id":null}]},"request_id":"aa6452ec-d7a0-40d6-8fc0-b84bed0f8df4"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+___________ test_disabled_configuration_is_readable_but_not_writable ___________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...2db37a6063b1'), surface=UUID('ce47f5c7-5e27-40c2-b580-a82b966c150b'), name='虚构计划-4f247fa9-9022-4a5a-8748-800b79d20fe4')
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:299: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...2db37a6063b1'), surface=UUID('ce47f5c7-5e27-40c2-b580-a82b966c150b'), name='虚构计划-4f247fa9-9022-4a5a-8748-800b79d20fe4')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"9aae9cdf-5114-4103-a539-2db37a6063b1","related_resource_id":null}]},"request_id":"e7f51832-ba98-4aee-b57b-b44c2d3cedd9"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+___________ test_audit_failure_rolls_back_freeze_and_preserves_draft ___________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...1c6f3e384c6d'), surface=UUID('b7424051-e0d4-4f81-a3d0-bd51a757a83b'), name='虚构计划-b493783c-3903-4792-a327-318e4283f13f')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe396ef7165a0>
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:318: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...1c6f3e384c6d'), surface=UUID('b7424051-e0d4-4f81-a3d0-bd51a757a83b'), name='虚构计划-b493783c-3903-4792-a327-318e4283f13f')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"44bb5ad8-7e57-445b-86c4-1c6f3e384c6d","related_resource_id":null}]},"request_id":"0f87a1bd-9980-4e66-b7d9-8b237418db09"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_________________ test_concurrent_submit_is_exactly_once[True] _________________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...89459e49666b'), surface=UUID('a7423445-4926-42ad-85e2-10457c57b583'), name='虚构计划-0f936923-3414-4724-82c6-5442e8afb8af')
+same_key = True
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:345: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...89459e49666b'), surface=UUID('a7423445-4926-42ad-85e2-10457c57b583'), name='虚构计划-0f936923-3414-4724-82c6-5442e8afb8af')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"cd694cc7-52a4-49ff-9705-89459e49666b","related_resource_id":null}]},"request_id":"e064d779-a8ee-416b-bb57-eb61397f19af"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+________________ test_concurrent_submit_is_exactly_once[False] _________________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...0d1b685c196e'), surface=UUID('1d76a200-7cd8-4141-8d8f-27849795bcf2'), name='虚构计划-dd304b4c-de97-4c58-bb51-714ca18981f0')
+same_key = False
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:345: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...0d1b685c196e'), surface=UUID('1d76a200-7cd8-4141-8d8f-27849795bcf2'), name='虚构计划-dd304b4c-de97-4c58-bb51-714ca18981f0')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"56e5cd44-dd6c-4262-a7f6-0d1b685c196e","related_resource_id":null}]},"request_id":"1fae7420-a006-42cb-a8af-442e833d7cb8"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+________________________ test_concurrent_draft_conflict ________________________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...f272811fee5c'), surface=UUID('c62f33a7-4b4c-4f00-91bb-9c35468f3300'), name='虚构计划-102a7698-9889-42ec-b0b7-ccc05410b334')
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:396: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...f272811fee5c'), surface=UUID('c62f33a7-4b4c-4f00-91bb-9c35468f3300'), name='虚构计划-102a7698-9889-42ec-b0b7-ccc05410b334')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"9df138e8-0f22-4d17-8f55-f272811fee5c","related_resource_id":null}]},"request_id":"49b40a82-c740-4d4e-9c39-d886351e2ddf"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+______________________ test_sql_final_facts_are_immutable ______________________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...197d471b2858'), surface=UUID('b5b705d4-1c65-40b7-b23e-47b396bd8387'), name='虚构计划-c5c380e6-589d-4878-a627-a86a5da962db')
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:423: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_d5392df482...197d471b2858'), surface=UUID('b5b705d4-1c65-40b7-b23e-47b396bd8387'), name='虚构计划-c5c380e6-589d-4878-a627-a86a5da962db')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"644f6003-5301-44e2-8a8a-197d471b2858","related_resource_id":null}]},"request_id":"15ed6384-f9fe-4ac2-83b5-8670e9481b7b"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+______________ test_nonmanual_read_draft_and_submit_rejected[API] ______________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...c40a667a2ab5'), surface=UUID('79bb1401-6dfe-4b91-bf11-3e8621ff49fc'), name='虚构计划-0327fe85-6dd7-49d5-bb24-cdb797f39332')
+mode = 'API'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection_boundaries.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...c40a667a2ab5'), surface=UUID('79bb1401-6dfe-4b91-bf11-3e8621ff49fc'), name='虚构计划-0327fe85-6dd7-49d5-bb24-cdb797f39332')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"7645f29d-a037-4d71-8e14-c40a667a2ab5","related_resource_id":null}]},"request_id":"e0783e82-98c7-402c-a8b4-a15329cb1771"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+INFO  [alembic.runtime.migration] Running upgrade 0050_geo_answer_evidence -> 0051_geo_manual_collection, 人工草稿和不可变提交身份；不回填或修改已提交证据。
+INFO  [alembic.runtime.migration] Running upgrade 0051_geo_manual_collection -> 0052_geo_profile_tests, API Profile 当前诊断资格与依赖失效；不修改业务历史。
+____________ test_nonmanual_read_draft_and_submit_rejected[BROWSER] ____________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...2d873b90c37c'), surface=UUID('d10bdceb-56d1-44ae-ac19-2f74238b6a3f'), name='虚构计划-80dbb2ac-de58-4fd9-bc91-a186cf51602e')
+mode = 'BROWSER'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection_boundaries.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...2d873b90c37c'), surface=UUID('d10bdceb-56d1-44ae-ac19-2f74238b6a3f'), name='虚构计划-80dbb2ac-de58-4fd9-bc91-a186cf51602e')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"804dd22a-b33e-4b68-95a6-2d873b90c37c","related_resource_id":null}]},"request_id":"126c87d1-4513-422f-9840-20315ad824df"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+________ test_csrf_role_and_disabled_actor_are_enforced_even_on_replay _________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...d96198664f6d'), surface=UUID('ea035490-0c17-4707-ad0d-4d3c0b731e1c'), name='虚构计划-e734ee24-a379-4d0c-818c-315b6284858c')
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection_boundaries.py:95: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...d96198664f6d'), surface=UUID('ea035490-0c17-4707-ad0d-4d3c0b731e1c'), name='虚构计划-e734ee24-a379-4d0c-818c-315b6284858c')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"d5d3d5e7-78d2-4c79-a08b-d96198664f6d","related_resource_id":null}]},"request_id":"0346acfc-617f-472e-8bd0-fb92efddb4eb"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+________________ test_same_key_cannot_be_reused_for_another_run ________________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...bee066d1ade0'), surface=UUID('021c1617-1b96-46eb-89ac-436e644ec24c'), name='虚构计划-2be7b4c8-6307-4269-b7c0-89e83a476510')
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection_boundaries.py:133: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...bee066d1ade0'), surface=UUID('021c1617-1b96-46eb-89ac-436e644ec24c'), name='虚构计划-2be7b4c8-6307-4269-b7c0-89e83a476510')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"8d749357-dacb-4f9b-a569-bee066d1ade0","related_resource_id":null}]},"request_id":"e03f5efb-8371-4e9e-976f-c68ec46fae00"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+___________________ test_distinct_actors_compete_on_run_lock ___________________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...7886af49b4c9'), surface=UUID('8bb564c9-6320-49a4-b97d-8ee3d108fccb'), name='虚构计划-7f46ed38-d224-43d9-be51-20424739fa03')
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection_boundaries.py:145: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...7886af49b4c9'), surface=UUID('8bb564c9-6320-49a4-b97d-8ee3d108fccb'), name='虚构计划-7f46ed38-d224-43d9-be51-20424739fa03')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"fa3e19d2-654c-4d6b-aa79-7886af49b4c9","related_resource_id":null}]},"request_id":"7d79a45b-4c06-47aa-aeb7-50bbd5f325cf"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+____________ test_save_racing_submit_cannot_overwrite_final_answer _____________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...3f2f5092f47f'), surface=UUID('59887b1c-8095-406e-995d-0fd4f09f263f'), name='虚构计划-daf78595-9bb8-4677-bf23-84adbd6815b7')
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection_boundaries.py:175: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...3f2f5092f47f'), surface=UUID('59887b1c-8095-406e-995d-0fd4f09f263f'), name='虚构计划-daf78595-9bb8-4677-bf23-84adbd6815b7')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"17deaeae-1030-4487-9552-3f2f5092f47f","related_resource_id":null}]},"request_id":"b9b3d1d8-60b8-458e-a817-28db85ff1127"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+__________ test_sql_draft_revision_and_file_checks_cannot_be_bypassed __________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...c20a26ef7a9b'), surface=UUID('3d0ea82e-8211-47d0-a362-3efca4550dca'), name='虚构计划-18190e1e-1356-4c0d-b970-63296a05d486')
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection_boundaries.py:213: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...c20a26ef7a9b'), surface=UUID('3d0ea82e-8211-47d0-a362-3efca4550dca'), name='虚构计划-18190e1e-1356-4c0d-b970-63296a05d486')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"409092ad-8a4d-4c2a-a29c-c20a26ef7a9b","related_resource_id":null}]},"request_id":"84c27b50-e8bc-46c4-a26a-c5dc9c2b5d56"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+____ test_sql_rejects_invalid_draft_dates_without_poisoning_context[TbadZ] _____
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...df4361b05c16'), surface=UUID('6e98116a-d9e2-4f0c-af91-4811ecef8b68'), name='虚构计划-acf56b8f-2b16-4c11-8ae3-f949b98cb477')
+time = 'TbadZ'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection_boundaries.py:248: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...df4361b05c16'), surface=UUID('6e98116a-d9e2-4f0c-af91-4811ecef8b68'), name='虚构计划-acf56b8f-2b16-4c11-8ae3-f949b98cb477')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"aadb0a1d-6900-44b7-abc8-df4361b05c16","related_resource_id":null}]},"request_id":"a6209111-5ae2-4a10-a343-32f40b4ec0e4"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_ test_sql_rejects_invalid_draft_dates_without_poisoning_context[2026-02-30T00:00:00.000000+00:00] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...a1c85ac08dd6'), surface=UUID('cce5ba0a-156e-429e-be91-c19174447852'), name='虚构计划-3122a603-740f-428f-a55f-62f21652ccc1')
+time = '2026-02-30T00:00:00.000000+00:00'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection_boundaries.py:248: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...a1c85ac08dd6'), surface=UUID('cce5ba0a-156e-429e-be91-c19174447852'), name='虚构计划-3122a603-740f-428f-a55f-62f21652ccc1')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"688843e1-2ce4-4448-9e1a-a1c85ac08dd6","related_resource_id":null}]},"request_id":"0bf87ba3-1f78-4758-b4b0-fc61c7eac014"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_ test_sql_rejects_invalid_draft_dates_without_poisoning_context[2026-13-01T00:00:00.000000+00:00] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...0198f51b2615'), surface=UUID('ee173956-556b-46f0-a318-ea6fa416848b'), name='虚构计划-f4570bce-66cd-44ba-bf32-adac117d4973')
+time = '2026-13-01T00:00:00.000000+00:00'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection_boundaries.py:248: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...0198f51b2615'), surface=UUID('ee173956-556b-46f0-a318-ea6fa416848b'), name='虚构计划-f4570bce-66cd-44ba-bf32-adac117d4973')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"9cb330d9-6bd0-464c-9c1d-0198f51b2615","related_resource_id":null}]},"request_id":"e3c5e1ae-86e7-407d-87ae-991aa0ef9df6"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_ test_sql_rejects_invalid_draft_dates_without_poisoning_context[2026-01-01T25:00:00.000000+00:00] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...d56c61e43c03'), surface=UUID('b43de577-4fed-41e3-b72c-e449d17497ca'), name='虚构计划-6e7d3907-90de-4c67-abda-64eecf853872')
+time = '2026-01-01T25:00:00.000000+00:00'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection_boundaries.py:248: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...d56c61e43c03'), surface=UUID('b43de577-4fed-41e3-b72c-e449d17497ca'), name='虚构计划-6e7d3907-90de-4c67-abda-64eecf853872')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"44aab085-a853-4a0b-a795-d56c61e43c03","related_resource_id":null}]},"request_id":"14bfd732-ede5-4fc8-b7b6-c4c029572f8e"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_ test_sql_rejects_invalid_draft_dates_without_poisoning_context[2026-01-01T00:00:00.000000] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...8dd2471895af'), surface=UUID('fc8d6f79-07d4-470a-95d2-ed4444ab38ef'), name='虚构计划-5f184e99-54ff-4a92-ab06-d643164cbcd6')
+time = '2026-01-01T00:00:00.000000'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection_boundaries.py:248: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...8dd2471895af'), surface=UUID('fc8d6f79-07d4-470a-95d2-ed4444ab38ef'), name='虚构计划-5f184e99-54ff-4a92-ab06-d643164cbcd6')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"572a0ea0-ad68-481b-a440-8dd2471895af","related_resource_id":null}]},"request_id":"4c31d669-15bb-4fa5-afc0-ab2f77de6630"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+____ test_sql_rejects_unsafe_draft_source_and_url_shape[source_product- x] _____
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...1b6d27933dd7'), surface=UUID('cfe5b62a-077b-439d-a300-5c07ceb48e1f'), name='虚构计划-309a9b96-1e55-426c-b6a2-0a7f0e3011fd')
+field = 'source_product', value = ' x'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection_boundaries.py:308: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...1b6d27933dd7'), surface=UUID('cfe5b62a-077b-439d-a300-5c07ceb48e1f'), name='虚构计划-309a9b96-1e55-426c-b6a2-0a7f0e3011fd')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"9b50cf7e-c7f5-4b66-9043-1b6d27933dd7","related_resource_id":null}]},"request_id":"e8eab71e-3f66-4fd7-9664-fdd4861f5e5a"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_____ test_sql_rejects_unsafe_draft_source_and_url_shape[source_model-x ] ______
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...f37116fb54b6'), surface=UUID('4594286d-09f7-4c8c-ae21-0f823f072d6f'), name='虚构计划-dddf8adf-9a77-4a66-b45f-33aa75592080')
+field = 'source_model', value = 'x '
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection_boundaries.py:308: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...f37116fb54b6'), surface=UUID('4594286d-09f7-4c8c-ae21-0f823f072d6f'), name='虚构计划-dddf8adf-9a77-4a66-b45f-33aa75592080')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"ce0353cc-907d-47a4-8dc2-f37116fb54b6","related_resource_id":null}]},"request_id":"8b7ee1dc-ed09-4ab1-b1f6-9c8e6aae1064"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+__ test_sql_rejects_unsafe_draft_source_and_url_shape[source_version-\u3000x] __
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...4f821ee755c7'), surface=UUID('1c2c0f00-1d0d-4632-9cab-a1b873dd2061'), name='虚构计划-0a6b2bc6-9e42-41b3-a602-1fb8ea8dbdf3')
+field = 'source_version', value = '\u3000x'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection_boundaries.py:308: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...4f821ee755c7'), surface=UUID('1c2c0f00-1d0d-4632-9cab-a1b873dd2061'), name='虚构计划-0a6b2bc6-9e42-41b3-a602-1fb8ea8dbdf3')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"e30c3a4e-bf94-47a0-a65d-4f821ee755c7","related_resource_id":null}]},"request_id":"dd1dc2da-d7ae-4396-bbac-04548e6e4dfa"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_____ test_sql_rejects_unsafe_draft_source_and_url_shape[citations-value3] _____
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...b42575a863a4'), surface=UUID('7428f519-2301-425b-8478-0603e8821886'), name='虚构计划-afb9821f-1046-4973-8159-5ddce5d58881')
+field = 'citations'
+value = [{'extraction_source': 'MANUAL', 'original_url': 'https://', 'position': 1, 'title': None}]
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection_boundaries.py:308: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...b42575a863a4'), surface=UUID('7428f519-2301-425b-8478-0603e8821886'), name='虚构计划-afb9821f-1046-4973-8159-5ddce5d58881')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"e3a98599-70ed-4906-8d68-b42575a863a4","related_resource_id":null}]},"request_id":"bed8e3f6-6980-4547-a41b-b02fc0e7664d"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_____ test_sql_rejects_unsafe_draft_source_and_url_shape[citations-value4] _____
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...f2b3b7ad6da7'), surface=UUID('4863f9f2-913f-427b-a66d-c764acbde7aa'), name='虚构计划-a35fc237-7249-4e85-ad03-578f36af26c2')
+field = 'citations'
+value = [{'extraction_source': 'MANUAL', 'original_url': 'https://u:p@example.test/', 'position': 1, 'title': None}]
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection_boundaries.py:308: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...f2b3b7ad6da7'), surface=UUID('4863f9f2-913f-427b-a66d-c764acbde7aa'), name='虚构计划-a35fc237-7249-4e85-ad03-578f36af26c2')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"e44a071e-553f-430a-8026-f2b3b7ad6da7","related_resource_id":null}]},"request_id":"899efec6-34fb-43dd-80a0-69531daaa080"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_____ test_sql_rejects_unsafe_draft_source_and_url_shape[citations-value5] _____
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...7cdc39a2ea28'), surface=UUID('1ec54e87-ea32-4ffb-be96-7163ea536380'), name='虚构计划-09f768dc-ebb1-484b-a79f-a41774a6a6b7')
+field = 'citations'
+value = [{'extraction_source': 'MANUAL', 'original_url': 'https://example.test/%ZZ', 'position': 1, 'title': None}]
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection_boundaries.py:308: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_75a0aa9fca...7cdc39a2ea28'), surface=UUID('1ec54e87-ea32-4ffb-be96-7163ea536380'), name='虚构计划-09f768dc-ebb1-484b-a79f-a41774a6a6b7')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"e9f5f15c-40bc-4c79-96ad-7cdc39a2ea28","related_resource_id":null}]},"request_id":"9a0e6853-de38-41ef-a72f-2ad809f8b87b"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+___________ test_0051_preserves_nonempty_0050_evidence_and_safe_stop ___________
+
+run_database = RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal_geo206_0e79d23496',...n': 'RECOMMENDED', 'search_platform': None, 'observation_kind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]])
+
+    def test_0051_preserves_nonempty_0050_evidence_and_safe_stop(run_database):
+        runs = run_database
+        run_alembic(runs.plan.env, runs.plan.backend_dir, "0049_geo_batch_creation")
+        run_alembic(runs.plan.env, runs.plan.backend_dir, "0050_geo_answer_evidence")
+        db = AnswerDatabase(runs, runs.plan.prompt)
+        with psycopg.connect(db.url) as conn:
+            run = new_run(conn, db)
+            answer = snapshot(conn, db, run)
+            collect(conn, run)
+            before = conn.execute(
+                "SELECT to_jsonb(a) FROM geo_answer_snapshots a WHERE id=%s", (answer,)
+            ).fetchone()[0]
+            run_before = conn.execute(
+                "SELECT to_jsonb(r) FROM geo_observation_runs r WHERE id=%s", (run,)
+            ).fetchone()[0]
+        run_alembic(runs.plan.env, runs.plan.backend_dir, "head")
+        with psycopg.connect(db.url) as conn:
+>           assert (
+                conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+                == "0051_geo_manual_collection"
+            )
+E           AssertionError: assert '0052_geo_profile_tests' == '0051_geo_manual_collection'
+E             
+E             - 0051_geo_manual_collection
+E             + 0052_geo_profile_tests
+
+tests/integration/test_geo_manual_migration.py:39: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+----------------------------- Captured stderr call -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0050_geo_answer_evidence -> 0051_geo_manual_collection, 人工草稿和不可变提交身份；不回填或修改已提交证据。
+INFO  [alembic.runtime.migration] Running upgrade 0051_geo_manual_collection -> 0052_geo_profile_tests, API Profile 当前诊断资格与依赖失效；不修改业务历史。
+__________________ test_cancel_commits_before_waiting_submit ___________________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_e22c7515da...d50c494d912b'), surface=UUID('8cad2d9b-4b49-45f0-9e7c-198587aad808'), name='虚构计划-903540b1-bc98-428d-b90e-328c3830f5dd')
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_races.py:96: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_e22c7515da...d50c494d912b'), surface=UUID('8cad2d9b-4b49-45f0-9e7c-198587aad808'), name='虚构计划-903540b1-bc98-428d-b90e-328c3830f5dd')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"96246114-8186-47af-9a66-d50c494d912b","related_resource_id":null}]},"request_id":"6482ddab-b73e-4f25-9feb-e26c3cfc9a96"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+INFO  [alembic.runtime.migration] Running upgrade 0050_geo_answer_evidence -> 0051_geo_manual_collection, 人工草稿和不可变提交身份；不回填或修改已提交证据。
+INFO  [alembic.runtime.migration] Running upgrade 0051_geo_manual_collection -> 0052_geo_profile_tests, API Profile 当前诊断资格与依赖失效；不修改业务历史。
+__________ test_submit_commits_before_waiting_cancel_or_save[cancel] ___________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_e22c7515da...27be6f28de2d'), surface=UUID('36c925c2-8e41-4ff0-9f34-8386722c8316'), name='虚构计划-af6a6538-7c45-4721-9123-801ceb7ab2e4')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe396ef6601a0>
+loser = 'cancel'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_races.py:139: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_e22c7515da...27be6f28de2d'), surface=UUID('36c925c2-8e41-4ff0-9f34-8386722c8316'), name='虚构计划-af6a6538-7c45-4721-9123-801ceb7ab2e4')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"ea21cd10-6aa8-4afe-8fc3-27be6f28de2d","related_resource_id":null}]},"request_id":"872bbe3d-a6c5-48a0-91da-83b9e31ddfcb"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+___________ test_submit_commits_before_waiting_cancel_or_save[save] ____________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_e22c7515da...ace6ba60fac8'), surface=UUID('ca2604b6-e8cc-4dc3-ae09-f9b6f738f67e'), name='虚构计划-61fbdf11-816c-4973-8d56-fce806eb8e2c')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe39707b5df40>
+loser = 'save'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_races.py:139: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_e22c7515da...ace6ba60fac8'), surface=UUID('ca2604b6-e8cc-4dc3-ae09-f9b6f738f67e'), name='虚构计划-61fbdf11-816c-4973-8d56-fce806eb8e2c')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"8fdebfdb-d0c4-46d4-aa09-ace6ba60fac8","related_resource_id":null}]},"request_id":"c255e088-1f7a-4154-ab9b-6c16ee012370"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+______________ test_saved_revision_commits_before_waiting_submit _______________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_e22c7515da...f49a0c489706'), surface=UUID('94519653-4929-4aec-b877-50b41ca1d7c4'), name='虚构计划-3040c444-af6d-4bd0-a6c3-28280456fc36')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe39707074440>
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_races.py:210: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_e22c7515da...f49a0c489706'), surface=UUID('94519653-4929-4aec-b877-50b41ca1d7c4'), name='虚构计划-3040c444-af6d-4bd0-a6c3-28280456fc36')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"dc8bc29f-8231-4b6b-ac67-f49a0c489706","related_resource_id":null}]},"request_id":"52dd7d0a-e0db-43d7-838b-6afb0fe045c8"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_answer_snapshots SET answer_text='\u7be1\u6539' WHERE run_id=:run-ck_geo_answers_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...4c8bb812b93e'), surface=UUID('d62f8e38-f75f-4eb5-af6c-11075bc97104'), name='虚构计划-68ec1b36-36a4-4e92-90e1-94090e3aec65')
+statement = "UPDATE geo_answer_snapshots SET answer_text='篡改' WHERE run_id=:run"
+constraint = 'ck_geo_answers_immutable'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_r2_immutability.py:122: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...4c8bb812b93e'), surface=UUID('d62f8e38-f75f-4eb5-af6c-11075bc97104'), name='虚构计划-68ec1b36-36a4-4e92-90e1-94090e3aec65')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"e023aee0-4f41-4f0a-a01e-4c8bb812b93e","related_resource_id":null}]},"request_id":"6b90b447-f627-4e5d-9995-7f1fff46df74"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+INFO  [alembic.runtime.migration] Running upgrade 0050_geo_answer_evidence -> 0051_geo_manual_collection, 人工草稿和不可变提交身份；不回填或修改已提交证据。
+INFO  [alembic.runtime.migration] Running upgrade 0051_geo_manual_collection -> 0052_geo_profile_tests, API Profile 当前诊断资格与依赖失效；不修改业务历史。
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_answer_snapshots WHERE run_id=:run-ck_geo_answers_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...d3fbd8509043'), surface=UUID('c3e1d73e-a992-4911-a794-56dbe262c791'), name='虚构计划-9e8c1ffe-e7a1-458a-914c-a2c96e95eca7')
+statement = 'DELETE FROM geo_answer_snapshots WHERE run_id=:run'
+constraint = 'ck_geo_answers_immutable'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_r2_immutability.py:122: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...d3fbd8509043'), surface=UUID('c3e1d73e-a992-4911-a794-56dbe262c791'), name='虚构计划-9e8c1ffe-e7a1-458a-914c-a2c96e95eca7')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"2ce33214-460b-4776-91c4-d3fbd8509043","related_resource_id":null}]},"request_id":"2a6af699-4163-43b7-9293-d4c94aadd1a0"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer-ck_geo_citations_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...adaa0853ddc7'), surface=UUID('380d9040-c2dc-4f71-bb57-782638de6965'), name='虚构计划-32307fa7-bab0-434a-ab44-ba1ff06ba375')
+statement = 'UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer'
+constraint = 'ck_geo_citations_immutable'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_r2_immutability.py:122: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...adaa0853ddc7'), surface=UUID('380d9040-c2dc-4f71-bb57-782638de6965'), name='虚构计划-32307fa7-bab0-434a-ab44-ba1ff06ba375')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"1b6a8ff8-89c2-480e-84de-adaa0853ddc7","related_resource_id":null}]},"request_id":"e8448a17-7474-42f3-801e-6071692241b4"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer-ck_geo_citations_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...7e87b3676809'), surface=UUID('aee169ad-f571-4a27-941f-f03e4fb9272c'), name='虚构计划-1297b017-a58f-4e4c-9ec3-8d2a1e80a549')
+statement = 'DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer'
+constraint = 'ck_geo_citations_immutable'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_r2_immutability.py:122: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...7e87b3676809'), surface=UUID('aee169ad-f571-4a27-941f-f03e4fb9272c'), name='虚构计划-1297b017-a58f-4e4c-9ec3-8d2a1e80a549')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"1efe33cd-3b92-4395-8613-7e87b3676809","related_resource_id":null}]},"request_id":"5ca970ec-6c47-474f-9aad-c3950dffe305"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run-ck_geo_manual_submissions_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...f43c57a2c261'), surface=UUID('f4a37a1a-6130-463d-9522-111d43e52548'), name='虚构计划-83f53fb9-1885-4425-bd8a-20c870f0b368')
+statement = 'UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run'
+constraint = 'ck_geo_manual_submissions_immutable'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_r2_immutability.py:122: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...f43c57a2c261'), surface=UUID('f4a37a1a-6130-463d-9522-111d43e52548'), name='虚构计划-83f53fb9-1885-4425-bd8a-20c870f0b368')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"68072710-d567-4e36-b360-f43c57a2c261","related_resource_id":null}]},"request_id":"61067d8e-dfbc-4796-87bf-98a4ec6a8e35"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_manual_submissions WHERE run_id=:run-ck_geo_manual_submissions_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...af493eb2f599'), surface=UUID('2eac99f1-6460-4cb6-808f-d86da9e6e135'), name='虚构计划-7c8e050a-5744-425c-bf6a-a8066857b075')
+statement = 'DELETE FROM geo_manual_submissions WHERE run_id=:run'
+constraint = 'ck_geo_manual_submissions_immutable'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_r2_immutability.py:122: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...af493eb2f599'), surface=UUID('2eac99f1-6460-4cb6-808f-d86da9e6e135'), name='虚构计划-7c8e050a-5744-425c-bf6a-a8066857b075')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"7e73d8bc-f6ce-42e9-bb08-af493eb2f599","related_resource_id":null}]},"request_id":"d76d9b45-0d52-489f-8048-2806bf191b4c"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch-ck_geo_creation_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...bd9ef2e33eec'), surface=UUID('b1bebb61-a8c6-448a-be20-ab034dc31230'), name='虚构计划-8e0d9b89-e970-4b17-bdb2-b5ce3f661ce6')
+statement = 'UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch'
+constraint = 'ck_geo_creation_immutable'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_r2_immutability.py:122: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...bd9ef2e33eec'), surface=UUID('b1bebb61-a8c6-448a-be20-ab034dc31230'), name='虚构计划-8e0d9b89-e970-4b17-bdb2-b5ce3f661ce6')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"b15925a1-103b-4415-9371-bd9ef2e33eec","related_resource_id":null}]},"request_id":"8a9cf3f4-5598-4f6c-b34b-8cd181d00b2e"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_batch_subjects WHERE batch_id=:batch-ck_geo_creation_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...6901fc4b44ec'), surface=UUID('5abd19f5-ae4e-470e-95bd-66e3bc2eff09'), name='虚构计划-ce8f3003-772d-4aa2-996f-ae7e4c6c82d6')
+statement = 'DELETE FROM geo_batch_subjects WHERE batch_id=:batch'
+constraint = 'ck_geo_creation_immutable'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_r2_immutability.py:122: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...6901fc4b44ec'), surface=UUID('5abd19f5-ae4e-470e-95bd-66e3bc2eff09'), name='虚构计划-ce8f3003-772d-4aa2-996f-ae7e4c6c82d6')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"8a6a25fc-7cb4-41db-aaef-6901fc4b44ec","related_resource_id":null}]},"request_id":"384a9d65-1cdb-4b36-b9e8-28bd6d09ea16"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run-ck_geo_runs_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...a5ac3a63a281'), surface=UUID('0701baeb-4101-4d56-84ac-e1636ccb8824'), name='虚构计划-d4ed0ff0-1295-41cf-99d3-6056ef64b386')
+statement = "UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run"
+constraint = 'ck_geo_runs_immutable'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_r2_immutability.py:122: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...a5ac3a63a281'), surface=UUID('0701baeb-4101-4d56-84ac-e1636ccb8824'), name='虚构计划-d4ed0ff0-1295-41cf-99d3-6056ef64b386')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"f083a77d-6b21-4127-80cc-a5ac3a63a281","related_resource_id":null}]},"request_id":"83d3eec1-c292-4ef3-9331-4c9f7f665462"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_observation_runs WHERE id=:run-ck_geo_runs_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...acb533fba69a'), surface=UUID('832e1449-2785-4431-8873-8857e72a0a8d'), name='虚构计划-52c446c5-7bca-44d3-a648-6a74881a65e2')
+statement = 'DELETE FROM geo_observation_runs WHERE id=:run'
+constraint = 'ck_geo_runs_immutable'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_r2_immutability.py:122: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...acb533fba69a'), surface=UUID('832e1449-2785-4431-8873-8857e72a0a8d'), name='虚构计划-52c446c5-7bca-44d3-a648-6a74881a65e2')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"757bdb51-f17e-481e-92a1-acb533fba69a","related_resource_id":null}]},"request_id":"7cf13fc1-e4df-4f6c-b429-0a6330eff996"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch-ck_geo_batches_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...2bbf2bd981b3'), surface=UUID('27a7b16f-a942-4fda-9f62-75ef164bc9e8'), name='虚构计划-8cc1e8a8-770e-4549-96e1-725fce5c23aa')
+statement = "UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch"
+constraint = 'ck_geo_batches_immutable'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_r2_immutability.py:122: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...2bbf2bd981b3'), surface=UUID('27a7b16f-a942-4fda-9f62-75ef164bc9e8'), name='虚构计划-8cc1e8a8-770e-4549-96e1-725fce5c23aa')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"e40a59ce-01fd-4a75-be4a-2bbf2bd981b3","related_resource_id":null}]},"request_id":"30754551-248f-4783-9d8c-3cad5389a5cf"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_observation_batches WHERE id=:batch-ck_geo_batches_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...aac7259ddf01'), surface=UUID('73d5dfc8-46ae-45a5-bba2-29b643539a63'), name='虚构计划-07256ab5-128c-41ca-8aca-aa4486656979')
+statement = 'DELETE FROM geo_observation_batches WHERE id=:batch'
+constraint = 'ck_geo_batches_immutable'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_r2_immutability.py:122: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...aac7259ddf01'), surface=UUID('73d5dfc8-46ae-45a5-bba2-29b643539a63'), name='虚构计划-07256ab5-128c-41ca-8aca-aa4486656979')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"6b957985-d256-4608-a887-aac7259ddf01","related_resource_id":null}]},"request_id":"31c58fed-30db-47b8-a084-d7ccaa4a06bd"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE file_records SET status='DELETING' WHERE id=:file-ck_geo_evidence_file_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...3a662ee12029'), surface=UUID('49efcb4a-1a72-4911-a582-053a4a702c76'), name='虚构计划-ca2ab654-8bc0-4a9f-b729-9d2b43301958')
+statement = "UPDATE file_records SET status='DELETING' WHERE id=:file"
+constraint = 'ck_geo_evidence_file_immutable'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_r2_immutability.py:122: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...3a662ee12029'), surface=UUID('49efcb4a-1a72-4911-a582-053a4a702c76'), name='虚构计划-ca2ab654-8bc0-4a9f-b729-9d2b43301958')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"29fe346b-ce7b-4499-9c6b-3a662ee12029","related_resource_id":null}]},"request_id":"f5db9138-69d4-458d-a233-ea55d1f2949e"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_ test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM file_records WHERE id=:file-ck_geo_evidence_file_immutable] _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...187e2e44d0ed'), surface=UUID('c5b81c92-47b7-454e-b4a8-7f164fcc05da'), name='虚构计划-7cd8e8a7-1386-45ae-8e00-cd3b804f4345')
+statement = 'DELETE FROM file_records WHERE id=:file'
+constraint = 'ck_geo_evidence_file_immutable'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_r2_immutability.py:122: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...187e2e44d0ed'), surface=UUID('c5b81c92-47b7-454e-b4a8-7f164fcc05da'), name='虚构计划-7cd8e8a7-1386-45ae-8e00-cd3b804f4345')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"cd6ebe51-3ce1-4167-86c9-187e2e44d0ed","related_resource_id":null}]},"request_id":"e60f099d-d72a-443a-8ee1-7d3ae8dea4e4"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+_____ test_committed_cancelled_run_cannot_accept_late_result[late_answer] ______
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...a66b685fec1a'), surface=UUID('4b9cfcc1-e403-4416-9346-90f5b8c08bf7'), name='虚构计划-06dced1c-ca1e-4677-b595-d35b6f957356')
+attack = 'late_answer'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_r2_immutability.py:173: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...a66b685fec1a'), surface=UUID('4b9cfcc1-e403-4416-9346-90f5b8c08bf7'), name='虚构计划-06dced1c-ca1e-4677-b595-d35b6f957356')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"be60c62e-bbfc-4821-95b6-a66b685fec1a","related_resource_id":null}]},"request_id":"20be81af-9ef8-4582-98fc-123479967c59"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+________ test_committed_cancelled_run_cannot_accept_late_result[reopen] ________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...13ff0c335fa3'), surface=UUID('e8bb798a-0a4d-409b-9d86-5b777ad7b87d'), name='虚构计划-8998ccaf-f449-40d1-9c62-6ec965bc55b0')
+attack = 'reopen'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_r2_immutability.py:173: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_8f8698117d...13ff0c335fa3'), surface=UUID('e8bb798a-0a4d-409b-9d86-5b777ad7b87d'), name='虚构计划-8998ccaf-f449-40d1-9c62-6ec965bc55b0')
+
+>   ???
+E   AssertionError: {"error":{"code":"GEO_PLAN_PROFILE_INELIGIBLE","message":"计划当前不具备运行资格，请修正阻断项","details":{"blockers":[{"code":"PROFILE_DISABLED","field":"collection_profile_ids.is_active","resource_id":"add8a39f-cd55-42ca-9772-13ff0c335fa3","related_resource_id":null}]},"request_id":"6ddd0c02-9370-4c76-82ec-09cb4f028776"}}
+E   assert 409 == 201
+E    +  where 409 = <Response [409 Conflict]>.status_code
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_manual_collection.py:52: AssertionError
+___ test_model_disable_while_enable_waits_is_rechecked_in_shared_eligibility ___
+
+surface_api = SurfaceAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo205_958b4ac743), factory=sess...e.testclient.TestClient object at 0xe396ef41bd10>, engineer=<starlette.testclient.TestClient object at 0xe396ef368b60>)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe396ef418890>
+
+>   ???
+E   AssertionError: assert (True and 'REVISION_CONFLICT' == 'GEO_PROFILE_INELIGIBLE'
+E    +  where True = isinstance(AppError('GEO 配置已被其他请求修改'), AppError)
+E     
+E     - GEO_PROFILE_INELIGIBLE
+E     + REVISION_CONFLICT)
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surface_management_concurrency.py:203: AssertionError
+_____ test_current_binding_test_reset_noop_and_role_safe_model_projection ______
+
+surface_api = SurfaceAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo205_b67c953f8a), factory=sess...e.testclient.TestClient object at 0xe396eef63b60>, engineer=<starlette.testclient.TestClient object at 0xe39704a25a60>)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xe396ef7f5730>
+
+>   ???
+E   assert 'MODEL_BINDING_REQUIRED' in '{"error":{"code":"REVISION_CONFLICT","message":"GEO 配置已被其他请求修改","details":{},"request_id":"2ab04d35-c98b-474f-91f2-1e40f2ea9d1c"}}'
+E    +  where '{"error":{"code":"REVISION_CONFLICT","message":"GEO 配置已被其他请求修改","details":{},"request_id":"2ab04d35-c98b-474f-91f2-1e40f2ea9d1c"}}' = <Response [409 Conflict]>.text
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surface_management_transactions.py:253: AssertionError
+______ test_old_head_forward_preserves_rows_metadata_and_downgrade_stops _______
+
+surface_migration_database = SurfaceDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal_geo203_381e4f118d', env={'PATH': ...'display_name': '虚构模型', 'last_tested_at': None, 'request_parameters': {}, 'last_test_error_summary': None},)], [], []])
+
+>   ???
+E   AssertionError: assert [('add_column...n_profiles>))] == []
+E     
+E     Left contains 3 more items, first extra item: ('add_column', None, 'geo_collection_profiles', Column('last_test_error_code', String(length=64), table=<geo_collection_profiles>))
+E     Use -v to get more diff
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surfaces_profiles.py:202: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+_______ test_valid_modes_defaults_and_public_response_no_secret[MANUAL] ________
+
+connection = <psycopg.Connection [INTRANS] (host=postgres user=partsignal database=partsignal_geo203_1a2435fa85) at 0xe396ed8e5d30>
+surface_database = SurfaceDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal_geo203_1a2435fa85', env={'PATH': ...'display_name': '虚构模型', 'last_tested_at': None, 'request_parameters': {}, 'last_test_error_summary': None},)], [], []])
+mode = 'MANUAL'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surfaces_profiles.py:240: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = TypeAdapter(Annotated[Union[GeoManualProfileOut, GeoApiProfileOut, GeoBrowserProfileOut], FieldInfo(annotation=NoneType, required=True, discriminator='collection_mode')])
+object = {'adapter_key': 'manual', 'ai_channel_id': None, 'ai_model_id': None, 'collection_mode': 'MANUAL', ...}
+
+    def validate_python(
+        self,
+        object: Any,
+        /,
+        *,
+        strict: bool | None = None,
+        extra: ExtraValues | None = None,
+        from_attributes: bool | None = None,
+        context: Any | None = None,
+        experimental_allow_partial: bool | Literal['off', 'on', 'trailing-strings'] = False,
+        by_alias: bool | None = None,
+        by_name: bool | None = None,
+    ) -> T:
+        """Validate a Python object against the model.
+    
+        Args:
+            object: The Python object to validate against the model.
+            strict: Whether to strictly check types.
+            extra: Whether to ignore, allow, or forbid extra data during model validation.
+                See the [`extra` configuration value][pydantic.ConfigDict.extra] for details.
+            from_attributes: Whether to extract data from object attributes.
+            context: Additional context to pass to the validator.
+            experimental_allow_partial: **Experimental** whether to enable
+                [partial validation](../concepts/experimental.md#partial-validation), e.g. to process streams.
+                * False / 'off': Default behavior, no partial validation.
+                * True / 'on': Enable partial validation.
+                * 'trailing-strings': Enable partial validation and allow trailing strings in the input.
+            by_alias: Whether to use the field's alias when validating against the provided input data.
+            by_name: Whether to use the field's name when validating against the provided input data.
+    
+        !!! note
+            When using `TypeAdapter` with a Pydantic `dataclass`, the use of the `from_attributes`
+            argument is not supported.
+    
+        Returns:
+            The validated object.
+        """
+        if by_alias is False and by_name is not True:
+            raise PydanticUserError(
+                'At least one of `by_alias` or `by_name` must be set to True.',
+                code='validate-by-alias-and-name-false',
+            )
+    
+>       return self.validator.validate_python(
+            object,
+            strict=strict,
+            extra=extra,
+            from_attributes=from_attributes,
+            context=context,
+            allow_partial=experimental_allow_partial,
+            by_alias=by_alias,
+            by_name=by_name,
+        )
+E       pydantic_core._pydantic_core.ValidationError: 3 validation errors for tagged-union[function-after[require_test_time(), GeoManualProfileOut],function-after[require_paired_model(), function-after[require_test_time(), GeoApiProfileOut]],function-after[require_test_time(), GeoBrowserProfileOut]]
+E       MANUAL.test_attempt_id
+E         Extra inputs are not permitted [type=extra_forbidden, input_value=None, input_type=NoneType]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+E       MANUAL.last_test_error_code
+E         Extra inputs are not permitted [type=extra_forbidden, input_value=None, input_type=NoneType]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+E       MANUAL.last_test_error_summary
+E         Extra inputs are not permitted [type=extra_forbidden, input_value=None, input_type=NoneType]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+
+/opt/venv/lib/python3.12/site-packages/pydantic/type_adapter.py:441: ValidationError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+INFO  [alembic.runtime.migration] Running upgrade 0050_geo_answer_evidence -> 0051_geo_manual_collection, 人工草稿和不可变提交身份；不回填或修改已提交证据。
+INFO  [alembic.runtime.migration] Running upgrade 0051_geo_manual_collection -> 0052_geo_profile_tests, API Profile 当前诊断资格与依赖失效；不修改业务历史。
+_________ test_valid_modes_defaults_and_public_response_no_secret[API] _________
+
+connection = <psycopg.Connection [INTRANS] (host=postgres user=partsignal database=partsignal_geo203_1a2435fa85) at 0xe39707672a80>
+surface_database = SurfaceDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal_geo203_1a2435fa85', env={'PATH': ...'display_name': '虚构模型', 'last_tested_at': None, 'request_parameters': {}, 'last_test_error_summary': None},)], [], []])
+mode = 'API'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surfaces_profiles.py:240: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = TypeAdapter(Annotated[Union[GeoManualProfileOut, GeoApiProfileOut, GeoBrowserProfileOut], FieldInfo(annotation=NoneType, required=True, discriminator='collection_mode')])
+object = {'adapter_key': 'fictional-adapter', 'ai_channel_id': None, 'ai_model_id': None, 'collection_mode': 'API', ...}
+
+    def validate_python(
+        self,
+        object: Any,
+        /,
+        *,
+        strict: bool | None = None,
+        extra: ExtraValues | None = None,
+        from_attributes: bool | None = None,
+        context: Any | None = None,
+        experimental_allow_partial: bool | Literal['off', 'on', 'trailing-strings'] = False,
+        by_alias: bool | None = None,
+        by_name: bool | None = None,
+    ) -> T:
+        """Validate a Python object against the model.
+    
+        Args:
+            object: The Python object to validate against the model.
+            strict: Whether to strictly check types.
+            extra: Whether to ignore, allow, or forbid extra data during model validation.
+                See the [`extra` configuration value][pydantic.ConfigDict.extra] for details.
+            from_attributes: Whether to extract data from object attributes.
+            context: Additional context to pass to the validator.
+            experimental_allow_partial: **Experimental** whether to enable
+                [partial validation](../concepts/experimental.md#partial-validation), e.g. to process streams.
+                * False / 'off': Default behavior, no partial validation.
+                * True / 'on': Enable partial validation.
+                * 'trailing-strings': Enable partial validation and allow trailing strings in the input.
+            by_alias: Whether to use the field's alias when validating against the provided input data.
+            by_name: Whether to use the field's name when validating against the provided input data.
+    
+        !!! note
+            When using `TypeAdapter` with a Pydantic `dataclass`, the use of the `from_attributes`
+            argument is not supported.
+    
+        Returns:
+            The validated object.
+        """
+        if by_alias is False and by_name is not True:
+            raise PydanticUserError(
+                'At least one of `by_alias` or `by_name` must be set to True.',
+                code='validate-by-alias-and-name-false',
+            )
+    
+>       return self.validator.validate_python(
+            object,
+            strict=strict,
+            extra=extra,
+            from_attributes=from_attributes,
+            context=context,
+            allow_partial=experimental_allow_partial,
+            by_alias=by_alias,
+            by_name=by_name,
+        )
+E       pydantic_core._pydantic_core.ValidationError: 3 validation errors for tagged-union[function-after[require_test_time(), GeoManualProfileOut],function-after[require_paired_model(), function-after[require_test_time(), GeoApiProfileOut]],function-after[require_test_time(), GeoBrowserProfileOut]]
+E       API.test_attempt_id
+E         Extra inputs are not permitted [type=extra_forbidden, input_value=None, input_type=NoneType]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+E       API.last_test_error_code
+E         Extra inputs are not permitted [type=extra_forbidden, input_value=None, input_type=NoneType]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+E       API.last_test_error_summary
+E         Extra inputs are not permitted [type=extra_forbidden, input_value=None, input_type=NoneType]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+
+/opt/venv/lib/python3.12/site-packages/pydantic/type_adapter.py:441: ValidationError
+_______ test_valid_modes_defaults_and_public_response_no_secret[BROWSER] _______
+
+connection = <psycopg.Connection [INTRANS] (host=postgres user=partsignal database=partsignal_geo203_1a2435fa85) at 0xe396ed6a31a0>
+surface_database = SurfaceDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal_geo203_1a2435fa85', env={'PATH': ...'display_name': '虚构模型', 'last_tested_at': None, 'request_parameters': {}, 'last_test_error_summary': None},)], [], []])
+mode = 'BROWSER'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surfaces_profiles.py:240: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = TypeAdapter(Annotated[Union[GeoManualProfileOut, GeoApiProfileOut, GeoBrowserProfileOut], FieldInfo(annotation=NoneType, required=True, discriminator='collection_mode')])
+object = {'adapter_key': 'fictional-adapter', 'ai_channel_id': None, 'ai_model_id': None, 'collection_mode': 'BROWSER', ...}
+
+    def validate_python(
+        self,
+        object: Any,
+        /,
+        *,
+        strict: bool | None = None,
+        extra: ExtraValues | None = None,
+        from_attributes: bool | None = None,
+        context: Any | None = None,
+        experimental_allow_partial: bool | Literal['off', 'on', 'trailing-strings'] = False,
+        by_alias: bool | None = None,
+        by_name: bool | None = None,
+    ) -> T:
+        """Validate a Python object against the model.
+    
+        Args:
+            object: The Python object to validate against the model.
+            strict: Whether to strictly check types.
+            extra: Whether to ignore, allow, or forbid extra data during model validation.
+                See the [`extra` configuration value][pydantic.ConfigDict.extra] for details.
+            from_attributes: Whether to extract data from object attributes.
+            context: Additional context to pass to the validator.
+            experimental_allow_partial: **Experimental** whether to enable
+                [partial validation](../concepts/experimental.md#partial-validation), e.g. to process streams.
+                * False / 'off': Default behavior, no partial validation.
+                * True / 'on': Enable partial validation.
+                * 'trailing-strings': Enable partial validation and allow trailing strings in the input.
+            by_alias: Whether to use the field's alias when validating against the provided input data.
+            by_name: Whether to use the field's name when validating against the provided input data.
+    
+        !!! note
+            When using `TypeAdapter` with a Pydantic `dataclass`, the use of the `from_attributes`
+            argument is not supported.
+    
+        Returns:
+            The validated object.
+        """
+        if by_alias is False and by_name is not True:
+            raise PydanticUserError(
+                'At least one of `by_alias` or `by_name` must be set to True.',
+                code='validate-by-alias-and-name-false',
+            )
+    
+>       return self.validator.validate_python(
+            object,
+            strict=strict,
+            extra=extra,
+            from_attributes=from_attributes,
+            context=context,
+            allow_partial=experimental_allow_partial,
+            by_alias=by_alias,
+            by_name=by_name,
+        )
+E       pydantic_core._pydantic_core.ValidationError: 3 validation errors for tagged-union[function-after[require_test_time(), GeoManualProfileOut],function-after[require_paired_model(), function-after[require_test_time(), GeoApiProfileOut]],function-after[require_test_time(), GeoBrowserProfileOut]]
+E       BROWSER.test_attempt_id
+E         Extra inputs are not permitted [type=extra_forbidden, input_value=None, input_type=NoneType]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+E       BROWSER.last_test_error_code
+E         Extra inputs are not permitted [type=extra_forbidden, input_value=None, input_type=NoneType]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+E       BROWSER.last_test_error_summary
+E         Extra inputs are not permitted [type=extra_forbidden, input_value=None, input_type=NoneType]
+E           For further information visit https://errors.pydantic.dev/2.13/v/extra_forbidden
+
+/opt/venv/lib/python3.12/site-packages/pydantic/type_adapter.py:441: ValidationError
+________ test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent _________
+
+>   ???
+E   assert '0051 人工提交身份不可安全降级' in ('' + "INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.\nINFO  [alembic.runtime.migration] Will assume transac...向修复'\n            USING ERRCODE='55000';\n    END $$;]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)\n")
+E    +  where '' = CompletedProcess(args=['/opt/venv/bin/python3', '-m', 'alembic', 'downgrade', '0033_task_owned_history_delete'], retur...'\n            USING ERRCODE=\'55000\';\n    END $$;]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)\n').stdout
+E    +  and   "INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.\nINFO  [alembic.runtime.migration] Will assume transac...向修复'\n            USING ERRCODE='55000';\n    END $$;]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)\n" = CompletedProcess(args=['/opt/venv/bin/python3', '-m', 'alembic', 'downgrade', '0033_task_owned_history_delete'], retur...'\n            USING ERRCODE=\'55000\';\n    END $$;]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)\n').stderr
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_migrations.py:487: AssertionError
+----------------------------- Captured stdout call -----------------------------
+已创建或确认管理员和内容工程师账号。
+已创建或确认管理员和内容工程师账号。
+----------------------------- Captured stderr call -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+INFO  [alembic.runtime.migration] Running upgrade 0050_geo_answer_evidence -> 0051_geo_manual_collection, 人工草稿和不可变提交身份；不回填或修改已提交证据。
+INFO  [alembic.runtime.migration] Running upgrade 0051_geo_manual_collection -> 0052_geo_profile_tests, API Profile 当前诊断资格与依赖失效；不修改业务历史。
+=============================== warnings summary ===============================
+tests/integration/test_geo_batch_creation_migration.py::test_forward_preserves_nonempty_frozen_inputs_and_matches_metadata
+  /app/tests/integration/test_geo_batch_creation_migration.py:82: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_batch_creation_migration.py::test_forward_preserves_nonempty_frozen_inputs_and_matches_metadata
+  /app/tests/integration/test_geo_batch_creation_migration.py:82: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_catalog.py::test_catalog_metadata_matches_migrated_postgresql
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_catalog.py:187: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_catalog.py::test_catalog_metadata_matches_migrated_postgresql
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_catalog.py:187: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_monitoring_plans.py::test_forward_preserves_existing_data_and_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_monitoring_plans.py:232: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_monitoring_plans.py::test_forward_preserves_existing_data_and_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_monitoring_plans.py:232: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_prompt_variants.py::test_additive_migration_metadata_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_prompt_variants.py:176: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_prompt_variants.py::test_additive_migration_metadata_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_prompt_variants.py:176: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_run_migration.py::test_forward_preserves_nonempty_old_geo_and_matches_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_run_migration.py:63: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_run_migration.py::test_forward_preserves_nonempty_old_geo_and_matches_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_run_migration.py:63: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_surfaces_profiles.py::test_old_head_forward_preserves_rows_metadata_and_downgrade_stops
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surfaces_profiles.py:202: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_surfaces_profiles.py::test_old_head_forward_preserves_rows_metadata_and_downgrade_stops
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surfaces_profiles.py:202: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_answer_migration.py::test_forward_keeps_nonempty_history_and_matches_models
+FAILED tests/integration/test_geo_manual_collection.py::test_entry_draft_revision_noop_conflict_and_file_retention
+FAILED tests/integration/test_geo_manual_collection.py::test_submit_freezes_all_once_replay_and_no_analysis
+FAILED tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[empty-GEO_ANSWER_EMPTY]
+FAILED tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[no_evidence-GEO_EVIDENCE_REQUIRED]
+FAILED tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[raw_only-GEO_SCREENSHOT_REQUIRED]
+FAILED tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[missing-FILE_INTEGRITY_FAILED]
+FAILED tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[owner-PERMISSION_DENIED]
+FAILED tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[public-FILE_INTEGRITY_FAILED]
+FAILED tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[future-VALIDATION_ERROR]
+FAILED tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[before-VALIDATION_ERROR]
+FAILED tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[revision-REVISION_CONFLICT]
+FAILED tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[object_missing-FILE_INTEGRITY_FAILED]
+FAILED tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[object_changed-FILE_INTEGRITY_FAILED]
+FAILED tests/integration/test_geo_manual_collection.py::test_submit_failure_is_atomic[storage-DEPENDENCY_UNAVAILABLE]
+FAILED tests/integration/test_geo_manual_collection.py::test_optional_screenshot_still_requires_evidence_and_submission_can_include_unsaved_edits
+FAILED tests/integration/test_geo_manual_collection.py::test_disabled_configuration_is_readable_but_not_writable
+FAILED tests/integration/test_geo_manual_collection.py::test_audit_failure_rolls_back_freeze_and_preserves_draft
+FAILED tests/integration/test_geo_manual_collection.py::test_concurrent_submit_is_exactly_once[True]
+FAILED tests/integration/test_geo_manual_collection.py::test_concurrent_submit_is_exactly_once[False]
+FAILED tests/integration/test_geo_manual_collection.py::test_concurrent_draft_conflict
+FAILED tests/integration/test_geo_manual_collection.py::test_sql_final_facts_are_immutable
+FAILED tests/integration/test_geo_manual_collection_boundaries.py::test_nonmanual_read_draft_and_submit_rejected[API]
+FAILED tests/integration/test_geo_manual_collection_boundaries.py::test_nonmanual_read_draft_and_submit_rejected[BROWSER]
+FAILED tests/integration/test_geo_manual_collection_boundaries.py::test_csrf_role_and_disabled_actor_are_enforced_even_on_replay
+FAILED tests/integration/test_geo_manual_collection_boundaries.py::test_same_key_cannot_be_reused_for_another_run
+FAILED tests/integration/test_geo_manual_collection_boundaries.py::test_distinct_actors_compete_on_run_lock
+FAILED tests/integration/test_geo_manual_collection_boundaries.py::test_save_racing_submit_cannot_overwrite_final_answer
+FAILED tests/integration/test_geo_manual_collection_boundaries.py::test_sql_draft_revision_and_file_checks_cannot_be_bypassed
+FAILED tests/integration/test_geo_manual_collection_boundaries.py::test_sql_rejects_invalid_draft_dates_without_poisoning_context[TbadZ]
+FAILED tests/integration/test_geo_manual_collection_boundaries.py::test_sql_rejects_invalid_draft_dates_without_poisoning_context[2026-02-30T00:00:00.000000+00:00]
+FAILED tests/integration/test_geo_manual_collection_boundaries.py::test_sql_rejects_invalid_draft_dates_without_poisoning_context[2026-13-01T00:00:00.000000+00:00]
+FAILED tests/integration/test_geo_manual_collection_boundaries.py::test_sql_rejects_invalid_draft_dates_without_poisoning_context[2026-01-01T25:00:00.000000+00:00]
+FAILED tests/integration/test_geo_manual_collection_boundaries.py::test_sql_rejects_invalid_draft_dates_without_poisoning_context[2026-01-01T00:00:00.000000]
+FAILED tests/integration/test_geo_manual_collection_boundaries.py::test_sql_rejects_unsafe_draft_source_and_url_shape[source_product- x]
+FAILED tests/integration/test_geo_manual_collection_boundaries.py::test_sql_rejects_unsafe_draft_source_and_url_shape[source_model-x ]
+FAILED tests/integration/test_geo_manual_collection_boundaries.py::test_sql_rejects_unsafe_draft_source_and_url_shape[source_version-\u3000x]
+FAILED tests/integration/test_geo_manual_collection_boundaries.py::test_sql_rejects_unsafe_draft_source_and_url_shape[citations-value3]
+FAILED tests/integration/test_geo_manual_collection_boundaries.py::test_sql_rejects_unsafe_draft_source_and_url_shape[citations-value4]
+FAILED tests/integration/test_geo_manual_collection_boundaries.py::test_sql_rejects_unsafe_draft_source_and_url_shape[citations-value5]
+FAILED tests/integration/test_geo_manual_migration.py::test_0051_preserves_nonempty_0050_evidence_and_safe_stop
+FAILED tests/integration/test_geo_manual_races.py::test_cancel_commits_before_waiting_submit
+FAILED tests/integration/test_geo_manual_races.py::test_submit_commits_before_waiting_cancel_or_save[cancel]
+FAILED tests/integration/test_geo_manual_races.py::test_submit_commits_before_waiting_cancel_or_save[save]
+FAILED tests/integration/test_geo_manual_races.py::test_saved_revision_commits_before_waiting_submit
+FAILED tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_answer_snapshots SET answer_text='\u7be1\u6539' WHERE run_id=:run-ck_geo_answers_immutable]
+FAILED tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_answer_snapshots WHERE run_id=:run-ck_geo_answers_immutable]
+FAILED tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_answer_citations SET id=id WHERE answer_snapshot_id=:answer-ck_geo_citations_immutable]
+FAILED tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_answer_citations WHERE answer_snapshot_id=:answer-ck_geo_citations_immutable]
+FAILED tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_manual_submissions SET identity_hash=identity_hash WHERE run_id=:run-ck_geo_manual_submissions_immutable]
+FAILED tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_manual_submissions WHERE run_id=:run-ck_geo_manual_submissions_immutable]
+FAILED tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_batch_creation_requests SET request_hash=request_hash WHERE batch_id=:batch-ck_geo_creation_immutable]
+FAILED tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_batch_subjects WHERE batch_id=:batch-ck_geo_creation_immutable]
+FAILED tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_observation_runs SET input_snapshot='{}',revision=revision+1 WHERE id=:run-ck_geo_runs_immutable]
+FAILED tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_observation_runs WHERE id=:run-ck_geo_runs_immutable]
+FAILED tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE geo_observation_batches SET rule_snapshot='{}',revision=revision+1 WHERE id=:batch-ck_geo_batches_immutable]
+FAILED tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM geo_observation_batches WHERE id=:batch-ck_geo_batches_immutable]
+FAILED tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[UPDATE file_records SET status='DELETING' WHERE id=:file-ck_geo_evidence_file_immutable]
+FAILED tests/integration/test_geo_r2_immutability.py::test_committed_aggregate_attack_rolls_back_entire_transaction[DELETE FROM file_records WHERE id=:file-ck_geo_evidence_file_immutable]
+FAILED tests/integration/test_geo_r2_immutability.py::test_committed_cancelled_run_cannot_accept_late_result[late_answer]
+FAILED tests/integration/test_geo_r2_immutability.py::test_committed_cancelled_run_cannot_accept_late_result[reopen]
+FAILED tests/integration/test_geo_surface_management_concurrency.py::test_model_disable_while_enable_waits_is_rechecked_in_shared_eligibility
+FAILED tests/integration/test_geo_surface_management_transactions.py::test_current_binding_test_reset_noop_and_role_safe_model_projection
+FAILED tests/integration/test_geo_surfaces_profiles.py::test_old_head_forward_preserves_rows_metadata_and_downgrade_stops
+FAILED tests/integration/test_geo_surfaces_profiles.py::test_valid_modes_defaults_and_public_response_no_secret[MANUAL]
+FAILED tests/integration/test_geo_surfaces_profiles.py::test_valid_modes_defaults_and_public_response_no_secret[API]
+FAILED tests/integration/test_geo_surfaces_profiles.py::test_valid_modes_defaults_and_public_response_no_secret[BROWSER]
+FAILED tests/integration/test_migrations.py::test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent
+68 failed, 743 passed, 12 warnings in 427.96s (0:07:07)
+
+make: *** [test-integration] Error 1

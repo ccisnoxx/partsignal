@@ -283,6 +283,9 @@ const blockerLabels = {
   FACT_VERSION: '事实版本',
   CONTENT_TASK: '内容任务',
   GEO_OBSERVATION: 'GEO 观测',
+  GEO_ANALYSIS: 'GEO 分析历史',
+  GEO_SUBJECT: 'GEO 监测对象',
+  GEO_PROMPT_VARIANT: 'GEO 问题变体',
   CONTENT_VERSION: '内容版本',
   GENERATION_JOB: '运行中的生成作业',
   PUBLISHED_ARTICLE: '已发布成果',
@@ -292,6 +295,7 @@ const blockerLabels = {
   PROTECTED_CONTENT_VERSION: '受保护内容版本',
   PUBLISHED_CONTENT_ISSUE: '发布内容问题',
   GEO_OPTIMIZATION_SOURCE: 'GEO 优化来源',
+  GEO_OPPORTUNITY_ACTION: 'GEO 机会行动',
   USER_BUSINESS_HISTORY: '用户业务历史',
 } satisfies Record<DeletionBlocker['type'], string>;
 

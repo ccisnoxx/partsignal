@@ -1,0 +1,9 @@
+{
+  "command": [
+    "make",
+    "typecheck"
+  ],
+  "started_at": "2026-10-04T15:14:11.716513+00:00",
+  "duration_seconds": 20.18485875002807,
+  "exit_code": 0
+}

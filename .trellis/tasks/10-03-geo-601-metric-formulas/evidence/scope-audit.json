@@ -1,0 +1,11 @@
+{
+  "changed_preexisting_files": [
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/SHA256SUMS"
+  ],
+  "deleted_preexisting_files": [],
+  "other_manifest_task_changes": [],
+  "runtime_code_changed": false,
+  "contracts_changed": false,
+  "new_task_directory": ".trellis/tasks/10-03-geo-601-metric-formulas"
+}

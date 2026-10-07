@@ -1,0 +1,7 @@
+{
+  "implementation_commit": "00b4eca271c635c1fc4b6b0c5fbc08d1dfd680bd",
+  "fixed_script_sha256": "e5a7a3c50b6cbd2554299180fecc0ef262c0d1623588aa54614f258251389f2d",
+  "validation_hash_matches_git_blob": true,
+  "runtime_workflow_compose_and_dependency_inputs_unchanged": true,
+  "clean": true
+}

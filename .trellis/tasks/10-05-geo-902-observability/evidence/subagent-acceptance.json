@@ -1,0 +1,11 @@
+{
+  "task": "GEO-902",
+  "audit_id": "20261005T151007Z-geo-902-7d2c097d",
+  "acceptance_basis": {
+    "docs-a1": "所要求的权威文档/ADR与现有408/607/707记录的只读研究结果完整，纳入主代理preflight与设计；观察到完成通知，未观察到文件写入。",
+    "metrics-a1": "四个所有权文件实际创建，16项指标/PG测试及局部ruff/mypy通过；主代理检查实际边界与候选diff后验收。后续分析age修正为主代理所写。",
+    "review-a1": "完成候选代码、0065/ORM、日志/健康/指标告警合同的独立只读复核，返回四个具体问题及两段只读复现。验收指复核交付物完整，不表示候选无缺陷；主代理随后修正并验证，没有第二次独立复核。"
+  },
+  "write_evidence_basis": "主代理逐次编辑/所有权记录与before/candidate/最终差异核对；implementation仅四个新文件，两个只读worker未观察到写入。运行时身份/完成通知来自spawn元数据与消息，非从配置或自报推算。",
+  "communication_basis": "本任务工具派发/消息记录；wait_agent及list_agents未调用，write_stdin为测试进程等待，不计agent等待。"
+}

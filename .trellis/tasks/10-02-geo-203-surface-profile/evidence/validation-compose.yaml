@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: partsignal
+      POSTGRES_USER: partsignal
+      POSTGRES_PASSWORD: partsignal_dev
+    ports: ['127.0.0.1:55443:5432']
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U partsignal -d partsignal]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    volumes: [geo203-postgres:/var/lib/postgresql/data]
+  redis:
+    image: redis:7.4-alpine
+    ports: ['127.0.0.1:56383:6379']
+  fake-oss:
+    image: partsignal-geo203-backend-test
+    build:
+      context: /Users/sc/PycharmProjects/partsignal/backend
+      target: test
+    command: [python, -m, app.files.fake_server]
+    ports: ['127.0.0.1:19003:9000']
+    environment: &test-env
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg://partsignal:partsignal_dev@postgres:5432/partsignal
+      REDIS_URL: redis://redis:6379/15
+      SESSION_SECRET: test-session-secret-at-least-32-bytes
+      CONTENT_GENERATOR: openai-compatible
+      AI_CREDENTIAL_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      AI_ALLOW_LOCAL_HTTP: 'true'
+      OBJECT_STORAGE_BACKEND: development
+      OBJECT_STORAGE_ENDPOINT: http://fake-oss:9000
+    volumes:
+      - /Users/sc/PycharmProjects/partsignal/backend:/app
+      - geo203-oss:/data
+  backend-test:
+    image: partsignal-geo203-backend-test
+    build:
+      context: /Users/sc/PycharmProjects/partsignal/backend
+      target: test
+    environment: *test-env
+    volumes: [/Users/sc/PycharmProjects/partsignal/backend:/app]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_started}
+      fake-oss: {condition: service_started}
+    command: [pytest, tests/integration]
+volumes:
+  geo203-postgres:
+  geo203-oss:

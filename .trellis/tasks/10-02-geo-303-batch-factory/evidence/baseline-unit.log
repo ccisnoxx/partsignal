@@ -1,0 +1,2 @@
+UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_run_contract.py backend/tests/unit/test_geo_run_matrix.py backend/tests/unit/test_geo_plan_management.py
+95 passed in 1.17s; exit 0

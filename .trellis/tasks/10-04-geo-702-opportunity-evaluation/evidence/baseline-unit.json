@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_rules.py",
+    "backend/tests/unit/test_geo_metric_trends.py",
+    "backend/tests/unit/test_geo_insight_details.py",
+    "backend/tests/unit/test_geo_metrics.py"
+  ],
+  "exit_code": 0,
+  "seconds": 1.36
+}

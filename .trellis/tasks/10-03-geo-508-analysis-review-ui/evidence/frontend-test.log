@@ -1,0 +1,13 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+
+ Test Files  124 passed (124)
+      Tests  1163 passed (1163)
+   Start at  21:19:43
+   Duration  27.54s (transform 12.26s, setup 8.91s, import 42.11s, tests 140.37s, environment 43.33s)
+

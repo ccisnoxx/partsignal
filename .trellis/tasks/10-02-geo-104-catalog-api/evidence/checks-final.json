@@ -1,0 +1,86 @@
+[
+  {
+    "command": "git diff --check",
+    "exit_code": 0,
+    "log": "diff-check.log"
+  },
+  {
+    "command": "make lint",
+    "exit_code": 0,
+    "log": "lint.log",
+    "reuse": "前端在该检查后未改变；最终后端Ruff也通过。"
+  },
+  {
+    "command": "make typecheck",
+    "exit_code": 0,
+    "log": "typecheck.log",
+    "reuse": "前端在该检查后未改变；最终后端mypy也通过。"
+  },
+  {
+    "command": "make test-unit",
+    "exit_code": 0,
+    "log": "test-unit.log",
+    "backend_passed": 967,
+    "frontend_passed": 863,
+    "timing": "在最后两处局部后端修正前执行；后续受影响的127和14项单元分别通过。"
+  },
+  {
+    "command": "make test-integration COMPOSE='docker compose --env-file .env.example -p partsignal-geo104-validation -f deploy/compose.dev.yaml -f .trellis/tasks/10-02-geo-104-catalog-api/evidence/compose-validation.yaml'",
+    "exit_code": 0,
+    "log": "test-integration.log",
+    "passed": 466,
+    "warnings": 2,
+    "duration_seconds": 290.19,
+    "candidate": "最终后端候选。"
+  },
+  {
+    "command": "make contract-check",
+    "exit_code": 0,
+    "log": "contract-check-final.log"
+  },
+  {
+    "command": "docker compose --env-file .env.example -p partsignal-geo104-validation -f deploy/compose.dev.yaml -f .trellis/tasks/10-02-geo-104-catalog-api/evidence/compose-validation.yaml run --rm backend-test pytest tests/integration/test_geo_catalog_api.py tests/integration/test_geo_catalog_concurrency.py tests/integration/test_geo_catalog_transactions.py tests/integration/test_geo_catalog_read_regressions.py",
+    "exit_code": 0,
+    "log": "catalog-final-targeted.log",
+    "passed": 39
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_catalog_errors.py",
+    "exit_code": 0,
+    "log": "error-mapping-final.log",
+    "passed": 14
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_catalog_schema.py backend/tests/unit/test_geo_catalog_policy.py backend/tests/unit/test_geo_catalog_projection.py backend/tests/unit/test_geo_catalog_contract.py",
+    "exit_code": 0,
+    "log": "unit-normalization-final.log",
+    "passed": 127
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend ruff check backend",
+    "exit_code": 0,
+    "log": "lint-backend-final.log"
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app",
+    "exit_code": 0,
+    "log": "typecheck-backend-final.log"
+  },
+  {
+    "command": "shasum -a 256 -c SHA256SUMS",
+    "cwd": "docs/geo-monitoring",
+    "exit_code": 0,
+    "log": "doc-hashes.log"
+  },
+  {
+    "command": "docker compose --env-file .env.example -p partsignal-geo104-validation -f deploy/compose.dev.yaml -f .trellis/tasks/10-02-geo-104-catalog-api/evidence/compose-validation.yaml down --volumes --remove-orphans",
+    "exit_code": 0,
+    "log": "environment-cleanup.log"
+  },
+  {
+    "command": "colima stop",
+    "exit_code": 0,
+    "log": "environment-cleanup.log",
+    "observed_final_status": "Stopped"
+  }
+]

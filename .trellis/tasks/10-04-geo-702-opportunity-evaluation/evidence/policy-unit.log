@@ -1,0 +1,16 @@
+.............................F                                           [100%]
+=================================== FAILURES ===================================
+_____ test_closed_public_snapshot_preserves_actual_rule_values_and_sources _____
+
+    def test_closed_public_snapshot_preserves_actual_rule_values_and_sources():
+        value = GeoOpportunityTriggerSnapshot.model_validate(snapshot())
+        contract = yaml.safe_load(Path("contracts/openapi.yaml").read_text())
+        validate(contract, "GeoOpportunityTriggerSnapshot", value.model_dump(mode="json"))
+>       assert not any("/opportunities" in path for path in contract["paths"])
+E       assert not True
+E        +  where True = any(<generator object test_closed_public_snapshot_preserves_actual_rule_values_and_sources.<locals>.<genexpr> at 0x10913af60>)
+
+backend/tests/unit/test_geo_opportunity_policy.py:93: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_opportunity_policy.py::test_closed_public_snapshot_preserves_actual_rule_values_and_sources
+1 failed, 29 passed in 0.74s

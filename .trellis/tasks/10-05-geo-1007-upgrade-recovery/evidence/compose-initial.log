@@ -1,0 +1,9 @@
+清理确认：本次 container/network/image/temp=0；共享开发 PG 未访问
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery-compose.py", line 486, in <module>
+    main()
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery-compose.py", line 352, in main
+    run([str(SCRIPTS / "deploy.sh")], expected=23)
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery-compose.py", line 137, in run
+    raise RuntimeError(
+RuntimeError: 演练命令失败：['/Users/sc/PycharmProjects/partsignal/deploy/scripts/deploy.sh'] expected=23, actual=2

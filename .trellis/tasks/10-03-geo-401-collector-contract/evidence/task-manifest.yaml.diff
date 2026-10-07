@@ -1,0 +1,21 @@
+--- baseline/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -641,7 +641,7 @@
+   phase: R3
+   release: R3
+   title: 定义 GeoCollector 协议和稳定错误模型
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-204
+   - GEO-301
+@@ -658,6 +658,9 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  trellis_task: .trellis/tasks/10-03-geo-401-collector-contract
++  validation_record: .trellis/tasks/10-03-geo-401-collector-contract/implement.md
++  review_note: 2026-10-03内部采集Protocol、不可变输入/原始结果/估价值及必填send state的稳定错误已实现；复用GEO-204六能力和既有Run错误目录。抽象定向210、后端2795与前端1121单元及contract/lint/typecheck/diff通过；独立只读复核两项来源空白/NUL缺口已修正并增加13项先失败后通过的回归，审计关闭校验。无OpenAPI/数据库/Alembic改动，不含provider、Worker、真实发送恢复或其他GEO任务。仅review，等待人工接受，精确命令和覆盖边界见实施记录。
+ - id: GEO-402
+   phase: R3
+   release: R3

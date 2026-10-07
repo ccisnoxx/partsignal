@@ -1,0 +1,26 @@
+# GEO-106 独占本地验证；只使用样例凭据和本 project 的卷。
+services:
+  postgres:
+    environment:
+      POSTGRES_DB: geo106_validation
+      POSTGRES_USER: partsignal
+      POSTGRES_PASSWORD: partsignal_dev
+    ports: !override
+      - 127.0.0.1:55446:5432
+  redis:
+    ports: !override
+      - 127.0.0.1:56386:6379
+  fake-oss:
+    image: partsignal-dev-fake-oss:latest
+    env_file: !override
+      - ../.env.example
+    ports: !reset []
+  backend-test:
+    image: partsignal-dev-backend-test:latest
+    env_file: !override
+      - ../.env.example
+    environment:
+      DATABASE_URL: postgresql+psycopg://partsignal:partsignal_dev@postgres:5432/geo106_validation
+networks:
+  partsignal-internal:
+    name: partsignal-geo106-validation

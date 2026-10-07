@@ -1,12 +1,15 @@
 #!/bin/sh
 set -eu
+umask 077
 
-: "${1:?用法: restore-verify.sh <backup.sql.gz>}"
-: "${VERIFY_DATABASE_URL:?必须指定一次性验证数据库 VERIFY_DATABASE_URL}"
-
-backup=$1
-test -s "$backup"
-gzip -dc "$backup" | psql "$VERIFY_DATABASE_URL" --set ON_ERROR_STOP=on
-psql "$VERIFY_DATABASE_URL" --set ON_ERROR_STOP=on -c 'select count(*) from alembic_version;'
-psql "$VERIFY_DATABASE_URL" --set ON_ERROR_STOP=on -c 'select count(*) from users;'
-printf '%s\n' "备份恢复验证通过"
+: "${1:?用法: restore-verify.sh <加密GEO备份集合目录>}"
+: "${RECOVERY_BACKUP_KEY_FILE:?必须指定独立备份密钥文件}"
+: "${RECOVERY_ADMIN_DATABASE_URL:?必须指定本机隔离演练PG管理连接}"
+if [ -n "${VERIFY_DATABASE_URL:-}" ]; then
+  printf '%s\n' 'EXISTING_RESTORE_TARGET_FORBIDDEN' >&2
+  exit 2
+fi
+root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+export PYTHONPATH="$root/backend${PYTHONPATH:+:$PYTHONPATH}"
+exec "${RECOVERY_PYTHON:-$root/backend/.venv/bin/python}" "$root/deploy/scripts/geo-recovery.py" \
+  restore "$1" --backup-key-file "$RECOVERY_BACKUP_KEY_FILE"

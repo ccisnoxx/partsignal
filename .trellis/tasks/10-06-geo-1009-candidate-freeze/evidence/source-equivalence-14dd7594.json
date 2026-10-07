@@ -1,0 +1,31 @@
+{
+  "observed_at": "2026-10-07T05:08:06.036046+00:00",
+  "code_ci_commit": "0b232f2ce268c7e78836a2f2ce811c9eaa45944c",
+  "document_delta_commit": "14dd7594452e4080826b15f64683eb3990450704",
+  "changed_paths": [
+    ".trellis/spec/infra/production-image-delivery.md",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/check.jsonl",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/evidence/governance-docs-check.json",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/evidence/independent-governance-delta-review.md",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/evidence/independent-pr-review-0b232f2c.md",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/implement.jsonl",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/prd.md",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/task.json",
+    "docs/Hostdzire部署上线流程.md",
+    "docs/Hostdzire部署附录.md",
+    "docs/geo-monitoring/02-business/05-manual-geo-observation-sop.md",
+    "docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md",
+    "docs/geo-monitoring/SHA256SUMS"
+  ],
+  "candidate_runtime_and_test_inputs_unchanged": true,
+  "working_tree_clean": true,
+  "checker_correction": "首次按行解析name-only因Git中文路径默认quote产生误报exit1；改为-z NUL实际路径解析后PASS；候选未修改。",
+  "reviewed_doc_sha256": {
+    "docs/geo-monitoring/02-business/05-manual-geo-observation-sop.md": "0ae0c5cc0a4f3e6b0aedc06bb48d92f221f14b9c43e217fc2ca06d06aa9dd315",
+    "docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md": "0448467f75e87fa094191636e79bf520df62d7dc7d38622a71f2861159983fab",
+    "docs/Hostdzire部署附录.md": "5c64563dac48bf28646eca587432ba10c6a5f9ac687f76c55de2d36121186d16",
+    "docs/Hostdzire部署上线流程.md": "a5e040117f121c72501529b664c8388bef6d41ebb7c80b45821777c6e2597617",
+    ".trellis/spec/infra/production-image-delivery.md": "d3a4080c59cf8db03aa9c4a760864435c6ac4ea756629b6652f36f8f162e0dec",
+    "docs/geo-monitoring/SHA256SUMS": "00ae07ee2dc8b886b857c16004ac62c25d209295ff93763dc40792b6865c70d2"
+  }
+}

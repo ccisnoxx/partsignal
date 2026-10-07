@@ -1,0 +1,43 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/app/routers/geo_surface_management.py:3:1
+   |
+ 1 |   """GEO 管理 HTTP 合同；事务、锁与角色投影由应用服务拥有。"""
+ 2 |
+ 3 | / from typing import Annotated, Literal
+ 4 | | from uuid import UUID
+ 5 | |
+ 6 | | from fastapi import APIRouter, Depends, Query, Request
+ 7 | | from pydantic import BeforeValidator
+ 8 | |
+ 9 | | from app.deps import AdminUser, CsrfProtected, DbSession, EngineerUser
+10 | | from app.errors import error_responses
+11 | | from app.schemas.common import AccountType
+12 | | from app.schemas.geo_surface_management import (
+13 | |     GeoCollectionProfileListPage,
+14 | |     GeoCollectionProfileRead,
+15 | |     GeoConfigurationRevisionRequest,
+16 | |     GeoEngineSurfaceListPage,
+17 | |     GeoEngineSurfaceRead,
+18 | | )
+19 | | from app.schemas.geo_surfaces import (
+20 | |     GeoCollectionMode,
+21 | |     GeoCollectionProfileCreate,
+22 | |     GeoCollectionProfileUpdate,
+23 | |     GeoEngineSurfaceCreate,
+24 | |     GeoEngineSurfaceUpdate,
+25 | |     GeoSurfaceKind,
+26 | | )
+27 | | from app.services import geo_surface_commands as commands
+28 | | from app.services import geo_surface_queries as queries
+29 | | from app.services.geo_profile_tests import test_profile as run_profile_test
+30 | | from app.services.geo_catalog_queries import read_snapshot
+   | |__________________________________________________________^
+31 |
+32 |   router = APIRouter(prefix="/api/v1/geo", tags=["geo-surface-management"])
+   |
+help: Organize imports
+
+Found 1 error.
+[*] 1 fixable with the `--fix` option.
+make: *** [lint] Error 1

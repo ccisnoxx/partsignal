@@ -1,0 +1,18 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "-p",
+    "partsignal-geo701-validation",
+    "-f",
+    ".trellis/tasks/10-04-geo-701-rule-configuration/evidence/validation-compose.yaml",
+    "run",
+    "--rm",
+    "backend-test",
+    "pytest",
+    "tests/integration/test_geo_rules.py"
+  ],
+  "started_at": "2026-10-04T14:58:02.580884+00:00",
+  "duration_seconds": 4.183590250031557,
+  "exit_code": 0
+}

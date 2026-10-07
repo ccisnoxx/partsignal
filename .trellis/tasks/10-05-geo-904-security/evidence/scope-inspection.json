@@ -1,0 +1,26 @@
+{
+  "task_owned_maintained_files": [
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/SHA256SUMS",
+    "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/04-delivery/11-r8-security-review.md",
+    "backend/tests/integration/test_geo_security_review.py"
+  ],
+  "task_record": ".trellis/tasks/10-05-geo-904-security",
+  "manifest_tasks_changed": [
+    "GEO-904"
+  ],
+  "dependency_903_still_done": true,
+  "explicit_unchanged_baselines": {
+    "Makefile": true,
+    "docs/geo-monitoring/03-technical/06-security-and-compliance.md": true
+  },
+  "status_added_since_entry": [
+    "?? backend/tests/integration/test_geo_security_review.py",
+    "?? docs/geo-monitoring/04-delivery/11-r8-security-review.md"
+  ],
+  "status_removed_since_entry": [],
+  "limitations": "大面积入场脏树保留；status不证明未快照文件字节，子代理写入路径证据按未知处理；Task增量patch基于入场快照，不等同HEAD全仓diff"
+}

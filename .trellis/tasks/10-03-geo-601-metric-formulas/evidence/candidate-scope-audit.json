@@ -1,0 +1,34 @@
+{
+  "changed_preexisting_files": [
+    "docs/geo-monitoring/01-product/02-geo-core-prd.md",
+    "docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/05-decisions/ADR-004-no-unified-geo-score.md",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/SHA256SUMS"
+  ],
+  "new_source_and_test_files": [
+    "backend/app/services/geo_metric_inputs.py",
+    "backend/app/services/geo_metric_types.py",
+    "backend/app/services/geo_metrics.py",
+    "backend/tests/unit/geo_metrics_gold.py",
+    "backend/tests/unit/test_geo_metric_inputs.py",
+    "backend/tests/unit/test_geo_metrics.py"
+  ],
+  "deleted_preexisting_files": [],
+  "unexpected_changes": [],
+  "other_manifest_task_changes": [],
+  "contracts_changed": false,
+  "migration_changed": false,
+  "frontend_changed": false,
+  "dependency_status": "done",
+  "delivery_status": "review",
+  "source_sha256": {
+    "backend/app/services/geo_metric_inputs.py": "ca14d1e3da4decfdbccedf49f55e51a8e8b3e0113e6ef507e7ffdb741b861738",
+    "backend/app/services/geo_metric_types.py": "9b57372d1ab0663c26557cf5d433cd1d41020dd19bfa9b7c1ccebfda6fa3df76",
+    "backend/app/services/geo_metrics.py": "e6a3063f27bbcb8d64b0f7bf635fd000d837f50206c99f22a4ff8dd8b6f58bae",
+    "backend/tests/unit/geo_metrics_gold.py": "1f61e237e5628fdd47fbd785237933796964c1aaa94a3690e9d06d3c1abc45d3",
+    "backend/tests/unit/test_geo_metric_inputs.py": "4a006db53c2f0ee3593932a0bbdb4b0d63206b6496d4d163aba23e19bb721621",
+    "backend/tests/unit/test_geo_metrics.py": "a1473eacbc8345df8eb956d974a5477699c535b6f93f3190d9666f43e15686e7"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "command": [
+    "env",
+    "UV_CACHE_DIR=.cache/uv",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "alembic",
+    "-c",
+    "backend/alembic.ini",
+    "heads"
+  ],
+  "exit_code": 0
+}

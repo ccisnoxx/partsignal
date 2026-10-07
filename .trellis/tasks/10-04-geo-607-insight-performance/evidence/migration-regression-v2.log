@@ -1,0 +1,47 @@
+ Container geo607-validation-redis-1 Running 
+ Container geo607-validation-fake-oss-1 Running 
+ Container geo607-validation-postgres-1 Running 
+ Container geo607-validation-postgres-1 Waiting 
+ Container geo607-validation-postgres-1 Healthy 
+ Container geo607-validation-backend-test-run-2d1279ea1495 Creating 
+ Container geo607-validation-backend-test-run-2d1279ea1495 Created 
+........                                                                 [100%]
+=============================== warnings summary ===============================
+tests/integration/test_geo_admission_migration.py::test_0053_preserves_run_history_and_backfills_unknown
+  /app/tests/integration/test_geo_admission_migration.py:148: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_admission_migration.py::test_0053_preserves_run_history_and_backfills_unknown
+  /app/tests/integration/test_geo_admission_migration.py:148: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_analysis_migration.py::test_nonempty_0053_forward_preserves_evidence_and_matches_models
+  /app/tests/integration/test_geo_analysis_migration.py:78: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_analysis_migration.py::test_nonempty_0053_forward_preserves_evidence_and_matches_models
+  /app/tests/integration/test_geo_analysis_migration.py:78: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_analysis_migration.py::test_nonempty_0053_forward_preserves_evidence_and_matches_models
+  /opt/venv/lib/python3.12/site-packages/alembic/autogenerate/compare/server_defaults.py:120: UserWarning: Computed default on geo_analysis_revisions.input_sha256 cannot be modified
+    util.warn("Computed default on %s.%s cannot be modified" % (tname, cname))
+
+tests/integration/test_geo_answer_migration.py::test_forward_keeps_nonempty_history_and_matches_models
+  /app/tests/integration/test_geo_answer_migration.py:54: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_answer_migration.py::test_forward_keeps_nonempty_history_and_matches_models
+  /app/tests/integration/test_geo_answer_migration.py:54: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_run_migration.py::test_forward_preserves_nonempty_old_geo_and_matches_metadata
+  /app/tests/integration/test_geo_run_migration.py:77: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_run_migration.py::test_forward_preserves_nonempty_old_geo_and_matches_metadata
+  /app/tests/integration/test_geo_run_migration.py:77: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+8 passed, 9 warnings in 17.25s

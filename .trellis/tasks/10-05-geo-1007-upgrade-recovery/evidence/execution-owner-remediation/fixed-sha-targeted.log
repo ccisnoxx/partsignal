@@ -1,0 +1,140 @@
+python3 deploy/scripts/test-upgrade-recovery.py
+...................
+----------------------------------------------------------------------
+Ran 19 tests in 0.363s
+
+OK
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_b45ee7d6eab64c9d8ea14869775fef49；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_b491154e13db420e8dd3ee6fd0a06108；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_dced248e6be34513af912da7ef0be041；候选与阶段保持。
+升级恢复已记录；重放同一回执，不重新切换候选。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_e061c45942c9400cb9e41375bde736f2；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_2cce1ffb1a604281883a2c1fb53ba406；候选与阶段保持。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production 数据阶段已更新为 UPGRADE_PREPARED。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_88129a919e3949f291b2069a75d5a1a4；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_b8b95db9dc224d5680d6264ad5e1a2ba；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_4387c9701cd6417ea1ec212147425ef1；候选与阶段保持。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production 数据阶段已更新为 UPGRADE_PREPARED。
+升级失败事实已记录：upf_b0875d6c5605452caab0426e9817b400；候选与阶段保持。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_6f6efbedb8e14512bc4bd349231be35d；候选与阶段保持。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。
+升级恢复已记录；重放同一回执，不重新切换候选。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_cfe484066d984b88bcf32b7cf93221b5；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_06a793a1bda64880b737be13e68acc3a；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_e70bcd0902ed4c73849466a203df317d；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_f7083b5735364900846a834dfa2b9408；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_49a2fa237ee1459aa94bbe85415e63cf；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_d5d4775f0a384875b93aac2da094dc1a；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_e42709e3b67d4bc5b346a060677900e8；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_5832e7bd946d40f281fa2235a22f7c00；候选与阶段保持。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。
+python3 deploy/scripts/test-upgrade-failure.py
+.......
+----------------------------------------------------------------------
+Ran 7 tests in 0.185s
+
+OK
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_72c85540053142cdad9c2d01a8d2dd72；候选与阶段保持。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。
+升级恢复已记录；重放同一回执，不重新切换候选。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production 数据阶段已更新为 UPGRADE_PREPARED。
+升级失败事实已记录：upf_08b1d682f9b446b1853f74eef5e768ae；候选与阶段保持。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_bb8bdc244ec844f5b525bc731817a090；候选与阶段保持。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_b2d647b9fc3740cd963df403bbaa23a3；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+python3 deploy/scripts/test-upgrade-runtime-policy.py
+.......
+----------------------------------------------------------------------
+Ran 7 tests in 0.067s
+
+OK
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_b55b300a940c45c4b7c54f7ffa926699；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_f6eca546b93646bcbafba8810618fa9f；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_60e46f3eaa9b4b039f1b2cf4402c5611；候选与阶段保持。
+python3 deploy/scripts/test-migration-runtime.py
+........
+----------------------------------------------------------------------
+Ran 8 tests in 0.014s
+
+OK
+python3 deploy/scripts/test-upgrade-cache-policy.py
+......
+----------------------------------------------------------------------
+Ran 6 tests in 0.073s
+
+OK
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_7aa6de746e5444e5ab931a23a4228e2f；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_1fdcf20506e24044864b15a67f2b02fc；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_70f122e601a248a58752d0d2f6f52cc0；候选与阶段保持。
+升级前向恢复候选已显式绑定；仍未初始化，必须重新 deploy 和验收。
+升级恢复已记录；重放同一回执，不重新切换候选。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_bdaf259789d94ec1a3882038c376417f；候选与阶段保持。
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_7b4e3582aeac4a41be253a9669881398；候选与阶段保持。
+python3 deploy/scripts/test-upgrade-registry-order.py
+....
+----------------------------------------------------------------------
+Ran 4 tests in 13.751s
+
+OK
+python3 deploy/scripts/test-upgrade-signal.py
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_13ee862d86a443629200d648085c3759；候选与阶段保持。
+真实 recover-upgrade：inherited=None wrapped=False signal=15；子孙结束后才释放锁，原子状态字节不变
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_352d85f82e2e48d4ba40fc4ba7922b85；候选与阶段保持。
+真实 recover-upgrade：inherited=self-opened wrapped=False signal=15；子孙结束后才释放锁，原子状态字节不变
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_5de6f4788c0e478ab96e34ad678334ef；候选与阶段保持。
+真实 recover-upgrade：inherited=self-opened wrapped=False signal=2；子孙结束后才释放锁，原子状态字节不变
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_3b9061923ebd4b7aac76f102e7c95eb9；候选与阶段保持。
+真实 recover-upgrade：inherited=locked wrapped=False signal=15；子孙结束后才释放锁，原子状态字节不变
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_24e30107605e4d04be9503514c479507；候选与阶段保持。
+真实 recover-upgrade：inherited=locked wrapped=False signal=2；子孙结束后才释放锁，原子状态字节不变
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_8258f764b95b436fb555276ab306e6fe；候选与阶段保持。
+真实 recover-upgrade：inherited=None wrapped=True signal=15；子孙结束后才释放锁，原子状态字节不变
+SIGTERM ignored：10秒期限内结束整组；退出前锁占用、退出后释放、phase/data未推进

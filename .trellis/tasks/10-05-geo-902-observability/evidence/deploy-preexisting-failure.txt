@@ -1,0 +1,1 @@
+修改前Worker内存装配：stale STARTUP_PROBE assert not any(part signal.geo_)的谓词=True；旧partsignal.geo_cleanup_artifacts已登记，因此同一断言在902前即失败。

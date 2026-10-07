@@ -1,0 +1,60 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__ test_accuracy_keeps_unjudgeable_claim_count_outside_judgeable_denominator ___
+
+    def test_accuracy_keeps_unjudgeable_claim_count_outside_judgeable_denominator():
+        value = source()
+        own = value.snapshot.subjects[0].id
+        value = replace(
+            value,
+            metric=replace(
+                value.metric,
+                claims=(MetricClaim(own, "ACCURATE", "LOW"),)
+                + (MetricClaim(own, "UNJUDGEABLE", "LOW"),) * 100,
+            ),
+        )
+        cell = next(iter(_cells([value], filters(), "CURRENT").values()))
+        card = next(m for m in cell.public.metrics if m.metric_code == "accurate_claim_rate")
+        assert card.numerator == card.denominator == 1 and card.value == 1
+>       assert card.unjudgeable_claim_count == 100
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_answer_insights.py:140: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = GeoAnswerInsightMetric(metric_code='accurate_claim_rate', formula_version='geo-answer-v1', value=1.0, numerator=1, den...bc7fa1a56a8da5c0fea855bbf70f70378e982197b', metric_code='accurate_claim_rate', period='CURRENT', cohort='DENOMINATOR'))
+item = 'unjudgeable_claim_count'
+
+    def __getattr__(self, item: str) -> Any:
+        private_attributes = object.__getattribute__(self, '__private_attributes__')
+        if item in private_attributes:
+            attribute = private_attributes[item]
+            if hasattr(attribute, '__get__'):
+                return attribute.__get__(self, type(self))  # type: ignore
+    
+            try:
+                # Note: self.__pydantic_private__ cannot be None if self.__private_attributes__ has items
+                return self.__pydantic_private__[item]  # type: ignore
+            except KeyError as exc:
+                raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}') from exc
+        else:
+            # `__pydantic_extra__` can fail to be set if the model is not yet fully initialized.
+            # See `BaseModel.__repr_args__` for more details
+            try:
+                pydantic_extra = object.__getattribute__(self, '__pydantic_extra__')
+            except AttributeError:
+                pydantic_extra = None
+    
+            if pydantic_extra and item in pydantic_extra:
+                return pydantic_extra[item]
+            else:
+                if hasattr(self.__class__, item):
+                    return super().__getattribute__(item)  # Raises AttributeError if appropriate
+                else:
+                    # this is the current error
+>                   raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+E                   AttributeError: 'GeoAnswerInsightMetric' object has no attribute 'unjudgeable_claim_count'
+
+backend/.venv/lib/python3.12/site-packages/pydantic/main.py:1042: AttributeError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_answer_insights.py::test_accuracy_keeps_unjudgeable_claim_count_outside_judgeable_denominator

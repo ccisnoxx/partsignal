@@ -1,0 +1,5 @@
+{"file": "contracts/openapi.yaml", "reason": "已接受的 Catalog 公共 Schema 与 CONTRACT_ONLY 操作权威"}
+{"file": "contracts/database.md", "reason": "Catalog 规范化、真实父子、revision、动作与删除合同"}
+{"file": ".trellis/spec/backend/available-actions-contract.md", "reason": "业务 stage、当前角色动作与 deletion 的服务端权威"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "显式失败及统一 AppError 字段结构"}
+{"file": "docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md", "reason": "GEO-103 完整交付/测试/验收与 GEO-104 范围边界"}

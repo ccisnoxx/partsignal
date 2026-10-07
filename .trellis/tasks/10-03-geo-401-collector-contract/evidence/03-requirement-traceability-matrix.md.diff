@@ -1,0 +1,17 @@
+--- baseline/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
++++ docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
+@@ -34,7 +34,13 @@
+ `backend/tests/integration/test_geo_profile_eligibility.py`。默认仅 manual，自动测试项是无 I/O
+ 元数据，不是生产 Collector。具体状态与验证见
+ [实施记录](../../../.trellis/tasks/10-02-geo-204-collector-registry/implement.md)。
+-GEO-205 已接线管理接口/页面；GEO-207 的服务端矩阵、当前资格定位和估价覆盖见下节；GEO-401 发送协议仍未实施，不能将整项能力标记完成。
++GEO-205 已接线管理接口/页面；GEO-207 的服务端矩阵、当前资格定位和估价覆盖见下节。
++GEO-401 已定义内部采集值对象、能力/adapter 协议及必填发送状态的稳定错误，支持
++REQ-GEO-RUN-007、REQ-GEO-OPS-002 的合同基础；78 项抽象测试覆盖不可变值、未知值、
++来源/引用证据边界及发送后禁止 SAFE_BEFORE_SEND，见
++`backend/tests/unit/test_geo_collector_contract.py` 和
++[实施记录](../../../.trellis/tasks/10-03-geo-401-collector-contract/implement.md)。
++真实请求计数、lease/token 持久化与恢复仍由 GEO-404/405/406 验收，不能将整项能力标记完成。
+ 
+ ### 2.1 监测对象
+ 

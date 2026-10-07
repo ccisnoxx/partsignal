@@ -21,7 +21,12 @@ from app.errors import AppError, not_found
 from app.models.ai_generation import AIChannel, AIModel
 from app.models.configuration import PlatformProfile
 from app.models.content import ContentTask, ContentVersion
+from app.models.geo_catalog import GeoSubject
 from app.models.geo_files import GeoObservation
+from app.models.geo_monitoring_plans import GeoMonitoringPlan
+from app.models.geo_opportunities import GeoOpportunity
+from app.models.geo_prompt_variants import GeoPromptVariant
+from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
 from app.models.identity import AuditLog, User
 from app.models.product_facts import FactVersion, Product
 from app.models.publication import PlatformAccount, PublicationWork, PublishedContentIssue
@@ -288,6 +293,28 @@ def _related_entry(
     if target_type == "GeoObservation":
         observation = db.get(GeoObservation, target_id) if target_id is not None else None
         return _availability(target_type, observation)
+    if target_type == "GeoOpportunity":
+        opportunity = db.get(GeoOpportunity, target_id) if target_id is not None else None
+        return _availability(target_type, opportunity)
+    if target_type == "GeoMonitoringPlan":
+        plan = db.get(GeoMonitoringPlan, target_id) if target_id is not None else None
+        return _availability(target_type, plan)
+    if target_type == "GeoPromptVariant":
+        variant = db.get(GeoPromptVariant, target_id) if target_id is not None else None
+        return _availability(target_type, variant)
+    if target_type == "GeoEngineSurface":
+        surface = db.get(GeoEngineSurface, target_id) if target_id is not None else None
+        return _availability(target_type, surface)
+    if target_type == "GeoCollectionProfile":
+        collection = db.get(GeoCollectionProfile, target_id) if target_id is not None else None
+        return _availability(
+            target_type,
+            collection,
+            str(collection.engine_surface_id) if collection is not None else None,
+        )
+    if target_type == "GeoSubject":
+        subject = db.get(GeoSubject, target_id) if target_id is not None else None
+        return _availability(target_type, subject)
     if target_type == "PlatformProfile":
         profile = db.get(PlatformProfile, target_id) if target_id is not None else None
         return _availability(target_type, profile)

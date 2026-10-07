@@ -1,0 +1,66 @@
+ Container partsignal-geo506-validation-postgres-1 Running 
+ Container partsignal-geo506-validation-redis-1 Running 
+ Container partsignal-geo506-validation-fake-oss-1 Recreate 
+ Container partsignal-geo506-validation-fake-oss-1 Recreated 
+ Container partsignal-geo506-validation-fake-oss-1 Starting 
+ Container partsignal-geo506-validation-fake-oss-1 Started 
+ Container partsignal-geo506-validation-postgres-1 Waiting 
+ Container partsignal-geo506-validation-postgres-1 Healthy 
+ Container partsignal-geo506-validation-backend-test-run-00907723ed07 Creating 
+ Container partsignal-geo506-validation-backend-test-run-00907723ed07 Created 
+..........F
+=================================== FAILURES ===================================
+____________ test_reanalysis_permission_revision_and_disabled_gate _____________
+
+harness = AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev...signal_geo206_49c5511f15), autoflush=True, expire_on_commit=False), ids=[UUID('109a0606-8d18-481f-8836-c8ada6004eba')])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0xf3a53f137830>
+
+    def test_reanalysis_permission_revision_and_disabled_gate(harness, monkeypatch):
+        case = harness.create(answer_text="虚构的测试资料。")
+        with pytest.raises(AppError) as error:
+            harness.reanalyze(case.run_id)
+        assert error.value.code == "INVALID_STATE_TRANSITION"
+        runs.process_analysis_run(case.run_id)
+        with harness.factory() as db:
+            actor = db.get(User, harness.database.runs.plan.actor)
+        with pytest.raises(AppError) as error:
+            geo_reanalysis.reanalyze_run(
+                run_id=case.run_id,
+                actor=actor,
+                expected_revision=0,
+                reason="RETRY_FAILED",
+                request_id="geo506-conflict",
+                sender=lambda _: None,
+            )
+        assert error.value.code == "REVISION_CONFLICT"
+        with harness.factory.begin() as db:
+            engineer = User(
+                username=f"geo506-{uuid4()}",
+                display_name="虚构工程师",
+                password_hash="unused",
+                account_type="ENGINEER",
+                is_active=True,
+                must_change_password=False,
+            )
+            db.add(engineer)
+        with pytest.raises(AppError) as error:
+            geo_reanalysis.reanalyze_run(
+                run_id=case.run_id,
+                actor=engineer,
+                expected_revision=harness.run(case.run_id).revision,
+                reason="RETRY_FAILED",
+                request_id="geo506-forbidden",
+                sender=lambda _: None,
+            )
+>       assert error.value.code == "FORBIDDEN"
+E       AssertionError: assert 'PERMISSION_DENIED' == 'FORBIDDEN'
+E         
+E         - FORBIDDEN
+E         + PERMISSION_DENIED
+
+tests/integration/test_geo_analysis_worker.py:338: AssertionError
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_analysis_worker.py::test_reanalysis_permission_revision_and_disabled_gate
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 10 passed in 3.99s
+

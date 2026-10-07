@@ -1,0 +1,227 @@
+import { MoreHorizontalIcon } from 'lucide-react';
+import { useRef, useState } from 'react';
+
+import { Button, buttonVariants } from '@/design-system/primitives/button';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/design-system/primitives/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/design-system/primitives/dropdown-menu';
+import { IconButton } from '@/design-system/primitives/icon-button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/design-system/primitives/tooltip';
+import type {
+  ActionConfirmation,
+  OverflowRowAction,
+  PrimaryRowAction,
+} from '@/design-system/data-table/types';
+
+type ActionConfirmationDialogProps = {
+  confirmation: ActionConfirmation | null;
+  finalFocus?: { current: HTMLElement | null };
+  onConfirm: () => void;
+  onOpenChange: (open: boolean) => void;
+};
+
+function ActionConfirmationDialog({
+  confirmation,
+  finalFocus,
+  onConfirm,
+  onOpenChange,
+}: ActionConfirmationDialogProps) {
+  return (
+    <Dialog onOpenChange={(open) => onOpenChange(open)} open={confirmation !== null}>
+      <DialogContent finalFocus={finalFocus}>
+        <DialogHeader>
+          <DialogTitle>{confirmation?.title}</DialogTitle>
+          <DialogDescription>{confirmation?.description}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <DialogClose render={<Button variant="outline" />}>取消</DialogClose>
+          <Button
+            onClick={onConfirm}
+            type="button"
+            variant={confirmation?.intent ?? 'destructive'}
+          >
+            {confirmation?.confirmLabel ?? '确认执行'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type RowActionsProps = {
+  objectLabel: string;
+  onCommand: (command: string, focusReturn?: HTMLElement | null) => void;
+  overflow: readonly OverflowRowAction[];
+  primary?: PrimaryRowAction;
+};
+
+function DisabledPrimaryAction({ action }: { action: PrimaryRowAction }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            aria-disabled="true"
+            className="max-w-24 truncate"
+            disabled
+            focusableWhenDisabled
+            type="button"
+            variant="ghost"
+          />
+        }
+      >
+        {action.label}
+      </TooltipTrigger>
+      <TooltipContent>{action.disabledReason ?? '当前不可用'}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function PrimaryAction({ action, onCommand }: { action: PrimaryRowAction; onCommand: RowActionsProps['onCommand'] }) {
+  if (!action.enabled) {
+    return <DisabledPrimaryAction action={action} />;
+  }
+
+  if (action.command !== undefined) {
+    return (
+      <Button className="max-w-24 truncate" onClick={() => onCommand(action.command)} type="button" variant="ghost">
+        {action.label}
+      </Button>
+    );
+  }
+
+  return (
+    <a className={buttonVariants({ className: 'max-w-24 truncate', variant: 'ghost' })} href={action.href}>
+      {action.label}
+    </a>
+  );
+}
+
+function RowActions({ objectLabel, onCommand, overflow, primary }: RowActionsProps) {
+  const [pendingAction, setPendingAction] = useState<OverflowRowAction | null>(null);
+  const overflowTriggerRef = useRef<HTMLButtonElement>(null);
+
+  if (overflow.some((action) => action.href && action.confirmation)) {
+    throw new Error('RowActions 的链接操作不能要求确认；请使用命令交由业务页面处理');
+  }
+
+  function runAction(action: OverflowRowAction) {
+    if (!action.enabled) return;
+    if (action.confirmation && action.confirmation !== 'custom') {
+      setPendingAction(action);
+      return;
+    }
+    if (action.command) {
+      if (action.confirmation === 'custom') {
+        onCommand(action.command, overflowTriggerRef.current);
+      } else {
+        onCommand(action.command);
+      }
+    }
+  }
+
+  function confirmAction() {
+    if (pendingAction?.command) onCommand(pendingAction.command);
+    setPendingAction(null);
+  }
+
+  return (
+    <>
+      <div className="flex min-h-8 w-full items-center justify-end gap-1" onClick={(event) => event.stopPropagation()}>
+        {primary && <PrimaryAction action={primary} onCommand={onCommand} />}
+        {overflow.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={(
+                <IconButton
+                  aria-label={`更多操作：${objectLabel}`}
+                  ref={overflowTriggerRef}
+                  type="button"
+                  variant="ghost"
+                />
+              )}
+            >
+              <MoreHorizontalIcon />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-52">
+              <DropdownMenuGroup>
+                {overflow.map((action) => {
+                  const content = (
+                    <>
+                      <span>{action.label}</span>
+                      {!action.enabled && (
+                        <span className="ml-auto max-w-28 text-right text-xs text-text-muted">
+                          {action.disabledReason ?? '当前不可用'}
+                        </span>
+                      )}
+                    </>
+                  );
+
+                  if (action.href && action.enabled) {
+                    return (
+                      <DropdownMenuItem
+                        key={action.key}
+                        render={<a href={action.href} />}
+                        variant={action.intent === 'danger' ? 'destructive' : 'default'}
+                      >
+                        {content}
+                      </DropdownMenuItem>
+                    );
+                  }
+
+                  return (
+                    <DropdownMenuItem
+                      aria-disabled={!action.enabled}
+                      closeOnClick={action.enabled}
+                      key={action.key}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (!action.enabled) event.preventDefault();
+                        runAction(action);
+                      }}
+                      variant={action.intent === 'danger' ? 'destructive' : 'default'}
+                    >
+                      {content}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+      <ActionConfirmationDialog
+        confirmation={
+          pendingAction?.confirmation && pendingAction.confirmation !== 'custom'
+            ? pendingAction.confirmation
+            : null
+        }
+        finalFocus={overflowTriggerRef}
+        onConfirm={confirmAction}
+        onOpenChange={(open) => {
+          if (!open) setPendingAction(null);
+        }}
+      />
+    </>
+  );
+}
+
+export { ActionConfirmationDialog, RowActions };
+export type { ActionConfirmationDialogProps, RowActionsProps };

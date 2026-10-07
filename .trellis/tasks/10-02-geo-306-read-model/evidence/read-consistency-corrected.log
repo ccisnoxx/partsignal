@@ -1,0 +1,9 @@
+ Container partsignal-geo306-validation-postgres-1 Running 
+ Container partsignal-geo306-validation-redis-1 Running 
+ Container partsignal-geo306-validation-fake-oss-1 Running 
+ Container partsignal-geo306-validation-postgres-1 Waiting 
+ Container partsignal-geo306-validation-postgres-1 Healthy 
+ Container partsignal-geo306-validation-backend-test-run-501793533027 Creating 
+ Container partsignal-geo306-validation-backend-test-run-501793533027 Created 
+...                                                                      [100%]
+3 passed in 2.11s

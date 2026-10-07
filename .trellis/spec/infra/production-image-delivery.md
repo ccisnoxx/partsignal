@@ -22,6 +22,7 @@
 - runbook 的直接 local preflight 必须先通过同一 release manifest 的 tracked-file/image identity 校验，再使用 `run --rm --pull never --no-deps`；不能让 probe 隐式 pull 或启动依赖服务。
 - backend、frontend、rollback frontend 的 repository 末段以 `backend-v1` 或 `frontend-v1` 结尾时，producer 和 consumer 都必须拒绝；deploy/activate 还应在状态转换前拒绝对应环境变量。
 - V1 不能进入 manifest、Production Compose 操作或 frontend rollback；V2-only 不依赖 UI 隐藏或人工约定。
+- GEO-1003：deploy/activate/rollback 在维护锁和状态变更前执行 `check-production-inputs.py --deployment-boundary <runtime_file>`；Browser true、非权威 Compose/overlay、除 production-async 外的 profile、Browser 会话材料均明确失败。生产 Compose 固定 APP_ENV=production，Browser 原始输入由共用 Settings 拒绝；展开任何 profile 无 Browser 服务或会话卷。完整配置合同和非生产骨架边界见 `docs/production-configuration.md`。
 - `bootstrap-ai` 在同一维护锁内验证 run ID、manifest/candidate、phase 和正在运行 API 容器的 project/service/image/running/mount identity；不得读取 `.Config.Env`，不得启动 one-off service 或执行 `run/up/pull`。
 - host 在调用 backend 前原子写入无 secret 的 `ai_bootstrap_attempt=STARTED`；任何已有 attempt 都拒绝重入。完整成功更新 `SUCCEEDED`，明确失败更新 `FAILED`，结果未知保持 `STARTED`；`verify-prepared`/activation 必须拒绝 `STARTED` 或 `FAILED`，且不提供 force-clear。
 - credential 只从真实交互式 no-echo TTY 经 `docker exec -i` stdin 传入；禁止 argv、environment、文件、history、日志、Docker metadata 或异常透传。bootstrap 成功不自动把完整 External Services Gate 标为 `MET`。
@@ -107,7 +108,7 @@ PartSignal maintenance
 
 ### 3. Contracts
 
-- manifest producer 与 consumer 的 `REQUIRED_TRACKED_FILES` 必须同时包含 maintenance template；Production 自检的全部 manifest 创建路径和 exact-set 断言必须使用相同 8 项集合。
+- manifest producer 与 consumer 的 `REQUIRED_TRACKED_FILES` 必须同时包含 maintenance template 和生产输入检查脚本；Production 自检的全部 manifest 创建路径和 exact-set 断言必须使用相同 13 项集合。
 - maintenance template 保留 `geo.962850.xyz`、`<HOSTDZIRE_WG_ADDRESS>`、HTTP 到 HTTPS、ACME、TLS、PartSignal security snippet 和 `add_header_inherit merge`。
 - maintenance template 不得声明 upstream、`proxy_pass`、静态 `root`、`19000`、`19001`、`19080` 或 `/object-storage/`；API/frontend 即使已在同一 loopback 端口启动，也不能通过公网访问。
 - 停止任何 PartSignal 容器前必须先完成 maintenance write、`nginx -t`、独立 maintenance reload 和公网 `503` 验证；首次验证时间是 60 分钟硬窗口的 T0。
@@ -137,7 +138,7 @@ PartSignal maintenance
 
 - maintenance template 精确包含 host、HTTP/HTTPS listen、ACME、TLS、安全 snippet、`add_header_inherit merge`、固定状态/正文/cache/retry 响应；
 - maintenance template 不包含 upstream、`proxy_pass`、静态 root、三个应用端口或 `/object-storage/`；
-- producer、consumer、三组 manifest producer test input 与 manifest exact-set assertion 均包含相同 8 项 tracked files；
+- producer、consumer、三组 manifest producer test input 与 manifest exact-set assertion 均包含相同 13 项 tracked files（包含 `check-production-inputs.py` 及两个执行模块）；
 - `check-nginx-security.mjs` 把 maintenance template 与 Production/Staging template 一起检查，拒绝缺少安全 snippet、缺少 header inheritance 或重复安全头。
 
 ### 7. Wrong vs Correct
@@ -156,3 +157,22 @@ manifest 固定 maintenance template → atomic write → nginx -t
 → 独立 reload 授权 → 公网 503/T0 → exact stop + clean-init + real Gate
 → final template atomic write → nginx -t → 独立 final reload 授权
 ```
+
+
+## Scenario：未 initialized 的升级 artifact 前向恢复
+
+`prepare-production-data.py recover-upgrade` 是唯一显式失败恢复入口。接受 UPGRADE_DEPLOYING/UPGRADE_PREPARED，但阶段本身不能证明失败；必须消费匹配当前 candidate/attempt 的未消费 failure record。完整命令、批准及维护顺序由 Hostdzire 部署附录拥有；GEO-1007 用户任务对应 delivery GEO-1008 范围。
+
+- 原子状态 owner 仍为 prepare-production-data.py，公开 deploy-production 持锁并监督私有执行 worker。worker 内部创建 upgrade_attempt，使用本次 fork 私有 pipe 交付 attempt/stage；pipe 不交给外部命令。父级观察真实退出，确认全部子孙停止后才持久化 candidate、attempt、stage、exit_code/signal、worker_exit_code、failed_at、failure_kind 和 owner evidence_ref。不提供公开 begin-upgrade、mark-upgrade-prepared 或调用者自报退出码的 recorder。重试使旧失败不可消费，历史 upgrade_failures 不可覆盖；未写成事实即安全停止，不补造。
+- prepared 后的问题须独立批准的 declare-pre-activation-failure；标为 OPERATOR_DECLARED_PRE_ACTIVATION_FAILURE，不声称部署退出。已声明失败的 prepared attempt 禁止激活。
+- manifest 的 images.migration 单独冻结 reference/image ID/RepoDigest；首次默认 backend。Compose migrate 消费 PARTSIGNAL_MIGRATION_IMAGE（完整 reference，默认当前 backend），应用 API/CLI 使用 backend。恢复必须保留失败执行的 migration image ID，不能回退到修复 backend；缺旧身份或首次运行时证明停止。
+- MIGRATION_RUNTIME_V1 指纹由 production_migration_runtime.py 唯一拥有。冻结 migration image 全部 rootfs：所有 app、配置、模型、动态 helper/数据文件、Python、依赖、startup/字节码、共享库、基础系统及执行配置，含 Python 缓存选择所需 mtime。不得把局部 AST 或外部文件哈希相同宣称为完整闭包；可变 backend 与完整冻结迁移程序分离。
+- 环境证明使用冻结 ID 的 stopped container 静态 export，不启动、不执行镜像 Python、无网络/数据挂载；/app 的 pyc/pyo 拒绝，非空 Entrypoint/非 /app WorkingDir/隐式 Volumes 拒绝。临时资源按唯一归属精确清理。Cmd 被权威 Compose 覆盖，不参与迁移程序身份；恢复仍严格保持原迁移 image ID。
+- 首次 begin-upgrade 在迁移前验证 manifest/实际 migration image/当前 Alembic tree，并原子冻结 candidate-bound runtime。失败、新 manifest 指纹及两个 migration image 全部相同；认证 archive 与 checkout 的 Alembic Python/SQL/ini 单独比较。app 运行时已由完整迁移镜像冻结，允许修复 backend 的独立 artifact。历史缺证、未知版本、迁移镜像/程序/schema/Alembic变化均停止。
+- producer/consumer/已知调用者使用相同 13 项 tracked-file allowlist，包含两个证明模块和两个执行模块。旧 manifest 只按 state 冻结 sha 认证；新 manifest 不豁免 tracked hash、所有镜像 ID 或 RepoDigest。runtime.env 允许键由 manifest 已认证的 check-production-inputs.py 静态声明拥有，包含合法可选日预算；可编辑模板不能授权额外加载环境覆盖；默认缓存策略仍在首次迁移前证明。
+- 维护锁内验证整个 project/活动数据 mount stopped。公开 recover/deploy 无条件经过 supervisor；继承 FD 只用于复用锁，不能证明或绕过监督。SIGINT/SIGTERM 转发私有组，嵌套 supervisor 的子孙组同时治理，10秒后必要时 SIGKILL，再确认全部子孙不可执行才释放锁；macOS zombie 组的 EPERM 必须继续读取执行状态。OS 状态不可读则持续持锁；SIGKILL/断电须现场核对 Engine 资源。
+- 一次原子写只绑定新 candidate、phase=UPGRADE_DEPLOYING 和完整 failure/runtime receipt；previous_candidate/历史保留，不 pull/up、不修改DB、不 initialized。相同请求仅在未开始新 attempt、仍 deploying 且全服务 stopped 时重放。完整 redeploy/readiness、backend integrity/schema 证明、外部 Gate/activation 仍必须执行。迁移前默认 integrity 可以允许未建表；迁移后与恢复 prepared 的检查必须传 --require-schema，四张核心发布表缺任一张即 REQUIRED_TABLE_MISSING，不由 Alembic head 代替。
+
+定向验证：make test-upgrade-recovery；固定本地 project/network 空闲时 make test-upgrade-recovery-compose。真实 recovery SIGTERM/SIGINT 在阻塞 fake docker ps 期间注入，并覆盖自行打开与已持有正确锁 FD；真实 PG16 正确 head/缺核心表反例须阻断 prepared；Compose 的失败后信号只证明演练清理，不能扩大到进行中 Engine。Production 编排/manifest 消费者使用 test-deploy-production.sh；合成 AI/OSS MET 不是生产门禁。
+
+registry 交付顺序：verify-upgrade-entry → Compose config → pull api/worker/scheduler/frontend/migrate → 全镜像 ID/RepoDigest → begin-upgrade 验证/冻结 → run/up。local 不 pull；错误 manifest/另一候选在 pull 前拒绝。

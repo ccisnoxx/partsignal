@@ -1,0 +1,49 @@
+{
+  "id": "geo-201-prompt-variant",
+  "name": "geo-201-prompt-variant",
+  "title": "GEO-201 定义并实现 PromptVariant 契约与数据模型",
+  "description": "R1：PromptVariant 合同、ORM、0045 迁移及真实 PostgreSQL 历史/唯一约束；不接线 GEO-202。",
+  "status": "completed",
+  "dev_type": "backend",
+  "scope": "geo-prompt-variants",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-02",
+  "completedAt": "2026-10-02",
+  "branch": "geo/GEO-201",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "contracts/openapi.yaml",
+    "contracts/database.md",
+    "backend/alembic/versions/0045_geo_prompt_variants.py",
+    "backend/app/models/geo_prompt_variants.py",
+    "backend/app/schemas/geo_prompt_variants.py",
+    "backend/app/geo_prompt_variants.py",
+    "backend/tests/integration/test_geo_prompt_variants.py",
+    "backend/tests/unit/test_geo_prompt_variant_contract.py"
+  ],
+  "notes": "本地验证及独立只读复核已完成，审计已关闭并验证。2026-10-02 本会话用户人工审查并接受 GEO-201 的实现与测试证据；manifest=done，Trellis=completed。本次只记录验收，不提交、归档或实施后续任务。",
+  "meta": {
+    "geo_task_id": "GEO-201",
+    "release": "R1",
+    "dependencies": {
+      "GEO-003": "done",
+      "GEO-101": "done"
+    },
+    "audit_id": "20261002T121348Z-geo-201-bfd9ad06",
+    "manifest_status": "done",
+    "accepted_at": "2026-10-02",
+    "accepted_by": "本会话用户",
+    "accepted_scope": "GEO-201 PromptVariant 公共契约、数据模型、0045迁移及已记录的实现与测试证据；不包含 GEO-202 或真实 Run 接入。",
+    "acceptance_basis": "用户明确表示：我已经人工审查并接受 GEO-201 的实现与测试证据。",
+    "validation_record": ".trellis/tasks/10-02-geo-201-prompt-variant/implement.md"
+  }
+}

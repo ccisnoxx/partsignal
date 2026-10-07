@@ -1,0 +1,13 @@
+{
+  "argv": [
+    "npm",
+    "--prefix",
+    "frontend",
+    "run",
+    "test",
+    "--",
+    "src/domains/geo-opportunities/opportunities-page.test.tsx"
+  ],
+  "exit_code": 0,
+  "seconds": 4.24
+}

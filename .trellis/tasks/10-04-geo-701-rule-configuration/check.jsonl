@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "规则revision/不可变快照/事务与迁移"}
+{"file": ".trellis/spec/backend/available-actions-contract.md", "reason": "管理员权威动作投影"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "CAS、权限和显式错误"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "草稿、Query cache及异步生命周期"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "唯一generated公共类型"}
+{"file": "docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md", "reason": "权威规则样本口径及恢复配置"}
+{"file": "docs/geo-monitoring/03-technical/03-api-contract-design.md", "reason": "规则端点及preview范围"}
+{"file": "docs/geo-monitoring/04-delivery/05-task-template.md", "reason": "Task Brief与验收证据"}

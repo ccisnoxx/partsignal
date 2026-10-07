@@ -1,0 +1,19 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+All checks passed!
+npm --prefix frontend run lint
+
+> partsignal-frontend-v2@0.1.0 lint
+> eslint . --max-warnings 0
+
+
+/Users/sc/PycharmProjects/partsignal/frontend/src/domains/geo-plans/plan-detail.tsx
+  14:126  error  'PlanAction' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sc/PycharmProjects/partsignal/frontend/src/domains/geo-plans/plans.model.ts
+  38:21  error  '_selected' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  38:37  error  '_new' is assigned a value but never used       @typescript-eslint/no-unused-vars
+  38:49  error  '_edit' is assigned a value but never used      @typescript-eslint/no-unused-vars
+
+✖ 4 problems (4 errors, 0 warnings)
+
+make: *** [lint] Error 1

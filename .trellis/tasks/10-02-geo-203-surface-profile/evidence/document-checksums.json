@@ -1,0 +1,6 @@
+{
+  "command": "cd docs/geo-monitoring && shasum -a 256 -c SHA256SUMS",
+  "exit_code": 0,
+  "seconds": 0.04,
+  "log": "document-checksums.log"
+}

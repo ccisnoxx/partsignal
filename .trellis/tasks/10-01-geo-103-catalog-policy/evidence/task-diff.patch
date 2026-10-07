@@ -1,0 +1,1638 @@
+--- a/backend/app/schemas/geo_catalog.py
++++ b/backend/app/schemas/geo_catalog.py
+@@ -0,0 +1,386 @@
++"""GEO Catalog 的闭合公共模型；请求校验不执行数据库命令。"""
++
++import re
++from datetime import datetime
++from enum import StrEnum
++from typing import Annotated, Literal, Self
++from uuid import UUID
++
++from pydantic import AfterValidator, ConfigDict, Field, model_validator
++from pydantic.config import JsonDict
++
++from app.schemas.base import ContractModel
++from app.services.geo_catalog_normalization import (
++    HOSTNAME_PATTERN,
++    IP_LITERAL_PATTERN,
++    LANGUAGE_PATTERN,
++    normalize_catalog_hostname,
++    normalize_catalog_identity,
++    normalize_catalog_text,
++    normalize_language_code,
++    require_catalog_hostname,
++)
++
++
++class GeoSubjectType(StrEnum):
++    OWN_BRAND = "OWN_BRAND"
++    OWN_PRODUCT = "OWN_PRODUCT"
++    COMPETITOR_BRAND = "COMPETITOR_BRAND"
++    COMPETITOR_PRODUCT = "COMPETITOR_PRODUCT"
++    REFERENCE_PART = "REFERENCE_PART"
++
++
++class GeoSubjectAliasKind(StrEnum):
++    NAME = "NAME"
++    PART_NUMBER = "PART_NUMBER"
++    ABBREVIATION = "ABBREVIATION"
++    LEGACY = "LEGACY"
++
++
++class GeoSubjectDomainRelationType(StrEnum):
++    OWNED = "OWNED"
++    OFFICIAL = "OFFICIAL"
++    DISTRIBUTOR = "DISTRIBUTOR"
++    OTHER = "OTHER"
++
++
++class GeoSubjectWorkflowStage(StrEnum):
++    ACTIVE = "ACTIVE"
++    DISABLED = "DISABLED"
++
++
++class GeoSubjectPrimaryTask(StrEnum):
++    MANAGE_SUBJECT = "MANAGE_SUBJECT"
++    ENABLE_SUBJECT = "ENABLE_SUBJECT"
++
++
++class GeoSubjectAction(StrEnum):
++    UPDATE = "UPDATE"
++    ENABLE = "ENABLE"
++    DISABLE = "DISABLE"
++    DELETE = "DELETE"
++    CREATE_ALIAS = "CREATE_ALIAS"
++    CREATE_DOMAIN = "CREATE_DOMAIN"
++
++
++class GeoSubjectAliasAction(StrEnum):
++    UPDATE = "UPDATE"
++    DELETE = "DELETE"
++
++
++class GeoSubjectDomainAction(StrEnum):
++    DELETE = "DELETE"
++
++
++class GeoSubjectDeletionBlockerType(StrEnum):
++    CHILD_SUBJECT = "CHILD_SUBJECT"
++    MONITORING_PLAN = "MONITORING_PLAN"
++    OBSERVATION_RUN = "OBSERVATION_RUN"
++    ANALYSIS = "ANALYSIS"
++    OPPORTUNITY = "OPPORTUNITY"
++
++
++class GeoCatalogErrorCode(StrEnum):
++    GEO_SUBJECT_IN_USE = "GEO_SUBJECT_IN_USE"
++    GEO_SUBJECT_PRODUCT_EXISTS = "GEO_SUBJECT_PRODUCT_EXISTS"
++    GEO_SUBJECT_ALIAS_EXISTS = "GEO_SUBJECT_ALIAS_EXISTS"
++    GEO_SUBJECT_DOMAIN_EXISTS = "GEO_SUBJECT_DOMAIN_EXISTS"
++    GEO_SUBJECT_PARENT_INVALID = "GEO_SUBJECT_PARENT_INVALID"
++
++
++CatalogText = Annotated[
++    str,
++    Field(strict=True, min_length=1, max_length=240, pattern=r"\S"),
++    AfterValidator(normalize_catalog_text),
++]
++CatalogIdentity = Annotated[CatalogText, AfterValidator(normalize_catalog_identity)]
++Description = Annotated[str, Field(strict=True, max_length=4000)]
++Revision = Annotated[int, Field(strict=True, ge=0)]
++LanguageCode = Annotated[
++    str,
++    Field(min_length=2, max_length=16, pattern=LANGUAGE_PATTERN),
++    AfterValidator(normalize_language_code),
++]
++NamedSubjectType = Literal["OWN_BRAND", "COMPETITOR_BRAND", "COMPETITOR_PRODUCT", "REFERENCE_PART"]
++
++# 声明式条件对应根 OpenAPI；真实关联与角色规则仍由领域策略及投影负责。
++_ROOT_PARENT_CONDITION: JsonDict = {
++    "if": {
++        "properties": {
++            "subject_type": {"enum": ["OWN_BRAND", "COMPETITOR_BRAND", "REFERENCE_PART"]}
++        }
++    },
++    "then": {"properties": {"parent_subject_id": {"type": "null"}}},
++}
++_PARENT_PRESENCE_CONDITION: JsonDict = {
++    "if": {"properties": {"parent_subject_id": {"type": "null"}}},
++    "then": {"properties": {"parent": {"type": "null"}}},
++    "else": {"properties": {"parent": {"type": "object"}}},
++}
++_STAGE_CONDITION: JsonDict = {
++    "if": {"properties": {"is_active": {"const": True}}},
++    "then": {"properties": {"workflow_stage": {"const": "ACTIVE"}}},
++    "else": {"properties": {"workflow_stage": {"const": "DISABLED"}}},
++}
++
++
++class GeoOwnProductSubjectCreate(ContractModel):
++    subject_type: Literal["OWN_PRODUCT"]
++    product_id: UUID
++    parent_subject_id: UUID | None = Field(default_factory=lambda: None)
++    description: Description = ""
++
++
++class GeoNamedSubjectCreate(ContractModel):
++    model_config = ConfigDict(json_schema_extra={"allOf": [_ROOT_PARENT_CONDITION]})
++
++    subject_type: NamedSubjectType
++    canonical_name: CatalogIdentity
++    display_name: CatalogText
++    parent_subject_id: UUID | None = Field(default_factory=lambda: None)
++    description: Description = ""
++
++    @model_validator(mode="after")
++    def validate_parent_shape(self) -> Self:
++        if self.subject_type != "COMPETITOR_PRODUCT" and self.parent_subject_id is not None:
++            raise ValueError("品牌与参考型号不能拥有父级")
++        return self
++
++
++GeoSubjectCreate = Annotated[
++    GeoOwnProductSubjectCreate | GeoNamedSubjectCreate, Field(discriminator="subject_type")
++]
++
++
++class GeoOwnProductSubjectUpdate(ContractModel):
++    model_config = ConfigDict(json_schema_extra={"minProperties": 3})
++
++    subject_type: Literal["OWN_PRODUCT"]
++    expected_revision: Revision
++    parent_subject_id: UUID | None = Field(default_factory=lambda: None)
++    # PATCH 占位值不表示写入意图；调用方必须使用 exclude_unset / model_fields_set。
++    description: Description = Field(default_factory=str)
++
++    @model_validator(mode="after")
++    def validate_patch(self) -> Self:
++        if not self.model_fields_set - {"subject_type", "expected_revision"}:
++            raise ValueError("至少提交一个可编辑字段")
++        return self
++
++
++class GeoNamedSubjectUpdate(ContractModel):
++    model_config = ConfigDict(
++        json_schema_extra={"minProperties": 3, "allOf": [_ROOT_PARENT_CONDITION]}
++    )
++
++    subject_type: NamedSubjectType
++    expected_revision: Revision
++    parent_subject_id: UUID | None = Field(default_factory=lambda: None)
++    description: Description = Field(default_factory=str)
++    canonical_name: CatalogIdentity = Field(default_factory=str)
++    display_name: CatalogText = Field(default_factory=str)
++
++    @model_validator(mode="after")
++    def validate_patch(self) -> Self:
++        if not self.model_fields_set - {"subject_type", "expected_revision"}:
++            raise ValueError("至少提交一个可编辑字段")
++        if self.subject_type != "COMPETITOR_PRODUCT" and self.parent_subject_id is not None:
++            raise ValueError("品牌与参考型号不能拥有父级")
++        return self
++
++
++GeoSubjectUpdate = Annotated[
++    GeoOwnProductSubjectUpdate | GeoNamedSubjectUpdate, Field(discriminator="subject_type")
++]
++
++
++class GeoSubjectRevisionRequest(ContractModel):
++    expected_revision: Revision
++
++
++class GeoSubjectAliasCreate(GeoSubjectRevisionRequest):
++    alias: CatalogIdentity
++    alias_kind: GeoSubjectAliasKind
++    language_code: LanguageCode | None = Field(default_factory=lambda: None)
++    is_active: bool = Field(default=True, strict=True)
++
++
++class GeoSubjectAliasUpdate(GeoSubjectRevisionRequest):
++    model_config = ConfigDict(json_schema_extra={"minProperties": 2})
++
++    alias: CatalogIdentity = Field(default_factory=str)
++    alias_kind: GeoSubjectAliasKind = Field(default_factory=lambda: GeoSubjectAliasKind.NAME)
++    language_code: LanguageCode | None = Field(default_factory=lambda: None)
++    is_active: bool = Field(default_factory=lambda: True, strict=True)
++
++    @model_validator(mode="after")
++    def validate_patch(self) -> Self:
++        if not self.model_fields_set - {"expected_revision"}:
++            raise ValueError("至少提交一个可编辑字段")
++        return self
++
++
++GeoSubjectHostname = Annotated[
++    str,
++    Field(
++        min_length=3,
++        max_length=253,
++        pattern=re.compile(HOSTNAME_PATTERN),
++        json_schema_extra={"not": {"pattern": IP_LITERAL_PATTERN}},
++    ),
++    AfterValidator(require_catalog_hostname),
++]
++
++
++class GeoSubjectDomainCreate(GeoSubjectRevisionRequest):
++    hostname: Annotated[
++        str,
++        Field(strict=True, min_length=3, max_length=253, pattern=r"^[^\s/:@?#*\\]+$"),
++        AfterValidator(normalize_catalog_hostname),
++    ]
++    relation_type: GeoSubjectDomainRelationType
++
++
++class GeoSubjectDeletionBlocker(ContractModel):
++    type: GeoSubjectDeletionBlockerType
++    count: Annotated[int, Field(strict=True, ge=1)]
++
++
++class GeoSubjectDeletionProjection(ContractModel):
++    blockers: list[GeoSubjectDeletionBlocker]
++
++
++class GeoSubjectReferences(ContractModel):
++    child_subject_count: Revision
++    monitoring_plan_count: Revision
++    observation_run_count: Revision
++    analysis_count: Revision
++    opportunity_count: Revision
++
++
++class GeoSubjectInUseDetails(ContractModel):
++    references: list[GeoSubjectDeletionBlocker] = Field(min_length=1)
++
++
++class GeoSubjectProductSummary(ContractModel):
++    id: UUID
++    part_number: str = Field(min_length=1, max_length=160)
++    brand: str = Field(min_length=1, max_length=160)
++    category: str = Field(min_length=1, max_length=160)
++    revision: Revision
++
++
++class GeoSubjectParentSummary(ContractModel):
++    id: UUID
++    subject_type: Literal["OWN_BRAND", "COMPETITOR_BRAND"]
++    display_name: str = Field(min_length=1, max_length=240, pattern=r"\S")
++    is_active: bool
++
++
++class GeoSubjectAliasOut(ContractModel):
++    id: UUID
++    subject_id: UUID
++    alias: str = Field(min_length=1, max_length=240, pattern=r"\S")
++    normalized_alias: str = Field(min_length=1, max_length=240, pattern=r"\S")
++    alias_kind: GeoSubjectAliasKind
++    language_code: (
++        Annotated[str, Field(min_length=2, max_length=16, pattern=r"^[a-z]{2,8}(-[a-z0-9]{1,8})*$")]
++        | None
++    )
++    is_active: bool
++    available_actions: list[GeoSubjectAliasAction]
++    created_at: datetime
++
++
++class GeoSubjectDomainOut(ContractModel):
++    id: UUID
++    subject_id: UUID
++    hostname: GeoSubjectHostname
++    relation_type: GeoSubjectDomainRelationType
++    is_active: Literal[True]
++    available_actions: list[GeoSubjectDomainAction]
++    created_at: datetime
++
++
++class _SubjectOut(ContractModel):
++    id: UUID
++    parent_subject_id: UUID | None
++    parent: GeoSubjectParentSummary | None
++    description: Description
++    is_active: bool
++    aliases: list[GeoSubjectAliasOut]
++    domains: list[GeoSubjectDomainOut]
++    references: GeoSubjectReferences
++    workflow_stage: GeoSubjectWorkflowStage
++    primary_task: GeoSubjectPrimaryTask
++    available_actions: list[GeoSubjectAction]
++    deletion: GeoSubjectDeletionProjection | None
++    revision: Revision
++    created_by: UUID
++    created_at: datetime
++    updated_at: datetime
++
++
++class GeoOwnProductSubjectOut(_SubjectOut):
++    model_config = ConfigDict(
++        json_schema_extra={
++            "allOf": [
++                _PARENT_PRESENCE_CONDITION,
++                _STAGE_CONDITION,
++                {
++                    "if": {"properties": {"parent": {"type": "object"}}},
++                    "then": {
++                        "properties": {
++                            "parent": {"properties": {"subject_type": {"const": "OWN_BRAND"}}}
++                        }
++                    },
++                },
++            ]
++        }
++    )
++
++    subject_type: Literal["OWN_PRODUCT"]
++    product_id: UUID
++    product: GeoSubjectProductSummary
++    canonical_name: str = Field(min_length=1, max_length=160)
++    display_name: str = Field(min_length=3, max_length=321)
++
++
++class GeoNamedSubjectOut(_SubjectOut):
++    model_config = ConfigDict(
++        json_schema_extra={
++            "allOf": [
++                _PARENT_PRESENCE_CONDITION,
++                _STAGE_CONDITION,
++                {
++                    "if": {"properties": {"parent": {"type": "object"}}},
++                    "then": {
++                        "properties": {
++                            "parent": {
++                                "properties": {"subject_type": {"const": "COMPETITOR_BRAND"}}
++                            }
++                        }
++                    },
++                },
++                _ROOT_PARENT_CONDITION,
++            ]
++        }
++    )
++
++    subject_type: NamedSubjectType
++    product_id: None
++    product: None
++    canonical_name: str = Field(min_length=1, max_length=240, pattern=r"\S")
++    display_name: str = Field(min_length=1, max_length=240, pattern=r"\S")
++
++
++GeoSubjectOut = Annotated[
++    GeoOwnProductSubjectOut | GeoNamedSubjectOut, Field(discriminator="subject_type")
++]
++
++
++class GeoSubjectListPage(ContractModel):
++    items: list[GeoSubjectOut]
++    page: Annotated[int, Field(strict=True, ge=1)]
++    page_size: Literal[10, 20, 50]
++    total: Revision
+--- a/backend/app/services/geo_catalog_normalization.py
++++ b/backend/app/services/geo_catalog_normalization.py
+@@ -0,0 +1,69 @@
++"""Catalog 字典的信任边界：保留型号区别，不访问网络。"""
++
++import re
++import unicodedata
++
++import idna
++
++LANGUAGE_PATTERN = r"^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$"
++IP_LITERAL_PATTERN = r"^(?:[0-9]+\.){3}[0-9]+$"
++HOSTNAME_PATTERN = (
++    r"^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
++    r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
++)
++
++
++def normalize_catalog_text(value: str) -> str:
++    """显示值与匹配键都限长；不删除连字符、标点或型号后缀。"""
++    normalized = " ".join(unicodedata.normalize("NFKC", value).split())
++    if not 1 <= len(normalized) <= 240:
++        raise ValueError("名称或别名必须为 1 到 240 个字符")
++    return normalized
++
++
++def catalog_text_key(value: str) -> str:
++    key = normalize_catalog_text(value).casefold()
++    if len(key) > 240:
++        raise ValueError("名称或别名的规范键不得超过 240 个字符")
++    return key
++
++
++def normalize_catalog_identity(value: str) -> str:
++    normalized = normalize_catalog_text(value)
++    catalog_text_key(normalized)
++    return normalized
++
++
++def normalize_language_code(value: str) -> str:
++    if not 2 <= len(value) <= 16 or re.fullmatch(LANGUAGE_PATTERN, value) is None:
++        raise ValueError("语言标签必须为受控的语言子标签及可选连字符子标签")
++    return value.lower()
++
++
++def normalize_catalog_hostname(value: str) -> str:
++    """IDNA2008/UTS #46 非 transitional + STD3；拒绝尾点及不可回解 A-label。"""
++    if not 3 <= len(value) <= 253 or any(c.isspace() or c in "/:@?#*\\" for c in value):
++        raise ValueError("域名必须是不含空白、协议、路径、端口或通配符的主机名")
++    try:
++        hostname = (
++            idna.encode(value, uts46=True, std3_rules=True, transitional=False)
++            .decode("ascii")
++            .lower()
++        )
++        decoded = idna.decode(hostname, strict=True)
++        if idna.encode(decoded, strict=True).decode("ascii") != hostname:
++            raise ValueError("域名不能完成 IDNA 往返校验")
++    except (idna.IDNAError, UnicodeError) as error:
++        raise ValueError("域名不是有效的 IDNA 主机名") from error
++    if re.fullmatch(HOSTNAME_PATTERN, hostname) is None or re.fullmatch(
++        IP_LITERAL_PATTERN, hostname
++    ):
++        raise ValueError("域名必须包含至少两个合法 DNS 标签，且不能为 IP 或带尾点")
++    return hostname
++
++
++def require_catalog_hostname(value: str) -> str:
++    """读取边界不悄悄修复持久化字典。"""
++    if normalize_catalog_hostname(value) != value:
++        raise ValueError("持久化域名必须是规范 lowercase ASCII IDNA 主机名")
++    return value
+--- a/backend/app/services/geo_catalog_policy.py
++++ b/backend/app/services/geo_catalog_policy.py
+@@ -0,0 +1,161 @@
++"""Catalog 的无 I/O 领域规则；调用服务提供当前身份及完整引用事实。"""
++
++from collections.abc import Iterable
++from dataclasses import dataclass, fields
++from uuid import UUID
++
++from app.errors import AppError
++from app.schemas.common import AccountType
++from app.schemas.geo_catalog import (
++    GeoSubjectAction,
++    GeoSubjectAliasAction,
++    GeoSubjectDeletionBlockerType,
++    GeoSubjectDomainAction,
++    GeoSubjectPrimaryTask,
++    GeoSubjectType,
++    GeoSubjectWorkflowStage,
++)
++from app.services.geo_catalog_normalization import catalog_text_key
++
++
++@dataclass(frozen=True)
++class SubjectReferenceCounts:
++    """各类直接引用独立去重；未传入事实不能被猜为零。"""
++
++    child_subject_count: int
++    monitoring_plan_count: int
++    observation_run_count: int
++    analysis_count: int
++    opportunity_count: int
++
++    def __post_init__(self) -> None:
++        for field in fields(self):
++            value = getattr(self, field.name)
++            if type(value) is not int or value < 0:
++                raise ValueError("直接引用数量必须是非负整数")
++
++    def blockers(self) -> tuple[tuple[GeoSubjectDeletionBlockerType, int], ...]:
++        pairs = (
++            (GeoSubjectDeletionBlockerType.CHILD_SUBJECT, self.child_subject_count),
++            (GeoSubjectDeletionBlockerType.MONITORING_PLAN, self.monitoring_plan_count),
++            (GeoSubjectDeletionBlockerType.OBSERVATION_RUN, self.observation_run_count),
++            (GeoSubjectDeletionBlockerType.ANALYSIS, self.analysis_count),
++            (GeoSubjectDeletionBlockerType.OPPORTUNITY, self.opportunity_count),
++        )
++        return tuple((kind, count) for kind, count in pairs if count > 0)
++
++
++@dataclass(frozen=True)
++class SubjectWorkflow:
++    stage: GeoSubjectWorkflowStage
++    primary_task: GeoSubjectPrimaryTask
++    actions: tuple[GeoSubjectAction, ...]
++    deletion_blockers: tuple[tuple[GeoSubjectDeletionBlockerType, int], ...] | None
++    alias_actions: tuple[GeoSubjectAliasAction, ...]
++    domain_actions: tuple[GeoSubjectDomainAction, ...]
++
++
++def subject_workflow(
++    *, is_active: bool, actor_type: AccountType, references: SubjectReferenceCounts
++) -> SubjectWorkflow:
++    """读取角色不会改变业务 stage；删除无需先停用无引用对象。"""
++    actor_type = AccountType(actor_type)
++    stage = GeoSubjectWorkflowStage.ACTIVE if is_active else GeoSubjectWorkflowStage.DISABLED
++    if actor_type == AccountType.ENGINEER:
++        return SubjectWorkflow(stage, GeoSubjectPrimaryTask.MANAGE_SUBJECT, (), None, (), ())
++    blockers = references.blockers()
++    actions = [
++        GeoSubjectAction.UPDATE,
++        GeoSubjectAction.DISABLE if is_active else GeoSubjectAction.ENABLE,
++        GeoSubjectAction.CREATE_ALIAS,
++        GeoSubjectAction.CREATE_DOMAIN,
++    ]
++    if not blockers:
++        actions.append(GeoSubjectAction.DELETE)
++    return SubjectWorkflow(
++        stage,
++        GeoSubjectPrimaryTask.MANAGE_SUBJECT if is_active else GeoSubjectPrimaryTask.ENABLE_SUBJECT,
++        tuple(actions),
++        blockers,
++        (GeoSubjectAliasAction.UPDATE, GeoSubjectAliasAction.DELETE),
++        (GeoSubjectDomainAction.DELETE,),
++    )
++
++
++def require_subject_identity(subject_type: GeoSubjectType, product_id: UUID | None) -> None:
++    kind = GeoSubjectType(subject_type)
++    if (kind == GeoSubjectType.OWN_PRODUCT) != (product_id is not None):
++        raise ValueError("只有 OWN_PRODUCT 必须且可以绑定 Product")
++
++
++def require_subject_parent(
++    subject_type: GeoSubjectType,
++    *,
++    subject_id: UUID | None,
++    parent_id: UUID | None,
++    parent_type: GeoSubjectType | None,
++) -> None:
++    """不存在的父级由调用服务报 404；传入的必须是真实已加载父身份。"""
++    kind = GeoSubjectType(subject_type)
++    if (parent_id is None) != (parent_type is None):
++        raise ValueError("父级 ID 与真实类型必须同时提供")
++    if parent_id is None:
++        return
++    assert parent_type is not None
++    parent_kind = GeoSubjectType(parent_type)
++    expected = {
++        GeoSubjectType.OWN_PRODUCT: GeoSubjectType.OWN_BRAND,
++        GeoSubjectType.COMPETITOR_PRODUCT: GeoSubjectType.COMPETITOR_BRAND,
++    }.get(kind)
++    if subject_id == parent_id or parent_kind != expected:
++        message = "监测对象的父级类型不合法或指向自身"
++        raise AppError(
++            "GEO_SUBJECT_PARENT_INVALID",
++            message,
++            409,
++            {
++                "errors": [
++                    {
++                        "loc": ["body", "parent_subject_id"],
++                        "msg": message,
++                        "type": "geo_subject_parent_invalid",
++                    }
++                ]
++            },
++        )
++
++
++@dataclass(frozen=True)
++class AliasCandidate:
++    subject_id: UUID
++    alias: str
++    is_active: bool
++
++
++class AliasAmbiguityError(ValueError):
++    """字典候选歧义，不是新增 HTTP 错误码或回答分析结果。"""
++
++    def __init__(self, subject_ids: tuple[UUID, ...]) -> None:
++        super().__init__("别名对应多个监测对象，必须人工复核")
++        self.subject_ids = subject_ids
++
++
++def alias_subject_candidates(alias: str, candidates: Iterable[AliasCandidate]) -> tuple[UUID, ...]:
++    """只比较完整字典键，不识别回答子串、不猜测语言或选中某个对象。"""
++    key = catalog_text_key(alias)
++    return tuple(
++        sorted(
++            {
++                item.subject_id
++                for item in candidates
++                if item.is_active and catalog_text_key(item.alias) == key
++            },
++            key=lambda value: value.int,
++        )
++    )
++
++
++def require_unambiguous_alias(subject_ids: tuple[UUID, ...]) -> None:
++    unique_ids = tuple(sorted(set(subject_ids), key=lambda value: value.int))
++    if len(unique_ids) > 1:
++        raise AliasAmbiguityError(unique_ids)
+--- a/backend/app/services/geo_subjects.py
++++ b/backend/app/services/geo_subjects.py
+@@ -0,0 +1,160 @@
++"""从明确加载的 Catalog 关联形成公共投影，不查询或修改 ORM。"""
++
++from collections.abc import Sequence
++from dataclasses import asdict
++
++from app.models.geo_catalog import GeoSubject, GeoSubjectAlias, GeoSubjectDomain
++from app.models.product_facts import Product
++from app.schemas.common import AccountType
++from app.schemas.geo_catalog import (
++    GeoNamedSubjectOut,
++    GeoOwnProductSubjectOut,
++    GeoSubjectAliasKind,
++    GeoSubjectAliasOut,
++    GeoSubjectDeletionBlocker,
++    GeoSubjectDeletionProjection,
++    GeoSubjectDomainOut,
++    GeoSubjectDomainRelationType,
++    GeoSubjectOut,
++    GeoSubjectParentSummary,
++    GeoSubjectProductSummary,
++    GeoSubjectReferences,
++    GeoSubjectType,
++)
++from app.services.geo_catalog_policy import (
++    SubjectReferenceCounts,
++    require_subject_identity,
++    require_subject_parent,
++    subject_workflow,
++)
++
++
++def subject_out(
++    subject: GeoSubject,
++    *,
++    actor_type: AccountType,
++    product: Product | None,
++    parent: GeoSubject | None,
++    aliases: Sequence[GeoSubjectAlias],
++    domains: Sequence[GeoSubjectDomain],
++    references: SubjectReferenceCounts,
++) -> GeoSubjectOut:
++    """调用服务必须在同一读取快照批量取得全部输入，不能拿当前页推算引用。"""
++    kind = GeoSubjectType(subject.subject_type)
++    require_subject_identity(kind, subject.product_id)
++    if subject.parent_subject_id != (parent.id if parent else None):
++        raise ValueError("父级投影必须与当前 Subject 绑定一致")
++    parent_kind = GeoSubjectType(parent.subject_type) if parent else None
++    require_subject_parent(
++        kind, subject_id=subject.id, parent_id=subject.parent_subject_id, parent_type=parent_kind
++    )
++    if subject.parent_subject_type != parent_kind:
++        raise ValueError("父级判别列必须与真实父级身份一致")
++    if subject.product_id != (product.id if product else None):
++        raise ValueError("Product 投影必须与当前 Subject 绑定一致")
++    if any(item.subject_id != subject.id for item in aliases) or any(
++        item.subject_id != subject.id for item in domains
++    ):
++        raise ValueError("不能投影其他 Subject 的子字典")
++    workflow = subject_workflow(
++        is_active=subject.is_active, actor_type=actor_type, references=references
++    )
++    parent_summary = (
++        GeoSubjectParentSummary.model_validate(
++            {
++                "id": parent.id,
++                "subject_type": parent.subject_type,
++                "display_name": parent.display_name,
++                "is_active": parent.is_active,
++            }
++        )
++        if parent
++        else None
++    )
++    common = {
++        "id": subject.id,
++        "parent_subject_id": subject.parent_subject_id,
++        "parent": parent_summary,
++        "description": subject.description,
++        "is_active": subject.is_active,
++        "aliases": [
++            GeoSubjectAliasOut(
++                id=item.id,
++                subject_id=item.subject_id,
++                alias=item.alias,
++                normalized_alias=item.normalized_alias,
++                alias_kind=GeoSubjectAliasKind(item.alias_kind),
++                language_code=item.language_code,
++                is_active=item.is_active,
++                available_actions=list(workflow.alias_actions),
++                created_at=item.created_at,
++            )
++            for item in aliases
++        ],
++        "domains": [
++            GeoSubjectDomainOut.model_validate(
++                {
++                    "id": item.id,
++                    "subject_id": item.subject_id,
++                    "hostname": item.hostname,
++                    "relation_type": GeoSubjectDomainRelationType(item.relation_type),
++                    "is_active": item.is_active,
++                    "available_actions": list(workflow.domain_actions),
++                    "created_at": item.created_at,
++                }
++            )
++            for item in domains
++        ],
++        "references": GeoSubjectReferences(**asdict(references)),
++        "workflow_stage": workflow.stage,
++        "primary_task": workflow.primary_task,
++        "available_actions": list(workflow.actions),
++        "deletion": None
++        if workflow.deletion_blockers is None
++        else GeoSubjectDeletionProjection(
++            blockers=[
++                GeoSubjectDeletionBlocker(type=kind, count=count)
++                for kind, count in workflow.deletion_blockers
++            ],
++        ),
++        "revision": subject.revision,
++        "created_by": subject.created_by,
++        "created_at": subject.created_at,
++        "updated_at": subject.updated_at,
++    }
++    if product is not None:
++        if any(
++            value is not None
++            for value in (
++                subject.canonical_name,
++                subject.normalized_name,
++                subject.display_name,
++            )
++        ):
++            raise ValueError("OWN_PRODUCT 不能持久化 Product 名称副本")
++        return GeoOwnProductSubjectOut.model_validate(
++            common
++            | {
++                "subject_type": kind,
++                "product_id": product.id,
++                "product": GeoSubjectProductSummary(
++                    id=product.id,
++                    part_number=product.part_number,
++                    brand=product.brand,
++                    category=product.category,
++                    revision=product.revision,
++                ),
++                "canonical_name": product.part_number,
++                "display_name": f"{product.brand} {product.part_number}",
++            }
++        )
++    return GeoNamedSubjectOut.model_validate(
++        common
++        | {
++            "subject_type": kind,
++            "product_id": None,
++            "product": None,
++            "canonical_name": subject.canonical_name,
++            "display_name": subject.display_name,
++        }
++    )
+--- a/backend/tests/unit/test_geo_catalog_schema.py
++++ b/backend/tests/unit/test_geo_catalog_schema.py
+@@ -0,0 +1,318 @@
++"""Catalog 请求合同、Unicode 规范化和严格 IDNA 边界。"""
++
++from copy import deepcopy
++from typing import Any
++from uuid import UUID
++
++import pytest
++from jsonschema import Draft202012Validator
++from pydantic import TypeAdapter, ValidationError
++
++from app.schemas import geo_catalog
++from app.schemas.geo_catalog import (
++    GeoSubjectAliasCreate,
++    GeoSubjectAliasUpdate,
++    GeoSubjectCreate,
++    GeoSubjectDomainCreate,
++    GeoSubjectUpdate,
++)
++from app.services.geo_catalog_normalization import catalog_text_key, normalize_catalog_text
++
++PRODUCT_ID = UUID(int=103)
++CREATE = TypeAdapter(GeoSubjectCreate)
++UPDATE = TypeAdapter(GeoSubjectUpdate)
++
++
++@pytest.mark.parametrize(
++    "kind",
++    [
++        "OWN_BRAND",
++        "OWN_PRODUCT",
++        "COMPETITOR_BRAND",
++        "COMPETITOR_PRODUCT",
++        "REFERENCE_PART",
++    ],
++)
++def test_create_discriminator_and_fact_boundary(kind: str) -> None:
++    payload = {"subject_type": kind}
++    payload.update(
++        {"product_id": str(PRODUCT_ID)}
++        if kind == "OWN_PRODUCT"
++        else {
++            "canonical_name": "  ＰＳ-１０３\u2003A  ",
++            "display_name": "虚构监测对象",
++        }
++    )
++    parsed = CREATE.validate_python(payload)
++    if kind != "OWN_PRODUCT":
++        assert parsed.canonical_name == "PS-103 A"
++    for key in ["created_by", "revision", "normalized_name", "facts_body_markdown", "is_active"]:
++        with pytest.raises(ValidationError):
++            CREATE.validate_python(payload | {key: "客户端值"})
++    if kind == "OWN_PRODUCT":
++        for key in ["canonical_name", "display_name", "brand", "category", "part_number"]:
++            with pytest.raises(ValidationError):
++                CREATE.validate_python(payload | {key: "产品事实副本"})
++    else:
++        with pytest.raises(ValidationError):
++            CREATE.validate_python(payload | {"product_id": str(PRODUCT_ID)})
++
++
++def test_unknown_type_and_root_parent_are_rejected() -> None:
++    for kind in ["UNKNOWN", "own_product", None]:
++        with pytest.raises(ValidationError):
++            CREATE.validate_python({"subject_type": kind, "product_id": str(PRODUCT_ID)})
++    for kind in ["OWN_BRAND", "COMPETITOR_BRAND", "REFERENCE_PART"]:
++        with pytest.raises(ValidationError):
++            CREATE.validate_python(
++                {
++                    "subject_type": kind,
++                    "canonical_name": "虚构",
++                    "display_name": "虚构",
++                    "parent_subject_id": str(PRODUCT_ID),
++                }
++            )
++
++
++def test_normalization_preserves_model_boundaries_and_checks_expansion() -> None:
++    assert normalize_catalog_text("\u3000 Ａ-１０３\t\n后缀 \u00a0") == "A-103 后缀"
++    assert catalog_text_key(" ＳＴＲＡＳＳＥ ") == catalog_text_key("Straße")
++    assert len({catalog_text_key(s) for s in ["PS-103", "PS103", "PS-103A", "PS-103 A"]}) == 4
++    assert normalize_catalog_text("ß" * 240) == "ß" * 240
++    for value in ["\u2003\t\n", "x" * 241, "ß" * 121, "\ufdfa" * 20]:
++        with pytest.raises(ValueError):
++            catalog_text_key(value)
++    with pytest.raises(ValidationError):
++        GeoSubjectAliasCreate(expected_revision=0, alias="ß" * 121, alias_kind="NAME")
++
++
++@pytest.mark.parametrize("kind", ["OWN_PRODUCT", "COMPETITOR_PRODUCT", "OWN_BRAND"])
++def test_patch_omission_null_and_nonnullable_fields(kind: str) -> None:
++    base = {"subject_type": kind, "expected_revision": 4}
++    with pytest.raises(ValidationError):
++        UPDATE.validate_python(base)
++    patch = UPDATE.validate_python(base | {"description": ""})
++    assert patch.model_dump(exclude_unset=True) == base | {"description": ""}
++    cleared = UPDATE.validate_python(base | {"parent_subject_id": None})
++    assert cleared.model_dump(exclude_unset=True) == base | {"parent_subject_id": None}
++    for key in (
++        ["description"]
++        if kind == "OWN_PRODUCT"
++        else ["description", "canonical_name", "display_name"]
++    ):
++        with pytest.raises(ValidationError):
++            UPDATE.validate_python(base | {key: None})
++    for revision in [-1, True, "4", None]:
++        with pytest.raises(ValidationError):
++            UPDATE.validate_python(base | {"description": "新用途", "expected_revision": revision})
++    with pytest.raises(ValidationError):
++        UPDATE.validate_python(base | {"description": "新用途", "product_id": str(PRODUCT_ID)})
++
++
++def test_alias_patch_and_language_are_explicit() -> None:
++    create = GeoSubjectAliasCreate(
++        expected_revision=0,
++        alias="  ＰＳ-１０３  ",
++        alias_kind="PART_NUMBER",
++        language_code="ZH-Hans",
++    )
++    assert (create.alias, create.language_code) == ("PS-103", "zh-hans")
++    patch = GeoSubjectAliasUpdate(expected_revision=1, language_code=None)
++    assert patch.model_dump(exclude_unset=True) == {"expected_revision": 1, "language_code": None}
++    for payload in [
++        {},
++        {"alias": None},
++        {"alias_kind": None},
++        {"is_active": None},
++        {"is_active": "false"},
++        {"language_code": " zh"},
++        {"language_code": "z"},
++        {"language_code": "zh_ Hans"},
++        {"alias_kind": "EXACT"},
++    ]:
++        with pytest.raises(ValidationError):
++            GeoSubjectAliasUpdate.model_validate({"expected_revision": 0} | payload)
++
++
++@pytest.mark.parametrize(
++    "value,expected",
++    [
++        ("EXAMPLE.test", "example.test"),
++        ("例子.测试", "xn--fsqu00a.xn--0zwm56d"),
++        ("faß.example", "xn--fa-hia.example"),
++        ("ＥＸＡＭＰＬＥ。test", "example.test"),
++        ("xn--fa-hia.example", "xn--fa-hia.example"),
++        ("a" * 63 + ".test", "a" * 63 + ".test"),
++    ],
++)
++def test_idna2008_nontransitional(value: str, expected: str) -> None:
++    parsed = GeoSubjectDomainCreate(expected_revision=0, hostname=value, relation_type="OWNED")
++    assert parsed.hostname == expected
++
++
++@pytest.mark.parametrize(
++    "value",
++    [
++        "127.0.0.1",
++        "１２７。０。０。１",
++        "[::1]",
++        "::1",
++        "https://example.test",
++        "a.test/path",
++        "a.test?query",
++        "a.test#hash",
++        "a.test:443",
++        "a@b.test",
++        "*.test",
++        "a\\b.test",
++        " example.test",
++        "example.test\n",
++        "example.test.",
++        "example。test。",
++        "a..test",
++        "-a.test",
++        "a-.test",
++        "a_b.test",
++        "localhost",
++        "xn--.test",
++        "xn--a.test",
++        "a" * 64 + ".test",
++        ".test",
++        "a.\u200dtest",
++        "😀.test",
++        "אa.test",
++        ".".join(["é" * 57] * 4),
++    ],
++)
++def test_invalid_hostname_fails_at_request_boundary(value: str) -> None:
++    with pytest.raises(ValidationError):
++        GeoSubjectDomainCreate(expected_revision=0, hostname=value, relation_type="OFFICIAL")
++
++
++def test_runtime_requests_dump_to_accepted_public_contract(document: dict[str, Any]) -> None:
++    from tests.unit.test_geo_catalog_contract import valid
++
++    cases = [
++        (
++            "GeoSubjectCreate",
++            CREATE.validate_python({"subject_type": "OWN_PRODUCT", "product_id": str(PRODUCT_ID)}),
++        ),
++        (
++            "GeoSubjectUpdate",
++            UPDATE.validate_python(
++                {
++                    "subject_type": "COMPETITOR_PRODUCT",
++                    "expected_revision": 0,
++                    "parent_subject_id": None,
++                }
++            ),
++        ),
++        (
++            "GeoSubjectAliasCreate",
++            GeoSubjectAliasCreate(
++                expected_revision=0, alias="虚构型号", alias_kind="NAME", language_code="ZH-Hans"
++            ),
++        ),
++        ("GeoSubjectAliasUpdate", GeoSubjectAliasUpdate(expected_revision=1, is_active=False)),
++        (
++            "GeoSubjectDomainCreate",
++            GeoSubjectDomainCreate(
++                expected_revision=1, hostname="例子.测试", relation_type="OTHER"
++            ),
++        ),
++    ]
++    for name, model in cases:
++        wire = model.model_dump(mode="json", exclude_unset=True)
++        assert valid(document, name, wire)
++        generated = TypeAdapter(getattr(geo_catalog, name)).json_schema()
++        assert Draft202012Validator(generated).is_valid(wire)
++
++
++def test_generated_catalog_schemas_match_accepted_contract(document: dict[str, Any]) -> None:
++    from app.tools.contract_check import compare_response_contracts
++
++    names = [
++        "GeoSubjectCreate",
++        "GeoSubjectUpdate",
++        "GeoSubjectRevisionRequest",
++        "GeoSubjectAliasCreate",
++        "GeoSubjectAliasUpdate",
++        "GeoSubjectDomainCreate",
++        "GeoSubjectOut",
++        "GeoSubjectListPage",
++        "GeoSubjectInUseDetails",
++    ]
++    contract = {"paths": {}, "components": document["components"]}
++    runtime: dict[str, Any] = {"paths": {}, "components": {"schemas": {}}}
++    for name in names:
++        schema = TypeAdapter(getattr(geo_catalog, name)).json_schema(
++            ref_template="#/components/schemas/{model}"
++        )
++        runtime["components"]["schemas"].update(schema.pop("$defs", {}))
++        runtime["components"]["schemas"][name] = schema
++        # 只构造内存合同对照，不注册 Router 或增加真实操作。
++        operation = {
++            "get": {
++                "responses": {
++                    "200": {
++                        "description": "Catalog Schema 对照",
++                        "content": {
++                            "application/json": {"schema": {"$ref": f"#/components/schemas/{name}"}}
++                        },
++                    }
++                }
++            }
++        }
++        contract["paths"][f"/{name}"] = deepcopy(operation)
++        runtime["paths"][f"/{name}"] = deepcopy(operation)
++    assert compare_response_contracts(contract, runtime) == []
++
++
++def test_generated_schema_conditions_reject_contract_counterexamples(
++    document: dict[str, Any],
++) -> None:
++    from tests.unit.test_geo_catalog_contract import SUBJECT_ID, subject, valid
++
++    cases = [
++        ("GeoSubjectAliasUpdate", {"expected_revision": 0}),
++        ("GeoSubjectUpdate", {"subject_type": "OWN_PRODUCT", "expected_revision": 0}),
++        (
++            "GeoSubjectCreate",
++            {
++                "subject_type": "OWN_BRAND",
++                "canonical_name": "虚构品牌",
++                "display_name": "虚构品牌",
++                "parent_subject_id": SUBJECT_ID,
++            },
++        ),
++        ("GeoSubjectOut", subject() | {"workflow_stage": "DISABLED"}),
++        ("GeoSubjectOut", subject() | {"parent_subject_id": SUBJECT_ID}),
++        (
++            "GeoSubjectOut",
++            subject(own=True)
++            | {
++                "parent_subject_id": SUBJECT_ID,
++                "parent": {
++                    "id": SUBJECT_ID,
++                    "subject_type": "COMPETITOR_BRAND",
++                    "display_name": "虚构父级",
++                    "is_active": True,
++                },
++            },
++        ),
++    ]
++    for name, wire in cases:
++        generated = TypeAdapter(getattr(geo_catalog, name)).json_schema()
++        assert not valid(document, name, wire)
++        assert not Draft202012Validator(generated).is_valid(wire)
++
++
++@pytest.fixture(scope="module")
++def document() -> dict[str, Any]:
++    from pathlib import Path
++
++    import yaml
++
++    return yaml.safe_load(
++        (Path(__file__).resolve().parents[3] / "contracts/openapi.yaml").read_text()
++    )
+--- a/backend/tests/unit/test_geo_catalog_policy.py
++++ b/backend/tests/unit/test_geo_catalog_policy.py
+@@ -0,0 +1,140 @@
++"""Catalog 父子类型、字典候选歧义和角色动作的领域合同。"""
++
++from dataclasses import replace
++from itertools import product
++from uuid import UUID
++
++import pytest
++
++from app.errors import AppError
++from app.schemas.common import AccountType
++from app.schemas.geo_catalog import GeoSubjectType
++from app.services.geo_catalog_policy import (
++    AliasAmbiguityError,
++    AliasCandidate,
++    SubjectReferenceCounts,
++    alias_subject_candidates,
++    require_subject_identity,
++    require_subject_parent,
++    require_unambiguous_alias,
++    subject_workflow,
++)
++
++EMPTY = SubjectReferenceCounts(0, 0, 0, 0, 0)
++CHILD = UUID(int=103)
++PARENT = UUID(int=104)
++
++
++@pytest.mark.parametrize("kind,parent_kind", list(product(GeoSubjectType, GeoSubjectType)))
++def test_parent_type_matrix(kind: GeoSubjectType, parent_kind: GeoSubjectType) -> None:
++    allowed = (kind, parent_kind) in {
++        (GeoSubjectType.OWN_PRODUCT, GeoSubjectType.OWN_BRAND),
++        (GeoSubjectType.COMPETITOR_PRODUCT, GeoSubjectType.COMPETITOR_BRAND),
++    }
++    if allowed:
++        require_subject_parent(kind, subject_id=CHILD, parent_id=PARENT, parent_type=parent_kind)
++    else:
++        with pytest.raises(AppError) as error:
++            require_subject_parent(
++                kind, subject_id=CHILD, parent_id=PARENT, parent_type=parent_kind
++            )
++        assert (error.value.code, error.value.status_code) == ("GEO_SUBJECT_PARENT_INVALID", 409)
++        assert error.value.details["errors"][0]["loc"] == ["body", "parent_subject_id"]
++
++
++@pytest.mark.parametrize("kind", list(GeoSubjectType))
++def test_nullable_parent_and_product_identity(kind: GeoSubjectType) -> None:
++    require_subject_parent(kind, subject_id=CHILD, parent_id=None, parent_type=None)
++    valid_product = CHILD if kind == GeoSubjectType.OWN_PRODUCT else None
++    require_subject_identity(kind, valid_product)
++    with pytest.raises(ValueError):
++        require_subject_identity(kind, None if valid_product else CHILD)
++
++
++def test_self_parent_missing_identity_and_unknown_type_fail() -> None:
++    with pytest.raises(AppError):
++        require_subject_parent(
++            GeoSubjectType.OWN_PRODUCT,
++            subject_id=CHILD,
++            parent_id=CHILD,
++            parent_type=GeoSubjectType.OWN_BRAND,
++        )
++    for args in [
++        {"parent_id": PARENT, "parent_type": None},
++        {"parent_id": None, "parent_type": GeoSubjectType.OWN_BRAND},
++    ]:
++        with pytest.raises(ValueError):
++            require_subject_parent(GeoSubjectType.OWN_PRODUCT, subject_id=CHILD, **args)
++    with pytest.raises(ValueError):
++        require_subject_identity("UNKNOWN", None)
++
++
++def test_dictionary_ambiguity_preserves_candidates_instead_of_picking_one() -> None:
++    candidates = [
++        AliasCandidate(PARENT, "ＰＳ-１０３", True),
++        AliasCandidate(CHILD, "ps-103", True),
++        AliasCandidate(CHILD, "PS-103", True),
++        AliasCandidate(UUID(int=105), "PS-103", False),
++    ]
++    ids = alias_subject_candidates(" PS-103 ", candidates)
++    assert ids == (CHILD, PARENT)
++    with pytest.raises(AliasAmbiguityError) as error:
++        require_unambiguous_alias(ids)
++    assert error.value.subject_ids == (CHILD, PARENT)
++    assert alias_subject_candidates("PS103", candidates) == ()
++    assert alias_subject_candidates("PS-103A", candidates) == ()
++    require_unambiguous_alias((CHILD, CHILD))
++    require_unambiguous_alias(())
++
++
++@pytest.mark.parametrize("active", [True, False])
++@pytest.mark.parametrize("actor", [AccountType.ADMIN, AccountType.ENGINEER])
++def test_workflow_actor_and_activity(active: bool, actor: AccountType) -> None:
++    result = subject_workflow(is_active=active, actor_type=actor, references=EMPTY)
++    assert result.stage == ("ACTIVE" if active else "DISABLED")
++    if actor == AccountType.ENGINEER:
++        assert result.primary_task == "MANAGE_SUBJECT"
++        assert result.actions == result.alias_actions == result.domain_actions == ()
++        assert result.deletion_blockers is None
++    else:
++        assert result.primary_task == ("MANAGE_SUBJECT" if active else "ENABLE_SUBJECT")
++        assert set(result.actions) == {
++            "UPDATE",
++            "DISABLE" if active else "ENABLE",
++            "CREATE_ALIAS",
++            "CREATE_DOMAIN",
++            "DELETE",
++        }
++        assert result.deletion_blockers == ()
++        assert set(result.alias_actions) == {"UPDATE", "DELETE"}
++        assert result.domain_actions == ("DELETE",)
++
++
++@pytest.mark.parametrize(
++    "field,token",
++    [
++        ("child_subject_count", "CHILD_SUBJECT"),
++        ("monitoring_plan_count", "MONITORING_PLAN"),
++        ("observation_run_count", "OBSERVATION_RUN"),
++        ("analysis_count", "ANALYSIS"),
++        ("opportunity_count", "OPPORTUNITY"),
++    ],
++)
++def test_each_direct_reference_blocks_delete_but_not_current_dictionary(
++    field: str, token: str
++) -> None:
++    counts = replace(EMPTY, **{field: 2})
++    result = subject_workflow(is_active=True, actor_type=AccountType.ADMIN, references=counts)
++    assert result.deletion_blockers == ((token, 2),)
++    assert "DELETE" not in result.actions
++    assert {"CREATE_ALIAS", "CREATE_DOMAIN"} <= set(result.actions)
++    assert set(result.alias_actions) == {"UPDATE", "DELETE"}
++    assert result.domain_actions == ("DELETE",)
++
++
++def test_unknown_role_and_invalid_reference_counts_fail() -> None:
++    with pytest.raises(ValueError):
++        subject_workflow(is_active=True, actor_type="UNKNOWN", references=EMPTY)
++    for count in [-1, True, "1", None]:
++        with pytest.raises(ValueError):
++            SubjectReferenceCounts(count, 0, 0, 0, 0)
+--- a/backend/tests/unit/test_geo_catalog_projection.py
++++ b/backend/tests/unit/test_geo_catalog_projection.py
+@@ -0,0 +1,210 @@
++"""真实 ORM 输入的显式公共投影；不查询数据库，不暴露产品事实。"""
++
++from datetime import UTC, datetime
++from pathlib import Path
++from typing import Any
++from uuid import UUID
++
++import pytest
++import yaml
++from jsonschema import Draft202012Validator
++from pydantic import TypeAdapter
++
++from app.models.geo_catalog import GeoSubject, GeoSubjectAlias, GeoSubjectDomain
++from app.models.product_facts import Product
++from app.schemas.common import AccountType
++from app.schemas.geo_catalog import GeoSubjectOut
++from app.services.geo_catalog_policy import SubjectReferenceCounts
++from app.services.geo_subjects import subject_out
++from tests.unit.test_geo_catalog_contract import valid
++
++NOW = datetime(2026, 10, 1, tzinfo=UTC)
++EMPTY = SubjectReferenceCounts(0, 0, 0, 0, 0)
++
++
++def subject(**patch: Any) -> GeoSubject:
++    values = dict(
++        id=UUID(int=103),
++        subject_type="COMPETITOR_PRODUCT",
++        product_id=None,
++        parent_subject_id=None,
++        parent_subject_type=None,
++        canonical_name="CP-103",
++        normalized_name="cp-103",
++        display_name="虚构竞品",
++        description="监测用途",
++        is_active=True,
++        revision=7,
++        created_by=UUID(int=100),
++        created_at=NOW,
++        updated_at=NOW,
++    )
++    values.update(patch)
++    return GeoSubject(**values)
++
++
++@pytest.fixture(scope="module")
++def document() -> dict[str, Any]:
++    return yaml.safe_load(
++        (Path(__file__).resolve().parents[3] / "contracts/openapi.yaml").read_text()
++    )
++
++
++@pytest.mark.parametrize("actor", [AccountType.ADMIN, AccountType.ENGINEER])
++@pytest.mark.parametrize("active", [True, False])
++def test_complete_projection_matches_contract_for_each_actor_and_stage(
++    document: dict[str, Any],
++    actor: AccountType,
++    active: bool,
++) -> None:
++    row = subject(is_active=active)
++    alias = GeoSubjectAlias(
++        id=UUID(int=104),
++        subject_id=row.id,
++        alias="CP-103",
++        normalized_alias="cp-103",
++        alias_kind="PART_NUMBER",
++        language_code=None,
++        is_active=False,
++        created_at=NOW,
++    )
++    domain = GeoSubjectDomain(
++        id=UUID(int=105),
++        subject_id=row.id,
++        hostname="xn--fa-hia.example",
++        relation_type="OFFICIAL",
++        is_active=True,
++        created_at=NOW,
++    )
++    result = subject_out(
++        row,
++        actor_type=actor,
++        product=None,
++        parent=None,
++        aliases=[alias],
++        domains=[domain],
++        references=SubjectReferenceCounts(1, 2, 3, 4, 5),
++    )
++    wire = result.model_dump(mode="json")
++    assert valid(document, "GeoSubjectOut", wire)
++    assert Draft202012Validator(TypeAdapter(GeoSubjectOut).json_schema()).is_valid(wire)
++    assert result.revision == row.revision == 7
++    if actor == AccountType.ADMIN:
++        assert [b.count for b in result.deletion.blockers] == [1, 2, 3, 4, 5]
++        assert "DELETE" not in result.available_actions
++        assert result.aliases[0].available_actions == ["UPDATE", "DELETE"]
++        assert result.domains[0].available_actions == ["DELETE"]
++    else:
++        assert result.deletion is None
++        assert (
++            result.available_actions
++            == result.aliases[0].available_actions
++            == result.domains[0].available_actions
++            == []
++        )
++
++
++def test_current_product_projection_never_copies_facts(document: dict[str, Any]) -> None:
++    row = subject(
++        subject_type="OWN_PRODUCT",
++        product_id=UUID(int=106),
++        canonical_name=None,
++        normalized_name=None,
++        display_name=None,
++    )
++    product = Product(
++        id=row.product_id,
++        part_number="PS-103",
++        brand="虚构品牌",
++        category="虚构类别",
++        revision=2,
++        facts_body_markdown="不可进入 Catalog 响应的内部事实",
++    )
++    first = subject_out(
++        row,
++        actor_type=AccountType.ADMIN,
++        product=product,
++        parent=None,
++        aliases=[],
++        domains=[],
++        references=EMPTY,
++    )
++    assert first.canonical_name == "PS-103"
++    assert first.display_name == "虚构品牌 PS-103"
++    assert first.product.revision == 2
++    assert valid(document, "GeoSubjectOut", first.model_dump(mode="json"))
++    assert Draft202012Validator(TypeAdapter(GeoSubjectOut).json_schema()).is_valid(
++        first.model_dump(mode="json")
++    )
++    assert "facts_body_markdown" not in first.product.model_dump()
++    product.part_number = "PS-103A"
++    product.revision = 3
++    second = subject_out(
++        row,
++        actor_type=AccountType.ADMIN,
++        product=product,
++        parent=None,
++        aliases=[],
++        domains=[],
++        references=EMPTY,
++    )
++    assert second.canonical_name == "PS-103A" and second.product.revision == 3
++    assert first.canonical_name == "PS-103"
++    assert row.canonical_name is row.normalized_name is row.display_name is None
++    assert row.revision == second.revision == first.revision == 7
++    assert valid(document, "GeoSubjectOut", second.model_dump(mode="json"))
++
++
++def test_parent_disabled_is_still_legal_and_response_is_consistent(
++    document: dict[str, Any],
++) -> None:
++    parent = subject(id=UUID(int=107), subject_type="COMPETITOR_BRAND", is_active=False)
++    row = subject(parent_subject_id=parent.id, parent_subject_type=parent.subject_type)
++    result = subject_out(
++        row,
++        actor_type=AccountType.ADMIN,
++        product=None,
++        parent=parent,
++        aliases=[],
++        domains=[],
++        references=EMPTY,
++    )
++    assert not result.parent.is_active
++    assert valid(document, "GeoSubjectOut", result.model_dump(mode="json"))
++
++
++def test_projection_rejects_incomplete_or_cross_subject_inputs() -> None:
++    row = subject(parent_subject_id=UUID(int=107), parent_subject_type="COMPETITOR_BRAND")
++    with pytest.raises(ValueError):
++        subject_out(
++            row,
++            actor_type=AccountType.ADMIN,
++            product=None,
++            parent=None,
++            aliases=[],
++            domains=[],
++            references=EMPTY,
++        )
++    row = subject()
++    alias = GeoSubjectAlias(subject_id=UUID(int=999))
++    with pytest.raises(ValueError):
++        subject_out(
++            row,
++            actor_type=AccountType.ADMIN,
++            product=None,
++            parent=None,
++            aliases=[alias],
++            domains=[],
++            references=EMPTY,
++        )
++    row.subject_type = "UNKNOWN"
++    with pytest.raises(ValueError):
++        subject_out(
++            row,
++            actor_type=AccountType.ADMIN,
++            product=None,
++            parent=None,
++            aliases=[],
++            domains=[],
++            references=EMPTY,
++        )
+--- a/backend/pyproject.toml
++++ b/backend/pyproject.toml
+@@ -11,6 +11,7 @@
+   "cryptography>=45,<47",
+   "fastapi>=0.115,<1",
+   "httpx>=0.27,<1",
++  "idna>=3.10,<4",
+   "markdown>=3.7,<4",
+   "oss2>=2.19,<3",
+   "pillow>=11,<13",
+--- a/backend/uv.lock
++++ b/backend/uv.lock
+@@ -664,6 +664,7 @@
+     { name = "cryptography" },
+     { name = "fastapi" },
+     { name = "httpx" },
++    { name = "idna" },
+     { name = "markdown" },
+     { name = "oss2" },
+     { name = "pillow" },
+@@ -697,6 +698,7 @@
+     { name = "fastapi", specifier = ">=0.115,<1" },
+     { name = "httpx", specifier = ">=0.27,<1" },
+     { name = "httpx2", marker = "extra == 'dev'", specifier = ">=2,<3" },
++    { name = "idna", specifier = ">=3.10,<4" },
+     { name = "jsonschema", marker = "extra == 'dev'", specifier = ">=4.23,<5" },
+     { name = "markdown", specifier = ">=3.7,<4" },
+     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14,<2" },
+--- a/contracts/database.md
++++ b/contracts/database.md
+@@ -10,9 +10,9 @@
+ - JSONB is limited to immutable generation snapshots, structured generation output, and audit details. Editable product facts use one Markdown body on `products`; platform rules and normalized fact subgraphs no longer exist after `0025`.
+ - Review records, publication work events, publication verifications, observations, and audit logs cannot be modified in place。`0027` 仅在物理删除停用用户时允许把匹配 `audit_logs.actor_id` 置空；`0029` 允许管理员按完整更正链删除人工 GEO 观测；`0037` 允许普通删除未成功发布的任务聚合，并允许管理员永久删除已归档任务聚合。发布与 GEO 历史在保留期间仍禁止原地改写，删除只能从显式业务命令进入。
+ 
+-## GEO Catalog 合同（GEO-101 / R1；GEO-102 ORM/Alembic）
+-
+-本节冻结 GeoSubject/Alias/Domain 合同。GEO-102 已实现三表 ORM、模型注册及 `0044_geo_catalog`，当前源码 head 从 `0043_geo_platform_identity` 前滚；这不表示生产数据库已迁移或 API 已接线。GEO-103 Schema/策略、GEO-104 Service/Router 仍待实施。公共 Schema 和待接线操作分别见 `contracts/openapi.yaml` 的 `components.schemas.Geo*Subject*` 与 `x-geo-catalog-contract.paths`。既有文章关系 GEO、Product/FactVersion 与历史迁移均保持独立。
++## GEO Catalog 合同（GEO-101 / R1；GEO-102 ORM/Alembic；GEO-103 Schema/策略）
++
++本节冻结 GeoSubject/Alias/Domain 合同。GEO-102 已实现三表 ORM、模型注册及 `0044_geo_catalog`，当前源码 head 从 `0043_geo_platform_identity` 前滚；这不表示生产数据库已迁移或 API 已接线。GEO-103 已实现 Schema、规范化、真实父子/别名歧义与无 I/O 的 stage/actions/deletion/当前 Product 投影；GEO-104 CRUD Application Service/Router 仍待实施。公共 Schema 和待接线操作分别见 `contracts/openapi.yaml` 的 `components.schemas.Geo*Subject*` 与 `x-geo-catalog-contract.paths`。既有文章关系 GEO、Product/FactVersion 与历史迁移均保持独立。
+ 
+ ### 身份、归属与规范化
+ 
+@@ -113,7 +113,7 @@
+ 
+ ### 实施与恢复边界
+ 
+-GEO-101 只冻结合同。GEO-102 新增 `0044_geo_catalog`，仅添加三张表、约束、索引及身份守卫，不修改 0001～0043 或 migration_schema_v1，不回填或改写历史 Product/GEO 数据；迁移冻结自身 DDL，不导入运行时 ORM。隔离 PostgreSQL 16 的空库及含旧记录的 0043 前滚、metadata、直接 SQL 和唯一索引并发验证见 `.trellis/tasks/10-01-geo-102-catalog-orm/implement.md`。downgrade 以 SQLSTATE 55000 明确拒绝删除三表，保留 revision 和数据；恢复使用前滚修复或迁移前 PostgreSQL 备份。入口保持关闭，CRUD/API/UI 尚未实施。
++GEO-101 只冻结合同。GEO-102 新增 `0044_geo_catalog`，仅添加三张表、约束、索引及身份守卫，不修改 0001～0043 或 migration_schema_v1，不回填或改写历史 Product/GEO 数据；迁移冻结自身 DDL，不导入运行时 ORM。隔离 PostgreSQL 16 的空库及含旧记录的 0043 前滚、metadata、直接 SQL 和唯一索引并发验证见 `.trellis/tasks/10-01-geo-102-catalog-orm/implement.md`。downgrade 以 SQLSTATE 55000 明确拒绝删除三表，保留 revision 和数据；恢复使用前滚修复或迁移前 PostgreSQL 备份。GEO-103 的请求/响应声明、Unicode/IDNA 规范化及领域/投影策略按本合同实现，没有新增 revision 或历史回填；实施与机器形状/实例验证见 `.trellis/tasks/10-01-geo-103-catalog-policy/implement.md`。入口保持关闭，CRUD/API/UI 尚未实施。
+ 
+ ## Product Detail Read Projection
+ 
+--- a/docs/geo-monitoring/README.md
++++ b/docs/geo-monitoring/README.md
+@@ -20,7 +20,9 @@
+ 
+ GEO-101 / R1 的 Catalog 公共与数据库合同已于 2026-10-01 经用户接受，状态为 `done`。权威为 [OpenAPI](../../contracts/openapi.yaml) 的标准 components/显式 CONTRACT_ONLY 操作扩展及 [数据库合同](../../contracts/database.md) 的 GEO Catalog 章节；合同范围与接受记录见 [GEO-101 Task Brief](../../.trellis/tasks/10-01-geo-101-catalog-contract/prd.md) 和 [实施证据](../../.trellis/tasks/10-01-geo-101-catalog-contract/implement.md)。
+ 
+-GEO-102 / R1 已实现 Subject/Alias/Domain ORM、模型注册及新迁移 `0044_geo_catalog`，交付状态为 `review`，等待人工验收。隔离 PostgreSQL 16 的空库/旧 head 前滚、metadata、直接 SQL 反例和活动 OWN_PRODUCT 并发唯一通过；指定静态、单元与完整集成检查及独立只读复核证据见 [Task Brief](../../.trellis/tasks/10-01-geo-102-catalog-orm/prd.md) 和 [实施记录](../../.trellis/tasks/10-01-geo-102-catalog-orm/implement.md)。尚未迁移生产数据库；GEO-103 策略、GEO-104 Service/Router 和后续页面仍待实施。
++GEO-102 / R1 已实现 Subject/Alias/Domain ORM、模型注册及新迁移 `0044_geo_catalog`，已于 2026-10-01 经用户接受，状态为 `done`。隔离 PostgreSQL 16 的空库/旧 head 前滚、metadata、直接 SQL 反例和活动 OWN_PRODUCT 并发唯一通过；指定静态、单元与完整集成检查及独立只读复核证据见 [Task Brief](../../.trellis/tasks/10-01-geo-102-catalog-orm/prd.md) 和 [实施记录](../../.trellis/tasks/10-01-geo-102-catalog-orm/implement.md)。尚未迁移生产数据库；GEO-104 CRUD Application Service/Router 和后续页面仍待实施。
++
++GEO-103 / R1 已实现 Catalog 请求/响应 Schema、Unicode/IDNA 规范化、真实父子与别名歧义策略、角色 stage/actions/deletion 及当前 Product 只读投影；交付状态为 `review`，等待人工验收。公共 Schema 生成声明与根合同一致，具体修改、98 项定向、后端 953/前端 863 项单元及 PostgreSQL 427 项集成证据见 [Task Brief](../../.trellis/tasks/10-01-geo-103-catalog-policy/prd.md) 和 [实施记录](../../.trellis/tasks/10-01-geo-103-catalog-policy/implement.md)。Catalog 操作仍为 CONTRACT_ONLY，未接线 CRUD/页面，也未实现 Batch/Run、采集或指标。
+ 
+ ## 1. 文档包用途
+ 
+--- a/docs/geo-monitoring/CHANGELOG.md
++++ b/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,13 @@
+ # 文档包变更记录
++
++## GEO-103 Catalog Schema 与领域策略 — 2026-10-01（review）
++
++- 依赖 GEO-101、GEO-102 均已人工接受 done；本任务按 planned→in_progress→review 交付，不自行 done。
++- 实施闭合 Catalog 创建/PATCH/响应 Schema；拒绝未知类型、只读字段及 OWN_PRODUCT 事实副本，保留省略/null 意图。NFKC/Unicode 空白/casefold 保留型号区别；受控语言标签小写；IDNA2008/UTS #46 non-transitional + STD3 严格往返，非法输入显式失败且无网络调用。
++- 无 I/O 的领域策略验证真实父子、自引用和别名候选歧义；显式完整引用计数形成 ADMIN/ENGINEER stage/actions/deletion。OWN_PRODUCT 从当前 Product 投影 identity/revision，不修改 Catalog 名称或 Subject revision。
++- Pydantic 生成声明补齐 minProperties/条件与 hostname not，九个入口及所有引用与已接受根合同机器形状一致。修正前失败、修正后通过的合同保护、98 项定向、后端 953/前端 863 项单元、427 项 PostgreSQL 集成与静态检查见 GEO-103 implement.md；保留两条既有 metadata warning。
++- 首次独立复核确认的声明机器形状 P2 已由最小修正及第二次 fresh 只读复核解除，执行审计与原始证据保留。
++- 将现有 idna 3.18 声明为直接依赖，锁定包版本不变；无新 OpenAPI 操作或 Alembic revision，无历史回填、生产迁移或前端改动。GEO-104 CRUD/Router、页面及后续采集/分析/指标均未实施。
+ 
+ ## GEO-102 Catalog ORM 与 Alembic — 2026-10-01（review）
+ 
+--- a/docs/geo-monitoring/03-technical/02-data-architecture.md
++++ b/docs/geo-monitoring/03-technical/02-data-architecture.md
+@@ -72,9 +72,9 @@
+ 
+ ## 3. Catalog 表
+ 
+-## 3.1～3.3 Subject / Alias / Domain（GEO-101 合同 / GEO-102 ORM）
+-
+-这三张表的唯一详细权威是 [根数据库合同的 GEO Catalog 章节](../../../contracts/database.md)。GEO-101 已被人工接受；GEO-102 已实现 ORM 注册与新迁移 `0044_geo_catalog`，并在隔离 PostgreSQL 16 验证前滚、metadata 和 SQL 约束。实际证据见 [GEO-102 实施记录](../../../.trellis/tasks/10-01-geo-102-catalog-orm/implement.md)；生产数据库迁移、Schema/Service/Router 尚未实施。
++## 3.1～3.3 Subject / Alias / Domain（GEO-101 合同 / GEO-102 ORM / GEO-103 策略）
++
++这三张表的唯一详细权威是 [根数据库合同的 GEO Catalog 章节](../../../contracts/database.md)。GEO-101 已被人工接受；GEO-102 已实现 ORM 注册与新迁移 `0044_geo_catalog`，并在隔离 PostgreSQL 16 验证前滚、metadata 和 SQL 约束。实际证据见 [GEO-102 实施记录](../../../.trellis/tasks/10-01-geo-102-catalog-orm/implement.md)。GEO-103 已实现 Schema、规范化、真实父子/歧义与无 I/O 的动作/删除投影，见 [GEO-103 实施记录](../../../.trellis/tasks/10-01-geo-103-catalog-policy/implement.md)；生产数据库迁移、CRUD Application Service/Router 尚未实施。
+ 
+ - `geo_subjects`：五种 subject_type；OWN_PRODUCT 仅绑定 Product，canonical_name/normalized_name/display_name 持久化为 NULL，公共名称从当前 Product 投影。其他类型保存监测身份，不能承载公司产品事实。
+ - Product 活动身份由 `uq_geo_subjects_active_own_product` partial unique 仲裁；停用历史可保留，enable 必须复核唯一性。不对非自有名称增加猜测性全局唯一。
+@@ -82,7 +82,7 @@
+ - `geo_subject_aliases`：NFKC/空白规范化后 casefold，保留标点与型号后缀；同 Subject normalized_alias 唯一（含停用），alias_kind=NAME/PART_NUMBER/ABBREVIATION/LEGACY，language_code 可空。跨对象重复保留为歧义，不能静默任选匹配。
+ - `geo_subject_domains`：IDNA2008/UTS #46 non-transitional + STD3 的 lowercase ASCII hostname，精确匹配、不执行网络调用；同 Subject hostname 唯一，跨对象共享保留歧义。relation_type=OWNED/OFFICIAL/DISTRIBUTOR/OTHER；当前只有 create/delete，is_active 恒 true。
+ - Subject 是两类子实体的 revision owner；子命令提交父 expected_revision，成功返回完整父投影。只有 Subject 聚合内 Alias/Domain 可 CASCADE；Product、父子与未来业务引用 RESTRICT，历史使用完整当时字典快照。
+-- 命名约束/索引已由 GEO-102 实施；规范化、锁序、删除计数、精确 HTTP 映射和 Product/User 生命周期接入义务仍由 GEO-103～104 按根合同实现。ORM 不自动递增 revision 或 updated_at；downgrade 明确拒绝删除三表，恢复使用前滚修复或迁移前备份。本任务不修改后续 EngineSurface/Profile 等目标合同。
++- 命名约束/索引已由 GEO-102 实施；GEO-103 的 Schema/领域策略建立规范化及投影，引用计数全部由调用方显式提供、不猜零。锁序、真实引用批量查询、写入/精确 HTTP 映射和 Product/User 生命周期接入义务由 GEO-104 按根合同实现。ORM 不自动递增 revision 或 updated_at；downgrade 明确拒绝删除三表，恢复使用前滚修复或迁移前备份。本任务不修改后续 EngineSurface/Profile 等目标合同。
+ 
+ ## 3.4 `geo_engine_surfaces`
+ 
+--- a/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
++++ b/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
+@@ -30,7 +30,7 @@
+ 
+ ### 2.1 监测对象
+ 
+-GEO-101 的公共/数据库合同已被人工接受，状态 done；公共 Schema 正反例见 `backend/tests/unit/test_geo_catalog_contract.py`。GEO-102 已落实三表 ORM、迁移、数据库身份守卫、真实父子约束及活动 OWN_PRODUCT 唯一并发仲裁，验证见 [GEO-102 实施证据](../../../.trellis/tasks/10-01-geo-102-catalog-orm/implement.md)。规范化/领域策略、Service/API、页面及历史快照尚未实施，不能把此状态标记为整项需求已完成。
++GEO-101 的公共/数据库合同已被人工接受，状态 done；公共 Schema 正反例见 `backend/tests/unit/test_geo_catalog_contract.py`。GEO-102 已落实三表 ORM、迁移、数据库身份守卫、真实父子约束及活动 OWN_PRODUCT 唯一并发仲裁，验证见 [GEO-102 实施证据](../../../.trellis/tasks/10-01-geo-102-catalog-orm/implement.md)。GEO-103 已实现闭合 Schema、Unicode/IDNA 规范化、真实父子/别名歧义及 stage/actions/deletion/当前 Product 只读投影，定向、声明机器形状与完整验证见 [GEO-103 实施证据](../../../.trellis/tasks/10-01-geo-103-catalog-policy/implement.md)。CRUD Service/API、页面、引用域真实查询及历史快照尚未实施，不能把此状态标记为整项需求已完成。
+ 
+ | 需求 ID | 需求 | 验收 | 任务 |
+ |---|---|---|---|
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -175,7 +175,7 @@
+   phase: R1
+   release: R1
+   title: 实现 GEO Catalog Schema 与领域策略
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-101
+   - GEO-102
+@@ -185,6 +185,9 @@
+   deliverables: 实现规范化、父子类型、域名、stage/actions/deletion projection。
+   tests: 单元测试覆盖别名歧义、IDNA、动作。
+   acceptance: 未知类型和非法父子关系明确失败，无前端推断。
++  trellis_task: .trellis/tasks/10-01-geo-103-catalog-policy
++  validation_record: .trellis/tasks/10-01-geo-103-catalog-policy/implement.md
++  review_note: Schema/规范化/真实父子/别名歧义与stage/actions/deletion投影已实现；98项定向、后端953/前端863项单元、427项完整集成及静态/合同检查通过。首次Schema机器形状P2已修正并经独立只读复核解除，等待人工验收；CRUD/API/UI仍未实施。
+   required_docs:
+   - 01-product/02-geo-core-prd.md
+   - 02-business/02-domain-model.md
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -8,7 +8,7 @@
+ ecd00edfdb3bd3dc1e301206d4988774d0a6b425dae5eb6cd71459da3716b0b2  ./02-business/03-workflows-and-state-machines.md
+ 30e1976c61c18150724cf4b89ead9e2d960b0cea729ba377b06c7c384c264899  ./02-business/04-monitoring-methodology-and-metrics.md
+ 2ce491f8dbf89639aabbf59b5afb7a3fd43520e40e7848e4e9e3049c85436689  ./03-technical/01-technical-architecture.md
+-8c18ffc7277a1afd41b2af9e22a0b161bcec794e17a8b911fe3d3a688007ed45  ./03-technical/02-data-architecture.md
++6a39d3076643f5561861856189068d366c224cfd9b69111c5a315246eba76e0a  ./03-technical/02-data-architecture.md
+ 8118c90ffde495d69c069f19f31d3995c1f36a5b33f66c7107b28802f9d76d12  ./03-technical/03-api-contract-design.md
+ 9f5024544768e4e630b7c14609cc798b37a972a3a9cb11591ba9e575e7e1c06c  ./03-technical/04-frontend-architecture.md
+ e79eacbf9f64dd314e64d2bff61d53e95e369208143fc4cda64ff99f50f7e3e4  ./03-technical/05-worker-and-collector-architecture.md
+@@ -17,7 +17,7 @@
+ 61a4dd642c6f74b581e95eb2269453be79d71a75fa240269eb001e56f45e2b83  ./03-technical/08-deployment-and-operations.md
+ f8c643e46c1159c51bd2e271e87de1d0e5a0448e2845af01f33bef5e4e1d411b  ./04-delivery/01-implementation-roadmap.md
+ acf0bde87ddfc34ebbc09543c1f2c2c1f496d48f330727b5e943807267eed41c  ./04-delivery/02-work-breakdown-structure.md
+-fcde32817ed96fbe41c51cf2fcb8fb18ab7038eb9392e759be9a1de363151ac6  ./04-delivery/03-requirement-traceability-matrix.md
++fb07045fe7a36ebadf936af9d484b0bd6d1e15af66c057eaa8a43ba12099b53c  ./04-delivery/03-requirement-traceability-matrix.md
+ 8991d4c1ec5cc872904aa3b10ffbb2f77ca46a4bfda88589d290f7fd92c2f1fb  ./04-delivery/04-codex-execution-guide.md
+ f600bcdfc2788659654825a020fb2aa0fcbe7acf9827b97eab25aadd7a20ff51  ./04-delivery/05-task-template.md
+ 0ec18f9ce8589f4c8e222fddc6d15853c949ad2b227381b584e2c81c4c4e47b0  ./04-delivery/06-current-geo-baseline.md
+@@ -102,12 +102,12 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-18f21dc2247745472f561dd7accacb468a4fc641074ca6431c706fbcefe4475f  ./04-delivery/task-manifest.yaml
++29f869df8bfc3e719c9e3f5e5f994763c9ec8c575942cdff0f3075756c89316c  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 09d2ba6a3d8f07ca61309d0a9d4a557c30a1d16853d73139e15b43ca6f1303bb  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-bd9b3e9bd38200d3063d08fa71834e0a30d979367d2fe52071e28c1e4d18a76a  ./CHANGELOG.md
+-ba6f87fd790624220239e6939845531bf65eafd58a80884b50538907c0c6c758  ./README.md
++c33c9605d5d8803ffadb02dc5e17ac5e0f6bd75a5cb01939be5657f66cf1738a  ./CHANGELOG.md
++a41a18a20f02fcc28b278c11c3e910c366a788262b060be0a7f6ee18b7bfba03  ./README.md

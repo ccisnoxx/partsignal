@@ -1,0 +1,4 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+backend/app/services/geo_profile_tests.py:94: error: Need type annotation for "headers" (hint: "headers: dict[<type>, <type>] = ...")  [var-annotated]
+Found 1 error in 1 file (checked 147 source files)
+make: *** [typecheck] Error 1

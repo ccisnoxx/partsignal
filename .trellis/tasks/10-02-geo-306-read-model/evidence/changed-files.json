@@ -1,0 +1,23 @@
+[
+  "backend/app/main.py",
+  "backend/app/routers/geo_reads.py",
+  "backend/app/schemas/geo_read_filters.py",
+  "backend/app/schemas/geo_read_models.py",
+  "backend/app/services/geo_batch_policy.py",
+  "backend/app/services/geo_read_projections.py",
+  "backend/app/services/geo_read_queries.py",
+  "backend/tests/integration/test_geo_read_consistency.py",
+  "backend/tests/integration/test_geo_read_models.py",
+  "backend/tests/unit/test_contract.py",
+  "backend/tests/unit/test_geo_read_contract.py",
+  "backend/tests/unit/test_runtime_response_metadata.py",
+  "contracts/database.md",
+  "contracts/openapi.yaml",
+  "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+  "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+  "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+  "docs/geo-monitoring/CHANGELOG.md",
+  "docs/geo-monitoring/README.md",
+  "docs/geo-monitoring/SHA256SUMS",
+  "frontend/src/shared/api/generated/schema.d.ts"
+]

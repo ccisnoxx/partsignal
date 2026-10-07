@@ -1,0 +1,36 @@
+{
+  "source_commit": "d0f61aaa78522be330207ed335869dafcd50017e",
+  "dirty_fixed_script": true,
+  "fixed_script_sha256": "4f76fb229375bd35ca7e301b05b51f1932753cddda5065f4afbfec0e2317e1f9",
+  "before_script_sha256": "56266d76e30edd3bd722ec3f5747d7562e33073d3b650f98ca760f5a277553fd",
+  "compose_version": "2.38.2",
+  "cases": [
+    {
+      "case": "before",
+      "exit_code": 1,
+      "stdout": "canonical Frontend Nginx 安全头、Markdown、HTML 与 DOM sink 校验通过\n",
+      "stderr": "Traceback (most recent call last):\n  File \"<stdin>\", line 23, in <module>\nKeyError: 'env_file'\n"
+    },
+    {
+      "case": "fixed",
+      "exit_code": 0,
+      "stdout": "canonical Frontend Nginx 安全头、Markdown、HTML 与 DOM sink 校验通过\nProduction network identity static: 3 networks / 7 services passed\nProduction migration binding: frozen migration image / repaired backend / fixed command passed\n",
+      "stderr": ""
+    },
+    {
+      "case": "wrong-env-file",
+      "exit_code": 1,
+      "stdout": "canonical Frontend Nginx 安全头、Markdown、HTML 与 DOM sink 校验通过\n",
+      "stderr": "Traceback (most recent call last):\n  File \"<stdin>\", line 27, in <module>\nAssertionError: api\n"
+    },
+    {
+      "case": "extra-environment",
+      "exit_code": 1,
+      "stdout": "canonical Frontend Nginx 安全头、Markdown、HTML 与 DOM sink 校验通过\n",
+      "stderr": "Traceback (most recent call last):\n  File \"<stdin>\", line 27, in <module>\nAssertionError: api\n"
+    }
+  ],
+  "linux_component": "real Compose CLI network-none; shell and assertions on macOS",
+  "whole_linux_runner_proof": false,
+  "application_runtime_modified": false
+}

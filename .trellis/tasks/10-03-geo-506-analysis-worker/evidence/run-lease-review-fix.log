@@ -1,0 +1,50 @@
+ Container partsignal-geo506-validation-redis-1 Running 
+ Container partsignal-geo506-validation-fake-oss-1 Running 
+ Container partsignal-geo506-validation-postgres-1 Running 
+ Container partsignal-geo506-validation-postgres-1 Waiting 
+ Container partsignal-geo506-validation-postgres-1 Healthy 
+ Container partsignal-geo506-validation-backend-test-run-81ff9f028d68 Creating 
+ Container partsignal-geo506-validation-backend-test-run-81ff9f028d68 Created 
+.F
+=================================== FAILURES ===================================
+______________ test_lease_release_cannot_commit_pending_revision _______________
+
+harness = AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev...signal_geo206_19f06c2b56), autoflush=True, expire_on_commit=False), ids=[UUID('0cbb92d8-cd0e-4691-ab70-328c4cfe4ad9')])
+
+    def test_lease_release_cannot_commit_pending_revision(harness):
+        case = harness.create(answer_text="虚构资料。")
+        identity = runs.prepare_collected_run(case.run_id)
+        lease = runs.claim_analysis_revision(identity)
+>       rejected(
+            harness,
+            "UPDATE geo_analysis_jobs SET lease_token=NULL,lease_expires_at=NULL "
+            "WHERE analysis_revision_id=:id",
+            {"id": identity},
+            "ck_geo_analysis_jobs_assembly",
+        )
+
+tests/integration/test_geo_analysis_worker_guards.py:51: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+harness = AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev...signal_geo206_19f06c2b56), autoflush=True, expire_on_commit=False), ids=[UUID('0cbb92d8-cd0e-4691-ab70-328c4cfe4ad9')])
+statement = 'UPDATE geo_analysis_jobs SET lease_token=NULL,lease_expires_at=NULL WHERE analysis_revision_id=:id'
+values = {'id': UUID('ad387001-ae68-418c-a845-0e363f275086')}
+constraint = 'ck_geo_analysis_jobs_assembly'
+
+    def rejected(harness, statement, values, constraint):
+        with pytest.raises(IntegrityError) as error, harness.factory.begin() as db:
+            db.execute(text(statement), values)
+>       assert error.value.orig.diag.constraint_name == constraint
+E       AssertionError: assert 'ck_geo_analy...obs_run_lease' == 'ck_geo_analy...jobs_assembly'
+E         
+E         - ck_geo_analysis_jobs_assembly
+E         ?                        - ----
+E         + ck_geo_analysis_jobs_run_lease
+E         ?                      ++++++
+
+tests/integration/test_geo_analysis_worker_guards.py:28: AssertionError
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_analysis_worker_guards.py::test_lease_release_cannot_commit_pending_revision
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 1 passed in 3.96s
+

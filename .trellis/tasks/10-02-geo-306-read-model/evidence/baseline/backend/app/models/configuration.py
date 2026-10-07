@@ -1,0 +1,125 @@
+"""目标问题与平台配置 ORM 映射。"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import datetime
+
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+    func,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db import Base
+from app.models.base import new_uuid
+
+
+class QueryTopic(Base):
+    """供内容任务与 GEO 观测复用的目标问题。"""
+
+    __tablename__ = "query_topics"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    canonical_question: Mapped[str] = mapped_column(Text, nullable=False)
+    intent_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    variants: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class PlatformType(Base):
+    """管理员维护的平台分类。"""
+
+    __tablename__ = "platform_types"
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PlatformPrompt(Base):
+    """可由多个具体平台复用的 Markdown system Prompt。"""
+
+    __tablename__ = "platform_prompts"
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=new_uuid
+    )
+    name: Mapped[str] = mapped_column(String(300), unique=True, nullable=False)
+    template_markdown: Mapped[str] = mapped_column(Text, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ContentHumanizationPrompt(Base):
+    """管理员显式维护的全局唯一自然化 Prompt。"""
+
+    __tablename__ = "content_humanization_prompts"
+    __table_args__ = (CheckConstraint("id = 1", name="ck_content_humanization_prompts_singleton"),)
+    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
+    template_markdown: Mapped[str] = mapped_column(Text, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PlatformProfile(Base):
+    """平台稳定身份和允许域名集合。"""
+
+    __tablename__ = "platform_profiles"
+    __table_args__ = (
+        CheckConstraint(
+            "logo_file_id IS NULL OR logo_external_url IS NULL",
+            name="ck_platform_profiles_logo_single_source",
+        ),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    allowed_domains: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
+    platform_type_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("platform_types.id", ondelete="RESTRICT")
+    )
+    platform_prompt_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("platform_prompts.id", ondelete="RESTRICT")
+    )
+    website_url: Mapped[str | None] = mapped_column(Text)
+    logo_file_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("file_records.id", ondelete="RESTRICT")
+    )
+    logo_external_url: Mapped[str | None] = mapped_column(Text)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

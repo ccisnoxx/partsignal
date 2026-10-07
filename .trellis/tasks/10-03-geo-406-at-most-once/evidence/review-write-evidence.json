@@ -1,0 +1,25 @@
+{
+  "method": "只读职责、审查最终交付、审查期间源文件SHA256比较及主代理修改记录核对",
+  "changed_paths_during_review": [
+    "backend/app/services/geo_collection_execution.py",
+    "backend/app/services/geo_collection_profiles.py",
+    "backend/app/services/geo_read_projections.py",
+    "backend/app/services/geo_read_queries.py",
+    "backend/app/services/geo_run_retries.py",
+    "backend/tests/integration/test_geo_at_most_once.py",
+    "backend/tests/unit/test_contract.py",
+    "backend/tests/unit/test_runtime_response_metadata.py"
+  ],
+  "parent_owned_recorded_changes": [
+    "backend/tests/unit/test_contract.py",
+    "backend/tests/unit/test_runtime_response_metadata.py",
+    "backend/app/services/geo_collection_profiles.py",
+    "backend/app/services/geo_collection_execution.py",
+    "backend/app/services/geo_read_queries.py",
+    "backend/app/services/geo_run_retries.py",
+    "backend/app/services/geo_read_projections.py",
+    "backend/tests/integration/test_geo_at_most_once.py"
+  ],
+  "unexpected_source_changes": [],
+  "observed_reviewer_write_paths": []
+}

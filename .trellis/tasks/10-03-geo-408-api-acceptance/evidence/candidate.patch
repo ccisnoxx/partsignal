@@ -1,0 +1,2449 @@
+--- a/.trellis/spec/infra/e2e-isolation.md
++++ b/.trellis/spec/infra/e2e-isolation.md
+@@ -28,8 +28,10 @@
+ - lifecycle supervisor 向独立 process group 转发信号后，同组父进程与 reporter 的退出先后没有保证；harness 必须分别证明二者都在 secret scanner 之前完成，不能把 sibling 调度顺序当作合同。每个 case 至少输出 begin/pass，失败时输出 case、断言名、期望/实际和不含 marker/secret 内容的事件证据。
+ - 退出时无论测试成功、失败或收到信号，都停止并 `wait` 本次进程；只删除枚举后符合 allowlist 的精确 Celery/Kombu 键，并证明 Redis 为空和固定端口释放，再 drop 本次数据库和删除临时目录。
+ - 清理输出分别使用数据库 `status=dropped`、存储 `status=removed`、Redis `status=deleted` 与端口 `status=released`；测试成功但任一清理失败时，脚本仍以非零状态退出。禁止 `FLUSHDB`、通配删除、broad kill 或候选路径清理。
+-- `e2e-local.sh` 显式开启 `GEO_MONITORING_ENABLED`，使 R1 人工配置与计划启停具备真实资格；API、浏览器采集及机会评估开关保持关闭。该测试进程配置不改变生产默认值，不执行自动采集；全部业务命令仍通过正常权限、CSRF、revision 和资格校验。
+-- 根 `make e2e` 先通过 `e2e-local.sh` 在同一隔离栈运行全部 canonical 真实 flow，成功并精确清理后再运行 canonical fixture-based 页面 suite；任一阶段失败时根 target 非零。
++- `e2e-local.sh` 默认开启 `GEO_MONITORING_ENABLED`，使人工配置与计划启停具备真实资格，API/Browser/机会关闭。显式 `PARTSIGNAL_E2E_GEO_MODE=enabled|api-disabled|monitoring-disabled` 时运行独立 GEO-408 阶段，分别使用总/API 开关 true/true、true/false、false/false；Browser/机会始终关闭，生产默认值不变。
++- GEO 测试入口只在 `backend/tests/geo_e2e_*` 显式装配；启动验证 APP_ENV=test、随机独占 DB 名和 PostgreSQL owner comment、非 0 Redis 与精确回环 provider `127.0.0.1:19012/v1`。进程内批准和 PUBLIC 仅用于严格 GEO408 虚构输入；生产 registry、INTERNAL 工厂、CSRF/revision/SSRF/TLS/凭据/审计边界保持。GEO 端口与 PID 纳入同一 preflight、readiness 和 cleanup。
++- 根 `make e2e` 先运行全部 canonical 真实 flow，精确清理后通过 `e2e-geo.sh` 依次运行上述三个独立 GEO 阶段，再运行 canonical fixture-based 页面 suite；任一阶段失败时根 target 非零。
++- 关闭开关阶段通过真实 Application Service 预先创建/排队 PENDING，然后启动关闭配置的新 API/Worker，并直接观察 PG 安全终态与该 Run 的 fake count=0。测试控制可重复真实 Celery 稳定 ID，不能改 Run 状态、伪造回答或业务成功；diagnostic UUID 与业务 UUID 分开计数。
+ - Playwright `webServer` 必须执行 production build 后通过 `vite preview` 服务当前 artifact，不使用 Vite dev server。真实栈 external base URL 模式复用 orchestration 已启动的 4174 preview，不得再启动第二个 `webServer`。
+ - 真实栈 spec 只允许测试 API 登录、读取最终投影和前端尚无页面的最小前置配置；已有页面覆盖的业务 mutation 必须通过 UI，禁止 `page.route`、`route.fulfill` 或固定成功状态。既有专项 flow 为建立独立读取或后续状态前置所需的 API mutation不得扩展为第二套业务编排。
+ - Playwright config 在 `PARTSIGNAL_E2E_REAL_STACK=1` 时统一关闭 trace；普通 fixture suite 继续 `retain-on-failure`，不得让 credential 进入失败产物。
+--- a/Makefile
++++ b/Makefile
+@@ -49,7 +49,8 @@
+ 	$(COMPOSE) run --rm backend-test
+ 
+ e2e:
+-	deploy/scripts/e2e-local.sh
++	PARTSIGNAL_E2E_GEO_MODE= PARTSIGNAL_E2E_SPEC= deploy/scripts/e2e-local.sh
++	PARTSIGNAL_E2E_SPEC= deploy/scripts/e2e-geo.sh
+ 	npm --prefix frontend run e2e
+ 
+ build: build-frontend
+--- a/backend/tests/geo_e2e_environment.py
++++ b/backend/tests/geo_e2e_environment.py
+@@ -0,0 +1,82 @@
++"""GEO-408 测试工厂的启动边界；校验成功前不得装配任何放宽。"""
++
++from __future__ import annotations
++
++import os
++import re
++from collections.abc import Mapping
++from dataclasses import dataclass
++from urllib.parse import urlsplit
++
++import psycopg
++from redis import Redis
++
++PROVIDER_URL = "http://127.0.0.1:19012"
++PROVIDER_API_URL = f"{PROVIDER_URL}/v1"
++MODES = {
++    "enabled": (True, True),
++    "api-disabled": (True, False),
++    "monitoring-disabled": (False, False),
++}
++DATABASE_PATTERN = re.compile(r"partsignal_e2e_[0-9]{8}_[0-9a-f]{32}", re.ASCII)
++TOKEN_PATTERN = re.compile(r"[0-9a-f]{32}", re.ASCII)
++
++
++@dataclass(frozen=True, repr=False)
++class OwnedEnvironment:
++    database_url: str
++    database_name: str
++    owner_token: str
++    redis_url: str
++    mode: str
++
++
++def environment_values(values: Mapping[str, str]) -> OwnedEnvironment:
++    """环境必须显式提供；错误不回显连接值、凭据或 owner token。"""
++    if values.get("APP_ENV") != "test" or values.get("AI_ALLOW_LOCAL_HTTP") != "true":
++        raise ValueError("GEO E2E 工厂仅允许显式 test 与本机 HTTP 配置")
++    if values.get("PARTSIGNAL_E2E_GEO_PROVIDER_URL") != PROVIDER_URL:
++        raise ValueError("GEO E2E provider 必须使用精确回环地址")
++    mode = values.get("PARTSIGNAL_E2E_GEO_MODE", "")
++    if mode not in MODES:
++        raise ValueError("GEO E2E 模式无效")
++    expected = MODES[mode]
++    actual = tuple(
++        values.get(key) for key in ("GEO_MONITORING_ENABLED", "GEO_API_COLLECTION_ENABLED")
++    )
++    if actual != tuple(str(flag).lower() for flag in expected):
++        raise ValueError("GEO E2E 模式与功能开关不一致")
++    database_url = values.get("DATABASE_URL", "")
++    parsed = urlsplit(database_url)
++    database_name = parsed.path.removeprefix("/")
++    if (
++        parsed.scheme not in {"postgresql", "postgresql+psycopg"}
++        or not DATABASE_PATTERN.fullmatch(database_name)
++        or parsed.fragment
++    ):
++        raise ValueError("GEO E2E 必须使用本轮随机 PostgreSQL 数据库")
++    token = values.get("PARTSIGNAL_E2E_DATABASE_OWNER_TOKEN", "")
++    if not TOKEN_PATTERN.fullmatch(token):
++        raise ValueError("GEO E2E 数据库 owner token 无效")
++    redis_url = values.get("REDIS_URL", "")
++    client = Redis.from_url(redis_url)
++    try:
++        if int(client.connection_pool.connection_kwargs.get("db", 0)) == 0:
++            raise ValueError("GEO E2E Redis 必须使用非 0 logical DB")
++    finally:
++        client.close()
++    return OwnedEnvironment(database_url, database_name, token, redis_url, mode)
++
++
++def validate_owned_environment() -> OwnedEnvironment:
++    """以数据库实际名称和 comment 裁决所有权，不把命名规则当成删除/放宽权。"""
++    environment = environment_values(os.environ)
++    connection_url = environment.database_url.replace("postgresql+psycopg://", "postgresql://", 1)
++    with psycopg.connect(connection_url, connect_timeout=5) as connection:
++        row = connection.execute(
++            "SELECT current_database(), shobj_description(oid, 'pg_database') "
++            "FROM pg_database WHERE datname = current_database()"
++        ).fetchone()
++    if row != (environment.database_name, f"partsignal-e2e-owner:{environment.owner_token}"):
++        raise ValueError("GEO E2E 数据库实际归属不匹配，拒绝装配")
++    return environment
+--- a/backend/tests/geo_e2e_fixture.py
++++ b/backend/tests/geo_e2e_fixture.py
+@@ -0,0 +1,212 @@
++"""关闭开关验收的独立前置图；配置为虚构 fixture，Run 仍由应用服务创建并排队。"""
++
++from __future__ import annotations
++
++import json
++import os
++from base64 import b64decode
++from datetime import UTC, datetime
++from pathlib import Path
++from uuid import uuid4
++
++from tests.geo_e2e_runtime import assemble
++
++
++def seed_closed_run() -> dict[str, object]:
++    assemble()
++    from sqlalchemy import select
++
++    import app.models  # noqa: F401
++    from app.config import settings
++    from app.db import SessionLocal
++    from app.models.ai_generation import AIChannel, AIModel
++    from app.models.configuration import QueryTopic
++    from app.models.geo_catalog import GeoSubject
++    from app.models.geo_prompt_variants import GeoPromptVariant
++    from app.models.geo_runs import GeoObservationRun
++    from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
++    from app.models.identity import User
++    from app.schemas.common import RevisionRequest
++    from app.schemas.geo_batch_creation import GeoAdHocBatchCreate
++    from app.services import ai_configuration, geo_batches, geo_profile_tests, geo_surface_commands
++    from app.services.credentials import CredentialCipher
++    from tests.geo_e2e_environment import PROVIDER_API_URL
++
++    identity = uuid4()
++    prompt_text = f"GEO408 SUCCESS {identity}"
++    with SessionLocal() as db:
++        # 单独 fixture actor，不修改 UI 登录账号或它的首次改密事实。
++        actor = User(
++            username=f"geo408-fixture-{identity.hex}",
++            display_name="GEO408 虚构前置管理员",
++            password_hash="unused-fixture-account",
++            account_type="ADMIN",
++            is_active=True,
++            must_change_password=False,
++            revision=0,
++        )
++        db.add(actor)
++        db.flush()
++        channel_id = uuid4()
++        channel = AIChannel(
++            id=channel_id,
++            name="GEO408 虚构前置渠道",
++            description="独占测试库回环 fixture",
++            protocol_type="openai-compatible-chat-completions",
++            provider_brand="CUSTOM",
++            base_url=PROVIDER_API_URL,
++            timeout_seconds=10,
++            is_enabled=False,
++            revision=0,
++            api_key_ciphertext=CredentialCipher(settings.ai_credential_encryption_key).encrypt(
++                "geo408-fictional-fixture-credential",
++                associated_data=f"ai_channel:{channel_id}:api_key",
++            ),
++            api_key_updated_at=datetime.now(UTC),
++            created_by=actor.id,
++        )
++        db.add(channel)
++        db.flush()
++        model = AIModel(
++            channel_id=channel.id,
++            display_name="GEO408 虚构前置模型",
++            model_id="geo-fixture-model",
++            request_parameters={},
++            is_enabled=False,
++            test_status="UNTESTED",
++            revision=0,
++            created_by=actor.id,
++        )
++        topic = QueryTopic(canonical_question=prompt_text, intent_type="REPLACEMENT", variants=[])
++        subject = GeoSubject(
++            subject_type="OWN_BRAND",
++            canonical_name=f"GEO408 {identity}",
++            normalized_name=f"geo408 {identity}",
++            display_name="GEO408 虚构品牌",
++            is_active=True,
++            created_by=actor.id,
++        )
++        surface = GeoEngineSurface(
++            name="GEO408 虚构前置观测面",
++            slug=f"geo408-{identity.hex}",
++            surface_kind="MODEL_API",
++            provider_brand="CUSTOM",
++            compliance_status="APPROVED",
++            is_active=True,
++            capabilities={
++                "answer_text": True,
++                "citations": True,
++                "web_search_signal": False,
++                "model_version": True,
++                "usage": True,
++                "cost": True,
++            },
++            created_by=actor.id,
++        )
++        db.add_all([model, topic, subject, surface])
++        db.flush()
++        prompt = GeoPromptVariant(
++            query_topic_id=topic.id,
++            prompt_text=prompt_text,
++            mention_mode="UNBRANDED",
++            language_code="zh-hans",
++            region_code="CN",
++            priority="CORE",
++            created_by=actor.id,
++        )
++        profile = GeoCollectionProfile(
++            engine_surface_id=surface.id,
++            name="GEO408 虚构前置配置",
++            collection_mode="API",
++            adapter_key="openai-compatible-chat",
++            ai_channel_id=channel.id,
++            ai_model_id=model.id,
++            language_code="zh-hans",
++            region_code="CN",
++            login_state="NOT_APPLICABLE",
++            web_search_policy="UNKNOWN",
++            settings_json={},
++            is_active=False,
++            revision=0,
++            created_by=actor.id,
++        )
++        db.add_all([prompt, profile])
++        db.commit()
++        common = {"db": db, "actor": actor, "request_id": f"geo408-fixture-{identity}"}
++        ai_configuration.test_ai_model(
++            **common, model_id=model.id, payload=RevisionRequest(expected_revision=model.revision)
++        )
++        if model.test_status != "PASSED":
++            raise RuntimeError("GEO408 前置模型真实诊断未通过")
++        ai_configuration.set_model_enabled(
++            **common,
++            model_id=model.id,
++            payload=RevisionRequest(expected_revision=model.revision),
++            enabled=True,
++        )
++        ai_configuration.set_channel_enabled(
++            **common,
++            channel_id=channel.id,
++            payload=RevisionRequest(expected_revision=channel.revision),
++            enabled=True,
++        )
++        tested = geo_profile_tests.test_profile(
++            **common, profile_id=profile.id, expected_revision=profile.revision
++        )
++        if tested.summary.last_test_status != "PASSED":
++            raise RuntimeError("GEO408 前置 Profile 真实诊断未通过")
++        geo_surface_commands.set_profile_active(
++            **common,
++            profile_id=profile.id,
++            expected_revision=tested.summary.revision,
++            is_active=True,
++        )
++        configuration = {
++            "name": "GEO408 关闭开关前置批次",
++            "description": "虚构数据，不代表生产外发授权",
++            "subjects": [{"subject_id": str(subject.id), "role": "PRIMARY"}],
++            "prompt_variant_ids": [str(prompt.id)],
++            "collection_profile_ids": [str(profile.id)],
++            "repeat_count": 1,
++        }
++        receipt = geo_batches.create_manual_batch(
++            **common,
++            payload=GeoAdHocBatchCreate(source="AD_HOC", configuration=configuration),
++            idempotency_key=f"geo408-closed-{identity}",
++        )
++        run = db.scalar(
++            select(GeoObservationRun).where(GeoObservationRun.batch_id == receipt.batch_id)
++        )
++        if run is None or run.status != "PENDING" or run.dispatch_attempt_count != 1:
++            raise RuntimeError("GEO408 关闭开关前置 Run 未真实创建并投递")
++        # dispatch 已持久化元数据，Redis 还必须实际含该稳定 Run UUID 消息。
++        from redis import Redis
++
++        with Redis.from_url(settings.redis_url) as broker:
++            messages = [json.loads(message) for message in broker.lrange("celery", 0, -1)]
++        if not any(
++            message.get("headers", {}).get("task") == "partsignal.collect_geo_run"
++            and json.loads(b64decode(message["body"]))[0] == [str(run.id)]
++            for message in messages
++        ):
++            raise RuntimeError("GEO408 关闭开关前置队列缺少真实稳定 Run UUID 消息")
++        return {
++            "run_id": str(run.id),
++            "batch_id": str(receipt.batch_id),
++            "profile_id": str(profile.id),
++            "configuration": configuration,
++        }
++
++
++def main() -> None:
++    destination = Path(os.environ["PARTSIGNAL_E2E_GEO_FIXTURE_FILE"])
++    if not destination.parent.is_dir():
++        raise ValueError("GEO408 fixture 文件必须位于本轮已创建的临时目录")
++    payload = seed_closed_run()
++    with destination.open("x", encoding="utf-8") as output:
++        json.dump(payload, output, ensure_ascii=False)
++        output.write("\n")
++
++
++if __name__ == "__main__":
++    main()
+--- a/backend/tests/geo_e2e_provider.py
++++ b/backend/tests/geo_e2e_provider.py
+@@ -0,0 +1,55 @@
++"""GEO-408 专用回环 provider；复用真实 TCP fake 的故障与逐次计数。"""
++
++from __future__ import annotations
++
++import signal
++import threading
++from contextlib import suppress
++from uuid import UUID
++
++from app.geo_fake_server import FakeMode, FakeScenario, GeoFakeServer, _Handler
++from tests.geo_e2e_environment import validate_owned_environment
++
++
++class GeoE2EHandler(_Handler):
++    def do_GET(self) -> None:
++        if self.path == "/v1/models":
++            self._json(
++                200,
++                {
++                    "object": "list",
++                    "data": [{"id": "geo-fixture-model", "object": "model", "owned_by": "GEO408"}],
++                },
++            )
++            return
++        super().do_GET()
++
++    def _scenario(self, attempt_id: UUID, scenario: FakeScenario, noise: str) -> None:
++        # 父 handler 已真实追加 POST；仅 Collector 成功场景延迟，诊断默认不延迟。
++        if scenario.mode == FakeMode.CITATIONS:
++            self.server.state.stopping.wait(3)
++        super()._scenario(attempt_id, scenario, noise)
++
++
++def main() -> None:
++    validate_owned_environment()
++    server = GeoFakeServer(19012)
++    server.RequestHandlerClass = GeoE2EHandler
++
++    def stop(signum: int, frame: object) -> None:
++        server.state.stopping.set()
++        # shutdown 必须在 serve_forever 所在线程之外调用。
++        threading.Thread(target=server.shutdown).start()
++
++    signal.signal(signal.SIGTERM, stop)
++    signal.signal(signal.SIGINT, stop)
++    try:
++        print("GEO E2E provider listening on http://127.0.0.1:19012", flush=True)
++        with suppress(KeyboardInterrupt):
++            server.serve_forever(poll_interval=0.1)
++    finally:
++        server.server_close()
++
++
++if __name__ == "__main__":
++    main()
+--- a/backend/tests/geo_e2e_runtime.py
++++ b/backend/tests/geo_e2e_runtime.py
+@@ -0,0 +1,353 @@
++"""隔离 test 进程入口；生产 API/Worker、Collector 与事务语义保持原样。"""
++
++from __future__ import annotations
++
++import importlib
++import re
++import sys
++from dataclasses import replace
++from decimal import Decimal
++from typing import Any
++from uuid import UUID, uuid4
++
++from tests.geo_e2e_environment import (
++    MODES,
++    PROVIDER_API_URL,
++    PROVIDER_URL,
++    validate_owned_environment,
++)
++
++PROMPT_PATTERN = re.compile(
++    r"GEO408 (SUCCESS|RATE_LIMIT|UNKNOWN|INTERNAL|BUDGET) "
++    r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})",
++    re.ASCII,
++)
++_assembled = False
++_entries: dict[str, Any] = {}
++
++
++def scenario_name(prompt: str) -> str:
++    match = PROMPT_PATTERN.fullmatch(prompt)
++    if match is None or str(UUID(match[2])) != match[2]:
++        raise ValueError("GEO E2E 仅允许闭合的虚构 GEO408 prompt")
++    return match[1]
++
++
++def fictional_input(snapshot: dict[str, Any]) -> dict[str, Any]:
++    """仅虚构且无产品绑定的快照可成为 PUBLIC；INTERNAL 场景继续测试生产拒绝。"""
++    name = scenario_name(snapshot["prompt"]["prompt_text"])
++    subjects = snapshot["subjects"]
++    if not subjects or any(
++        item["product_id"] is not None or not item["canonical_name"].startswith("GEO408 ")
++        for item in subjects
++    ):
++        raise ValueError("GEO E2E PUBLIC 输入必须为无产品绑定的虚构监测身份")
++    return {**snapshot, "data_classification": "INTERNAL" if name == "INTERNAL" else "PUBLIC"}
++
++
++def scenario_payload(prompt: str, attempt_no: int) -> dict[str, Any]:
++    if type(attempt_no) is not int or attempt_no < 1:
++        raise ValueError("GEO E2E 必须读取真实 attempt_no")
++    name = scenario_name(prompt)
++    mode = "citations"
++    if attempt_no == 1 and name == "RATE_LIMIT":
++        mode = "429"
++    elif attempt_no == 1 and name == "UNKNOWN":
++        mode = "disconnect"
++    return {
++        "mode": mode,
++        "answer_text": "GEO408 仅供测试的虚构回答；不得用于真实选型。",
++        "partial_usage": True,
++        "reported_cost": True,
++        "web_search_observed": None,
++    }
++
++
++def require_provider_url(value: str) -> None:
++    if value != PROVIDER_API_URL:
++        raise ValueError("GEO E2E 请求只能发送至精确回环 provider API")
++
++
++def assemble() -> None:
++    """只在独立工厂进程中装配一次；先验证，后批准，最后导入业务调用者。"""
++    global _assembled
++    if _assembled:
++        return
++    environment = validate_owned_environment()
++    # 工厂必须先于消费者导入，保证默认参数与 from-import 都读取同一个测试 registry。
++    if any(name.startswith("app.services.") for name in sys.modules) or any(
++        name in sys.modules
++        for name in ("app.main", "app.worker", "app.collectors.openai_compatible")
++    ):
++        raise RuntimeError("GEO E2E 必须从独立工厂入口启动，禁止污染已装配业务进程")
++    from app.collectors import registry
++    from app.config import settings
++
++    if (
++        settings.database_url != environment.database_url
++        or settings.redis_url != environment.redis_url
++        or settings.environment != "test"
++        or not settings.ai_allow_local_http
++        or (settings.geo_monitoring_enabled, settings.geo_api_collection_enabled)
++        != MODES[environment.mode]
++        or settings.geo_browser_collection_enabled
++        or settings.geo_opportunity_evaluation_enabled
++    ):
++        raise ValueError("GEO E2E 当前 Settings 与已验证环境不一致")
++    if settings.geo_daily_budget_limit is not None:
++        raise ValueError("GEO E2E 不允许继承全局日预算；预算场景使用显式批次预算")
++    registry.collector_registry = registry.CollectorRegistry(
++        [
++            replace(registry.collector_registry.resolve("openai-compatible-chat"), approved=True),
++            registry.collector_registry.resolve("manual"),
++        ]
++    )
++    _install_diagnostics()
++    _install_batch_inputs()
++    _install_collector()
++    _assembled = True
++
++
++def _loopback_transport(attempt_id: UUID | None = None) -> Any:
++    from app.services.pinned_http import PinnedHTTPTransport
++
++    class LoopbackTransport(PinnedHTTPTransport):
++        def request(self, **arguments: Any) -> Any:
++            require_provider_url(arguments["base_url"])
++            if arguments["method"] == "POST":
++                if attempt_id is None:
++                    raise ValueError("GEO E2E POST 必须有独立 attempt UUID")
++                headers = {
++                    key: value
++                    for key, value in arguments["headers"].items()
++                    if key.lower() != "x-geo-attempt-id"
++                }
++                arguments["headers"] = {**headers, "X-GEO-Attempt-ID": str(attempt_id)}
++            return super().request(**arguments)
++
++    return LoopbackTransport(allow_local_http=True)
++
++
++def _install_diagnostics() -> None:
++    from app.services import openai_client
++
++    original_client = openai_client.OpenAICompatibleClient
++
++    class DiagnosticClient(original_client):
++        def test_connection(self, **arguments: Any) -> str:
++            # Profile reservation 指定其真实诊断 ID；模型诊断另生成 UUID。
++            headers = {
++                key: value
++                for key, value in arguments["headers"].items()
++                if key.lower() != "x-geo-attempt-id"
++            }
++            attempt = arguments.pop("_geo_e2e_attempt_id", None) or uuid4()
++            self._transport = _loopback_transport(attempt)
++            arguments["headers"] = headers
++            return super().test_connection(**arguments)
++
++        def discover_models(self, **arguments: Any) -> list[str]:
++            self._transport = _loopback_transport()
++            return super().discover_models(**arguments)
++
++    openai_client.OpenAICompatibleClient = DiagnosticClient
++    from app.services import geo_profile_tests
++
++    reserve = geo_profile_tests._reserve
++
++    def reserve_diagnostic(*arguments: Any, **keywords: Any) -> Any:
++        reservation = reserve(*arguments, **keywords)
++        values = dict(reservation.arguments)
++        values["_geo_e2e_attempt_id"] = reservation.attempt_id
++        return replace(reservation, arguments=values)
++
++    geo_profile_tests._reserve = reserve_diagnostic
++
++
++def _install_batch_inputs() -> None:
++    from app.services.geo_batch_snapshots import BatchInputs
++
++    original_input = BatchInputs.input_for
++
++    def input_for(self: Any, prompt_id: UUID, profile_id: UUID) -> dict[str, Any]:
++        return fictional_input(original_input(self, prompt_id, profile_id))
++
++    BatchInputs.input_for = input_for
++
++
++def _install_collector() -> None:
++    import httpx
++
++    from app.collectors.contracts import CollectionEstimate, Money
++    from app.models.geo_runs import GeoObservationRun
++    from app.services import geo_collection_execution, geo_runs
++
++    production_build = geo_collection_execution.build_collector
++
++    class ControlledCollector:
++        def __init__(self, collector: Any, attempt_no: int) -> None:
++            self.collector = collector
++            self.attempt_no = attempt_no
++
++        @property
++        def registration(self) -> Any:
++            return self.collector.registration
++
++        def validate_profile(self, profile: Any) -> Any:
++            return self.collector.validate_profile(profile)
++
++        def estimate(self, request: Any) -> Any:
++            if scenario_name(request.prompt_text) == "BUDGET":
++                return CollectionEstimate(cost=Money(amount=Decimal("0.001200"), currency="USD"))
++            return self.collector.estimate(request)
++
++        def collect(self, request: Any, *, before_send: Any) -> Any:
++            payload = scenario_payload(request.prompt_text, self.attempt_no)
++            # 控制协议只有闭合 fixture 参数；先配置，再执行真实 Collector 的一次发送。
++            with httpx.Client(trust_env=False, timeout=5, follow_redirects=False) as client:
++                response = client.put(
++                    f"{PROVIDER_URL}/__geo__/scenarios/{request.run_id}", json=payload
++                )
++                response.raise_for_status()
++            return self.collector.collect(request, before_send=before_send)
++
++    def build_collector(db: Any, request: Any) -> Any:
++        from app.models.ai_generation import AIChannel
++
++        channel = db.get(AIChannel, request.profile.ai_channel_id, populate_existing=True)
++        if channel is None:
++            raise ValueError("GEO E2E 渠道不存在")
++        require_provider_url(channel.base_url)
++        scenario_name(request.prompt_text)
++        run = db.get(GeoObservationRun, request.run_id, populate_existing=True)
++        if run is None:
++            raise ValueError("GEO E2E Run 不存在")
++        collector = production_build(db, request)
++        # 只替换实例的传输装配；底层仍是生产 pinned transport 的 DNS/peer/发送实现。
++        collector._transport = _loopback_transport(request.run_id)
++        return ControlledCollector(collector, run.attempt_no)
++
++    geo_collection_execution.build_collector = build_collector
++    geo_runs.build_collector = build_collector
++
++
++def __getattr__(name: str) -> Any:
++    """Uvicorn/Celery 获取实际实例时才校验，普通单元导入不放宽生产状态。"""
++    if name not in {"app", "celery_app"}:
++        raise AttributeError(name)
++    assemble()
++    if name not in _entries:
++        module = importlib.import_module("app.main" if name == "app" else "app.worker")
++        _entries[name] = getattr(module, name)
++        if name == "celery_app":
++            _install_message_receipts()
++    return _entries[name]
++
++
++def message_receipts() -> Any:
++    import os
++    from pathlib import Path
++
++    directory = Path(os.environ["PARTSIGNAL_E2E_GEO_MESSAGE_RECEIPTS"]).resolve()
++    if (
++        not directory.is_dir()
++        or directory.name != "geo-message-receipts"
++        or not directory.parent.name.startswith("partsignal-e2e-storage.")
++    ):
++        raise ValueError("GEO E2E 消息回执必须位于本轮独占临时目录")
++    return directory
++
++
++def _install_message_receipts() -> None:
++    import json
++    import os
++
++    from celery.signals import task_postrun
++
++    directory = message_receipts()
++
++    def completed(sender: Any, task_id: str, args: Any, state: str, **keywords: Any) -> None:
++        if sender.name != "partsignal.collect_geo_run":
++            return
++        identity, run_id = UUID(task_id), UUID(args[0])
++        path = directory / str(identity)
++        temporary = directory / f"{identity}.tmp"
++        with temporary.open("x", encoding="utf-8") as output:
++            json.dump({"run_id": str(run_id), "state": state}, output)
++        os.replace(temporary, path)
++
++    # test-only 完成事实解决 BRPOP→unacked 空窗；不是业务状态或第二套执行结果。
++    task_postrun.connect(completed, weak=False)
++
++
++def duplicate(run_identity: str) -> None:
++    """真实投递两条相同稳定 ID 消息，并以 broker late-ack 状态证明它们已消费。"""
++    import json
++    import time
++
++    from redis import Redis
++    from sqlalchemy import select
++
++    run_id = UUID(run_identity)
++    if str(run_id) != run_identity:
++        raise ValueError("GEO E2E duplicate 要求规范 Run UUID")
++    assemble()
++    from app.config import settings
++    from app.db import SessionLocal
++    from app.models.ai_generation import AIChannel
++    from app.models.geo_runs import GeoObservationRun
++    from app.worker import collect_geo_run
++
++    with SessionLocal() as db:
++        run = db.get(GeoObservationRun, run_id)
++        if run is None or run.status != "COLLECTED":
++            raise ValueError("GEO E2E duplicate 只允许已采集的真实虚构 Run")
++        if fictional_input(run.input_snapshot) != run.input_snapshot:
++            raise ValueError("GEO E2E duplicate 冻结分类不符合虚构输入合同")
++        channel = db.scalar(
++            select(AIChannel).where(
++                AIChannel.id == UUID(run.input_snapshot["profile"]["ai_channel_id"])
++            )
++        )
++        if channel is None:
++            raise ValueError("GEO E2E duplicate 渠道不存在")
++        require_provider_url(channel.base_url)
++    task_ids = {collect_geo_run.delay(run_identity).id for _ in range(2)}
++    directory = message_receipts()
++    deadline = time.monotonic() + 30
++    with Redis.from_url(settings.redis_url) as broker:
++        while True:
++            with broker.pipeline() as pipeline:
++                queued_raw, unacked_raw = (
++                    pipeline.lrange("celery", 0, -1).hvals("unacked").execute()
++                )
++            queued = [json.loads(item) for item in queued_raw]
++            unacked = [json.loads(item)[0] for item in unacked_raw]
++            outstanding = {item.get("headers", {}).get("id") for item in [*queued, *unacked]}
++            receipts = []
++            for identity in task_ids:
++                path = directory / str(UUID(identity))
++                if path.is_file():
++                    receipts.append(json.loads(path.read_text(encoding="utf-8")))
++            if any(item != {"run_id": run_identity, "state": "SUCCESS"} for item in receipts):
++                raise RuntimeError("GEO E2E duplicate Worker 回执失败或身份不匹配")
++            if len(receipts) == 2 and not (task_ids & outstanding):
++                break
++            if time.monotonic() >= deadline:
++                raise RuntimeError("GEO E2E duplicate 消息未在截止前消费")
++            time.sleep(0.05)
++    print(f"E2E_GEO_DUPLICATE run_id={run_id} status=consumed", flush=True)
++
++
++def main() -> None:
++    import argparse
++
++    parser = argparse.ArgumentParser(description="隔离 GEO E2E 的真实 broker 操作")
++    parser.add_argument("action", choices=("duplicate",))
++    parser.add_argument("run_id")
++    arguments = parser.parse_args()
++    duplicate(arguments.run_id)
++
++
++if __name__ == "__main__":
++    main()
+--- a/backend/tests/unit/test_geo_e2e_runtime.py
++++ b/backend/tests/unit/test_geo_e2e_runtime.py
+@@ -0,0 +1,199 @@
++"""GEO-408 测试装配的隔离拒绝、真实默认边界与闭合场景合同。"""
++
++from __future__ import annotations
++
++import os
++import subprocess
++import sys
++from pathlib import Path
++from unittest.mock import MagicMock
++from uuid import uuid4
++
++import pytest
++
++from tests import geo_e2e_environment as boundary
++from tests.geo_e2e_runtime import (
++    _loopback_transport,
++    fictional_input,
++    require_provider_url,
++    scenario_name,
++    scenario_payload,
++)
++
++
++def values() -> dict[str, str]:
++    return {
++        "APP_ENV": "test",
++        "AI_ALLOW_LOCAL_HTTP": "true",
++        "DATABASE_URL": (
++            f"postgresql+psycopg://test:test@127.0.0.1/partsignal_e2e_20261003_{'a' * 32}"
++        ),
++        "REDIS_URL": "redis://127.0.0.1/14",
++        "PARTSIGNAL_E2E_DATABASE_OWNER_TOKEN": "b" * 32,
++        "PARTSIGNAL_E2E_GEO_MODE": "enabled",
++        "PARTSIGNAL_E2E_GEO_PROVIDER_URL": boundary.PROVIDER_URL,
++        "GEO_MONITORING_ENABLED": "true",
++        "GEO_API_COLLECTION_ENABLED": "true",
++    }
++
++
++@pytest.mark.parametrize(
++    ("key", "value"),
++    [
++        ("APP_ENV", "production"),
++        ("AI_ALLOW_LOCAL_HTTP", "false"),
++        ("PARTSIGNAL_E2E_GEO_PROVIDER_URL", "http://localhost:19012"),
++        ("PARTSIGNAL_E2E_GEO_PROVIDER_URL", "https://example.com"),
++        ("PARTSIGNAL_E2E_GEO_PROVIDER_URL", "http://127.0.0.1:19012/v1"),
++        ("PARTSIGNAL_E2E_GEO_MODE", "other"),
++        ("GEO_API_COLLECTION_ENABLED", "false"),
++        ("DATABASE_URL", "postgresql://127.0.0.1/partsignal"),
++        ("DATABASE_URL", f"postgresql://127.0.0.1/partsignal_e2e_２０２６１００３_{'a' * 32}"),
++        ("PARTSIGNAL_E2E_DATABASE_OWNER_TOKEN", "invalid"),
++        ("REDIS_URL", "redis://127.0.0.1/0"),
++    ],
++)
++def test_unsafe_environment_refused_before_database_access(key: str, value: str) -> None:
++    with pytest.raises(ValueError):
++        boundary.environment_values({**values(), key: value})
++
++
++@pytest.mark.parametrize("marker", [None, "partsignal-e2e-owner:other", ""])
++def test_database_actual_owner_marker_is_required(
++    monkeypatch: pytest.MonkeyPatch, marker: str | None
++) -> None:
++    for key, value in values().items():
++        monkeypatch.setenv(key, value)
++    environment = boundary.environment_values(values())
++    connection = MagicMock()
++    connection.__enter__.return_value.execute.return_value.fetchone.return_value = (
++        environment.database_name,
++        marker,
++    )
++    monkeypatch.setattr(boundary.psycopg, "connect", lambda *args, **kwargs: connection)
++    with pytest.raises(ValueError, match="实际归属"):
++        boundary.validate_owned_environment()
++
++
++def test_correct_database_owner_is_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
++    for key, value in values().items():
++        monkeypatch.setenv(key, value)
++    environment = boundary.environment_values(values())
++    connection = MagicMock()
++    connection.__enter__.return_value.execute.return_value.fetchone.return_value = (
++        environment.database_name,
++        f"partsignal-e2e-owner:{environment.owner_token}",
++    )
++    monkeypatch.setattr(boundary.psycopg, "connect", lambda *args, **kwargs: connection)
++    assert boundary.validate_owned_environment() == environment
++
++
++def test_only_closed_fictional_prompt_and_subject_can_be_public() -> None:
++    snapshot = {
++        "prompt": {"prompt_text": f"GEO408 SUCCESS {uuid4()}"},
++        "subjects": [{"canonical_name": "GEO408 fictional", "product_id": None}],
++        "data_classification": "INTERNAL",
++    }
++    assert fictional_input(snapshot)["data_classification"] == "PUBLIC"
++    assert snapshot["data_classification"] == "INTERNAL"
++    with pytest.raises(ValueError):
++        fictional_input(
++            {**snapshot, "subjects": [{"canonical_name": "Real brand", "product_id": None}]}
++        )
++    with pytest.raises(ValueError):
++        fictional_input(
++            {
++                **snapshot,
++                "subjects": [{"canonical_name": "GEO408 fake", "product_id": str(uuid4())}],
++            }
++        )
++    internal = {**snapshot, "prompt": {"prompt_text": f"GEO408 INTERNAL {uuid4()}"}}
++    assert fictional_input(internal)["data_classification"] == "INTERNAL"
++
++
++@pytest.mark.parametrize(
++    "prompt",
++    [
++        "GEO408 SUCCESS arbitrary",
++        f"GEO408 SUCCESS {uuid4()} extra",
++        f"GEO408 OTHER {uuid4()}",
++        f"GEO408 SUCCESS {str(uuid4()).upper()}",
++    ],
++)
++def test_prompt_does_not_admit_arbitrary_external_input(prompt: str) -> None:
++    with pytest.raises(ValueError):
++        scenario_name(prompt)
++
++
++@pytest.mark.parametrize(("name", "first"), [("RATE_LIMIT", "429"), ("UNKNOWN", "disconnect")])
++def test_failure_scenario_uses_actual_attempt_number(name: str, first: str) -> None:
++    prompt = f"GEO408 {name} {uuid4()}"
++    assert scenario_payload(prompt, 1)["mode"] == first
++    successor = scenario_payload(prompt, 2)
++    assert successor["mode"] == "citations"
++    assert successor["partial_usage"] is True and successor["web_search_observed"] is None
++    with pytest.raises(ValueError):
++        scenario_payload(prompt, 0)
++
++
++@pytest.mark.parametrize(
++    "url",
++    [
++        "https://example.com/v1",
++        "http://localhost:19012/v1",
++        "http://127.0.0.1:9001/v1",
++        "http://127.0.0.1:19012/v1/",
++        "http://user:secret@127.0.0.1:19012/v1",
++    ],
++)
++def test_transport_refuses_any_other_destination_before_network(url: str) -> None:
++    with pytest.raises(ValueError):
++        require_provider_url(url)
++    with pytest.raises(ValueError):
++        _loopback_transport(uuid4()).request(method="POST", base_url=url)
++
++
++@pytest.mark.parametrize("mode", list(boundary.MODES))
++def test_fresh_factory_import_assembles_one_registry_for_all_real_callers(
++    mode: str, tmp_path: Path
++) -> None:
++    receipts = tmp_path / "partsignal-e2e-storage.unit" / "geo-message-receipts"
++    receipts.mkdir(parents=True)
++    monitoring, api = boundary.MODES[mode]
++    environment = {
++        **os.environ,
++        **values(),
++        "PYTHONPATH": str(Path(__file__).parents[2]),
++        "PARTSIGNAL_E2E_GEO_MODE": mode,
++        "GEO_MONITORING_ENABLED": str(monitoring).lower(),
++        "GEO_API_COLLECTION_ENABLED": str(api).lower(),
++        "PARTSIGNAL_E2E_GEO_MESSAGE_RECEIPTS": str(receipts),
++    }
++    environment.pop("GEO_DAILY_BUDGET_LIMIT", None)
++    # 此子进程只验证真实模块装配；数据库 owner 的网络边界由上面的拒绝测试独立覆盖。
++    script = """
++import os
++from tests import geo_e2e_runtime as runtime
++from tests.geo_e2e_environment import environment_values
++from app.collectors import registry
++assert not registry.collector_registry.resolve('openai-compatible-chat').approved
++runtime.validate_owned_environment = lambda: environment_values(os.environ)
++app = runtime.app
++celery = runtime.celery_app
++from app.services.geo_plans import RunMatrixBuilder
++from app.services import geo_collection_execution, geo_read_projections
++assert RunMatrixBuilder().registry is registry.collector_registry
++assert geo_read_projections.collector_registry is registry.collector_registry
++assert geo_collection_execution.collector_registry is registry.collector_registry
++assert registry.collector_registry.resolve('openai-compatible-chat').approved
++assert app.title and 'partsignal.collect_geo_run' in celery.tasks
++"""
++    result = subprocess.run(
++        [sys.executable, "-c", script],
++        env=environment,
++        capture_output=True,
++        text=True,
++        timeout=20,
++        check=False,
++    )
++    assert result.returncode == 0, result.stderr
+--- a/deploy/scripts/e2e-environment.py
++++ b/deploy/scripts/e2e-environment.py
+@@ -35,9 +35,22 @@
+         raise RuntimeError(f"E2E Redis DB {database} 存在外部客户端")
+ 
+ 
+-def assert_ports_released(storage_port: int) -> None:
++def service_ports(
++    storage_port: int, geo_provider_port: int | None = None
++) -> tuple[int, ...]:
++    """同一端口目录用于 preflight 与退出释放证明。"""
++    return (
++        *FIXED_PORTS,
++        storage_port,
++        *((geo_provider_port,) if geo_provider_port else ()),
++    )
++
++
++def assert_ports_released(
++    storage_port: int, geo_provider_port: int | None = None
++) -> None:
+     """通过逐一绑定证明本套件固定端口均未被监听。"""
+-    ports = (*FIXED_PORTS, storage_port)
++    ports = service_ports(storage_port, geo_provider_port)
+     if len(set(ports)) != len(ports):
+         raise ValueError("E2E 对象存储端口不得与固定服务端口重复")
+     for port in ports:
+@@ -49,19 +62,23 @@
+                 raise RuntimeError(f"E2E 端口 {port} 已被占用") from error
+ 
+ 
+-def preflight(redis_url: str, storage_port: int) -> None:
++def preflight(
++    redis_url: str, storage_port: int, geo_provider_port: int | None = None
++) -> None:
+     """在创建任何测试资源前确认 Redis 与端口均可独占。"""
+     client, database = redis_client(redis_url)
+     try:
+         assert_exclusive(client, database)
+         if client.dbsize() != 0:
+             raise RuntimeError(f"E2E Redis DB {database} 启动前必须为空")
+-        assert_ports_released(storage_port)
++        assert_ports_released(storage_port, geo_provider_port)
+     finally:
+         client.close()
+ 
+ 
+-def cleanup(redis_url: str, storage_port: int) -> None:
++def cleanup(
++    redis_url: str, storage_port: int, geo_provider_port: int | None = None
++) -> None:
+     """仅删除可证明归属本套件的 Redis 键，并复核端口释放。"""
+     client, database = redis_client(redis_url)
+     try:
+@@ -80,11 +97,11 @@
+             raise RuntimeError(f"E2E Redis DB {database} 清理后不为空")
+     finally:
+         client.close()
+-    assert_ports_released(storage_port)
++    assert_ports_released(storage_port, geo_provider_port)
+     print(f"E2E_CLEANUP redis_db={database} keys={len(keys)} status=deleted")
+     print(
+         "E2E_CLEANUP "
+-        f"ports={','.join(str(port) for port in (*FIXED_PORTS, storage_port))} "
++        f"ports={','.join(str(port) for port in service_ports(storage_port, geo_provider_port))} "
+         "status=released"
+     )
+ 
+@@ -95,11 +112,12 @@
+     parser.add_argument("action", choices=("preflight", "cleanup"))
+     parser.add_argument("--redis-url", required=True)
+     parser.add_argument("--storage-port", type=int, required=True)
++    parser.add_argument("--geo-provider-port", type=int, choices=(19012,))
+     args = parser.parse_args()
+     if args.action == "preflight":
+-        preflight(args.redis_url, args.storage_port)
++        preflight(args.redis_url, args.storage_port, args.geo_provider_port)
+         return
+-    cleanup(args.redis_url, args.storage_port)
++    cleanup(args.redis_url, args.storage_port, args.geo_provider_port)
+ 
+ 
+ if __name__ == "__main__":
+--- a/deploy/scripts/e2e-geo.sh
++++ b/deploy/scripts/e2e-geo.sh
+@@ -0,0 +1,13 @@
++#!/bin/sh
++set -eu
++
++# 每个 phase 复用现有 runner，前一栈精确清理完成后才创建下一随机数据库。
++root=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
++: "${REDIS_URL:?必须设置本地或 CI Redis REDIS_URL}"
++# 本地独占非 0 DB 的归属、空库与并发检查由每个 runner 的统一 preflight 裁决；CI 使用 14。
++for mode in enabled api-disabled monitoring-disabled; do
++  printf '%s\n' "E2E_GEO phase=$mode status=begin"
++  PARTSIGNAL_E2E_GEO_MODE="$mode" \
++    "$root/deploy/scripts/e2e-local.sh" "$@"
++  printf '%s\n' "E2E_GEO phase=$mode status=passed"
++done
+--- a/deploy/scripts/e2e-local.sh
++++ b/deploy/scripts/e2e-local.sh
+@@ -7,20 +7,51 @@
+ : "${PARTSIGNAL_SEED_ENGINEER_PASSWORD:=partsignal-engineer-dev}"
+ : "${PARTSIGNAL_E2E_STORAGE_PORT:=19009}"
+ : "${PARTSIGNAL_E2E_SPEC:=}"
++: "${PARTSIGNAL_E2E_GEO_MODE:=}"
++: "${PARTSIGNAL_E2E_GEO_PROVIDER_URL:=http://127.0.0.1:19012}"
+ 
+ # E2E 明确使用本机协议替身，不继承操作者可能存在的生产 AI 配置。
+ export APP_ENV=test
+-# R1 纵向验收需要人工监测配置资格；自动采集与机会开关始终关闭。
++# canonical R1 纵向验收开启人工监测资格；GEO-408 phase 在下面显式选择 API 开关。
+ export GEO_MONITORING_ENABLED=true
+ export GEO_API_COLLECTION_ENABLED=false
+ export GEO_BROWSER_COLLECTION_ENABLED=false
+ export GEO_OPPORTUNITY_EVALUATION_ENABLED=false
++geo_port_arguments=
++api_entry=app.main:app
++worker_entry=app.worker:celery_app
++case "$PARTSIGNAL_E2E_GEO_MODE" in
++  '') ;;
++  enabled|api-disabled|monitoring-disabled)
++    if test "$PARTSIGNAL_E2E_GEO_PROVIDER_URL" != http://127.0.0.1:19012; then
++      printf '%s\n' 'GEO E2E provider 必须使用精确回环地址' >&2
++      exit 1
++    fi
++    export GEO_MONITORING_ENABLED=true
++    export GEO_API_COLLECTION_ENABLED=true
++    test "$PARTSIGNAL_E2E_GEO_MODE" != api-disabled || export GEO_API_COLLECTION_ENABLED=false
++    if test "$PARTSIGNAL_E2E_GEO_MODE" = monitoring-disabled; then
++      export GEO_MONITORING_ENABLED=false
++      export GEO_API_COLLECTION_ENABLED=false
++    fi
++    geo_port_arguments='--geo-provider-port 19012'
++    api_entry=tests.geo_e2e_runtime:app
++    worker_entry=tests.geo_e2e_runtime:celery_app
++    # 真实 429 冷却后由既有 Beat 扫描恢复未发送新尝试；缩短测试等待，不绕过准入。
++    export GEO_PENDING_REDISPATCH_SECONDS=2
++    export GEO_RECOVERY_SCAN_SECONDS=5
++    : "${PARTSIGNAL_E2E_SPEC:=tests/e2e/geo-api-real-stack.spec.ts}"
++    ;;
++  *) printf '%s\n' 'GEO E2E 模式无效' >&2; exit 1 ;;
++esac
++export PARTSIGNAL_E2E_GEO_MODE PARTSIGNAL_E2E_GEO_PROVIDER_URL
+ export CONTENT_GENERATOR=openai-compatible
+ export AI_ALLOW_LOCAL_HTTP=true
+ export AI_CREDENTIAL_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+ export CORS_ALLOWED_ORIGINS=http://127.0.0.1:4174
+ 
+ root=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
++export PYTHONPATH="$root/backend${PYTHONPATH:+:$PYTHONPATH}"
+ . "$root/deploy/scripts/e2e-run-lifecycle.sh"
+ . "$root/deploy/scripts/e2e-database-lifecycle.sh"
+ source_database_url=$DATABASE_URL
+@@ -43,6 +74,7 @@
+ scheduler_pid=
+ frontend_preview_pid=
+ ai_pid=
++geo_provider_pid=
+ 
+ stop_process() {
+   process_pid=$1
+@@ -55,6 +87,7 @@
+   status=$?
+   trap - EXIT INT TERM
+   stop_process "$frontend_preview_pid"
++  stop_process "$geo_provider_pid"
+   stop_process "$ai_pid"
+   stop_process "$scheduler_pid"
+   stop_process "$worker_pid"
+@@ -62,7 +95,7 @@
+   stop_process "$api_pid"
+   cleanup_status=0
+   if ! "$root/backend/.venv/bin/python" "$root/deploy/scripts/e2e-environment.py" cleanup \
+-    --redis-url "$REDIS_URL" --storage-port "$PARTSIGNAL_E2E_STORAGE_PORT"; then
++    --redis-url "$REDIS_URL" --storage-port "$PARTSIGNAL_E2E_STORAGE_PORT" $geo_port_arguments; then
+     cleanup_status=1
+   fi
+   if test "$e2e_database_cleanup_pending" -eq 1; then
+@@ -97,7 +130,7 @@
+ 
+ cd "$root"
+ backend/.venv/bin/python deploy/scripts/e2e-environment.py preflight \
+-  --redis-url "$REDIS_URL" --storage-port "$PARTSIGNAL_E2E_STORAGE_PORT"
++  --redis-url "$REDIS_URL" --storage-port "$PARTSIGNAL_E2E_STORAGE_PORT" $geo_port_arguments
+ storage_dir=$(mktemp -d "$storage_parent/partsignal-e2e-storage.XXXXXX")
+ trap cleanup EXIT
+ restore_e2e_signal_handlers
+@@ -112,25 +145,51 @@
+   PARTSIGNAL_E2E_SECRET_KEY_FILE="$secret_key_file" \
+     node --experimental-strip-types frontend/tests/e2e/secret-artifact.ts register-seed
+ create_owned_e2e_database
++export PARTSIGNAL_E2E_DATABASE_OWNER_TOKEN="$e2e_database_owner_token"
+ backend/.venv/bin/alembic -c backend/alembic.ini upgrade head
+ VITE_API_BASE_URL=http://127.0.0.1:8000 npm --prefix frontend run build
+ PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
+ PARTSIGNAL_SEED_ENGINEER_PASSWORD=$PARTSIGNAL_SEED_ENGINEER_PASSWORD \
+   backend/.venv/bin/python -m app.cli initialize-accounts
+ 
++if test -n "$PARTSIGNAL_E2E_GEO_MODE"; then
++  # 本 phase 的预算仅由显式 fixture 的批次预算决定，不继承全局日预算。
++  unset GEO_DAILY_BUDGET_LIMIT
++  export GENERATION_EAGER=false
++  backend/.venv/bin/python -m tests.geo_e2e_provider &
++  geo_provider_pid=$!
++  geo_ready_attempt=0
++  until curl --fail --silent "$PARTSIGNAL_E2E_GEO_PROVIDER_URL/health" >/dev/null; do
++    geo_ready_attempt=$((geo_ready_attempt + 1))
++    if test "$geo_ready_attempt" -ge 30; then
++      printf '%s\n' 'GEO E2E provider 未能就绪' >&2
++      exit 1
++    fi
++    sleep 1
++  done
++  export PARTSIGNAL_E2E_GEO_FIXTURE_FILE="$storage_dir/geo-fixture.json"
++  export PARTSIGNAL_E2E_GEO_MESSAGE_RECEIPTS="$storage_dir/geo-message-receipts"
++  mkdir "$PARTSIGNAL_E2E_GEO_MESSAGE_RECEIPTS"
++  if test "$PARTSIGNAL_E2E_GEO_MODE" != enabled; then
++    # 前置创建是独立启用进程；随后 API/Worker 均从关闭配置全新启动。
++    PARTSIGNAL_E2E_GEO_MODE=enabled GEO_MONITORING_ENABLED=true GEO_API_COLLECTION_ENABLED=true \
++      backend/.venv/bin/python -m tests.geo_e2e_fixture
++  fi
++fi
++
+ OBJECT_STORAGE_ENDPOINT="$storage_endpoint" \
+ OBJECT_STORAGE_PUBLIC_ENDPOINT="$storage_endpoint" OBJECT_STORAGE_PATH="$storage_dir" \
+-  backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 &
++  backend/.venv/bin/uvicorn "$api_entry" --host 127.0.0.1 --port 8000 &
+ api_pid=$!
+ OBJECT_STORAGE_PATH="$storage_dir" backend/.venv/bin/uvicorn app.dev_storage:app \
+   --host 127.0.0.1 --port "$PARTSIGNAL_E2E_STORAGE_PORT" --no-access-log &
+ storage_pid=$!
+ backend/.venv/bin/uvicorn app.ai_fake_server:app --host 127.0.0.1 --port 9001 &
+ ai_pid=$!
+-backend/.venv/bin/celery --quiet -A app.worker:celery_app worker \
++backend/.venv/bin/celery --quiet -A "$worker_entry" worker \
+   --loglevel=WARNING --concurrency=1 --pool=solo &
+ worker_pid=$!
+-backend/.venv/bin/celery --quiet -A app.worker:celery_app beat \
++backend/.venv/bin/celery --quiet -A "$worker_entry" beat \
+   --loglevel=WARNING --schedule "$storage_dir/celerybeat" &
+ scheduler_pid=$!
+ (cd "$root/frontend" && exec ./node_modules/.bin/vite preview --host 127.0.0.1 --port 4174 --strictPort) &
+@@ -139,7 +198,9 @@
+ services_ready() {
+   curl --fail --silent http://127.0.0.1:8000/api/health/ready >/dev/null \
+     && curl --fail --silent http://127.0.0.1:9001/v1/models >/dev/null \
+-    && curl --fail --silent http://127.0.0.1:4174 >/dev/null
++    && curl --fail --silent http://127.0.0.1:4174 >/dev/null \
++    && { test -z "$PARTSIGNAL_E2E_GEO_MODE" \
++      || curl --fail --silent "$PARTSIGNAL_E2E_GEO_PROVIDER_URL/v1/models" >/dev/null; }
+ }
+ 
+ attempt=0
+@@ -153,6 +214,11 @@
+ done
+ 
+ run_playwright() {
++  export PARTSIGNAL_E2E_GEO_MODE PARTSIGNAL_E2E_GEO_PROVIDER_URL
++  export PARTSIGNAL_E2E_DATABASE_OWNER_TOKEN
++  if test -n "$PARTSIGNAL_E2E_GEO_MODE"; then
++    export PARTSIGNAL_E2E_GEO_FIXTURE_FILE
++  fi
+   # e2e:raw 只供本脚本使用；本脚本已经持有 post-run scan 与 cleanup，不能作为独立门禁入口。
+   if test -n "$PARTSIGNAL_E2E_SPEC"; then
+     PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
+--- a/docs/geo-monitoring/03-technical/04-frontend-architecture.md
++++ b/docs/geo-monitoring/03-technical/04-frontend-architecture.md
+@@ -190,12 +190,13 @@
+ 
+ ### 6.1 轮询
+ 
+-- PENDING/RUNNING/COLLECTED/ANALYZING：短间隔轮询；
++- 排队/采集中/实际分析执行阶段：可见页面每 5 秒读取；R3 COLLECTED 对应 ANALYSIS_PENDING，没有分析执行器，停止空轮询；
+ - NEEDS_REVIEW/终态：停止自动轮询；
+ - 页面不可见时降低或暂停；
+ - 后台刷新保留上一份成功数据；
+ - 不因刷新重置表单、焦点或滚动；
+-- API 提供 `Retry-After` 时遵循。
++- 读取失败保留成功数据并暂停自动轮询，适用时显式恢复；
++- `Retry-After` 显示服务端事实，不触发自动重发。Batch 使用完整服务端计数决定读取频率，不按当前页计算状态。
+ 
+ ### 6.2 批次进度
+ 
+@@ -363,3 +364,7 @@
+ manual editor 以 generated DTO 和服务端 available_actions 裁决入口。后台读取不替换输入或推进草稿 CAS 基线；409 或资格失败保留输入，显式重载提供最新草稿供比较。写操作不自动重试；不确定提交和批次回执保留原 payload、同一幂等键及主体身份。截图经上传意图、真实字节传输和完成校验才可关联；恢复读取文件 canonical 状态，避免把非幂等 complete/abort 当作可重复命令。
+ 
+ 详情只消费单一 GeoRunDetail，按原文展示 HTML_TEXT，提供原始引用位置、冻结上下文、受控签名证据、尝试链和实际时间线。签名不进入 URL 或浏览器持久存储；访问失败可显式刷新。ANALYSIS/REVIEW/METRICS/OPPORTUNITIES/RETEST 继续显示 NOT_IMPLEMENTED，不将采集成功解释为分析完成。轮询只依据展示 workflow stage，后台暂停，人工等待与终态停止。
++
++## GEO-408 / R3 自动采集页面
++
++详情独立显示 prompt/completion/total tokens、外部调用状态、供应商 HTTP/Retry-After 与实际费用，null 不补零或推算。retry 由服务端 `RETRY` 动作裁决；显式确认绑定 expected_revision，旧 attempt 保留。无幂等键 POST 的未知回执只读取直接后继，不重放；确定拒绝后读取 canonical，再重新确认。命令阻断属于 QueryClient 会话，跨详情关闭/切换/路由卸载保留，仅保存命令身份与阶段。命令继承发起 principal continuation；卸载或导航选择变化后迟到回执不覆盖当前意图。路由和 query key 不新增，详情/列表/完整 Batch 投影在真实成功回执后失效重读。使用与验收边界见 [R3 指南](../04-delivery/08-r3-api-acceptance.md)。
+--- a/docs/geo-monitoring/03-technical/07-testing-and-quality.md
++++ b/docs/geo-monitoring/03-technical/07-testing-and-quality.md
+@@ -515,3 +515,15 @@
+ 此验证只证明同步 Collector/传输边界；不证明未来 Worker 的数据库 SENT、lease、
+ 重复消息、迟到结果或外部平台可用性，也不构成真实平台采集批准。实际命令、结果和
+ 未运行检查见 [GEO-404 实施证据](../../../.trellis/tasks/10-03-geo-404-openai-collector/implement.md)。
++
++### GEO-408：自动采集真实栈纵向验收
++
++根 `make e2e` 纳入独立的 GEO 三阶段入口：正常采集、关闭 API、关闭总开关。
++真实 production preview 操作管理、Profile 诊断、计划和批次 UI，调用已有 API/PG/Celery；
++严格虚构输入、进程内批准/报价及确切 loopback 地址只由 test assembly 提供，生产门禁不变。
++按真实 Run UUID 计数，覆盖轮询、原文/重复引用、独立 usage/null、费用/失败覆盖、429、
++接收后断连、显式后继和旧终态保留，以及分类/预算/两个开关的外发前零调用。
++重复消息通过真实稳定 ID 再投递和 Worker 完成回执验收，不使用 fake 去重或 SQL 改状态。
++所有阶段复用 secret canary 扫描及独占资源精确清理；没有真实供应商普通测试。
++测试装配、安全停止及演示映射见 [R3 验收指南](../04-delivery/08-r3-api-acceptance.md)，
++实际结果、环境和残留限制见 [GEO-408 实施记录](../../../.trellis/tasks/10-03-geo-408-api-acceptance/implement.md)。
+--- a/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
++++ b/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
+@@ -400,3 +400,12 @@
+ 实际报告可能超过估价，预算预留保证准入时已知金额不超额度；后续按真实报告止损，
+ 不能宣称 provider 最终账单硬上限。429/未知发送不自动重发，不人工批量清账本解除预算。
+ 现有安全日志保持固定错误码/ID/类型，不输出 prompt、回答、凭据或供应商错误正文。
++
++### GEO-408 运行中心与 R3 验收
++
++运行中心显示真实 usage、费用、外发状态和安全错误；显式 retry 追加新 attempt，未知命令
++回执先读取尝试链，不盲目重发。开关是进程启动配置，关闭验证必须使用采用新配置的 API/Worker。
++操作步骤、两个关闭阶段的真实待消费零调用证据与 test-only 装配边界集中在
++[R3 API 使用与验收指南](../04-delivery/08-r3-api-acceptance.md)。
++无新环境业务参数、公共合同、数据回填或 Alembic revision；head 仍为 0053。
++本地 fake 验收不授予生产 adapter 批准或 INTERNAL 外发授权，不代表生产发布完成。
+--- a/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
++++ b/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
+@@ -13,8 +13,8 @@
+ | CAP-GEO-02 | 规范问题主题与具体运行变体分离 | QueryTopic/PromptVariant | 问题库 | GEO-201～202 | 唯一性、branded/unbranded、E2E-01 |
+ | CAP-GEO-03 | 管理 AI 观测面、采集模式和环境 | EngineSurface/CollectionProfile | 配置-GEO 平台 | GEO-203～205 | Profile mode、权限、secret |
+ | CAP-GEO-04 | 组合对象、问题、profile、重复、调度和预算 | MonitoringPlan/Preview | 监测计划 | GEO-206～209 | 矩阵金标、状态机、E2E-01 |
+-| CAP-GEO-05 | 批次和运行统一管理 | Batch/Run | 运行中心 | GEO-301～303、306～308 | 并发、状态机、E2E-02 |
+-| CAP-GEO-06 | 保存原始回答、引用、截图和采集环境 | AnswerSnapshot/Citation/FileRecord | 运行详情 | GEO-304～307 | 不可变、文件完整性、XSS |
++| CAP-GEO-05 | 批次和运行统一管理 | Batch/Run | 运行中心 | GEO-301～303、306～308、408 | 并发、状态机、E2E-02、R3 fake 纵向验收 |
++| CAP-GEO-06 | 保存原始回答、引用、截图和采集环境 | AnswerSnapshot/Citation/FileRecord | 运行详情 | GEO-304～307、407～408 | 不可变、文件完整性、XSS、usage/cost/null |
+ | CAP-GEO-07 | 识别自有对象、竞品、推荐和位置 | AnalysisRevision/Mention/Recommendation | 运行详情/洞察 | GEO-501～503、506 | 分析金标 |
+ | CAP-GEO-08 | URL/域名/来源类别分析 | Citation + ownership projection | 引用洞察 | GEO-504、604 | IDNA、共享域名、URL 去重 |
+ | CAP-GEO-09 | 声明提取和事实准确性 | ClaimAssessment/FactVersion | 事实风险 | GEO-505、604 | 参数/替代/事实不足金标 |
+--- a/docs/geo-monitoring/04-delivery/08-r3-api-acceptance.md
++++ b/docs/geo-monitoring/04-delivery/08-r3-api-acceptance.md
+@@ -0,0 +1,102 @@
++# R3 API 自动观测使用与验收边界
++
++GEO-408 完成运行中心的自动采集读取、费用/用量/错误展示、显式新尝试及本地纵向验收。
++交付状态与实际门禁以 [任务清单](./task-manifest.yaml) 和
++[实施记录](../../../.trellis/tasks/10-03-geo-408-api-acceptance/implement.md) 为准。
++本记录不授予真实供应商采集批准或生产发布权。
++
++## 1. 管理员与工程师操作
++
++1. 管理员配置现有 AI 渠道和模型，测试模型并分别启用模型、渠道。凭据只在受保护配置入口提交，不填写到问题或 Profile settings。
++2. 建立 `MODEL_API` 观测面，确认合规和当前采集资格；创建 API Profile，绑定渠道/模型，设置语言、地区、并发与每分钟配额。
++3. 对 Profile 发起一次固定诊断。通过后仍停用，必须单独启用。变更依赖会撤销资格；重新测试和启用后建立新批次，不覆盖旧输入。
++4. 工程师在监测计划选择对象、问题和 Profile，检查服务端预览，在运行中心从计划创建冻结批次。Worker 通过既有队列领取稳定 Run UUID。
++5. 在运行详情查看原始回答、引用位置、冻结输入、实际时间线及尝试链。R3 成功为 `COLLECTED`；分析、复核、业务指标、机会和复测明确未实现。
++
++生产 `openai-compatible-chat` 的 registry 批准仍为 false，工厂输入仍为 `INTERNAL`，
++当前 Collector 不允许非 PUBLIC 数据外发。普通生产配置不能完成第 4 步的外部采集；
++本地验收只对严格虚构数据使用测试进程内批准和 PUBLIC 装配。不得通过改数据库分类、
++放宽网络规则或复制测试装配绕过真实外发审批。
++
++## 2. 页面与费用语义
++
++- 可见页面的排队、采集中和实际分析执行阶段每 5 秒读取一次；后台暂停。R3 `ANALYSIS_PENDING` 已无执行器，停止空轮询。Batch 读取依据服务端完整计数判断是否仍有活动工作，不按当前页计算进度。
++- 读取失败暂停自动轮询，保留上次成功数据，并提供适用的显式恢复入口；权限或资源不存在时按安全退出处理。后台读取不重置表单或焦点。
++- 输入、输出、总 token 三项独立显示。供应商未报告时显示“未报告”，不补零，也不由前两项推算总量。已报告的零保持零。
++- 实际费用保留十进制字符串和币种。未知费用不等于零；完整 Batch summary 包含历史失败尝试的费用覆盖，同 cell 的最新尝试决定状态。
++- 外部调用状态、固定安全错误、HTTP 状态与 `Retry-After` 原值可读。429 冷却由服务端处理，页面不会自动重试发送。未知结果表示无法证明供应商未执行。
++
++## 3. 显式 retry 与不确定回执
++
++只有服务端返回 `RETRY` 动作时，页面才提供“创建新采集尝试”。确认框说明额外调用和费用，
++POST 使用最新 `expected_revision`，追加同一 Batch/cell 的新 UUID 和 attempt_no。
++原尝试、回答、引用、冻结输入与终态保留。已存在后继、权限、资格、配置或预算问题由服务端明确拒绝。
++
++retry API 没有请求幂等键。网络中断、5xx 或非法成功回执不能证明未提交，页面保持结果未知，
++只允许 GET 尝试链寻找直接后继。没有后继仍不能盲目重发；可稍后继续读取。
++pending/unknown 阻断在同一 QueryClient 会话内跨详情关闭、运行切换和路由卸载保留，
++仅保存命令身份与阶段；认证主体 epoch 变化后丢弃旧 continuation。
++确定 409 等错误时先读取 canonical 投影，再由用户重新确认。响应到达前退出详情、
++切换主体或选择其他运行后，旧响应不覆盖新的导航意图。
++
++## 4. 本地验收入口和隔离
++
++先提供本地 PostgreSQL URL 和独占、启动前为空的非 0 Redis logical DB。
++CI E2E 使用 DB 14，后端 integration 使用 DB 15。不得使用共享 Worker 正在消费的库。
++
++```sh
++make e2e
++# 只诊断 GEO-408 三种模式，不替代完整门禁
++deploy/scripts/e2e-geo.sh
++# 仅指定一个模式；其他基础配置与生命周期仍由 runner 创建
++PARTSIGNAL_E2E_GEO_MODE=enabled deploy/scripts/e2e-local.sh
++```
++
++完整 `make e2e` 依次运行既有 canonical 真实栈、GEO 正常/关闭 API/关闭总开关三阶段、
++原有 production artifact 页面 suite。每个真实阶段创建随机独占 PostgreSQL 数据库、
++PostgreSQL owner marker、临时对象存储和 Beat 文件，并清理精确 Celery 键、PID、端口和数据库。
++GEO provider 固定回环 `127.0.0.1:19012`，没有真实平台凭据或请求。
++GEO phase 使用现有 `GEO_PENDING_REDISPATCH_SECONDS=2`、`GEO_RECOVERY_SCAN_SECONDS=5`
++缩短 429 冷却后的测试等待；仍由真实 Beat 补投尚未发送的 PENDING 新尝试，
++不改变生产默认 120/60 秒，也不重发已发送或 UNKNOWN 的旧尝试。
++
++`backend/tests/geo_e2e_*` 只在显式 test 入口装配。启动必须验证测试环境、随机数据库名与
++实际 owner comment、非 0 Redis、确切 fake 地址及虚构输入范围。业务运行使用真实
++OpenAI-compatible Collector、pinned transport、Application Service、PG/Celery 和 production preview。
++fake 控制接口只配置闭合场景、返回实际接收次数与正文 hash，不通过去重伪造 at-most-once。
++Profile/模型诊断使用独立 UUID，业务 Header 使用 Run UUID，retry 使用新 UUID；不更新持久化渠道 Header。
++
++关闭开关阶段先通过既有 Application Service 创建并真实排队 PENDING，随后启动采用关闭配置的
++全新 API/Worker。验收读取 `FAILED/COLLECTOR_DISABLED/NOT_STARTED` 与该 Run 的 provider count=0。
++既有历史仍可读取，新增或 retry 不被允许。不能以隐藏按钮、修改 env 文件或拒绝新建批次代替此证据。
++
++## 5. R3 演示证据映射
++
++| 路线图演示 | 验证边界 |
++|---|---|
++| 创建 API Profile 并测试 | 渠道/模型/观测面/Profile 的真实管理 UI、诊断后仍停用与显式启用 |
++| 计划生成 API Runs、Worker 领取 | UI 创建计划/批次，真实队列稳定 UUID、PG 状态与自动轮询 |
++| provider 返回回答/引用/usage/cost、保存 AnswerSnapshot | 原文、重复引用位置 `[1,3]`、部分 usage/null、实际费用与 immutable GET |
++| 重复消息不重复调用 | 受控测试命令重复投递真实 Celery UUID，provider count 保持 1；既有 at-most-once integration 补充交错覆盖 |
++| 发送后未知结果 | fake 接收后断连，真实 Worker 保存 `FAILED/COLLECTOR_UNKNOWN_OUTCOME/UNKNOWN`，不自动重发 |
++| 显式新 attempt | UI 费用确认、单次 POST、新 UUID、旧终态不变、尝试链及原/新计数各 1 |
++| 预算和分类边界 | 有限预算不足或 INTERNAL 输入在外发前失败，provider count=0 |
++| API/总开关关闭 | 新进程消费已排队任务、NOT_STARTED、安全失败、provider count=0 |
++
++具体执行命令、退出码、截图、失败分类和未运行项只记录在任务实施记录，不能将此映射表当作通过结论。
++
++## 6. 运维与恢复
++
++现有参数、锁序、预算账本、限速与前滚操作以
++[部署与运维](../03-technical/08-deployment-and-operations.md#当前-r3geo-405-运维参数) 为权威。
++开关是进程启动快照；变更后需重启 API、Worker、Scheduler，观察各进程采用一致配置。
++紧急停止新采集时关闭开关并停止 Worker/Beat，保留已经发送的未知事实。
++`SENT/UNKNOWN` 不回退为 PENDING，不批量清空账本、错误或冻结输入。
++
++诊断使用 Run/Batch ID、固定 code、阶段、发送事实与安全 request ID；不得输出 prompt、回答、
++API Key、Cookie/Header、签名 URL 或供应商错误正文。429/未知失败先读取历史，
++再由有权限的操作者决定是否创建新尝试。当前配置已变化时建立新批次。
++
++GEO-408 没有新 Alembic revision 或数据回填，head 仍为 `0053_geo_collection_admission`。
++既有不可变迁移禁止破坏性降级；恢复采用关闭新发送、备份与兼容当前 schema 的前向修复。
++GEO-801 Browser 服务和 GEO-902 dashboard/alerts 不在本次交付。
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -797,7 +797,7 @@
+   phase: R3
+   release: R3
+   title: 完成 API 自动观测 UI 和纵向验收
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-407
+   - GEO-307
+@@ -808,6 +808,9 @@
+   deliverables: 自动 run 状态轮询、费用/usage/错误/重试展示、API E2E 和运维说明。
+   tests: Playwright real stack + fake provider。
+   acceptance: R3 业务演示全部通过，功能开关关闭时无外部调用。
++  task_brief: .trellis/tasks/10-03-geo-408-api-acceptance/prd.md
++  implementation_record: .trellis/tasks/10-03-geo-408-api-acceptance/implement.md
++  review_note: 2026-10-03 自动轮询、独立usage/费用/发送与错误元数据、显式新attempt及会话级未知回执阻断完成。真实API/PG/Celery与回环fake三模式覆盖R3八项演示，关闭API和总开关均由新Worker消费真实PENDING，NOT_STARTED且Run外发计数0。git diff --check、lint/typecheck、1141项前端测试、完整make e2e及make verify均退出0；后端单元3029通过，真实PG集成、构建、部署脚本和Compose配置通过；canonical真实26、GEO三个阶段各1通过、页面498通过/58条件跳过。无根合同、生产后端、安全边界或Alembic变化，既有head0053前滚通过，无本任务回填。两次独立只读复核完成，validated子代理Digest及audit-verify通过，audit_id=20261003T123558Z-geo-408-220c2d2c。生产adapter批准false与INTERNAL限制保持，采集停于COLLECTED/ANALYSIS_PENDING；等待人工接受，未自行done、提交或发布，不实施GEO-801/GEO-902。
+   required_docs:
+   - 01-product/02-geo-core-prd.md
+   - 02-business/02-domain-model.md
+--- a/docs/geo-monitoring/CHANGELOG.md
++++ b/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,12 @@
+ # 文档包变更记录
++
++## GEO-408 / R3 API 自动观测 — 2026-10-03（review）
++
++- 补齐活跃 Run 自动读取、费用/独立 usage/外部调用状态/HTTP 与 Retry-After、安全错误和显式新 attempt。
++- 无幂等键命令的 pending/unknown 阻断属于会话，跨详情关闭/切换保留，未知回执只读尝试链；后台读取由 Query focus 管理恢复。
++- 新增隔离真实 API/PG/Celery + loopback fake provider 三阶段验收与 R3 运维说明，生产批准、分类、安全边界及 Alembic head 不变。
++- 完整 make e2e 与 make verify 均退出0；canonical真实26、GEO三个阶段各1、页面498通过/58条件跳过。两次独立只读复核完成，子代理审计已校验。
++- 实际门禁、失败修复和人工接受状态以 [实施记录](../../.trellis/tasks/10-03-geo-408-api-acceptance/implement.md) 与 task-manifest 为准，不自行标记 done。
+ 
+ ## GEO-308 / R2 — 2026-10-02
+ 
+--- a/docs/geo-monitoring/README.md
++++ b/docs/geo-monitoring/README.md
+@@ -295,4 +295,12 @@
+ batch/global UTC day 预算和 Profile 并发/滚动分钟配额。未知费用不补零，受限预算缺乏明确估价
+ 或存在未结未知发送时阻断；429 持久化并冷却后续采集，同 attempt 不自动重发。
+ 实现与本地验证见 [GEO-407 实施记录](../../.trellis/tasks/10-03-geo-407-cost-budget/implement.md)。
+-GEO-408 自动采集页面与整栈验收、GEO-506 机器分析保持未实现；本任务不代表 R3 发布。
++GEO-408 自动采集页面与整栈验收见下文；GEO-506 机器分析仍未实现，本任务不代表 R3 发布。
++
++GEO-408 / R3 运行中心补齐自动轮询、独立 usage、费用覆盖、发送/错误元数据与显式新尝试。
++真实栈验收使用独占 PG/Redis、真实 API/Worker 和回环 fake provider，并分别启动关闭 API 和
++关闭总开关的进程证明待消费任务零外发。使用、安全停止和测试装配边界见
++[R3 API 指南](./04-delivery/08-r3-api-acceptance.md)；实际门禁与限制见
++[Task Brief](../../.trellis/tasks/10-03-geo-408-api-acceptance/prd.md) 和
++[实施证据](../../.trellis/tasks/10-03-geo-408-api-acceptance/implement.md)。
++状态以任务清单为准；生产 adapter 批准与 INTERNAL 外发限制保持，不涉及 Browser/分析/指标/机会。
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -3,6 +3,7 @@
+ 670367ab19f32e811ec651a5be24a9ca062699f1fec60571c97b055ac7f1fb15  ./01-product/01-product-vision-and-scope.md
+ 2c1262eb7b6e69d6f0e57712944797cf3481090f9fc83bfda831b18e61888cae  ./01-product/02-geo-core-prd.md
+ 7ea6985cdc63749a10c73b801f69349dc2f0ac797b9aa87622723f26b988bcbe  ./01-product/03-information-architecture-and-page-spec.md
++36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+ 3892c8f83318ee460de04960a5162b4d777db06eb731a5999cdee946cd8042e3  ./02-business/01-business-architecture.md
+ 01f7d5793e6c5f475786ce99ff937a6de5f1b18690e7cd6a846e9194a816e150  ./02-business/02-domain-model.md
+ 13a32973b91c40621afcfda35ecdccf6c8ef5b8e6709607aaa0db30c9d2f7d1b  ./02-business/03-workflows-and-state-machines.md
+@@ -10,17 +11,19 @@
+ 90c2a635615b591f0d1a282fb62f289de0fbad030ea2dcb19ce7dd10983b85b2  ./03-technical/01-technical-architecture.md
+ 71ad777c12034ec8d69b0dbfd1457aa1886d24de901c7e4fb3f304f19915812b  ./03-technical/02-data-architecture.md
+ 4701afea855ce1dcbdd83020030f46ded540cd08a1f70a0f8be67dd67830df4a  ./03-technical/03-api-contract-design.md
+-5f8dfd5ce025da9a312e800a4c13e48eb64dee88927e2668c82f81490457bd67  ./03-technical/04-frontend-architecture.md
++76b36ff4bdc28ae906dcd07eafdf91cfae1b016f858d94c6fd6a2d54ae70fb09  ./03-technical/04-frontend-architecture.md
+ e2989605aa7a85605294986c2bee79bb8ea83d0a03e6ca374a160042bfced3e6  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+-6637c4b8232d8d3b18d0f396411341af3a772215e7ab59c9e11c1efbdc372e1a  ./03-technical/07-testing-and-quality.md
+-57914d1772b57d1fdaab424cff0d592618f0c2f91dc23e9b020c536a17f0fb5d  ./03-technical/08-deployment-and-operations.md
++05a60b7b63515c2e685c90da47907f522dfc2a898ebe5129b194703912a1824a  ./03-technical/07-testing-and-quality.md
++803f4e35ce311156cb74a7d728732dc4b315c49d41cc3b2825aff669684468a9  ./03-technical/08-deployment-and-operations.md
+ f8c643e46c1159c51bd2e271e87de1d0e5a0448e2845af01f33bef5e4e1d411b  ./04-delivery/01-implementation-roadmap.md
+ acf0bde87ddfc34ebbc09543c1f2c2c1f496d48f330727b5e943807267eed41c  ./04-delivery/02-work-breakdown-structure.md
+-7a1e4e0513d68d6c5462126076153405b3beecd47551cf0d4b519cf616e7292d  ./04-delivery/03-requirement-traceability-matrix.md
++a8f4ab138e314fafddb7b19b284aff8892293dd55d313e2a26f4ed2bf7b7384a  ./04-delivery/03-requirement-traceability-matrix.md
+ 8991d4c1ec5cc872904aa3b10ffbb2f77ca46a4bfda88589d290f7fd92c2f1fb  ./04-delivery/04-codex-execution-guide.md
+ f600bcdfc2788659654825a020fb2aa0fcbe7acf9827b97eab25aadd7a20ff51  ./04-delivery/05-task-template.md
+ 0ec18f9ce8589f4c8e222fddc6d15853c949ad2b227381b584e2c81c4c4e47b0  ./04-delivery/06-current-geo-baseline.md
++a80ebe00c833b45a53bf82b140a84b9bb1a20a49bb37688cb233ef6d5e818782  ./04-delivery/07-r2-acceptance.md
++c2bb63a4bde8702dc9e2c8dc62867cc2ad99a56c7a9253b7159778a92c29aec3  ./04-delivery/08-r3-api-acceptance.md
+ 3f4521d85e15fdbc45e7c29705e906e9415216f334232ec97ab7515ecd692cb4  ./04-delivery/codex-prompts/ALL_PROMPTS.md
+ a7878ed45c976a5dfd81ddb04f7bdbd829e972019cd996d018a876f4dd4ca815  ./04-delivery/codex-prompts/EXECUTION_ORDER.md
+ 309a28ec2c3d1a2d0964aab459c55fa263241fb4768705530eb6c3cc84b3f8db  ./04-delivery/codex-prompts/R0/GEO-003.md
+@@ -102,14 +105,12 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-6c3e240b82a65bff13ba371f118930b993357fe88842011703885c32d0903c78  ./04-delivery/task-manifest.yaml
++43b8fbcc3ab5a1f6b965ab35e80838159166b872213bffe4d9c19ac8ffcb00ab  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 09d2ba6a3d8f07ca61309d0a9d4a557c30a1d16853d73139e15b43ca6f1303bb  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-1889f9cc1ae9f48f00b3c6bc5711586b866aa889c7b682ed3f68a86a01245608  ./CHANGELOG.md
+-de42270c2db7e2af80646c7ff115e97e921b0a1e4b251a784a79e866348d9143  ./README.md
+-36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+-a80ebe00c833b45a53bf82b140a84b9bb1a20a49bb37688cb233ef6d5e818782  ./04-delivery/07-r2-acceptance.md
++3c9feb8d333af296fc75de2c0e630379097fe9753fb93b4942fd61429a90e691  ./CHANGELOG.md
++a3fce1390048ab562ee709f80dacd3563248f50b8acc4d68f551d204b999aaa8  ./README.md
+--- a/frontend/src/domains/geo-runs/batch-create.tsx
++++ b/frontend/src/domains/geo-runs/batch-create.tsx
+@@ -114,7 +114,7 @@
+         </Button>
+       </header>
+       <p className="text-sm text-text-secondary">
+-        创建时冻结当前计划和全部运行输入。人工模式等待录入；自动采集执行尚未开放，服务端会重新检查资格。
++        创建时冻结当前计划和全部运行输入。人工模式等待录入；API 模式由 Worker 执行，服务端会重新检查开关、批准、预算和当前配置资格。
+       </p>
+       <form
+         className="flex flex-wrap items-end gap-2"
+--- a/frontend/src/domains/geo-runs/run-detail.test.tsx
++++ b/frontend/src/domains/geo-runs/run-detail.test.tsx
+@@ -19,6 +19,19 @@
+     expect(screen.getByText(/评估：NOT_IMPLEMENTED/)).toBeVisible();
+     expect(screen.queryByRole('button', { name: '人工录入' })).not.toBeInTheDocument();
+   });
++  it('usage独立显示零/null和实际费用，429与发送事实可追溯', () => {
++    const value = detail();
++    value.run = { ...value.run, external_call_state: 'COMPLETED', cost_amount: '0', cost_currency: 'USD', prompt_tokens: 0, completion_tokens: 7, total_tokens: null, provider_status: 429, retry_after_seconds: 2 };
++    render(<RunDetail detail={value} onEdit={vi.fn()} onRefreshEvidence={vi.fn()} onSelectAttempt={vi.fn()} />);
++    const field = (label: string) => screen.getByText(label).nextElementSibling?.textContent;
++    expect(field('输入 tokens')).toBe('0');
++    expect(field('输出 tokens')).toBe('7');
++    expect(field('总 tokens')).toBe('未报告');
++    expect(field('供应商 HTTP 状态')).toBe('429');
++    expect(field('Retry-After')).toBe('2 秒');
++    expect(field('外部调用状态')).toContain('COMPLETED');
++    expect(field('耗时 / 费用')).toContain('0 USD');
++  });
+   it('过期截图保留回答与证据元数据，显式刷新访问链接', async () => {
+     const refresh = vi.fn();
+     render(<RunDetail detail={detail()} onEdit={vi.fn()} onRefreshEvidence={refresh} onSelectAttempt={vi.fn()} />);
+--- a/frontend/src/domains/geo-runs/run-detail.tsx
++++ b/frontend/src/domains/geo-runs/run-detail.tsx
+@@ -66,12 +66,14 @@
+   onSelectAttempt,
+   onEdit,
+   onRefreshEvidence,
++  retryControl,
+   blocked = false,
+ }: {
+   detail: Detail;
+   onSelectAttempt: (id: string) => void;
+   onEdit: () => void;
+   onRefreshEvidence: () => void;
++  retryControl?: React.ReactNode;
+   blocked?: boolean;
+ }) {
+   const { run, answer, data_quality: quality } = detail;
+@@ -128,12 +130,20 @@
+           value={input.subjects.map((item) => `${item.display_name} (${item.role})`).join('；')}
+         />
+         <Fact label="来源请求 ID" value={run.provider_request_id ?? '未记录'} />
++        <Fact label="外部调用状态" value={`${externalCallLabels[run.external_call_state]} · ${run.external_call_state}`} />
++        <Fact label="输入 tokens" value={run.prompt_tokens === null ? '未报告' : String(run.prompt_tokens)} />
++        <Fact label="输出 tokens" value={run.completion_tokens === null ? '未报告' : String(run.completion_tokens)} />
++        <Fact label="总 tokens" value={run.total_tokens === null ? '未报告' : String(run.total_tokens)} />
++        <Fact label="供应商 HTTP 状态" value={run.provider_status === null ? '未报告' : String(run.provider_status)} />
++        <Fact label="Retry-After" value={run.retry_after_seconds === null ? '未报告' : `${run.retry_after_seconds} 秒`} />
+         <Fact label="创建 / 采集时间" value={`${timestamp(run.created_at)} / ${timestamp(run.collected_at)}`} />
+         <Fact
+           label="耗时 / 费用"
+           value={`${run.duration_ms === null ? '未知' : `${run.duration_ms} ms`} / ${runCost(run)}`}
+         />
+       </dl>
++      <p className="text-sm text-text-secondary">费用未知不计为零；三项 token 用量独立报告，缺失时不推算。发送后失败不会自动再次调用。</p>
++      {retryControl}
+       <section className="space-y-2">
+         <h3 className="type-section-title">冻结问题全文</h3>
+         <pre className="whitespace-pre-wrap break-words text-sm">{input.prompt.prompt_text}</pre>
+@@ -282,6 +292,9 @@
+     </section>
+   );
+ }
++const externalCallLabels = {
++  NOT_STARTED: '尚未发送', SENT: '已发送', UNKNOWN: '结果未知', COMPLETED: '调用已结束',
++} satisfies Record<components['schemas']['GeoExternalCallState'], string>;
+ const eventLabels = { CREATED: '创建', STARTED: '开始', COLLECTED: '采集完成', FINISHED: '结束' } satisfies Record<
+   components['schemas']['GeoRunTimelineEvent']['event'],
+   string
+--- a/frontend/src/domains/geo-runs/run-retry-command.ts
++++ b/frontend/src/domains/geo-runs/run-retry-command.ts
+@@ -0,0 +1,51 @@
++import type { QueryClient } from '@tanstack/react-query';
++import { capturePrincipalContinuation, type PrincipalContinuation } from '@/app/auth/principal-epoch';
++import type { components } from '@/shared/api/generated/schema';
++
++type RetryCommand = {
++  owner: PrincipalContinuation;
++  target: Pick<components['schemas']['GeoRunDetail']['run'], 'id' | 'batch_id' | 'revision' | 'attempt_no'>;
++  phase: 'pending' | 'unknown' | 'rejected' | 'created';
++  error?: unknown;
++};
++type Journal = { commands: Map<string, RetryCommand>; listeners: Set<() => void> };
++// 无幂等键的命令阻断属于会话，不属于详情组件；关闭详情不能授权重发。
++// 只保留命令回执状态，业务状态仍由 GET 投影裁决；主体 epoch 变化即失效。
++const journals = new WeakMap<QueryClient, Journal>();
++function journal(client: QueryClient) {
++  let value = journals.get(client);
++  if (!value) {
++    value = { commands: new Map(), listeners: new Set() };
++    journals.set(client, value);
++  }
++  return value;
++}
++function readRetryCommand(client: QueryClient, id: string) {
++  const command = journal(client).commands.get(id);
++  return command?.owner.isCurrent() ? command : undefined;
++}
++function subscribeRetryCommands(client: QueryClient, listener: () => void) {
++  const listeners = journal(client).listeners;
++  listeners.add(listener);
++  return () => { listeners.delete(listener); };
++}
++function beginRetryCommand(client: QueryClient, target: RetryCommand['target']) {
++  if (readRetryCommand(client, target.id)) return undefined;
++  const command: RetryCommand = {
++    target: { id: target.id, batch_id: target.batch_id, revision: target.revision, attempt_no: target.attempt_no },
++    owner: capturePrincipalContinuation(client), phase: 'pending',
++  };
++  const value = journal(client);
++  value.commands.set(target.id, command);
++  value.listeners.forEach((listener) => listener());
++  return command;
++}
++function updateRetryCommand(client: QueryClient, id: string, owner: PrincipalContinuation, update?: Pick<RetryCommand, 'phase' | 'error'>) {
++  const command = readRetryCommand(client, id);
++  if (!command || command.owner !== owner || command.phase === 'created') return;
++  const value = journal(client);
++  if (update) value.commands.set(id, { ...command, ...update });
++  else value.commands.delete(id);
++  value.listeners.forEach((listener) => listener());
++}
++export { beginRetryCommand, readRetryCommand, subscribeRetryCommands, updateRetryCommand };
+--- a/frontend/src/domains/geo-runs/run-retry.test.tsx
++++ b/frontend/src/domains/geo-runs/run-retry.test.tsx
+@@ -0,0 +1,111 @@
++import { QueryClientProvider } from '@tanstack/react-query';
++import { act, render, screen, waitFor } from '@testing-library/react';
++import userEvent from '@testing-library/user-event';
++import { afterEach, describe, expect, it, vi } from 'vitest';
++import { createAppQueryClient } from '@/app/query-client';
++import { invalidatePrincipalEpoch } from '@/app/auth/principal-epoch';
++import { api } from '@/shared/api/client';
++import { RunRetry } from './run-retry';
++import { detail, runId, batchId, asOf } from './runs.test-support';
++const nextId = '10000000-0000-4000-8000-000000000003';
++function setup(offered = true) {
++  const value = detail();
++  value.run = { ...value.run, status: 'FAILED', revision: 7, error_stage: 'COLLECTION', available_actions: offered ? ['RETRY'] : [] };
++  const client = createAppQueryClient();
++  const created = vi.fn();
++  const view = render(<QueryClientProvider client={client}><RunRetry blocked={false} csrfToken="csrf" detail={value} onCreated={created} /></QueryClientProvider>);
++  return { ...view, client, created, value };
++}
++async function confirm() {
++  await userEvent.click(screen.getByRole('button', { name: '创建新采集尝试' }));
++  await userEvent.click(screen.getByRole('button', { name: '确认创建新尝试' }));
++}
++function receipt() {
++  const data = { run_id: nextId, batch_id: batchId, previous_attempt_id: runId, attempt_no: 2, created_at: asOf };
++  return { data, response: Response.json(data, { status: 201 }) } as never;
++}
++afterEach(() => vi.restoreAllMocks());
++describe('显式新attempt命令', () => {
++  it('相同FAILED状态没有服务端RETRY时无入口', () => {
++    setup(false);
++    expect(screen.queryByRole('button', { name: '创建新采集尝试' })).not.toBeInTheDocument();
++  });
++  it('先确认影响，单次POST绑定revision并导航稳定新身份', async () => {
++    const post = vi.spyOn(api, 'POST').mockResolvedValue(receipt());
++    const { created } = setup();
++    await userEvent.click(screen.getByRole('button', { name: '创建新采集尝试' }));
++    expect(post).not.toHaveBeenCalled();
++    expect(screen.getByRole('dialog')).toHaveTextContent('外部调用及费用');
++    await userEvent.click(screen.getByRole('button', { name: '确认创建新尝试' }));
++    await waitFor(() => expect(created).toHaveBeenCalledWith(nextId));
++    expect(post).toHaveBeenCalledTimes(1);
++    expect(post).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ body: { expected_revision: 7 } }));
++  });
++  it('网络丢回执只GET尝试链，尚无后继不解除unknown；读到后继可恢复', async () => {
++    const post = vi.spyOn(api, 'POST').mockRejectedValue(new TypeError('网络中断'));
++    const { value, created } = setup();
++    const get = vi.spyOn(api, 'GET').mockImplementation(async () => ({ data: value, response: Response.json(value) }) as never);
++    await confirm();
++    expect(await screen.findByRole('alert')).toHaveTextContent('结果未知');
++    await userEvent.click(screen.getByRole('button', { name: '读取最新尝试链' }));
++    expect(await screen.findByRole('alert')).toHaveTextContent('尚无已确认后继');
++    expect(screen.getByRole('button', { name: '确认创建新尝试' })).toBeDisabled();
++    value.attempts.push({ ...value.attempts[0]!, id: nextId, attempt_no: 2, previous_attempt_id: runId, status: 'PENDING' });
++    await userEvent.click(screen.getByRole('button', { name: '读取最新尝试链' }));
++    await waitFor(() => expect(created).toHaveBeenCalledWith(nextId));
++    expect(post).toHaveBeenCalledTimes(1);
++    expect(get).toHaveBeenCalledTimes(2);
++  });
++  it('409展示请求ID并阻止重放，显式读取新revision后仍需用户确认', async () => {
++    const error = { error: { code: 'REVISION_CONFLICT', message: '修订冲突', request_id: 'geo408-request', details: {} } };
++    const post = vi.spyOn(api, 'POST').mockResolvedValue({ error, response: Response.json(error, { status: 409 }) } as never);
++    const { value } = setup();
++    await confirm();
++    expect(await screen.findByRole('alert')).toHaveTextContent('geo408-request');
++    expect(screen.getByRole('button', { name: '确认创建新尝试' })).toBeDisabled();
++    vi.spyOn(api, 'GET').mockResolvedValue({ data: value, response: Response.json(value) } as never);
++    await userEvent.click(screen.getByRole('button', { name: '读取最新尝试链' }));
++    await waitFor(() => expect(screen.getByRole('button', { name: '确认创建新尝试' })).toBeEnabled());
++    expect(post).toHaveBeenCalledTimes(1);
++  });
++  it.each([
++    ['pending', 'close'], ['pending', 'switch'], ['unknown', 'close'], ['unknown', 'switch'],
++  ])('%s 命令在详情 %s 后仍阻断 POST，只能 GET 收敛', async (phase, boundary) => {
++    let reject!: (reason: Error) => void;
++    const post = vi.spyOn(api, 'POST').mockImplementation(() => new Promise((_resolve, fail) => { reject = fail; }));
++    const { value, client, created, unmount } = setup();
++    const get = vi.spyOn(api, 'GET').mockImplementation(async () => ({ data: value, response: Response.json(value) }) as never);
++    await confirm();
++    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
++    if (phase === 'unknown') await act(async () => reject(new TypeError('网络中断')));
++    unmount();
++    if (boundary === 'switch') {
++      const other = { ...value, run: { ...value.run, id: nextId } };
++      const switched = render(<QueryClientProvider client={client}><RunRetry blocked={false} csrfToken="csrf" detail={other} onCreated={created} /></QueryClientProvider>);
++      expect(screen.getByRole('button', { name: '创建新采集尝试' })).toBeEnabled();
++      switched.unmount();
++    }
++    render(<QueryClientProvider client={client}><RunRetry blocked={false} csrfToken="csrf" detail={value} onCreated={created} /></QueryClientProvider>);
++    await userEvent.click(screen.getByRole('button', { name: '查看新尝试创建结果' }));
++    expect(screen.getByRole('button', { name: phase === 'pending' ? '处理中…' : '确认创建新尝试' })).toBeDisabled();
++    await userEvent.click(screen.getByRole('button', { name: '读取最新尝试链' }));
++    expect(await screen.findByRole('alert')).toHaveTextContent('尚无已确认后继');
++    expect(post).toHaveBeenCalledTimes(1);
++    if (phase === 'pending') await act(async () => reject(new TypeError('网络中断')));
++    value.attempts.push({ ...value.attempts[0]!, id: nextId, attempt_no: 2, previous_attempt_id: runId, status: 'PENDING' });
++    await userEvent.click(screen.getByRole('button', { name: '读取最新尝试链' }));
++    await waitFor(() => expect(created).toHaveBeenCalledWith(nextId));
++    expect(post).toHaveBeenCalledTimes(1);
++    expect(get).toHaveBeenCalledTimes(2);
++  });
++  it.each(['unmount', 'principal'])('迟到回执在%s后不导航', async (boundary) => {
++    let release!: (value: never) => void;
++    const post = vi.spyOn(api, 'POST').mockImplementation(() => new Promise((resolve) => { release = resolve; }));
++    const { client, created, unmount } = setup();
++    await confirm();
++    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
++    if (boundary === 'unmount') unmount(); else invalidatePrincipalEpoch(client);
++    await act(async () => release(receipt()));
++    expect(created).not.toHaveBeenCalled();
++  });
++});
+--- a/frontend/src/domains/geo-runs/run-retry.tsx
++++ b/frontend/src/domains/geo-runs/run-retry.tsx
+@@ -0,0 +1,112 @@
++import { useQueryClient } from '@tanstack/react-query';
++import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
++import { capturePrincipalContinuation, type PrincipalContinuation } from '@/app/auth/principal-epoch';
++import { Button } from '@/design-system/primitives/button';
++import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/design-system/primitives/dialog';
++import type { components } from '@/shared/api/generated/schema';
++import { retryRun, runDetailOptions, runKeys, RunRequestError } from './runs.api';
++import { beginRetryCommand, readRetryCommand, subscribeRetryCommands, updateRetryCommand } from './run-retry-command';
++
++type Detail = components['schemas']['GeoRunDetail'];
++function RunRetry({ detail, csrfToken, blocked, onCreated }: {
++  detail: Detail; csrfToken: string | null; blocked: boolean; onCreated: (id: string) => void;
++}) {
++  const client = useQueryClient();
++  const command = useSyncExternalStore(
++    (listener) => subscribeRetryCommands(client, listener),
++    () => readRetryCommand(client, detail.run.id),
++  );
++  const [open, setOpen] = useState(false);
++  const [selected, setSelected] = useState<Detail['run']>();
++  const [reading, setReading] = useState(false);
++  const [readError, setReadError] = useState<unknown>();
++  const working = useRef(false);
++  const mounted = useRef(true);
++  const focusReturn = useRef<HTMLButtonElement>(null);
++  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
++  const target = command?.target ?? selected;
++  const held = command?.phase;
++  const pending = reading || held === 'pending';
++  const error = readError ?? command?.error;
++  const offered = detail.run.available_actions.includes('RETRY');
++  const canConfirm = Boolean(target && offered && !blocked && !held && target.revision === detail.run.revision);
++  async function created(id: string, continuation: PrincipalContinuation, previousId: string) {
++    // 返回稳定身份后失效读取，不以本地猜测的新状态替换 canonical 投影。
++    continuation.assertCurrent();
++    updateRetryCommand(client, previousId, continuation, { phase: 'created' });
++    await client.cancelQueries({ queryKey: runKeys.root() });
++    if (!continuation.isCurrent()) return;
++    void client.invalidateQueries({ queryKey: runKeys.root(), refetchType: 'active' });
++    if (!mounted.current) return;
++    setOpen(false);
++    onCreated(id);
++  }
++  async function confirm() {
++    if (!target || !canConfirm || working.current || !csrfToken) return;
++    const started = beginRetryCommand(client, target);
++    if (!started) return;
++    const continuation = started.owner;
++    setReadError(undefined);
++    try {
++      await client.cancelQueries({ queryKey: runKeys.detail(target.id) });
++      continuation.assertCurrent();
++      if (!mounted.current) { updateRetryCommand(client, target.id, continuation); return; }
++      const result = await retryRun(target.id, target.revision, csrfToken);
++      if (!continuation.isCurrent()) return;
++      if (result.batch_id !== target.batch_id || result.attempt_no !== target.attempt_no + 1)
++        throw new RunRequestError('新尝试回执与原运行不一致，结果未知，请读取尝试链确认');
++      await created(result.run_id, continuation, target.id);
++    } catch (failure) {
++      updateRetryCommand(client, target.id, continuation, {
++        error: failure,
++        phase: failure instanceof RunRequestError && failure.detail && failure.status && failure.status < 500 ? 'rejected' : 'unknown',
++      });
++    }
++  }
++  async function reload() {
++    if (!target || working.current) return;
++    const continuation = command?.owner ?? capturePrincipalContinuation(client);
++    working.current = true; setReading(true); setReadError(undefined);
++    try {
++      await client.cancelQueries({ queryKey: runKeys.detail(target.id) });
++      continuation.assertCurrent();
++      if (!mounted.current) return;
++      const fresh = await client.fetchQuery({ ...runDetailOptions(target.id), staleTime: 0 });
++      if (!mounted.current || !continuation.isCurrent()) return;
++      const successor = fresh.attempts.find((attempt) => attempt.previous_attempt_id === target.id);
++      if (successor) { await created(successor.id, continuation, target.id); return; }
++      setSelected(fresh.run);
++      const current = readRetryCommand(client, target.id);
++      if (current?.phase === 'unknown' || current?.phase === 'pending') {
++        setReadError(new Error('当前尚无已确认后继；原命令结果仍未知。请稍后再次读取尝试链，不会重发创建请求。'));
++      } else { updateRetryCommand(client, target.id, continuation); }
++    } catch (failure) {
++      if (mounted.current && continuation.isCurrent()) setReadError(failure);
++    } finally {
++      if (mounted.current && continuation.isCurrent()) { working.current = false; setReading(false); }
++    }
++  }
++  if (!offered && !command && !target) return null;
++  return <>
++    {(offered || held === 'unknown' || held === 'pending') && <Button disabled={blocked || reading || held === 'created'} onClick={() => {
++      if (!target || !held) setSelected(detail.run);
++      setOpen(true);
++    }} ref={focusReturn} type="button" variant="outline">{held === 'unknown' || held === 'pending' ? '查看新尝试创建结果' : '创建新采集尝试'}</Button>}
++    <Dialog onOpenChange={(next) => { if (!pending) setOpen(next); }} open={open}>
++      <DialogContent finalFocus={() => focusReturn.current?.isConnected ? focusReturn.current : null} showCloseButton={!pending}>
++        <DialogHeader>
++          <DialogTitle>确认创建新采集尝试</DialogTitle>
++          <DialogDescription>新尝试可能再次产生外部调用及费用。原尝试和证据保留；服务端会重新校验资格、预算和配置。尝试 {target?.attempt_no} · Revision {target?.revision}。</DialogDescription>
++        </DialogHeader>
++        {Boolean(error) && <p className="break-words text-sm text-danger" role="alert">{error instanceof Error ? error.message : '创建失败'}{held === 'unknown' || held === 'pending' ? ' 结果未知，仅允许读取尝试链确认。' : ' 请重新读取运行并再次确认。'}</p>}
++        {!canConfirm && !held && <p className="text-sm">运行正在刷新、已变化或当前没有重试动作，请重新读取。</p>}
++        {(held || !canConfirm) && <Button disabled={reading} onClick={() => void reload()} type="button" variant="outline">读取最新尝试链</Button>}
++        <DialogFooter>
++          <Button disabled={pending} onClick={() => setOpen(false)} type="button" variant="outline">取消</Button>
++          <Button disabled={!canConfirm || pending || !csrfToken} onClick={() => void confirm()} type="button">{pending ? '处理中…' : '确认创建新尝试'}</Button>
++        </DialogFooter>
++      </DialogContent>
++    </Dialog>
++  </>;
++}
++export { RunRetry };
+--- a/frontend/src/domains/geo-runs/runs-page.test.tsx
++++ b/frontend/src/domains/geo-runs/runs-page.test.tsx
+@@ -145,6 +145,24 @@
+     expect(await screen.findByRole('alert')).toHaveTextContent('当前资源不可访问');
+     expect(screen.queryByRole('button', { name: '重试读取' })).not.toBeInTheDocument();
+   });
++  it.each(['filters', 'selection'])('新尝试迟到回执保留%s后的当前URL意图', async (intent) => {
++    const failed = detail();
++    failed.run = { ...failed.run, status: 'FAILED', workflow_stage: 'RETRYABLE_FAILURE', available_actions: ['RETRY'] };
++    vi.spyOn(api, 'GET').mockImplementation(async (path) => response(
++      path === '/api/v1/geo/observation-runs/{run_id}' ? failed : { items: [failed.run], total: 100, page: 1, page_size: 20, as_of: asOf },
++    ));
++    let release!: (value: never) => void;
++    const post = vi.spyOn(api, 'POST').mockImplementation(() => new Promise((resolve) => { release = resolve; }));
++    const { change, updateSearch } = renderPage({ view: 'runs', run_id: runId, q: 'before' });
++    await userEvent.click(await screen.findByRole('button', { name: '创建新采集尝试' }));
++    await userEvent.click(screen.getByRole('button', { name: '确认创建新尝试' }));
++    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
++    updateSearch({ view: 'runs', run_id: intent === 'selection' ? undefined : runId, q: 'after', page: 5 });
++    const id = '10000000-0000-4000-8000-000000000009';
++    await act(async () => release(response({ run_id: id, batch_id: failed.run.batch_id, previous_attempt_id: runId, attempt_no: failed.run.attempt_no + 1, created_at: asOf })));
++    if (intent === 'filters') await waitFor(() => expect(change).toHaveBeenCalledWith({ view: 'runs', run_id: id, q: 'after', page: 5 }, true));
++    else expect(change).not.toHaveBeenCalled();
++  });
+   it('详情不丢 URL 列表筛选，使用单一运行读模型展示证据', async () => {
+     vi.spyOn(api, 'GET').mockImplementation(async (path) =>
+       response(
+--- a/frontend/src/domains/geo-runs/runs-page.tsx
++++ b/frontend/src/domains/geo-runs/runs-page.tsx
+@@ -14,6 +14,7 @@
+ } from './runs.api';
+ import { batchStatusLabels, runSearchSchema, type Batch, type Run, type RunSearch } from './runs.model';
+ import { BatchSummary, RunDetail } from './run-detail';
++import { RunRetry } from './run-retry';
+ import { RunFilters } from './run-filters';
+ import { BatchTable, RunTable } from './run-list';
+ 
+@@ -93,7 +94,7 @@
+           <h1 className="type-page-title" id="runs-title">
+             运行中心
+           </h1>
+-          <p className="text-text-secondary">回答级批次、人工录入与不可变采集证据。</p>
++          <p className="text-text-secondary">回答级批次、API 自动采集、人工录入与不可变采集证据。</p>
+         </div>
+         <Button onClick={() => change({ create: 1, run_id: undefined, edit: undefined })} type="button">
+           创建运行批次
+@@ -109,7 +110,7 @@
+           csrfToken={csrfToken}
+           onClose={() => change({ create: undefined })}
+           onCreated={(id) => {
+-            setMessage('批次已创建，等待人工录入。');
++            setMessage('批次已创建；采集方式与执行状态以服务端投影为准。');
+             onSearchChange(runSearchSchema.parse({ view: 'runs', batch_id: id }), true, true);
+           }}
+         />
+@@ -205,6 +206,17 @@
+               {detail.data && (
+                 <RunDetail
+                   blocked={blocked}
++                  retryControl={<RunRetry
++                    blocked={Boolean(detail.error) || detail.isFetching}
++                    csrfToken={csrfToken}
++                    detail={detail.data}
++                    onCreated={(id) => {
++                      setMessage('已显式创建新尝试，原尝试保留。');
++                      const current = currentNavigation.current;
++                      if (current.search.run_id === detail.data.run.id)
++                        current.onSearchChange(runSearchSchema.parse({ ...current.search, run_id: id, edit: undefined }), true);
++                    }}
++                  />}
+                   detail={detail.data}
+                   key={detail.data.run.id}
+                   onEdit={() => change({ edit: 1 })}
+--- a/frontend/src/domains/geo-runs/runs.api.test.ts
++++ b/frontend/src/domains/geo-runs/runs.api.test.ts
+@@ -1,4 +1,4 @@
+-import { QueryClient } from '@tanstack/react-query';
++import { focusManager, QueryClient, QueryObserver } from '@tanstack/react-query';
+ import { afterEach, describe, expect, it, vi } from 'vitest';
+ import { api } from '@/shared/api/client';
+ import {
+@@ -9,6 +9,7 @@
+   RunRequestError,
+   requestError,
+   runPlanNow,
++  retryRun,
+ } from './runs.api';
+ import type { components } from '@/shared/api/generated/schema';
+ afterEach(() => vi.restoreAllMocks());
+@@ -22,14 +23,62 @@
+   return interval({ state: { data } });
+ }
+ describe('读取频率与请求边界', () => {
+-  it('只轮询服务端活跃工作阶段，停止人工等待、复核和终态；后台停止', () => {
++  it('只轮询服务端活跃工作阶段，后台发送由 Query focus 管理', () => {
+     expect(
+       poll(runListOptions({}), ['MANUAL_ENTRY_REQUIRED', 'COMPLETED', 'REVIEW_REQUIRED', 'HISTORICAL_FAILURE']),
+     ).toBe(false);
+-    expect(poll(runListOptions({}), ['ANALYSIS_PENDING'])).toBe(5000);
++    expect(poll(runListOptions({}), ['ANALYSIS_PENDING'])).toBe(false);
+     expect(poll(runListOptions({}), ['COLLECTION_IN_PROGRESS'])).toBe(5000);
+     vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+-    expect(poll(runListOptions({}), ['QUEUED'])).toBe(false);
++    expect(poll(runListOptions({}), ['QUEUED'])).toBe(5000);
++    expect(runListOptions({}).refetchIntervalInBackground).toBe(false);
++  });
++  it('后台 GET 完成后，fresh 数据返回前台仍按 interval 恢复读取', async () => {
++    vi.useFakeTimers();
++    const client = new QueryClient();
++    client.mount();
++    focusManager.setFocused(false);
++    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
++    let release!: (value: never) => void;
++    const data = { run: { workflow_stage: 'QUEUED' } };
++    const result = { data, response: Response.json(data) } as never;
++    const get = vi.spyOn(api, 'GET').mockResolvedValue(result);
++    get.mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
++    const observer = new QueryObserver(client, { ...runDetailOptions('one'), refetchOnWindowFocus: false });
++    const unsubscribe = observer.subscribe(() => {});
++    try {
++      release(result);
++      await vi.advanceTimersByTimeAsync(0);
++      expect(observer.getCurrentResult().isStale).toBe(false);
++      await vi.advanceTimersByTimeAsync(2000);
++      expect(get).toHaveBeenCalledTimes(1);
++      visibility.mockReturnValue('visible');
++      focusManager.setFocused(true);
++      await vi.advanceTimersByTimeAsync(3000);
++      expect(get).toHaveBeenCalledTimes(2);
++    } finally {
++      unsubscribe(); client.unmount(); client.clear();
++      focusManager.setFocused(undefined);
++      vi.useRealTimers();
++    }
++  });
++  it('轮询失败暂停读取，旧成功数据保留；批次无实际采集工作时停止', () => {
++    const options = runListOptions({});
++    const interval = options.refetchInterval as (query: unknown) => unknown;
++    expect(interval({ state: { error: new Error('offline'), data: { items: [{ workflow_stage: 'QUEUED' }] } } })).toBe(false);
++    const batchInterval = batchDetailOptions('one').refetchInterval as (query: unknown) => unknown;
++    const data = { workflow: { workflow_stage: 'IN_PROGRESS' }, summary: { status_counts: { pending: 0, running: 0, analyzing: 0, collected: 1 } } };
++    expect(batchInterval({ state: { data } })).toBe(false);
++    data.summary.status_counts.running = 1;
++    expect(batchInterval({ state: { data } })).toBe(5000);
++  });
++  it('retry携带revision与CSRF，没有幂等键或自动重放，畸形成功为未知', async () => {
++    const post = vi.spyOn(api, 'POST').mockResolvedValue({ data: { run_id: 'bad' }, response: Response.json({}) } as never);
++    await expect(retryRun('10000000-0000-4000-8000-000000000001', 7, 'csrf')).rejects.toMatchObject({ status: undefined });
++    expect(post).toHaveBeenCalledTimes(1);
++    expect(post).toHaveBeenCalledWith('/api/v1/geo/observation-runs/{run_id}/retry', {
++      body: { expected_revision: 7 }, params: { path: { run_id: '10000000-0000-4000-8000-000000000001' }, header: { 'X-CSRF-Token': 'csrf' } },
++    });
+   });
+   it('列表、完整摘要与详情 query key 相互隔离，选中对象不污染列表 key', () => {
+     expect(runListOptions({ run_id: 'one', edit: 1 }).queryKey).toEqual(runListOptions({}).queryKey);
+--- a/frontend/src/domains/geo-runs/runs.api.ts
++++ b/frontend/src/domains/geo-runs/runs.api.ts
+@@ -33,9 +33,6 @@
+   detail: (id: string) => ['geo', 'runs', 'detail', id] as const,
+   manual: (id: string) => ['geo', 'runs', 'manual', id] as const,
+ };
+-function visibleInterval(value: number | false) {
+-  return typeof document !== 'undefined' && document.visibilityState === 'hidden' ? false : value;
+-}
+ const readDefaults = {
+   retry: false,
+   retryOnMount: false,
+@@ -54,7 +51,7 @@
+       return result.data as components['schemas']['GeoBatchListPage'];
+     },
+     refetchInterval: (query) =>
+-      visibleInterval(query.state.data?.items.some((item) => batchPollInterval(item.workflow_stage)) ? 5000 : false),
++      !query.state.error && query.state.data?.items.some((item) => batchPollInterval(item.workflow_stage, item.summary)) ? 5000 : false,
+   });
+ }
+ function runListOptions(search: RunSearch, enabled = true) {
+@@ -69,7 +66,7 @@
+       return result.data as components['schemas']['GeoRunListPage'];
+     },
+     refetchInterval: (query) =>
+-      visibleInterval(query.state.data?.items.some((item) => runPollInterval(item.workflow_stage)) ? 5000 : false),
++      !query.state.error && query.state.data?.items.some((item) => runPollInterval(item.workflow_stage)) ? 5000 : false,
+   });
+ }
+ function batchDetailOptions(id: string, enabled = true) {
+@@ -86,7 +83,7 @@
+       return result.data as components['schemas']['GeoBatchDetail'];
+     },
+     refetchInterval: (query) =>
+-      visibleInterval(query.state.data ? batchPollInterval(query.state.data.workflow.workflow_stage) : false),
++      !query.state.error && query.state.data ? batchPollInterval(query.state.data.workflow.workflow_stage, query.state.data.summary) : false,
+   });
+ }
+ function runDetailOptions(id: string, enabled = true) {
+@@ -105,7 +102,7 @@
+       return result.data as components['schemas']['GeoRunDetail'];
+     },
+     refetchInterval: (query) =>
+-      visibleInterval(query.state.data ? runPollInterval(query.state.data.run.workflow_stage) : false),
++      !query.state.error && query.state.data ? runPollInterval(query.state.data.run.workflow_stage) : false,
+   });
+ }
+ function manualEntryOptions(id: string, enabled = true) {
+@@ -164,6 +161,23 @@
+     .strict()
+     .safeParse(result.data);
+   if (!receipt.success) throw new RunRequestError('批次创建回执不完整，结果未知，请使用原请求确认');
++  return receipt.data;
++}
++async function retryRun(id: string, revision: number, csrfToken: string | null) {
++  const result = await api.POST('/api/v1/geo/observation-runs/{run_id}/retry', {
++    body: { expected_revision: revision },
++    params: { path: { run_id: id }, header: { 'X-CSRF-Token': csrf(csrfToken) } },
++  });
++  if (!result.data) throw requestError('创建新尝试', result);
++  const receipt = z.object({
++    run_id: canonicalUuidSchema,
++    batch_id: canonicalUuidSchema,
++    previous_attempt_id: canonicalUuidSchema,
++    attempt_no: z.number().int().positive(),
++    created_at: z.iso.datetime({ offset: true }),
++  }).strict().safeParse(result.data);
++  if (!receipt.success || receipt.data.previous_attempt_id !== id || receipt.data.run_id === id)
++    throw new RunRequestError('新尝试回执不完整，结果未知，请读取尝试链确认');
+   return receipt.data;
+ }
+ async function createRunUploadIntent(body: components['schemas']['UploadIntentCreate'], csrfToken: string | null) {
+@@ -232,6 +246,7 @@
+   runKeys,
+   runListOptions,
+   runPlanNow,
++  retryRun,
+   RunRequestError,
+   saveManualDraft,
+   submitManualObservation,
+--- a/frontend/src/domains/geo-runs/runs.model.ts
++++ b/frontend/src/domains/geo-runs/runs.model.ts
+@@ -216,9 +216,10 @@
+   switch (stage) {
+     case 'QUEUED':
+     case 'COLLECTION_IN_PROGRESS':
+-    case 'ANALYSIS_PENDING':
+     case 'ANALYSIS_IN_PROGRESS':
+       return 5000;
++    // R3 尚无分析执行器；已采集结果不持续空轮询，R4接线时更新读取调度。
++    case 'ANALYSIS_PENDING':
+     case 'MANUAL_ENTRY_REQUIRED':
+     case 'REVIEW_REQUIRED':
+     case 'COMPLETED':
+@@ -229,12 +230,14 @@
+       return false;
+   }
+ }
+-function batchPollInterval(stage: Batch['workflow_stage']): number | false {
++function batchPollInterval(stage: Batch['workflow_stage'], summary: Batch['summary']): number | false {
+   switch (stage) {
+     case 'PREPARING':
+     case 'QUEUED':
++      return 5000;
+     case 'IN_PROGRESS':
+-      return 5000;
++      // 完整服务端计数只用于读取频率，不重建Batch状态或当前页汇总。
++      return summary.status_counts.pending || summary.status_counts.running || summary.status_counts.analyzing ? 5000 : false;
+     case 'MANUAL_ENTRY_REQUIRED':
+     case 'COMPLETED':
+     case 'PARTIAL':
+--- a/frontend/tests/e2e/geo-api-real-stack.spec.ts
++++ b/frontend/tests/e2e/geo-api-real-stack.spec.ts
+@@ -0,0 +1,146 @@
++/** GEO-408：production preview → 真实 API/PG/Celery → loopback fake provider。 */
++import { readFile } from 'node:fs/promises';
++import { execFile } from 'node:child_process';
++import { promisify } from 'node:util';
++import { resolve } from 'node:path';
++import { expect, test } from '@playwright/test';
++import type { components } from '../../src/shared/api/generated/schema';
++import { registerCurrentRealStackCookies } from './real-stack-session';
++import { api, batches, body, calls, configuration, createBatch, createPlan, detail, login, runs, uiCommand } from './geo-api-support';
++
++type Schema = components['schemas'];
++const mode = process.env.PARTSIGNAL_E2E_GEO_MODE;
++test.skip(process.env.PARTSIGNAL_E2E_REAL_STACK !== '1' || !mode, '只由隔离 GEO 真实栈入口运行');
++test.setTimeout(240_000);
++test.use({ trace: 'off', video: 'off', actionTimeout: 15_000 });
++test.afterEach(async ({ context }) => registerCurrentRealStackCookies(context, api));
++
++test('API 自动轮询、原文引用、部分 usage、费用、429/未知结果与显式新尝试', async ({ page }, testInfo) => {
++  test.skip(mode !== 'enabled', '开关关闭另有真实待消费任务验收');
++  await login(page);
++  const errors: string[] = [];
++  page.on('pageerror', (error) => errors.push(error.message));
++  const graph = await configuration(page);
++  const seen: Schema['GeoRunDetail'][] = [];
++  const browserWrites: string[] = [];
++  page.on('request', (request) => {
++    if (request.method() === 'POST' && new URL(request.url()).pathname.startsWith(runs)) browserWrites.push(new URL(request.url()).pathname);
++  });
++  page.on('response', (response) => {
++    if (response.request().method() === 'GET' && new URL(response.url()).pathname.match(/\/observation-runs\/[0-9a-f-]+$/) && response.ok()) {
++      void response.json().then((value: Schema['GeoRunDetail']) => seen.push(value));
++    }
++  });
++  const successPlan = await createPlan(page, graph, 'SUCCESS');
++  const success = await createBatch(page, successPlan.plan, successPlan.planName, successPlan.promptName);
++  const region = page.getByRole('region', { name: '运行详情', exact: true });
++  await expect(region.getByText('已采集', { exact: true })).toBeVisible({ timeout: 30_000 });
++  const collected = await detail(page, success.runId);
++  expect(collected.run).toMatchObject({ status: 'COLLECTED', workflow_stage: 'ANALYSIS_PENDING', external_call_state: 'COMPLETED', prompt_tokens: 7, completion_tokens: null, total_tokens: null, cost_amount: '0.0012', cost_currency: 'USD' });
++  expect(collected.data_quality.assessment).toBe('NOT_IMPLEMENTED');
++  expect(collected.data_quality.unavailable_sections).toEqual(['ANALYSIS', 'REVIEW', 'METRICS', 'OPPORTUNITIES', 'RETEST']);
++  expect(collected.answer?.web_search_observed).toBeNull();
++  expect(collected.citations.find((citation) => citation.hostname === 'geo-fixture-a.test')?.occurrences).toEqual([1, 3]);
++  await expect(region.locator('pre').filter({ hasText: collected.answer!.answer_text })).toBeVisible();
++  await expect(region.locator('dt').filter({ hasText: /^输入 tokens$/ }).locator('+ dd')).toHaveText('7');
++  await expect(region.locator('dt').filter({ hasText: /^输出 tokens$/ }).locator('+ dd')).toHaveText('未报告');
++  await expect(region.locator('dt').filter({ hasText: /^总 tokens$/ }).locator('+ dd')).toHaveText('未报告');
++  await expect(region.getByText(/0\.0012 USD/)).toBeVisible();
++  await expect(region.getByRole('button', { name: '创建新采集尝试', exact: true })).toHaveCount(0);
++  expect(seen.filter((value) => value.run.id === success.runId).some((value) => ['PENDING', 'RUNNING'].includes(value.run.status))).toBe(true);
++  expect(seen.filter((value) => value.run.id === success.runId).some((value) => value.run.status === 'COLLECTED')).toBe(true);
++  expect(await calls(page, success.runId)).toMatchObject({ count: 1 });
++  // 测试控制只重复真实 Celery 稳定 ID，不改状态、不新增业务 API。
++  const repo = resolve(process.cwd(), '..');
++  // CLI 的消费期限为 30 秒，外层等待保留进程启动和归属校验余量。
++  await promisify(execFile)(resolve(repo, 'backend/.venv/bin/python'), ['-m', 'tests.geo_e2e_runtime', 'duplicate', success.runId], { cwd: repo, timeout: 40_000 });
++  expect(await calls(page, success.runId)).toMatchObject({ count: 1 });
++  expect((await detail(page, success.runId)).run).toEqual(collected.run);
++  for (const width of [375, 1440]) {
++    await page.setViewportSize({ width, height: 1000 });
++    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
++    await page.screenshot({ path: testInfo.outputPath(`geo408-collected-${width}.png`), fullPage: true });
++  }
++
++  for (const failureMode of ['RATE_LIMIT', 'UNKNOWN'] as const) {
++    const selected = await createPlan(page, graph, failureMode);
++    const old = await createBatch(page, selected.plan, selected.planName, selected.promptName);
++    const code = failureMode === 'RATE_LIMIT' ? 'PROVIDER_RATE_LIMITED' : 'COLLECTOR_UNKNOWN_OUTCOME';
++    await expect(region.getByText(new RegExp(`错误阶段：COLLECTION · ${code}`))).toBeVisible({ timeout: 30_000 });
++    const before = await detail(page, old.runId);
++    expect(before.run.status).toBe('FAILED');
++    expect(before.answer).toBeNull();
++    expect(before.citations).toEqual([]);
++    expect(before.run.cost_amount).toBeNull();
++    if (failureMode === 'RATE_LIMIT') {
++      expect(before.run).toMatchObject({ provider_status: 429, retry_after_seconds: 2 });
++      await expect(region.locator('dt').filter({ hasText: /^Retry-After$/ }).locator('+ dd')).toHaveText('2 秒');
++    } else {
++      expect(before.run.external_call_state).toBe('UNKNOWN');
++      await expect(region.getByText('结果未知 · UNKNOWN', { exact: true })).toBeVisible();
++    }
++    expect(await calls(page, old.runId)).toMatchObject({ count: 1 });
++    const postsBefore = browserWrites.length;
++    await page.getByRole('button', { name: '创建新采集尝试', exact: true }).click();
++    const dialog = page.getByRole('dialog', { name: '确认创建新采集尝试', exact: true });
++    await expect(dialog).toContainText('外部调用及费用');
++    expect(browserWrites).toHaveLength(postsBefore);
++    const retry = await uiCommand<Schema['GeoRunRetryCreated']>(page, `${runs}/${old.runId}/retry`, () => dialog.getByRole('button', { name: '确认创建新尝试', exact: true }).click(), 201);
++    expect(retry).toMatchObject({ batch_id: old.batchId, previous_attempt_id: old.runId, attempt_no: 2 });
++    expect(retry.run_id).not.toBe(old.runId);
++    await expect(page).toHaveURL(new RegExp(`run_id=${retry.run_id}`));
++    await expect(region.getByText('已采集', { exact: true })).toBeVisible({ timeout: 30_000 });
++    expect(browserWrites.slice(postsBefore)).toEqual([`${runs}/${old.runId}/retry`]);
++    const after = await detail(page, old.runId);
++    for (const field of ['input_snapshot', 'status', 'external_call_state', 'error_code', 'error_summary', 'cost_amount', 'collected_at', 'finished_at'] as const) expect(after.run[field]).toEqual(before.run[field]);
++    const next = await detail(page, retry.run_id);
++    expect(next.run.input_snapshot).toEqual(before.run.input_snapshot);
++    expect(next.attempts.map((attempt) => attempt.id)).toEqual([old.runId, retry.run_id]);
++    expect(await calls(page, old.runId)).toMatchObject({ count: 1 });
++    expect(await calls(page, retry.run_id)).toMatchObject({ count: 1 });
++    const batch = await body<Schema['GeoBatchDetail']>(await page.request.get(`${api}${batches}/${old.batchId}`));
++    expect(batch.summary.cost).toMatchObject({ known_attempt_count: 1, unknown_attempt_count: 1, known_costs: [{ currency: 'USD', value: '0.0012' }] });
++    await page.getByRole('button', { name: '尝试 1', exact: true }).click();
++    await expect(region.getByText(new RegExp(code))).toBeVisible();
++    await expect(region.getByRole('button', { name: '创建新采集尝试', exact: true })).toHaveCount(0);
++  }
++  for (const blocked of ['INTERNAL', 'BUDGET'] as const) {
++    const selected = await createPlan(page, graph, blocked);
++    const current = await createBatch(page, selected.plan, selected.planName, selected.promptName);
++    const code = blocked === 'INTERNAL' ? 'DATA_CLASSIFICATION_FORBIDDEN' : 'BUDGET_EXCEEDED';
++    await expect(region.getByText(new RegExp(`错误阶段：COLLECTION · ${code}`))).toBeVisible({ timeout: 30_000 });
++    const value = await detail(page, current.runId);
++    expect(value.run).toMatchObject({ external_call_state: 'NOT_STARTED', error_code: code });
++    expect(value.answer).toBeNull();
++    expect(await calls(page, current.runId)).toMatchObject({ count: 0 });
++  }
++  // 控制响应、页面和浏览器存储不得反射 fake credential。
++  const visible = await page.locator('body').innerText();
++  const storage = await page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } }));
++  expect(visible.includes(graph.secret)).toBe(false);
++  expect(storage.includes(graph.secret)).toBe(false);
++  expect(errors).toEqual([]);
++});
++
++test('关闭开关的新 API/Worker 消费真实 PENDING，明确失败且 provider 零调用', async ({ page }) => {
++  test.skip(mode === 'enabled', '正常阶段使用完整 UI 旅程');
++  const file = process.env.PARTSIGNAL_E2E_GEO_FIXTURE_FILE;
++  if (!file) throw new Error('关闭开关验收缺少隔离栈前置任务回执');
++  const fixture = JSON.parse(await readFile(file, 'utf8')) as { run_id: string; batch_id: string; profile_id: string };
++  const auth = await login(page);
++  await page.goto(`/geo/runs?view=runs&batch_id=${fixture.batch_id}&run_id=${fixture.run_id}`);
++  const region = page.getByRole('region', { name: '运行详情', exact: true });
++  await expect(region.getByText(/错误阶段：COLLECTION · COLLECTOR_DISABLED/)).toBeVisible({ timeout: 30_000 });
++  const value = await detail(page, fixture.run_id);
++  expect(value.run).toMatchObject({ status: 'FAILED', external_call_state: 'NOT_STARTED', error_code: 'COLLECTOR_DISABLED', available_actions: [] });
++  expect(value.answer).toBeNull();
++  expect(await calls(page, fixture.run_id)).toMatchObject({ count: 0 });
++  await expect(region.getByRole('button', { name: '创建新采集尝试', exact: true })).toHaveCount(0);
++  const rejected = await page.request.post(`${api}${runs}/${fixture.run_id}/retry`, { headers: { 'X-CSRF-Token': auth.csrf_token }, data: { expected_revision: value.run.revision } });
++  expect(rejected.status()).toBe(422);
++  expect(await rejected.json()).toMatchObject({ error: { code: 'GEO_PLAN_PROFILE_INELIGIBLE' } });
++  const profile = await body<Schema['GeoCollectionProfileRead']>(await page.request.get(`${api}/api/v1/geo/collection-profiles/${fixture.profile_id}`));
++  const blocker = mode === 'api-disabled' ? 'API_COLLECTION_DISABLED' : 'MONITORING_DISABLED';
++  expect(profile.activation_blockers?.some((item) => item.code === blocker)).toBe(true);
++  expect(await calls(page, fixture.run_id)).toMatchObject({ count: 0 });
++});
+--- a/frontend/tests/e2e/geo-api-support.ts
++++ b/frontend/tests/e2e/geo-api-support.ts
+@@ -0,0 +1,166 @@
++/** GEO-408 虚构前置配置；已存在的业务写入口全部使用 UI。 */
++import { randomUUID } from 'node:crypto';
++import { expect, type APIResponse, type Page, type Response } from '@playwright/test';
++import type { components } from '../../src/shared/api/generated/schema';
++import { registerRealStackLoginSecrets } from './real-stack-session';
++import { registerArtifactSecrets } from './secret-artifact';
++
++export const api = process.env.PARTSIGNAL_E2E_API_BASE_URL ?? 'http://127.0.0.1:8000';
++export const provider = process.env.PARTSIGNAL_E2E_GEO_PROVIDER_URL ?? 'http://127.0.0.1:19012';
++export const runs = '/api/v1/geo/observation-runs';
++export const batches = '/api/v1/geo/observation-batches';
++const surfaces = '/api/v1/geo/engine-surfaces';
++const profiles = '/api/v1/geo/collection-profiles';
++const plans = '/api/v1/geo/monitoring-plans';
++type Schema = components['schemas'];
++export async function body<T>(response: APIResponse | Response, status = 200): Promise<T> {
++  expect(response.status(), new URL(response.url()).pathname).toBe(status);
++  return response.json() as Promise<T>;
++}
++export async function login(page: Page) {
++  const password = process.env.PARTSIGNAL_SEED_ADMIN_PASSWORD;
++  if (!password) throw new Error('真实栈必须提供管理员验收密码');
++  const auth = await body<Schema['AuthSession']>(await page.request.post(`${api}/api/v1/auth/login`, {
++    data: { username: 'admin', password },
++  }));
++  await registerRealStackLoginSecrets(page.context(), api, auth.csrf_token);
++  return auth;
++}
++export async function uiCommand<T>(page: Page, path: string, click: () => Promise<unknown>, status = 200) {
++  const pending = page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname === path);
++  await click();
++  return body<T>(await pending, status);
++}
++async function choose(page: Page, label: string, option: string) {
++  await page.getByRole('combobox', { name: label, exact: true }).click();
++  await page.getByRole('option', { name: option, exact: true }).click();
++}
++async function configurationAction<T>(page: Page, path: string, label: string) {
++  await page.getByRole('region', { name: /^(观测面|采集配置)详情$/ }).getByRole('button', { name: /更多操作/ }).click();
++  await page.getByRole('menuitem', { name: label, exact: true }).click();
++  return uiCommand<T>(page, path, () => page.getByRole('dialog').getByRole('button', { name: '确认操作', exact: true }).click());
++}
++export async function configuration(page: Page) {
++  const suffix = randomUUID();
++  const secret = `geo408-fake-${randomUUID()}`;
++  await registerArtifactSecrets([secret]);
++  await page.goto('/settings/ai');
++  await page.getByRole('button', { name: '创建渠道', exact: true }).click();
++  const channelDialog = page.getByRole('dialog', { name: '创建 AI 渠道' });
++  await channelDialog.getByRole('textbox', { name: '渠道名称' }).fill(`GEO408 ${suffix}`);
++  await channelDialog.getByRole('textbox', { name: 'API 根地址' }).fill(`${provider}/v1`);
++  await channelDialog.getByLabel('API Key').fill(secret);
++  const channel = await uiCommand<Schema['AIChannel']>(page, '/api/v1/ai-channels', () => channelDialog.getByRole('button', { name: '创建渠道', exact: true }).click(), 201);
++  await expect(page).toHaveURL(new RegExp(`/settings/ai/${channel.id}`));
++  await page.getByRole('tab', { name: '模型管理' }).click();
++  await page.getByRole('button', { name: '手工新增' }).click();
++  const modelDialog = page.getByRole('dialog', { name: '新增模型' });
++  await modelDialog.getByRole('textbox', { name: '显示名称' }).fill(`GEO408 模型 ${suffix}`);
++  await modelDialog.getByRole('textbox', { name: 'Model ID' }).fill('geo-fixture-model');
++  const model = await uiCommand<Schema['AIModel']>(page, `/api/v1/ai-channels/${channel.id}/models`, () => modelDialog.getByRole('button', { name: '保存模型' }).click(), 201);
++  const row = page.getByRole('row').filter({ hasText: 'geo-fixture-model' });
++  await row.getByRole('button', { name: '测试连接' }).click();
++  await uiCommand(page, `/api/v1/ai-models/${model.id}/test`, () => page.getByRole('dialog', { name: /测试模型/ }).getByRole('button', { name: '开始测试' }).click());
++  await expect(page.getByText(/连接测试通过；模型仍保持停用/)).toBeVisible();
++  await uiCommand(page, `/api/v1/ai-models/${model.id}/enable`, () => row.getByRole('button', { name: '启用模型' }).click());
++  await uiCommand(page, `/api/v1/ai-channels/${channel.id}/enable`, () => row.getByRole('button', { name: '启用所属渠道' }).click());
++
++  const subjectName = `GEO408 虚构参考型号 ${suffix}`;
++  await page.goto('/configuration/geo-entities');
++  await page.getByRole('button', { name: '新建监测对象', exact: true }).click();
++  await choose(page, '对象类型', '参考型号');
++  await page.getByRole('textbox', { name: '规范名称', exact: true }).fill(subjectName);
++  await page.getByRole('textbox', { name: '显示名称', exact: true }).fill(subjectName);
++  await uiCommand<Schema['GeoSubjectOut']>(page, '/api/v1/geo/subjects', () => page.getByRole('button', { name: '创建监测对象', exact: true }).click(), 201);
++  await page.waitForLoadState('networkidle');
++  await page.goto('/configuration/geo-surfaces');
++  await page.getByRole('button', { name: '新建观测面', exact: true }).click();
++  await page.getByRole('textbox', { name: '观测面名称', exact: true }).fill(`GEO408 API ${suffix}`);
++  await page.getByRole('textbox', { name: '观测面标识', exact: true }).fill(`geo408-${suffix}`);
++  await choose(page, '观测面类型', '模型 API');
++  await choose(page, '合规状态', '已批准');
++  const surface = await uiCommand<Schema['GeoEngineSurfaceRead']>(page, surfaces, () => page.getByRole('button', { name: '创建观测面', exact: true }).click(), 201);
++  await page.getByRole('button', { name: '关闭编辑', exact: true }).click();
++  await configurationAction(page, `${surfaces}/${surface.summary.id}/enable`, '启用观测面');
++  await page.getByRole('button', { name: '查看此观测面的采集配置', exact: true }).click();
++  await page.getByRole('button', { name: '新建采集配置', exact: true }).click();
++  await choose(page, '采集模式', 'API');
++  await page.getByRole('textbox', { name: '所属观测面 ID', exact: true }).fill(surface.summary.id);
++  const profileName = `GEO408 API 配置 ${suffix}`;
++  await page.getByRole('textbox', { name: '采集配置名称', exact: true }).fill(profileName);
++  await page.getByRole('textbox', { name: '适配器标识', exact: true }).fill('openai-compatible-chat');
++  await page.getByRole('textbox', { name: 'AI 渠道 ID', exact: true }).fill(channel.id);
++  await page.getByRole('textbox', { name: 'AI 模型 ID', exact: true }).fill(model.id);
++  const profile = await uiCommand<Schema['GeoCollectionProfileRead']>(page, profiles, () => page.getByRole('button', { name: '创建采集配置', exact: true }).click(), 201);
++  expect(profile.summary.last_test_status).toBe('UNTESTED');
++  await page.getByRole('button', { name: '关闭编辑', exact: true }).click();
++  const tested = await configurationAction<Schema['GeoCollectionProfileRead']>(page, `${profiles}/${profile.summary.id}/test`, '测试连接');
++  expect(tested.summary).toMatchObject({ last_test_status: 'PASSED', is_active: false });
++  const enabled = await configurationAction<Schema['GeoCollectionProfileRead']>(page, `${profiles}/${profile.summary.id}/enable`, '启用采集配置');
++  expect(enabled.summary.is_active).toBe(true);
++  return { subjectName, profileName, suffix, secret };
++}
++type Configuration = Awaited<ReturnType<typeof configuration>>;
++export async function createPlan(page: Page, graph: Configuration, mode: 'SUCCESS' | 'RATE_LIMIT' | 'UNKNOWN' | 'INTERNAL' | 'BUDGET') {
++  const suffix = randomUUID();
++  const promptName = `GEO408 ${mode} ${suffix}`;
++  await page.goto('/geo/topics');
++  await page.getByRole('button', { name: '创建 Query Topic', exact: true }).click();
++  const dialog = page.getByRole('dialog', { name: '创建 Query Topic', exact: true });
++  const topicName = `GEO408 虚构主题 ${suffix}`;
++  await dialog.getByRole('textbox', { name: '标准问题', exact: true }).fill(topicName);
++  await dialog.getByRole('textbox', { name: '变体 1', exact: true }).fill(`GEO408 虚构问题 ${suffix}`);
++  const topic = await uiCommand<Schema['QueryTopic']>(page, '/api/v1/query-topics', () => dialog.getByRole('button', { name: '创建', exact: true }).click(), 201);
++  await expect(dialog).toBeHidden();
++  await page.waitForLoadState('networkidle');
++  await page.goto('/geo/questions?new=1');
++  await choose(page, '问题主题', topicName);
++  await page.getByRole('textbox', { name: '完整问题文本', exact: true }).fill(promptName);
++  await choose(page, '点名属性', '非点名');
++  await choose(page, '优先级', '核心');
++  await page.getByRole('textbox', { name: '语言代码', exact: true }).fill('zh-CN');
++  await page.getByRole('textbox', { name: '地区代码', exact: true }).fill('CN');
++  await uiCommand(page, `/api/v1/geo/query-topics/${topic.id}/prompt-variants`, () => page.getByRole('button', { name: '创建变体', exact: true }).click(), 201);
++  await page.waitForLoadState('networkidle');
++  await page.goto('/geo/plans?new=1');
++  const planName = `GEO408 ${mode} 计划 ${suffix}`;
++  await page.getByRole('textbox', { name: '计划名称', exact: true }).fill(planName);
++  await page.getByRole('button', { name: '下一步', exact: true }).click();
++  await page.getByRole('searchbox', { name: '搜索监测对象选项' }).fill(graph.suffix);
++  await choose(page, `选择对象角色：${graph.subjectName}`, '主要监测对象');
++  await page.getByRole('button', { name: '下一步', exact: true }).click();
++  await page.getByRole('searchbox', { name: '搜索问题变体选项' }).fill(suffix);
++  await page.getByRole('button', { name: `选择问题变体：${promptName}`, exact: true }).click();
++  await page.getByRole('button', { name: '下一步', exact: true }).click();
++  await page.getByRole('searchbox', { name: '搜索采集配置选项' }).fill(graph.suffix);
++  await page.getByRole('button', { name: `选择采集配置：${graph.profileName}`, exact: true }).click();
++  await page.getByRole('button', { name: '下一步', exact: true }).click();
++  await page.getByRole('spinbutton', { name: '重复次数' }).fill('1');
++  if (mode === 'BUDGET') await page.getByRole('textbox', { name: '预算上限' }).fill('0.000001');
++  await page.getByRole('button', { name: '下一步', exact: true }).click();
++  await page.getByRole('button', { name: '下一步', exact: true }).click();
++  await uiCommand(page, `${plans}/preview`, () => page.getByRole('button', { name: '预览当前配置' }).click());
++  await page.getByRole('button', { name: '下一步', exact: true }).click();
++  const plan = await uiCommand<Schema['GeoMonitoringPlanDetail']>(page, plans, () => page.getByRole('button', { name: '创建监测计划', exact: true }).click(), 201);
++  await expect(page.getByRole('region', { name: '监测计划详情' })).toBeVisible();
++  // 预算不足的未启用计划仍允许从运行中心创建，Worker 最终执行准入。
++  return { plan, planName, promptName };
++}
++export async function createBatch(page: Page, plan: Schema['GeoMonitoringPlanDetail'], planName: string, promptName: string) {
++  await page.goto('/geo/runs?create=1');
++  await page.getByRole('textbox', { name: '搜索可选计划' }).fill(planName);
++  await page.getByRole('button', { name: '搜索计划', exact: true }).click();
++  await page.getByRole('button', { name: new RegExp(`${planName} · Revision`) }).click();
++  const result = await uiCommand<Schema['GeoBatchCreated']>(page, `${plans}/${plan.id}/run`, () => page.getByRole('button', { name: '确认创建批次', exact: true }).click(), 201);
++  await expect(page).toHaveURL(new RegExp(`batch_id=${result.batch_id}`));
++  await page.getByRole('region', { name: '运行列表' }).getByRole('button', { name: promptName, exact: true }).click();
++  const runId = new URL(page.url()).searchParams.get('run_id');
++  if (!runId) throw new Error('真实批次缺少 Run UUID');
++  return { batchId: result.batch_id, runId };
++}
++export async function detail(page: Page, id: string) {
++  return body<Schema['GeoRunDetail']>(await page.request.get(`${api}${runs}/${id}`));
++}
++export async function calls(page: Page, id: string) {
++  return body<{ count: number }>(await page.request.get(`${provider}/__geo__/calls/${id}`));
++}
+--- a/frontend/tests/e2e/geo-real-stack.spec.ts
++++ b/frontend/tests/e2e/geo-real-stack.spec.ts
+@@ -518,7 +518,7 @@
+   await expect(page).toHaveURL('/geo/runs');
+   await page.reload();
+   await expect(page.getByRole('heading', { level: 1, name: '运行中心', exact: true })).toBeVisible();
+-  await expect(page.getByText('回答级批次、人工录入与不可变采集证据。')).toBeVisible();
++  await expect(page.getByText('回答级批次、API 自动采集、人工录入与不可变采集证据。')).toBeVisible();
+   await navigation.getByRole('link', { name: '观测记录', exact: true }).click();
+   await expect(page.getByRole('heading', { level: 1, name: 'GEO 观测记录', exact: true })).toBeVisible();
+   const bookmark = `/geo/observations?productId=${setup.product.id}&page=1&pageSize=20`;

@@ -1,0 +1,10 @@
+{
+  "argv": [
+    "make",
+    "lint"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "exit_code": 0,
+  "started_at": "2026-10-04T06:48:13.162319+00:00",
+  "finished_at": "2026-10-04T06:48:22.159806+00:00"
+}

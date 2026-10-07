@@ -1,0 +1,21 @@
+{
+  "inspected_files": [
+    ".env",
+    ".env.staging",
+    ".env.production",
+    ".env.example",
+    ".env.production.example",
+    ".env.staging.example",
+    ".env.ai.json",
+    ".env.production.ai.json"
+  ],
+  "actual_runtime_geo_browser_fields_found": false,
+  "template_geo_flags_default": false,
+  "production_ai_endpoint_kind": "API",
+  "production_ai_endpoint_hostname": "api.deepseek.com",
+  "browser_platform_approval_record_found": false,
+  "staging_browser_smoke_authorization_found": false,
+  "raw_config_saved": false,
+  "credential_values_printed": false,
+  "scope": "本会话与已检查仓库/配置，不代表外部审批系统不存在记录"
+}

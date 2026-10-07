@@ -1,0 +1,25 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+E501 Line too long (131 > 100)
+  --> backend/tests/integration/test_geo_rules.py:34:101
+   |
+32 |     payload = {"expected_revision": current["revision"], "configuration": current["configuration"]}
+33 |     assert api.engineer.put(PATH, json=payload).status_code == 403
+34 |     assert api.admin.put(PATH, json=payload, headers={"X-CSRF-Token": "incorrect-csrf-token-at-least-32-bytes"}).status_code == 403
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+35 |     assert (
+36 |         api.admin.post(
+   |
+
+E501 Line too long (111 > 100)
+  --> backend/tests/integration/test_geo_rules.py:37:101
+   |
+35 |     assert (
+36 |         api.admin.post(
+37 |             PATH + "/preview", json=payload, headers={"X-CSRF-Token": "incorrect-csrf-token-at-least-32-bytes"}
+   |                                                                                                     ^^^^^^^^^^^
+38 |         ).status_code
+39 |         == 403
+   |
+
+Found 2 errors.
+make: *** [lint] Error 1

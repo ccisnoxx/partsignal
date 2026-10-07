@@ -1,0 +1,15 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "-p",
+    "partsignal-geo204-validation",
+    "-f",
+    ".trellis/tasks/10-02-geo-204-collector-registry/evidence/validation-compose.yaml",
+    "down",
+    "--volumes",
+    "--remove-orphans"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 0.34
+}

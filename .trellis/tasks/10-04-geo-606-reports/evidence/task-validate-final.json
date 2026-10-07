@@ -1,0 +1,10 @@
+{
+  "command": [
+    "python3",
+    ".trellis/scripts/task.py",
+    "validate",
+    ".trellis/tasks/10-04-geo-606-reports"
+  ],
+  "exit_code": 0,
+  "duration_seconds": 0.04
+}

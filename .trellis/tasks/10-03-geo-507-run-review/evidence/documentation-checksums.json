@@ -1,0 +1,11 @@
+{
+  "all_entries_verified": 116,
+  "updated_entries": [
+    "02-business/03-workflows-and-state-machines.md",
+    "03-technical/02-data-architecture.md",
+    "03-technical/03-api-contract-design.md",
+    "04-delivery/task-manifest.yaml",
+    "CHANGELOG.md",
+    "README.md"
+  ]
+}

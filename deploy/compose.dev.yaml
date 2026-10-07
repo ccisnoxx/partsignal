@@ -1,5 +1,8 @@
 name: partsignal-dev
 
+include:
+  - compose.geo-browser.yaml
+
 x-backend: &backend
   build:
     context: ../backend
@@ -64,21 +67,23 @@ services:
 
   worker:
     <<: *backend
-    command: [uv, run, celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --concurrency=1, --pidfile=/tmp/partsignal-worker.pid]
+    command: [uv, run, celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --pidfile=/tmp/partsignal-worker.pid]
     healthcheck:
-      test: [CMD, python, -c, "import os, pathlib; os.kill(int(pathlib.Path('/tmp/partsignal-worker.pid').read_text()), 0)"]
-      interval: 10s
-      timeout: 3s
-      retries: 12
+      test: [CMD, python, -m, app.geo_observability, health, worker]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 90s
 
   scheduler:
     <<: *backend
     command: [uv, run, celery, -A, 'app.worker:celery_app', beat, --loglevel=INFO, --schedule, /tmp/partsignal-celerybeat, --pidfile=/tmp/partsignal-beat.pid]
     healthcheck:
-      test: [CMD, python, -c, "import os, pathlib; os.kill(int(pathlib.Path('/tmp/partsignal-beat.pid').read_text()), 0)"]
-      interval: 10s
-      timeout: 3s
-      retries: 12
+      test: [CMD, python, -m, app.geo_observability, health, scheduler]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 90s
 
   fake-oss:
     <<: *backend
@@ -89,6 +94,11 @@ services:
       - ../backend:/app
       - partsignal-fake-oss:/data
     depends_on: {}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/openapi.json', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
 
   frontend:
     build:
@@ -112,6 +122,16 @@ services:
     build:
       context: ../backend
       target: test
+    volumes:
+      - ../backend:/app
+      - ../contracts:/contracts:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      fake-oss:
+        condition: service_healthy
     environment:
       APP_ENV: test
       DATABASE_URL: postgresql+psycopg://partsignal:partsignal_dev@postgres:5432/partsignal

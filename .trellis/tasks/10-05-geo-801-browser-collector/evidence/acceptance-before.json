@@ -1,0 +1,73 @@
+{
+  "date": "2026-10-05",
+  "geo_task_id": "GEO-801",
+  "manifest_entry": {
+    "id": "GEO-801",
+    "phase": "R7",
+    "release": "R7",
+    "title": "建立独立 Browser Collector 服务骨架和 Compose profile",
+    "status": "review",
+    "dependencies": [
+      "GEO-408",
+      "GEO-002"
+    ],
+    "areas": [
+      "deploy",
+      "browser collector package",
+      "backend"
+    ],
+    "deliverables": "独立镜像/服务、任务领取边界、资源/网络限制、默认关闭。",
+    "tests": "Compose config、健康、无 profile 时不启动。",
+    "acceptance": "普通 API/Worker 不包含浏览器依赖，kill switch 可用。",
+    "required_docs": [
+      "01-product/02-geo-core-prd.md",
+      "02-business/02-domain-model.md",
+      "02-business/03-workflows-and-state-machines.md",
+      "03-technical/01-technical-architecture.md",
+      "04-delivery/04-codex-execution-guide.md"
+    ],
+    "trellis_task": ".trellis/tasks/10-05-geo-801-browser-collector",
+    "execution_note": "2026-10-05：GEO-408/GEO-002 done与人工接受已核对；相关104项单元与18组Compose基线通过，开始独立服务骨架实施。",
+    "review_note": "2026-10-05：独立Browser package/image/geo-browser profile、非root sandbox与network none/只读/资源限额、真实DOM健康、默认STOP与热kill、稳定UUID显式拒绝和API非API早退完成。lint/typecheck/unit（3 Collector+3660 backend+1266 frontend）/contract/部署/真实runtime通过；19项既有Worker通过，新PG夹具修正后1项边界定向通过。普通production镜像真实探针无浏览器依赖。独立复核空值插值P2已修正并复验，Audit Bundle校验通过。无OpenAPI/DDL/new revision或历史迁移；head0062。仅review等待人工接受，不实现802/803、不提交/上线。文档包原有核心PRD摘要不一致已确认任务前存在，未改业务文档；详情见Trellis implement/evidence。"
+  },
+  "task_json": {
+    "id": "geo-801-browser-collector",
+    "name": "geo-801-browser-collector",
+    "title": "GEO-801 独立 Browser Collector 服务骨架",
+    "description": "",
+    "status": "review",
+    "dev_type": "fullstack",
+    "scope": "GEO-801",
+    "package": null,
+    "priority": "P2",
+    "creator": "777",
+    "assignee": "777",
+    "createdAt": "2026-10-05",
+    "completedAt": null,
+    "branch": "geo/GEO-801",
+    "base_branch": "main",
+    "worktree_path": null,
+    "commit": null,
+    "pr_url": null,
+    "subtasks": [],
+    "children": [],
+    "parent": null,
+    "relatedFiles": [
+      "browser-collector",
+      "deploy/compose.geo-browser.yaml",
+      "backend/app/services/geo_runs.py"
+    ],
+    "notes": "仅GEO801；不提交/推送/上线，完成后review等待人工接受。",
+    "meta": {
+      "audit_id": "20261005T074127Z-geo-801-baa4e4e9"
+    }
+  },
+  "file_sha256": {
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml": "88593f2098e78e4d8c4d33151f99d06522ab3b717aca7e19cfce60d496d83373",
+    "docs/geo-monitoring/SHA256SUMS": "92f6859456f1c7ca871ebe1f0046587cf6e6a3a0e252ec12c506882017cb2e4d",
+    ".trellis/tasks/10-05-geo-801-browser-collector/task.json": "656cdaa49fb6e6e07d3b38240169c9f106a8b30132f67a74ec588f9b4a4ecefe",
+    ".trellis/tasks/10-05-geo-801-browser-collector/prd.md": "a6b5a716a103657fd712eac9cef0005e6fa6f8c8ce389c0f283cab2ad3124381",
+    ".trellis/tasks/10-05-geo-801-browser-collector/implement.md": "d8fbf1a47fb5da3b204d5b5a8e062d1ec44d3dfc3cbe9f2f2f7bb4faeb7e9c97"
+  },
+  "other_manifest_tasks_sha256": "6dcefbc0c500fdaa292123b97f945df4f054d03c9422fccc229c0c8c2947de18"
+}

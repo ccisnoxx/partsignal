@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "npm",
+    "--prefix",
+    "frontend",
+    "run",
+    "e2e",
+    "--",
+    "tests/e2e/prompt-workspace.spec.ts",
+    "--project=foundation-mobile",
+    "--grep",
+    "\u7ba1\u7406\u5458\u4ece\u5bfc\u822a\u8fdb\u5165"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-04T09:49:01.258243+00:00",
+  "finished_at": "2026-10-04T09:49:12.137834+00:00"
+}

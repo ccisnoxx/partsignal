@@ -1,0 +1,28 @@
+--- baseline/docs/geo-monitoring/03-technical/01-technical-architecture.md
++++ docs/geo-monitoring/03-technical/01-technical-architecture.md
+@@ -220,13 +220,19 @@
+ 
+ ```python
+ class GeoCollector(Protocol):
+-    key: str
+-
+-    def capabilities(self) -> CollectorCapabilities: ...
+-    def validate_profile(self, profile: CollectionProfileSnapshot) -> None: ...
++    @property
++    def registration(self) -> CollectorRegistration: ...
++
++    def validate_profile(self, profile: CollectionProfileSnapshot) -> tuple[ProfileBlocker, ...]: ...
+     def estimate(self, request: CollectionRequest) -> CollectionEstimate: ...
+-    def collect(self, request: CollectionRequest) -> CollectedAnswer: ...
+-```
++    def collect(self, request: CollectionRequest, *, before_send: SendAuthorization) -> CollectedAnswer: ...
++```
++
++GEO-401 已建立上述内部同步协议和值对象；能力、key/version 复用 Registry 的唯一元数据。
++详细字段、稳定错误、发送前回调及当前实现限制见
++[Worker/Collector 的 GEO-401 章节](./05-worker-and-collector-architecture.md#当前-r3geo-401-内部采集合同)。
++协议不持有 ORM Session，不新增公共 HTTP 或数据库合同；网络 adapter/Worker 仍属后续任务。
++
+ 
+ `CollectedAnswer` 只包含：
+ 

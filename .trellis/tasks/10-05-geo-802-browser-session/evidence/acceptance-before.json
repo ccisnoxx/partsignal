@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-05",
+  "geo_task_id": "GEO-802",
+  "manifest_entry_before_text": "- id: GEO-802\n  phase: R7\n  release: R7\n  title: 实现浏览器会话加密引用和撤销流程\n  status: review\n  dependencies:\n  - GEO-801\n  areas:\n  - backend/app/services\n  - object storage/secure volume\n  - admin UI\n  deliverables: session reference、health、人工登录导入/撤销、访问控制和审计。\n  tests: 越权、secret redaction、撤销、恢复。\n  acceptance: Cookie 不进数据库明文、日志、普通 OSS 或截图。\n  required_docs:\n  - 01-product/02-geo-core-prd.md\n  - 02-business/02-domain-model.md\n  - 02-business/03-workflows-and-state-machines.md\n  - 03-technical/01-technical-architecture.md\n  - 04-delivery/04-codex-execution-guide.md\n  trellis_task: .trellis/tasks/10-05-geo-802-browser-session\n  execution_note: \"2026-10-05：801 done及人工接受已核对；Task Brief/preflight和基线已记录，开始会话加密引用与撤销实施。\"\n  review_note: \"2026-10-05：会话UUID引用、本地health、人工导入/不可逆撤销/清理恢复、管理员/专用服务能力访问及成功审计完成。RSA-OAEP-SHA256+A256GCM专用卷，API无私钥，Collector按次内存解密；默认关闭且不接线真实平台。OpenAPI/generated类型、0063加法迁移和数据库合同一致，无历史回填。lint/typecheck/unit/contract及20项会话与迁移、真实栈E2E通过；首次全量集成1082通过/59失败，54项fake OSS环境及5项旧内部字段预期已修正，完整59节点定向重跑通过。独立只读复核两项已修正，审计Bundle已关闭校验；精确结果/覆盖缺口见Trellis implement/evidence。仅review，待人工验收；不实现804、不提交或上线。\"\n",
+  "task_json": {
+    "id": "geo-802-browser-session",
+    "name": "geo-802-browser-session",
+    "title": "GEO-802 浏览器会话加密引用和撤销流程",
+    "description": "浏览器会话加密引用、人工导入/健康/撤销、安全访问与审计",
+    "status": "review",
+    "dev_type": "fullstack",
+    "scope": "GEO-802",
+    "package": null,
+    "priority": "P2",
+    "creator": "777",
+    "assignee": "777",
+    "createdAt": "2026-10-05",
+    "completedAt": null,
+    "branch": "geo/GEO-802",
+    "base_branch": "main",
+    "worktree_path": null,
+    "commit": null,
+    "pr_url": null,
+    "subtasks": [],
+    "children": [],
+    "parent": null,
+    "relatedFiles": [
+      "backend/app/services/geo_browser_sessions.py",
+      "contracts/openapi.yaml",
+      "contracts/database.md"
+    ],
+    "notes": "实现与本地验证完成；独立复核问题已修正，审计关闭校验。待人工验收，不自行done，不提交或上线。",
+    "meta": {
+      "alembic_revision": "0063_geo_browser_sessions",
+      "review_evidence": "evidence/independent-review.md",
+      "audit_id": "20261005T084954Z-geo-802-95ef7b23"
+    }
+  },
+  "file_sha256": {
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml": "03bd45a0c2deb50a1ce717fabe59cb6095f84994ab6d4cf02bd118b87bd0c34d",
+    "docs/geo-monitoring/SHA256SUMS": "f8d3c237b4a04499e5032a98b5e9b7e8de51e1b8374d4b5f1d7fcd3548465480",
+    ".trellis/tasks/10-05-geo-802-browser-session/task.json": "50bb65359c27734635b6b0d667e4913826c48d3dba6bf4053a3220886f5c75a3",
+    ".trellis/tasks/10-05-geo-802-browser-session/prd.md": "5e9bca058a38e6009872226c5c3d5dd0a345641ab8b97ab55752624297a9c18d",
+    ".trellis/tasks/10-05-geo-802-browser-session/implement.md": "a39035a08cb96a32f84989f9ab2c348f25eb452b0c1fb59c1cdf4c13bcc7d5d8"
+  },
+  "other_manifest_tasks_sha256": "350688aea75d09e43ad6987f3590862e2c14eb886a55fde723b87f9ff0f85da1"
+}

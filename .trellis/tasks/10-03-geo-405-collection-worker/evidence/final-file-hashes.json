@@ -1,0 +1,23 @@
+{
+  ".env.example": "f96d027c997d6ff3eb4b0e6db4618164c86a74803086a9b29035dc4429065e28",
+  ".env.production.example": "97c49437e9da9e72fa228f19aed8d3a63e1fbf3575342eafd42a6bfb0f5e3298",
+  "backend/app/config.py": "9147c94415ceb88cf7c25b758bed5cc437e5bb34c9af83c8e0caf8222527ed20",
+  "backend/app/services/geo_batches.py": "7f643b33c79dd7663c88c66a79c3d6655a6ac68b08f5c1ee56166d4117adf992",
+  "backend/app/services/geo_collection_execution.py": "b68baac6d7989d66b5f6a497021a81f5fba30ed8cfa7e6ed3717851c0acd0a06",
+  "backend/app/services/geo_dispatch.py": "23f400a9aa9c5cb6831752f2a1d91d6a5d7191110d0a6ca709e4a01414ff95d7",
+  "backend/app/services/geo_manual_collection.py": "f37913f0bd0ce6473b47ae812ec571ad3d881de6497a7fc811a866889d3d6aa2",
+  "backend/app/services/geo_run_lifecycle.py": "75bb7b2ab1a024448e89d0b92544ae0c62c311670b76ccf1eb679251ac5c1fe5",
+  "backend/app/services/geo_runs.py": "5f3f148b0845278cab0a63ac576e558fc776d3cf6ed41aa3e5f68c0659e321c5",
+  "backend/app/worker.py": "af9062d11b9c385a5b631fdc2621c9d261fd097cbc247ecb9795831b96093ee5",
+  "backend/tests/integration/geo_worker_support.py": "1493de27892e1397de6a3d3186f295058ec6c046c918d074b1571be377e6d290",
+  "backend/tests/integration/test_geo_worker.py": "6a9bffaaf99ddd93eea46da425e4261f6f3023c45280c67902282e8860ca8007",
+  "backend/tests/unit/test_geo_worker_configuration.py": "e233cb31d27dd9cc5624b3d19eff988fa04ef958a7017e978fccc7b66a00f28a",
+  "contracts/database.md": "9814ddc29475b7d58e6cf9aa1543227d91c88d26a77cd316fe2bd1f9f772ae4e",
+  "deploy/scripts/check-production-inputs.py": "950951e1d3d7bd0dcade7bcd2fc02b1d5883dfdee3826972b3f64e4cb60ee23e",
+  "docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md": "cd84361dc6f660718522ff7014abc25436fd2d4716f180e71235b0d70ca8b347",
+  "docs/geo-monitoring/03-technical/08-deployment-and-operations.md": "3799a247a40d40d1226247b4b680dd51cc6a319b8d2c8ce5ae078c5a578189d3",
+  "docs/geo-monitoring/04-delivery/task-manifest.yaml": "e0793a9b381108b8511d74cf5717251661d5ca160f5361e39f6e2a7e183eeb45",
+  "docs/geo-monitoring/README.md": "7949bde3b9edc622d1246a0bfcf49c85b14b96820c084a7911cad18f61017bae",
+  "docs/geo-monitoring/SHA256SUMS": "21c4643cd34d46bb09425af390c6bc4915b6148d38af2ec17ad022076ad3b497",
+  "docs/production-configuration.md": "879b489849adcff11a1d4a8c5bd986552dd94db65c5c8be9195f1516409b0358"
+}

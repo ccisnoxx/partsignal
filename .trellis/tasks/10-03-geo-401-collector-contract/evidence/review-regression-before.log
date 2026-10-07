@@ -1,0 +1,169 @@
+FFFFFFFFFFFFF                                                            [100%]
+=================================== FAILURES ===================================
+__ test_source_metadata_cannot_violate_persistence_contract[-source_product] ___
+
+field = 'source_product', value = ''
+
+    @pytest.mark.parametrize("field", ["source_product", "source_model", "source_version"])
+    @pytest.mark.parametrize("value", ["", " \n\t ", "\x00", "model\x00version"])
+    def test_source_metadata_cannot_violate_persistence_contract(field: str, value: str) -> None:
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+backend/tests/unit/test_geo_collector_contract.py:176: Failed
+___ test_source_metadata_cannot_violate_persistence_contract[-source_model] ____
+
+field = 'source_model', value = ''
+
+    @pytest.mark.parametrize("field", ["source_product", "source_model", "source_version"])
+    @pytest.mark.parametrize("value", ["", " \n\t ", "\x00", "model\x00version"])
+    def test_source_metadata_cannot_violate_persistence_contract(field: str, value: str) -> None:
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+backend/tests/unit/test_geo_collector_contract.py:176: Failed
+__ test_source_metadata_cannot_violate_persistence_contract[-source_version] ___
+
+field = 'source_version', value = ''
+
+    @pytest.mark.parametrize("field", ["source_product", "source_model", "source_version"])
+    @pytest.mark.parametrize("value", ["", " \n\t ", "\x00", "model\x00version"])
+    def test_source_metadata_cannot_violate_persistence_contract(field: str, value: str) -> None:
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+backend/tests/unit/test_geo_collector_contract.py:176: Failed
+_ test_source_metadata_cannot_violate_persistence_contract[ \n\t -source_product] _
+
+field = 'source_product', value = ' \n\t '
+
+    @pytest.mark.parametrize("field", ["source_product", "source_model", "source_version"])
+    @pytest.mark.parametrize("value", ["", " \n\t ", "\x00", "model\x00version"])
+    def test_source_metadata_cannot_violate_persistence_contract(field: str, value: str) -> None:
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+backend/tests/unit/test_geo_collector_contract.py:176: Failed
+_ test_source_metadata_cannot_violate_persistence_contract[ \n\t -source_model] _
+
+field = 'source_model', value = ' \n\t '
+
+    @pytest.mark.parametrize("field", ["source_product", "source_model", "source_version"])
+    @pytest.mark.parametrize("value", ["", " \n\t ", "\x00", "model\x00version"])
+    def test_source_metadata_cannot_violate_persistence_contract(field: str, value: str) -> None:
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+backend/tests/unit/test_geo_collector_contract.py:176: Failed
+_ test_source_metadata_cannot_violate_persistence_contract[ \n\t -source_version] _
+
+field = 'source_version', value = ' \n\t '
+
+    @pytest.mark.parametrize("field", ["source_product", "source_model", "source_version"])
+    @pytest.mark.parametrize("value", ["", " \n\t ", "\x00", "model\x00version"])
+    def test_source_metadata_cannot_violate_persistence_contract(field: str, value: str) -> None:
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+backend/tests/unit/test_geo_collector_contract.py:176: Failed
+_ test_source_metadata_cannot_violate_persistence_contract[\x00-source_product] _
+
+field = 'source_product', value = '\x00'
+
+    @pytest.mark.parametrize("field", ["source_product", "source_model", "source_version"])
+    @pytest.mark.parametrize("value", ["", " \n\t ", "\x00", "model\x00version"])
+    def test_source_metadata_cannot_violate_persistence_contract(field: str, value: str) -> None:
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+backend/tests/unit/test_geo_collector_contract.py:176: Failed
+_ test_source_metadata_cannot_violate_persistence_contract[\x00-source_model] __
+
+field = 'source_model', value = '\x00'
+
+    @pytest.mark.parametrize("field", ["source_product", "source_model", "source_version"])
+    @pytest.mark.parametrize("value", ["", " \n\t ", "\x00", "model\x00version"])
+    def test_source_metadata_cannot_violate_persistence_contract(field: str, value: str) -> None:
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+backend/tests/unit/test_geo_collector_contract.py:176: Failed
+_ test_source_metadata_cannot_violate_persistence_contract[\x00-source_version] _
+
+field = 'source_version', value = '\x00'
+
+    @pytest.mark.parametrize("field", ["source_product", "source_model", "source_version"])
+    @pytest.mark.parametrize("value", ["", " \n\t ", "\x00", "model\x00version"])
+    def test_source_metadata_cannot_violate_persistence_contract(field: str, value: str) -> None:
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+backend/tests/unit/test_geo_collector_contract.py:176: Failed
+_ test_source_metadata_cannot_violate_persistence_contract[model\x00version-source_product] _
+
+field = 'source_product', value = 'model\x00version'
+
+    @pytest.mark.parametrize("field", ["source_product", "source_model", "source_version"])
+    @pytest.mark.parametrize("value", ["", " \n\t ", "\x00", "model\x00version"])
+    def test_source_metadata_cannot_violate_persistence_contract(field: str, value: str) -> None:
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+backend/tests/unit/test_geo_collector_contract.py:176: Failed
+_ test_source_metadata_cannot_violate_persistence_contract[model\x00version-source_model] _
+
+field = 'source_model', value = 'model\x00version'
+
+    @pytest.mark.parametrize("field", ["source_product", "source_model", "source_version"])
+    @pytest.mark.parametrize("value", ["", " \n\t ", "\x00", "model\x00version"])
+    def test_source_metadata_cannot_violate_persistence_contract(field: str, value: str) -> None:
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+backend/tests/unit/test_geo_collector_contract.py:176: Failed
+_ test_source_metadata_cannot_violate_persistence_contract[model\x00version-source_version] _
+
+field = 'source_version', value = 'model\x00version'
+
+    @pytest.mark.parametrize("field", ["source_product", "source_model", "source_version"])
+    @pytest.mark.parametrize("value", ["", " \n\t ", "\x00", "model\x00version"])
+    def test_source_metadata_cannot_violate_persistence_contract(field: str, value: str) -> None:
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+backend/tests/unit/test_geo_collector_contract.py:176: Failed
+____ test_citation_title_rejects_nul_without_normalizing_original_metadata _____
+
+    def test_citation_title_rejects_nul_without_normalizing_original_metadata() -> None:
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+backend/tests/unit/test_geo_collector_contract.py:181: Failed
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_collector_contract.py::test_source_metadata_cannot_violate_persistence_contract[-source_product]
+FAILED backend/tests/unit/test_geo_collector_contract.py::test_source_metadata_cannot_violate_persistence_contract[-source_model]
+FAILED backend/tests/unit/test_geo_collector_contract.py::test_source_metadata_cannot_violate_persistence_contract[-source_version]
+FAILED backend/tests/unit/test_geo_collector_contract.py::test_source_metadata_cannot_violate_persistence_contract[ \n\t -source_product]
+FAILED backend/tests/unit/test_geo_collector_contract.py::test_source_metadata_cannot_violate_persistence_contract[ \n\t -source_model]
+FAILED backend/tests/unit/test_geo_collector_contract.py::test_source_metadata_cannot_violate_persistence_contract[ \n\t -source_version]
+FAILED backend/tests/unit/test_geo_collector_contract.py::test_source_metadata_cannot_violate_persistence_contract[\x00-source_product]
+FAILED backend/tests/unit/test_geo_collector_contract.py::test_source_metadata_cannot_violate_persistence_contract[\x00-source_model]
+FAILED backend/tests/unit/test_geo_collector_contract.py::test_source_metadata_cannot_violate_persistence_contract[\x00-source_version]
+FAILED backend/tests/unit/test_geo_collector_contract.py::test_source_metadata_cannot_violate_persistence_contract[model\x00version-source_product]
+FAILED backend/tests/unit/test_geo_collector_contract.py::test_source_metadata_cannot_violate_persistence_contract[model\x00version-source_model]
+FAILED backend/tests/unit/test_geo_collector_contract.py::test_source_metadata_cannot_violate_persistence_contract[model\x00version-source_version]
+FAILED backend/tests/unit/test_geo_collector_contract.py::test_citation_title_rejects_nul_without_normalizing_original_metadata
+13 failed, 65 deselected in 0.14s

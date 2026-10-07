@@ -1,0 +1,303 @@
+......................................................F................. [ 27%]
+........................................................................ [ 54%]
+............FF.......................................................... [ 81%]
+................................................                         [100%]
+=================================== FAILURES ===================================
+_________________ test_public_schema_components_match_pydantic _________________
+
+contract = {'components': {'headers': {'RequestIdResponseHeader': {'required': True, 'schema': {'maxLength': 100, 'minLength': 1,.../components/responses/ErrorResponse'}, '403': {'$ref': '#/components/responses/ErrorResponse'}, ...}, ...}}, ...}, ...}
+
+    def test_public_schema_components_match_pydantic(contract: dict[str, Any]) -> None:
+        def clean(value: Any) -> Any:
+            if isinstance(value, dict):
+                return {
+                    k: clean(v) for k, v in value.items() if k not in {"title", "description", "$defs"}
+                }
+            if isinstance(value, list):
+                return [clean(v) for v in value]
+            return value
+    
+        for name in [
+            "GeoEngineSurfaceCreate",
+            "GeoEngineSurfaceUpdate",
+            "GeoEngineSurfaceOut",
+            "GeoCollectionProfileCreate",
+            "GeoCollectionProfileUpdate",
+            "GeoCollectionProfileOut",
+        ]:
+            schema = TypeAdapter(getattr(schemas, name)).json_schema(
+                ref_template="#/components/schemas/{model}"
+            )
+            for key, definition in schema.pop("$defs", {}).items():
+>               assert clean(definition) == clean(contract["components"]["schemas"][key])
+E               AssertionError: assert {'additionalP...pe': 'object'} == {'additionalP...pe': 'object'}
+E                 
+E                 Omitting 2 identical items, use -vv to show
+E                 Differing items:
+E                 {'properties': {'max_output_tokens': {'anyOf': [{'maximum': 65536, 'minimum': 1, 'type': 'integer'}, {'type': 'null'}]... None}, 'temperature': {'anyOf': [{'maximum': 2, 'minimum': 0, 'type': 'number'}, {'type': 'null'}], 'default': None}}} != {'properties': {'max_output_tokens': {'anyOf': [{'maximum': 65536, 'minimum': 1, 'type': 'integer'}, {'type': 'null'}]}, 'temperature': {'anyOf': [{'maximum': 2, 'minimum': 0, 'type': 'number'}, {'type': 'null'}]}}}
+E                 Use -v to get more diff
+
+backend/tests/unit/test_geo_surface_contract.py:263: AssertionError
+___ test_static_request_context_metadata_covers_all_operations_and_responses ___
+
+    def test_static_request_context_metadata_covers_all_operations_and_responses() -> None:
+        """静态合同逐操作声明 request ID、400 信封和全部 response Header。"""
+        contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+        document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+        operations = operation_map(document)
+>       assert len(operations) == 183
+E       AssertionError: assert 197 == 183
+E        +  where 197 = len({('/api/health/live', 'get'): {'operationId': 'getLiveHealth', 'parameters': [{'$ref': '#/components/parameters/Reques...ef': '#/components/responses/ErrorResponse'}, '403': {'$ref': '#/components/responses/ErrorResponse'}, ...}, ...}, ...})
+
+backend/tests/unit/test_contract.py:56: AssertionError
+_________ test_frozen_response_status_signatures_cover_every_operation _________
+
+    def test_frozen_response_status_signatures_cover_every_operation() -> None:
+        """逐 operation 冻结精确 response 集合，避免合同回退到宽泛状态模板。"""
+        contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+        document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+        expected_by_signature = {
+            ("200",): ("getLiveHealth",),
+            ("200", "503"): ("getReadyHealth",),
+            ("200", "204", "401"): ("getCurrentUser",),
+            ("200", "401", "403"): (
+                "getCsrfToken",
+                "getAuditLogFilterOptions",
+                "listQueryTopics",
+                "listPlatformPrompts",
+                "listPlatformTypes",
+                "listPublicationReadyItems",
+                "getPublicationWorkbenchSummary",
+                "getDashboardSummary",
+            ),
+            ("200", "401", "422"): ("login",),
+            ("200", "204", "401", "403"): (
+                "getAuthSession",
+                "getContentHumanizationPrompt",
+            ),
+            ("200", "401", "403", "409"): ("getWorkbench",),
+            ("200", "401", "403", "422"): (
+                "listUsers",
+                "bulkUpdateUserStatus",
+                "exportUsers",
+                "listAuditLogs",
+                "listProducts",
+                "listQueryTopicItems",
+                "listPlatformProfiles",
+                "exportPlatformProfiles",
+                "listAIChannels",
+                "listContentTasks",
+                "getContentTaskCreationOptions",
+                "listPlatformAccounts",
+                "getGeoMetrics",
+                "listGeoSubjects",
+                "listGeoPromptVariants",
+            ),
+            ("201", "401", "403", "422"): (
+                "createQueryTopic",
+                "createAIChannel",
+                "createFileUploadIntent",
+            ),
+            ("204", "401", "403", "422"): ("logout", "changePassword"),
+            ("200", "401", "403", "404", "422"): (
+                "getProduct",
+                "getProductDetail",
+                "getProductFactsDraft",
+                "listFactVersions",
+                "listProductFactHistory",
+                "getProductFactReviewContext",
+                "getFactVersion",
+                "getFactReviewContext",
+                "getPlatformProfile",
+                "getPlatformPrompt",
+                "getPlatformPromptPreviewOptions",
+                "getAIChannel",
+                "getAIChannelUsageSummary",
+                "listAIChannelAuditLogs",
+                "listAIModels",
+                "getContentTask",
+                "getContentTaskDetail",
+                "listGenerationJobs",
+                "listContentTaskVersions",
+                "getGenerationJob",
+                "getContentVersion",
+                "compareContentVersions",
+                "listGeoObservationPublications",
+                "getFileRecord",
+                "getGeoSubject",
+                "getGeoPromptVariant",
+            ),
+            ("200", "401", "403", "409", "422"): (
+                "putContentHumanizationPrompt",
+                "listPublicationWorks",
+                "listPublishedArticles",
+                "listPublishedContentIssues",
+                "listGeoObservations",
+                "listGeoObservationItems",
+            ),
+            ("201", "401", "403", "409", "422"): (
+                "createUser",
+                "createProduct",
+                "createPlatformPrompt",
+                "createPlatformType",
+            ),
+            ("200", "401", "403", "404", "409", "422"): (
+                "updateUser",
+                "resetUserPassword",
+                "getAuditLog",
+                "updateProduct",
+                "replaceProductFactsDraft",
+                "approveFactVersion",
+                "requestFactVersionChanges",
+                "retireFactVersion",
+                "updateQueryTopic",
+                "updatePlatformProfile",
+                "enablePlatformProfile",
+                "disablePlatformProfile",
+                "updatePlatformPrompt",
+                "updatePlatformType",
+                "updateAIChannel",
+                "replaceAIChannelApiKey",
+                "enableAIChannel",
+                "disableAIChannel",
+                "updateAIChannelHeader",
+                "updateAIModel",
+                "testAIModel",
+                "enableAIModel",
+                "disableAIModel",
+                "getContentEditorContext",
+                "getContentTaskReviewContext",
+                "getContentTaskGenerationOptions",
+                "cancelContentTask",
+                "archiveContentTask",
+                "restoreContentTask",
+                "getContentTaskPermanentDeletionPreview",
+                "updateContentDraft",
+                "getContentReviewContext",
+                "getContentVersionDetail",
+                "submitContentVersion",
+                "abandonContentVersion",
+                "approveContentVersion",
+                "requestContentVersionChanges",
+                "getPublicationPackage",
+                "updatePlatformAccount",
+                "enablePlatformAccount",
+                "disablePlatformAccount",
+                "getPublicationWork",
+                "getPublicationWorkspaceContext",
+                "updatePublicationPreparation",
+                "markPublicationPlatformReview",
+                "registerPublicationResult",
+                "verifyPublicationWork",
+                "switchPublicationContentVersion",
+                "closePublicationWork",
+                "getPublishedArticle",
+                "previewPublishedArticlePermanentDeletion",
+                "getPublishedContentIssue",
+                "getPublishedContentIssueWorkspaceContext",
+                "getPublishedContentRepairContext",
+                "resolvePublishedContentIssue",
+                "getGeoObservation",
+                "getGeoObservationDetail",
+                "getGeoObservationCorrectionContext",
+                "getGeoInsights",
+                "abortFileUpload",
+                "getFileDownloadUrl",
+                "updateGeoSubject",
+                "updateGeoPromptVariant",
+                "enableGeoPromptVariant",
+                "disableGeoPromptVariant",
+                "enableGeoSubject",
+                "disableGeoSubject",
+                "createGeoSubjectAlias",
+                "updateGeoSubjectAlias",
+                "deleteGeoSubjectAlias",
+                "createGeoSubjectDomain",
+                "deleteGeoSubjectDomain",
+            ),
+            ("201", "401", "403", "404", "409", "422"): (
+                "submitProductFactReview",
+                "createPlatformProfile",
+                "createAIChannelHeader",
+                "createContentTask",
+                "createManualContentVersion",
+                "createContentRevision",
+                "createPlatformAccount",
+                "createPublicationWork",
+                "openPublishedContentIssue",
+                "createPublishedContentRepairTask",
+                "createGeoObservation",
+                "createGeoOptimizationContentTask",
+                "createAIModel",
+                "createGeoSubject",
+                "createGeoPromptVariant",
+            ),
+            ("201", "401", "403", "409", "422", "503"): (
+                "createPlatformLogoCandidate",
+            ),
+            ("202", "401", "403", "404", "409", "422"): (
+                "createGenerationJob",
+                "createHumanizationJob",
+                "retryGenerationJob",
+            ),
+            ("204", "401", "403", "404", "409", "422"): (
+                "deleteUser",
+                "deleteProduct",
+                "deleteFactVersion",
+                "deleteQueryTopic",
+                "deletePlatformProfile",
+                "deletePlatformPrompt",
+                "deletePlatformType",
+                "deleteAIChannel",
+                "deleteAIChannelHeader",
+                "deleteAIModel",
+                "deleteContentTask",
+                "permanentlyDeleteContentTask",
+                "deleteContentDraft",
+                "deletePlatformAccount",
+                "permanentlyDeletePublishedArticle",
+                "deleteGeoObservation",
+                "deleteGeoSubject",
+                "deleteGeoPromptVariant",
+            ),
+            ("204", "401", "403", "404", "408", "409", "413", "422", "503"): (
+                "uploadFileContent",
+            ),
+            ("200", "401", "403", "404", "409", "422", "503"): (
+                "completeFileUpload",
+            ),
+            ("200", "401", "403", "404", "409", "422", "502", "504"): (
+                "discoverAIChannelModels",
+            ),
+        }
+        expected = {
+            operation_id: set(statuses) | {"400"}
+            for statuses, operation_ids in expected_by_signature.items()
+            for operation_id in operation_ids
+        }
+        operations = {
+            operation["operationId"]: operation
+            for path in document["paths"].values()
+            for operation in path.values()
+            if isinstance(operation, dict) and "operationId" in operation
+        }
+    
+        assert len(expected) == 183
+>       assert set(operations) == set(expected)
+E       AssertionError: assert {'abandonCont...rStatus', ...} == {'abandonCont...rStatus', ...}
+E         
+E         Extra items in the left set:
+E         'updateGeoCollectionProfile'
+E         'listGeoCollectionProfiles'
+E         'deleteGeoCollectionProfile'
+E         'createGeoCollectionProfile'
+E         'createGeoEngineSurface'...
+E         
+E         ...Full output truncated (10 lines hidden), use '-vv' to show
+
+backend/tests/unit/test_contract.py:340: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_surface_contract.py::test_public_schema_components_match_pydantic
+FAILED backend/tests/unit/test_contract.py::test_static_request_context_metadata_covers_all_operations_and_responses
+FAILED backend/tests/unit/test_contract.py::test_frozen_response_status_signatures_cover_every_operation
+3 failed, 261 passed in 14.18s

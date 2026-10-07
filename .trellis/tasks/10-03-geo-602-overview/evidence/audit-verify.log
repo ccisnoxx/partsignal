@@ -1,0 +1,10 @@
+MULTI_AGENT_AUDIT_BUNDLE
+status: passed
+audit_id: 20261004T063738Z-geo-602-6958841c
+audit_dir: /Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261004T063738Z-geo-602-6958841c
+bundle_status: closed
+artifact_count: 8
+size_bytes: 14381
+summary: {"plan_count": 1, "executed_attempt_count": 1, "accepted_attempt_count": 1, "independent_review_count": 1, "attention_required": false, "anomaly_count": 0}
+errors: []
+warnings: []

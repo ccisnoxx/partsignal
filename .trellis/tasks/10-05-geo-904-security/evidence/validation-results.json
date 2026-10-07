@@ -1,0 +1,120 @@
+{
+  "task": "GEO-904",
+  "source": "实际工具exit_code和对应日志",
+  "results": [
+    {
+      "id": "collector_baseline",
+      "command": "UV_CACHE_DIR=.cache/uv uv run --project backend python deploy/scripts/test-geo-collector-contract.py",
+      "exit_code": 0,
+      "result": "194 passed；secret_scan=0；external_network=blocked",
+      "evidence": "baseline-collector.log"
+    },
+    {
+      "id": "lint_initial",
+      "command": "make lint",
+      "exit_code": 0,
+      "result": "通过",
+      "evidence": "make-lint.log"
+    },
+    {
+      "id": "lint_final",
+      "command": "make lint",
+      "exit_code": 0,
+      "result": "Browser/backend/frontend通过",
+      "evidence": "make-lint-final.log"
+    },
+    {
+      "id": "typecheck",
+      "command": "make typecheck",
+      "exit_code": 0,
+      "result": "Browser、mypy249源文件、frontend通过",
+      "evidence": "make-typecheck.log"
+    },
+    {
+      "id": "contract",
+      "command": "make contract-check",
+      "exit_code": 0,
+      "result": "通过",
+      "evidence": "make-contract-check.log"
+    },
+    {
+      "id": "unit",
+      "command": "make test-unit",
+      "exit_code": 0,
+      "result": "Browser13、backend3781、frontend1285/135files通过",
+      "evidence": "make-test-unit.log"
+    },
+    {
+      "id": "integration",
+      "command": "make test-integration",
+      "exit_code": 2,
+      "result": "1162 passed，6 failed，6 errors，43 warnings；pytest exit1、make exit2",
+      "evidence": "make-integration.log"
+    },
+    {
+      "id": "security_initial",
+      "command": "docker compose --env-file .env -f deploy/compose.dev.yaml run --rm --no-deps backend-test pytest tests/integration/test_geo_security_review.py",
+      "exit_code": 1,
+      "result": "1 passed/1 failed：测试SQL varchar/UUID比较已修正::text",
+      "evidence": "security-review-pg.log"
+    },
+    {
+      "id": "security_final",
+      "command": "docker compose --env-file .env -f deploy/compose.dev.yaml run --rm --no-deps backend-test pytest tests/integration/test_geo_security_review.py",
+      "exit_code": 0,
+      "result": "2 passed in 5.93s；最终审计断言只限制SUCCESS",
+      "evidence": "security-review-pg-final.log"
+    },
+    {
+      "id": "object_targeted",
+      "command": "docker compose --env-file .env -f deploy/compose.dev.yaml run --rm --no-deps backend-test pytest tests/integration/test_geo_answer_files.py",
+      "exit_code": 0,
+      "result": "一次性APP_ENV=test对象服务修正后8 passed in 4.09s",
+      "evidence": "object-storage-rerun.log"
+    },
+    {
+      "id": "recovery_targeted",
+      "command": "implement.md显式本机PG16桥接 -> pytest backend/tests/integration/test_geo_recovery.py -q",
+      "exit_code": 0,
+      "result": "六节点通过，不表示原完整门禁通过",
+      "evidence": "recovery-environment-rerun.log"
+    },
+    {
+      "id": "nginx",
+      "command": "node deploy/scripts/check-nginx-security.mjs",
+      "exit_code": 0,
+      "result": "静态安全头/Markdown/HTML/DOM sink通过",
+      "evidence": "nginx-security.log"
+    },
+    {
+      "id": "git_diff",
+      "command": "git diff --check",
+      "exit_code": 0,
+      "result": "无空白诊断",
+      "evidence": "git-diff-check.log"
+    },
+    {
+      "id": "new_test_diff",
+      "command": "git diff --no-index --check /dev/null backend/tests/integration/test_geo_security_review.py",
+      "exit_code": 1,
+      "result": "无空白诊断，退出1表示新增差异",
+      "evidence": "new-test-diff-check.log"
+    },
+    {
+      "id": "docs_integrity",
+      "command": "cd docs/geo-monitoring && shasum -a 256 -c SHA256SUMS",
+      "exit_code": 0,
+      "result": "123项通过",
+      "evidence": "docs-sha256-final.log"
+    },
+    {
+      "id": "audit_verify",
+      "command": "work-plan audit-verify 20261005T182700Z-geo-904-622ed545 --json",
+      "exit_code": 0,
+      "result": "closed/passed；写路径未知异常保留",
+      "evidence": "audit-verify.json"
+    }
+  ],
+  "production_acceptance": "NOT_VERIFIED",
+  "task_status": "blocked"
+}

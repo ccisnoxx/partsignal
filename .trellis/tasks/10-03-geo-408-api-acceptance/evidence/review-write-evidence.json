@@ -1,0 +1,4 @@
+{
+  "source": "review-tool-evidence.json 的20条完整 custom tool输入逐项读取；全部是cat/rg/nl/sed/tail/wc或只读Python结构解析，无写工具、修改命令或服务启动。",
+  "observed_write_paths": []
+}

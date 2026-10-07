@@ -1,0 +1,49 @@
+{
+  "baseline_pytest": {
+    "passed": 132,
+    "wrapper_exit": 1,
+    "cause": "zsh readonly status assignment after pytest success"
+  },
+  "targeted_final": {
+    "exit_code": 0,
+    "passed": 210,
+    "new_contract_cases": 78
+  },
+  "git diff --check": {
+    "exit_code": 0
+  },
+  "make contract-check": {
+    "exit_code": 0,
+    "evidence_reused": "相关合同、运行时与generated输入随后未变"
+  },
+  "make lint": {
+    "exit_code": 0
+  },
+  "make typecheck": {
+    "exit_code": 0,
+    "mypy_sources": 145,
+    "frontend_tsc": "passed"
+  },
+  "make test-unit": {
+    "exit_code": 0,
+    "backend_passed": 2795,
+    "frontend_passed": 1121,
+    "frontend_test_files": 119
+  },
+  "docs_sha256": {
+    "exit_code": 0
+  },
+  "independent_review": {
+    "findings": 2,
+    "priority": "P2",
+    "resolution": "内部来源空白/NUL与标题NUL拒绝，13项先失败后通过回归",
+    "second_independent_review": false
+  },
+  "scope_checker_first": {
+    "exit_code": 1,
+    "cause": "incorrectly required git diff --no-index --check exit 0; expected differences can exit 1 without whitespace errors"
+  },
+  "scope_checker_final": {
+    "exit_code": 0
+  }
+}

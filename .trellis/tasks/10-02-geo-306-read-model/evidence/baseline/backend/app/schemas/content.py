@@ -1,0 +1,646 @@
+"""内容任务、生成、版本和审核 Schema。"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import datetime
+from enum import StrEnum
+from typing import Annotated, Any, Literal
+
+from pydantic import Field, HttpUrl, model_validator
+
+from app.schemas.base import ContractModel
+from app.schemas.common import DeletionProjection
+from app.schemas.configuration import PlatformLogoOut
+from app.schemas.product_facts import (
+    Confidentiality,
+    FactVersionOut,
+    ProductFactsProductContext,
+)
+
+GenerationJobStatus = Literal["PENDING", "RUNNING", "SUCCEEDED", "FAILED"]
+ContentTaskWorkflowStage = Literal[
+    "NO_DRAFT",
+    "GENERATING",
+    "GENERATION_FAILED",
+    "DRAFT",
+    "REVIEW_PENDING",
+    "CHANGES_REQUESTED",
+    "APPROVED",
+    "PUBLISHING",
+    "VERIFIED",
+    "CANCELLED",
+]
+ContentTaskPrimaryTask = Literal[
+    "CREATE_FIRST_DRAFT",
+    "VIEW_GENERATION_PROGRESS",
+    "HANDLE_GENERATION_FAILURE",
+    "EDIT_AND_SUBMIT_REVIEW",
+    "REVIEW_CONTENT",
+    "REVISE_CONTENT",
+    "START_PUBLICATION",
+    "CONTINUE_PUBLICATION",
+    "VIEW_FULL_LINEAGE",
+    "VIEW_CANCELLATION",
+]
+ContentTaskAction = Literal[
+    "CANCEL",
+    "DELETE",
+    "ARCHIVE",
+    "RESTORE",
+    "PERMANENT_DELETE",
+    "CREATE_GENERATION_JOB",
+    "CREATE_MANUAL_VERSION",
+]
+
+
+class ContentTaskArchiveStatus(StrEnum):
+    """任务列表的归档可见范围。"""
+
+    ACTIVE = "ACTIVE"
+    ARCHIVED = "ARCHIVED"
+    ALL = "ALL"
+
+
+class ContentTaskQueryTopicReference(StrEnum):
+    """内容任务列表支持的 Query Topic 直接引用类型。"""
+
+    CONTENT_TASK = "CONTENT_TASK"
+    GEO_OPTIMIZATION_SOURCE = "GEO_OPTIMIZATION_SOURCE"
+
+
+ContentTag = Annotated[str, Field(min_length=1, pattern=r"\S")]
+
+
+class ContentTaskCreate(ContractModel):
+    product_id: uuid.UUID
+    fact_version_id: uuid.UUID
+    platform_profile_id: uuid.UUID
+
+
+class ContentTaskCreationFactOption(ContractModel):
+    id: uuid.UUID
+    version: int = Field(ge=1)
+    classification: Confidentiality
+
+
+class ContentTaskCreationProductOption(ContractModel):
+    id: uuid.UUID
+    brand: str
+    part_number: str
+    approved_fact_versions: Annotated[list[ContentTaskCreationFactOption], Field(min_length=1)]
+
+
+class ContentTaskCreationPlatformOption(ContractModel):
+    id: uuid.UUID
+    name: str
+
+
+class ContentTaskRequestedProduct(ContractModel):
+    product_id: uuid.UUID
+    brand: str | None
+    part_number: str | None
+    eligibility: Literal["ELIGIBLE", "NOT_FOUND", "PRODUCT_INACTIVE", "NO_APPROVED_FACTS"]
+
+
+class ContentTaskCreationOptions(ContractModel):
+    products: list[ContentTaskCreationProductOption]
+    platforms: list[ContentTaskCreationPlatformOption]
+    requested_product: ContentTaskRequestedProduct | None
+
+
+class ContentTaskOut(ContractModel):
+    product_id: uuid.UUID
+    fact_version_id: uuid.UUID
+    platform_profile_id: uuid.UUID | None
+    id: uuid.UUID
+    query_topic_id: uuid.UUID | None
+    source_published_content_issue_id: uuid.UUID | None
+    current_content_version_id: uuid.UUID | None
+    workflow_stage: ContentTaskWorkflowStage
+    primary_task: ContentTaskPrimaryTask
+    available_actions: list[ContentTaskAction]
+    deletion: DeletionProjection | None
+    status: Literal["OPEN", "COMPLETED", "CANCELLED"]
+    revision: int
+    created_by: uuid.UUID
+    created_at: datetime
+    archived_at: datetime | None
+
+
+class ContentTaskProductSummary(ContractModel):
+    id: uuid.UUID
+    brand: str
+    part_number: str
+
+
+class ContentTaskPlatformSummary(ContractModel):
+    id: uuid.UUID | None
+    name: str
+    website_url: HttpUrl | None
+    logo: PlatformLogoOut | None
+
+
+class ContentTaskCurrentContentSummary(ContractModel):
+    """内容任务当前主线的最小列表摘要。"""
+
+    id: uuid.UUID
+    version: int = Field(ge=1)
+    source_type: Literal["AI", "HUMAN"]
+
+
+class ContentTaskListItem(ContentTaskOut):
+    identifier: str = Field(pattern=r"^CT-[0-9A-F]{8}$")
+    product: ContentTaskProductSummary
+    platform: ContentTaskPlatformSummary
+    current_content: ContentTaskCurrentContentSummary | None
+    latest_generation_status: GenerationJobStatus | None
+    updated_at: datetime
+
+
+class ContentTaskList(ContractModel):
+    items: list[ContentTaskListItem]
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
+class ContentTaskPermanentDeletionCounts(ContractModel):
+    """管理员永久删除前展示的内部记录范围。"""
+
+    content_versions: int = Field(ge=0)
+    content_review_records: int = Field(ge=0)
+    generation_jobs: int = Field(ge=0)
+    publication_works: int = Field(ge=0)
+    publication_events: int = Field(ge=0)
+    publication_verifications: int = Field(ge=0)
+    published_articles: int = Field(ge=0)
+    published_content_issues: int = Field(ge=0)
+    geo_article_relations: int = Field(ge=0)
+    exclusive_geo_observation_chains: int = Field(ge=0)
+    attachment_relations: int = Field(ge=0)
+
+
+class ContentTaskPermanentDeletionPreview(ContractModel):
+    task_id: uuid.UUID
+    revision: int = Field(ge=0)
+    counts: ContentTaskPermanentDeletionCounts
+    external_urls: list[HttpUrl]
+    confirmation_text: Literal["永久删除"]
+
+
+class ContentTaskPermanentDeleteRequest(ContractModel):
+    expected_revision: int = Field(ge=0)
+    confirmation_text: str
+
+
+class GenerationOptionModel(ContractModel):
+    id: uuid.UUID
+    channel_id: uuid.UUID
+    channel_name: str
+    display_name: str
+    model_id: str
+
+
+class PlatformPromptSnapshot(ContractModel):
+    id: uuid.UUID
+    name: str = Field(min_length=1, max_length=300)
+    revision: int = Field(ge=0)
+
+
+class PlatformPromptPreviewContext(ContractModel):
+    """Prompt Preview 可选择的最小内容任务身份。"""
+
+    content_task_id: uuid.UUID
+    identifier: str = Field(pattern=r"^CT-[0-9A-F]{8}$")
+    product_id: uuid.UUID
+    brand: str
+    part_number: str
+    platform_profile_id: uuid.UUID
+    platform_profile_name: str
+    fact_version_id: uuid.UUID
+    fact_version: int = Field(ge=1)
+
+
+class PlatformPromptPreviewOptions(ContractModel):
+    """真实首稿预览的只读上下文与模型选项。"""
+
+    platform_prompt: PlatformPromptSnapshot
+    contexts: list[PlatformPromptPreviewContext]
+    models: list[GenerationOptionModel]
+
+
+class GenerationPromptOption(ContractModel):
+    id: uuid.UUID
+    name: str = Field(min_length=1, max_length=300)
+    revision: int = Field(ge=0)
+    template_markdown: str = Field(min_length=1)
+
+
+class GenerationOptions(ContractModel):
+    platform_profile_id: uuid.UUID
+    platform_profile_name: str
+    platform_prompt: GenerationPromptOption
+    humanization_prompt_configured: bool
+    models: list[GenerationOptionModel]
+
+
+class OriginalGenerationJobCreate(ContractModel):
+    ai_model_id: uuid.UUID
+    platform_prompt_id: uuid.UUID
+    platform_prompt_revision: int = Field(ge=0)
+
+
+class HumanizationJobCreate(ContractModel):
+    ai_model_id: uuid.UUID
+
+
+class GenerationJobOut(ContractModel):
+    id: uuid.UUID
+    content_task_id: uuid.UUID
+    job_type: Literal["GENERATE", "HUMANIZE"]
+    source_content_version_id: uuid.UUID | None
+    status: GenerationJobStatus
+    workflow_stage: Literal["IN_PROGRESS", "SUCCEEDED", "RETRYABLE_FAILURE", "HISTORICAL_FAILURE"]
+    primary_task: Literal[
+        "VIEW_EXECUTION_PROGRESS",
+        "VIEW_GENERATED_CONTENT",
+        "HANDLE_FAILURE",
+        "VIEW_FAILURE",
+    ]
+    available_actions: list[Literal["RETRY"]]
+    attempt_count: int
+    content_version_id: uuid.UUID | None = None
+    retry_of_id: uuid.UUID | None = None
+    error_code: str | None = None
+    error_summary: str | None = None
+    provider_request_id: str | None = None
+    response_duration_ms: int | None = Field(default=None, ge=0)
+    prompt_tokens: int | None = Field(default=None, ge=0)
+    completion_tokens: int | None = Field(default=None, ge=0)
+    total_tokens: int | None = Field(default=None, ge=0)
+    created_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+
+class GenerationJobList(ContractModel):
+    items: list[GenerationJobOut]
+
+
+class LegacyGenerationSnapshot(ContractModel):
+    adapter_name: str
+    contract_version: Literal["chat-json-v1"]
+    channel: dict[str, Any]
+    model: dict[str, Any]
+    platform_type: dict[str, Any]
+    # 0014 之前的不可变历史快照没有具体平台字段；新作业必须写入。
+    platform_profile: dict[str, Any] | None = None
+    system_message: str
+    user_prompt_markdown: str
+    # 0012 之前的不可变历史快照没有分级字段；新建或重试第三方作业必须显式校验。
+    generation_data_classification: Confidentiality | None = None
+    generation_data_classified_by: uuid.UUID | None = None
+    generation_data_classified_at: datetime | None = None
+    approved_facts: dict[str, Any]
+    task_requirements: dict[str, Any]
+    user_message: str
+
+
+class GenerationFactSnapshot(ContractModel):
+    id: uuid.UUID
+    product_id: uuid.UUID
+    version: int = Field(ge=1)
+    classification: Confidentiality
+
+
+class MarkdownGenerationSnapshotV2(ContractModel):
+    """模板库上线前 Markdown 原始生成的不可变历史输入。"""
+
+    adapter_name: Literal["openai-compatible-chat-completions"]
+    contract_version: Literal["content-markdown-v2"]
+    channel: dict[str, Any]
+    model: dict[str, Any]
+    platform_profile: dict[str, Any]
+    fact_version: GenerationFactSnapshot
+    system_message: str
+    user_message: str
+
+
+class GenerationSnapshot(ContractModel):
+    """包含 Prompt 身份的一次原始生成不可变输入。"""
+
+    adapter_name: Literal["openai-compatible-chat-completions"]
+    contract_version: Literal["content-markdown-v3"]
+    channel: dict[str, Any]
+    model: dict[str, Any]
+    platform_profile: dict[str, Any]
+    platform_prompt: PlatformPromptSnapshot
+    fact_version: GenerationFactSnapshot
+    system_message: str
+    user_message: str
+
+
+class HumanizationPromptSnapshot(ContractModel):
+    revision: int = Field(ge=0)
+    template_markdown: str = Field(min_length=1)
+
+
+class HumanizationSourceContent(ContractModel):
+    id: uuid.UUID
+    task_id: uuid.UUID
+    fact_version_id: uuid.UUID
+    version: int = Field(ge=1)
+    content_hash: str
+    title: str
+    summary: str
+    body_markdown: str
+    tags: list[str]
+
+
+class LegacyHumanizationSnapshot(ContractModel):
+    """历史自然化调用的只读不可变输入。"""
+
+    adapter_name: Literal["openai-compatible-chat-completions"]
+    contract_version: Literal["humanization-json-v1"]
+    channel: dict[str, Any]
+    model: dict[str, Any]
+    humanization_prompt: HumanizationPromptSnapshot
+    source_content: HumanizationSourceContent
+    source_generation_job_id: uuid.UUID
+    user_prompt_markdown: str
+    generation_data_classification: Confidentiality
+    generation_data_classified_by: uuid.UUID
+    generation_data_classified_at: datetime
+    approved_facts: dict[str, Any]
+    task_requirements: dict[str, Any]
+    system_message: str
+    user_message: str
+
+
+class HumanizationSnapshot(ContractModel):
+    """一次自然化调用的完整不可变输入。"""
+
+    adapter_name: Literal["openai-compatible-chat-completions"]
+    contract_version: Literal["humanization-markdown-v2"]
+    channel: dict[str, Any]
+    model: dict[str, Any]
+    humanization_prompt: HumanizationPromptSnapshot
+    source_content: HumanizationSourceContent
+    source_generation_job_id: uuid.UUID
+    fact_version: GenerationFactSnapshot
+    system_message: str
+    user_message: str
+
+
+class GenerationJobDetail(GenerationJobOut):
+    input_snapshot: (
+        LegacyGenerationSnapshot
+        | MarkdownGenerationSnapshotV2
+        | GenerationSnapshot
+        | LegacyHumanizationSnapshot
+        | HumanizationSnapshot
+    )
+
+    @model_validator(mode="after")
+    def validate_snapshot_type(self) -> GenerationJobDetail:
+        if self.job_type == "GENERATE" and not isinstance(
+            self.input_snapshot,
+            (LegacyGenerationSnapshot, MarkdownGenerationSnapshotV2, GenerationSnapshot),
+        ):
+            raise ValueError("原始生成作业必须使用 GenerationSnapshot")
+        if self.job_type == "HUMANIZE" and not isinstance(
+            self.input_snapshot, (LegacyHumanizationSnapshot, HumanizationSnapshot)
+        ):
+            raise ValueError("自然化作业必须使用 HumanizationSnapshot")
+        return self
+
+
+class QualityIssue(ContractModel):
+    code: str
+    severity: Literal["WARNING", "BLOCKING"]
+    message: str
+
+
+class ContentVersionOut(ContractModel):
+    id: uuid.UUID
+    task_id: uuid.UUID
+    fact_version_id: uuid.UUID
+    source_job_id: uuid.UUID | None
+    based_on_id: uuid.UUID | None
+    version: int
+    source_type: Literal["AI", "HUMAN"]
+    title: str
+    summary: str
+    body_markdown: str
+    tags: list[str]
+    content_hash: str
+    status: Literal[
+        "DRAFT", "PENDING_REVIEW", "CHANGES_REQUESTED", "APPROVED", "SUPERSEDED", "ABANDONED"
+    ]
+    workflow_stage: Literal[
+        "CURRENT_DRAFT",
+        "CURRENT_REVIEW_PENDING",
+        "CURRENT_CHANGES_REQUESTED",
+        "CURRENT_APPROVED",
+        "CURRENT_PUBLISHING",
+        "PUBLISHED",
+        "HISTORICAL",
+    ]
+    primary_task: Literal[
+        "EDIT_AND_SUBMIT_REVIEW",
+        "REVIEW_CONTENT",
+        "CREATE_REVISION",
+        "START_PUBLICATION",
+        "CONTINUE_PUBLICATION",
+        "VIEW_PUBLICATION_RESULT",
+        "VIEW_VERSION_HISTORY",
+    ]
+    available_actions: list[
+        Literal[
+            "SAVE",
+            "DELETE",
+            "CREATE_REVISION",
+            "CREATE_HUMANIZATION_JOB",
+            "SUBMIT_REVIEW",
+            "APPROVE",
+            "REQUEST_CHANGES",
+            "ABANDON",
+        ]
+    ]
+    revision: int
+    quality_issues: list[QualityIssue]
+    created_by: uuid.UUID
+    created_at: datetime
+
+
+class ContentRevisionCreate(ContractModel):
+    title: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    body_markdown: str = Field(min_length=1)
+    tags: list[ContentTag] = Field(min_length=1)
+    change_summary: str = Field(min_length=1)
+
+
+class ContentDraftUpdate(ContractModel):
+    """提交审核前覆盖当前人工草稿的可编辑字段。"""
+
+    expected_revision: int = Field(ge=0)
+    title: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    body_markdown: str = Field(min_length=1)
+    tags: list[ContentTag] = Field(min_length=1)
+
+
+class ContentVersionList(ContractModel):
+    items: list[ContentVersionOut]
+
+
+class DiffLine(ContractModel):
+    kind: Literal["EQUAL", "ADD", "DELETE"]
+    old_line: int | None = None
+    new_line: int | None = None
+    text: str
+
+
+class ContentDiff(ContractModel):
+    left_id: uuid.UUID
+    right_id: uuid.UUID
+    lines: list[DiffLine]
+
+
+class FactVersionDiff(ContractModel):
+    left_id: uuid.UUID
+    right_id: uuid.UUID
+    lines: list[DiffLine]
+
+
+class ActorSummary(ContractModel):
+    id: uuid.UUID
+    username: str
+    display_name: str
+
+
+class ReviewRecord(ContractModel):
+    id: uuid.UUID
+    target_id: uuid.UUID
+    target_version: int
+    action: str
+    comment: str
+    actor: ActorSummary
+    created_at: datetime
+
+
+class ContentVersionDetailContent(ContractModel):
+    """只读详情页消费的内容版本 canonical 字段。"""
+
+    id: uuid.UUID
+    task_id: uuid.UUID
+    fact_version_id: uuid.UUID
+    source_job_id: uuid.UUID | None
+    based_on_id: uuid.UUID | None
+    version: int = Field(ge=1)
+    source_type: Literal["AI", "HUMAN"]
+    status: Literal[
+        "DRAFT", "PENDING_REVIEW", "CHANGES_REQUESTED", "APPROVED", "SUPERSEDED", "ABANDONED"
+    ]
+    is_current: bool
+    title: str
+    summary: str
+    body_markdown: str
+    tags: list[str]
+    content_hash: str
+    change_summary: str
+    creator: ActorSummary
+    created_at: datetime
+    updated_at: datetime | None
+
+
+class ContentVersionFactSummary(ContractModel):
+    """详情页链接事实版本所需的最小身份。"""
+
+    id: uuid.UUID
+    product_id: uuid.UUID
+    version: int = Field(ge=1)
+    status: Literal["PENDING_REVIEW", "CHANGES_REQUESTED", "APPROVED", "RETIRED"]
+    classification: Confidentiality
+
+
+class ContentVersionPromptSnapshot(ContractModel):
+    """生成步骤中可审计但不含凭据的 Prompt 快照。"""
+
+    kind: Literal["PLATFORM", "HUMANIZATION", "LEGACY"]
+    id: uuid.UUID | None
+    name: str | None
+    revision: int | None = Field(ge=0)
+    template_markdown: str | None
+    system_message: str
+    user_message: str
+
+
+class ContentVersionLineageStep(ContractModel):
+    """目标版本祖先链上的一项紧凑生成快照。"""
+
+    job_id: uuid.UUID
+    job_type: Literal["GENERATE", "HUMANIZE"]
+    source_content_version_id: uuid.UUID | None
+    contract_version: str
+    channel: dict[str, Any]
+    model: dict[str, Any]
+    prompt: ContentVersionPromptSnapshot
+
+
+class ContentVersionGenerationLineage(ContractModel):
+    original_generation: ContentVersionLineageStep
+    humanizations: list[ContentVersionLineageStep]
+
+
+class ContentVersionDetail(ContractModel):
+    """单请求形成的不可变 Content Version 详情快照。"""
+
+    content: ContentVersionDetailContent
+    fact_version: ContentVersionFactSummary
+    generation_lineage: ContentVersionGenerationLineage | None
+    review_result: ReviewRecord | None
+    review_timeline: list[ReviewRecord]
+
+
+class FactReviewContext(ContractModel):
+    fact_version: FactVersionOut
+    diff: FactVersionDiff | None
+    available_actions: list[Literal["APPROVE", "REQUEST_CHANGES", "RETIRE"]]
+    review_history: list[ReviewRecord]
+
+
+class ProductFactReviewTarget(ContractModel):
+    fact_version: FactVersionOut
+    diff: FactVersionDiff | None
+    available_actions: list[Literal["APPROVE", "REQUEST_CHANGES"]]
+    review_history: list[ReviewRecord]
+
+
+class ProductFactReviewWorkspace(ContractModel):
+    product: ProductFactsProductContext
+    review: ProductFactReviewTarget | None
+
+
+class GenerationTrace(ContractModel):
+    job_id: uuid.UUID
+    input_snapshot: LegacyGenerationSnapshot | MarkdownGenerationSnapshotV2 | GenerationSnapshot
+
+
+class HumanizationTrace(ContractModel):
+    job_id: uuid.UUID
+    source_content_version_id: uuid.UUID
+    input_snapshot: LegacyHumanizationSnapshot | HumanizationSnapshot
+
+
+class ContentReviewContext(ContractModel):
+    content: ContentVersionOut
+    task: ContentTaskOut
+    fact_version: FactVersionOut
+    diff: ContentDiff | None
+    generation_trace: GenerationTrace | None
+    humanization_traces: list[HumanizationTrace]
+    available_actions: list[Literal["SUBMIT_REVIEW", "APPROVE", "REQUEST_CHANGES"]]
+    review_history: list[ReviewRecord]

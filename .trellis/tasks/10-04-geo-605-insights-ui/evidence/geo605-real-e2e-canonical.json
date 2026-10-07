@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "env",
+    "DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55468/partsignal",
+    "REDIS_URL=redis://127.0.0.1:56408/14",
+    "PARTSIGNAL_E2E_SPEC=tests/e2e/insights-real-stack.spec.ts",
+    "deploy/scripts/e2e-local.sh"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-04T09:16:26.330012+00:00",
+  "finished_at": "2026-10-04T09:17:41.830609+00:00"
+}

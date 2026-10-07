@@ -1,0 +1,130 @@
+# GEO-902 系统告警起始阈值；不改变业务指标或状态机。
+groups:
+- name: partsignal-geo-system
+  interval: 1m
+  rules:
+  - alert: GEOObservabilityUnavailable
+    expr: absent(geo_observability_up{job="partsignal-geo"}) or geo_observability_up{job="partsignal-geo"}
+      == 0 or (time() - geo_observability_snapshot_timestamp_seconds{job="partsignal-geo"}
+      > 180)
+    for: 3m
+    labels:
+      severity: critical
+      category: system
+      service: partsignal-geo
+    annotations:
+      summary: GEO观测采集失败、缺失或快照过期
+  - alert: GEOProcessHeartbeatStale
+    expr: geo_operation_success_total{job="partsignal-geo",operation=~"worker_heartbeat|scheduler_tick"}
+      == 0 or geo_operation_observed{job="partsignal-geo",operation=~"worker_heartbeat|scheduler_tick"}
+      == 0 or (time() - geo_operation_last_success_timestamp_seconds{job="partsignal-geo",operation=~"worker_heartbeat|scheduler_tick"}
+      > 90)
+    for: 3m
+    labels:
+      severity: critical
+      category: system
+      service: partsignal-geo
+    annotations:
+      summary: Worker或Scheduler真实心跳过期；检查本机health和依赖
+  - alert: GEORecoverySweepStale
+    expr: (geo_operation_success_total{job="partsignal-geo",operation=~"collection_dispatch|collection_recovery|analysis_dispatch|analysis_recovery"}
+      == 0 or (geo_operation_observed{job="partsignal-geo",operation=~"collection_dispatch|collection_recovery|analysis_dispatch|analysis_recovery"}
+      == 0 or (time() - geo_operation_last_success_timestamp_seconds{job="partsignal-geo",operation=~"collection_dispatch|collection_recovery|analysis_dispatch|analysis_recovery"}
+      > 180))) and on(job,instance) (geo_monitoring_enabled{job="partsignal-geo"}
+      == 1)
+    for: 5m
+    labels:
+      severity: warning
+      category: system
+      service: partsignal-geo
+    annotations:
+      summary: 补投递或租约恢复扫描未成功；tick不能代替扫描
+  - alert: GEOAutomaticPendingOld
+    expr: (geo_pending_oldest_seconds{job="partsignal-geo",stage="ANALYSIS"} > 600)
+      and on(job,instance) (geo_monitoring_enabled{job="partsignal-geo"} == 1) or
+      (geo_pending_oldest_seconds{job="partsignal-geo",mode="API",stage="COLLECTION"}
+      > 600) and on(job,instance) (geo_api_collection_enabled{job="partsignal-geo"}
+      == 1) and on(job,instance) (geo_monitoring_enabled{job="partsignal-geo"} ==
+      1) or (geo_pending_oldest_seconds{job="partsignal-geo",mode="BROWSER",stage="COLLECTION"}
+      > 600) and on(job,instance) (geo_browser_collection_enabled{job="partsignal-geo"}
+      == 1) and on(job,instance) (geo_monitoring_enabled{job="partsignal-geo"} ==
+      1)
+    for: 5m
+    labels:
+      severity: warning
+      category: system
+      service: partsignal-geo
+    annotations:
+      summary: 自动采集或分析积压超过10分钟；受保护snapshot定位最老ID
+  - alert: GEOExpiredLease
+    expr: (geo_running_expired_count{job="partsignal-geo"} > 0) and on(job,instance)
+      (geo_monitoring_enabled{job="partsignal-geo"} == 1)
+    for: 5m
+    labels:
+      severity: critical
+      category: system
+      service: partsignal-geo
+    annotations:
+      summary: 存在过期采集或分析lease；按snapshot稳定ID排障
+  - alert: GEOTechnicalRunFailures
+    expr: (sum by(job,instance,mode,stage,error_code) (geo_run_failure_count_24h{job="partsignal-geo",error_code!~"BUDGET_EXCEEDED|CANCELLED"})
+      > 5) and on(job,instance) (geo_monitoring_enabled{job="partsignal-geo"} == 1)
+    for: 10m
+    labels:
+      severity: warning
+      category: system
+      service: partsignal-geo
+    annotations:
+      summary: 24小时技术失败超过5次；按mode/stage/error_code查看分布
+  - alert: GEOAnalysisFailures
+    expr: (geo_analysis_failure_count_24h{job="partsignal-geo"} > 5) and on(job,instance)
+      (geo_monitoring_enabled{job="partsignal-geo"} == 1)
+    for: 10m
+    labels:
+      severity: warning
+      category: system
+      service: partsignal-geo
+    annotations:
+      summary: 24小时分析任务失败超过5次；不使用品牌低表现触发
+  - alert: GEOReportedCostUnknown
+    expr: (geo_cost_unknown_daily{job="partsignal-geo"} > 0) and on(job,instance)
+      (geo_monitoring_enabled{job="partsignal-geo"} == 1)
+    for: 15m
+    labels:
+      severity: warning
+      category: system
+      service: partsignal-geo
+    annotations:
+      summary: UTC日存在已发送费用未知调用；禁止按零计费
+  - alert: GEOBudgetAnomaly
+    expr: (geo_daily_budget_exceeded{job="partsignal-geo"} > 0 or geo_daily_budget_unknown_count{job="partsignal-geo"}
+      > 0 or geo_daily_budget_currency_mismatch_count{job="partsignal-geo"} > 0 or
+      geo_batch_budget_anomaly_count{job="partsignal-geo"} > 0 or geo_cost_underestimated_daily{job="partsignal-geo"}
+      > 0) and on(job,instance) (geo_monitoring_enabled{job="partsignal-geo"} == 1)
+    for: 1m
+    labels:
+      severity: warning
+      category: system
+      service: partsignal-geo
+    annotations:
+      summary: 预算超限、未知、币种不匹配或报告金额高于预估
+  - alert: GEOOperationFailures
+    expr: increase(geo_operation_failure_total{job="partsignal-geo",operation=~"scheduler_publish|storage_write|collection_dispatch|collection_recovery|analysis_dispatch|analysis_recovery|retention|batch_build|opportunity_evaluate"}[15m])
+      > 0
+    for: 5m
+    labels:
+      severity: warning
+      category: system
+      service: partsignal-geo
+    annotations:
+      summary: 运行边界出现失败；业务4xx拒绝已排除
+  - alert: GEOBrowserSessionMetadataUnhealthy
+    expr: (geo_browser_session_unhealthy{job="partsignal-geo"} > 0) and on(job,instance)
+      (geo_browser_collection_enabled{job="partsignal-geo"} == 1)
+    for: 5m
+    labels:
+      severity: warning
+      category: system
+      service: partsignal-geo
+    annotations:
+      summary: 现有会话材料元数据异常；不代表已实现真实登录探针

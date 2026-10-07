@@ -1,0 +1,40 @@
+--- 复核前/backend/app/errors.py
++++ 修复后/backend/app/errors.py
+@@ -69,7 +69,9 @@
+             {
+                 "errors": [
+                     {
+-                        "loc": item["loc"],
++                        "loc": (*item["loc"][:-1], "unknown-field")
++                        if item["type"] == "extra_forbidden"
++                        else item["loc"],
+                         "msg": "请求字段不符合接口契约",
+                         "type": item["type"],
+                     }
+--- 复核前/frontend/src/domains/geo-catalog/surfaces-page.tsx
++++ 修复后/frontend/src/domains/geo-catalog/surfaces-page.tsx
+@@ -37,6 +37,9 @@
+     setRefreshError(undefined);
+     try {
+       continuation = capturePrincipalContinuation(client);
++      // 无缓存的首次 GET 会被 invalidateQueries 复用；先取消才能读取提交后的快照。
++      await Promise.all([client.cancelQueries({ queryKey: surfacesKeys.lists() }), ...(!changedProfile ? [client.cancelQueries({ queryKey: surfacesKeys.profileDetails() })] : [])]);
++      if (!continuation.isCurrent() || !mounted.current) return;
+       await client.invalidateQueries({ queryKey: surfacesKeys.root(), refetchType: 'none' });
+       if (!continuation.isCurrent() || !mounted.current) return;
+       await Promise.all([client.invalidateQueries({ queryKey: surfacesKeys.lists() }, { throwOnError: true }), ...(!changedProfile ? [client.invalidateQueries({ queryKey: surfacesKeys.profileDetails() }, { throwOnError: true })] : [])]);
+--- 复核前/frontend/src/domains/geo-catalog/surfaces.api.ts
++++ 修复后/frontend/src/domains/geo-catalog/surfaces.api.ts
+@@ -82,9 +82,12 @@
+ async function deleteSurface(id: string, expectedRevision: number, token: string | null) {
+   const result = await api.DELETE('/api/v1/geo/engine-surfaces/{surface_id}', { params: { path: { surface_id: canonicalUuid(id) }, query: { expected_revision: expectedRevision }, header: { 'X-CSRF-Token': requireSurfacesCsrf(token) } } });
+   if (result.response.status !== 204) throw surfacesRequestError('删除观测面', result);
++  // 与认证边界一致：消费空响应，让 Chromium 完整结束请求后再关闭详情。
++  await result.response.text();
+ }
+ async function deleteProfile(id: string, expectedRevision: number, token: string | null) {
+   const result = await api.DELETE('/api/v1/geo/collection-profiles/{profile_id}', { params: { path: { profile_id: canonicalUuid(id) }, query: { expected_revision: expectedRevision }, header: { 'X-CSRF-Token': requireSurfacesCsrf(token) } } });
+   if (result.response.status !== 204) throw surfacesRequestError('删除采集配置', result);
++  await result.response.text();
+ }
+ export { surfacesKeys, surfaceListQueryOptions, profileListQueryOptions, surfaceQueryOptions, profileQueryOptions, createSurface, updateSurface, createProfile, updateProfile, setSurfaceActive, setProfileActive, deleteSurface, deleteProfile };

@@ -1,0 +1,22 @@
+{
+  "authorization": "用户明确允许再运行一次 delivery CI，复用未变输入的既有验证",
+  "expected_head_sha": "d0f61aaa78522be330207ed335869dafcd50017e",
+  "checks_group": "delivery",
+  "started_at": "2026-10-07T06:56:10.079193+00:00",
+  "command": [
+    "gh",
+    "workflow",
+    "run",
+    "ci.yml",
+    "--repo",
+    "ccisnoxx/partsignal",
+    "--ref",
+    "geo/GEO-906",
+    "-f",
+    "checks_group=delivery"
+  ],
+  "ended_at": "2026-10-07T06:56:12.428764+00:00",
+  "exit_code": 0,
+  "stdout": "https://github.com/ccisnoxx/partsignal/actions/runs/37584298170\n",
+  "stderr": ""
+}

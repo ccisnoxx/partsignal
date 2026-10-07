@@ -1,0 +1,25 @@
+{
+  "task": "GEO-902",
+  "branch": "geo/GEO-902",
+  "maintained_source_file_count": 47,
+  "source_hashes_match": true,
+  "git_diff_check_exit_code": 0,
+  "Makefile_matches_before": true,
+  "manifest_only_902_changed": true,
+  "dependencies_done": [
+    "GEO-408",
+    "GEO-607",
+    "GEO-707"
+  ],
+  "next_tasks_remain_planned": [
+    "GEO-903",
+    "GEO-905"
+  ],
+  "task_status": "review",
+  "completedAt": null,
+  "OpenAPI_frontend_old_revisions_in_change_inventory": false,
+  "new_revision": "0065_geo_observability",
+  "no_shared_or_production_migration_claim": true,
+  "actual_increment_inspected": "source-increment.patch + source reads + independent-review.md",
+  "residual_gate_failure": "make test-deploy-scripts: pre-existing STARTUP_PROBE rejects geo_cleanup_artifacts"
+}

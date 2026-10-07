@@ -1,0 +1,74 @@
+[
+  {
+    "command": "git diff --check",
+    "exit_code": 0,
+    "log": "git-diff-check-final.log",
+    "result": "最终收尾后执行"
+  },
+  {
+    "command": "make lint",
+    "exit_code": 0,
+    "log": "make-lint-candidate.log",
+    "result": "Ruff与ESLint通过"
+  },
+  {
+    "command": "make typecheck",
+    "exit_code": 0,
+    "log": "make-typecheck-final.log",
+    "result": "95后端文件及前端通过"
+  },
+  {
+    "command": "make test-unit",
+    "exit_code": 0,
+    "log": "make-test-unit.log",
+    "result": "987后端+940前端；最终前端小修后940再次通过"
+  },
+  {
+    "command": "make test-integration",
+    "exit_code": 0,
+    "log": "make-test-integration-final.log",
+    "result": "495 passed、4既有metadata warnings；COMPOSE专用栈override"
+  },
+  {
+    "command": "npm --prefix frontend run test",
+    "exit_code": 0,
+    "log": "frontend-test-final.log",
+    "result": "940 passed"
+  },
+  {
+    "command": "npm --prefix frontend run typecheck",
+    "exit_code": 0,
+    "log": "frontend-typecheck-final.log",
+    "result": "最终make typecheck亦执行同一命令通过"
+  },
+  {
+    "command": "make e2e",
+    "exit_code": 2,
+    "log": "make-e2e.log",
+    "result": "22 passed/1既有上传断言失败；Questions通过；后续fixture独立补跑"
+  },
+  {
+    "command": "npm --prefix frontend run e2e",
+    "exit_code": 1,
+    "log": "fixture-e2e.log",
+    "result": "497 passed/48 skipped/1既有编辑器焦点失败"
+  },
+  {
+    "command": "make contract-check",
+    "exit_code": 0,
+    "log": "contract-check-final.log",
+    "result": "183操作和生成类型一致"
+  },
+  {
+    "command": "PARTSIGNAL_E2E_SPEC=tests/e2e/questions-real-stack.spec.ts deploy/scripts/e2e-local.sh",
+    "exit_code": 0,
+    "log": "questions-e2e-final.log",
+    "result": "1 passed、secret clean、cleanup成功"
+  },
+  {
+    "command": "npm --prefix frontend run test -- src/domains/geo-questions/questions-page.test.tsx",
+    "exit_code": 0,
+    "log": "a11y-component-final.log",
+    "result": "10 passed"
+  }
+]

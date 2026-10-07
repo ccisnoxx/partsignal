@@ -1,0 +1,17 @@
+{
+  "colima_status_exit": 1,
+  "colima_status": "time=\"2026-10-02T13:27:42-07:00\" level=fatal msg=\"colima is not running\"\n",
+  "docker_context": "default",
+  "ports": {
+    "55449": "closed",
+    "56389": "closed",
+    "19010": "closed",
+    "19009": "closed",
+    "4174": "closed",
+    "8000": "closed",
+    "9001": "closed"
+  },
+  "dedicated_project_removed": true,
+  "dedicated_volumes_removed": true,
+  "preexisting_containers_before_cleanup": []
+}

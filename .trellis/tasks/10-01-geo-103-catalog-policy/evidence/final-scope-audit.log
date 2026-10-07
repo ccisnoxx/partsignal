@@ -1,0 +1,49 @@
+{
+  "status": "passed",
+  "changed_existing": [
+    "backend/pyproject.toml",
+    "backend/uv.lock",
+    "contracts/database.md",
+    "docs/geo-monitoring/03-technical/02-data-architecture.md",
+    "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/SHA256SUMS"
+  ],
+  "new_task_source_files": [
+    "backend/app/schemas/geo_catalog.py",
+    "backend/app/services/geo_catalog_normalization.py",
+    "backend/app/services/geo_catalog_policy.py",
+    "backend/app/services/geo_subjects.py",
+    "backend/tests/unit/test_geo_catalog_policy.py",
+    "backend/tests/unit/test_geo_catalog_projection.py",
+    "backend/tests/unit/test_geo_catalog_schema.py"
+  ],
+  "unexpected_scope": [],
+  "missing_existing": [],
+  "frozen_migrations_checked": 45,
+  "changed_frozen": [],
+  "openapi_and_generated_unchanged": true,
+  "manifest_changed_ids": [
+    "GEO-103"
+  ],
+  "dependency_status": {
+    "GEO-101": "done",
+    "GEO-102": "done",
+    "GEO-103": "review",
+    "GEO-104": "planned"
+  },
+  "owned_whitespace_checked": 19,
+  "owned_whitespace_errors": [],
+  "task_completedAt": null,
+  "initial_hash_snapshot_unhashed_tracked_paths": [
+    "docs/GEO多平台内容运营系统方案设计.md",
+    "docs/GEO系统前后端技术与部署方案.md",
+    "docs/GEO项目会话归档.md",
+    "docs/Hostdzire部署上线流程.md",
+    "docs/Hostdzire部署附录.md"
+  ],
+  "unhashed_tracked_paths_initial_status_clean_and_final_HEAD_diff_empty": true,
+  "scoped_patch": "evidence/task-diff.patch"
+}

@@ -1,0 +1,3923 @@
+--- a/backend/alembic/sql/0048_geo_run_guards.sql
++++ b/backend/alembic/sql/0048_geo_run_guards.sql
+@@ -0,0 +1,118 @@
++CREATE FUNCTION geo_guard_observation_batch() RETURNS trigger LANGUAGE plpgsql AS $$
++BEGIN
++    IF TG_OP = 'INSERT' THEN
++        IF NEW.status <> 'PLANNED' OR NEW.revision <> 0 OR NEW.started_at IS NOT NULL
++            OR NEW.finished_at IS NOT NULL THEN
++            RAISE EXCEPTION '批次必须从 PLANNED revision 0 创建'
++                USING ERRCODE='23514', CONSTRAINT='ck_geo_batches_initial';
++        END IF;
++        RETURN NEW;
++    END IF;
++    IF TG_OP = 'DELETE' THEN
++        RAISE EXCEPTION '批次历史必须保留'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_batches_immutable';
++    END IF;
++    IF ROW(NEW.id,NEW.plan_id,NEW.trigger_type,NEW.scheduled_for,NEW.schedule_identity,
++        NEW.plan_snapshot,NEW.rule_snapshot,NEW.requested_run_count,NEW.source_opportunity_id,
++        NEW.baseline_batch_id,NEW.created_by,NEW.created_at) IS DISTINCT FROM
++       ROW(OLD.id,OLD.plan_id,OLD.trigger_type,OLD.scheduled_for,OLD.schedule_identity,
++        OLD.plan_snapshot,OLD.rule_snapshot,OLD.requested_run_count,OLD.source_opportunity_id,
++        OLD.baseline_batch_id,OLD.created_by,OLD.created_at) THEN
++        RAISE EXCEPTION '批次输入和身份不可变'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_batches_immutable';
++    END IF;
++    IF (NEW IS DISTINCT FROM OLD AND NEW.revision <> OLD.revision + 1)
++        OR (NEW IS NOT DISTINCT FROM OLD AND NEW.revision <> OLD.revision) THEN
++        RAISE EXCEPTION '批次实际更新必须递增 revision'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_batches_revision';
++    END IF;
++    RETURN NEW;
++END $$;
++CREATE TRIGGER geo_batch_guard BEFORE INSERT OR UPDATE OR DELETE ON geo_observation_batches
++    FOR EACH ROW EXECUTE FUNCTION geo_guard_observation_batch();
++
++CREATE FUNCTION geo_guard_observation_run() RETURNS trigger LANGUAGE plpgsql AS $$
++DECLARE parent geo_observation_runs%ROWTYPE; batch_state text;
++BEGIN
++    IF TG_OP = 'DELETE' THEN
++        RAISE EXCEPTION '运行历史必须保留'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_immutable';
++    END IF;
++    IF TG_OP = 'UPDATE' THEN
++        IF ROW(NEW.id,NEW.batch_id,NEW.prompt_variant_id,NEW.collection_profile_id,
++                NEW.repeat_index,NEW.attempt_no,NEW.previous_attempt_id,NEW.input_snapshot,NEW.created_at)
++            IS DISTINCT FROM ROW(OLD.id,OLD.batch_id,OLD.prompt_variant_id,OLD.collection_profile_id,
++                OLD.repeat_index,OLD.attempt_no,OLD.previous_attempt_id,OLD.input_snapshot,OLD.created_at) THEN
++            RAISE EXCEPTION '运行输入和身份不可变'
++                USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_immutable';
++        END IF;
++        -- generated 列在 BEFORE 阶段尚未计算，比较所有其余维护列。
++        IF to_jsonb(NEW) - 'run_cell_key' IS NOT DISTINCT FROM to_jsonb(OLD) - 'run_cell_key'
++            THEN RETURN NEW; END IF;
++        IF OLD.status IN ('COMPLETED','FAILED','CANCELLED','BUDGET_BLOCKED') THEN
++            RAISE EXCEPTION '终态运行不可修改'
++                USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_terminal';
++        END IF;
++        IF NEW.revision <> OLD.revision + 1 THEN
++            RAISE EXCEPTION '运行实际更新必须递增 revision'
++                USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_revision';
++        END IF;
++        IF (OLD.external_call_state <> 'NOT_STARTED' AND NEW.external_call_state = 'NOT_STARTED')
++            OR (OLD.external_call_state = 'COMPLETED' AND NEW.external_call_state <> 'COMPLETED') THEN
++            RAISE EXCEPTION '已发送或未知请求不可恢复为未发送'
++                USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_external_progress';
++        END IF;
++        RETURN NEW;
++    END IF;
++    IF NEW.status <> 'PENDING' OR NEW.revision <> 0 OR NEW.external_call_state <> 'NOT_STARTED'
++        OR NEW.lease_token IS NOT NULL OR NEW.lease_expires_at IS NOT NULL
++        OR NEW.started_at IS NOT NULL OR NEW.collected_at IS NOT NULL OR NEW.finished_at IS NOT NULL
++        OR NEW.error_stage IS NOT NULL OR NEW.error_code IS NOT NULL OR NEW.error_summary IS NOT NULL
++        OR NEW.provider_request_id IS NOT NULL OR NEW.duration_ms IS NOT NULL
++        OR NEW.cost_amount IS NOT NULL OR NEW.cost_currency IS NOT NULL
++        OR NEW.prompt_tokens IS NOT NULL OR NEW.completion_tokens IS NOT NULL OR NEW.total_tokens IS NOT NULL
++        OR NEW.dispatch_attempt_count <> 0 OR NEW.last_dispatch_attempt_at IS NOT NULL THEN
++        RAISE EXCEPTION '新尝试必须是未发送的 PENDING revision 0'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_initial';
++    END IF;
++    SELECT status INTO batch_state FROM geo_observation_batches WHERE id=NEW.batch_id FOR UPDATE;
++    -- 写父行使 RR 的旧快照不能绕过集合提交约束；不更改逻辑 revision。
++    UPDATE geo_observation_batches SET revision=revision WHERE id=NEW.batch_id;
++    IF NEW.attempt_no=1 AND batch_state <> 'PLANNED' THEN
++        RAISE EXCEPTION '初始矩阵已封存'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_initial_matrix';
++    END IF;
++    IF NEW.previous_attempt_id IS NOT NULL THEN
++        SELECT * INTO parent FROM geo_observation_runs WHERE id=NEW.previous_attempt_id FOR KEY SHARE;
++        IF NOT FOUND OR (parent.batch_id <> NEW.batch_id
++            OR parent.prompt_variant_id <> NEW.prompt_variant_id
++            OR parent.collection_profile_id <> NEW.collection_profile_id
++            OR parent.repeat_index <> NEW.repeat_index OR parent.attempt_no + 1 <> NEW.attempt_no
++            OR parent.input_snapshot IS DISTINCT FROM NEW.input_snapshot
++            OR parent.status NOT IN ('FAILED','BUDGET_BLOCKED') OR parent.error_stage IS DISTINCT FROM 'COLLECTION') THEN
++            RAISE EXCEPTION '新尝试必须继承同采样单元的失败采集与完整输入'
++                USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_attempt_chain';
++        END IF;
++    END IF;
++    RETURN NEW;
++END $$;
++CREATE TRIGGER geo_run_guard BEFORE INSERT OR UPDATE OR DELETE ON geo_observation_runs
++    FOR EACH ROW EXECUTE FUNCTION geo_guard_observation_run();
++
++CREATE FUNCTION geo_check_batch_run_count() RETURNS trigger LANGUAGE plpgsql AS $$
++DECLARE parent uuid; expected integer; actual bigint;
++BEGIN
++    IF TG_TABLE_NAME='geo_observation_batches' THEN parent := NEW.id;
++    ELSE parent := NEW.batch_id; END IF;
++    SELECT requested_run_count INTO expected FROM geo_observation_batches WHERE id=parent;
++    SELECT count(*) INTO actual FROM geo_observation_runs WHERE batch_id=parent AND attempt_no=1;
++    IF actual <> expected THEN
++        RAISE EXCEPTION '批次初始采样单元数必须等于请求数量'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_batches_run_count';
++    END IF;
++    RETURN NULL;
++END $$;
++CREATE CONSTRAINT TRIGGER geo_batch_complete AFTER INSERT ON geo_observation_batches
++    DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION geo_check_batch_run_count();
++CREATE CONSTRAINT TRIGGER geo_run_batch_complete AFTER INSERT ON geo_observation_runs
++    DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION geo_check_batch_run_count();
+--- a/backend/alembic/sql/0048_geo_run_snapshots.sql
++++ b/backend/alembic/sql/0048_geo_run_snapshots.sql
+@@ -0,0 +1,171 @@
++-- 固定 UUID/整数 ASCII 表示与显式 UTF8 编码不依赖会话设置。
++-- convert_to 的通用实现为 STABLE；此受限输入函数可安全用于生成列。
++CREATE FUNCTION geo_run_cell_key(prompt uuid, profile uuid, repeat_index integer)
++RETURNS text LANGUAGE sql IMMUTABLE STRICT AS $$
++    SELECT encode(sha256(convert_to(prompt::text || ':' || profile::text || ':' ||
++        repeat_index::text, 'UTF8')), 'hex')
++$$;
++
++-- 冻结的输入外壳/配置边界；完整业务字段由对应 Pydantic 输入边界校验。
++CREATE FUNCTION geo_run_snapshot_object(value jsonb, keys text[]) RETURNS boolean
++LANGUAGE sql IMMUTABLE AS $$
++    SELECT COALESCE(jsonb_typeof(value) = 'object' AND value ?& keys
++        AND value - keys = '{}'::jsonb, false)
++$$;
++
++-- 外壳不仅限制键名，也限制叶子类型，避免把凭据对象藏进普通字符串/身份字段。
++CREATE FUNCTION geo_snapshot_strings(value jsonb, required text[], nullable text[] DEFAULT '{}')
++RETURNS boolean LANGUAGE plpgsql IMMUTABLE AS $$
++DECLARE key text;
++BEGIN
++    FOREACH key IN ARRAY required LOOP
++        IF jsonb_typeof(value->key) IS DISTINCT FROM 'string' THEN RETURN false; END IF;
++    END LOOP;
++    FOREACH key IN ARRAY nullable LOOP
++        IF jsonb_typeof(value->key) IS DISTINCT FROM 'string'
++            AND value->key IS DISTINCT FROM 'null'::jsonb THEN RETURN false; END IF;
++    END LOOP;
++    RETURN true;
++END $$;
++
++CREATE FUNCTION geo_snapshot_uuids(value jsonb, required text[], nullable text[] DEFAULT '{}')
++RETURNS boolean LANGUAGE plpgsql IMMUTABLE AS $$
++DECLARE key text;
++BEGIN
++    IF NOT geo_snapshot_strings(value, required, nullable) THEN RETURN false; END IF;
++    FOREACH key IN ARRAY required || nullable LOOP
++        IF value->key <> 'null'::jsonb AND value->>key !~
++            '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$' THEN RETURN false; END IF;
++    END LOOP;
++    RETURN true;
++END $$;
++
++CREATE FUNCTION geo_snapshot_revision(value jsonb) RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
++    SELECT COALESCE(jsonb_typeof(value) = 'number' AND value::text ~ '^(0|[1-9][0-9]*)$',false)
++$$;
++
++CREATE FUNCTION geo_run_input_valid(value jsonb) RETURNS boolean
++LANGUAGE plpgsql IMMUTABLE AS $$
++DECLARE p jsonb; c jsonb; s jsonb; item jsonb; child jsonb; ids text[] := '{}';
++BEGIN
++    IF NOT geo_run_snapshot_object(value, ARRAY['schema_version','data_classification',
++            'prompt','profile','subjects','rule_set_revision'])
++        OR value->'schema_version' IS DISTINCT FROM '1'::jsonb
++        OR COALESCE(value->>'data_classification' NOT IN ('PUBLIC','INTERNAL','RESTRICTED'), true)
++        OR jsonb_typeof(value->'rule_set_revision') IS DISTINCT FROM 'number'
++        OR COALESCE(value->>'rule_set_revision' !~ '^[1-9][0-9]*$', true) THEN RETURN false; END IF;
++    p := value->'prompt'; c := value->'profile'; s := c->'surface';
++    IF NOT geo_run_snapshot_object(p, ARRAY['id','revision','query_topic_id',
++            'query_topic_revision','canonical_question','intent_type','prompt_text',
++            'mention_mode','priority','language_code','region_code'])
++        OR NOT geo_snapshot_strings(p, ARRAY['canonical_question','intent_type','prompt_text',
++            'mention_mode','priority','language_code','region_code'])
++        OR NOT geo_snapshot_uuids(p, ARRAY['id','query_topic_id'])
++        OR COALESCE(p->>'id' !~ '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$', true)
++        OR COALESCE(p->>'query_topic_id' !~ '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$', true)
++        OR jsonb_typeof(p->'prompt_text') IS DISTINCT FROM 'string'
++        OR COALESCE(length(btrim(p->>'prompt_text')) NOT BETWEEN 1 AND 8000, true)
++        OR jsonb_typeof(p->'revision') IS DISTINCT FROM 'number'
++        OR COALESCE(p->>'revision' !~ '^(0|[1-9][0-9]*)$', true)
++        OR jsonb_typeof(p->'query_topic_revision') IS DISTINCT FROM 'number'
++        OR COALESCE(p->>'query_topic_revision' !~ '^(0|[1-9][0-9]*)$', true)
++        THEN RETURN false; END IF;
++    IF NOT geo_run_snapshot_object(c, ARRAY['id','revision','name','collection_mode',
++            'adapter_key','adapter_version','ai_channel_id','ai_model_id','language_code',
++            'region_code','login_state','web_search_policy','settings','surface'])
++        OR NOT geo_snapshot_strings(c, ARRAY['name','collection_mode','adapter_key','adapter_version',
++            'language_code','region_code','login_state','web_search_policy'])
++        OR NOT geo_snapshot_uuids(c, ARRAY['id'], ARRAY['ai_channel_id','ai_model_id'])
++        OR COALESCE(c->>'id' !~ '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$', true)
++        OR jsonb_typeof(c->'revision') IS DISTINCT FROM 'number'
++        OR COALESCE(c->>'revision' !~ '^(0|[1-9][0-9]*)$', true)
++        OR NOT COALESCE(geo_profile_settings_valid(c->>'collection_mode', c->'settings'),false)
++        OR (c->>'collection_mode' <> 'API' AND
++            (c->'ai_channel_id' <> 'null'::jsonb OR c->'ai_model_id' <> 'null'::jsonb))
++        OR ((c->'ai_channel_id' = 'null'::jsonb) <> (c->'ai_model_id' = 'null'::jsonb))
++        OR (c->>'collection_mode' = 'MANUAL' AND c->>'adapter_key' <> 'manual')
++        OR COALESCE(c->>'collection_mode' NOT IN ('MANUAL','API','BROWSER'),true)
++        OR (c->>'collection_mode' = 'API' AND c->>'login_state' <> 'NOT_APPLICABLE')
++        OR (c->>'collection_mode' <> 'API' AND c->>'login_state' NOT IN ('ANONYMOUS','AUTHENTICATED'))
++        THEN RETURN false; END IF;
++    IF NOT geo_run_snapshot_object(s, ARRAY['id','revision','name','surface_kind',
++            'provider_brand','compliance_status','capabilities'])
++        OR NOT geo_snapshot_strings(s, ARRAY['name','surface_kind','provider_brand','compliance_status'])
++        OR NOT geo_snapshot_uuids(s, ARRAY['id'])
++        OR NOT geo_snapshot_revision(s->'revision')
++        OR NOT COALESCE(geo_surface_capabilities_valid(s->'capabilities'),false)
++        THEN RETURN false; END IF;
++    IF jsonb_typeof(value->'subjects') IS DISTINCT FROM 'array' THEN RETURN false; END IF;
++    IF jsonb_array_length(value->'subjects') < 1 THEN RETURN false; END IF;
++    FOR item IN SELECT * FROM jsonb_array_elements(value->'subjects') LOOP
++        IF NOT geo_run_snapshot_object(item, ARRAY['id','revision','subject_type','role',
++                'product_id','parent_subject_id','canonical_name','display_name','aliases','domains'])
++            OR NOT geo_snapshot_strings(item, ARRAY['subject_type','role','canonical_name','display_name'])
++            OR NOT geo_snapshot_uuids(item, ARRAY['id'], ARRAY['product_id','parent_subject_id'])
++            OR NOT geo_snapshot_revision(item->'revision')
++            OR COALESCE(item->>'id' !~ '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$', true)
++            OR item->>'id' = ANY(ids)
++            OR COALESCE(item->>'role' NOT IN ('PRIMARY','COMPETITOR','REFERENCE'),true)
++            OR ((item->>'subject_type' = 'OWN_PRODUCT') <> (item->'product_id' <> 'null'::jsonb))
++            OR jsonb_typeof(item->'aliases') IS DISTINCT FROM 'array'
++            OR jsonb_typeof(item->'domains') IS DISTINCT FROM 'array'
++            THEN RETURN false; END IF;
++        ids := array_append(ids, item->>'id');
++        FOR child IN SELECT * FROM jsonb_array_elements(item->'aliases') LOOP
++            IF NOT geo_run_snapshot_object(child, ARRAY['alias','normalized_alias',
++                    'alias_kind','language_code'])
++                OR NOT geo_snapshot_strings(child, ARRAY['alias','normalized_alias','alias_kind'],
++                    ARRAY['language_code']) THEN RETURN false; END IF;
++        END LOOP;
++        FOR child IN SELECT * FROM jsonb_array_elements(item->'domains') LOOP
++            IF NOT geo_run_snapshot_object(child, ARRAY['hostname','relation_type'])
++                OR NOT geo_snapshot_strings(child, ARRAY['hostname','relation_type'])
++                THEN RETURN false; END IF;
++        END LOOP;
++    END LOOP;
++    RETURN EXISTS (SELECT 1 FROM jsonb_array_elements(value->'subjects') t
++        WHERE t->>'role' = 'PRIMARY');
++END $$;
++
++CREATE FUNCTION geo_batch_snapshots_valid(p jsonb, r jsonb, source uuid) RETURNS boolean
++LANGUAGE plpgsql IMMUTABLE AS $$
++DECLARE item jsonb; identity jsonb;
++BEGIN
++    IF NOT geo_run_snapshot_object(p, ARRAY['schema_version','plan_id','plan_revision',
++            'name','description','subjects','prompt_variant_ids','collection_profile_ids',
++            'repeat_count','schedule_kind','cron_expression','timezone','budget_limit','rule_set_revision'])
++        OR NOT geo_snapshot_strings(p, ARRAY['name','description','schedule_kind','timezone'],
++            ARRAY['cron_expression','budget_limit'])
++        OR NOT geo_snapshot_uuids(p, ARRAY[]::text[], ARRAY['plan_id'])
++        OR NOT geo_run_snapshot_object(r, ARRAY['schema_version','rule_set_revision'])
++        OR p->'schema_version' IS DISTINCT FROM '1'::jsonb
++        OR r->'schema_version' IS DISTINCT FROM '1'::jsonb
++        OR r->'rule_set_revision' IS DISTINCT FROM p->'rule_set_revision'
++        OR jsonb_typeof(r->'rule_set_revision') IS DISTINCT FROM 'number'
++        OR COALESCE(r->>'rule_set_revision' !~ '^[1-9][0-9]*$',true)
++        OR ((source IS NULL) <> (p->'plan_id' = 'null'::jsonb))
++        OR (source IS NOT NULL AND p->>'plan_id' IS DISTINCT FROM source::text)
++        OR ((p->'plan_id' = 'null'::jsonb) <> (p->'plan_revision' = 'null'::jsonb))
++        OR (source IS NOT NULL AND (jsonb_typeof(p->'plan_revision') <> 'number'
++            OR p->>'plan_revision' !~ '^(0|[1-9][0-9]*)$'))
++        OR jsonb_typeof(p->'subjects') IS DISTINCT FROM 'array'
++        OR jsonb_typeof(p->'prompt_variant_ids') IS DISTINCT FROM 'array'
++        OR jsonb_typeof(p->'collection_profile_ids') IS DISTINCT FROM 'array'
++        THEN RETURN false; END IF;
++    FOR item IN SELECT * FROM jsonb_array_elements(p->'subjects') LOOP
++        IF NOT geo_run_snapshot_object(item, ARRAY['subject_id','role'])
++            OR NOT geo_snapshot_uuids(item, ARRAY['subject_id'])
++            OR NOT geo_snapshot_strings(item, ARRAY['role']) THEN RETURN false; END IF;
++    END LOOP;
++    FOR identity IN SELECT * FROM jsonb_array_elements(p->'prompt_variant_ids')
++        UNION ALL SELECT * FROM jsonb_array_elements(p->'collection_profile_ids') LOOP
++        IF NOT geo_snapshot_uuids(jsonb_build_object('id', identity), ARRAY['id'])
++            THEN RETURN false; END IF;
++    END LOOP;
++    RETURN COALESCE(jsonb_array_length(p->'subjects') > 0
++        AND jsonb_array_length(p->'prompt_variant_ids') > 0
++        AND jsonb_array_length(p->'collection_profile_ids') > 0
++        AND EXISTS (SELECT 1 FROM jsonb_array_elements(p->'subjects') s WHERE s->>'role'='PRIMARY')
++        AND jsonb_typeof(p->'repeat_count') = 'number'
++        AND p->>'repeat_count' ~ '^([1-9]|10)$', false);
++END $$;
+--- a/backend/alembic/versions/0048_geo_batches_runs.py
++++ b/backend/alembic/versions/0048_geo_batches_runs.py
+@@ -0,0 +1,125 @@
++"""新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。"""
++
++from pathlib import Path
++
++from alembic import op
++
++revision = "0048_geo_batches_runs"
++down_revision = "0047_geo_monitoring_plans"
++branch_labels = None
++depends_on = None
++
++
++def upgrade() -> None:
++    sql_dir = Path(__file__).resolve().parents[1] / "sql"
++    op.execute((sql_dir / "0048_geo_run_snapshots.sql").read_text())
++    # 以下 DDL 已冻结；历史执行不导入运行时 ORM。
++    op.execute("""
++CREATE TABLE geo_observation_batches (
++	id UUID NOT NULL,
++	plan_id UUID,
++	trigger_type VARCHAR(16) NOT NULL,
++	status VARCHAR(20) DEFAULT 'PLANNED' NOT NULL,
++	revision INTEGER DEFAULT '0' NOT NULL,
++	scheduled_for TIMESTAMP WITH TIME ZONE,
++	schedule_identity VARCHAR(64),
++	plan_snapshot JSONB NOT NULL,
++	rule_snapshot JSONB NOT NULL,
++	requested_run_count INTEGER NOT NULL,
++	source_opportunity_id UUID,
++	baseline_batch_id UUID,
++	created_by UUID,
++	started_at TIMESTAMP WITH TIME ZONE,
++	finished_at TIMESTAMP WITH TIME ZONE,
++	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
++	CONSTRAINT pk_geo_observation_batches PRIMARY KEY (id),
++	CONSTRAINT uq_geo_batches_schedule_window UNIQUE (plan_id, scheduled_for),
++	CONSTRAINT ck_geo_batches_trigger CHECK (trigger_type IN ('SCHEDULED','MANUAL','RETEST')),
++	CONSTRAINT ck_geo_batches_status CHECK (status IN ('PLANNED','QUEUED','RUNNING','COMPLETED','PARTIAL','FAILED','CANCELLED','BUDGET_BLOCKED')),
++	CONSTRAINT ck_geo_batches_schedule CHECK ((trigger_type = 'SCHEDULED' AND plan_id IS NOT NULL AND scheduled_for IS NOT NULL AND schedule_identity IS NOT NULL AND schedule_identity ~ '^[0-9a-f]{64}$') OR (trigger_type <> 'SCHEDULED' AND scheduled_for IS NULL AND schedule_identity IS NULL)),
++	CONSTRAINT ck_geo_batches_retest CHECK ((trigger_type = 'RETEST' AND source_opportunity_id IS NOT NULL AND baseline_batch_id IS NOT NULL AND baseline_batch_id <> id) OR (trigger_type <> 'RETEST' AND source_opportunity_id IS NULL AND baseline_batch_id IS NULL)),
++	CONSTRAINT ck_geo_batches_actor CHECK (trigger_type = 'SCHEDULED' OR created_by IS NOT NULL),
++	CONSTRAINT ck_geo_batches_count CHECK (requested_run_count >= 1),
++	CONSTRAINT ck_geo_batches_revision CHECK (revision >= 0),
++	CONSTRAINT ck_geo_batches_snapshots CHECK (geo_batch_snapshots_valid(plan_snapshot, rule_snapshot, plan_id)),
++	CONSTRAINT ck_geo_batches_time CHECK ((started_at IS NULL OR started_at >= created_at) AND (finished_at IS NULL OR finished_at >= COALESCE(started_at,created_at)) AND ((status IN ('COMPLETED','PARTIAL','FAILED','CANCELLED','BUDGET_BLOCKED')) = (finished_at IS NOT NULL))),
++	CONSTRAINT fk_geo_batches_plan FOREIGN KEY(plan_id) REFERENCES geo_monitoring_plans (id) ON DELETE RESTRICT,
++	CONSTRAINT fk_geo_batches_baseline FOREIGN KEY(baseline_batch_id) REFERENCES geo_observation_batches (id) ON DELETE RESTRICT,
++	CONSTRAINT fk_geo_batches_creator FOREIGN KEY(created_by) REFERENCES users (id) ON DELETE RESTRICT
++);
++CREATE INDEX ix_geo_batches_baseline ON geo_observation_batches (baseline_batch_id);
++CREATE INDEX ix_geo_batches_creator ON geo_observation_batches (created_by);
++CREATE INDEX ix_geo_batches_plan_created ON geo_observation_batches (plan_id, created_at, id);
++CREATE INDEX ix_geo_batches_status_created ON geo_observation_batches (status, created_at, id);
++CREATE UNIQUE INDEX uq_geo_batches_schedule_identity ON geo_observation_batches (schedule_identity) WHERE schedule_identity IS NOT NULL;
++CREATE TABLE geo_observation_runs (
++	id UUID NOT NULL,
++	batch_id UUID NOT NULL,
++	prompt_variant_id UUID NOT NULL,
++	collection_profile_id UUID NOT NULL,
++	repeat_index INTEGER NOT NULL,
++	run_cell_key VARCHAR(64) GENERATED ALWAYS AS (geo_run_cell_key(prompt_variant_id, collection_profile_id, repeat_index)) STORED NOT NULL,
++	attempt_no INTEGER DEFAULT '1' NOT NULL,
++	previous_attempt_id UUID,
++	status VARCHAR(20) DEFAULT 'PENDING' NOT NULL,
++	revision INTEGER DEFAULT '0' NOT NULL,
++	input_snapshot JSONB NOT NULL,
++	external_call_state VARCHAR(24) DEFAULT 'NOT_STARTED' NOT NULL,
++	lease_token UUID,
++	lease_expires_at TIMESTAMP WITH TIME ZONE,
++	dispatch_attempt_count INTEGER DEFAULT '0' NOT NULL,
++	last_dispatch_attempt_at TIMESTAMP WITH TIME ZONE,
++	error_stage VARCHAR(24),
++	error_code VARCHAR(100),
++	error_summary VARCHAR(500),
++	provider_request_id VARCHAR(200),
++	duration_ms BIGINT,
++	cost_amount NUMERIC(14, 6),
++	cost_currency VARCHAR(8),
++	prompt_tokens INTEGER,
++	completion_tokens INTEGER,
++	total_tokens INTEGER,
++	started_at TIMESTAMP WITH TIME ZONE,
++	collected_at TIMESTAMP WITH TIME ZONE,
++	finished_at TIMESTAMP WITH TIME ZONE,
++	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
++	CONSTRAINT pk_geo_observation_runs PRIMARY KEY (id),
++	CONSTRAINT uq_geo_runs_cell_attempt UNIQUE (batch_id, run_cell_key, attempt_no),
++	CONSTRAINT ck_geo_runs_status CHECK (status IN ('PENDING','RUNNING','COLLECTED','ANALYZING','NEEDS_REVIEW','COMPLETED','FAILED','CANCELLED','BUDGET_BLOCKED')),
++	CONSTRAINT ck_geo_runs_repeat CHECK (repeat_index BETWEEN 1 AND 10),
++	CONSTRAINT ck_geo_runs_attempt CHECK (attempt_no >= 1),
++	CONSTRAINT ck_geo_runs_previous CHECK ((attempt_no = 1 AND previous_attempt_id IS NULL) OR (attempt_no > 1 AND previous_attempt_id IS NOT NULL AND previous_attempt_id <> id)),
++	CONSTRAINT ck_geo_runs_revision CHECK (revision >= 0),
++	CONSTRAINT ck_geo_runs_input CHECK (geo_run_input_valid(input_snapshot) AND input_snapshot->'prompt'->>'id' = prompt_variant_id::text AND input_snapshot->'profile'->>'id' = collection_profile_id::text),
++	CONSTRAINT ck_geo_runs_external CHECK (external_call_state IN ('NOT_STARTED','SENT','UNKNOWN','COMPLETED') AND (status NOT IN ('PENDING','CANCELLED','BUDGET_BLOCKED') OR external_call_state = 'NOT_STARTED')),
++	CONSTRAINT ck_geo_runs_lease CHECK ((lease_token IS NULL) = (lease_expires_at IS NULL) AND ((status IN ('RUNNING','ANALYZING')) = (lease_token IS NOT NULL)) AND (lease_expires_at IS NULL OR lease_expires_at > started_at)),
++	CONSTRAINT ck_geo_runs_dispatch CHECK (dispatch_attempt_count >= 0 AND ((dispatch_attempt_count = 0) = (last_dispatch_attempt_at IS NULL)) AND (last_dispatch_attempt_at IS NULL OR last_dispatch_attempt_at >= created_at)),
++	CONSTRAINT ck_geo_runs_error CHECK ((status IN ('FAILED','BUDGET_BLOCKED') AND error_stage IS NOT NULL AND error_code IS NOT NULL AND error_stage IN ('COLLECTION','ANALYSIS','REVIEW') AND error_code IN ('COLLECTOR_CONFIGURATION_INVALID','COLLECTOR_DISABLED','PROVIDER_AUTH_FAILED','PROVIDER_RATE_LIMITED','PROVIDER_TIMEOUT','PROVIDER_UNAVAILABLE','PROVIDER_RESPONSE_INVALID','PROVIDER_RESPONSE_TOO_LARGE','COLLECTOR_UNKNOWN_OUTCOME','DATA_CLASSIFICATION_FORBIDDEN','PROFILE_NEEDS_REAUTH','WORKER_LOST','BUDGET_EXCEEDED','ANALYSIS_FAILED','REVIEW_FAILED') AND error_summary IS NOT NULL AND length(btrim(error_summary)) > 0) OR (status NOT IN ('FAILED','BUDGET_BLOCKED') AND error_stage IS NULL AND error_code IS NULL AND error_summary IS NULL)),
++	CONSTRAINT ck_geo_runs_provider CHECK (provider_request_id IS NULL OR (length(provider_request_id) > 0 AND provider_request_id !~ '^[[:space:]]|[[:space:]]$')),
++	CONSTRAINT ck_geo_runs_duration CHECK (duration_ms IS NULL OR duration_ms >= 0),
++	CONSTRAINT ck_geo_runs_cost CHECK ((cost_amount IS NULL AND cost_currency IS NULL) OR (cost_amount IS NOT NULL AND cost_currency IS NOT NULL AND cost_amount >= 0 AND cost_amount < 'Infinity'::numeric AND cost_currency ~ '^[A-Z]{3}$')),
++	CONSTRAINT ck_geo_runs_usage CHECK ((prompt_tokens IS NULL OR prompt_tokens >= 0) AND (completion_tokens IS NULL OR completion_tokens >= 0) AND (total_tokens IS NULL OR total_tokens >= 0)),
++	CONSTRAINT ck_geo_runs_time CHECK ((started_at IS NULL OR started_at >= created_at) AND (collected_at IS NULL OR (started_at IS NOT NULL AND collected_at >= started_at)) AND (finished_at IS NULL OR finished_at >= COALESCE(collected_at,started_at,created_at)) AND ((status IN ('COMPLETED','FAILED','CANCELLED','BUDGET_BLOCKED')) = (finished_at IS NOT NULL)) AND (status NOT IN ('PENDING','CANCELLED','BUDGET_BLOCKED') OR started_at IS NULL) AND (status NOT IN ('RUNNING','COLLECTED','ANALYZING','NEEDS_REVIEW','COMPLETED') OR started_at IS NOT NULL) AND (status NOT IN ('COLLECTED','ANALYZING','NEEDS_REVIEW','COMPLETED') OR collected_at IS NOT NULL) AND (status NOT IN ('PENDING','RUNNING','CANCELLED','BUDGET_BLOCKED') OR collected_at IS NULL)),
++	CONSTRAINT fk_geo_runs_batch FOREIGN KEY(batch_id) REFERENCES geo_observation_batches (id) ON DELETE RESTRICT,
++	CONSTRAINT fk_geo_runs_prompt FOREIGN KEY(prompt_variant_id) REFERENCES geo_prompt_variants (id) ON DELETE RESTRICT,
++	CONSTRAINT fk_geo_runs_profile FOREIGN KEY(collection_profile_id) REFERENCES geo_collection_profiles (id) ON DELETE RESTRICT,
++	CONSTRAINT fk_geo_runs_previous FOREIGN KEY(previous_attempt_id) REFERENCES geo_observation_runs (id) ON DELETE RESTRICT
++);
++CREATE INDEX ix_geo_runs_batch_status ON geo_observation_runs (batch_id, status, id);
++CREATE INDEX ix_geo_runs_pending_dispatch_due ON geo_observation_runs (COALESCE(last_dispatch_attempt_at, created_at), id) WHERE status = 'PENDING';
++CREATE INDEX ix_geo_runs_profile_created ON geo_observation_runs (collection_profile_id, created_at, id);
++CREATE INDEX ix_geo_runs_prompt ON geo_observation_runs (prompt_variant_id);
++CREATE INDEX ix_geo_runs_running_lease ON geo_observation_runs (lease_expires_at, id) WHERE status IN ('RUNNING','ANALYZING');
++CREATE INDEX ix_geo_runs_status_created ON geo_observation_runs (status, created_at, id);
++CREATE UNIQUE INDEX uq_geo_runs_successor ON geo_observation_runs (previous_attempt_id) WHERE previous_attempt_id IS NOT NULL;
++    """)
++    op.execute((sql_dir / "0048_geo_run_guards.sql").read_text())
++
++
++def downgrade() -> None:
++    op.execute("""
++        DO $$ BEGIN
++            RAISE EXCEPTION '0048 Batch/Run 无法安全降级；保留历史并使用前向修复'
++                USING ERRCODE = '55000';
++        END $$;
++    """)
+--- a/backend/app/models/__init__.py
++++ b/backend/app/models/__init__.py
+@@ -7,6 +7,7 @@
+ import app.models.geo_files  # noqa: F401
+ import app.models.geo_monitoring_plans  # noqa: F401
+ import app.models.geo_prompt_variants  # noqa: F401
++import app.models.geo_runs  # noqa: F401
+ import app.models.geo_surfaces  # noqa: F401
+ import app.models.identity  # noqa: F401
+ import app.models.product_facts  # noqa: F401
+--- a/backend/app/models/geo_runs.py
++++ b/backend/app/models/geo_runs.py
+@@ -0,0 +1,290 @@
++"""独立回答级 Batch/Run；0048 负责不可变和尝试链最终防线。"""
++
++import uuid
++from datetime import datetime
++from decimal import Decimal
++from typing import Any
++
++from sqlalchemy import (
++    BigInteger,
++    CheckConstraint,
++    Computed,
++    DateTime,
++    ForeignKey,
++    Index,
++    Integer,
++    Numeric,
++    String,
++    UniqueConstraint,
++    func,
++    text,
++)
++from sqlalchemy.dialects.postgresql import JSONB, UUID
++from sqlalchemy.orm import Mapped, mapped_column
++from sqlalchemy.schema import conv
++
++from app.db import Base
++from app.models.base import new_uuid
++
++
++class GeoObservationBatch(Base):
++    __tablename__ = "geo_observation_batches"
++    __table_args__ = (
++        UniqueConstraint("plan_id", "scheduled_for", name="uq_geo_batches_schedule_window"),
++        CheckConstraint(
++            "trigger_type IN ('SCHEDULED','MANUAL','RETEST')", name=conv("ck_geo_batches_trigger")
++        ),
++        CheckConstraint(
++            "status IN ('PLANNED','QUEUED','RUNNING','COMPLETED','PARTIAL','FAILED',"
++            "'CANCELLED','BUDGET_BLOCKED')",
++            name=conv("ck_geo_batches_status"),
++        ),
++        CheckConstraint(
++            "(trigger_type = 'SCHEDULED' AND plan_id IS NOT NULL AND scheduled_for IS "
++            "NOT NULL AND schedule_identity IS NOT NULL AND schedule_identity ~ "
++            "'^[0-9a-f]{64}$') OR (trigger_type <> 'SCHEDULED' AND scheduled_for IS "
++            "NULL AND schedule_identity IS NULL)",
++            name=conv("ck_geo_batches_schedule"),
++        ),
++        CheckConstraint(
++            "(trigger_type = 'RETEST' AND source_opportunity_id IS NOT NULL AND "
++            "baseline_batch_id IS NOT NULL AND baseline_batch_id <> id) OR "
++            "(trigger_type <> 'RETEST' AND source_opportunity_id IS NULL AND "
++            "baseline_batch_id IS NULL)",
++            name=conv("ck_geo_batches_retest"),
++        ),
++        CheckConstraint(
++            "trigger_type = 'SCHEDULED' OR created_by IS NOT NULL",
++            name=conv("ck_geo_batches_actor"),
++        ),
++        CheckConstraint("requested_run_count >= 1", name=conv("ck_geo_batches_count")),
++        CheckConstraint("revision >= 0", name=conv("ck_geo_batches_revision")),
++        CheckConstraint(
++            "geo_batch_snapshots_valid(plan_snapshot, rule_snapshot, plan_id)",
++            name=conv("ck_geo_batches_snapshots"),
++        ),
++        CheckConstraint(
++            "(started_at IS NULL OR started_at >= created_at) AND (finished_at IS NULL "
++            "OR finished_at >= COALESCE(started_at,created_at)) AND ((status IN "
++            "('COMPLETED','PARTIAL','FAILED','CANCELLED','BUDGET_BLOCKED')) = "
++            "(finished_at IS NOT NULL))",
++            name=conv("ck_geo_batches_time"),
++        ),
++        Index(
++            "uq_geo_batches_schedule_identity",
++            "schedule_identity",
++            unique=True,
++            postgresql_where=text("schedule_identity IS NOT NULL"),
++        ),
++        Index("ix_geo_batches_status_created", "status", "created_at", "id"),
++        Index("ix_geo_batches_plan_created", "plan_id", "created_at", "id"),
++        Index("ix_geo_batches_creator", "created_by"),
++        Index("ix_geo_batches_baseline", "baseline_batch_id"),
++    )
++
++    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
++    plan_id: Mapped[uuid.UUID | None] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("geo_monitoring_plans.id", name="fk_geo_batches_plan", ondelete="RESTRICT"),
++    )
++    trigger_type: Mapped[str] = mapped_column(String(16), nullable=False)
++    status: Mapped[str] = mapped_column(
++        String(20), nullable=False, default="PLANNED", server_default="PLANNED"
++    )
++    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
++    scheduled_for: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
++    schedule_identity: Mapped[str | None] = mapped_column(String(64))
++    plan_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
++    rule_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
++    requested_run_count: Mapped[int] = mapped_column(Integer, nullable=False)
++    source_opportunity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
++    baseline_batch_id: Mapped[uuid.UUID | None] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey(
++            "geo_observation_batches.id", name="fk_geo_batches_baseline", ondelete="RESTRICT"
++        ),
++    )
++    created_by: Mapped[uuid.UUID | None] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("users.id", name="fk_geo_batches_creator", ondelete="RESTRICT"),
++    )
++    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
++    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
++    created_at: Mapped[datetime] = mapped_column(
++        DateTime(timezone=True), nullable=False, server_default=func.now()
++    )
++
++
++class GeoObservationRun(Base):
++    __tablename__ = "geo_observation_runs"
++    __table_args__ = (
++        UniqueConstraint("batch_id", "run_cell_key", "attempt_no", name="uq_geo_runs_cell_attempt"),
++        CheckConstraint(
++            "status IN ('PENDING','RUNNING','COLLECTED','ANALYZING','NEEDS_REVIEW',"
++            "'COMPLETED','FAILED','CANCELLED','BUDGET_BLOCKED')",
++            name=conv("ck_geo_runs_status"),
++        ),
++        CheckConstraint("repeat_index BETWEEN 1 AND 10", name=conv("ck_geo_runs_repeat")),
++        CheckConstraint("attempt_no >= 1", name=conv("ck_geo_runs_attempt")),
++        CheckConstraint(
++            "(attempt_no = 1 AND previous_attempt_id IS NULL) OR (attempt_no > 1 AND "
++            "previous_attempt_id IS NOT NULL AND previous_attempt_id <> id)",
++            name=conv("ck_geo_runs_previous"),
++        ),
++        CheckConstraint("revision >= 0", name=conv("ck_geo_runs_revision")),
++        CheckConstraint(
++            "geo_run_input_valid(input_snapshot) AND input_snapshot->'prompt'->>'id' = "
++            "prompt_variant_id::text AND input_snapshot->'profile'->>'id' = "
++            "collection_profile_id::text",
++            name=conv("ck_geo_runs_input"),
++        ),
++        CheckConstraint(
++            "external_call_state IN ('NOT_STARTED','SENT','UNKNOWN','COMPLETED') AND "
++            "(status NOT IN ('PENDING','CANCELLED','BUDGET_BLOCKED') OR "
++            "external_call_state = 'NOT_STARTED')",
++            name=conv("ck_geo_runs_external"),
++        ),
++        CheckConstraint(
++            "(lease_token IS NULL) = (lease_expires_at IS NULL) AND ((status IN "
++            "('RUNNING','ANALYZING')) = (lease_token IS NOT NULL)) AND "
++            "(lease_expires_at IS NULL OR lease_expires_at > started_at)",
++            name=conv("ck_geo_runs_lease"),
++        ),
++        CheckConstraint(
++            "dispatch_attempt_count >= 0 AND ((dispatch_attempt_count = 0) = "
++            "(last_dispatch_attempt_at IS NULL)) AND (last_dispatch_attempt_at IS NULL "
++            "OR last_dispatch_attempt_at >= created_at)",
++            name=conv("ck_geo_runs_dispatch"),
++        ),
++        CheckConstraint(
++            "(status IN ('FAILED','BUDGET_BLOCKED') AND error_stage IS NOT NULL AND "
++            "error_code IS NOT NULL AND error_stage IN ('COLLECTION','ANALYSIS',"
++            "'REVIEW') AND error_code IN ('COLLECTOR_CONFIGURATION_INVALID',"
++            "'COLLECTOR_DISABLED','PROVIDER_AUTH_FAILED','PROVIDER_RATE_LIMITED',"
++            "'PROVIDER_TIMEOUT','PROVIDER_UNAVAILABLE','PROVIDER_RESPONSE_INVALID',"
++            "'PROVIDER_RESPONSE_TOO_LARGE','COLLECTOR_UNKNOWN_OUTCOME',"
++            "'DATA_CLASSIFICATION_FORBIDDEN','PROFILE_NEEDS_REAUTH','WORKER_LOST',"
++            "'BUDGET_EXCEEDED','ANALYSIS_FAILED','REVIEW_FAILED') AND error_summary IS "
++            "NOT NULL AND length(btrim(error_summary)) > 0) OR (status NOT IN ('FAILED',"
++            "'BUDGET_BLOCKED') AND error_stage IS NULL AND error_code IS NULL AND "
++            "error_summary IS NULL)",
++            name=conv("ck_geo_runs_error"),
++        ),
++        CheckConstraint(
++            "provider_request_id IS NULL OR (length(provider_request_id) > 0 AND "
++            "provider_request_id !~ '^[[:space:]]|[[:space:]]$')",
++            name=conv("ck_geo_runs_provider"),
++        ),
++        CheckConstraint(
++            "duration_ms IS NULL OR duration_ms >= 0", name=conv("ck_geo_runs_duration")
++        ),
++        CheckConstraint(
++            "(cost_amount IS NULL AND cost_currency IS NULL) OR (cost_amount IS NOT "
++            "NULL AND cost_currency IS NOT NULL AND cost_amount >= 0 AND cost_amount < "
++            "'Infinity'::numeric AND cost_currency ~ '^[A-Z]{3}$')",
++            name=conv("ck_geo_runs_cost"),
++        ),
++        CheckConstraint(
++            "(prompt_tokens IS NULL OR prompt_tokens >= 0) AND (completion_tokens IS "
++            "NULL OR completion_tokens >= 0) AND (total_tokens IS NULL OR total_tokens "
++            ">= 0)",
++            name=conv("ck_geo_runs_usage"),
++        ),
++        CheckConstraint(
++            "(started_at IS NULL OR started_at >= created_at) AND (collected_at IS NULL "
++            "OR (started_at IS NOT NULL AND collected_at >= started_at)) AND "
++            "(finished_at IS NULL OR finished_at >= COALESCE(collected_at,started_at,"
++            "created_at)) AND ((status IN ('COMPLETED','FAILED','CANCELLED',"
++            "'BUDGET_BLOCKED')) = (finished_at IS NOT NULL)) AND (status NOT IN "
++            "('PENDING','CANCELLED','BUDGET_BLOCKED') OR started_at IS NULL) AND "
++            "(status NOT IN ('RUNNING','COLLECTED','ANALYZING','NEEDS_REVIEW',"
++            "'COMPLETED') OR started_at IS NOT NULL) AND (status NOT IN ('COLLECTED',"
++            "'ANALYZING','NEEDS_REVIEW','COMPLETED') OR collected_at IS NOT NULL) AND "
++            "(status NOT IN ('PENDING','RUNNING','CANCELLED','BUDGET_BLOCKED') OR "
++            "collected_at IS NULL)",
++            name=conv("ck_geo_runs_time"),
++        ),
++        Index(
++            "uq_geo_runs_successor",
++            "previous_attempt_id",
++            unique=True,
++            postgresql_where=text("previous_attempt_id IS NOT NULL"),
++        ),
++        Index("ix_geo_runs_status_created", "status", "created_at", "id"),
++        Index(
++            "ix_geo_runs_pending_dispatch_due",
++            text("COALESCE(last_dispatch_attempt_at, created_at)"),
++            "id",
++            postgresql_where=text("status = 'PENDING'"),
++        ),
++        Index(
++            "ix_geo_runs_running_lease",
++            "lease_expires_at",
++            "id",
++            postgresql_where=text("status IN ('RUNNING','ANALYZING')"),
++        ),
++        Index("ix_geo_runs_batch_status", "batch_id", "status", "id"),
++        Index("ix_geo_runs_profile_created", "collection_profile_id", "created_at", "id"),
++        Index("ix_geo_runs_prompt", "prompt_variant_id"),
++    )
++
++    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
++    batch_id: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("geo_observation_batches.id", name="fk_geo_runs_batch", ondelete="RESTRICT"),
++        nullable=False,
++    )
++    prompt_variant_id: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("geo_prompt_variants.id", name="fk_geo_runs_prompt", ondelete="RESTRICT"),
++        nullable=False,
++    )
++    collection_profile_id: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("geo_collection_profiles.id", name="fk_geo_runs_profile", ondelete="RESTRICT"),
++        nullable=False,
++    )
++    repeat_index: Mapped[int] = mapped_column(Integer, nullable=False)
++    run_cell_key: Mapped[str] = mapped_column(
++        String(64),
++        Computed(
++            "geo_run_cell_key(prompt_variant_id, collection_profile_id, repeat_index)",
++            persisted=True,
++        ),
++        nullable=False,
++    )
++    attempt_no: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
++    previous_attempt_id: Mapped[uuid.UUID | None] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("geo_observation_runs.id", name="fk_geo_runs_previous", ondelete="RESTRICT"),
++    )
++    status: Mapped[str] = mapped_column(
++        String(20), nullable=False, default="PENDING", server_default="PENDING"
++    )
++    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
++    input_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
++    external_call_state: Mapped[str] = mapped_column(
++        String(24), nullable=False, default="NOT_STARTED", server_default="NOT_STARTED"
++    )
++    lease_token: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
++    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
++    dispatch_attempt_count: Mapped[int] = mapped_column(
++        Integer, nullable=False, default=0, server_default="0"
++    )
++    last_dispatch_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
++    error_stage: Mapped[str | None] = mapped_column(String(24))
++    error_code: Mapped[str | None] = mapped_column(String(100))
++    error_summary: Mapped[str | None] = mapped_column(String(500))
++    provider_request_id: Mapped[str | None] = mapped_column(String(200))
++    duration_ms: Mapped[int | None] = mapped_column(BigInteger)
++    cost_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 6))
++    cost_currency: Mapped[str | None] = mapped_column(String(8))
++    prompt_tokens: Mapped[int | None] = mapped_column(Integer)
++    completion_tokens: Mapped[int | None] = mapped_column(Integer)
++    total_tokens: Mapped[int | None] = mapped_column(Integer)
++    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
++    collected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
++    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
++    created_at: Mapped[datetime] = mapped_column(
++        DateTime(timezone=True), nullable=False, server_default=func.now()
++    )
+--- a/backend/app/schemas/geo_runs.py
++++ b/backend/app/schemas/geo_runs.py
+@@ -0,0 +1,311 @@
++"""回答级运行数据组件；命令、动作与证据由后续任务接入。"""
++
++import re
++from enum import StrEnum
++from typing import Annotated, Any, Literal, Self
++from uuid import UUID
++
++from pydantic import AwareDatetime, Field, model_validator
++
++from app.geo_prompt_variants import GeoPromptMentionMode, GeoPromptPriority
++from app.schemas.base import ContractModel, require_unique_items
++from app.schemas.configuration import IntentType
++from app.schemas.geo_catalog import (
++    GeoSubjectAliasKind,
++    GeoSubjectDomainRelationType,
++    GeoSubjectHostname,
++    GeoSubjectType,
++)
++from app.schemas.geo_monitoring_plans import (
++    GeoMonitoringPlanConfiguration,
++    GeoPlanSubjectRole,
++    PlanBudget,
++)
++from app.schemas.geo_prompt_variants import (
++    PromptLanguage,
++    PromptRegion,
++    Revision,
++)
++from app.schemas.geo_surfaces import (
++    GeoApiProfileConfiguration,
++    GeoBrowserProfileConfiguration,
++    GeoComplianceStatus,
++    GeoManualProfileConfiguration,
++    GeoSurfaceCapabilities,
++    GeoSurfaceKind,
++    GeoSurfaceProviderBrand,
++)
++
++NonEmpty = Annotated[str, Field(strict=True, min_length=1, pattern=r"^[^\x00]*\S[^\x00]*$")]
++Sha256 = Annotated[str, Field(strict=True, pattern=re.compile(r"^[0-9a-f]{64}$(?![\s\S])"))]
++NonNegative = Annotated[int, Field(strict=True, ge=0)]
++Positive = Annotated[int, Field(strict=True, ge=1)]
++
++
++class GeoBatchTriggerType(StrEnum):
++    SCHEDULED = "SCHEDULED"
++    MANUAL = "MANUAL"
++    RETEST = "RETEST"
++
++
++class GeoBatchStatus(StrEnum):
++    PLANNED = "PLANNED"
++    QUEUED = "QUEUED"
++    RUNNING = "RUNNING"
++    COMPLETED = "COMPLETED"
++    PARTIAL = "PARTIAL"
++    FAILED = "FAILED"
++    CANCELLED = "CANCELLED"
++    BUDGET_BLOCKED = "BUDGET_BLOCKED"
++
++
++class GeoRunStatus(StrEnum):
++    PENDING = "PENDING"
++    RUNNING = "RUNNING"
++    COLLECTED = "COLLECTED"
++    ANALYZING = "ANALYZING"
++    NEEDS_REVIEW = "NEEDS_REVIEW"
++    COMPLETED = "COMPLETED"
++    FAILED = "FAILED"
++    CANCELLED = "CANCELLED"
++    BUDGET_BLOCKED = "BUDGET_BLOCKED"
++
++
++class GeoExternalCallState(StrEnum):
++    NOT_STARTED = "NOT_STARTED"
++    SENT = "SENT"
++    UNKNOWN = "UNKNOWN"
++    COMPLETED = "COMPLETED"
++
++
++class GeoRunErrorStage(StrEnum):
++    COLLECTION = "COLLECTION"
++    ANALYSIS = "ANALYSIS"
++    REVIEW = "REVIEW"
++
++
++class GeoRunErrorCode(StrEnum):
++    COLLECTOR_CONFIGURATION_INVALID = "COLLECTOR_CONFIGURATION_INVALID"
++    COLLECTOR_DISABLED = "COLLECTOR_DISABLED"
++    PROVIDER_AUTH_FAILED = "PROVIDER_AUTH_FAILED"
++    PROVIDER_RATE_LIMITED = "PROVIDER_RATE_LIMITED"
++    PROVIDER_TIMEOUT = "PROVIDER_TIMEOUT"
++    PROVIDER_UNAVAILABLE = "PROVIDER_UNAVAILABLE"
++    PROVIDER_RESPONSE_INVALID = "PROVIDER_RESPONSE_INVALID"
++    PROVIDER_RESPONSE_TOO_LARGE = "PROVIDER_RESPONSE_TOO_LARGE"
++    COLLECTOR_UNKNOWN_OUTCOME = "COLLECTOR_UNKNOWN_OUTCOME"
++    DATA_CLASSIFICATION_FORBIDDEN = "DATA_CLASSIFICATION_FORBIDDEN"
++    PROFILE_NEEDS_REAUTH = "PROFILE_NEEDS_REAUTH"
++    WORKER_LOST = "WORKER_LOST"
++    BUDGET_EXCEEDED = "BUDGET_EXCEEDED"
++    ANALYSIS_FAILED = "ANALYSIS_FAILED"
++    REVIEW_FAILED = "REVIEW_FAILED"
++
++
++class GeoRunCommandErrorCode(StrEnum):
++    GEO_RUN_NOT_MANUAL = "GEO_RUN_NOT_MANUAL"
++    GEO_RUN_NOT_PENDING = "GEO_RUN_NOT_PENDING"
++    GEO_RUN_ALREADY_STARTED = "GEO_RUN_ALREADY_STARTED"
++    GEO_RUN_NOT_RETRYABLE = "GEO_RUN_NOT_RETRYABLE"
++    GEO_RUN_HAS_SUCCESSOR = "GEO_RUN_HAS_SUCCESSOR"
++    GEO_SCHEDULE_WINDOW_EXISTS = "GEO_SCHEDULE_WINDOW_EXISTS"
++
++
++class GeoRunDataClassification(StrEnum):
++    PUBLIC = "PUBLIC"
++    INTERNAL = "INTERNAL"
++    RESTRICTED = "RESTRICTED"
++
++
++class GeoRunPromptSnapshot(ContractModel):
++    id: UUID
++    revision: Revision
++    query_topic_id: UUID
++    query_topic_revision: Revision
++    canonical_question: NonEmpty
++    intent_type: IntentType
++    prompt_text: Annotated[NonEmpty, Field(max_length=8000)]
++    mention_mode: GeoPromptMentionMode
++    priority: GeoPromptPriority
++    language_code: PromptLanguage
++    region_code: PromptRegion
++
++
++class GeoRunSurfaceSnapshot(ContractModel):
++    id: UUID
++    revision: Revision
++    name: Annotated[NonEmpty, Field(max_length=160)]
++    surface_kind: GeoSurfaceKind
++    provider_brand: GeoSurfaceProviderBrand
++    compliance_status: GeoComplianceStatus
++    capabilities: GeoSurfaceCapabilities
++
++
++class _ProfileSnapshot(ContractModel):
++    id: UUID
++    revision: Revision
++    adapter_version: Annotated[NonEmpty, Field(max_length=100)]
++    surface: GeoRunSurfaceSnapshot
++
++
++class GeoRunManualProfileSnapshot(GeoManualProfileConfiguration, _ProfileSnapshot):
++    pass
++
++
++class GeoRunApiProfileSnapshot(GeoApiProfileConfiguration, _ProfileSnapshot):
++    pass
++
++
++class GeoRunBrowserProfileSnapshot(GeoBrowserProfileConfiguration, _ProfileSnapshot):
++    pass
++
++
++GeoRunProfileSnapshot = Annotated[
++    GeoRunManualProfileSnapshot | GeoRunApiProfileSnapshot | GeoRunBrowserProfileSnapshot,
++    Field(discriminator="collection_mode"),
++]
++
++
++class GeoRunAliasSnapshot(ContractModel):
++    alias: Annotated[NonEmpty, Field(max_length=240)]
++    normalized_alias: Annotated[NonEmpty, Field(max_length=240)]
++    alias_kind: GeoSubjectAliasKind
++    language_code: str | None
++
++
++class GeoRunDomainSnapshot(ContractModel):
++    hostname: GeoSubjectHostname
++    relation_type: GeoSubjectDomainRelationType
++
++
++class GeoRunSubjectSnapshot(ContractModel):
++    model_config = {
++        "json_schema_extra": {
++            "if": {"properties": {"subject_type": {"const": "OWN_PRODUCT"}}},
++            "then": {"properties": {"product_id": {"type": "string", "format": "uuid"}}},
++            "else": {"properties": {"product_id": {"type": "null"}}},
++        }
++    }
++    id: UUID
++    revision: Revision
++    subject_type: GeoSubjectType
++    role: GeoPlanSubjectRole
++    product_id: UUID | None
++    parent_subject_id: UUID | None
++    canonical_name: Annotated[NonEmpty, Field(max_length=240)]
++    # OWN_PRODUCT 展示名称由 160 字符品牌 + 空格 + 160 字符型号组成。
++    display_name: Annotated[NonEmpty, Field(max_length=321)]
++    aliases: list[GeoRunAliasSnapshot]
++    domains: list[GeoRunDomainSnapshot]
++
++    @model_validator(mode="after")
++    def product_identity(self) -> Self:
++        if (self.subject_type == GeoSubjectType.OWN_PRODUCT) != (self.product_id is not None):
++            raise ValueError("自有产品必须有 Product 身份，其他监测类型不得绑定 Product")
++        return self
++
++
++class GeoRunInputSnapshot(ContractModel):
++    schema_version: Literal[1]
++    data_classification: GeoRunDataClassification
++    prompt: GeoRunPromptSnapshot
++    profile: GeoRunProfileSnapshot
++    subjects: list[GeoRunSubjectSnapshot] = Field(
++        min_length=1,
++        json_schema_extra={
++            "contains": {"properties": {"role": {"const": "PRIMARY"}}, "required": ["role"]},
++            "minContains": 1,
++        },
++    )
++    rule_set_revision: Positive
++
++    @model_validator(mode="after")
++    def subjects_unique_and_primary(self) -> Self:
++        require_unique_items([item.id for item in self.subjects])
++        if not any(item.role == GeoPlanSubjectRole.PRIMARY for item in self.subjects):
++            raise ValueError("运行快照至少需要一个 PRIMARY")
++        return self
++
++
++def _batch_plan_schema(schema: dict[str, Any]) -> None:
++    # 复用计划权威配置中的 CRON 条件，快照只补身份配对约束。
++    schema["allOf"] = GeoMonitoringPlanConfiguration.model_json_schema()["allOf"]
++    schema["oneOf"] = [
++        {"properties": {"plan_id": {"type": "null"}, "plan_revision": {"type": "null"}}},
++        {"properties": {"plan_id": {"type": "string"}, "plan_revision": {"type": "integer"}}},
++    ]
++
++
++class GeoBatchPlanSnapshot(GeoMonitoringPlanConfiguration):
++    model_config = {"json_schema_extra": _batch_plan_schema}
++    schema_version: Literal[1]
++    plan_id: UUID | None
++    plan_revision: Revision | None
++
++    @model_validator(mode="after")
++    def source_pair(self) -> Self:
++        if (self.plan_id is None) != (self.plan_revision is None):
++            raise ValueError("计划身份与修订必须成对，临时批次两者为空")
++        return self
++
++
++class GeoBatchRuleSnapshot(ContractModel):
++    schema_version: Literal[1]
++    rule_set_revision: Positive
++
++
++class GeoObservationBatchOut(ContractModel):
++    """基础数据组件；不是 GEO-306 的详情、汇总或动作投影。"""
++
++    id: UUID
++    plan_id: UUID | None
++    trigger_type: GeoBatchTriggerType
++    status: GeoBatchStatus
++    revision: Revision
++    scheduled_for: AwareDatetime | None
++    schedule_identity: Sha256 | None
++    plan_snapshot: GeoBatchPlanSnapshot
++    rule_snapshot: GeoBatchRuleSnapshot
++    requested_run_count: Positive
++    source_opportunity_id: UUID | None
++    baseline_batch_id: UUID | None
++    created_by: UUID | None
++    started_at: AwareDatetime | None
++    finished_at: AwareDatetime | None
++    created_at: AwareDatetime
++
++
++class GeoObservationRunOut(ContractModel):
++    """lease_token 是执行授权信息，只有数据库内部使用，公共组件不暴露。"""
++
++    id: UUID
++    batch_id: UUID
++    prompt_variant_id: UUID
++    collection_profile_id: UUID
++    run_cell_key: Sha256
++    repeat_index: Annotated[int, Field(strict=True, ge=1, le=10)]
++    attempt_no: Positive
++    previous_attempt_id: UUID | None
++    status: GeoRunStatus
++    revision: Revision
++    input_snapshot: GeoRunInputSnapshot
++    external_call_state: GeoExternalCallState
++    lease_expires_at: AwareDatetime | None
++    dispatch_attempt_count: NonNegative
++    last_dispatch_attempt_at: AwareDatetime | None
++    error_stage: GeoRunErrorStage | None
++    error_code: GeoRunErrorCode | None
++    error_summary: Annotated[NonEmpty, Field(max_length=500)] | None
++    provider_request_id: Annotated[NonEmpty, Field(max_length=200)] | None
++    duration_ms: NonNegative | None
++    cost_amount: PlanBudget | None
++    cost_currency: (
++        Annotated[str, Field(strict=True, pattern=re.compile(r"^[A-Z]{3}$(?![\s\S])"))] | None
++    )
++    prompt_tokens: NonNegative | None
++    completion_tokens: NonNegative | None
++    total_tokens: NonNegative | None
++    started_at: AwareDatetime | None
++    collected_at: AwareDatetime | None
++    finished_at: AwareDatetime | None
++    created_at: AwareDatetime
+--- a/backend/tests/integration/geo_runs_support.py
++++ b/backend/tests/integration/geo_runs_support.py
+@@ -0,0 +1,143 @@
++"""运行模型直接 PostgreSQL 反例的最小既有资源与冻结输入。"""
++
++from collections.abc import Iterator
++from dataclasses import dataclass
++from typing import Any
++from uuid import UUID, uuid4
++
++import psycopg
++import pytest
++from psycopg import sql
++from psycopg.types.json import Jsonb
++
++from app.schemas.geo_runs import GeoRunInputSnapshot
++from tests.integration.test_geo_catalog import insert_row
++from tests.integration.test_geo_monitoring_plans import PlanDatabase, existing_rows, plan_database
++from tests.integration.test_migrations import run_alembic
++from tests.unit.test_geo_run_contract import input_snapshot, plan_snapshot
++
++__all__ = ["plan_database", "run_database", "connection"]
++BATCH = "geo_observation_batches"
++RUN = "geo_observation_runs"
++
++
++@dataclass
++class RunDatabase:
++    plan: PlanDatabase
++    input: dict[str, Any]
++    before: list[Any]
++
++    @property
++    def url(self) -> str:
++        return self.plan.url
++
++
++@pytest.fixture(scope="module")
++def run_database(plan_database: PlanDatabase) -> Iterator[RunDatabase]:
++    db = plan_database
++    value = input_snapshot()
++    with psycopg.connect(db.url) as conn:
++        topic = conn.execute(
++            "SELECT query_topic_id FROM geo_prompt_variants WHERE id=%s", (db.prompt,)
++        ).fetchone()[0]
++        surface = conn.execute(
++            "SELECT engine_surface_id FROM geo_collection_profiles WHERE id=%s", (db.profile,)
++        ).fetchone()[0]
++        value["prompt"].update(id=str(db.prompt), query_topic_id=str(topic))
++        value["profile"]["id"] = str(db.profile)
++        value["profile"]["surface"]["id"] = str(surface)
++        value["subjects"][0]["id"] = str(db.subjects[0])
++        product = uuid4()
++        insert_row(
++            conn,
++            "products",
++            {
++                "id": product,
++                "part_number": "GEO301",
++                "normalized_part_number": "geo301",
++                "brand": "虚构品牌",
++                "normalized_brand": "虚构品牌",
++                "category": "测试",
++                "status": "ACTIVE",
++                "revision": 0,
++                "facts_revision": 0,
++                "facts_body_markdown": "历史事实",
++            },
++        )
++        conn.execute(
++            "INSERT INTO geo_observations (id,observation_kind,query_topic_id,product_id,"
++            "actual_prompt,model_name,answer_summary,web_search_enabled,mentioned,"
++            "recommendation,accuracy,tested_at,notes,tested_by) VALUES (%s,"
++            "'LEGACY_MODEL_RESULT',%s,%s,'原问题','legacy-model','原回答',true,true,"
++            "'RECOMMENDED','ACCURATE',now(),'保持旧记录',%s)",
++            (uuid4(), topic, product, db.actor),
++        )
++        before = existing_rows(conn)
++    run_alembic(db.env, db.backend_dir, "0048_geo_batches_runs")
++    yield RunDatabase(db, GeoRunInputSnapshot.model_validate(value).model_dump(mode="json"), before)
++
++
++@pytest.fixture
++def connection(run_database: RunDatabase) -> Iterator[psycopg.Connection[Any]]:
++    with psycopg.connect(run_database.url) as conn:
++        yield conn
++        conn.rollback()
++
++
++def batch(conn: psycopg.Connection[Any], db: RunDatabase, **patch: Any) -> UUID:
++    identity = uuid4()
++    insert_row(
++        conn,
++        BATCH,
++        {
++            "id": identity,
++            "trigger_type": "MANUAL",
++            "created_by": db.plan.actor,
++            "requested_run_count": 1,
++            "plan_snapshot": Jsonb(plan_snapshot(db.input)),
++            "rule_snapshot": Jsonb({"schema_version": 1, "rule_set_revision": 1}),
++            **patch,
++        },
++    )
++    return identity
++
++
++def run(conn: psycopg.Connection[Any], db: RunDatabase, batch_id: UUID, **patch: Any) -> UUID:
++    identity = uuid4()
++    insert_row(
++        conn,
++        RUN,
++        {
++            "id": identity,
++            "batch_id": batch_id,
++            "prompt_variant_id": db.plan.prompt,
++            "collection_profile_id": db.plan.profile,
++            "repeat_index": 1,
++            "input_snapshot": Jsonb(db.input),
++            **patch,
++        },
++    )
++    return identity
++
++
++def update(conn: psycopg.Connection[Any], identity: UUID, **patch: Any) -> None:
++    conn.execute(
++        sql.SQL("UPDATE geo_observation_runs SET {}, revision=revision+1 WHERE id=%s").format(
++            sql.SQL(",").join(sql.SQL("{}=%s").format(sql.Identifier(k)) for k in patch)
++        ),
++        (*patch.values(), identity),
++    )
++
++
++def terminal(conn: psycopg.Connection[Any], identity: UUID, status: str, **patch: Any) -> None:
++    now = conn.execute("SELECT now()").fetchone()[0]
++    fields = {"status": status, "finished_at": now}
++    if status == "COMPLETED":
++        fields.update(started_at=now, collected_at=now, external_call_state="COMPLETED")
++    elif status in {"FAILED", "BUDGET_BLOCKED"}:
++        fields.update(
++            error_stage="COLLECTION",
++            error_code="BUDGET_EXCEEDED" if status == "BUDGET_BLOCKED" else "PROVIDER_TIMEOUT",
++            error_summary="虚构失败",
++        )
++    update(conn, identity, **(fields | patch))
+--- a/backend/tests/integration/test_geo_monitoring_plans.py
++++ b/backend/tests/integration/test_geo_monitoring_plans.py
+@@ -149,7 +149,7 @@
+                 },
+             )
+             before = existing_rows(conn)
+-        run_alembic(env, backend_dir, "head")
++        run_alembic(env, backend_dir, "0047_geo_monitoring_plans")
+         yield PlanDatabase(url, env, backend_dir, actor, subjects, prompt, profile, before)
+ 
+ 
+--- a/backend/tests/integration/test_geo_questions_api.py
++++ b/backend/tests/integration/test_geo_questions_api.py
+@@ -85,8 +85,8 @@
+         assert (
+             db.scalar(
+                 text(
+-                    "SELECT count(*) FROM information_schema.tables "
+-                    "WHERE table_name IN ('geo_observation_runs','geo_observation_batches')"
++                    "SELECT (SELECT count(*) FROM geo_observation_runs) + "
++                    "(SELECT count(*) FROM geo_observation_batches)"
+                 )
+             )
+             == 0
+--- a/backend/tests/integration/test_geo_run_migration.py
++++ b/backend/tests/integration/test_geo_run_migration.py
+@@ -0,0 +1,141 @@
++"""0048 加法前滚、真实历史保留、唯一约束与并发提交反例。"""
++
++import subprocess
++import sys
++from concurrent.futures import ThreadPoolExecutor
++from threading import Barrier
++
++import psycopg
++import pytest
++from alembic.autogenerate import compare_metadata
++from alembic.migration import MigrationContext
++from psycopg.types.json import Jsonb
++from sqlalchemy import create_engine
++
++from app.db import Base
++from tests.integration.geo_runs_support import (
++    BATCH,
++    RUN,
++    RunDatabase,
++    batch,
++    connection,
++    plan_database,
++    run,
++    run_database,
++)
++from tests.integration.test_geo_monitoring_plans import existing_rows, insert_plan
++from tests.unit.test_geo_run_contract import plan_snapshot
++
++pytestmark = pytest.mark.integration
++__all__ = ["plan_database", "run_database", "connection"]
++
++
++def test_forward_preserves_nonempty_old_geo_and_matches_metadata(run_database: RunDatabase) -> None:
++    db = run_database
++    with psycopg.connect(db.url) as conn:
++        assert existing_rows(conn) == db.before
++        assert len(db.before[-1]) == 1
++        assert (
++            conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
++            == "0048_geo_batches_runs"
++        )
++        assert (
++            conn.execute(
++                f"SELECT (SELECT count(*) FROM {BATCH}) + (SELECT count(*) FROM {RUN})"
++            ).fetchone()[0]
++            == 0
++        )
++    engine = create_engine(db.url.replace("postgresql://", "postgresql+psycopg://", 1))
++    try:
++        with engine.connect() as conn:
++            context = MigrationContext.configure(
++                conn,
++                opts={
++                    "compare_type": True,
++                    "compare_server_default": True,
++                    "include_object": lambda obj, name, kind, reflected, compared: (
++                        obj.name in {BATCH, RUN}
++                        if kind == "table"
++                        else obj.table.name in {BATCH, RUN}
++                    ),
++                },
++            )
++            assert compare_metadata(context, Base.metadata) == []
++    finally:
++        engine.dispose()
++    result = subprocess.run(
++        [sys.executable, "-m", "alembic", "downgrade", "0047_geo_monitoring_plans"],
++        cwd=db.plan.backend_dir,
++        env=db.plan.env,
++        capture_output=True,
++        text=True,
++    )
++    assert result.returncode != 0 and "0048 Batch/Run 无法安全降级" in result.stdout + result.stderr
++    with psycopg.connect(db.url) as conn:
++        assert existing_rows(conn) == db.before
++
++
++def test_schedule_window_unique_even_with_different_plan_revisions(
++    run_database: RunDatabase,
++) -> None:
++    db = run_database
++    with psycopg.connect(db.url) as conn:
++        plan_id = insert_plan(conn, db.plan)
++        now = conn.execute("SELECT now()").fetchone()[0]
++    barrier = Barrier(2)
++
++    def create(revision: int) -> str:
++        try:
++            with psycopg.connect(db.url) as conn:
++                barrier.wait(timeout=5)
++                identity = batch(
++                    conn,
++                    db,
++                    trigger_type="SCHEDULED",
++                    plan_id=plan_id,
++                    scheduled_for=now,
++                    schedule_identity=str(revision) * 64,
++                    plan_snapshot=Jsonb(
++                        plan_snapshot(db.input, plan_id=str(plan_id), plan_revision=revision)
++                    ),
++                )
++                run(conn, db, identity)
++            return "created"
++        except psycopg.errors.UniqueViolation as error:
++            return error.diag.constraint_name
++
++    with ThreadPoolExecutor(max_workers=2) as workers:
++        assert sorted(workers.map(create, [0, 1])) == ["created", "uq_geo_batches_schedule_window"]
++
++
++@pytest.mark.parametrize("isolation", ["READ COMMITTED", "REPEATABLE READ"])
++def test_committed_initial_matrix_cannot_expand_concurrently(
++    run_database: RunDatabase, isolation: str
++) -> None:
++    db = run_database
++    with psycopg.connect(db.url) as conn:
++        identity = batch(conn, db)
++        run(conn, db, identity)
++    barrier = Barrier(2)
++
++    def expand(index: int) -> str:
++        try:
++            with psycopg.connect(db.url) as conn:
++                conn.execute(f"SET TRANSACTION ISOLATION LEVEL {isolation}")
++                conn.execute(f"SELECT id FROM {BATCH} WHERE id=%s", (identity,)).fetchone()
++                barrier.wait(timeout=5)
++                run(conn, db, identity, repeat_index=index)
++            return "unexpected-success"
++        except psycopg.errors.CheckViolation as error:
++            return error.diag.constraint_name
++        except psycopg.errors.SerializationFailure:
++            return "serialization-conflict"
++
++    with ThreadPoolExecutor(max_workers=2) as workers:
++        results = list(workers.map(expand, [2, 3]))
++    assert set(results) <= {"ck_geo_batches_run_count", "serialization-conflict"}
++    with psycopg.connect(db.url) as conn:
++        assert (
++            conn.execute(f"SELECT count(*) FROM {RUN} WHERE batch_id=%s", (identity,)).fetchone()[0]
++            == 1
++        )
+--- a/backend/tests/integration/test_geo_runs.py
++++ b/backend/tests/integration/test_geo_runs.py
+@@ -0,0 +1,352 @@
++"""新运行集合、输入、租约、错误与终态的数据库最终防线。"""
++
++import hashlib
++from copy import deepcopy
++from typing import Any
++from uuid import uuid4
++
++import psycopg
++import pytest
++from psycopg.types.json import Jsonb
++
++from app.schemas.geo_runs import GeoObservationBatchOut, GeoObservationRunOut
++from tests.integration.geo_runs_support import (
++    BATCH,
++    RUN,
++    RunDatabase,
++    batch,
++    connection,
++    plan_database,
++    run,
++    run_database,
++    terminal,
++    update,
++)
++
++pytestmark = pytest.mark.integration
++__all__ = ["plan_database", "run_database", "connection"]
++
++
++def rejected(conn: psycopg.Connection[Any], constraint: str, function: Any) -> None:
++    with pytest.raises(psycopg.errors.CheckViolation) as caught, conn.transaction():
++        function()
++    assert caught.value.diag.constraint_name == constraint
++
++
++def test_atomic_initial_count_and_no_empty_batches(
++    connection: psycopg.Connection[Any], run_database: RunDatabase
++) -> None:
++    conn, db = connection, run_database
++    identity = batch(conn, db)
++    with pytest.raises(psycopg.errors.CheckViolation) as caught:
++        conn.commit()
++    assert caught.value.diag.constraint_name == "ck_geo_batches_run_count"
++    assert conn.execute(f"SELECT count(*) FROM {BATCH} WHERE id=%s", (identity,)).fetchone()[0] == 0
++    identity = batch(conn, db)
++    run(conn, db, identity)
++    conn.execute("SET CONSTRAINTS ALL IMMEDIATE")
++    rejected(conn, "ck_geo_batches_run_count", lambda: run(conn, db, identity, repeat_index=2))
++    conn.execute(
++        f"UPDATE {BATCH} SET status='QUEUED', revision=revision+1 WHERE id=%s", (identity,)
++    )
++    rejected(conn, "ck_geo_runs_initial_matrix", lambda: run(conn, db, identity, repeat_index=2))
++
++
++def test_generated_cell_and_public_rows(
++    connection: psycopg.Connection[Any], run_database: RunDatabase
++) -> None:
++    conn, db = connection, run_database
++    identity = batch(conn, db)
++    run_id = run(conn, db, identity)
++    batch_row = conn.execute(
++        f"SELECT to_jsonb(t) FROM {BATCH} t WHERE id=%s", (identity,)
++    ).fetchone()[0]
++    run_row = conn.execute(f"SELECT to_jsonb(t) FROM {RUN} t WHERE id=%s", (run_id,)).fetchone()[0]
++    expected = hashlib.sha256(f"{db.plan.prompt}:{db.plan.profile}:1".encode()).hexdigest()
++    assert run_row["run_cell_key"] == expected
++    assert GeoObservationBatchOut.model_validate(batch_row).requested_run_count == 1
++    run_row.pop("lease_token")
++    assert GeoObservationRunOut.model_validate(run_row).cost_amount is None
++    with pytest.raises(psycopg.errors.UniqueViolation) as caught, conn.transaction():
++        run(conn, db, identity)
++    assert caught.value.diag.constraint_name == "uq_geo_runs_cell_attempt"
++
++
++@pytest.mark.parametrize("status", ["COMPLETED", "FAILED", "CANCELLED", "BUDGET_BLOCKED"])
++def test_terminal_rows_are_frozen(
++    connection: psycopg.Connection[Any], run_database: RunDatabase, status: str
++) -> None:
++    conn, db = connection, run_database
++    identity = run(conn, db, batch(conn, db))
++    terminal(conn, identity, status)
++    conn.execute(f"UPDATE {RUN} SET revision=revision WHERE id=%s", (identity,))
++    for fields in [
++        {"status": "PENDING", "finished_at": None},
++        {"dispatch_attempt_count": 1},
++        {"error_summary": "替换"},
++        {"cost_amount": 1, "cost_currency": "USD"},
++    ]:
++        rejected(
++            conn, "ck_geo_runs_terminal", lambda fields=fields: update(conn, identity, **fields)
++        )
++    rejected(
++        conn,
++        "ck_geo_runs_immutable",
++        lambda: conn.execute(f"DELETE FROM {RUN} WHERE id=%s", (identity,)),
++    )
++
++
++def test_attempt_is_append_only_same_cell_input_and_single_successor(
++    connection: psycopg.Connection[Any], run_database: RunDatabase
++) -> None:
++    conn, db = connection, run_database
++    parent_batch = batch(conn, db)
++    parent = run(conn, db, parent_batch)
++    terminal(conn, parent, "FAILED")
++    changed = deepcopy(db.input)
++    changed["prompt"]["prompt_text"] = "改变问题"
++    for patch in [{"repeat_index": 2}, {"attempt_no": 3}, {"input_snapshot": Jsonb(changed)}]:
++        rejected(
++            conn,
++            "ck_geo_runs_attempt_chain",
++            lambda patch=patch: run(
++                conn, db, parent_batch, **({"attempt_no": 2, "previous_attempt_id": parent} | patch)
++            ),
++        )
++    other = batch(conn, db)
++    rejected(
++        conn,
++        "ck_geo_runs_attempt_chain",
++        lambda: run(conn, db, other, attempt_no=2, previous_attempt_id=parent),
++    )
++    run(conn, db, other)
++    child = run(conn, db, parent_batch, attempt_no=2, previous_attempt_id=parent)
++    with pytest.raises(psycopg.errors.UniqueViolation), conn.transaction():
++        run(conn, db, parent_batch, attempt_no=2, previous_attempt_id=parent)
++    terminal(conn, child, "FAILED", error_stage="ANALYSIS", error_code="ANALYSIS_FAILED")
++    rejected(
++        conn,
++        "ck_geo_runs_attempt_chain",
++        lambda: run(conn, db, parent_batch, attempt_no=3, previous_attempt_id=child),
++    )
++    conn.execute("SET CONSTRAINTS ALL IMMEDIATE")
++    assert (
++        conn.execute(f"SELECT count(*) FROM {RUN} WHERE batch_id=%s", (parent_batch,)).fetchone()[0]
++        == 2
++    )
++    assert (
++        conn.execute(
++            f"SELECT requested_run_count FROM {BATCH} WHERE id=%s", (parent_batch,)
++        ).fetchone()[0]
++        == 1
++    )
++
++
++def test_inputs_identity_revision_and_snapshot_closure(
++    connection: psycopg.Connection[Any], run_database: RunDatabase
++) -> None:
++    conn, db = connection, run_database
++    identity = batch(conn, db)
++    run_id = run(conn, db, identity)
++    rejected(
++        conn,
++        "ck_geo_runs_immutable",
++        lambda: update(conn, run_id, input_snapshot=Jsonb(db.input | {"rule_set_revision": 2})),
++    )
++    rejected(
++        conn,
++        "ck_geo_batches_immutable",
++        lambda: conn.execute(
++            f"UPDATE {BATCH} SET requested_run_count=2,revision=revision+1 WHERE id=%s", (identity,)
++        ),
++    )
++    rejected(
++        conn,
++        "ck_geo_runs_revision",
++        lambda: conn.execute(f"UPDATE {RUN} SET dispatch_attempt_count=1 WHERE id=%s", (run_id,)),
++    )
++    for value in [
++        db.input | {"schema_version": 2},
++        db.input | {"api_key": "虚构值"},
++        db.input | {"subjects": []},
++        db.input | {"profile": db.input["profile"] | {"settings": {"headers": "虚构值"}}},
++    ]:
++        rejected(
++            conn,
++            "ck_geo_runs_input",
++            lambda value=value: run(
++                conn, db, identity, repeat_index=2, input_snapshot=Jsonb(value)
++            ),
++        )
++
++
++@pytest.mark.parametrize(
++    "patch,constraint",
++    [
++        ({"repeat_index": 0}, "ck_geo_runs_repeat"),
++        ({"attempt_no": 0}, "ck_geo_runs_attempt"),
++        ({"status": "INVALID"}, "ck_geo_runs_status"),
++        ({"dispatch_attempt_count": -1}, "ck_geo_runs_dispatch"),
++        ({"cost_amount": -1, "cost_currency": "USD"}, "ck_geo_runs_cost"),
++        ({"cost_amount": "NaN", "cost_currency": "USD"}, "ck_geo_runs_cost"),
++        ({"cost_amount": 1}, "ck_geo_runs_cost"),
++        ({"duration_ms": -1}, "ck_geo_runs_duration"),
++        ({"prompt_tokens": -1}, "ck_geo_runs_usage"),
++        ({"lease_token": uuid4()}, "ck_geo_runs_lease"),
++    ],
++)
++def test_check_constraints_reject_invalid_values(
++    connection: psycopg.Connection[Any],
++    run_database: RunDatabase,
++    patch: dict[str, Any],
++    constraint: str,
++) -> None:
++    conn, db = connection, run_database
++    identity = run(conn, db, batch(conn, db))
++    if {"repeat_index", "attempt_no"} & patch.keys():
++        rejected(conn, constraint, lambda: run(conn, db, batch(conn, db), **patch))
++    else:
++        rejected(conn, constraint, lambda: update(conn, identity, **patch))
++
++
++@pytest.mark.parametrize("missing", ["error_stage", "error_code", "error_summary"])
++def test_failed_errors_cannot_use_sql_null_to_bypass_check(
++    connection: psycopg.Connection[Any], run_database: RunDatabase, missing: str
++) -> None:
++    identity = run(connection, run_database, batch(connection, run_database))
++    rejected(
++        connection,
++        "ck_geo_runs_error",
++        lambda: terminal(connection, identity, "FAILED", **{missing: None}),
++    )
++
++
++def test_lease_external_dispatch_and_cost_lifecycle(
++    connection: psycopg.Connection[Any], run_database: RunDatabase
++) -> None:
++    conn, db = connection, run_database
++    identity = run(conn, db, batch(conn, db))
++    now = conn.execute("SELECT now()").fetchone()[0]
++    update(conn, identity, dispatch_attempt_count=1, last_dispatch_attempt_at=now)
++    conn.execute(
++        f"UPDATE {RUN} SET status='RUNNING',revision=revision+1,started_at=now(),"
++        "lease_token=%s,lease_expires_at=now()+interval '1 minute',"
++        "external_call_state='SENT' WHERE id=%s",
++        (uuid4(), identity),
++    )
++    rejected(
++        conn,
++        "ck_geo_runs_external_progress",
++        lambda: update(conn, identity, external_call_state="NOT_STARTED"),
++    )
++    update(
++        conn,
++        identity,
++        status="COLLECTED",
++        collected_at=now,
++        lease_token=None,
++        lease_expires_at=None,
++        external_call_state="COMPLETED",
++        cost_amount="0.100001",
++        cost_currency="USD",
++    )
++    rejected(
++        conn,
++        "ck_geo_runs_external_progress",
++        lambda: update(conn, identity, external_call_state="UNKNOWN"),
++    )
++    terminal(conn, identity, "COMPLETED", cost_amount="0.100001", cost_currency="USD")
++
++
++def test_child_first_bulk_insert_cannot_bypass_attempt_predecessor(
++    connection: psycopg.Connection[Any], run_database: RunDatabase
++) -> None:
++    conn, db = connection, run_database
++    identity = batch(conn, db)
++    child, parent = uuid4(), uuid4()
++    rejected(
++        conn,
++        "ck_geo_runs_attempt_chain",
++        lambda: conn.execute(
++            f"INSERT INTO {RUN} (id,batch_id,prompt_variant_id,collection_profile_id,"
++            "repeat_index,input_snapshot,attempt_no,previous_attempt_id) VALUES "
++            "(%s,%s,%s,%s,1,%s,2,%s),(%s,%s,%s,%s,1,%s,1,NULL)",
++            (
++                child,
++                identity,
++                db.plan.prompt,
++                db.plan.profile,
++                Jsonb(db.input),
++                parent,
++                parent,
++                identity,
++                db.plan.prompt,
++                db.plan.profile,
++                Jsonb(db.input),
++            ),
++        ),
++    )
++
++
++@pytest.mark.parametrize("mode", ["MANUAL", "API", "BROWSER"])
++def test_sql_snapshot_leaf_types_reject_hidden_secret_objects(
++    connection: psycopg.Connection[Any], run_database: RunDatabase, mode: str
++) -> None:
++    from tests.unit.test_geo_run_contract import input_snapshot
++
++    conn, db = connection, run_database
++    value = input_snapshot(mode)
++    value["prompt"]["id"] = str(db.plan.prompt)
++    value["profile"]["id"] = str(db.plan.profile)
++    value["subjects"][0]["id"] = str(db.plan.subjects[0])
++    identity = batch(conn, db)
++    run(conn, db, identity, input_snapshot=Jsonb(value))
++    secret = {"api_key": "虚构密钥", "Cookie": "虚构Cookie"}
++    invalid = []
++    for section, field in [
++        ("prompt", "canonical_question"),
++        ("profile", "login_state"),
++        ("profile", "adapter_version"),
++    ]:
++        item = deepcopy(value)
++        item[section][field] = secret
++        invalid.append(item)
++    item = deepcopy(value)
++    item["profile"]["surface"]["id"] = secret
++    invalid.append(item)
++    item = deepcopy(value)
++    item["subjects"][0]["aliases"] = [
++        {"alias": secret, "normalized_alias": "虚构", "alias_kind": "NAME", "language_code": None}
++    ]
++    invalid.append(item)
++    item = deepcopy(value)
++    item["profile"].update(ai_channel_id=secret, ai_model_id=secret)
++    invalid.append(item)
++    item = deepcopy(value)
++    item["profile"]["login_state"] = None
++    invalid.append(item)
++    for item in invalid:
++        rejected(
++            conn,
++            "ck_geo_runs_input",
++            lambda item=item: run(conn, db, identity, repeat_index=2, input_snapshot=Jsonb(item)),
++        )
++
++
++def test_sql_plan_snapshot_items_are_closed(
++    connection: psycopg.Connection[Any], run_database: RunDatabase
++) -> None:
++    from tests.unit.test_geo_run_contract import plan_snapshot
++
++    conn, db = connection, run_database
++    value = plan_snapshot(db.input)
++    for patch in [
++        value | {"subjects": [value["subjects"][0] | {"cookie": "虚构值"}]},
++        value | {"prompt_variant_ids": [{"api_key": "虚构值"}]},
++        value | {"budget_limit": {"api_key": "虚构值"}},
++    ]:
++        rejected(
++            conn,
++            "ck_geo_batches_snapshots",
++            lambda patch=patch: batch(conn, db, plan_snapshot=Jsonb(patch)),
++        )
+--- a/backend/tests/integration/test_migrations.py
++++ b/backend/tests/integration/test_migrations.py
+@@ -326,7 +326,7 @@
+ 
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0047_geo_monitoring_plans",)
++            assert cursor.fetchone() == ("0048_geo_batches_runs",)
+             cursor.execute(
+                 "SELECT tablename FROM pg_tables "
+                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
+@@ -484,10 +484,10 @@
+             text=True,
+         )
+         assert downgrade.returncode != 0
+-        assert "0047 MonitoringPlan 无法安全降级" in downgrade.stdout + downgrade.stderr
++        assert "0048 Batch/Run 无法安全降级" in downgrade.stdout + downgrade.stderr
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0047_geo_monitoring_plans",)
++            assert cursor.fetchone() == ("0048_geo_batches_runs",)
+ 
+ 
+ @pytest.mark.integration
+--- a/backend/tests/unit/test_geo_run_contract.py
++++ b/backend/tests/unit/test_geo_run_contract.py
+@@ -0,0 +1,220 @@
++"""冻结输入的真实合同、模式闭合与公共组件一致性。"""
++
++from copy import deepcopy
++from pathlib import Path
++from typing import Any
++from uuid import uuid4
++
++import pytest
++import yaml
++from jsonschema import Draft202012Validator, FormatChecker
++from jsonschema.exceptions import ValidationError as JsonError
++from pydantic import TypeAdapter, ValidationError
++
++from app.schemas import geo_runs as schemas
++from app.schemas.geo_monitoring_plans import GeoMonitoringPlanConfiguration
++from tests.unit.test_geo_surface_contract import capabilities, profile_payload
++
++
++def input_snapshot(mode: str = "MANUAL") -> dict[str, Any]:
++    profile = profile_payload(mode)
++    profile.pop("engine_surface_id")
++    profile.update(
++        id=str(uuid4()),
++        revision=0,
++        adapter_version="fixture-v1",
++        surface={
++            "id": str(uuid4()),
++            "revision": 0,
++            "name": "虚构观测面",
++            "surface_kind": "CONSUMER_UI",
++            "provider_brand": "CUSTOM",
++            "compliance_status": "NOT_REVIEWED",
++            "capabilities": capabilities(),
++        },
++    )
++    value = {
++        "schema_version": 1,
++        "data_classification": "PUBLIC",
++        "rule_set_revision": 1,
++        "prompt": {
++            "id": str(uuid4()),
++            "revision": 0,
++            "query_topic_id": str(uuid4()),
++            "query_topic_revision": 0,
++            "canonical_question": "虚构问题",
++            "intent_type": "REPLACEMENT",
++            "prompt_text": "虚构变体问题",
++            "mention_mode": "UNBRANDED",
++            "priority": "CORE",
++            "language_code": "zh-hans",
++            "region_code": "CN",
++        },
++        "profile": profile,
++        "subjects": [
++            {
++                "id": str(uuid4()),
++                "revision": 0,
++                "subject_type": "OWN_BRAND",
++                "role": "PRIMARY",
++                "product_id": None,
++                "parent_subject_id": None,
++                "canonical_name": "虚构品牌",
++                "display_name": "虚构品牌",
++                "aliases": [],
++                "domains": [],
++            }
++        ],
++    }
++    return schemas.GeoRunInputSnapshot.model_validate(value).model_dump(mode="json")
++
++
++def plan_snapshot(value: dict[str, Any], **patch: Any) -> dict[str, Any]:
++    configuration = GeoMonitoringPlanConfiguration.model_validate(
++        {
++            "name": "虚构批次配置",
++            "subjects": [{"subject_id": value["subjects"][0]["id"], "role": "PRIMARY"}],
++            "prompt_variant_ids": [value["prompt"]["id"]],
++            "collection_profile_ids": [value["profile"]["id"]],
++            "repeat_count": 1,
++        }
++    ).model_dump(mode="json")
++    return {**configuration, "schema_version": 1, "plan_id": None, "plan_revision": None, **patch}
++
++
++@pytest.fixture(scope="module")
++def contract() -> dict[str, Any]:
++    return yaml.safe_load(
++        (Path(__file__).resolve().parents[3] / "contracts/openapi.yaml").read_text()
++    )
++
++
++def validate(contract: dict[str, Any], name: str, value: Any) -> None:
++    Draft202012Validator(
++        {"$ref": f"#/components/schemas/{name}", "components": contract["components"]},
++        format_checker=FormatChecker(),
++    ).validate(value)
++
++
++def annotations_removed(value: Any) -> Any:
++    if isinstance(value, dict):
++        return {
++            k: annotations_removed(v) for k, v in value.items() if k not in {"title", "description"}
++        }
++    if isinstance(value, list):
++        return [annotations_removed(v) for v in value]
++    return value
++
++
++@pytest.mark.parametrize(
++    "model",
++    [
++        schemas.GeoObservationBatchOut,
++        schemas.GeoObservationRunOut,
++        schemas.GeoRunInputSnapshot,
++        schemas.GeoRunCommandErrorCode,
++    ],
++)
++def test_public_components_match_pydantic(contract: dict[str, Any], model: type) -> None:
++    component = TypeAdapter(model).json_schema(ref_template="#/components/schemas/{model}")
++    definitions = component.pop("$defs", {})
++    assert contract["components"]["schemas"][model.__name__] == component
++    for name, definition in definitions.items():
++        assert annotations_removed(contract["components"]["schemas"][name]) == annotations_removed(
++            definition
++        )
++
++
++@pytest.mark.parametrize("mode", ["MANUAL", "API", "BROWSER"])
++def test_complete_snapshot_and_plan_dump_validate_in_openapi(
++    mode: str, contract: dict[str, Any]
++) -> None:
++    value = input_snapshot(mode)
++    parsed = schemas.GeoRunInputSnapshot.model_validate(value)
++    assert parsed.model_dump(mode="json") == value
++    validate(contract, "GeoRunInputSnapshot", value)
++    configuration = plan_snapshot(value)
++    validate(
++        contract,
++        "GeoBatchPlanSnapshot",
++        schemas.GeoBatchPlanSnapshot.model_validate(configuration).model_dump(mode="json"),
++    )
++    assert (
++        "lease_token" not in contract["components"]["schemas"]["GeoObservationRunOut"]["properties"]
++    )
++    assert "/api/v1/geo/runs" not in contract["paths"]
++
++
++@pytest.mark.parametrize("key", ["api_key", "headers", "Cookie", "session_path", "answer"])
++@pytest.mark.parametrize("location", ["root", "profile", "settings", "subject"])
++def test_sensitive_or_result_fields_rejected(
++    key: str, location: str, contract: dict[str, Any]
++) -> None:
++    value = input_snapshot()
++    target = {
++        "root": value,
++        "profile": value["profile"],
++        "settings": value["profile"]["settings"],
++        "subject": value["subjects"][0],
++    }[location]
++    target[key] = "虚构值"
++    with pytest.raises(ValidationError):
++        schemas.GeoRunInputSnapshot.model_validate(value)
++    with pytest.raises(JsonError):
++        validate(contract, "GeoRunInputSnapshot", value)
++
++
++@pytest.mark.parametrize(
++    "patch",
++    [
++        {"data_classification": "UNKNOWN"},
++        {"rule_set_revision": 0},
++        {"schema_version": 2},
++        {"subjects": []},
++    ],
++)
++def test_invalid_envelope_rejected(patch: dict[str, Any], contract: dict[str, Any]) -> None:
++    value = input_snapshot() | patch
++    with pytest.raises(ValidationError):
++        schemas.GeoRunInputSnapshot.model_validate(value)
++    with pytest.raises(JsonError):
++        validate(contract, "GeoRunInputSnapshot", value)
++
++
++def test_subject_identity_and_primary_are_input_invariants(contract: dict[str, Any]) -> None:
++    value = input_snapshot()
++    value["subjects"].append(deepcopy(value["subjects"][0]))
++    with pytest.raises(ValidationError):
++        schemas.GeoRunInputSnapshot.model_validate(value)
++    value["subjects"] = [value["subjects"][0] | {"role": "COMPETITOR"}]
++    with pytest.raises(ValidationError):
++        schemas.GeoRunInputSnapshot.model_validate(value)
++    with pytest.raises(JsonError):
++        validate(contract, "GeoRunInputSnapshot", value)
++    value["subjects"][0].update(role="PRIMARY", subject_type="OWN_PRODUCT")
++    with pytest.raises(ValidationError):
++        schemas.GeoRunInputSnapshot.model_validate(value)
++    with pytest.raises(JsonError):
++        validate(contract, "GeoRunInputSnapshot", value)
++
++
++def test_plan_source_identity_must_be_paired(contract: dict[str, Any]) -> None:
++    value = plan_snapshot(input_snapshot(), plan_id=str(uuid4()))
++    with pytest.raises(ValidationError):
++        schemas.GeoBatchPlanSnapshot.model_validate(value)
++    with pytest.raises(JsonError):
++        validate(contract, "GeoBatchPlanSnapshot", value)
++
++
++def test_own_product_derived_display_name_preserves_product_limits(
++    contract: dict[str, Any],
++) -> None:
++    value = input_snapshot()
++    value["subjects"][0].update(
++        subject_type="OWN_PRODUCT",
++        product_id=str(uuid4()),
++        canonical_name="M" * 160,
++        display_name="B" * 160 + " " + "M" * 160,
++    )
++    parsed = schemas.GeoRunInputSnapshot.model_validate(value)
++    validate(contract, "GeoRunInputSnapshot", parsed.model_dump(mode="json"))
+--- a/contracts/database.md
++++ b/contracts/database.md
+@@ -781,3 +781,61 @@
+ `CONTENT_GENERATOR` 为各进程启动时的配置快照，保留 `deterministic` 和 `openai-compatible`。`deterministic` 只表示关闭正式业务生成，不能生成固定成功内容；GENERATE、HUMANIZE 与 RETRY 命令在任何 Job 写入、提交和 Redis 投递前返回 `409 AI_GENERATION_DISABLED`，包括同 key 的幂等 replay。管理模型测试/发现属于独立操作，仍遵守各自权限、revision 和网络门禁。
+ 
+ 正式 Worker 以 Job 行锁吸收重复投递；deterministic 下所有 PENDING 在执行前进入 `FAILED/AI_GENERATION_DISABLED`，保留原 attempt/started 字段，设置 finished_at、清 lease，不创建 ContentVersion、不写供应商成功 metadata 或审计。门禁先于已有 source_job_id 内容回收快速路径；既存内容历史不修改。openai-compatible 的既有内容回收语义保持不变。RUNNING 重投始终直接返回，配置变更不能撤回已发请求；原执行继续按 lease 与迟到结果合同收尾。配置文件变化不代表运行进程已重载，API/Worker/Scheduler 必须加载同一受控模式后才可声称新模式生效。
++
++## GEO Batch / Run 合同（GEO-301 / R2）
++
++`0048_geo_batches_runs`（down_revision=`0047_geo_monitoring_plans`）仅expand两表和冻结SQL函数/触发器，不改旧GeoObservation、QueryTopic或既有配置数据。公共数据组件见OpenAPI的`GeoObservationBatchOut`、`GeoObservationRunOut`等21个新增组件；不是GEO-306详情或GEO-302动作投影。无HTTP执行命令、AnswerSnapshot、Collector或外部调用。内部单租户共享业务历史；created_by只追溯，不代表用户私有权限。
++
++### geo_observation_batches
++
++| 列 | 类型/默认 | 合同 |
++|---|---|---|
++| id | UUID | pk_geo_observation_batches |
++| plan_id | UUID NULL | fk_geo_batches_plan → geo_monitoring_plans.id RESTRICT；临时批次为空 |
++| trigger_type | varchar(16) | SCHEDULED/MANUAL/RETEST |
++| status / revision | varchar(20) PLANNED / integer 0 | PLANNED/QUEUED/RUNNING/COMPLETED/PARTIAL/FAILED/CANCELLED/BUDGET_BLOCKED；status和时间是可重建缓存，不是第二业务事实源 |
++| scheduled_for / schedule_identity | timestamptz NULL / varchar(64) NULL | SCHEDULED必须与非空plan_id一起提供；其他触发均空；identity为非敏感SHA256摘要 |
++| plan_snapshot / rule_snapshot | JSONB NOT NULL | schema_version=1，闭合计划配置与规则revision；计划身份/revision成对；不含凭据或执行结果 |
++| requested_run_count | integer NOT NULL | >=1，初始attempt1逻辑cell数；创建提交时与实际roots相等，retry不改变 |
++| source_opportunity_id | UUID NULL | 仅RETEST提供；GEO-702建立实体时追加真实FK；301无机会命令、不可伪称已验证机会归属 |
++| baseline_batch_id | UUID NULL | fk_geo_batches_baseline → batches.id RESTRICT；RETEST必填，不可指向自己 |
++| created_by | UUID NULL | fk_geo_batches_creator → users.id RESTRICT；SCHEDULED系统actor允许NULL，MANUAL/RETEST必须提供 |
++| started_at / finished_at / created_at | timestamptz NULL / NULL / now() | 时间不早于创建，finish不早于start；终态缓存必须finish、非终态无finish |
++
++`uq_geo_batches_schedule_window(plan_id,scheduled_for)`与`uq_geo_batches_schedule_identity`（identity非空partial）是同窗口唯一防线，**不包含plan_revision**。计划修改不会使同窗口可再次创建。索引`ix_geo_batches_status_created(status,created_at,id)`、`ix_geo_batches_plan_created(plan_id,created_at,id)`、creator、baseline。CHECK前缀`ck_geo_batches_`：trigger/status/schedule/retest/actor/count/revision/snapshots/time。
++
++### geo_observation_runs
++
++| 列 | 类型/默认 | 合同 |
++|---|---|---|
++| id / batch_id | UUID | PK；fk_geo_runs_batch → batches RESTRICT，无通用历史级联删除 |
++| prompt_variant_id / collection_profile_id | UUID NOT NULL | fk_geo_runs_prompt / profile →配置 RESTRICT；身份不置空、不改写 |
++| repeat_index | integer | 1..10 |
++| run_cell_key | varchar(64) generated stored | SHA256(规范UUID prompt + ':' + profile + ':' + repeat_index)，与attempt及当前配置revision无关 |
++| attempt_no / previous_attempt_id | integer 1 / UUID NULL | attempt1无前序；后续前序必填，fk_geo_runs_previous RESTRICT；连续编号，同batch/cell/原输入 |
++| status / revision | varchar(20) PENDING / integer 0 | PENDING/RUNNING/COLLECTED/ANALYZING/NEEDS_REVIEW/COMPLETED/FAILED/CANCELLED/BUDGET_BLOCKED；实际UPDATE恰好revision+1，no-op保持 |
++| input_snapshot | JSONB NOT NULL | schema_version1；typed prompt/topic、profile/Surface、subjects与alias/domain、规则revision、显式PUBLIC/INTERNAL/RESTRICTED；不含Product事实正文/secret |
++| external_call_state | varchar(24) NOT_STARTED | NOT_STARTED/SENT/UNKNOWN/COMPLETED；已发送/未知不恢复NOT_STARTED，COMPLETED不回退 |
++| lease_token / lease_expires_at | UUID NULL / timestamptz NULL | 同时有/空；RUNNING/ANALYZING必须持有，其他状态为空；token不暴露公共组件 |
++| dispatch_attempt_count / last_dispatch_attempt_at | integer 0 / timestamptz NULL | >=0；0与NULL成对；仅唤醒/诊断，不等于执行attempt |
++| error_stage / error_code / error_summary | varchar(24)/varchar(100)/varchar(500) NULL | FAILED/BUDGET_BLOCKED全部非空，其他全部空；stage COLLECTION/ANALYSIS/REVIEW；code为GeoRunErrorCode闭合枚举；summary仅批准静态非敏感说明，不保存异常/响应正文 |
++| provider_request_id | varchar(200) NULL | 非空时无首尾空白，非敏感请求标识 |
++| duration_ms | bigint NULL | >=0，NULL未知 |
++| cost_amount / cost_currency | numeric(14,6) NULL / varchar(8) NULL | 成对有/空，金额有限非负、币种三位大写；未知费用不补0；wire金额十进制字符串 |
++| prompt_tokens / completion_tokens / total_tokens | integer NULL | 独立>=0，NULL未知；不猜算provider未报告数据 |
++| started_at / collected_at / finished_at / created_at | timestamptz NULL/NULL/NULL/now() | PENDING/CANCELLED/BUDGET_BLOCKED无start；RUNNING及后续成功阶段有start；采集/分析/复核成功阶段有collected；终态有finish；先后关系受CHECK保护 |
++
++`uq_geo_runs_cell_attempt(batch_id,run_cell_key,attempt_no)`；`uq_geo_runs_successor(previous_attempt_id)`非空partial禁止分叉。前序只有FAILED或BUDGET_BLOCKED且error_stage=COLLECTION可追加采集attempt，连续编号、完全相同input与身份；分析失败不重采集。新Run必须PENDING/revision0/NOT_STARTED，无lease、结果或错误；旧失败尝试只读。
++
++索引：`ix_geo_runs_status_created(status,created_at,id)`；`ix_geo_runs_pending_dispatch_due(COALESCE(last_dispatch_attempt_at,created_at),id) WHERE status='PENDING'`；`ix_geo_runs_running_lease(lease_expires_at,id) WHERE status IN ('RUNNING','ANALYZING')`；`ix_geo_runs_batch_status(batch_id,status,id)`；`ix_geo_runs_profile_created(collection_profile_id,created_at,id)`；`ix_geo_runs_prompt(prompt_variant_id)`。CHECK前缀`ck_geo_runs_`：status/repeat/attempt/previous/revision/input/external/lease/dispatch/error/provider/duration/cost/usage/time。
++
++### 不可变、并发与错误边界
++
++- Batch input/identity/requested_count/created元数据、Run identity/input均禁止修改；两表DELETE禁止，默认长期保留。稳定具名23514：`ck_geo_batches_immutable`、`ck_geo_runs_immutable`、`ck_geo_runs_terminal`、`ck_geo_runs_revision`、`ck_geo_runs_external_progress`、`ck_geo_runs_attempt_chain`。
++- Run终态COMPLETED/FAILED/CANCELLED/BUDGET_BLOCKED禁止所有实际UPDATE（包括迟到provider结果/费用/lease）；同值UPDATE无副作用。重分析通过未来AnalysisRevision追加，不将终态倒退；未来分析指针的限定发布字段由GEO-501另迁移，不通过301终态守卫例外偷偷放行。
++- Run INSERT先锁Batch并对父revision做同值UPDATE建立MVCC冲突；初始roots仅可在PLANNED插入。链父FOR KEY SHARE、唯一单元/后继仲裁；`geo_batch_complete`和`geo_run_batch_complete`为DEFERRABLE INITIALLY DEFERRED，提交时count(attempt_no=1)=requested_run_count。失败整体回滚，RR旧快照写冲突不自动重放。创建完整矩阵、角色/资格/锁存、审计和dispatch由GEO-303接线；消息只能ID。
++- Batch缓存允许同批次显式retry后重新投影，原attempt保持终态。重建使用每cell最新attempt；COMPLETED全cell成功、PARTIAL成功与失败/取消/预算混合、FAILED无成功且失败、CANCELLED全取消、BUDGET_BLOCKED无成功且含预算阻断；非终态优先，NEEDS_REVIEW仍未完成。完整纯策略由GEO-302实现；301不提供指标、结果择优或动作。requested是cell数，attempt_count和费用使用全部尝试；不得将attempt当额外指标样本，具体指标公式留GEO-601。
++- 23505精确schedule_window/identity对应未来`GEO_SCHEDULE_WINDOW_EXISTS`；successor对应`GEO_RUN_HAS_SUCCESSOR`；cell_attempt是工厂一致性失败，不吞错或自动改号。23514终态/不可变/lease等保留明确失败，未来命令只能按精确SQLSTATE+constraint映射；未知异常原抛。301没有HTTP错误映射实现，不声称已有命令成功。
++- JSONB数据库检查保护闭合快照外壳、标量叶子/UUID身份、模式settings、身份对齐；Pydantic完整校验所有typed字段与集合。旁路SQL不能增加配置秘密键；自由业务文本不作为凭据通道。PUBLIC声明本身不授予外发许可，执行边界仍须依据权威分级/授权检查，301无外发。
++- Prompt/Profile/Plan/User RESTRICT为最后历史防线；303必须在首次真实工厂创建时接入历史锁存、引用查询、删除动作/精确映射与现有资源锁序。Subject字典保存在完整快照；303设置/维护真实历史删除阻断，301不伪造历史计数。source_opportunity_id未来FK尚未实施，RETEST业务仍不可用。
++- downgrade明确55000拒绝删除历史；恢复用前向修复或迁移前备份。本次没有历史数据迁移或生产迁移。
+--- a/contracts/openapi.yaml
++++ b/contracts/openapi.yaml
+@@ -15089,3 +15089,1036 @@
+       - page_size
+       title: GeoMonitoringPlanListPage
+       type: object
++    GeoBatchPlanSnapshot:
++      additionalProperties: false
++      allOf:
++      - else:
++          properties:
++            cron_expression:
++              type: 'null'
++        if:
++          properties:
++            schedule_kind:
++              const: CRON
++          required:
++          - schedule_kind
++        then:
++          properties:
++            cron_expression:
++              type: string
++          required:
++          - cron_expression
++      oneOf:
++      - properties:
++          plan_id:
++            type: 'null'
++          plan_revision:
++            type: 'null'
++      - properties:
++          plan_id:
++            type: string
++          plan_revision:
++            type: integer
++      properties:
++        name:
++          maxLength: 200
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        description:
++          default: ''
++          pattern: ^[^\x00]*$
++          title: Description
++          type: string
++        subjects:
++          contains:
++            properties:
++              role:
++                const: PRIMARY
++            required:
++            - role
++          description: subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
++          items:
++            $ref: '#/components/schemas/GeoPlanSubject'
++          minContains: 1
++          minItems: 1
++          title: Subjects
++          type: array
++          uniqueItems: true
++        prompt_variant_ids:
++          items:
++            format: uuid
++            type: string
++          minItems: 1
++          title: Prompt Variant Ids
++          type: array
++          uniqueItems: true
++        collection_profile_ids:
++          items:
++            format: uuid
++            type: string
++          minItems: 1
++          title: Collection Profile Ids
++          type: array
++          uniqueItems: true
++        repeat_count:
++          default: 3
++          maximum: 10
++          minimum: 1
++          title: Repeat Count
++          type: integer
++        schedule_kind:
++          $ref: '#/components/schemas/GeoPlanScheduleKind'
++          default: MANUAL_ONLY
++        cron_expression:
++          anyOf:
++          - maxLength: 120
++            minLength: 9
++            pattern: ^(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))*
++              (?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))*
++              (?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))*
++              (?:\*(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])-(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC]))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])-(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])))*
++              (?:\*(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])-(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT]))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])-(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])))*$(?![\s\S])
++            type: string
++          - type: 'null'
++          default: null
++          title: Cron Expression
++        timezone:
++          default: Asia/Shanghai
++          maxLength: 64
++          minLength: 1
++          title: Timezone
++          type: string
++        budget_limit:
++          anyOf:
++          - pattern: ^(?:0|[1-9][0-9]{0,7})(?:\.[0-9]{1,6})?$(?![\s\S])
++            type: string
++          - type: 'null'
++          default: null
++          title: Budget Limit
++        rule_set_revision:
++          default: 1
++          minimum: 1
++          title: Rule Set Revision
++          type: integer
++        schema_version:
++          const: 1
++          title: Schema Version
++          type: integer
++        plan_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Plan Id
++        plan_revision:
++          anyOf:
++          - minimum: 0
++            type: integer
++          - type: 'null'
++          title: Plan Revision
++      required:
++      - name
++      - subjects
++      - prompt_variant_ids
++      - collection_profile_ids
++      - schema_version
++      - plan_id
++      - plan_revision
++      title: GeoBatchPlanSnapshot
++      type: object
++    GeoBatchRuleSnapshot:
++      additionalProperties: false
++      properties:
++        schema_version:
++          const: 1
++          title: Schema Version
++          type: integer
++        rule_set_revision:
++          minimum: 1
++          title: Rule Set Revision
++          type: integer
++      required:
++      - schema_version
++      - rule_set_revision
++      title: GeoBatchRuleSnapshot
++      type: object
++    GeoBatchStatus:
++      enum:
++      - PLANNED
++      - QUEUED
++      - RUNNING
++      - COMPLETED
++      - PARTIAL
++      - FAILED
++      - CANCELLED
++      - BUDGET_BLOCKED
++      title: GeoBatchStatus
++      type: string
++    GeoBatchTriggerType:
++      enum:
++      - SCHEDULED
++      - MANUAL
++      - RETEST
++      title: GeoBatchTriggerType
++      type: string
++    GeoObservationBatchOut:
++      additionalProperties: false
++      description: 基础数据组件；不是 GEO-306 的详情、汇总或动作投影。
++      properties:
++        id:
++          format: uuid
++          title: Id
++          type: string
++        plan_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Plan Id
++        trigger_type:
++          $ref: '#/components/schemas/GeoBatchTriggerType'
++        status:
++          $ref: '#/components/schemas/GeoBatchStatus'
++        revision:
++          minimum: 0
++          title: Revision
++          type: integer
++        scheduled_for:
++          anyOf:
++          - format: date-time
++            type: string
++          - type: 'null'
++          title: Scheduled For
++        schedule_identity:
++          anyOf:
++          - pattern: ^[0-9a-f]{64}$(?![\s\S])
++            type: string
++          - type: 'null'
++          title: Schedule Identity
++        plan_snapshot:
++          $ref: '#/components/schemas/GeoBatchPlanSnapshot'
++        rule_snapshot:
++          $ref: '#/components/schemas/GeoBatchRuleSnapshot'
++        requested_run_count:
++          minimum: 1
++          title: Requested Run Count
++          type: integer
++        source_opportunity_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Source Opportunity Id
++        baseline_batch_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Baseline Batch Id
++        created_by:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Created By
++        started_at:
++          anyOf:
++          - format: date-time
++            type: string
++          - type: 'null'
++          title: Started At
++        finished_at:
++          anyOf:
++          - format: date-time
++            type: string
++          - type: 'null'
++          title: Finished At
++        created_at:
++          format: date-time
++          title: Created At
++          type: string
++      required:
++      - id
++      - plan_id
++      - trigger_type
++      - status
++      - revision
++      - scheduled_for
++      - schedule_identity
++      - plan_snapshot
++      - rule_snapshot
++      - requested_run_count
++      - source_opportunity_id
++      - baseline_batch_id
++      - created_by
++      - started_at
++      - finished_at
++      - created_at
++      title: GeoObservationBatchOut
++      type: object
++    GeoExternalCallState:
++      enum:
++      - NOT_STARTED
++      - SENT
++      - UNKNOWN
++      - COMPLETED
++      title: GeoExternalCallState
++      type: string
++    GeoRunAliasSnapshot:
++      additionalProperties: false
++      properties:
++        alias:
++          maxLength: 240
++          minLength: 1
++          pattern: ^[^\x00]*\S[^\x00]*$
++          title: Alias
++          type: string
++        normalized_alias:
++          maxLength: 240
++          minLength: 1
++          pattern: ^[^\x00]*\S[^\x00]*$
++          title: Normalized Alias
++          type: string
++        alias_kind:
++          $ref: '#/components/schemas/GeoSubjectAliasKind'
++        language_code:
++          anyOf:
++          - type: string
++          - type: 'null'
++          title: Language Code
++      required:
++      - alias
++      - normalized_alias
++      - alias_kind
++      - language_code
++      title: GeoRunAliasSnapshot
++      type: object
++    GeoRunApiProfileSnapshot:
++      additionalProperties: false
++      oneOf:
++      - properties:
++          ai_channel_id:
++            type: 'null'
++          ai_model_id:
++            type: 'null'
++      - properties:
++          ai_channel_id:
++            type: string
++          ai_model_id:
++            type: string
++      properties:
++        id:
++          format: uuid
++          title: Id
++          type: string
++        revision:
++          minimum: 0
++          title: Revision
++          type: integer
++        adapter_version:
++          maxLength: 100
++          minLength: 1
++          pattern: ^[^\x00]*\S[^\x00]*$
++          title: Adapter Version
++          type: string
++        surface:
++          $ref: '#/components/schemas/GeoRunSurfaceSnapshot'
++        name:
++          maxLength: 160
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        adapter_key:
++          maxLength: 100
++          minLength: 1
++          pattern: ^[a-z][a-z0-9_-]*$
++          title: Adapter Key
++          type: string
++        language_code:
++          maxLength: 16
++          minLength: 2
++          pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          title: Language Code
++          type: string
++        region_code:
++          maxLength: 2
++          minLength: 2
++          pattern: ^[A-Za-z]{2}$
++          title: Region Code
++          type: string
++        web_search_policy:
++          $ref: '#/components/schemas/GeoWebSearchPolicy'
++        collection_mode:
++          const: API
++          title: Collection Mode
++          type: string
++        ai_channel_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Ai Channel Id
++        ai_model_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Ai Model Id
++        login_state:
++          const: NOT_APPLICABLE
++          title: Login State
++          type: string
++        settings:
++          $ref: '#/components/schemas/GeoApiSettings'
++      required:
++      - id
++      - revision
++      - adapter_version
++      - surface
++      - name
++      - adapter_key
++      - language_code
++      - region_code
++      - web_search_policy
++      - collection_mode
++      - ai_channel_id
++      - ai_model_id
++      - login_state
++      - settings
++      title: GeoRunApiProfileSnapshot
++      type: object
++    GeoRunBrowserProfileSnapshot:
++      additionalProperties: false
++      properties:
++        id:
++          format: uuid
++          title: Id
++          type: string
++        revision:
++          minimum: 0
++          title: Revision
++          type: integer
++        adapter_version:
++          maxLength: 100
++          minLength: 1
++          pattern: ^[^\x00]*\S[^\x00]*$
++          title: Adapter Version
++          type: string
++        surface:
++          $ref: '#/components/schemas/GeoRunSurfaceSnapshot'
++        name:
++          maxLength: 160
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        adapter_key:
++          maxLength: 100
++          minLength: 1
++          pattern: ^[a-z][a-z0-9_-]*$
++          title: Adapter Key
++          type: string
++        language_code:
++          maxLength: 16
++          minLength: 2
++          pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          title: Language Code
++          type: string
++        region_code:
++          maxLength: 2
++          minLength: 2
++          pattern: ^[A-Za-z]{2}$
++          title: Region Code
++          type: string
++        web_search_policy:
++          $ref: '#/components/schemas/GeoWebSearchPolicy'
++        collection_mode:
++          const: BROWSER
++          title: Collection Mode
++          type: string
++        ai_channel_id:
++          title: Ai Channel Id
++          type: 'null'
++        ai_model_id:
++          title: Ai Model Id
++          type: 'null'
++        login_state:
++          enum:
++          - ANONYMOUS
++          - AUTHENTICATED
++          title: Login State
++          type: string
++        settings:
++          $ref: '#/components/schemas/GeoBrowserSettings'
++      required:
++      - id
++      - revision
++      - adapter_version
++      - surface
++      - name
++      - adapter_key
++      - language_code
++      - region_code
++      - web_search_policy
++      - collection_mode
++      - ai_channel_id
++      - ai_model_id
++      - login_state
++      - settings
++      title: GeoRunBrowserProfileSnapshot
++      type: object
++    GeoRunDataClassification:
++      enum:
++      - PUBLIC
++      - INTERNAL
++      - RESTRICTED
++      title: GeoRunDataClassification
++      type: string
++    GeoRunDomainSnapshot:
++      additionalProperties: false
++      properties:
++        hostname:
++          maxLength: 253
++          minLength: 3
++          not:
++            pattern: ^(?:[0-9]+\.){3}[0-9]+$
++          pattern: ^(?=.{3,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$
++          title: Hostname
++          type: string
++        relation_type:
++          $ref: '#/components/schemas/GeoSubjectDomainRelationType'
++      required:
++      - hostname
++      - relation_type
++      title: GeoRunDomainSnapshot
++      type: object
++    GeoRunErrorCode:
++      enum:
++      - COLLECTOR_CONFIGURATION_INVALID
++      - COLLECTOR_DISABLED
++      - PROVIDER_AUTH_FAILED
++      - PROVIDER_RATE_LIMITED
++      - PROVIDER_TIMEOUT
++      - PROVIDER_UNAVAILABLE
++      - PROVIDER_RESPONSE_INVALID
++      - PROVIDER_RESPONSE_TOO_LARGE
++      - COLLECTOR_UNKNOWN_OUTCOME
++      - DATA_CLASSIFICATION_FORBIDDEN
++      - PROFILE_NEEDS_REAUTH
++      - WORKER_LOST
++      - BUDGET_EXCEEDED
++      - ANALYSIS_FAILED
++      - REVIEW_FAILED
++      title: GeoRunErrorCode
++      type: string
++    GeoRunErrorStage:
++      enum:
++      - COLLECTION
++      - ANALYSIS
++      - REVIEW
++      title: GeoRunErrorStage
++      type: string
++    GeoRunInputSnapshot:
++      additionalProperties: false
++      properties:
++        schema_version:
++          const: 1
++          title: Schema Version
++          type: integer
++        data_classification:
++          $ref: '#/components/schemas/GeoRunDataClassification'
++        prompt:
++          $ref: '#/components/schemas/GeoRunPromptSnapshot'
++        profile:
++          discriminator:
++            mapping:
++              API: '#/components/schemas/GeoRunApiProfileSnapshot'
++              BROWSER: '#/components/schemas/GeoRunBrowserProfileSnapshot'
++              MANUAL: '#/components/schemas/GeoRunManualProfileSnapshot'
++            propertyName: collection_mode
++          oneOf:
++          - $ref: '#/components/schemas/GeoRunManualProfileSnapshot'
++          - $ref: '#/components/schemas/GeoRunApiProfileSnapshot'
++          - $ref: '#/components/schemas/GeoRunBrowserProfileSnapshot'
++          title: Profile
++        subjects:
++          contains:
++            properties:
++              role:
++                const: PRIMARY
++            required:
++            - role
++          items:
++            $ref: '#/components/schemas/GeoRunSubjectSnapshot'
++          minContains: 1
++          minItems: 1
++          title: Subjects
++          type: array
++        rule_set_revision:
++          minimum: 1
++          title: Rule Set Revision
++          type: integer
++      required:
++      - schema_version
++      - data_classification
++      - prompt
++      - profile
++      - subjects
++      - rule_set_revision
++      title: GeoRunInputSnapshot
++      type: object
++    GeoRunManualProfileSnapshot:
++      additionalProperties: false
++      properties:
++        id:
++          format: uuid
++          title: Id
++          type: string
++        revision:
++          minimum: 0
++          title: Revision
++          type: integer
++        adapter_version:
++          maxLength: 100
++          minLength: 1
++          pattern: ^[^\x00]*\S[^\x00]*$
++          title: Adapter Version
++          type: string
++        surface:
++          $ref: '#/components/schemas/GeoRunSurfaceSnapshot'
++        name:
++          maxLength: 160
++          minLength: 1
++          pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
++          title: Name
++          type: string
++        adapter_key:
++          const: manual
++          title: Adapter Key
++          type: string
++        language_code:
++          maxLength: 16
++          minLength: 2
++          pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          title: Language Code
++          type: string
++        region_code:
++          maxLength: 2
++          minLength: 2
++          pattern: ^[A-Za-z]{2}$
++          title: Region Code
++          type: string
++        web_search_policy:
++          $ref: '#/components/schemas/GeoWebSearchPolicy'
++        collection_mode:
++          const: MANUAL
++          title: Collection Mode
++          type: string
++        ai_channel_id:
++          title: Ai Channel Id
++          type: 'null'
++        ai_model_id:
++          title: Ai Model Id
++          type: 'null'
++        login_state:
++          enum:
++          - ANONYMOUS
++          - AUTHENTICATED
++          title: Login State
++          type: string
++        settings:
++          $ref: '#/components/schemas/GeoManualSettings'
++      required:
++      - id
++      - revision
++      - adapter_version
++      - surface
++      - name
++      - adapter_key
++      - language_code
++      - region_code
++      - web_search_policy
++      - collection_mode
++      - ai_channel_id
++      - ai_model_id
++      - login_state
++      - settings
++      title: GeoRunManualProfileSnapshot
++      type: object
++    GeoRunPromptSnapshot:
++      additionalProperties: false
++      properties:
++        id:
++          format: uuid
++          title: Id
++          type: string
++        revision:
++          minimum: 0
++          title: Revision
++          type: integer
++        query_topic_id:
++          format: uuid
++          title: Query Topic Id
++          type: string
++        query_topic_revision:
++          minimum: 0
++          title: Query Topic Revision
++          type: integer
++        canonical_question:
++          minLength: 1
++          pattern: ^[^\x00]*\S[^\x00]*$
++          title: Canonical Question
++          type: string
++        intent_type:
++          $ref: '#/components/schemas/IntentType'
++        prompt_text:
++          maxLength: 8000
++          minLength: 1
++          pattern: ^[^\x00]*\S[^\x00]*$
++          title: Prompt Text
++          type: string
++        mention_mode:
++          $ref: '#/components/schemas/GeoPromptMentionMode'
++        priority:
++          $ref: '#/components/schemas/GeoPromptPriority'
++        language_code:
++          maxLength: 16
++          minLength: 2
++          pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
++          title: Language Code
++          type: string
++        region_code:
++          maxLength: 2
++          minLength: 2
++          pattern: ^[A-Za-z]{2}$
++          title: Region Code
++          type: string
++      required:
++      - id
++      - revision
++      - query_topic_id
++      - query_topic_revision
++      - canonical_question
++      - intent_type
++      - prompt_text
++      - mention_mode
++      - priority
++      - language_code
++      - region_code
++      title: GeoRunPromptSnapshot
++      type: object
++    GeoRunStatus:
++      enum:
++      - PENDING
++      - RUNNING
++      - COLLECTED
++      - ANALYZING
++      - NEEDS_REVIEW
++      - COMPLETED
++      - FAILED
++      - CANCELLED
++      - BUDGET_BLOCKED
++      title: GeoRunStatus
++      type: string
++    GeoRunSubjectSnapshot:
++      additionalProperties: false
++      else:
++        properties:
++          product_id:
++            type: 'null'
++      if:
++        properties:
++          subject_type:
++            const: OWN_PRODUCT
++      properties:
++        id:
++          format: uuid
++          title: Id
++          type: string
++        revision:
++          minimum: 0
++          title: Revision
++          type: integer
++        subject_type:
++          $ref: '#/components/schemas/GeoSubjectType'
++        role:
++          $ref: '#/components/schemas/GeoPlanSubjectRole'
++        product_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Product Id
++        parent_subject_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Parent Subject Id
++        canonical_name:
++          maxLength: 240
++          minLength: 1
++          pattern: ^[^\x00]*\S[^\x00]*$
++          title: Canonical Name
++          type: string
++        display_name:
++          maxLength: 321
++          minLength: 1
++          pattern: ^[^\x00]*\S[^\x00]*$
++          title: Display Name
++          type: string
++        aliases:
++          items:
++            $ref: '#/components/schemas/GeoRunAliasSnapshot'
++          title: Aliases
++          type: array
++        domains:
++          items:
++            $ref: '#/components/schemas/GeoRunDomainSnapshot'
++          title: Domains
++          type: array
++      required:
++      - id
++      - revision
++      - subject_type
++      - role
++      - product_id
++      - parent_subject_id
++      - canonical_name
++      - display_name
++      - aliases
++      - domains
++      then:
++        properties:
++          product_id:
++            format: uuid
++            type: string
++      title: GeoRunSubjectSnapshot
++      type: object
++    GeoRunSurfaceSnapshot:
++      additionalProperties: false
++      properties:
++        id:
++          format: uuid
++          title: Id
++          type: string
++        revision:
++          minimum: 0
++          title: Revision
++          type: integer
++        name:
++          maxLength: 160
++          minLength: 1
++          pattern: ^[^\x00]*\S[^\x00]*$
++          title: Name
++          type: string
++        surface_kind:
++          $ref: '#/components/schemas/GeoSurfaceKind'
++        provider_brand:
++          $ref: '#/components/schemas/GeoSurfaceProviderBrand'
++        compliance_status:
++          $ref: '#/components/schemas/GeoComplianceStatus'
++        capabilities:
++          $ref: '#/components/schemas/GeoSurfaceCapabilities'
++      required:
++      - id
++      - revision
++      - name
++      - surface_kind
++      - provider_brand
++      - compliance_status
++      - capabilities
++      title: GeoRunSurfaceSnapshot
++      type: object
++    GeoObservationRunOut:
++      additionalProperties: false
++      description: lease_token 是执行授权信息，只有数据库内部使用，公共组件不暴露。
++      properties:
++        id:
++          format: uuid
++          title: Id
++          type: string
++        batch_id:
++          format: uuid
++          title: Batch Id
++          type: string
++        prompt_variant_id:
++          format: uuid
++          title: Prompt Variant Id
++          type: string
++        collection_profile_id:
++          format: uuid
++          title: Collection Profile Id
++          type: string
++        run_cell_key:
++          pattern: ^[0-9a-f]{64}$(?![\s\S])
++          title: Run Cell Key
++          type: string
++        repeat_index:
++          maximum: 10
++          minimum: 1
++          title: Repeat Index
++          type: integer
++        attempt_no:
++          minimum: 1
++          title: Attempt No
++          type: integer
++        previous_attempt_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Previous Attempt Id
++        status:
++          $ref: '#/components/schemas/GeoRunStatus'
++        revision:
++          minimum: 0
++          title: Revision
++          type: integer
++        input_snapshot:
++          $ref: '#/components/schemas/GeoRunInputSnapshot'
++        external_call_state:
++          $ref: '#/components/schemas/GeoExternalCallState'
++        lease_expires_at:
++          anyOf:
++          - format: date-time
++            type: string
++          - type: 'null'
++          title: Lease Expires At
++        dispatch_attempt_count:
++          minimum: 0
++          title: Dispatch Attempt Count
++          type: integer
++        last_dispatch_attempt_at:
++          anyOf:
++          - format: date-time
++            type: string
++          - type: 'null'
++          title: Last Dispatch Attempt At
++        error_stage:
++          anyOf:
++          - $ref: '#/components/schemas/GeoRunErrorStage'
++          - type: 'null'
++        error_code:
++          anyOf:
++          - $ref: '#/components/schemas/GeoRunErrorCode'
++          - type: 'null'
++        error_summary:
++          anyOf:
++          - maxLength: 500
++            minLength: 1
++            pattern: ^[^\x00]*\S[^\x00]*$
++            type: string
++          - type: 'null'
++          title: Error Summary
++        provider_request_id:
++          anyOf:
++          - maxLength: 200
++            minLength: 1
++            pattern: ^[^\x00]*\S[^\x00]*$
++            type: string
++          - type: 'null'
++          title: Provider Request Id
++        duration_ms:
++          anyOf:
++          - minimum: 0
++            type: integer
++          - type: 'null'
++          title: Duration Ms
++        cost_amount:
++          anyOf:
++          - pattern: ^(?:0|[1-9][0-9]{0,7})(?:\.[0-9]{1,6})?$(?![\s\S])
++            type: string
++          - type: 'null'
++          title: Cost Amount
++        cost_currency:
++          anyOf:
++          - pattern: ^[A-Z]{3}$(?![\s\S])
++            type: string
++          - type: 'null'
++          title: Cost Currency
++        prompt_tokens:
++          anyOf:
++          - minimum: 0
++            type: integer
++          - type: 'null'
++          title: Prompt Tokens
++        completion_tokens:
++          anyOf:
++          - minimum: 0
++            type: integer
++          - type: 'null'
++          title: Completion Tokens
++        total_tokens:
++          anyOf:
++          - minimum: 0
++            type: integer
++          - type: 'null'
++          title: Total Tokens
++        started_at:
++          anyOf:
++          - format: date-time
++            type: string
++          - type: 'null'
++          title: Started At
++        collected_at:
++          anyOf:
++          - format: date-time
++            type: string
++          - type: 'null'
++          title: Collected At
++        finished_at:
++          anyOf:
++          - format: date-time
++            type: string
++          - type: 'null'
++          title: Finished At
++        created_at:
++          format: date-time
++          title: Created At
++          type: string
++      required:
++      - id
++      - batch_id
++      - prompt_variant_id
++      - collection_profile_id
++      - run_cell_key
++      - repeat_index
++      - attempt_no
++      - previous_attempt_id
++      - status
++      - revision
++      - input_snapshot
++      - external_call_state
++      - lease_expires_at
++      - dispatch_attempt_count
++      - last_dispatch_attempt_at
++      - error_stage
++      - error_code
++      - error_summary
++      - provider_request_id
++      - duration_ms
++      - cost_amount
++      - cost_currency
++      - prompt_tokens
++      - completion_tokens
++      - total_tokens
++      - started_at
++      - collected_at
++      - finished_at
++      - created_at
++      title: GeoObservationRunOut
++      type: object
++    GeoRunCommandErrorCode:
++      enum:
++      - GEO_RUN_NOT_MANUAL
++      - GEO_RUN_NOT_PENDING
++      - GEO_RUN_ALREADY_STARTED
++      - GEO_RUN_NOT_RETRYABLE
++      - GEO_RUN_HAS_SUCCESSOR
++      - GEO_SCHEDULE_WINDOW_EXISTS
++      title: GeoRunCommandErrorCode
++      type: string
+--- a/docs/geo-monitoring/01-product/02-geo-core-prd.md
++++ b/docs/geo-monitoring/01-product/02-geo-core-prd.md
+@@ -505,7 +505,8 @@
+ ### 批次状态
+ 
+ ```text
+-PENDING
++PLANNED
++QUEUED
+ RUNNING
+ PARTIAL
+ COMPLETED
+@@ -916,45 +917,15 @@
+ 
+ 拥有计划配置和 revision。多对多关联问题主题、产品和观测面。
+ 
+-### `GeoObservationBatch`
+-
+-```yaml
+-id: uuid
+-plan_id: uuid | null
+-plan_revision: integer | null
+-trigger_type: SCHEDULED | MANUAL | RETEST
+-status: enum
+-scheduled_for: datetime | null
+-started_at: datetime | null
+-completed_at: datetime | null
+-created_by: uuid | null
+-source_opportunity_id: uuid | null
+-snapshot: jsonb
+-```
+-
+-`snapshot` 只保存非敏感计划快照和稳定 ID。
+-
+-### `GeoObservationRun`
+-
+-```yaml
+-id: uuid
+-batch_id: uuid
+-query_topic_id: uuid
+-prompt_variant_id: uuid
+-geo_surface_id: uuid
+-collection_mode: MANUAL | API | BROWSER
+-repetition_index: integer
+-attempt: integer
+-parent_run_id: uuid | null
+-status: enum
+-prompt_text_snapshot: text
+-context_snapshot: jsonb
+-started_at: datetime | null
+-completed_at: datetime | null
+-error_code: string | null
+-error_summary: string | null
+-cost_amount: decimal | null
+-```
++### `GeoObservationBatch` / `GeoObservationRun`
++
++GEO-301 / R2 的字段名与安全边界以 [根 OpenAPI](../../../contracts/openapi.yaml) 的 `GeoObservationBatchOut` / `GeoObservationRunOut` 和 [根数据库合同](../../../contracts/database.md#geo-batch--run-合同geo-301--r2) 为权威，替换早期概念草稿中的 snapshot/context_snapshot、parent_run_id、completed_at 等占位命名。
++
++- Batch：`plan_id`、`trigger_type`、`scheduled_for/schedule_identity`、不可变 `plan_snapshot/rule_snapshot`、`requested_run_count`、基线/机会/创建追溯、可重建 `status/revision/started_at/finished_at`。
++- Run：`batch_id`、稳定 prompt/profile ID、`repeat_index/run_cell_key`、`attempt_no/previous_attempt_id`、不可变 `input_snapshot`、状态/revision、外部调用阶段、lease/dispatch、闭合阶段/错误、费用/用量与生命周期时间。
++- 输入 snapshot version1 冻结实际 prompt/topic、Profile/Surface、Subject/alias/domain、规则 revision 和显式数据分级；不含凭据或事实正文。费用未知保持 null，不补零。
++- `requested_run_count` 是初始逻辑 cell 数；追加失败 attempt 不增加采样单元，原 Run 终态不可改。Batch 使用每 cell 最新 attempt 重建状态，缓存可因显式 retry 再投影。
++- 本任务仅组件/数据库模型；没有创建、取消、重试、manual entry 或执行 HTTP 能力，现有 Plan run-now 仍为 501。
+ 
+ ### `GeoAnswerSnapshot`
+ 
+--- a/docs/geo-monitoring/02-business/02-domain-model.md
++++ b/docs/geo-monitoring/02-business/02-domain-model.md
+@@ -219,6 +219,8 @@
+ 7. 归档计划不可再次启用，只能复制为新计划。
+ 
+ ## 3.5 GeoObservationBatch 聚合
++
++GEO-301 / R2 字段/状态/快照与命名约束以 [根数据库合同](../../../contracts/database.md#geo-batch--run-合同geo-301--r2) 和根 OpenAPI 为权威；本阶段只有数据模型，没有运行命令。
+ 
+ ### 目的
+ 
+@@ -241,8 +243,8 @@
+ ### 不变量
+ 
+ 1. 创建时原子冻结全部运行输入；
+-2. `requested_run_count` 等于实际生成运行数；
+-3. 批次状态由运行状态确定性推进；
++2. `requested_run_count` 等于初始 attempt1 逻辑 cell 数；追加 attempt 不改变该数；
++3. 批次状态是每 cell 最新 attempt 的可重建缓存；retry 可再次投影，旧 attempt 终态保留；
+ 4. 取消只影响尚未开始的运行；
+ 5. 批次不能修改问题、profile 或重复次数；
+ 6. RETEST 必须保存基线和机会身份。
+@@ -258,12 +260,12 @@
+ - `id/batch_id`
+ - `prompt_variant_id/collection_profile_id`
+ - `repeat_index`
+-- `attempt_no/previous_attempt_id`
+-- `status`
++- `run_cell_key/attempt_no/previous_attempt_id`
++- `status/revision/external_call_state`
+ - `input_snapshot`
+ - `lease_token/lease_expires_at`
+ - `dispatch_attempt_count/last_dispatch_attempt_at`
+-- `error_code/error_summary`
++- `error_stage/error_code/error_summary`
+ - `provider_request_id`
+ - `duration_ms/cost_amount/token_usage`
+ - `started_at/collected_at/finished_at/created_at`
+@@ -273,7 +275,7 @@
+ 1. 批次内运行单元唯一；
+ 2. 队列消息只携带运行 ID；
+ 3. 外部请求开始后失败不得在同一 run 自动重发；
+-4. 显式重试创建新 run attempt；
++4. 采集阶段 FAILED/BUDGET_BLOCKED 的显式重试创建同 cell、同输入、连续 attempt，且前序仅一个后继；分析失败重跑 AnalysisRevision；
+ 5. 原 run 终态不可变；
+ 6. 收集成功必须关联一个 `GeoAnswerSnapshot`；
+ 7. FAILED/CANCELLED 不进入业务指标分母；
+--- a/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
++++ b/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
+@@ -79,7 +79,7 @@
+ - 队列投递发生在提交之后；
+ - 投递失败不回滚业务记录，由补投递扫描处理；
+ - Redis 消息只携带 `run_id`；
+-- `requested_run_count` 与插入的运行数量必须一致。
++- `requested_run_count` 与初始 attempt1 的逻辑 cell 数必须一致；创建在同一事务提交，追加 attempt 不扩张根矩阵。
+ 
+ ## 3. Batch 状态机
+ 
+@@ -88,9 +88,10 @@
+     [*] --> PLANNED
+     PLANNED --> QUEUED: runs committed
+     QUEUED --> RUNNING: first run starts
+-    RUNNING --> COMPLETED: all terminal, at least one success, no unresolved manual
++    RUNNING --> COMPLETED: all cells completed, no unresolved manual
+     RUNNING --> PARTIAL: terminal with mixed success/failure
+     RUNNING --> FAILED: all runs failed
++    QUEUED --> BUDGET_BLOCKED: all cells blocked before collection
+     PLANNED --> CANCELLED: cancel before queue
+     QUEUED --> CANCELLED: cancel pending runs
+     RUNNING --> PARTIAL: cancel remaining pending
+@@ -98,9 +99,10 @@
+     PARTIAL --> [*]
+     FAILED --> [*]
+     CANCELLED --> [*]
+-```
+-
+-批次状态从运行集合确定性投影，不允许用户任意设置。
++    BUDGET_BLOCKED --> [*]
++```
++
++批次状态从每个 cell 的最新 attempt 确定性投影，不允许用户任意设置；保存值仅缓存，显式 retry 可重新投影，原终态 Run 不变。COMPLETED 是全部 cell 成功，PARTIAL 为成功与失败/取消/预算混合；无成功时按预算阻断、失败或全取消分类，存在非终态优先处理。纯策略和动作由 GEO-302 实施，GEO-301 只定义数据边界。
+ 
+ ## 4. Run 状态机
+ 
+@@ -108,6 +110,7 @@
+ stateDiagram-v2
+     [*] --> PENDING
+     PENDING --> RUNNING: lease acquired
++    PENDING --> BUDGET_BLOCKED: budget gate before external call
+     PENDING --> CANCELLED: cancel
+     RUNNING --> COLLECTED: raw answer committed
+     RUNNING --> FAILED: collection failed/unknown outcome
+@@ -119,6 +122,7 @@
+     COMPLETED --> [*]
+     FAILED --> [*]
+     CANCELLED --> [*]
++    BUDGET_BLOCKED --> [*]
+ ```
+ 
+ ### 4.1 状态语义
+@@ -133,13 +137,14 @@
+ | COMPLETED | 已有可用于当前口径的成功分析/复核 |
+ | FAILED | 该尝试失败，保存稳定错误码和阶段 |
+ | CANCELLED | 外部调用开始前被取消 |
++| BUDGET_BLOCKED | 外部调用前被预算门禁阻断，保存阶段和 BUDGET_EXCEEDED |
+ 
+ ### 4.2 重试规则
+ 
+ - PENDING 消息丢失：允许补投递同一 run ID；
+ - RUNNING 租约过期且未确认外部调用：只有在持久化阶段标记证明“未发送”时才允许回到 PENDING；
+ - 外部请求已发送或状态未知：原 run 标记 FAILED/UNKNOWN_OUTCOME；
+-- 用户重试：创建 `attempt_no + 1` 的新 run，复制原输入快照；
++- 采集阶段 FAILED/BUDGET_BLOCKED 的用户重试：创建同 Batch/cell 的 `attempt_no + 1` 新 run，完整复制原输入，前序不存在即拒绝，唯一后继阻止分叉；分析阶段失败只重跑 AnalysisRevision；
+ - 原尝试不修改、不删除；
+ - 迟到结果必须检查当前状态和 lease token，不能覆盖终态。
+ 
+@@ -241,7 +246,7 @@
+ ### 8.1 分析复跑
+ 
+ - 分析规则、alias 或事实版本变化后可以显式重跑；
+-- 重跑创建新 revision；
++- 重跑创建新 AnalysisRevision，不倒退或修改已终态的采集 Run；当前分析发布指针由后续分析任务单独迁移并限定允许变更字段；
+ - 历史指标默认使用当前成功 revision 或最新人工复核；
+ - 报告必须记录实际使用的 revision；
+ - 大规模重分析需要批次、限速和独立运维入口，不允许请求线程同步扫描全部历史。
+--- a/docs/geo-monitoring/03-technical/02-data-architecture.md
++++ b/docs/geo-monitoring/03-technical/02-data-architecture.md
+@@ -173,68 +173,23 @@
+ 
+ ## 5.1 `geo_observation_batches`
+ 
+-| 字段 | 类型 | 约束 |
+-|---|---|---|
+-| id | UUID | PK |
+-| plan_id | UUID nullable | FK plans SET NULL |
+-| trigger_type | varchar(16) | SCHEDULED/MANUAL/RETEST |
+-| status | varchar(16) | PLANNED/QUEUED/RUNNING/COMPLETED/PARTIAL/FAILED/CANCELLED |
+-| schedule_identity | varchar(160) nullable | 调度幂等 identity |
+-| plan_snapshot | JSONB | 不可变 |
+-| rule_snapshot | JSONB | 不可变 |
+-| requested_run_count | integer | >=1 |
+-| source_opportunity_id | UUID nullable | FK opportunities SET NULL |
+-| baseline_batch_id | UUID nullable | self FK SET NULL |
+-| created_by | UUID nullable | Scheduler 可空或系统 actor |
+-| started_at/finished_at | timestamptz nullable | |
+-| created_at | timestamptz | |
+-
+-唯一：`schedule_identity WHERE schedule_identity IS NOT NULL`。
+-
+-RETEST 约束：source opportunity 和 baseline batch 必填。
++GEO-301 / R2 已建立独立回答级 Batch/Run 两表及 `0048_geo_batches_runs`。精确字段、默认值、命名约束、索引、快照外壳和安全停止路径以 [根数据库合同](../../../contracts/database.md#geo-batch--run-合同geo-301--r2) 为权威。
++
++- Batch 保存不可变计划/规则快照、触发身份、初始 cell 数和创建追溯；`status`、时间与 `revision` 是可从 runs 重建的缓存。
++- 初始状态 PLANNED，后续缓存状态 QUEUED/RUNNING/COMPLETED/PARTIAL/FAILED/CANCELLED/BUDGET_BLOCKED。
++- SCHEDULED 保存 `scheduled_for` 和 SHA256 `schedule_identity`；唯一 `(plan_id, scheduled_for)` 不含计划 revision，另有非空摘要 partial unique。
++- Plan、基线 Batch、创建 User 的历史 FK 均 RESTRICT。RETEST 必填 source opportunity UUID 和 baseline；机会实体由 GEO-702 引入后追加真实 FK，本阶段没有复测命令。
++- `requested_run_count` 计初始 attempt1 的逻辑 cell；deferred CHECK 在创建提交时保证数量相等，不允许空批次或后续扩张根矩阵。
+ 
+ ## 5.2 `geo_observation_runs`
+ 
+-| 字段 | 类型 | 约束 |
+-|---|---|---|
+-| id | UUID | PK |
+-| batch_id | UUID | FK batches CASCADE 仅未开始聚合删除 |
+-| prompt_variant_id | UUID | FK geo_prompt_variants.id RESTRICT；GEO-201 历史语义禁止删除，后续建 Run 时同事务锁存 |
+-| collection_profile_id | UUID nullable | SET NULL |
+-| repeat_index | integer | >=1 |
+-| attempt_no | integer | >=1 |
+-| previous_attempt_id | UUID nullable | self FK SET NULL |
+-| status | varchar(20) | 受控状态 |
+-| input_snapshot | JSONB | 不可变 |
+-| external_call_state | varchar(24) | NOT_STARTED/SENT/UNKNOWN/COMPLETED |
+-| lease_token | UUID nullable | |
+-| lease_expires_at | timestamptz nullable | |
+-| dispatch_attempt_count | integer | >=0 |
+-| last_dispatch_attempt_at | timestamptz nullable | |
+-| error_stage | varchar(24) nullable | COLLECTION/ANALYSIS/REVIEW |
+-| error_code | varchar(100) nullable | |
+-| error_summary | varchar(500) nullable | 非敏感 |
+-| provider_request_id | varchar(200) nullable | |
+-| duration_ms | integer nullable | >=0 |
+-| cost_amount | numeric(14,6) nullable | >=0 |
+-| cost_currency | varchar(8) nullable | |
+-| prompt_tokens/completion_tokens/total_tokens | integer nullable | >=0 |
+-| started_at/collected_at/finished_at | timestamptz nullable | |
+-| created_at | timestamptz | |
+-
+-唯一：
+-
+-- 核心单元：`(batch_id, prompt_variant identity snapshot, collection profile identity snapshot, repeat_index, attempt_no)`；
+-- 实现时建议保存 `run_cell_key` SHA-256，并唯一 `(batch_id, run_cell_key, attempt_no)`；
+-- `previous_attempt_id` 最多一个直接后继，可用 partial unique。
+-
+-索引：
+-
+-- `(status, created_at, id)`；
+-- PENDING due-time partial index；
+-- RUNNING lease partial index；
+-- `(batch_id, status)`；
+-- `(collection_profile_id, created_at DESC)`。
++- cell 为稳定 `prompt_variant_id × collection_profile_id × repeat_index(1..10)`，数据库生成 `run_cell_key`；唯一 `(batch_id, run_cell_key, attempt_no)`。
++- 新 Run 从 PENDING/revision0/NOT_STARTED 创建。输入快照、身份、时间与 attempt 链不可改；后继必须恰好 +1，沿用同 Batch/cell/完整输入，前序是采集阶段 FAILED/BUDGET_BLOCKED；前序不存在即拒绝，每前序最多一个后继。
++- 四个终态 COMPLETED/FAILED/CANCELLED/BUDGET_BLOCKED 全行冻结；同值更新不递增 revision，实际可变更新恰好 +1。分析失败不创建重采集 attempt，重分析由独立 AnalysisRevision 承载。
++- 记录 `external_call_state`、内部 `lease_token/lease_expires_at`、dispatch 计数/时间、阶段/闭合错误码/非敏感摘要、provider request ID、bigint 耗时、有限非负可空费用/币种、独立可空 token 用量与生命周期时间。
++- RUNNING/ANALYZING 必须有成对 lease；其他状态无 lease。公共组件隐藏 token。已发送/未知外部调用不能回到 NOT_STARTED。
++- PENDING due、RUNNING/ANALYZING lease、Batch/status、Profile/created、Prompt、status/created 等索引支持后续稳定 ID 扫描。Batch/Prompt/Profile/previous FK 均 RESTRICT，不级联或置空历史。
++- GEO-301 只定义模型与公共数据组件；状态投影和命令属 GEO-302，原子快照生产/资格/锁存属 GEO-303，答案属 GEO-304。0048 不修改或迁移旧 GeoObservation，也不接入 Worker/Collector/分析/指标。
+ 
+ ## 5.3 `geo_answer_snapshots`
+ 
+--- a/docs/geo-monitoring/03-technical/03-api-contract-design.md
++++ b/docs/geo-monitoring/03-technical/03-api-contract-design.md
+@@ -241,6 +241,8 @@
+ 
+ ## 7. 批次 API
+ 
++GEO-301 / R2 当前仅建立根 OpenAPI 数据组件 `GeoObservationBatchOut`、`GeoObservationRunOut` 及闭合输入/计划/规则快照、状态与错误枚举；公共 Run 隐藏 lease_token。以下操作仍是后续任务设计，不是已开放端点，现有 Plan run-now 仍为 501。费用 wire 为有限非负十进制字符串，未知为 null；阶段/错误码闭合，不返回异常或供应商原始正文。
++
+ | 方法 | 路径 | operationId |
+ |---|---|---|
+ | GET | `/geo/observation-batches` | `listGeoObservationBatches` |
+--- a/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
++++ b/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
+@@ -173,10 +173,10 @@
+ 每个窗口构造：
+ 
+ ```text
+-schedule_identity = sha256(plan_id + scheduled_at + plan_revision)
+-```
+-
+-数据库唯一约束保证同一窗口只创建一个批次。
++schedule_identity = sha256(plan_id + canonical_utc_scheduled_for)
++```
++
++GEO-301 已定义数据库唯一 `(plan_id, scheduled_for)` 及非空 SHA256 摘要索引；身份不含 plan_revision，计划更新不能使同窗口再次创建。具体时间规范化和调度执行由 GEO-402 实施。
+ 
+ ### 6.2 时区和错过窗口
+ 
+--- a/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
++++ b/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
+@@ -71,6 +71,9 @@
+ | REQ-GEO-PLAN-005 | 归档计划只读 | 只能复制为新计划 | GEO-208～209 |
+ 
+ ### 2.3 批次和运行
++
++GEO-301 / R2 为 REQ-GEO-RUN-001/002/003 提供数据库最终防线与公共模型：初始 cell 提交数量、cell/attempt 唯一、输入/终态不可变和独立旧观测保留，证据见 [实施记录](../../../.trellis/tasks/10-02-geo-301-batch-run/implement.md)。Batch 缓存可从最新 attempts 重建；原子创建服务、投影/重试命令和执行调用仍属于 GEO-302/303/406，不能据模型交付宣称完整用户流程已完成。
++
+ 
+ | 需求 ID | 需求 | 验收 | 任务 |
+ |---|---|---|---|
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -464,7 +464,7 @@
+   phase: R2
+   release: R2
+   title: 定义 Batch/Run 公共契约与数据库模型
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-208
+   - GEO-002
+@@ -482,6 +482,7 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  review_note: 2026-10-02实现与本地验证完成；21个公共组件、两表与0048加法迁移；65定向、1281后端单元、1067前端单元、656集成通过，全部指定门禁通过。输入/终态/attempt/数量与敏感快照最终防线及独立只读复核证据见GEO-301 Task Brief与implement.md；没有运行命令、答案、Collector或旧观测迁移。等待人工接受，不自行done。
+ - id: GEO-302
+   phase: R2
+   release: R2
+--- a/docs/geo-monitoring/CHANGELOG.md
++++ b/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,13 @@
+ # 文档包变更记录
++
++## GEO-301 Batch/Run 数据契约 — 2026-10-02（review）
++
++- 依赖 GEO-208、GEO-002 已 done；任务仅 planned→in_progress→review，等待人工接受。
++- 新增 21 个公共数据/快照/状态/错误组件、generated 类型、独立两表和冻结 0048 迁移；Plan run-now 仍 501。
++- 数据库冻结输入/身份和四种 Run 终态，cell/attempt 唯一、同输入连续链及唯一后继；提交时初始 root 数相等，同调度窗口唯一不含计划 revision；Batch 状态可重建。
++- SQL 外壳限制敏感扩展键和叶子类型，lease token 仅内部使用，费用未知不补零。旧 GeoObservation 非空历史保持原样；downgrade 明确安全拒绝，恢复前向修复/备份。
++- 状态策略、创建工厂/锁存、答案与 Collector 均留各自后续任务，没有真实外部请求、历史回填或生产迁移。实际命令、诊断、独立只读复核和环境清理见 [实施证据](../../.trellis/tasks/10-02-geo-301-batch-run/implement.md)。
++
+ 
+ ## GEO-209 监测计划列表与向导 — 2026-10-02（review）
+ 
+--- a/docs/geo-monitoring/README.md
++++ b/docs/geo-monitoring/README.md
+@@ -238,3 +238,5 @@
+ 完成这些任务后再进入数据库和接口开发，避免 Codex 在缺少边界时同时修改现有人工 GEO、内容生产和发布模块。
+ 
+ GEO-209 / R1 已完成监测计划 UI 实现及本地验证，交付状态为 `review`，提供 `/geo/plans` 列表、详情、八步向导、服务端预览、状态确认和 dirty/409 输入保护；无前端最终 run_count 计算、Batch/Run、调度执行或外部采集。完整门禁保留三项范围外既有用例失败，未将失败记为通过。当前状态以 [任务清单](./04-delivery/task-manifest.yaml) 为准，范围与逐项验证见 [Task Brief](../../.trellis/tasks/10-02-geo-209-plan-ui/prd.md) 和 [实施证据](../../.trellis/tasks/10-02-geo-209-plan-ui/implement.md)。
++
++GEO-301 / R2 已建立独立回答级 Batch/Run 公共组件、两表 ORM 与 0048 加法迁移。快照/身份和 Run 终态冻结，初始 cell 数在提交时精确校验，attempt 追加继承且无分叉，Batch 状态保存为可重建缓存；旧 GeoObservation 不改不迁移。契约见 [OpenAPI](../../contracts/openapi.yaml) 和 [数据库合同](../../contracts/database.md#geo-batch--run-合同geo-301--r2)，范围与验证见 [Task Brief](../../.trellis/tasks/10-02-geo-301-batch-run/prd.md) 和 [实施证据](../../.trellis/tasks/10-02-geo-301-batch-run/implement.md)。当前任务等待人工 review，不代表创建/状态命令/答案/Collector 已实现。
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -1,23 +1,23 @@
+ 0ec5e67515fa5c383612130415bfc70185a607ac65006fcc932dd750c137bbde  ./00-governance/01-document-governance.md
+ b5906690eb04c8d27911a09722761e7cf4c244ecab2fbe39a55d94c794ee8728  ./00-governance/02-glossary.md
+ 670367ab19f32e811ec651a5be24a9ca062699f1fec60571c97b055ac7f1fb15  ./01-product/01-product-vision-and-scope.md
+-813055a6ecd380b1362f697dba8006a0bedd22d8261aa6e090841eb82bb03f6a  ./01-product/02-geo-core-prd.md
++1860f35b8139ec0103632508a8f97992b17d1814d81f1caa26f7b1611d523676  ./01-product/02-geo-core-prd.md
+ 7ea6985cdc63749a10c73b801f69349dc2f0ac797b9aa87622723f26b988bcbe  ./01-product/03-information-architecture-and-page-spec.md
+ 3892c8f83318ee460de04960a5162b4d777db06eb731a5999cdee946cd8042e3  ./02-business/01-business-architecture.md
+-e50dc90af397f16f9bb56b4f14eda400a0fd00ffb8aeb9e2c9f2f7e219bae24c  ./02-business/02-domain-model.md
+-549e42da9c19371acfd0e2383579eb2232688066c503e1322b092f30422f1451  ./02-business/03-workflows-and-state-machines.md
++b83d66bbfd444de8b78d5bd5dcbab7f44ef69d85d562806ac118ac50448c5bd7  ./02-business/02-domain-model.md
++f545f14452428d75cb3790424c2f1be949dd34c327704eb54345af60367a692a  ./02-business/03-workflows-and-state-machines.md
+ 30e1976c61c18150724cf4b89ead9e2d960b0cea729ba377b06c7c384c264899  ./02-business/04-monitoring-methodology-and-metrics.md
+ 2ce491f8dbf89639aabbf59b5afb7a3fd43520e40e7848e4e9e3049c85436689  ./03-technical/01-technical-architecture.md
+-fb71186470e732b6642cb970cbff9af28e4c821e955ab25b5ffd6c0bd2cc20c0  ./03-technical/02-data-architecture.md
+-f985e9c046b06c6a1b684bcda79e94dc96d3a1e7d1c3ade6324f348ca5437841  ./03-technical/03-api-contract-design.md
++9ea4924e09f0649897c19b7168dcb24c65ac5bf1d026d669c8d46ec0c0b206f9  ./03-technical/02-data-architecture.md
++8c567c4c67d2278f2c483e93ac83c056ec76ae1aa812c5386e786dc687fa5077  ./03-technical/03-api-contract-design.md
+ 0652e70d9ce21aa7af1025db76e6f70153170f7eb196dded86342299743852e4  ./03-technical/04-frontend-architecture.md
+-1474ab5f413927669a0b4029399034cb8956eecbe282a174423203835d45e1bb  ./03-technical/05-worker-and-collector-architecture.md
++fca200933d31b46ff82d25f0130dda678d13a7b33d854cb30b44ab3929c8f308  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+ fba4caa33b3ba24c329268061463ff9d07c7588b5d1f291bafda19b4f8404bd8  ./03-technical/07-testing-and-quality.md
+ 61a4dd642c6f74b581e95eb2269453be79d71a75fa240269eb001e56f45e2b83  ./03-technical/08-deployment-and-operations.md
+ f8c643e46c1159c51bd2e271e87de1d0e5a0448e2845af01f33bef5e4e1d411b  ./04-delivery/01-implementation-roadmap.md
+ acf0bde87ddfc34ebbc09543c1f2c2c1f496d48f330727b5e943807267eed41c  ./04-delivery/02-work-breakdown-structure.md
+-1efbbdf9892c64d9066462b7507261f1c169e806f8c22971ac9ca537276b313b  ./04-delivery/03-requirement-traceability-matrix.md
++73ed77167c08a7a7a130608ab75d74ae6dc47360c99b6323aa745443330ca192  ./04-delivery/03-requirement-traceability-matrix.md
+ 8991d4c1ec5cc872904aa3b10ffbb2f77ca46a4bfda88589d290f7fd92c2f1fb  ./04-delivery/04-codex-execution-guide.md
+ f600bcdfc2788659654825a020fb2aa0fcbe7acf9827b97eab25aadd7a20ff51  ./04-delivery/05-task-template.md
+ 0ec18f9ce8589f4c8e222fddc6d15853c949ad2b227381b584e2c81c4c4e47b0  ./04-delivery/06-current-geo-baseline.md
+@@ -102,13 +102,13 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-514a68623823ee6969b02d0b898f51ba8854e3b5f38aeab7382f8a82a7d7c68f  ./04-delivery/task-manifest.yaml
++78bb60fba72e808cb1c78e237692d10e792ec8af097331ee3c9ec21be354db18  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 09d2ba6a3d8f07ca61309d0a9d4a557c30a1d16853d73139e15b43ca6f1303bb  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-3b56cff24637acc5bffc2897813ede9c3dd93c546657f8352f482fac9f5d57db  ./CHANGELOG.md
+-15481572367e9d23f1e238ac523487003d4fa5cbf0a9ffb46a2b392638b6eefe  ./README.md
++aee8e373c58b055f8ea640a043fc32cef30ffe011afb7cc7e37fd2aa8e09b933  ./CHANGELOG.md
++bb7a10ee1b36fd93e9a45d193a3eb84d46779b8907d48440cb9a946339390b15  ./README.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+--- a/frontend/src/shared/api/generated/schema.d.ts
++++ b/frontend/src/shared/api/generated/schema.d.ts
+@@ -7498,6 +7498,451 @@
+              */
+             page_size: 10 | 20 | 50;
+         };
++        /** GeoBatchPlanSnapshot */
++        GeoBatchPlanSnapshot: ({
++            /** Name */
++            name: string;
++            /**
++             * Description
++             * @default
++             */
++            description: string;
++            /**
++             * Subjects
++             * @description subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
++             */
++            subjects: components["schemas"]["GeoPlanSubject"][];
++            /** Prompt Variant Ids */
++            prompt_variant_ids: string[];
++            /** Collection Profile Ids */
++            collection_profile_ids: string[];
++            /**
++             * Repeat Count
++             * @default 3
++             */
++            repeat_count: number;
++            /** @default MANUAL_ONLY */
++            schedule_kind: components["schemas"]["GeoPlanScheduleKind"];
++            /**
++             * Cron Expression
++             * @default null
++             */
++            cron_expression: string | null;
++            /**
++             * Timezone
++             * @default Asia/Shanghai
++             */
++            timezone: string;
++            /**
++             * Budget Limit
++             * @default null
++             */
++            budget_limit: string | null;
++            /**
++             * Rule Set Revision
++             * @default 1
++             */
++            rule_set_revision: number;
++            /**
++             * Schema Version
++             * @constant
++             */
++            schema_version: 1;
++            /** Plan Id */
++            plan_id: string | null;
++            /** Plan Revision */
++            plan_revision: number | null;
++        } & unknown) & ({
++            plan_id?: null;
++            plan_revision?: null;
++        } | {
++            plan_id?: string;
++            plan_revision?: number;
++        });
++        /** GeoBatchRuleSnapshot */
++        GeoBatchRuleSnapshot: {
++            /**
++             * Schema Version
++             * @constant
++             */
++            schema_version: 1;
++            /** Rule Set Revision */
++            rule_set_revision: number;
++        };
++        /**
++         * GeoBatchStatus
++         * @enum {string}
++         */
++        GeoBatchStatus: "PLANNED" | "QUEUED" | "RUNNING" | "COMPLETED" | "PARTIAL" | "FAILED" | "CANCELLED" | "BUDGET_BLOCKED";
++        /**
++         * GeoBatchTriggerType
++         * @enum {string}
++         */
++        GeoBatchTriggerType: "SCHEDULED" | "MANUAL" | "RETEST";
++        /**
++         * GeoObservationBatchOut
++         * @description 基础数据组件；不是 GEO-306 的详情、汇总或动作投影。
++         */
++        GeoObservationBatchOut: {
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            /** Plan Id */
++            plan_id: string | null;
++            trigger_type: components["schemas"]["GeoBatchTriggerType"];
++            status: components["schemas"]["GeoBatchStatus"];
++            /** Revision */
++            revision: number;
++            /** Scheduled For */
++            scheduled_for: string | null;
++            /** Schedule Identity */
++            schedule_identity: string | null;
++            plan_snapshot: components["schemas"]["GeoBatchPlanSnapshot"];
++            rule_snapshot: components["schemas"]["GeoBatchRuleSnapshot"];
++            /** Requested Run Count */
++            requested_run_count: number;
++            /** Source Opportunity Id */
++            source_opportunity_id: string | null;
++            /** Baseline Batch Id */
++            baseline_batch_id: string | null;
++            /** Created By */
++            created_by: string | null;
++            /** Started At */
++            started_at: string | null;
++            /** Finished At */
++            finished_at: string | null;
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++        };
++        /**
++         * GeoExternalCallState
++         * @enum {string}
++         */
++        GeoExternalCallState: "NOT_STARTED" | "SENT" | "UNKNOWN" | "COMPLETED";
++        /** GeoRunAliasSnapshot */
++        GeoRunAliasSnapshot: {
++            /** Alias */
++            alias: string;
++            /** Normalized Alias */
++            normalized_alias: string;
++            alias_kind: components["schemas"]["GeoSubjectAliasKind"];
++            /** Language Code */
++            language_code: string | null;
++        };
++        /** GeoRunApiProfileSnapshot */
++        GeoRunApiProfileSnapshot: {
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            /** Revision */
++            revision: number;
++            /** Adapter Version */
++            adapter_version: string;
++            surface: components["schemas"]["GeoRunSurfaceSnapshot"];
++            /** Name */
++            name: string;
++            /** Adapter Key */
++            adapter_key: string;
++            /** Language Code */
++            language_code: string;
++            /** Region Code */
++            region_code: string;
++            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
++            /**
++             * @description discriminator enum property added by openapi-typescript
++             * @enum {string}
++             */
++            collection_mode: "API";
++            /** Ai Channel Id */
++            ai_channel_id: string | null;
++            /** Ai Model Id */
++            ai_model_id: string | null;
++            /**
++             * Login State
++             * @constant
++             */
++            login_state: "NOT_APPLICABLE";
++            settings: components["schemas"]["GeoApiSettings"];
++        } & ({
++            ai_channel_id?: null;
++            ai_model_id?: null;
++        } | {
++            ai_channel_id?: string;
++            ai_model_id?: string;
++        });
++        /** GeoRunBrowserProfileSnapshot */
++        GeoRunBrowserProfileSnapshot: {
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            /** Revision */
++            revision: number;
++            /** Adapter Version */
++            adapter_version: string;
++            surface: components["schemas"]["GeoRunSurfaceSnapshot"];
++            /** Name */
++            name: string;
++            /** Adapter Key */
++            adapter_key: string;
++            /** Language Code */
++            language_code: string;
++            /** Region Code */
++            region_code: string;
++            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
++            /**
++             * @description discriminator enum property added by openapi-typescript
++             * @enum {string}
++             */
++            collection_mode: "BROWSER";
++            /** Ai Channel Id */
++            ai_channel_id: null;
++            /** Ai Model Id */
++            ai_model_id: null;
++            /**
++             * Login State
++             * @enum {string}
++             */
++            login_state: "ANONYMOUS" | "AUTHENTICATED";
++            settings: components["schemas"]["GeoBrowserSettings"];
++        };
++        /**
++         * GeoRunDataClassification
++         * @enum {string}
++         */
++        GeoRunDataClassification: "PUBLIC" | "INTERNAL" | "RESTRICTED";
++        /** GeoRunDomainSnapshot */
++        GeoRunDomainSnapshot: {
++            /** Hostname */
++            hostname: string;
++            relation_type: components["schemas"]["GeoSubjectDomainRelationType"];
++        };
++        /**
++         * GeoRunErrorCode
++         * @enum {string}
++         */
++        GeoRunErrorCode: "COLLECTOR_CONFIGURATION_INVALID" | "COLLECTOR_DISABLED" | "PROVIDER_AUTH_FAILED" | "PROVIDER_RATE_LIMITED" | "PROVIDER_TIMEOUT" | "PROVIDER_UNAVAILABLE" | "PROVIDER_RESPONSE_INVALID" | "PROVIDER_RESPONSE_TOO_LARGE" | "COLLECTOR_UNKNOWN_OUTCOME" | "DATA_CLASSIFICATION_FORBIDDEN" | "PROFILE_NEEDS_REAUTH" | "WORKER_LOST" | "BUDGET_EXCEEDED" | "ANALYSIS_FAILED" | "REVIEW_FAILED";
++        /**
++         * GeoRunErrorStage
++         * @enum {string}
++         */
++        GeoRunErrorStage: "COLLECTION" | "ANALYSIS" | "REVIEW";
++        /** GeoRunInputSnapshot */
++        GeoRunInputSnapshot: {
++            /**
++             * Schema Version
++             * @constant
++             */
++            schema_version: 1;
++            data_classification: components["schemas"]["GeoRunDataClassification"];
++            prompt: components["schemas"]["GeoRunPromptSnapshot"];
++            /** Profile */
++            profile: components["schemas"]["GeoRunManualProfileSnapshot"] | components["schemas"]["GeoRunApiProfileSnapshot"] | components["schemas"]["GeoRunBrowserProfileSnapshot"];
++            /** Subjects */
++            subjects: components["schemas"]["GeoRunSubjectSnapshot"][];
++            /** Rule Set Revision */
++            rule_set_revision: number;
++        };
++        /** GeoRunManualProfileSnapshot */
++        GeoRunManualProfileSnapshot: {
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            /** Revision */
++            revision: number;
++            /** Adapter Version */
++            adapter_version: string;
++            surface: components["schemas"]["GeoRunSurfaceSnapshot"];
++            /** Name */
++            name: string;
++            /**
++             * Adapter Key
++             * @constant
++             */
++            adapter_key: "manual";
++            /** Language Code */
++            language_code: string;
++            /** Region Code */
++            region_code: string;
++            web_search_policy: components["schemas"]["GeoWebSearchPolicy"];
++            /**
++             * @description discriminator enum property added by openapi-typescript
++             * @enum {string}
++             */
++            collection_mode: "MANUAL";
++            /** Ai Channel Id */
++            ai_channel_id: null;
++            /** Ai Model Id */
++            ai_model_id: null;
++            /**
++             * Login State
++             * @enum {string}
++             */
++            login_state: "ANONYMOUS" | "AUTHENTICATED";
++            settings: components["schemas"]["GeoManualSettings"];
++        };
++        /** GeoRunPromptSnapshot */
++        GeoRunPromptSnapshot: {
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            /** Revision */
++            revision: number;
++            /**
++             * Query Topic Id
++             * Format: uuid
++             */
++            query_topic_id: string;
++            /** Query Topic Revision */
++            query_topic_revision: number;
++            /** Canonical Question */
++            canonical_question: string;
++            intent_type: components["schemas"]["IntentType"];
++            /** Prompt Text */
++            prompt_text: string;
++            mention_mode: components["schemas"]["GeoPromptMentionMode"];
++            priority: components["schemas"]["GeoPromptPriority"];
++            /** Language Code */
++            language_code: string;
++            /** Region Code */
++            region_code: string;
++        };
++        /**
++         * GeoRunStatus
++         * @enum {string}
++         */
++        GeoRunStatus: "PENDING" | "RUNNING" | "COLLECTED" | "ANALYZING" | "NEEDS_REVIEW" | "COMPLETED" | "FAILED" | "CANCELLED" | "BUDGET_BLOCKED";
++        /** GeoRunSubjectSnapshot */
++        GeoRunSubjectSnapshot: {
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            /** Revision */
++            revision: number;
++            subject_type: components["schemas"]["GeoSubjectType"];
++            role: components["schemas"]["GeoPlanSubjectRole"];
++            /** Product Id */
++            product_id: string | null;
++            /** Parent Subject Id */
++            parent_subject_id: string | null;
++            /** Canonical Name */
++            canonical_name: string;
++            /** Display Name */
++            display_name: string;
++            /** Aliases */
++            aliases: components["schemas"]["GeoRunAliasSnapshot"][];
++            /** Domains */
++            domains: components["schemas"]["GeoRunDomainSnapshot"][];
++        };
++        /** GeoRunSurfaceSnapshot */
++        GeoRunSurfaceSnapshot: {
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            /** Revision */
++            revision: number;
++            /** Name */
++            name: string;
++            surface_kind: components["schemas"]["GeoSurfaceKind"];
++            provider_brand: components["schemas"]["GeoSurfaceProviderBrand"];
++            compliance_status: components["schemas"]["GeoComplianceStatus"];
++            capabilities: components["schemas"]["GeoSurfaceCapabilities"];
++        };
++        /**
++         * GeoObservationRunOut
++         * @description lease_token 是执行授权信息，只有数据库内部使用，公共组件不暴露。
++         */
++        GeoObservationRunOut: {
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            /**
++             * Batch Id
++             * Format: uuid
++             */
++            batch_id: string;
++            /**
++             * Prompt Variant Id
++             * Format: uuid
++             */
++            prompt_variant_id: string;
++            /**
++             * Collection Profile Id
++             * Format: uuid
++             */
++            collection_profile_id: string;
++            /** Run Cell Key */
++            run_cell_key: string;
++            /** Repeat Index */
++            repeat_index: number;
++            /** Attempt No */
++            attempt_no: number;
++            /** Previous Attempt Id */
++            previous_attempt_id: string | null;
++            status: components["schemas"]["GeoRunStatus"];
++            /** Revision */
++            revision: number;
++            input_snapshot: components["schemas"]["GeoRunInputSnapshot"];
++            external_call_state: components["schemas"]["GeoExternalCallState"];
++            /** Lease Expires At */
++            lease_expires_at: string | null;
++            /** Dispatch Attempt Count */
++            dispatch_attempt_count: number;
++            /** Last Dispatch Attempt At */
++            last_dispatch_attempt_at: string | null;
++            error_stage: components["schemas"]["GeoRunErrorStage"] | null;
++            error_code: components["schemas"]["GeoRunErrorCode"] | null;
++            /** Error Summary */
++            error_summary: string | null;
++            /** Provider Request Id */
++            provider_request_id: string | null;
++            /** Duration Ms */
++            duration_ms: number | null;
++            /** Cost Amount */
++            cost_amount: string | null;
++            /** Cost Currency */
++            cost_currency: string | null;
++            /** Prompt Tokens */
++            prompt_tokens: number | null;
++            /** Completion Tokens */
++            completion_tokens: number | null;
++            /** Total Tokens */
++            total_tokens: number | null;
++            /** Started At */
++            started_at: string | null;
++            /** Collected At */
++            collected_at: string | null;
++            /** Finished At */
++            finished_at: string | null;
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++        };
++        /**
++         * GeoRunCommandErrorCode
++         * @enum {string}
++         */
++        GeoRunCommandErrorCode: "GEO_RUN_NOT_MANUAL" | "GEO_RUN_NOT_PENDING" | "GEO_RUN_ALREADY_STARTED" | "GEO_RUN_NOT_RETRYABLE" | "GEO_RUN_HAS_SUCCESSOR" | "GEO_SCHEDULE_WINDOW_EXISTS";
+     };
+     responses: {
+         /** @description 业务或校验错误 */

@@ -1,0 +1,24 @@
+........................................................................ [ 12%]
+........................................................................ [ 25%]
+........................................................................ [ 37%]
+..............F......................................................... [ 50%]
+........................................................................ [ 62%]
+........................................................................ [ 75%]
+........................................................................ [ 87%]
+.....................................................................    [100%]
+=================================== FAILURES ===================================
+______ test_runtime_request_context_merge_does_not_change_route_metadata _______
+
+    def test_runtime_request_context_merge_does_not_change_route_metadata() -> None:
+        raw = get_openapi(title=app.title, version=app.version, routes=app.routes)
+        augmented = app.openapi()
+        stripped = _strip_request_context_metadata(augmented)
+    
+>       assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1213
+E       assert 1224 == 1213
+E        +  where 1224 = sum(<generator object test_runtime_request_context_merge_does_not_change_route_metadata.<locals>.<genexpr> at 0x10fd99fc0>)
+
+backend/tests/unit/test_runtime_response_metadata.py:697: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_runtime_response_metadata.py::test_runtime_request_context_merge_does_not_change_route_metadata
+1 failed, 572 passed in 19.55s

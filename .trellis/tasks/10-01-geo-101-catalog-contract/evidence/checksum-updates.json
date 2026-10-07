@@ -1,0 +1,14 @@
+{
+  "changed_entries": [
+    "./01-product/02-geo-core-prd.md",
+    "./02-business/02-domain-model.md",
+    "./03-technical/02-data-architecture.md",
+    "./03-technical/03-api-contract-design.md",
+    "./04-delivery/03-requirement-traceability-matrix.md",
+    "./04-delivery/task-manifest.yaml",
+    "./CHANGELOG.md",
+    "./README.md"
+  ],
+  "entries": 113,
+  "initial_attempt_note": "首次刷新在文档目录运行根目录相对路径脚本，FileNotFoundError；校验报告8个预期变更条目未刷新。已改在仓库根目录刷新。"
+}

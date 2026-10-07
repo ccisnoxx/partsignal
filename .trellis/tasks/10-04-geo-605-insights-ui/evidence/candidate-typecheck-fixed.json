@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "npm",
+    "--prefix",
+    "frontend",
+    "run",
+    "typecheck"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-04T09:03:18.475825+00:00",
+  "finished_at": "2026-10-04T09:03:25.648458+00:00"
+}

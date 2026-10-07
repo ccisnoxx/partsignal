@@ -8,8 +8,16 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 
-def publication_integrity_issues(db: Session) -> list[dict[str, Any]]:
-    """返回发布完成闭环和平台归属问题，不修改历史记录。"""
+def publication_integrity_issues(
+    db: Session, *, require_schema: bool = False
+) -> list[dict[str, Any]]:
+    """返回发布完整性问题；迁移完成后可要求核心表必须存在。"""
+    table_names = (
+        "content_tasks",
+        "content_versions",
+        "publication_works",
+        "published_articles",
+    )
     required_tables = db.execute(
         text(
             "SELECT to_regclass('public.content_tasks'), "
@@ -18,8 +26,22 @@ def publication_integrity_issues(db: Session) -> list[dict[str, Any]]:
             "to_regclass('public.published_articles')"
         )
     ).one()
-    if any(table is None for table in required_tables):
-        return []
+    missing_tables = [
+        name for name, table in zip(table_names, required_tables, strict=True) if table is None
+    ]
+    if missing_tables:
+        if not require_schema:
+            return []
+        return [
+            {
+                "check": "publication_schema",
+                "record_type": "Table",
+                "record_id": name,
+                "reason_code": "REQUIRED_TABLE_MISSING",
+                "related_ids": [],
+            }
+            for name in missing_tables
+        ]
     issues: list[dict[str, Any]] = []
     completed_rows = db.execute(
         text(

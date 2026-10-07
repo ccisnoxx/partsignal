@@ -1,0 +1,138 @@
+{
+  "trace_file": "frontend/.cache/playwright-results/fact-workspace-direct-refr-c8458-model，并适配-375-768-1024-1440-foundation-desktop/trace.zip",
+  "finding": "1440px viewport focus completes while workspace snapshot still uses narrow-screen tabpanel; after failed assertion it returns to desktop grid. WorkspaceShell changes React subtree for media query. Existing test did not wait for the requested layout.",
+  "snapshots": [
+    {
+      "snapshot": "before@call@3972",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "timestamp": 258910.238,
+      "explicit_tabs_markup": false,
+      "explicit_grid_markup": false,
+      "references_previous_markup": true
+    },
+    {
+      "snapshot": "after@call@3972",
+      "viewport": {
+        "width": 1024,
+        "height": 1000
+      },
+      "timestamp": 258914.103,
+      "explicit_tabs_markup": false,
+      "explicit_grid_markup": false,
+      "references_previous_markup": true
+    },
+    {
+      "snapshot": "before@call@3974",
+      "viewport": {
+        "width": 1024,
+        "height": 1000
+      },
+      "timestamp": 258921.627,
+      "explicit_tabs_markup": true,
+      "explicit_grid_markup": false,
+      "references_previous_markup": false
+    },
+    {
+      "snapshot": "after@call@3974",
+      "viewport": {
+        "width": 1024,
+        "height": 1000
+      },
+      "timestamp": 258922.831,
+      "explicit_tabs_markup": false,
+      "explicit_grid_markup": false,
+      "references_previous_markup": true
+    },
+    {
+      "snapshot": "before@call@3976",
+      "viewport": {
+        "width": 1024,
+        "height": 1000
+      },
+      "timestamp": 258923.698,
+      "explicit_tabs_markup": false,
+      "explicit_grid_markup": false,
+      "references_previous_markup": true
+    },
+    {
+      "snapshot": "after@call@3976",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "timestamp": 258927.532,
+      "explicit_tabs_markup": false,
+      "explicit_grid_markup": false,
+      "references_previous_markup": true
+    },
+    {
+      "snapshot": "before@call@3978",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "timestamp": 258928.329,
+      "explicit_tabs_markup": false,
+      "explicit_grid_markup": false,
+      "references_previous_markup": true
+    },
+    {
+      "snapshot": "after@call@3978",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "timestamp": 258928.947,
+      "explicit_tabs_markup": false,
+      "explicit_grid_markup": false,
+      "references_previous_markup": true
+    },
+    {
+      "snapshot": "before@call@3980",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "timestamp": 258929.766,
+      "explicit_tabs_markup": false,
+      "explicit_grid_markup": false,
+      "references_previous_markup": true
+    },
+    {
+      "snapshot": "after@call@3980",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "timestamp": 258932.597,
+      "explicit_tabs_markup": true,
+      "explicit_grid_markup": false,
+      "references_previous_markup": false
+    },
+    {
+      "snapshot": "before@call@3982",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "timestamp": 258938.702,
+      "explicit_tabs_markup": true,
+      "explicit_grid_markup": true,
+      "references_previous_markup": false
+    },
+    {
+      "snapshot": "after@call@3982",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "timestamp": 263946.743,
+      "explicit_tabs_markup": true,
+      "explicit_grid_markup": true,
+      "references_previous_markup": false
+    }
+  ]
+}

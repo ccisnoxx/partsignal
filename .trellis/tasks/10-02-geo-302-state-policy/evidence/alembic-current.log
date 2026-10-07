@@ -1,0 +1,10 @@
+ Container partsignal-geo302-validation-fake-oss-1 Running 
+ Container partsignal-geo302-validation-postgres-1 Running 
+ Container partsignal-geo302-validation-redis-1 Running 
+ Container partsignal-geo302-validation-postgres-1 Waiting 
+ Container partsignal-geo302-validation-postgres-1 Healthy 
+ Container partsignal-geo302-validation-backend-test-run-6b20ee770947 Creating 
+ Container partsignal-geo302-validation-backend-test-run-6b20ee770947 Created 
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+0048_geo_batches_runs (head)

@@ -1851,3 +1851,111 @@ L8 principal mutation pre-send fence 完成；新候选唯一完整 make verify 
 ### Next Steps
 
 - 下一阶段仅记录为 I04 发布准备与实际部署；本会话未创建或实施 I04，需另行授权。
+
+
+## Session 234: GEO-1007 严格失败恢复修复提交与收尾
+
+**Date**: 2026-10-06
+**Task**: GEO-1007 严格失败恢复修复提交与收尾
+**Branch**: `geo/GEO-906`
+
+### Summary
+
+严格失败恢复修复与证据已推送origin/geo/GEO-906；会话收尾，保留review与生产未知。
+
+### Main Changes
+
+- 冻结原迁移镜像全rootfs指纹、持久化current attempt失败事实、正式recover信号治理；预算与模板loader授权缺口修复。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d431e51894c0574928fee3bcc25bce9fec0725d1` | (see git log) |
+
+### Testing
+
+- [OK] 49项定向测试、两个SIGTERM场景、真实Docker/PG Compose69表、canonical两目标、Production编排、Ruff和文档校验通过；最终fresh独立复核无未解除问题。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 保留review供人工验收；生产服务器/maintenance/备份/真实AI-OSS/registry与正式候选远端CI仍未验证。
+
+
+## Session 235: GEO-1007严格恢复修复接受与整分支待修复收尾
+
+**Date**: 2026-10-06
+**Task**: GEO-1007严格恢复修复接受与整分支待修复收尾
+**Branch**: `geo/GEO-906`
+
+### Summary
+
+执行owner监督/真实失败来源及严格缺表修复已独立APPROVE，按用户条件单项接受；整分支矩阵和PR审查CHANGES_REQUESTED，CI/完整verify失败保留，PR#1 Draft，未进入main/RC/现场。
+
+### Main Changes
+
+- GEO-1007代码baea420f及接受治理d2aefec7已推送；task completed，delivery1008done，原页面1007保持planned；维护锁FD不跳监督，失败只能由实际执行owner观测。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `baea420fb8a479d66d578d3f4fd91d38086b8c29` | (see git log) |
+| `d2aefec7ced564d70d2961f7855755a6f17b6b2d` | (see git log) |
+
+### Testing
+
+- [OK] 固定baea420f: 51恢复+7信号、backend20、真实PG16/Compose/runtime镜像和production harness exit0；三反例抓住FD绕路、公开失败补造和head正确缺表。
+- [FAILED] clean d2a整verify: contract/lint/typecheck通过，backend3832passed/33failed，exit2；CI37519768532 verifyFAILURE、两frontend shardSUCCESS；旧head集成6模块静态失败未跑。首次umask环境失败与10项修正通过日志保留。
+
+### Status
+
+[OK] **Completed**
+
+GEO-1007 修复与单项接受已完成；整分支仍为 CHANGES_REQUESTED，尚未完成发布验收。
+
+### Next Steps
+
+- 按新全PR报告修复会话/metadata/head测试夹具、写后首个list GET/删除详情缓存竞态和页面能力文案；新SHA验证复审及其他任务接受后才main/clean gate/候选RC/生产。
+- 报告docs/geo-monitoring/06-reviews/2026-10-06-v1-post-recovery-blocker-audit.md；新多代理审计20261006T184244Z-geo1007-execution-owner-remediation-ab9f9b27已关闭验证。只收尾本会话，不归档其他任务或补造现场证据。
+
+
+## Session 236: 整分支阻断修复、本地单次完整门禁与CI入口纠正
+
+**Date**: 2026-10-06
+**Task**: 整分支阻断修复、本地单次完整门禁与CI入口纠正
+**Branch**: `geo/GEO-906`
+
+### Summary
+
+六类已确认finding修复，aa增量fresh APPROVE；clean aa完整verify一次exit0。aa远端CI失败后定位三个环境根因，d436只改接已有make test-integration，新SHA远端未复验。保持Draft/review，不循环全量，不推进main或RC。
+
+### Main Changes
+
+- 修复上传fixture、OpenAPI inventory、0066 head测试、写后list取消、Catalog删除与页面能力说明，保留真实合同。
+- CI集成改用现有容器集合+mandatory恢复wrapper；不增加skip或降低断言。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `aa7f3db8` | (see git log) |
+| `d43695e5` | (see git log) |
+
+### Testing
+
+- [OK] 定向379backend unit、18PG、80不同frontend测试、类型/lint通过；旧源码反例7fail，修复通过。
+- [OK] clean aa完整run-verify于20:21:24—20:59:32一次exit0；6恢复PG及部署脚本包含其中。
+
+### Status
+
+[REVIEW] 代码修复与本地验证已交付；固定d436入口fresh复审APPROVE，远端准入待验证，任务保留review。
+
+### Next Steps
+
+- 远端CI37525885249实际FAILURE，54对象存储/6合同挂载/6恢复工具错误；d436入口修复的新SHA远端门禁尚未执行。
+- 保留review/Draft，固定d436入口fresh复审APPROVE，后续完成远端准入，不合并main、冻结RC或替代其他task接受。

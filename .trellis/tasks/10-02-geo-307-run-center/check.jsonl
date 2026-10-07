@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "组件与真实浏览器验证边界"}
+{"file": "docs/geo-monitoring/03-technical/07-testing-and-quality.md", "reason": "任务测试合同"}
+{"file": ".trellis/tasks/10-02-geo-307-run-center/prd.md", "reason": "范围和停止条件"}
+{"file": ".trellis/tasks/10-02-geo-307-run-center/design.md", "reason": "候选审查基线"}

@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "按实际变化选择检查"}
+{"file": "docs/geo-monitoring/03-technical/07-testing-and-quality.md", "reason": "GEO金标/PG/安全要求"}
+{"file": "docs/geo-monitoring/04-delivery/task-manifest.yaml", "reason": "依赖、603专用测试与review状态"}
+{"file": "docs/geo-monitoring/05-decisions/ADR-004-no-unified-geo-score.md", "reason": "透明公式且无统一分数"}

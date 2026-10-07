@@ -1,0 +1,138 @@
+"""Celery Worker 入口；Redis 仅传递作业/Run UUID。"""
+
+from __future__ import annotations
+
+import uuid
+
+from celery import Celery
+
+from app.config import settings
+from app.services.file_records import cleanup_file_records
+from app.services.generation import process_generation_job
+from app.services.generation_dispatch import (
+    fail_expired_generation_jobs,
+    redispatch_pending_generation_jobs,
+)
+from app.services.geo_analysis_dispatch import (
+    dispatch_collected_run,
+    recover_expired_analysis_revisions,
+    redispatch_pending_analysis_revisions,
+)
+from app.services.geo_analysis_runs import process_analysis_revision, process_analysis_run
+from app.services.geo_dispatch import (
+    recover_expired_collection_runs,
+    redispatch_pending_collection_runs,
+)
+from app.services.geo_retention import cleanup_geo_artifacts
+from app.services.geo_runs import process_collection_run
+
+celery_app = Celery("partsignal", broker=settings.redis_url)
+celery_app.conf.update(
+    task_ignore_result=True,
+    task_acks_late=True,
+    task_reject_on_worker_lost=True,
+    worker_prefetch_multiplier=1,
+    broker_connection_retry_on_startup=True,
+    broker_transport_options={"socket_connect_timeout": 5, "socket_timeout": 5},
+    beat_schedule={
+        "redispatch-pending-geo-analyses": {
+            "task": "partsignal.redispatch_pending_geo_analyses",
+            "schedule": float(settings.geo_recovery_scan_seconds),
+        },
+        "recover-expired-geo-analyses": {
+            "task": "partsignal.recover_expired_geo_analyses",
+            "schedule": float(settings.geo_recovery_scan_seconds),
+        },
+        "recover-expired-generation-leases": {
+            "task": "partsignal.recover_expired_generation_jobs",
+            "schedule": float(settings.generation_recovery_scan_seconds),
+        },
+        "redispatch-pending-generation-jobs": {
+            "task": "partsignal.redispatch_pending_generation_jobs",
+            "schedule": float(settings.generation_recovery_scan_seconds),
+        },
+        "recover-expired-geo-leases": {
+            "task": "partsignal.recover_expired_geo_runs",
+            "schedule": float(settings.geo_recovery_scan_seconds),
+        },
+        "redispatch-pending-geo-runs": {
+            "task": "partsignal.redispatch_pending_geo_runs",
+            "schedule": float(settings.geo_recovery_scan_seconds),
+        },
+        "cleanup-geo-artifacts": {
+            "task": "partsignal.geo_cleanup_artifacts",
+            "schedule": 3600.0,
+        },
+        "cleanup-platform-logo-files": {
+            "task": "partsignal.cleanup_platform_logo_files",
+            "schedule": 3600.0,
+        },
+    },
+)
+
+
+@celery_app.task(name="partsignal.generate_content")  # type: ignore[untyped-decorator]
+def generate_content(job_id: str) -> None:
+    """Celery 消息只携带作业 UUID，全部输入重新从 PostgreSQL 加载。"""
+    process_generation_job(uuid.UUID(job_id))
+
+
+@celery_app.task(name="partsignal.recover_expired_generation_jobs")  # type: ignore[untyped-decorator]
+def recover_expired_generation_jobs() -> None:
+    """把过期租约标记失败，禁止同一作业自动发起第二次外部调用。"""
+    fail_expired_generation_jobs()
+
+
+@celery_app.task(name="partsignal.redispatch_pending_generation_jobs")  # type: ignore[untyped-decorator]
+def redispatch_pending_jobs() -> None:
+    """仅补投递超龄 PENDING Job，Redis 消息继续只携带 UUID。"""
+    redispatch_pending_generation_jobs(generate_content.delay)
+
+
+@celery_app.task(name="partsignal.cleanup_platform_logo_files")  # type: ignore[untyped-decorator]
+def cleanup_platform_logos() -> None:
+    """按 PostgreSQL 权威状态清理全部到期且无引用的文件。"""
+    cleanup_file_records()
+
+
+@celery_app.task(name="partsignal.collect_geo_run")  # type: ignore[untyped-decorator]
+def collect_geo_run(run_id: str) -> None:
+    """消息只有 Run UUID；数据库重新裁决执行资格和 lease。"""
+    process_collection_run(uuid.UUID(run_id))
+    dispatch_collected_run(uuid.UUID(run_id), analyze_geo_run.delay)
+
+
+@celery_app.task(name="partsignal.analyze_geo_run")  # type: ignore[untyped-decorator]
+def analyze_geo_run(run_id: str) -> None:
+    process_analysis_run(uuid.UUID(run_id))
+
+
+@celery_app.task(name="partsignal.analyze_geo_revision")  # type: ignore[untyped-decorator]
+def analyze_geo_revision(analysis_id: str) -> None:
+    process_analysis_revision(uuid.UUID(analysis_id))
+
+
+@celery_app.task(name="partsignal.redispatch_pending_geo_analyses")  # type: ignore[untyped-decorator]
+def redispatch_pending_geo_analyses() -> None:
+    redispatch_pending_analysis_revisions(analyze_geo_revision.delay)
+
+
+@celery_app.task(name="partsignal.recover_expired_geo_analyses")  # type: ignore[untyped-decorator]
+def recover_expired_geo_analyses() -> None:
+    recover_expired_analysis_revisions()
+
+
+@celery_app.task(name="partsignal.redispatch_pending_geo_runs")  # type: ignore[untyped-decorator]
+def redispatch_pending_geo_runs() -> None:
+    redispatch_pending_collection_runs(collect_geo_run.delay)
+
+
+@celery_app.task(name="partsignal.recover_expired_geo_runs")  # type: ignore[untyped-decorator]
+def recover_expired_geo_runs() -> None:
+    recover_expired_collection_runs()
+
+
+@celery_app.task(name="partsignal.geo_cleanup_artifacts")  # type: ignore[untyped-decorator]
+def cleanup_geo_materials() -> None:
+    """只触发限批 PG 扫描，Redis 不携带正文、文件路径或策略参数。"""
+    cleanup_geo_artifacts()

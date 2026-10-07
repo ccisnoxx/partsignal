@@ -1,0 +1,6 @@
+{"file": ".trellis/tasks/10-03-geo-601-metric-formulas/prd.md", "reason": "本任务范围、依赖与验收"}
+{"file": ".trellis/tasks/10-03-geo-601-metric-formulas/design.md", "reason": "纯计算职责及输入边界"}
+{"file": "backend/AGENTS.md", "reason": "后端事务/边界规则"}
+{"file": "docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md", "reason": "唯一指标字典与样本资格"}
+{"file": "docs/geo-monitoring/05-decisions/ADR-004-no-unified-geo-score.md", "reason": "两个分母裁决及无统一总分"}
+{"file": "backend/app/services/geo_review_projection.py", "reason": "当前人工修正的权威投影"}

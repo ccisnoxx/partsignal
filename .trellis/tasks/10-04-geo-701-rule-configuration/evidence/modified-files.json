@@ -1,0 +1,182 @@
+[
+  {
+    "path": "backend/app/audit_types.py",
+    "status": "modified"
+  },
+  {
+    "path": "backend/app/main.py",
+    "status": "modified"
+  },
+  {
+    "path": "backend/app/routers/geo_rules.py",
+    "status": "new"
+  },
+  {
+    "path": "backend/app/models/__init__.py",
+    "status": "modified"
+  },
+  {
+    "path": "backend/app/models/geo_rules.py",
+    "status": "new"
+  },
+  {
+    "path": "backend/app/schemas/geo_rules.py",
+    "status": "new"
+  },
+  {
+    "path": "backend/app/schemas/geo_runs.py",
+    "status": "modified"
+  },
+  {
+    "path": "backend/app/services/geo_batches.py",
+    "status": "modified"
+  },
+  {
+    "path": "backend/app/services/geo_rule_policy.py",
+    "status": "new"
+  },
+  {
+    "path": "backend/app/services/geo_rules.py",
+    "status": "new"
+  },
+  {
+    "path": "backend/app/services/identity.py",
+    "status": "modified"
+  },
+  {
+    "path": "backend/alembic/versions/0058_geo_rule_configuration.py",
+    "status": "new"
+  },
+  {
+    "path": "backend/alembic/sql/0058_geo_rule_configuration.sql",
+    "status": "new"
+  },
+  {
+    "path": "backend/tests/unit/test_geo_rules.py",
+    "status": "new"
+  },
+  {
+    "path": "backend/tests/unit/test_contract.py",
+    "status": "modified"
+  },
+  {
+    "path": "backend/tests/unit/test_runtime_response_metadata.py",
+    "status": "modified"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_rules.py",
+    "status": "new"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_rule_snapshots.py",
+    "status": "new"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_admission_migration.py",
+    "status": "modified"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_answer_migration.py",
+    "status": "modified"
+  },
+  {
+    "path": "backend/tests/integration/test_migrations.py",
+    "status": "modified"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_insight_indexes.py",
+    "status": "modified"
+  },
+  {
+    "path": "frontend/src/routeTree.gen.ts",
+    "status": "modified"
+  },
+  {
+    "path": "frontend/src/app/navigation.test.ts",
+    "status": "modified"
+  },
+  {
+    "path": "frontend/src/app/navigation.ts",
+    "status": "modified"
+  },
+  {
+    "path": "frontend/src/domains/geo-rules/geo-rules-fields.tsx",
+    "status": "new"
+  },
+  {
+    "path": "frontend/src/domains/geo-rules/geo-rules.api.ts",
+    "status": "new"
+  },
+  {
+    "path": "frontend/src/domains/geo-rules/geo-rules.model.ts",
+    "status": "new"
+  },
+  {
+    "path": "frontend/src/domains/geo-rules/geo-rules.test-support.tsx",
+    "status": "new"
+  },
+  {
+    "path": "frontend/src/domains/geo-rules/geo-rules.model.test.ts",
+    "status": "new"
+  },
+  {
+    "path": "frontend/src/domains/geo-rules/geo-rules-preview.tsx",
+    "status": "new"
+  },
+  {
+    "path": "frontend/src/domains/geo-rules/geo-rules-page.tsx",
+    "status": "new"
+  },
+  {
+    "path": "frontend/src/domains/geo-rules/geo-rules-page.test.tsx",
+    "status": "new"
+  },
+  {
+    "path": "frontend/src/domains/audit/audit.model.test.ts",
+    "status": "modified"
+  },
+  {
+    "path": "frontend/src/domains/audit/audit.model.ts",
+    "status": "modified"
+  },
+  {
+    "path": "frontend/src/shared/api/generated/schema.d.ts",
+    "status": "modified"
+  },
+  {
+    "path": "frontend/src/routes/_app/configuration/geo-rules.tsx",
+    "status": "new"
+  },
+  {
+    "path": "frontend/tests/e2e/rules-real-stack.spec.ts",
+    "status": "new"
+  },
+  {
+    "path": "contracts/openapi.yaml",
+    "status": "modified"
+  },
+  {
+    "path": "contracts/database.md",
+    "status": "modified"
+  },
+  {
+    "path": "docs/geo-monitoring/SHA256SUMS",
+    "status": "modified"
+  },
+  {
+    "path": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "status": "modified"
+  },
+  {
+    "path": "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+    "status": "modified"
+  },
+  {
+    "path": "docs/geo-monitoring/01-product/02-geo-core-prd.md",
+    "status": "modified"
+  },
+  {
+    "path": "docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md",
+    "status": "modified"
+  }
+]

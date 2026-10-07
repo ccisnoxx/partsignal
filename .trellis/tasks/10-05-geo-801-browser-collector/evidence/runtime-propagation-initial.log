@@ -1,0 +1,12 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/test-geo-browser.py --runtime
+Compose dev/staging/prod：默认无Browser；profile/资源/网络/凭据隔离通过
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-geo-browser.py", line 170, in <module>
+    main()
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-geo-browser.py", line 166, in main
+    runtime_checks(owner)
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-geo-browser.py", line 136, in runtime_checks
+    assert health()["collection"] == "BROWSER_ADAPTER_NOT_IMPLEMENTED"
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+make: *** [test-geo-browser] Error 1

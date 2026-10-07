@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "docker",
+    "compose",
+    "-f",
+    ".trellis/tasks/10-04-geo-703-opportunity-workbench/evidence/compose.yaml",
+    "run",
+    "--rm",
+    "backend-test",
+    "pytest",
+    "tests/integration/test_geo_opportunity_workbench.py::test_acknowledge_dismiss_revision_and_atomic_safe_audit"
+  ],
+  "exit_code": 1,
+  "seconds": 6.07
+}

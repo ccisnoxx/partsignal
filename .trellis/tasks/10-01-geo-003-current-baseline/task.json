@@ -1,0 +1,58 @@
+{
+  "id": "geo-003-current-baseline",
+  "name": "geo-003-current-baseline",
+  "title": "GEO-003 冻结当前 GEO 实现与契约基线",
+  "description": "R0 只读盘点现有 GEO 实现与契约；保存 schema/route/table/query/migration/test 基线和精确验证限制。",
+  "status": "completed",
+  "dev_type": "docs",
+  "scope": "geo",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-01",
+  "completedAt": "2026-10-01",
+  "branch": "geo/GEO-003",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "docs/geo-monitoring/04-delivery/06-current-geo-baseline.md",
+    "docs/geo-monitoring/04-delivery/geo-003-baseline/",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/SHA256SUMS",
+    ".trellis/tasks/10-01-geo-003-current-baseline/prd.md",
+    ".trellis/tasks/10-01-geo-003-current-baseline/implement.md",
+    ".trellis/tasks/10-01-geo-003-current-baseline/evidence"
+  ],
+  "notes": "planned → in_progress → review → done；2026-10-01 本会话用户人工审查并接受 GEO-003 的实现与测试证据。Trellis 为 completed。保留 make verify 的 Docker 阻断及其他未验证区域；本次只记录验收，不提交、归档或实施后续任务。",
+  "meta": {
+    "geo_task_id": "GEO-003",
+    "release": "R0",
+    "baseline_head": "cd88fbf61d65018f7eb1a47b9f0f379ed47e3814",
+    "dependency_status": {
+      "GEO-001": "done",
+      "GEO-002": "done"
+    },
+    "manifest_status": "done",
+    "validation_record": "docs/geo-monitoring/04-delivery/geo-003-baseline/validation.md",
+    "verify_result": {
+      "exit_code": 2,
+      "blocked_stage": "test-integration",
+      "cause": "/var/run/docker.sock 不存在"
+    },
+    "business_changes": false,
+    "independent_review_required": false,
+    "delegated": false,
+    "accepted_at": "2026-10-01",
+    "accepted_by": "本会话用户",
+    "accepted_scope": "GEO-003 当前实现与契约基线及已记录的实际测试证据和验证限制。",
+    "acceptance_basis": "用户明确表示：我已经人工审查并接受 GEO-003 的实现与测试证据。"
+  }
+}

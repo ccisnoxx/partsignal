@@ -1,0 +1,796 @@
+{
+  "symbols": {
+    "backend/app/services/geo_observation.py": [
+      {
+        "symbol": "GeoObservationFilters",
+        "line": 81,
+        "end_line": 100
+      },
+      {
+        "symbol": "GeoObservationListFilters",
+        "line": 104,
+        "end_line": 113
+      },
+      {
+        "symbol": "GeoInsightFilters",
+        "line": 117,
+        "end_line": 126
+      },
+      {
+        "symbol": "_GeoInsightRow",
+        "line": 130,
+        "end_line": 143
+      },
+      {
+        "symbol": "_contains_pattern",
+        "line": 146,
+        "end_line": 149
+      },
+      {
+        "symbol": "_current_observation_clause",
+        "line": 152,
+        "end_line": 155
+      },
+      {
+        "symbol": "_apply_observation_date_range",
+        "line": 158,
+        "end_line": 175
+      },
+      {
+        "symbol": "geo_observation_query",
+        "line": 178,
+        "end_line": 315
+      },
+      {
+        "symbol": "geo_observation_list_query",
+        "line": 318,
+        "end_line": 388
+      },
+      {
+        "symbol": "_geo_observation_actions",
+        "line": 391,
+        "end_line": 405
+      },
+      {
+        "symbol": "_geo_observation_attachment_ids",
+        "line": 408,
+        "end_line": 461
+      },
+      {
+        "symbol": "geo_observations_out",
+        "line": 464,
+        "end_line": 651
+      },
+      {
+        "symbol": "_boolean_list_indicator",
+        "line": 654,
+        "end_line": 660
+      },
+      {
+        "symbol": "_accuracy_list_indicator",
+        "line": 663,
+        "end_line": 669
+      },
+      {
+        "symbol": "geo_observation_list_items_out",
+        "line": 672,
+        "end_line": 810
+      },
+      {
+        "symbol": "list_geo_observation_items",
+        "line": 813,
+        "end_line": 842
+      },
+      {
+        "symbol": "list_geo_observations",
+        "line": 845,
+        "end_line": 872
+      },
+      {
+        "symbol": "get_geo_observation",
+        "line": 875,
+        "end_line": 882
+      },
+      {
+        "symbol": "_manual_observation_chain",
+        "line": 885,
+        "end_line": 952
+      },
+      {
+        "symbol": "_geo_observation_detail_evidence",
+        "line": 955,
+        "end_line": 984
+      },
+      {
+        "symbol": "get_geo_observation_detail",
+        "line": 987,
+        "end_line": 1096
+      },
+      {
+        "symbol": "get_geo_observation_correction_context",
+        "line": 1099,
+        "end_line": 1158
+      },
+      {
+        "symbol": "get_geo_metrics",
+        "line": 1161,
+        "end_line": 1243
+      },
+      {
+        "symbol": "_geo_insight_period",
+        "line": 1246,
+        "end_line": 1257
+      },
+      {
+        "symbol": "_geo_insight_filter_options",
+        "line": 1260,
+        "end_line": 1334
+      },
+      {
+        "symbol": "_validate_geo_insight_filters",
+        "line": 1337,
+        "end_line": 1358
+      },
+      {
+        "symbol": "_geo_insight_rows",
+        "line": 1361,
+        "end_line": 1454
+      },
+      {
+        "symbol": "_complete_geo_insight_rows",
+        "line": 1457,
+        "end_line": 1480
+      },
+      {
+        "symbol": "_complete_geo_insight_scope",
+        "line": 1483,
+        "end_line": 1509
+      },
+      {
+        "symbol": "_rate_value",
+        "line": 1512,
+        "end_line": 1525
+      },
+      {
+        "symbol": "_relative_change",
+        "line": 1528,
+        "end_line": 1531
+      },
+      {
+        "symbol": "_utc_date",
+        "line": 1534,
+        "end_line": 1536
+      },
+      {
+        "symbol": "_rate_trend",
+        "line": 1551,
+        "end_line": 1577
+      },
+      {
+        "symbol": "_content_performance",
+        "line": 1580,
+        "end_line": 1600
+      },
+      {
+        "symbol": "_content_rankings",
+        "line": 1603,
+        "end_line": 1768
+      },
+      {
+        "symbol": "_question_coverage",
+        "line": 1771,
+        "end_line": 1865
+      },
+      {
+        "symbol": "_platform_performance",
+        "line": 1868,
+        "end_line": 1890
+      },
+      {
+        "symbol": "_recommendations",
+        "line": 1893,
+        "end_line": 2089
+      },
+      {
+        "symbol": "get_geo_insights",
+        "line": 2092,
+        "end_line": 2201
+      },
+      {
+        "symbol": "_is_geo_task_idempotency_integrity_error",
+        "line": 2204,
+        "end_line": 2210
+      },
+      {
+        "symbol": "_geo_task_has_same_identity",
+        "line": 2213,
+        "end_line": 2255
+      },
+      {
+        "symbol": "create_geo_optimization_content_task",
+        "line": 2258,
+        "end_line": 2411
+      },
+      {
+        "symbol": "geo_publication_candidates",
+        "line": 2414,
+        "end_line": 2452
+      },
+      {
+        "symbol": "_geo_observation_has_successor_error",
+        "line": 2455,
+        "end_line": 2461
+      },
+      {
+        "symbol": "_is_geo_observation_successor_integrity_error",
+        "line": 2464,
+        "end_line": 2471
+      },
+      {
+        "symbol": "create_geo_observation",
+        "line": 2474,
+        "end_line": 2579
+      },
+      {
+        "symbol": "_lock_manual_observation_chain",
+        "line": 2582,
+        "end_line": 2658
+      },
+      {
+        "symbol": "delete_geo_observation",
+        "line": 2661,
+        "end_line": 2694
+      },
+      {
+        "symbol": "_delete_manual_observation_chain",
+        "line": 2697,
+        "end_line": 2751
+      }
+    ],
+    "backend/app/services/content_planning.py": [
+      {
+        "symbol": "_platform_slug_conflict",
+        "line": 41,
+        "end_line": 57
+      },
+      {
+        "symbol": "ContentTaskFactProductMismatch",
+        "line": 60,
+        "end_line": 61
+      },
+      {
+        "symbol": "_query_topic_reference_counts",
+        "line": 64,
+        "end_line": 96
+      },
+      {
+        "symbol": "_query_topic_blockers",
+        "line": 99,
+        "end_line": 107
+      },
+      {
+        "symbol": "query_topics_out",
+        "line": 110,
+        "end_line": 139
+      },
+      {
+        "symbol": "list_query_topic_items",
+        "line": 142,
+        "end_line": 208
+      },
+      {
+        "symbol": "query_topic_out",
+        "line": 211,
+        "end_line": 213
+      },
+      {
+        "symbol": "create_query_topic",
+        "line": 216,
+        "end_line": 242
+      },
+      {
+        "symbol": "update_query_topic",
+        "line": 245,
+        "end_line": 280
+      },
+      {
+        "symbol": "delete_query_topic",
+        "line": 283,
+        "end_line": 320
+      },
+      {
+        "symbol": "create_platform_profile",
+        "line": 323,
+        "end_line": 368
+      },
+      {
+        "symbol": "lock_content_task_creation_resources",
+        "line": 371,
+        "end_line": 399
+      },
+      {
+        "symbol": "add_locked_content_task",
+        "line": 402,
+        "end_line": 423
+      },
+      {
+        "symbol": "_is_content_task_idempotency_integrity_error",
+        "line": 426,
+        "end_line": 433
+      },
+      {
+        "symbol": "_content_task_has_ordinary_identity",
+        "line": 436,
+        "end_line": 456
+      },
+      {
+        "symbol": "_idempotency_conflict",
+        "line": 459,
+        "end_line": 461
+      },
+      {
+        "symbol": "create_content_task",
+        "line": 464,
+        "end_line": 519
+      }
+    ]
+  },
+  "static_call_sites": [
+    {
+      "file": "backend/app/routers/observation.py",
+      "line": 124,
+      "symbol": "GeoObservationFilters"
+    },
+    {
+      "file": "backend/app/routers/observation.py",
+      "line": 159,
+      "symbol": "GeoInsightFilters"
+    },
+    {
+      "file": "backend/app/routers/observation.py",
+      "line": 186,
+      "symbol": "GeoObservationListFilters"
+    },
+    {
+      "file": "backend/app/routers/observation.py",
+      "line": 399,
+      "symbol": "create_geo_optimization_content_task"
+    },
+    {
+      "file": "backend/app/routers/observation.py",
+      "line": 326,
+      "symbol": "geo_publication_candidates"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 185,
+      "symbol": "_apply_observation_date_range"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 323,
+      "symbol": "_apply_observation_date_range"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 489,
+      "symbol": "_geo_observation_attachment_ids"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 711,
+      "symbol": "_geo_observation_attachment_ids"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 823,
+      "symbol": "geo_observation_list_query"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 855,
+      "symbol": "geo_observation_query"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1002,
+      "symbol": "geo_observations_out"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1023,
+      "symbol": "_geo_observation_detail_evidence"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1106,
+      "symbol": "get_geo_observation_detail"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1502,
+      "symbol": "_complete_geo_insight_rows"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1560,
+      "symbol": "_rate_value"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1561,
+      "symbol": "_rate_value"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2099,
+      "symbol": "_geo_insight_period"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2100,
+      "symbol": "_geo_insight_filter_options"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2101,
+      "symbol": "_validate_geo_insight_filters"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2102,
+      "symbol": "_geo_insight_rows"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2105,
+      "symbol": "_complete_geo_insight_scope"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2109,
+      "symbol": "_complete_geo_insight_scope"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2110,
+      "symbol": "_complete_geo_insight_scope"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2138,
+      "symbol": "_content_rankings"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2147,
+      "symbol": "_question_coverage"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2304,
+      "symbol": "GeoInsightFilters"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2313,
+      "symbol": "get_geo_insights"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2483,
+      "symbol": "geo_publication_candidates"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2670,
+      "symbol": "_delete_manual_observation_chain"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2702,
+      "symbol": "_lock_manual_observation_chain"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 195,
+      "symbol": "_contains_pattern"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 215,
+      "symbol": "_contains_pattern"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 301,
+      "symbol": "_contains_pattern"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 322,
+      "symbol": "_current_observation_clause"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 333,
+      "symbol": "_contains_pattern"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 533,
+      "symbol": "_geo_observation_actions"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 882,
+      "symbol": "geo_observations_out"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 998,
+      "symbol": "_manual_observation_chain"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1422,
+      "symbol": "_GeoInsightRow"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1565,
+      "symbol": "_rate_value"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1621,
+      "symbol": "_content_performance"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1645,
+      "symbol": "_content_performance"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1646,
+      "symbol": "_content_performance"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2111,
+      "symbol": "_geo_insight_rows"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 184,
+      "symbol": "_current_observation_clause"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 838,
+      "symbol": "geo_observation_list_items_out"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 868,
+      "symbol": "geo_observations_out"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1139,
+      "symbol": "geo_publication_candidates"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1163,
+      "symbol": "geo_observation_query"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1575,
+      "symbol": "_relative_change"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1591,
+      "symbol": "_rate_value"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1592,
+      "symbol": "_rate_value"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1593,
+      "symbol": "_rate_value"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1949,
+      "symbol": "_platform_performance"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1953,
+      "symbol": "_platform_performance"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2191,
+      "symbol": "_platform_performance"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2194,
+      "symbol": "_recommendations"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2387,
+      "symbol": "_geo_task_has_same_identity"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2524,
+      "symbol": "_geo_observation_has_successor_error"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2564,
+      "symbol": "_geo_observation_has_successor_error"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1878,
+      "symbol": "_rate_value"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1881,
+      "symbol": "_rate_value"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1882,
+      "symbol": "_rate_value"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2103,
+      "symbol": "_utc_date"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2104,
+      "symbol": "_utc_date"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2379,
+      "symbol": "_is_geo_task_idempotency_integrity_error"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2561,
+      "symbol": "_is_geo_observation_successor_integrity_error"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 762,
+      "symbol": "_boolean_list_indicator"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 765,
+      "symbol": "_boolean_list_indicator"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 768,
+      "symbol": "_accuracy_list_indicator"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 781,
+      "symbol": "_boolean_list_indicator"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 782,
+      "symbol": "_accuracy_list_indicator"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 803,
+      "symbol": "_geo_observation_actions"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2166,
+      "symbol": "_rate_trend"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2174,
+      "symbol": "_rate_trend"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 2182,
+      "symbol": "_rate_trend"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1566,
+      "symbol": "_utc_date"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1728,
+      "symbol": "_utc_date"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1735,
+      "symbol": "_content_performance"
+    },
+    {
+      "file": "backend/app/services/geo_observation.py",
+      "line": 1755,
+      "symbol": "_utc_date"
+    },
+    {
+      "file": "backend/app/services/product_detail.py",
+      "line": 263,
+      "symbol": "get_geo_metrics"
+    },
+    {
+      "file": "backend/app/services/product_detail.py",
+      "line": 265,
+      "symbol": "GeoObservationFilters"
+    },
+    {
+      "file": "backend/app/services/publication.py",
+      "line": 1729,
+      "symbol": "_delete_manual_observation_chain"
+    },
+    {
+      "file": "backend/app/services/publication.py",
+      "line": 1429,
+      "symbol": "_lock_manual_observation_chain"
+    },
+    {
+      "file": "backend/app/services/workbench.py",
+      "line": 254,
+      "symbol": "geo_observation_list_query"
+    },
+    {
+      "file": "backend/app/services/workbench.py",
+      "line": 261,
+      "symbol": "geo_observation_list_query"
+    },
+    {
+      "file": "backend/app/services/workbench.py",
+      "line": 255,
+      "symbol": "GeoObservationListFilters"
+    },
+    {
+      "file": "backend/app/services/workbench.py",
+      "line": 262,
+      "symbol": "GeoObservationListFilters"
+    },
+    {
+      "file": "backend/app/services/workbench.py",
+      "line": 337,
+      "symbol": "geo_observation_list_query"
+    },
+    {
+      "file": "backend/app/services/workbench.py",
+      "line": 338,
+      "symbol": "GeoObservationListFilters"
+    }
+  ],
+  "note": "静态符号/调用入口，非动态 trace；未测量 SQL 执行计划或性能。"
+}

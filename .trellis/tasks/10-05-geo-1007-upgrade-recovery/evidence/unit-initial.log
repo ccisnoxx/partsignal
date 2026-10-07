@@ -1,0 +1,150 @@
+FEF.EEEEF.....E
+======================================================================
+ERROR: test_interruption_before_and_after_atomic_commit (__main__.UpgradeRecoveryTests.test_interruption_before_and_after_atomic_commit)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 240, in test_interruption_before_and_after_atomic_commit
+    self.recover()
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 125, in recover
+    owner.recover_upgrade(self.args)
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/prepare-production-data.py", line 1136, in recover_upgrade
+    require_activation_safe_bootstrap_attempt(state)
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/prepare-production-data.py", line 757, in require_activation_safe_bootstrap_attempt
+    raise DataStateError("Production AI bootstrap 尚未取得可激活的成功结果")
+production_state.DataStateError: Production AI bootstrap 尚未取得可激活的成功结果
+
+======================================================================
+ERROR: test_prepared_requires_database_proof_and_failure_keeps_deploying (__main__.UpgradeRecoveryTests.test_prepared_requires_database_proof_and_failure_keeps_deploying)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 254, in test_prepared_requires_database_proof_and_failure_keeps_deploying
+    self.deploying(); self.recover()
+                      ^^^^^^^^^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 125, in recover
+    owner.recover_upgrade(self.args)
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/prepare-production-data.py", line 1136, in recover_upgrade
+    require_activation_safe_bootstrap_attempt(state)
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/prepare-production-data.py", line 757, in require_activation_safe_bootstrap_attempt
+    raise DataStateError("Production AI bootstrap 尚未取得可激活的成功结果")
+production_state.DataStateError: Production AI bootstrap 尚未取得可激活的成功结果
+
+======================================================================
+ERROR: test_recover_binds_fixed_without_initializing_or_changing_data (__main__.UpgradeRecoveryTests.test_recover_binds_fixed_without_initializing_or_changing_data) (phase='UPGRADE_DEPLOYING')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 143, in test_recover_binds_fixed_without_initializing_or_changing_data
+    self.recover()
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 125, in recover
+    owner.recover_upgrade(self.args)
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/prepare-production-data.py", line 1136, in recover_upgrade
+    require_activation_safe_bootstrap_attempt(state)
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/prepare-production-data.py", line 757, in require_activation_safe_bootstrap_attempt
+    raise DataStateError("Production AI bootstrap 尚未取得可激活的成功结果")
+production_state.DataStateError: Production AI bootstrap 尚未取得可激活的成功结果
+
+======================================================================
+ERROR: test_recover_binds_fixed_without_initializing_or_changing_data (__main__.UpgradeRecoveryTests.test_recover_binds_fixed_without_initializing_or_changing_data) (phase='UPGRADE_PREPARED')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 143, in test_recover_binds_fixed_without_initializing_or_changing_data
+    self.recover()
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 125, in recover
+    owner.recover_upgrade(self.args)
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/prepare-production-data.py", line 1136, in recover_upgrade
+    require_activation_safe_bootstrap_attempt(state)
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/prepare-production-data.py", line 757, in require_activation_safe_bootstrap_attempt
+    raise DataStateError("Production AI bootstrap 尚未取得可激活的成功结果")
+production_state.DataStateError: Production AI bootstrap 尚未取得可激活的成功结果
+
+======================================================================
+ERROR: test_repeat_and_conflicting_receipt (__main__.UpgradeRecoveryTests.test_repeat_and_conflicting_receipt)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 157, in test_repeat_and_conflicting_receipt
+    self.recover()
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 125, in recover
+    owner.recover_upgrade(self.args)
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/prepare-production-data.py", line 1136, in recover_upgrade
+    require_activation_safe_bootstrap_attempt(state)
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/prepare-production-data.py", line 757, in require_activation_safe_bootstrap_attempt
+    raise DataStateError("Production AI bootstrap 尚未取得可激活的成功结果")
+production_state.DataStateError: Production AI bootstrap 尚未取得可激活的成功结果
+
+======================================================================
+ERROR: test_wrong_phase_and_initialized_replay (__main__.UpgradeRecoveryTests.test_wrong_phase_and_initialized_replay)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 177, in test_wrong_phase_and_initialized_replay
+    self.deploying(); self.recover()
+                      ^^^^^^^^^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 125, in recover
+    owner.recover_upgrade(self.args)
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/prepare-production-data.py", line 1136, in recover_upgrade
+    require_activation_safe_bootstrap_attempt(state)
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/prepare-production-data.py", line 757, in require_activation_safe_bootstrap_attempt
+    raise DataStateError("Production AI bootstrap 尚未取得可激活的成功结果")
+production_state.DataStateError: Production AI bootstrap 尚未取得可激活的成功结果
+
+======================================================================
+FAIL: test_changed_migrations_and_local_drift (__main__.UpgradeRecoveryTests.test_changed_migrations_and_local_drift)
+----------------------------------------------------------------------
+production_state.DataStateError: Production AI bootstrap 尚未取得可激活的成功结果
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 219, in test_changed_migrations_and_local_drift
+    self.assert_rejected("迁移树与失败")
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 135, in assert_rejected
+    with self.assertRaisesRegex((owner.DataStateError, ValueError), reason):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "迁移树与失败" does not match "Production AI bootstrap 尚未取得可激活的成功结果"
+
+======================================================================
+FAIL: test_old_manifest_and_archive_tamper (__main__.UpgradeRecoveryTests.test_old_manifest_and_archive_tamper)
+----------------------------------------------------------------------
+production_state.DataStateError: Production AI bootstrap 尚未取得可激活的成功结果
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 196, in test_old_manifest_and_archive_tamper
+    self.assert_rejected("manifest SHA-256")
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 135, in assert_rejected
+    with self.assertRaisesRegex((owner.DataStateError, ValueError), reason):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "manifest SHA-256" does not match "Production AI bootstrap 尚未取得可激活的成功结果"
+
+======================================================================
+FAIL: test_running_services_and_image_drift (__main__.UpgradeRecoveryTests.test_running_services_and_image_drift)
+----------------------------------------------------------------------
+production_state.DataStateError: Production AI bootstrap 尚未取得可激活的成功结果
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-upgrade-recovery.py", line 232, in test_running_services_and_image_drift
+    with self.assertRaisesRegex(owner.DataStateError, reason):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "running" does not match "Production AI bootstrap 尚未取得可激活的成功结果"
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.219s
+
+FAILED (failures=3, errors=6)
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。
+Production upgrade 数据所有权与候选绑定校验通过。

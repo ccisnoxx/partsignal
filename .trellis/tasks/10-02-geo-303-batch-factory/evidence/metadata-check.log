@@ -1,0 +1,332 @@
+..FF..........................................................FF........ [ 17%]
+........................................................................ [ 35%]
+........................................................................ [ 53%]
+........................................................................ [ 70%]
+........................................................................ [ 88%]
+..............................................                           [100%]
+=================================== FAILURES ===================================
+___ test_static_request_context_metadata_covers_all_operations_and_responses ___
+
+    def test_static_request_context_metadata_covers_all_operations_and_responses() -> None:
+        """静态合同逐操作声明 request ID、400 信封和全部 response Header。"""
+        contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+        document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+        operations = operation_map(document)
+        assert len(operations) == 210
+        assert len({operation["operationId"] for operation in operations.values()}) == 210
+>       assert sum(len(operation["responses"]) for operation in operations.values()) == 1336
+E       assert 1343 == 1336
+E        +  where 1343 = sum(<generator object test_static_request_context_metadata_covers_all_operations_and_responses.<locals>.<genexpr> at 0x10fcb7840>)
+
+backend/tests/unit/test_contract.py:58: AssertionError
+_________ test_frozen_response_status_signatures_cover_every_operation _________
+
+    def test_frozen_response_status_signatures_cover_every_operation() -> None:
+        """逐 operation 冻结精确 response 集合，避免合同回退到宽泛状态模板。"""
+        contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+        document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+        expected_by_signature = {
+            ("200",): ("getLiveHealth",),
+            ("200", "503"): ("getReadyHealth",),
+            ("200", "204", "401"): ("getCurrentUser",),
+            ("200", "401", "403"): (
+                "getCsrfToken",
+                "getAuditLogFilterOptions",
+                "listQueryTopics",
+                "listPlatformPrompts",
+                "listPlatformTypes",
+                "listPublicationReadyItems",
+                "getPublicationWorkbenchSummary",
+                "getDashboardSummary",
+            ),
+            ("200", "401", "422"): ("login",),
+            ("200", "204", "401", "403"): (
+                "getAuthSession",
+                "getContentHumanizationPrompt",
+            ),
+            ("200", "401", "403", "409"): ("getWorkbench",),
+            ("200", "401", "403", "422"): (
+                "listUsers",
+                "bulkUpdateUserStatus",
+                "exportUsers",
+                "listAuditLogs",
+                "listProducts",
+                "listQueryTopicItems",
+                "listPlatformProfiles",
+                "exportPlatformProfiles",
+                "listAIChannels",
+                "listContentTasks",
+                "getContentTaskCreationOptions",
+                "listPlatformAccounts",
+                "getGeoMetrics",
+                "listGeoSubjects",
+                "listGeoPromptVariants",
+                "listGeoEngineSurfaces",
+                "listGeoCollectionProfiles",
+                "listGeoMonitoringPlans",
+                "previewGeoMonitoringPlan",
+            ),
+            ("201", "401", "403", "422"): (
+                "createQueryTopic",
+                "createAIChannel",
+                "createFileUploadIntent",
+            ),
+            ("204", "401", "403", "422"): ("logout", "changePassword"),
+            ("200", "401", "403", "404", "422"): (
+                "getProduct",
+                "getProductDetail",
+                "getProductFactsDraft",
+                "listFactVersions",
+                "listProductFactHistory",
+                "getProductFactReviewContext",
+                "getFactVersion",
+                "getFactReviewContext",
+                "getPlatformProfile",
+                "getPlatformPrompt",
+                "getPlatformPromptPreviewOptions",
+                "getAIChannel",
+                "getAIChannelUsageSummary",
+                "listAIChannelAuditLogs",
+                "listAIModels",
+                "getContentTask",
+                "getContentTaskDetail",
+                "listGenerationJobs",
+                "listContentTaskVersions",
+                "getGenerationJob",
+                "getContentVersion",
+                "compareContentVersions",
+                "listGeoObservationPublications",
+                "getFileRecord",
+                "getGeoSubject",
+                "getGeoPromptVariant",
+                "getGeoEngineSurface",
+                "getGeoCollectionProfile",
+                "getGeoMonitoringPlan",
+            ),
+            ("200", "401", "403", "409", "422"): (
+                "putContentHumanizationPrompt",
+                "listPublicationWorks",
+                "listPublishedArticles",
+                "listPublishedContentIssues",
+                "listGeoObservations",
+                "listGeoObservationItems",
+            ),
+            ("201", "401", "403", "409", "422"): (
+                "createUser",
+                "createProduct",
+                "createPlatformPrompt",
+                "createPlatformType",
+                "createGeoMonitoringPlan",
+            ),
+            ("200", "401", "403", "404", "409", "422"): (
+                "updateUser",
+                "resetUserPassword",
+                "getAuditLog",
+                "updateProduct",
+                "replaceProductFactsDraft",
+                "approveFactVersion",
+                "requestFactVersionChanges",
+                "retireFactVersion",
+                "updateQueryTopic",
+                "updatePlatformProfile",
+                "enablePlatformProfile",
+                "disablePlatformProfile",
+                "updatePlatformPrompt",
+                "updatePlatformType",
+                "updateAIChannel",
+                "replaceAIChannelApiKey",
+                "enableAIChannel",
+                "disableAIChannel",
+                "updateAIChannelHeader",
+                "updateAIModel",
+                "testAIModel",
+                "enableAIModel",
+                "disableAIModel",
+                "getContentEditorContext",
+                "getContentTaskReviewContext",
+                "getContentTaskGenerationOptions",
+                "cancelContentTask",
+                "archiveContentTask",
+                "restoreContentTask",
+                "getContentTaskPermanentDeletionPreview",
+                "updateContentDraft",
+                "getContentReviewContext",
+                "getContentVersionDetail",
+                "submitContentVersion",
+                "abandonContentVersion",
+                "approveContentVersion",
+                "requestContentVersionChanges",
+                "getPublicationPackage",
+                "updatePlatformAccount",
+                "enablePlatformAccount",
+                "disablePlatformAccount",
+                "getPublicationWork",
+                "getPublicationWorkspaceContext",
+                "updatePublicationPreparation",
+                "markPublicationPlatformReview",
+                "registerPublicationResult",
+                "verifyPublicationWork",
+                "switchPublicationContentVersion",
+                "closePublicationWork",
+                "getPublishedArticle",
+                "previewPublishedArticlePermanentDeletion",
+                "getPublishedContentIssue",
+                "getPublishedContentIssueWorkspaceContext",
+                "getPublishedContentRepairContext",
+                "resolvePublishedContentIssue",
+                "getGeoObservation",
+                "getGeoObservationDetail",
+                "getGeoObservationCorrectionContext",
+                "getGeoInsights",
+                "abortFileUpload",
+                "getFileDownloadUrl",
+                "updateGeoSubject",
+                "updateGeoEngineSurface",
+                "enableGeoEngineSurface",
+                "disableGeoEngineSurface",
+                "updateGeoCollectionProfile",
+                "enableGeoCollectionProfile",
+                "disableGeoCollectionProfile",
+                "updateGeoPromptVariant",
+                "enableGeoPromptVariant",
+                "disableGeoPromptVariant",
+                "enableGeoSubject",
+                "disableGeoSubject",
+                "createGeoSubjectAlias",
+                "updateGeoSubjectAlias",
+                "deleteGeoSubjectAlias",
+                "createGeoSubjectDomain",
+                "deleteGeoSubjectDomain",
+                "updateGeoMonitoringPlan",
+                "activateGeoMonitoringPlan",
+                "pauseGeoMonitoringPlan",
+                "resumeGeoMonitoringPlan",
+                "archiveGeoMonitoringPlan",
+            ),
+            ("201", "401", "403", "404", "409", "422"): (
+                "submitProductFactReview",
+                "createPlatformProfile",
+                "createAIChannelHeader",
+                "createContentTask",
+                "createManualContentVersion",
+                "createContentRevision",
+                "createPlatformAccount",
+                "createPublicationWork",
+                "openPublishedContentIssue",
+                "createPublishedContentRepairTask",
+                "createGeoObservation",
+                "createGeoOptimizationContentTask",
+                "createAIModel",
+                "createGeoSubject",
+                "createGeoPromptVariant",
+                "createGeoEngineSurface",
+                "createGeoCollectionProfile",
+                "copyGeoMonitoringPlan",
+                "createGeoObservationBatch",
+                "runGeoMonitoringPlanNow",
+            ),
+            ("201", "401", "403", "409", "422", "503"): (
+                "createPlatformLogoCandidate",
+            ),
+            ("202", "401", "403", "404", "409", "422"): (
+                "createGenerationJob",
+                "createHumanizationJob",
+                "retryGenerationJob",
+            ),
+            ("204", "401", "403", "404", "409", "422"): (
+                "deleteUser",
+                "deleteProduct",
+                "deleteFactVersion",
+                "deleteQueryTopic",
+                "deletePlatformProfile",
+                "deletePlatformPrompt",
+                "deletePlatformType",
+                "deleteAIChannel",
+                "deleteAIChannelHeader",
+                "deleteAIModel",
+                "deleteContentTask",
+                "permanentlyDeleteContentTask",
+                "deleteContentDraft",
+                "deletePlatformAccount",
+                "permanentlyDeletePublishedArticle",
+                "deleteGeoObservation",
+                "deleteGeoSubject",
+                "deleteGeoPromptVariant",
+                "deleteGeoEngineSurface",
+                "deleteGeoCollectionProfile",
+                "deleteGeoMonitoringPlan",
+            ),
+            ("204", "401", "403", "404", "408", "409", "413", "422", "503"): (
+                "uploadFileContent",
+            ),
+            ("200", "401", "403", "404", "409", "422", "503"): (
+                "completeFileUpload",
+            ),
+            ("200", "401", "403", "404", "409", "422", "502", "504"): (
+                "discoverAIChannelModels",
+            ),
+        }
+        expected = {
+            operation_id: set(statuses) | {"400"}
+            for statuses, operation_ids in expected_by_signature.items()
+            for operation_id in operation_ids
+        }
+        operations = {
+            operation["operationId"]: operation
+            for path in document["paths"].values()
+            for operation in path.values()
+            if isinstance(operation, dict) and "operationId" in operation
+        }
+    
+        assert len(expected) == 210
+        assert set(operations) == set(expected)
+        for operation_id, operation in operations.items():
+            responses = operation["responses"]
+            assert set(responses) == expected[operation_id]
+            assert "500" not in responses
+            assert "default" not in responses
+            for status, response in responses.items():
+                if status not in {"200", "201", "202", "204"}:
+>                   assert response == {"$ref": "#/components/responses/ErrorResponse"}
+E                   AssertionError: assert {'content': {...onseHeader'}}} == {'$ref': '#/c...rrorResponse'}
+E                     
+E                     Left contains 3 more items:
+E                     {'content': {'application/json': {'schema': {'$ref': '#/components/schemas/ErrorEnvelope'}}},
+E                      'description': '业务或校验错误',
+E                      'headers': {'X-Request-ID': {'$ref': '#/components/headers/RequestIdResponseHeader'}}}
+E                     Right contains 1 more item:
+E                     {'$ref': '#/components/responses/ErrorResponse'}
+E                     Use -v to get more diff
+
+backend/tests/unit/test_contract.py:375: AssertionError
+_______ test_runtime_request_context_covers_all_operations_and_responses _______
+
+    def test_runtime_request_context_covers_all_operations_and_responses() -> None:
+        runtime = app.openapi()
+        operations = _operation_map(runtime)
+    
+        assert len(operations) == 210
+        assert len(set(operations)) == 210
+>       assert sum(len(operation["responses"]) for operation in operations.values()) == 1336
+E       assert 1343 == 1336
+E        +  where 1343 = sum(<generator object test_runtime_request_context_covers_all_operations_and_responses.<locals>.<genexpr> at 0x10fcb7840>)
+
+backend/tests/unit/test_runtime_response_metadata.py:650: AssertionError
+______ test_runtime_request_context_merge_does_not_change_route_metadata _______
+
+    def test_runtime_request_context_merge_does_not_change_route_metadata() -> None:
+        raw = get_openapi(title=app.title, version=app.version, routes=app.routes)
+        augmented = app.openapi()
+        stripped = _strip_request_context_metadata(augmented)
+    
+>       assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1127
+E       assert 1133 == 1127
+E        +  where 1133 = sum(<generator object test_runtime_request_context_merge_does_not_change_route_metadata.<locals>.<genexpr> at 0x109a0c820>)
+
+backend/tests/unit/test_runtime_response_metadata.py:695: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_contract.py::test_static_request_context_metadata_covers_all_operations_and_responses
+FAILED backend/tests/unit/test_contract.py::test_frozen_response_status_signatures_cover_every_operation
+FAILED backend/tests/unit/test_runtime_response_metadata.py::test_runtime_request_context_covers_all_operations_and_responses
+FAILED backend/tests/unit/test_runtime_response_metadata.py::test_runtime_request_context_merge_does_not_change_route_metadata
+4 failed, 402 passed in 16.49s

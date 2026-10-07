@@ -1,0 +1,675 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_same_actor_topic_command_and_variant_create_have_no_lock_cycle[update] __
+
+self = <sqlalchemy.engine.base.Connection object at 0x10ed8f170>
+dialect = <sqlalchemy.dialects.postgresql.psycopg.PGDialect_psycopg object at 0x10dc465a0>
+context = <sqlalchemy.dialects.postgresql.psycopg.PGExecutionContext_psycopg object at 0x10ed8ffe0>
+statement = <sqlalchemy.dialects.postgresql.psycopg.PGCompiler_psycopg object at 0x10ed8d3d0>
+parameters = [{'id_1': UUID('17b11b1f-28ed-49f8-abb7-2114bce195d7')}]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+    
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+    
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+    
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+    
+        effective_parameters: Optional[_AnyExecuteParams]
+    
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+    
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+    
+        if self._echo:
+            self._log_info(str_statement)
+    
+            stats = context._get_cache_stats()
+    
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+    
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Cursor [closed] [IDLE] (host=127.0.0.1 port=55441 user=geo202 database=partsignal_geo202_849ddcf61a) at 0x10ec65fd0>
+query = 'SELECT query_topics.id, query_topics.canonical_question, query_topics.intent_type, query_topics.variants, query_topics.revision, query_topics.created_at \nFROM query_topics \nWHERE query_topics.id = %(id_1)s::UUID FOR UPDATE'
+params = {'id_1': UUID('17b11b1f-28ed-49f8-abb7-2114bce195d7')}
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool | None = None,
+    ) -> Self:
+        """
+        Execute a query or command to the database.
+        """
+        try:
+            with self._conn.lock:
+                self._conn.wait(
+                    self._execute_gen(query, params, prepare=prepare, binary=binary)
+                )
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           psycopg.errors.DeadlockDetected: deadlock detected
+E           DETAIL:  Process 7850 waits for ShareLock on transaction 3915; blocked by process 7849.
+E           Process 7849 waits for ShareLock on transaction 3916; blocked by process 7850.
+E           HINT:  See server log for query details.
+E           CONTEXT:  while locking tuple (0,1) in relation "query_topics"
+
+backend/.venv/lib/python3.12/site-packages/psycopg/cursor.py:117: DeadlockDetected
+
+The above exception was the direct cause of the following exception:
+
+questions_api = QuestionsAPI(engine=Engine(postgresql+psycopg://geo202:***@127.0.0.1:55441/partsignal_geo202_849ddcf61a), factory=sess...arlette.testclient.TestClient object at 0x10e025460>, engineer=<starlette.testclient.TestClient object at 0x10ed6ca10>)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ec88560>
+topic_command = 'update'
+
+    @pytest.mark.parametrize("topic_command", ["update", "delete"])
+    def test_same_actor_topic_command_and_variant_create_have_no_lock_cycle(
+        questions_api: QuestionsAPI, monkeypatch: pytest.MonkeyPatch, topic_command: str
+    ) -> None:
+        """既有主题命令的成功审计 FK 锁必须能越过变体的身份守卫。"""
+        from app.schemas.configuration import IntentType, QueryTopicUpdate
+        from app.services.content_planning import update_query_topic
+    
+        api = questions_api
+        actor_locked = Event()
+        original = commands._lock_topic
+    
+        def observed_topic_lock(db, topic_id):
+            # 进入这一边界时真实 User 锁已取得；不用 sleep 猜测事务调度。
+            actor_locked.set()
+            return original(db, topic_id)
+    
+        monkeypatch.setattr(commands, "_lock_topic", observed_topic_lock)
+    
+        def create():
+            with api.factory() as db:
+                db.execute(text("SET LOCAL statement_timeout = '5s'"))
+                try:
+                    return commands.create_variant(
+                        db=db,
+                        query_topic_id=api.topic,
+                        payload=GeoPromptVariantCreate.model_validate(api.payload()),
+                        actor=db.get(User, api.admin_id),
+                        request_id="geo202-same-actor-create",
+                    )
+                except AppError as exc:
+                    return exc.code
+    
+        with api.factory() as topic_db, ThreadPoolExecutor(1) as pool:
+            topic_db.execute(text("SET LOCAL statement_timeout = '5s'"))
+            topic_db.scalar(select(QueryTopic).where(QueryTopic.id == api.topic).with_for_update())
+            actor = topic_db.get(User, api.admin_id)
+            future = pool.submit(create)
+            assert actor_locked.wait(timeout=5)
+            if topic_command == "delete":
+                delete_query_topic(
+                    db=topic_db,
+                    query_topic_id=api.topic,
+                    expected_revision=0,
+                    actor=actor,
+                    request_id="geo202-same-actor-delete",
+                )
+                assert future.result(timeout=10) == "NOT_FOUND"
+            else:
+                update_query_topic(
+                    db=topic_db,
+                    query_topic_id=api.topic,
+                    payload=QueryTopicUpdate(
+                        expected_revision=0,
+                        canonical_question="同账号并发更新后的主题",
+                        intent_type=IntentType.PRODUCT,
+                        variants=["旧数组不得导入"],
+                    ),
+                    actor=actor,
+                    request_id="geo202-same-actor-update",
+                )
+>               created = future.result(timeout=10)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/integration/test_geo_questions_transactions.py:246: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/concurrent/futures/_base.py:449: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/concurrent/futures/_base.py:401: in __get_result
+    raise self._exception
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/concurrent/futures/thread.py:59: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/integration/test_geo_questions_transactions.py:208: in create
+    return commands.create_variant(
+backend/app/services/geo_prompt_variants.py:179: in create_variant
+    topic = _lock_topic(db, query_topic_id)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/integration/test_geo_questions_transactions.py:200: in observed_topic_lock
+    return original(db, topic_id)
+           ^^^^^^^^^^^^^^^^^^^^^^
+backend/app/services/geo_prompt_variants.py:51: in _lock_topic
+    topic = db.scalar(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2421: in scalar
+    return self._execute_internal(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2271: in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/context.py:306: in orm_execute_statement
+    result = conn.execute(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Cursor [closed] [IDLE] (host=127.0.0.1 port=55441 user=geo202 database=partsignal_geo202_849ddcf61a) at 0x10ec65fd0>
+query = 'SELECT query_topics.id, query_topics.canonical_question, query_topics.intent_type, query_topics.variants, query_topics.revision, query_topics.created_at \nFROM query_topics \nWHERE query_topics.id = %(id_1)s::UUID FOR UPDATE'
+params = {'id_1': UUID('17b11b1f-28ed-49f8-abb7-2114bce195d7')}
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool | None = None,
+    ) -> Self:
+        """
+        Execute a query or command to the database.
+        """
+        try:
+            with self._conn.lock:
+                self._conn.wait(
+                    self._execute_gen(query, params, prepare=prepare, binary=binary)
+                )
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           sqlalchemy.exc.OperationalError: (psycopg.errors.DeadlockDetected) deadlock detected
+E           DETAIL:  Process 7850 waits for ShareLock on transaction 3915; blocked by process 7849.
+E           Process 7849 waits for ShareLock on transaction 3916; blocked by process 7850.
+E           HINT:  See server log for query details.
+E           CONTEXT:  while locking tuple (0,1) in relation "query_topics"
+E           [SQL: SELECT query_topics.id, query_topics.canonical_question, query_topics.intent_type, query_topics.variants, query_topics.revision, query_topics.created_at 
+E           FROM query_topics 
+E           WHERE query_topics.id = %(id_1)s::UUID FOR UPDATE]
+E           [parameters: {'id_1': UUID('17b11b1f-28ed-49f8-abb7-2114bce195d7')}]
+E           (Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+backend/.venv/lib/python3.12/site-packages/psycopg/cursor.py:117: OperationalError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+_ test_same_actor_topic_command_and_variant_create_have_no_lock_cycle[delete] __
+
+self = <sqlalchemy.engine.base.Connection object at 0x10ee09220>
+dialect = <sqlalchemy.dialects.postgresql.psycopg.PGDialect_psycopg object at 0x10dc465a0>
+context = <sqlalchemy.dialects.postgresql.psycopg.PGExecutionContext_psycopg object at 0x10f0d8800>
+statement = <sqlalchemy.dialects.postgresql.psycopg.PGCompiler_psycopg object at 0x10ed6f020>
+parameters = [{'action': 'query_topic.deleted', 'actor_id': UUID('af4c390c-2333-4102-b03a-0f5b2e368a26'), 'business_module': 'CONTENT_PLANNING', 'details': Jsonb({'facts': {'revision': 0}}), ...}]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+    
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+    
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+    
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+    
+        effective_parameters: Optional[_AnyExecuteParams]
+    
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+    
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+    
+        if self._echo:
+            self._log_info(str_statement)
+    
+            stats = context._get_cache_stats()
+    
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+    
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Cursor [closed] [IDLE] (host=127.0.0.1 port=55441 user=geo202 database=partsignal_geo202_849ddcf61a) at 0x10ede9e50>
+query = 'INSERT INTO audit_logs (id, actor_id, business_module, action, target_type, target_id, outcome, result_message, error...sage)s::VARCHAR, %(error_code)s::VARCHAR, %(details)s::JSONB, %(request_id)s::VARCHAR) RETURNING audit_logs.created_at'
+params = {'action': 'query_topic.deleted', 'actor_id': UUID('af4c390c-2333-4102-b03a-0f5b2e368a26'), 'business_module': 'CONTENT_PLANNING', 'details': Jsonb({'facts': {'revision': 0}}), ...}
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool | None = None,
+    ) -> Self:
+        """
+        Execute a query or command to the database.
+        """
+        try:
+            with self._conn.lock:
+                self._conn.wait(
+                    self._execute_gen(query, params, prepare=prepare, binary=binary)
+                )
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           psycopg.errors.DeadlockDetected: deadlock detected
+E           DETAIL:  Process 7849 waits for ShareLock on transaction 3927; blocked by process 7850.
+E           Process 7850 waits for ShareLock on transaction 3926; blocked by process 7849.
+E           HINT:  See server log for query details.
+E           CONTEXT:  while locking tuple (0,3) in relation "users"
+E           SQL statement "SELECT 1 FROM ONLY "public"."users" x WHERE "id" OPERATOR(pg_catalog.=) $1 FOR KEY SHARE OF x"
+
+backend/.venv/lib/python3.12/site-packages/psycopg/cursor.py:117: DeadlockDetected
+
+The above exception was the direct cause of the following exception:
+
+questions_api = QuestionsAPI(engine=Engine(postgresql+psycopg://geo202:***@127.0.0.1:55441/partsignal_geo202_849ddcf61a), factory=sess...arlette.testclient.TestClient object at 0x10ed6e720>, engineer=<starlette.testclient.TestClient object at 0x10ed6f890>)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ed6da90>
+topic_command = 'delete'
+
+    @pytest.mark.parametrize("topic_command", ["update", "delete"])
+    def test_same_actor_topic_command_and_variant_create_have_no_lock_cycle(
+        questions_api: QuestionsAPI, monkeypatch: pytest.MonkeyPatch, topic_command: str
+    ) -> None:
+        """既有主题命令的成功审计 FK 锁必须能越过变体的身份守卫。"""
+        from app.schemas.configuration import IntentType, QueryTopicUpdate
+        from app.services.content_planning import update_query_topic
+    
+        api = questions_api
+        actor_locked = Event()
+        original = commands._lock_topic
+    
+        def observed_topic_lock(db, topic_id):
+            # 进入这一边界时真实 User 锁已取得；不用 sleep 猜测事务调度。
+            actor_locked.set()
+            return original(db, topic_id)
+    
+        monkeypatch.setattr(commands, "_lock_topic", observed_topic_lock)
+    
+        def create():
+            with api.factory() as db:
+                db.execute(text("SET LOCAL statement_timeout = '5s'"))
+                try:
+                    return commands.create_variant(
+                        db=db,
+                        query_topic_id=api.topic,
+                        payload=GeoPromptVariantCreate.model_validate(api.payload()),
+                        actor=db.get(User, api.admin_id),
+                        request_id="geo202-same-actor-create",
+                    )
+                except AppError as exc:
+                    return exc.code
+    
+        with api.factory() as topic_db, ThreadPoolExecutor(1) as pool:
+            topic_db.execute(text("SET LOCAL statement_timeout = '5s'"))
+            topic_db.scalar(select(QueryTopic).where(QueryTopic.id == api.topic).with_for_update())
+            actor = topic_db.get(User, api.admin_id)
+            future = pool.submit(create)
+            assert actor_locked.wait(timeout=5)
+            if topic_command == "delete":
+>               delete_query_topic(
+                    db=topic_db,
+                    query_topic_id=api.topic,
+                    expected_revision=0,
+                    actor=actor,
+                    request_id="geo202-same-actor-delete",
+                )
+
+backend/tests/integration/test_geo_questions_transactions.py:225: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/app/services/content_planning.py:326: in delete_query_topic
+    db.commit()
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2035: in commit
+    trans.commit(_to_root=True)
+<string>:2: in commit
+    ???
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/state_changes.py:137: in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:1316: in commit
+    self._prepare_impl()
+<string>:2: in _prepare_impl
+    ???
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/state_changes.py:137: in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:1290: in _prepare_impl
+    self.session.flush()
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:4353: in flush
+    self._flush(objects)
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:4488: in _flush
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py:122: in __exit__
+    raise exc_value.with_traceback(exc_tb)
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:4449: in _flush
+    flush_context.execute()
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py:465: in execute
+    rec.execute(self)
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py:641: in execute
+    util.preloaded.orm_persistence.save_obj(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py:94: in save_obj
+    _emit_insert_statements(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py:1234: in _emit_insert_statements
+    result = connection.execute(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Cursor [closed] [IDLE] (host=127.0.0.1 port=55441 user=geo202 database=partsignal_geo202_849ddcf61a) at 0x10ede9e50>
+query = 'INSERT INTO audit_logs (id, actor_id, business_module, action, target_type, target_id, outcome, result_message, error...sage)s::VARCHAR, %(error_code)s::VARCHAR, %(details)s::JSONB, %(request_id)s::VARCHAR) RETURNING audit_logs.created_at'
+params = {'action': 'query_topic.deleted', 'actor_id': UUID('af4c390c-2333-4102-b03a-0f5b2e368a26'), 'business_module': 'CONTENT_PLANNING', 'details': Jsonb({'facts': {'revision': 0}}), ...}
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool | None = None,
+    ) -> Self:
+        """
+        Execute a query or command to the database.
+        """
+        try:
+            with self._conn.lock:
+                self._conn.wait(
+                    self._execute_gen(query, params, prepare=prepare, binary=binary)
+                )
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           sqlalchemy.exc.OperationalError: (psycopg.errors.DeadlockDetected) deadlock detected
+E           DETAIL:  Process 7849 waits for ShareLock on transaction 3927; blocked by process 7850.
+E           Process 7850 waits for ShareLock on transaction 3926; blocked by process 7849.
+E           HINT:  See server log for query details.
+E           CONTEXT:  while locking tuple (0,3) in relation "users"
+E           SQL statement "SELECT 1 FROM ONLY "public"."users" x WHERE "id" OPERATOR(pg_catalog.=) $1 FOR KEY SHARE OF x"
+E           [SQL: INSERT INTO audit_logs (id, actor_id, business_module, action, target_type, target_id, outcome, result_message, error_code, details, request_id) VALUES (%(id)s::UUID, %(actor_id)s::UUID, %(business_module)s::VARCHAR, %(action)s::VARCHAR, %(target_type)s::VARCHAR, %(target_id)s::VARCHAR, %(outcome)s::VARCHAR, %(result_message)s::VARCHAR, %(error_code)s::VARCHAR, %(details)s::JSONB, %(request_id)s::VARCHAR) RETURNING audit_logs.created_at]
+E           [parameters: {'id': UUID('dc1fa4eb-82aa-4ecd-a9ba-29a9da2d00f0'), 'actor_id': UUID('af4c390c-2333-4102-b03a-0f5b2e368a26'), 'business_module': 'CONTENT_PLANNING', 'action': 'query_topic.deleted', 'target_type': 'QueryTopic', 'target_id': '8bffce72-70f6-4915-aa9a-528cacfe906c', 'outcome': 'SUCCESS', 'result_message': 'GEO 问题已删除', 'error_code': None, 'details': Jsonb({'facts': {'revision': 0}}), 'request_id': 'geo202-same-actor-delete'}]
+E           (Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+backend/.venv/lib/python3.12/site-packages/psycopg/cursor.py:117: OperationalError
+=========================== short test summary info ============================
+FAILED backend/tests/integration/test_geo_questions_transactions.py::test_same_actor_topic_command_and_variant_create_have_no_lock_cycle[update]
+FAILED backend/tests/integration/test_geo_questions_transactions.py::test_same_actor_topic_command_and_variant_create_have_no_lock_cycle[delete]
+2 failed, 5 deselected in 3.89s

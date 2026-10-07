@@ -1,0 +1,179 @@
+{
+  "task": "GEO-307",
+  "release": "R2",
+  "status": "review",
+  "date": "2026-10-02",
+  "timezone": "America/Los_Angeles",
+  "branch": "geo/GEO-307",
+  "checks": [
+    {
+      "command": "npm --prefix frontend run test -- src/domains/geo-plans src/domains/geo-questions src/domains/geo/geo-evidence-upload.test.tsx src/design-system/forms/dirty-guard.test.tsx",
+      "required": false,
+      "exit_code": 0,
+      "status": "passed",
+      "result": "9个文件，91项通过",
+      "log": "evidence/baseline-frontend.log",
+      "log_sha256": "53b31210ddbe7fa8792dfd222f35d97aa9f4f5fbc5a1d7300315c72442518e01"
+    },
+    {
+      "command": "UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_manual_collection_contract.py backend/tests/unit/test_geo_read_contract.py",
+      "required": false,
+      "exit_code": 0,
+      "status": "passed",
+      "result": "manual/read合同31项通过",
+      "log": "evidence/baseline-backend.log",
+      "log_sha256": "ec677987cde5f459e24be64d41d99ab7df1100fa24983a7a32f9db0f44650566"
+    },
+    {
+      "command": "git diff --check",
+      "required": true,
+      "exit_code": 0,
+      "status": "passed",
+      "result": "最终状态无diff空白错误；新增人工维护源码另检查无尾随空白",
+      "log": "evidence/diff-check.log"
+    },
+    {
+      "command": "make lint",
+      "required": true,
+      "exit_code": 0,
+      "status": "passed",
+      "result": "Ruff与ESLint通过",
+      "log": "evidence/lint-final.log",
+      "log_sha256": "4b752a94784ad75c8b1a49c9f372ea89c4dce57fcb2d66a90d7a964fb23f78ab"
+    },
+    {
+      "command": "make typecheck",
+      "required": true,
+      "exit_code": 0,
+      "status": "passed",
+      "result": "后端142文件与前端类型检查通过",
+      "log": "evidence/typecheck-final.log",
+      "log_sha256": "774d4139229895d50c71430705da54ee9d964300230efc69b8402410a186f8f1"
+    },
+    {
+      "command": "npm --prefix frontend run test",
+      "required": true,
+      "exit_code": 0,
+      "status": "passed",
+      "result": "119个文件，1121项通过",
+      "log": "evidence/frontend-full-final.log",
+      "log_sha256": "e124fac08bbe80fedf59c40ceec2289a3a6d4c2f800e4d00ff1bbf065f1c7faf"
+    },
+    {
+      "command": "npm --prefix frontend run typecheck",
+      "required": true,
+      "exit_code": 0,
+      "status": "passed",
+      "result": "通过",
+      "log": "evidence/frontend-typecheck-final.log",
+      "log_sha256": "8477c7fd19e83d96189389c781883aebc77712d52c0de19c573ad4bf5e0d7d6b"
+    },
+    {
+      "command": "make contract-check",
+      "required": false,
+      "exit_code": 0,
+      "status": "passed",
+      "result": "runtime/OpenAPI/generated一致",
+      "log": "evidence/contract.log",
+      "log_sha256": "abe368d4cd94339b194b6f9110cd5992fd322fa4f50e48c4f1f215143eab2dd5"
+    },
+    {
+      "command": "npm --prefix frontend run build",
+      "required": false,
+      "exit_code": 0,
+      "status": "passed",
+      "result": "构建通过，保留既有Markdown chunk体积警告；最终定向真实栈再次构建当前候选通过",
+      "log": "evidence/build-final.log",
+      "log_sha256": "2b4cb3313456ecf987e9589ad54ffe353293bd9d7c54657e102c83dbb6300e48"
+    },
+    {
+      "command": "DATABASE_URL=postgresql+psycopg://partsignal:geo307-local-test-only@127.0.0.1:55457/partsignal REDIS_URL=redis://127.0.0.1:56397/15 make e2e",
+      "required": true,
+      "exit_code": 2,
+      "status": "failed",
+      "result": "默认未过滤真实栈24通过/2既有失败，标准秘密扫描clean；Make未进入fixture后半",
+      "log": "evidence/make-e2e.log",
+      "log_sha256": "cdd71d0554ebb8ec92daff62094d6a74aff1aecec10c8311cdf417d464dbf7d4",
+      "candidate_relation": "完整门禁后补齐文件GC终态与不可恢复读错误；最终候选由新一轮lint/typecheck、完整前端测试与定向真实栈验证；未把完整门禁原始失败状态改为通过"
+    },
+    {
+      "command": "npm --prefix frontend run e2e",
+      "required": false,
+      "exit_code": 0,
+      "status": "passed",
+      "result": "补充默认fixture498通过/54按模式跳过，秘密扫描clean",
+      "log": "evidence/e2e-fixture.log",
+      "log_sha256": "2f6a242998a33736caed9d7a7f8642aae3682286def6fa9764003ca3b4189ca8"
+    },
+    {
+      "command": "DATABASE_URL=postgresql+psycopg://partsignal:geo307-local-test-only@127.0.0.1:55457/partsignal REDIS_URL=redis://127.0.0.1:56397/15 PARTSIGNAL_E2E_SPEC=tests/e2e/runs-real-stack.spec.ts deploy/scripts/e2e-local.sh",
+      "required": false,
+      "exit_code": 0,
+      "status": "passed",
+      "result": "最终候选GEO-307真实栈1通过，秘密扫描clean；迁移base→0051及独占资源清理通过",
+      "log": "evidence/e2e-final.log",
+      "log_sha256": "b89736037bb8f3edce05fb68e932dca0a12c41e5922fbea70726b1b468be3cc8"
+    }
+  ],
+  "known_gate_failures": [
+    {
+      "file": "frontend/tests/e2e/geo-real-stack.spec.ts",
+      "line": 292,
+      "cause": "既有postDataBuffer字节断言获得null，底层浏览器原因未确认",
+      "changed_by_this_task": false
+    },
+    {
+      "file": "frontend/tests/e2e/surfaces-real-stack.spec.ts",
+      "line": 100,
+      "cause": "既有共享content_editor密码被前执行auth-session测试改变，后用例沿用seed密码登录401",
+      "changed_by_this_task": false
+    }
+  ],
+  "not_run": [
+    {
+      "check": "完整后端unit/integration与make verify",
+      "reason": "无后端、根合同或数据库变更；已执行相关基线、合同检查、真实纵向和用户要求门禁，不扩大到GEO-308阶段验收"
+    },
+    {
+      "check": "真实浏览器网络丢回执/principal切换/GC故障注入",
+      "reason": "本次这些路径由组件测试和独立只读复核覆盖；真实栈验证正常人工流程"
+    },
+    {
+      "check": "native浏览器200%缩放",
+      "reason": "实际验证四档宽度与CSS zoom=2，没有以CSS缩放冒充native缩放"
+    }
+  ],
+  "required_commands_unexecuted": [],
+  "database": {
+    "new_revision": null,
+    "head": "0051_geo_manual_collection",
+    "migration": "隔离空数据库base→0051前滚通过",
+    "historical_data_migration": false,
+    "production_migration": false
+  },
+  "audit": {
+    "audit_id": "20261003T045826Z-geo-307-ee12561b",
+    "valid_task_digest": false,
+    "bundle_status": "open",
+    "digest_error": "generated plan field does not match deterministic output: codex_config_evidence",
+    "finalize_exit_code": 2,
+    "verify_exit_code": 2,
+    "statistics": "未取得有效Digest，不可靠报告聚合统计"
+  },
+  "environment": {
+    "postgres": "本任务PostgreSQL16，127.0.0.1:55457",
+    "redis": "本任务Redis7.4，127.0.0.1:56397，DB15",
+    "real_external_ai": false,
+    "standard_e2e_cleanup": "隔离数据库、storage、Redis任务键与四个服务端口均清理",
+    "compose_down_volume": true,
+    "colima_stopped": true,
+    "docker_context_restored": "default",
+    "remaining_task_listeners": false
+  },
+  "limits": [
+    "完整make e2e未通过，不能合成为通过",
+    "未保存草稿只留组件内存，已保存草稿刷新恢复",
+    "COLLECTED不代表分析完成，分析与质量仍NOT_IMPLEMENTED",
+    "未实现GEO-308或GEO-408"
+  ]
+}

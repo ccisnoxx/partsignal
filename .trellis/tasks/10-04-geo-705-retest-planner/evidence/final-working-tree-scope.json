@@ -1,0 +1,20 @@
+{
+  "new_task_files": 11,
+  "modified_existing_task_files": 23,
+  "removed_initial_git_status_entries": [],
+  "new_git_status_entries": [
+    "?? .trellis/tasks/10-04-geo-705-retest-planner/",
+    "?? backend/alembic/versions/0061_geo_retests.py",
+    "?? backend/app/models/geo_retests.py",
+    "?? backend/app/routers/geo_retests.py",
+    "?? backend/app/schemas/geo_retests.py",
+    "?? backend/app/services/geo_retest_baselines.py",
+    "?? backend/app/services/geo_retest_comparability.py",
+    "?? backend/app/services/geo_retests.py",
+    "?? backend/tests/integration/geo_retests_support.py",
+    "?? backend/tests/integration/test_geo_retest_migration.py",
+    "?? backend/tests/integration/test_geo_retests.py"
+  ],
+  "new_python_files_under_500_lines": true,
+  "note": "status列表不能发现既有untracked文件内的修改；本次写入以change-manifest及起点备份差异为准。"
+}

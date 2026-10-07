@@ -10,7 +10,7 @@ from typing import Any
 
 import bleach
 import markdown
-from sqlalchemy import case, func, literal, or_, select, union
+from sqlalchemy import String, case, func, literal, or_, select, union
 from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session, aliased
 
@@ -22,6 +22,7 @@ from app.models.geo_files import (
     GeoObservationCitation,
     GeoObservationPublication,
 )
+from app.models.geo_opportunities import GeoOpportunityAction
 from app.models.product_facts import FactVersion, Product
 from app.models.publication import (
     PlatformAccount,
@@ -179,6 +180,35 @@ def published_article_deletion_blockers(
     ):
         blockers[article_id].append(
             DeletionBlocker(type="GEO_OPTIMIZATION_SOURCE", count=int(count))
+        )
+    action_refs = union(
+        select(PublishedArticle.id.label("article_id"), GeoOpportunityAction.id.label("action_id"))
+        .join(
+            GeoOpportunityAction,
+            or_(
+                GeoOpportunityAction.source_snapshot["published_article_id"].as_string()
+                == func.cast(PublishedArticle.id, String),
+                (GeoOpportunityAction.target_type == "PublishedArticle")
+                & (GeoOpportunityAction.target_id == PublishedArticle.id),
+            ),
+        )
+        .where(PublishedArticle.id.in_(article_ids)),
+        select(
+            PublishedContentIssue.published_article_id.label("article_id"),
+            GeoOpportunityAction.id.label("action_id"),
+        )
+        .join(
+            GeoOpportunityAction,
+            (GeoOpportunityAction.target_type == "PublishedContentIssue")
+            & (GeoOpportunityAction.target_id == PublishedContentIssue.id),
+        )
+        .where(PublishedContentIssue.published_article_id.in_(article_ids)),
+    ).subquery()
+    for article_id, count in db.execute(
+        select(action_refs.c.article_id, func.count()).group_by(action_refs.c.article_id)
+    ):
+        blockers[article_id].append(
+            DeletionBlocker(type="GEO_OPPORTUNITY_ACTION", count=int(count))
         )
     return blockers
 

@@ -1,0 +1,24 @@
+{
+  "git_diff_check": {
+    "command": "git diff --check",
+    "exit_code": 0
+  },
+  "baseline_files": 39,
+  "unchanged_maintained_files": 37,
+  "changed_existing_files": [
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/SHA256SUMS"
+  ],
+  "other_manifest_tasks_unchanged": true,
+  "dependencies_done": true,
+  "manifest_transition": "planned -> blocked",
+  "trellis_transition": "planning -> blocked",
+  "adapter_implemented": false,
+  "new_revision": null,
+  "real_platform_calls": 0,
+  "staging_smoke": "not run; required approval inputs absent",
+  "task_file_whitespace_errors": [],
+  "manifest_sha256_valid": true,
+  "delegated": false,
+  "alembic_source_head": "0063_geo_browser_sessions"
+}

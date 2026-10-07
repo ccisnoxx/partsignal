@@ -1,0 +1,19 @@
+{
+  "p95_seconds": {
+    "runs_first": 0.06672841700492427,
+    "runs_deep": 0.16880895898793824,
+    "runs_review": 0.06882524999673478,
+    "batches": 0.013031374983256683,
+    "batches_status": 0.16539320899755694,
+    "run_detail": 0.007995083986315876
+  },
+  "deep_page_baseline_p95_seconds": 1.008150542009389,
+  "deep_page_p95_reduction_fraction": 0.832555801982234,
+  "csv_rows": 100000,
+  "csv_bytes": 93015708,
+  "csv_seconds": 51.18228402399109,
+  "csv_first_chunk_seconds": 0.046718208002857864,
+  "csv_rss_growth_after_5000_rows_bytes": 1273856,
+  "prefork_sampled_pss_mib": 801.2978515625,
+  "target_environment_verified": false
+}

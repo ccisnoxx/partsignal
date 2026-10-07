@@ -1,0 +1,504 @@
+--- before/deploy/scripts/test-geo-configuration.py
++++ candidate/deploy/scripts/test-geo-configuration.py
+@@ -31,9 +31,13 @@
+ assert main.settings is worker.settings is config.settings
+ with TestClient(main.app) as client:
+     assert client.get('/api/health/live').json() == {'status': 'ok', 'checks': None}
+-assert not any(name.startswith('partsignal.geo_') for name in worker.celery_app.tasks)
+-assert not any(item['task'].startswith('partsignal.geo_')
+-               for item in worker.celery_app.conf.beat_schedule.values())
++# GEO-901 已批准限批清理；注册与声明调度不等于启动时执行任务。
++# 精确集合仍拒绝新增未知入口，网络审计继续证明启动零外部调用。
++assert {name for name in worker.celery_app.tasks if name.startswith('partsignal.geo_')} == {
++    'partsignal.geo_cleanup_artifacts'
++}
++assert {item['task'] for item in worker.celery_app.conf.beat_schedule.values()
++        if item['task'].startswith('partsignal.geo_')} == {'partsignal.geo_cleanup_artifacts'}
+ assert not attempts
+ print(json.dumps([config.settings.geo_monitoring_enabled,
+                  config.settings.geo_api_collection_enabled,
+--- before/docs/geo-monitoring/README.md
++++ candidate/docs/geo-monitoring/README.md
+@@ -80,7 +80,7 @@
+ 
+ GEO-801、802、803 已人工接受为 done，代码和证据保留。GEO-804～807 为 deferred，release 为 post-core；真实 Adapter 未实施。核心生产必须保持 GEO_BROWSER_COLLECTION_ENABLED=false 且无生产 Browser 会话，实际环境检查留 GEO-904/906，不从默认配置推断已验收上线。
+ 
+-GEO-904 / R8 的本地安全复核与两项真实 PG 补充测试见[专项复核报告](./04-delivery/11-r8-security-review.md)和[实施记录](../../.trellis/tasks/10-05-geo-904-security/implement.md)。本轮目标环境与实际平台批准证据缺失，最终记录 blocked；不以默认配置或隔离演练证明生产 Browser false/无材料，不自行接受例外。
++GEO-904 / R8 的本地安全复核与两项真实 PG 补充测试见[专项复核报告](./04-delivery/11-r8-security-review.md)和[实施记录](../../.trellis/tasks/10-05-geo-904-security/implement.md)。实施时因目标环境与实际平台批准证据缺失记录 blocked，随后用户明确接受为 done；现场仍未验证，不以默认配置或隔离演练证明生产 Browser false/无材料。GEO-906 收口现场证据，不改写依赖的历史限制。
+ 
+ ## 1. 文档包用途
+ 
+@@ -177,6 +177,9 @@
+ | 交付 | [GEO-607：洞察性能与 R5 验收](./04-delivery/06-r5-insight-performance-acceptance.md) |
+ | 交付 | [GEO-003：基线验证与环境阻断](./04-delivery/geo-003-baseline/validation.md) |
+ | 交付 | [GEO-904：R8 安全专项复核](./04-delivery/11-r8-security-review.md) |
++| 交付 | [GEO-906：R8 核心发布验收与阻断](./04-delivery/13-r8-core-release-acceptance.md) |
++| 运维 | [核心版渐进发布 Runbook](./03-technical/10-core-rollout-runbook.md) |
++| 运维 | [低敏发布记录模板](./04-delivery/geo-906-release-record.template.yaml) |
+ | 交付 | [任务状态与依赖清单](./04-delivery/task-manifest.yaml) |
+ | 决策 | [ADR-001：扩展模块化单体](./05-decisions/ADR-001-extend-modular-monolith.md) |
+ | 决策 | [ADR-002：统一观测运行模型](./05-decisions/ADR-002-unified-observation-run-model.md) |
+@@ -424,8 +427,10 @@
+ 入口及资产/恢复/停止/Browser条件流程见[恢复Runbook](./03-technical/09-backup-recovery-runbook.md)。
+ 真实PG16、对象HTTP GET/HEAD、配套凭据、Run Detail/Overview、调度去重与中断清理的
+ 实际证据见[Task Brief](../../.trellis/tasks/10-05-geo-903-recovery/prd.md)与
+-[实施记录](../../.trellis/tasks/10-05-geo-903-recovery/implement.md)。只交付review，等待人工接受；
++[实施记录](../../.trellis/tasks/10-05-geo-903-recovery/implement.md)。已人工接受为done；
+ Browser N/A只适用于新建演练来源的检查证据，生产false/无会话由904/906另核实。
+ 
+ 
+-GEO-905 / R8 实施Run列表先窄键分页再投影、真实Worker启动并发配置，以及100k列表/CSV、1000根矩阵、threads/prefork并发和EXPLAIN诊断门禁。代码与本地检查完成，目标环境与冻结阈值仍待明确，当前blocked；本地结果不能当作VPS验收。范围、真实失败/补验证、资源限制及状态见[容量记录](./04-delivery/12-r8-capacity-hardening.md)、[Task Brief](../../.trellis/tasks/10-05-geo-905-capacity/prd.md)和[实施证据](../../.trellis/tasks/10-05-geo-905-capacity/implement.md)。没有新API/数据库迁移、业务物化缓存或生产部署，不实施906。
++GEO-905 / R8 实施Run列表先窄键分页再投影、真实Worker启动并发配置，以及100k列表/CSV、1000根矩阵、threads/prefork并发和EXPLAIN诊断门禁。实施时因目标环境与冻结阈值缺失blocked，随后用户明确接受为done；本地结果不能当作VPS验收，目标容量仍待906收口。范围、真实失败/补验证、资源限制及状态见[容量记录](./04-delivery/12-r8-capacity-hardening.md)、[Task Brief](../../.trellis/tasks/10-05-geo-905-capacity/prd.md)和[实施证据](../../.trellis/tasks/10-05-geo-905-capacity/implement.md)。没有新API/数据库迁移、业务物化缓存或生产部署。
++
++GEO-906 / R8 本轮因必需生产输入/人工批准缺失记录blocked，当前状态以manifest为准。提供[渐进发布Runbook](./03-technical/10-core-rollout-runbook.md)、[记录模板](./04-delivery/geo-906-release-record.template.yaml)及[最终验收矩阵](./04-delivery/13-r8-core-release-acceptance.md)，修正配置gate对已验收retention注册的旧断言。未执行生产expand/deploy/enable；目标入口、候选和阶段批准尚缺。MANUAL/API公式、历史、安全边界和运行开关未改，Browser现场仍NOT_VERIFIED，不能填N/A；生产cron/自动evaluator缺口保留。核心与R7延期证据分别记录，不标已上线。
+--- before/docs/geo-monitoring/CHANGELOG.md
++++ candidate/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,12 @@
+ # 文档包变更记录
++
++## GEO-906 / R8 核心渐进发布准备 — 2026-10-05（blocked）
++
++- 核对903/904/905 done与人工接受；更新当前索引状态，保留904/905现场/容量未验证历史。
++- 新核心rollout runbook、低敏证据模板与最终验收矩阵，明确expand/deploy组合批准、enable、MANUAL闭环/内部试用、监控/停止/恢复。
++- 修正配置gate的R0旧断言，精确允许已验收geo_cleanup_artifacts注册；18场景、共享Settings和启动零外部调用保持。
++- 无OpenAPI/数据库/Alembic/前端/指标/历史/安全/实际运行配置变化，未执行生产动作；R7 deferred不改，Browser现场NOT_VERIFIED、适用性NOT_DETERMINED。
++- 生产入口、固定候选、批准和观察期输入缺失；cron/自动evaluator未接线保留NOT_MET，不借906新增功能或宣称全部核心验收。实际检查与阻断见[验收记录](./04-delivery/13-r8-core-release-acceptance.md)及[Trellis记录](../../.trellis/tasks/10-05-geo-906-rollout/implement.md)。
+ 
+ ## GEO-905 / R8 大数据量性能和容量硬化 — 2026-10-05（blocked）
+ 
+--- before/docs/geo-monitoring/SHA256SUMS
++++ candidate/docs/geo-monitoring/SHA256SUMS
+@@ -15,10 +15,10 @@
+ daf8f8cec2dfb8996c316ca259ae6eea161d944337f340ce9c6180bc9c87c0f5  ./03-technical/05-worker-and-collector-architecture.md
+ 596532a0304d246a9051872ebed910156983b9fd2cd146ef234fd6700e07c1eb  ./03-technical/06-security-and-compliance.md
+ 351dc8f784a3f84f8a844e2cb3f2d67c9cd77852159eb8690b19e66cd758d4b6  ./03-technical/07-testing-and-quality.md
+-1ea72f1c6dfa1073686e62f0f6f0cee1caefae9ed4d12e7d8ad5accc2578d137  ./03-technical/08-deployment-and-operations.md
+-46f6d9585856b518af06b01863b0e25b3b00906ffde987d7453fcf810a85db93  ./04-delivery/01-implementation-roadmap.md
++8715207eb88a82ab72d6565f880d871e5e4356b26fe3948cb8eb98e50d15ca2d  ./03-technical/08-deployment-and-operations.md
++80dff21fd8daca7754f9a02a6b5b5a5d6bd43a2705ede0b88c9e2b07cd05b014  ./04-delivery/01-implementation-roadmap.md
+ eee6ed49f55846ab63c464b2696112b270572e050b43195bdb2a9fddb8122613  ./04-delivery/02-work-breakdown-structure.md
+-fe8eb7c838c0616c6330ba9c9cc0b4c2c1d51a07d682e325764a74bff3283afd  ./04-delivery/03-requirement-traceability-matrix.md
++ff9c5c9426eadc2f53c9df96daccba3761c8a736d1c7c4feb547f39f2b58adbc  ./04-delivery/03-requirement-traceability-matrix.md
+ 1224ffc2606ab412e8c2f886b10b6cd57e520006b7229c754f866c674bcf4a26  ./04-delivery/04-codex-execution-guide.md
+ 63659ee9c39988256052cd75d8fe0e15213daea802f76b2a1481520ee0aac45e  ./04-delivery/05-task-template.md
+ 0ec18f9ce8589f4c8e222fddc6d15853c949ad2b227381b584e2c81c4c4e47b0  ./04-delivery/06-current-geo-baseline.md
+@@ -106,15 +106,15 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-fe68820ade0bd82f657e0ecbacc25c3e4048e830f0893a1ef1d4ef944857fd1c  ./04-delivery/task-manifest.yaml
++5155b41ca9c178518f495098963595decffee8d18b5719973e021bb2928b2407  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 8f4f24331d4ea91574e5a4a56c3eacd9d89e193011c48f8d9f5e413198793909  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-e5ce198e552514b03f29203b70f8ba335edaba5a03f2f9fa199ea28daa490f1f  ./CHANGELOG.md
+-6ef404b993a1e2257185eddeba38c59639ab4bdc0869fcdd27a072754d3ca245  ./README.md
++aeef3d825462dd415ac5cd166df0cc518fc8ee0e8ee26d9dd497d100b098189b  ./CHANGELOG.md
++851d7b2e0ca91c115a1c2b2071557ffaaaa59568f5301c3dfef8e263c49ccaa6  ./README.md
+ 670f9d9e94e3a36b849691f8531a30433ea0253f234b855d08331b6d2b1905cd  ./04-delivery/10-r6-opportunity-acceptance.md
+ 2ecb8425899de5f1ae4f6a1f0b130f93aba201fbc9c084856d6893835d0484e9  ./02-business/05-manual-geo-observation-sop.md
+ 063efdbae17e86fc90ff7e6cff80ecdfdb6eee1e37416e5e3179531c7260a7cd  ./04-delivery/09-r4-analysis-acceptance.md
+@@ -122,3 +122,6 @@
+ 48ee02798a720cd1c74067e040677bf18947e56933521c2d409b4feb81cc4c0e  ./03-technical/09-backup-recovery-runbook.md
+ 8701bf8f2226438836d4977f1e75de52e18fbfae1100865984ca02f55e596380  ./04-delivery/11-r8-security-review.md
+ 7f8a497ed5d19102cdeab9d30fec7e6939e0db185bd82f8dfe3431c835f4cd13  ./04-delivery/12-r8-capacity-hardening.md
++47a1e976142dbd806847f9218b28e624f4aa015eeec8f4d766f33718f71eb931  ./03-technical/10-core-rollout-runbook.md
++f1d1d321c67e2d64f77be8960858dd1b63ed35ddcbd6c2af7c97e5f057308938  ./04-delivery/13-r8-core-release-acceptance.md
++e047efc782933053f13f46e205e6aff331b4d3e2f8574a1c6857c97d426115cc  ./04-delivery/geo-906-release-record.template.yaml
+--- before/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ candidate/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -1626,7 +1626,7 @@
+   phase: R8
+   release: R8
+   title: 执行生产渐进上线、最终验收和文档状态更新
+-  status: planned
++  status: blocked
+   dependencies:
+   - GEO-903
+   - GEO-904
+@@ -1646,3 +1646,6 @@
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
+   - 05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
++  trellis_task: .trellis/tasks/10-05-geo-906-rollout
++  execution_note: "2026-10-05：903/904/905 done及人工接受记录已核对，按ADR006开始核心发布准备；生产现场、固定候选与阶段人工批准未提供，本地证据不作上线证明。"
++  blocked_note: "2026-10-05：本地发布准备已交付；必需目标入口、固定candidate、阶段人工批准、试用/容量/观察期输入缺失，生产NOT_STARTED。保留完整verify原失败和定向补验证，不以依赖done/本地证据宣称上线；prepared阶段artifact失败恢复和生产cron/自动evaluator缺口保留，恢复条件见13-r8-core-release-acceptance.md。未进入review，不自行done。"
+--- before/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
++++ candidate/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
+@@ -531,3 +531,11 @@
+ `CELERY_CONCURRENCY`现由Settings在进程启动时读取，默认1、范围1..10，并传给Celery worker_concurrency。三套Compose不再固定CLI单并发。该字段以前只作历史记录，升级前须核对已有值；越界显式启动失败。env文件变化需受控recreate，不代表运行进程已加载。prefetch=1、acks_late、reject_on_worker_lost保持。Profile max_concurrency/每分钟限制、预算和PG发送账本独立裁决，增加进程数不授予外发资格。
+ 
+ 本地虚构资料的十路prefork最终观测约801MiB采样PSS（主进程加十子进程），高于staging的512MiB Worker限额；不能将该环境直接设为10。production的1GiB也不能仅凭此观测推断足够余量。默认仍为1；本任务不调整实际runtime、容器内存限额或部署。提升容量须以目标环境的长回答/多引用、持续采集和分析并发实测冻结上限。任务证据与未完成边界见[容量记录](../04-delivery/12-r8-capacity-hardening.md)。
++
++## GEO-906 核心渐进发布
++
++当前执行入口见[核心发布Runbook](./10-core-rollout-runbook.md)，实际状态见[最终验收记录](../04-delivery/13-r8-core-release-acceptance.md)。
++沿用Production candidate/维护锁/upgrade/activation所有者；前滚与部署合并动作须同时获expand/deploy批准，enable单独批准。
++总开关允许MANUAL不等于允许API/Browser；Browser持续false，三进程实际配置及服务/profile/overlay/PG全部会话/材料共同取证。
++未知材料适用性NOT_DETERMINED，不用默认配置给N/A。停止保留PG/SENT/UNKNOWN，不重发、重置终态或downgrade。
++本次仅本地准备，未访问生产、运行开关未改；生产监控、正式MANUAL试用、目标恢复/停止仍须实际证据。
+--- before/docs/geo-monitoring/04-delivery/01-implementation-roadmap.md
++++ candidate/docs/geo-monitoring/04-delivery/01-implementation-roadmap.md
+@@ -252,6 +252,15 @@
+ - 运维 runbook；
+ - 仅把实际实现并验收的核心范围标记已实现，804～807 保持延期，不宣称 Browser 已实现；
+ - GEO-901 的 Browser 临时数据清理条件适用；GEO-903 未部署且无材料时会话恢复 N/A；GEO-904/906 实测 Browser false、服务未启用且无生产会话。
++
++### GEO-906 实际进入状态（2026-10-05）
++
++903/904/905已人工接受为done，可开始906；904现场与905目标容量限制保留。
++当前完成范围为本地发布准备，生产阶段NOT_STARTED；入口、固定candidate、阶段批准与观察期输入尚缺。
++执行与阶段退出见[核心发布Runbook](../03-technical/10-core-rollout-runbook.md)，
++实际验证、最终验收缺口和恢复条件见[验收记录](./13-r8-core-release-acceptance.md)。
++生产Browser事实未验证，清理/会话恢复不能写N/A；Plan cron与自动evaluator未接线不从ADR-006获得延期。
++R7延期不是核心阻断原因；生产输入缺失与上述核心缺口不能被本地通过或依赖done消除。
+ 
+ ## 12. 关键路径
+ 
+--- before/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
++++ candidate/docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
+@@ -239,3 +239,12 @@
+ ### GEO-707 / R6 纵向验收
+ 
+ CAP-GEO-12/13/14 与 REQ-GEO-OPP-001～007 的纵向路径由 `test_geo_opportunity_loop.py` 和 `geo-loop-real-stack.spec.ts` 验证：真实分析/规则从 0/5 触发 TOPIC_COVERAGE_GAP，ContentTask 完成仍 IN_PROGRESS，严格同口径 RETEST 5/5 恢复但不自动关闭，显式 RETEST resolve 保存不可变处理证据。opened 重放/并发创建、审计失败回滚和五段安全投影保护审计边界。当前状态及指定门禁实际结果见 [R6 验收](./10-r6-opportunity-acceptance.md) 和 [GEO-707 实施记录](../../../.trellis/tasks/10-04-geo-707-r6-acceptance/implement.md)，不代表已人工接受或生产上线。
++
++### GEO-906 / R8 核心发布准备与最终验收
++
++CAP-GEO-16、REQ-GEO-OPS-004～007的发布/恢复/监控部分按[核心Runbook](../03-technical/10-core-rollout-runbook.md)执行，
++目标/候选、阶段批准、Browser负证据、MANUAL正式闭环、内部试用和观察期逐项见[验收矩阵](./13-r8-core-release-acceptance.md)。
++本地配置门禁仍覆盖18场景、共享Settings、启动零外部调用，仅精确允许已验收retention注册。
++实际命令和失败分类以[Trellis证据](../../../.trellis/tasks/10-05-geo-906-rollout/implement.md)为准。
++生产阶段NOT_STARTED/NOT_VERIFIED，不能将上述REQ全部标完成；生产Plan cron与自动evaluator仍NOT_IMPLEMENTED。
++ADR-006只延期Browser804～807，核心未验证项与延期证据分别保留，未知Browser材料适用性不标N/A。
+--- before/docs/geo-monitoring/03-technical/10-core-rollout-runbook.md
++++ candidate/docs/geo-monitoring/03-technical/10-core-rollout-runbook.md
+@@ -0,0 +1,138 @@
++# GEO-906：核心版渐进发布 Runbook
++
++本文是 GEO R8 的执行与验收补充。生产发布所有者仍为[Production Runbook](../../Hostdzire部署上线流程.md)、[部署附录](../../Hostdzire部署附录.md)及仓库 `deploy/scripts/deploy.sh`、`activate-production.sh`、`prepare-production-data.py`。本文不授权远端操作，不另建发布执行器。当前生产阶段 **NOT_STARTED**；缺目标、固定候选及人工批准时停止在发布准备。
++
++范围依据 [ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)：R6 → R8，以 [MANUAL SOP](../02-business/05-manual-geo-observation-sop.md)完成回答级观测；804～807 deferred/post-core，不阻断核心。不把真实 Browser Adapter、截图或登录探针写成已实现。Browser 必须持续 false，服务/profile 不启用且无生产会话。
++
++## 1. 入场与证据
++
++每次执行从[发布记录模板](../04-delivery/geo-906-release-record.template.yaml)复制一份低敏记录到对应任务 evidence，填实际目标、UTC 时间、负责人及受保护材料引用。模板不是实际 candidate manifest，也不是批准。未知用 null/NOT_VERIFIED，不能补 false、0 或 N/A。
++
++| 门禁 | 进入下一阶段所需证据 |
++|---|---|
++| 依赖 | manifest 的 903/904/905 done 与人工接受记录；保留 904 现场及 905 容量未验证限制 |
++| 目标 | 精确环境、获准访问入口、运行 project/网络 owner、配置与数据归属；SSH 身份冲突即停止 |
++| 候选 | clean main = origin/main = 完整 commit；确定性 git archive；不可覆盖 release ID、manifest、镜像 ID/RepoDigest 与 tracked-file 校验和 |
++| 备份 | GEO-903 同一静默窗口的 DB/对象/适用密钥/运行配置成套备份，摘要和隔离恢复扫描；密钥另存受保护通道 |
++| 容量 | 目标硬件、容器限额、代表性负载与冻结阈值；并发维持 1，不能把本地十路 prefork 约 801MiB 采样当作 production 1GiB 余量证明 |
++| 批准 | expand/deploy/enable 各自审批人、目标、候选、窗口、操作范围、停止/恢复负责人和批准记录引用；改变目标或候选须重新批准 |
++| 全应用外部服务 | 真实 AI/OSS 配置与既有门禁；GEO API 关闭不免除 activation 的 `PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET` |
++
++dirty GEO 分支只用于实现，不能生成正式 candidate。生成 candidate 必须在另一份已批准、已推送的 clean main 中使用既有 `create-release-manifest.py`；不使用测试绕过变量，不为准备材料提交或推送当前树。记录引用 producer 的原始 manifest，不复制或编造 image ID/commit。candidate 的 schema head 当前为 `0065_geo_observability`，本任务无新增迁移或回填。
++
++现有发布入口把前滚和应用部署合在一次 `deploy.sh` 内。执行该入口前必须同时具备 expand 与 deploy 批准；不能通过手工迁移/Compose up 拆开或绕过维护锁和持久阶段。GEO 使用已有数据的 upgrade，不执行 clean-init/quarantine/物理删除。
++
++## 2. 阶段及退出条件
++
++| 阶段 | 操作和退出条件 | 失败后的安全状态 |
++|---|---|---|
++| prepare | 冻结目标/候选/审批；实际 Browser 负证据；备份/隔离恢复；本地门禁与容量边界明确 | 无生产写入，保持 NOT_STARTED |
++| expand | 维护入口阻断新写入；暂停 Beat、按在途结果静默 consumer；一致性集合完成；由已批准 deploy 入口前滚至 0065、配置/完整性检查成功 | 保留维护响应、失败现场与原 schema/数据；不 downgrade |
++| deploy | 同一入口验证 candidate/tracked files/镜像，部署 API/Frontend；Worker/Scheduler 尚未激活；回环 live/ready、前端与安全检查通过 | 保持维护；prepared 阶段不支持既有 frontend-only 回滚，按下文阶段限制停止 |
++| enable 内部 | 单独批准须覆盖保护配置切换和同候选再次 deploy；在 UPGRADE_PREPARED 重入 deploy 重建 API，再 activate 启动 Worker/Beat；三进程一致、分析/恢复扫描通过后限定试用范围 | 停新写入和异步发布；保留证据，不开放公网 |
++| observation / release | 负责人签署内部试用、冻结观察期和停止阈值；回环/公网/权限/核心结果完成；单独批准 Nginx 写入及 reload 后开放；观察期通过才能提交 review | 停止扩量，恢复维护，依批准恢复；不自行 done |
++
++“渐进”以已批准的操作者、计划与批次范围、时间窗口和人工放量控制。仓库没有租户灰度百分比/白名单 feature flag；本任务不声称具有这些机制。若现有维护入口/访问控制无法限制获准人群，先解决批准范围与现有能力的差异，不能开放给所有用户代替内部试用。
++
++阶段使用批准包在受保护通道配置 `ENV_FILE`、`PARTSIGNAL_VERSION`、backend/frontend image、`PARTSIGNAL_DATA_ROOT`、`PARTSIGNAL_RELEASE_MANIFEST` 与 `PARTSIGNAL_IMAGE_DELIVERY_MODE`。不把 .env/DSN/密钥写到工单或命令记录。project 固定 `partsignal-staging`，名称不等于环境语义；权威 Compose 为 `deploy/compose.prod.yaml`，不追加 Browser/session overlay。
++
++批准和检查完成后，唯一应用入口为：
++
++```sh
++# 在获准目标的固定 candidate 目录、已加载保护发布配置时执行。
++PARTSIGNAL_DEPLOY_MODE=upgrade deploy/scripts/deploy.sh
++# 此时阶段必须为 UPGRADE_PREPARED，尚未 activate。
++# 单独 enable 批准须包含配置切换与再次 deploy：在保护通道将 MANUAL 配置改为获准值。
++# 同一 manifest 重入 deploy，保持维护状态，由原所有者重建 API 并重新核对完整性/health。
++PARTSIGNAL_DEPLOY_MODE=upgrade deploy/scripts/deploy.sh
++# 真实外部服务 Gate 和实际配置验收完成之后，按同一 enable 批准执行。
++PARTSIGNAL_DEPLOY_MODE=upgrade deploy/scripts/activate-production.sh
++# 分别验证回环与批准的公网 URL；此脚本只验 live/ready。
++deploy/scripts/smoke.sh http://127.0.0.1:19000
++```
++
++现有入口内部持有维护锁、核对 upgrade-prepared 与镜像并记录持久阶段。`activate-production.sh` 只 up Worker/Scheduler，不重建 API；因此不能省略配置切换后的再次 deploy。`begin_upgrade` 仅在 UPGRADE_DEPLOYING/UPGRADE_PREPARED 接受同候选重入；PRODUCTION_INITIALIZED 明确拒绝相同 candidate 的 deploy/activate。不要提前以全关闭配置 activate，否则后续 enable 必须准备新 release 身份与新批准再走完整 upgrade。
++
++升级完成不自动授权开放 Nginx；配置切换也不替代三进程重建与现场验证。Nginx 写入、`nginx -t` 和 reload 按 Production 所有者逐项批准。健康 smoke 不能替代 GEO 业务验收。
++
++## 3. 配置与 Browser 零启用
++
++| 配置 | expand/deploy | 获批 MANUAL enable |
++|---|---|---|
++| GEO_MONITORING_ENABLED | false | true，实际三进程一致 |
++| GEO_API_COLLECTION_ENABLED | false | false；API 必须另有平台/输入/合规批准，不能作为 MANUAL 的兜底 |
++| GEO_BROWSER_COLLECTION_ENABLED | **false** | **false** |
++| GEO_OPPORTUNITY_EVALUATION_ENABLED | false | 仅在批准既有手工评估范围时 true；不代表自动 evaluator 已接线 |
++| GEO_RETENTION_DRY_RUN | true | true；实际删除与期限另需数据负责人批准 |
++| CELERY_CONCURRENCY | 1 | 1；提升需目标容量证据和批准 |
++
++API/Worker/Beat 从 runtime env_file 读取共享 Settings，设置在启动时生效；编辑文件不证明运行进程已改变。Compose 的 Browser profile/开关还受部署 shell/`--env-file` 影响，必须同时核对实际启动 argv/profile、容器、overlay/mount 与进程配置。仅记录四个布尔值/摘要，不输出完整 `docker compose config`、inspect/env 或秘密路径。
++
++生产负证据必须绑定同一目标/候选/时点并包含：
++
++1. API/Worker/Beat 的实际 GEO_BROWSER_COLLECTION_ENABLED 均为 false。
++2. 没有启动 geo-browser service、Browser Compose profile 或 session overlay；没有 Browser 私钥、服务能力或会话卷挂载。
++3. 已有 Browser Profile 无启用项（记录计数），不会因当前 UI 隐藏而遗漏后端资格。
++4. PG `geo_browser_sessions` 所有历史/撤销行计数及现存材料库存；核心“无生产会话”要求总行数 0，不能只查活动行。会话 root、临时/未引用密文与适用文件也需检查；没有表不是迁移成功后的合格证据。
++5. API 批准 inventory 和模式开关仍关闭；不使用内部 factory 中未批准的 `openai-compatible-chat`。
++
++Browser 清理/恢复仅当服务/profile/overlay 未部署且 PG 总行数 0、受保护库存确认无材料时可记 **N/A**，附上述证据。任何材料存在都先按 802/901/903 保护、撤销、PURGE 或成套恢复；不得为取得“零会话”删除不可变历史。无法证实即 NOT_VERIFIED，停止核心 enable，延期不豁免材料责任。
++
++## 4. MANUAL 正式闭环与内部试用
++
++由 ADMIN 与 ENGINEER 在获准范围按 SOP 操作，记录稳定 ID、revision、聚合摘要和审计引用；真实业务正文、Cookie/账号材料与原始回答留在受控产品/材料存储，不复制到验收报告。
++
++| 顺序 | 必须观察到的真实行为 |
++|---|---|
++| 冻结输入 | 既有对象/批准事实、Topic/Variant、MANUAL Profile 和 Plan 创建预览/批次；服务端矩阵与冻结输入一致 |
++| 录入/提交 | 真实问题和非空回答、引用来源/采集环境准确；草稿保存后正式提交；提交证据不可原地修改，unknown usage/cost 不补零 |
++| 分析/复核 | Worker 处理已提交观察并形成当前 revision；需复核样本由人工追加有效复核；旧 revision 的复核不挪作当前资格 |
++| 指标/下钻 | Overview/Insights/Report 按已验收分母、时间、模式和证据来源计算；失败不当未提及；报告/CSV 权限、低敏和公式注入边界不变 |
++| 机会/行动 | 既有显式 evaluate 产生可解释机会，人工选择事实/内容/发布行动并查看结果；AI 仅草稿，不直接发布 |
++| 同口径复测 | 既有公共 API 创建 action/retest（创建 UI 未完整接线时不伪称页面完成）；保存冻结 baseline 和 comparability，完整结果后显式 resolve |
++| 拒绝/恢复 | 错角色、CSRF、stale revision、重复提交保留既有错误；未知外发结果不自动重发；安全停止后能恢复 MANUAL 分析，无历史修改 |
++
++至少一批实际生产 MANUAL 闭环及内部使用者反馈，由业务验收人签署；冻结试用人群/问题样本/时长/缺陷处理负责人。本地假数据 E2E 只证明实现边界，不证明正式试用或真实采集质量。外部人工采集仍须遵守平台许可，不要求普通测试访问真实外部 AI。
++
++当前生产 Plan cron 批次扫描和自动 opportunity evaluator **未接线**，Beat tick/健康或手工 evaluate 不能替代这两项执行证据。ADR-006 仅延期 Browser，不延期这两项。与原 PRD 的自动运行承诺有缺口，须在验收矩阵保留 NOT_MET；不能在 906 补新功能、静默缩范围或宣布全部核心验收通过。
++
++## 5. 监控与停止
++
++按[观测资产说明](../../../deploy/observability/geo/README.md)接入已有受保护监控，实际验证 exporter 新鲜度、Worker/Beat 本机 health、PG/Broker、四类 recovery/dispatch 扫描及故障信号。CLI 不新增公共 HTTP 端点：
++
++```sh
++python -m app.geo_observability snapshot
++python -m app.geo_observability metrics
++python -m app.geo_observability health worker
++python -m app.geo_observability health scheduler
++```
++
++命令在已配置的获准容器内运行；保存低敏摘要和时间，受保护 UUID 定位材料不进入公共指标标签。业务低表现与系统错误分开，MANUAL 待录入不当自动积压。未观察 operation 为 null/NaN，不把零/Beat 活跃当任务完成。
++
++观察期开始前由值班和验收负责人冻结时长、采样间隔、容量与可用性阈值。GEO-902 的 90 秒进程心跳、180 秒快照/扫描、600 秒自动待处理和持续时间是起始规则，不能当作生产已校准 SLO。错误率、OOM/重启、对象完整性、预算/未知费用、MANUAL 分析时延、复核资格和队列年龄分别保存实际样本；未冻结即停止扩量。Browser 打开/出现服务或会话、权限/完整性破坏、不可变历史变化、重复外发、迁移/恢复失败为立即停止条件。
++
++获准停止演练按以下顺序，并分别记录进入/退出、在途 ID、发送账本和观察结果：
++
++1. 恢复维护入口，阻止新业务写入/批次；停止 Beat 发布。配置文件的 false 不能取消已执行调用。
++2. 读取受保护 PG/运维快照，区分采集和分析 lease、SENT/UNKNOWN 与未发送；等待已发请求有界结束，记录无法确认结果，不重试外部请求。
++3. 有界 warm stop Worker；若超时，保留未知状态/失败现场，由负责人决定安全停止。停止 API/Worker/Beat，PG/Redis 和持久阶段保留，确认无 consumer 和业务写入口。保护配置改为总/API/Browser false、新 retention dry-run；进程已停止时不宣称 Settings 已加载或 health 正常。不要手工 Compose up 绕过发布所有者恢复 API。
++4. 保留 PG 状态、Answer/Analysis/Review/Publishing 历史、审计和不可变证据；Redis 队列不作为恢复业务权威，不清表、重置终态或把 SENT/UNKNOWN 改 PENDING。
++5. 核对停止窗口无新外发/新批次和秘密泄漏；监控关闭状态与未观察事实正确，无假成功。现有非 GEO 全应用业务也受停 consumer 影响，审批必须覆盖这一影响。
++
++只关闭 API/BROWSER 不会停 MANUAL 分析；完整停止须关闭总开关并停相应 consumer。恢复必须先核对持久阶段：尚未 initialized 的同候选可在批准后重入 deploy→activate；已 PRODUCTION_INITIALIZED 的候选不得再次 activate，必须从 clean main 准备新的不可变 release ID/manifest/镜像身份（可保留已验证的源码 commit），按新批准完整 upgrade→activate。两条路径均沿原维护锁/身份/完整性/迁移所有者，不删除状态文件，不增加直接 up 旁路。
++
++恢复 MANUAL 的保护配置为总开关 true、API/Browser false及获准机会资格；在 deploy 前配置并重建三进程，核对实际值、既有分析恢复与回环 smoke。准备新 candidate 的时间和审批必须纳入停止/恢复窗口；没有这一候选与批准时保持维护和停止，不声称可即时恢复。
++
++## 6. 恢复、回滚与验收签署
++
++[GEO-903 恢复 Runbook](./09-backup-recovery-runbook.md)是 DB/对象/适用密钥恢复所有者。先在新建、单次 owner 的隔离目标验证认证摘要、schema、全表与 Run/指标一致性、对象存在/hash、凭据可解密和调度窗口去重；演练不启动 consumer、不写生产 OSS。生产数据恢复需另有精确目标与数据恢复批准，先保留失败现场并停止所有新写入。
++
++旧镜像只有明确支持当前 schema 和安全合同才可恢复；单纯切 tag 或 current 链接不等于恢复。Frontend 仅在 **PRODUCTION_INITIALIZED** 使用既有 `rollback-production-frontend.sh`（内部 verify-rollback-frontend/mark-frontend-rollback）与已冻结 V2 镜像的正式流程；backend 不兼容则保留维护并前向修复。
++
++**前滚/部署尚处 UPGRADE_DEPLOYING 或 UPGRADE_PREPARED 时，当前所有者不支持 frontend-only 回滚，也不接受另一候选 begin-upgrade。** 此时可在明确修正配置/环境故障后批准重入同一 immutable candidate；若必须改变 artifact，保持维护/停止、保留现场，需发布所有者明确支持的阶段恢复方案与批准才能继续，不能宣称新候选可以直接接管。不得为解锁回滚先 activation，不手改状态、覆盖 artifact 或直接切镜像。该覆盖缺口必须进入验收，生产准备未解决时停止上线。
++
++GEO upgrade 不能误用 clean-init 的 quarantine restore。默认不 Alembic downgrade，不删除 tombstone/发送账本/审计历史，不恢复 Redis/Beat 文件冒充业务重放。
++
++快照之后发生的外部请求不可随 DB 恢复回退；须先对账发送事实，SENT/UNKNOWN 不自动重发，存在未覆盖外发即暂停 consumer。实际切换/停止/恢复后再运行 smoke 和正式 MANUAL 分析验收，形成前后材料，恢复失败继续维护状态，不宣称 rollback 成功。
++
++最终证据进入[验收报告](../04-delivery/13-r8-core-release-acceptance.md)：candidate、前滚、Browser 负证据、MANUAL 闭环、内部试用、监控观察期、目标恢复/停止与所有开放缺口。全项满足且本地验证完成才将 GEO-906 改 review；人工接受后才能 done。缺必须输入/授权则 blocked，保留本地通过与失败证据、生产 NOT_STARTED，不改变已 done 依赖和 deferred 状态。
+--- before/docs/geo-monitoring/04-delivery/13-r8-core-release-acceptance.md
++++ candidate/docs/geo-monitoring/04-delivery/13-r8-core-release-acceptance.md
+@@ -0,0 +1,68 @@
++# GEO-906：R8 核心发布验收记录
++
++2026-10-05 入场 GEO-903/904/905 均 done，且各有明确人工接受记录，允许开始 GEO-906。
++904/905 的接受未新增现场验证：生产 Browser 与平台批准 inventory、目标容量与冻结阈值仍未验证。
++现有分支为 geo/GEO-906；入场工作树含大量前序任务改动，正式 candidate 尚未冻结。
++
++本次只执行本地发布准备。**未访问或修改生产，未 expand/deploy/enable，未完成正式内部试用或生产最终验收。**
++生产入口、candidate、阶段批准和负责人/观察期输入尚未提供；生产阶段 NOT_STARTED。
++实施与本地验证结果见 [Trellis 记录](../../../.trellis/tasks/10-05-geo-906-rollout/implement.md)。
++因必需生产输入/批准缺失，任务已由 planned → in_progress → **blocked**，没有进入 review/done。
++
++## 1. 范围与现状
++
++[ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)决定 MANUAL 为正式回答级观测方式，R6 → R8。
++801～803 done 代码保留，804～807 deferred/post-core；真实 Browser Adapter、生产截图及登录探针均不标已实现。
++核心发布要求 GEO_BROWSER_COLLECTION_ENABLED=false、服务/profile 未启用、无生产会话。
++该现场事实本次 **NOT_VERIFIED**，Browser 清理/会话恢复适用性 **NOT_DETERMINED**；不能从默认值或本地零材料填 N/A。
++
++当前 MANUAL 提交/不可变证据、分析 revision/复核、指标/报告、显式机会评估、行动/同口径复测/显式解决已有实现。
++当前生产 Plan cron 批次扫描及自动 opportunity evaluator 未接线；ADR-006 未延期这两项。
++将缺口保留为 NOT_MET，不借 906 增加产品功能或让 Beat tick 冒充执行。
++生产 API Collector 未批准且输入范围受限，核心 rollout 保持 API false，不用它绕过 MANUAL。
++
++## 2. 交付材料与门禁
++
++- [核心 rollout runbook](../03-technical/10-core-rollout-runbook.md)：每阶段输入/批准/退出，MANUAL 试用、监控、停止和恢复。
++- [低敏发布记录模板](./geo-906-release-record.template.yaml)：未知 null/NOT_VERIFIED；引用不可变 candidate，不生成批准。
++- 配置 gate 仅允许已验收 `partsignal.geo_cleanup_artifacts` 的注册/声明调度；保留 18 配置场景、共享 Settings 与启动零外部调用。
++- OpenAPI/generated/database/Alembic/前端与运行配置无本任务变化；head 仍 0065_geo_observability，无回填、无生产前滚。
++
++本地lint/typecheck/test-deploy-scripts通过。完整make verify退出2：集成1116 passed、54 failed、6 setup errors；
++54项所在七个文件因本地fake OSS未运行，启动替身后定向82 passed；恢复setup缺显式PG工具，已有显式本地PG16补验证6 passed。
++原完整门禁仍失败，补验证不替代完整verify；生产smoke和目标停止/恢复未运行。MANUAL隔离真实栈2 passed（1.3m），秘密扫描clean，独占数据库/Redis/端口/目录清理成功；具体命令与最终检查见Trellis原始日志。
++
++现有发布脚本合并前滚与应用部署，执行前须同时取得 expand/deploy 批准；activation 仍要求真实全应用 AI/OSS Gate。
++activation只启动Worker/Scheduler。MANUAL配置切换后须在UPGRADE_PREPARED按enable批准再次deploy重建API，然后activate；
++已initialized的候选停止后恢复必须新的不可变release身份与批准，不能重跑旧activate或删除状态。
++运行配置必须核对 API/Worker/Beat 重建后的实际值及部署 profile/overlay，不从 env 文件推断已生效。
++新 retention 保持 dry-run，Worker 并发维持默认 1；增加并发或实际删除不是本任务自动批准内容。
++
++## 3. 最终验收矩阵
++
++| 验收项 | 当前证据与结论 | 尚需材料 |
++|---|---|---|
++| 依赖/ADR | 903/904/905 done；ADR-006 accepted | 既有现场限制在本任务收口，done 不改 |
++| 固定候选 | NOT_VERIFIED；dirty GEO 分支不能冻结正式 candidate | clean main=origin/main、不可变 archive/manifest/images/schema/tracked hashes |
++| expand/deploy | NOT_STARTED；本地发布流程测试结果另列，不作现场证明 | 目标/批准、备份、实际前滚、完整性、镜像/三进程配置与健康 |
++| Browser false/零部署/零会话 | NOT_VERIFIED，适用性 NOT_DETERMINED | 同目标/时点的三进程 false、容器/profile/overlay/mount、PG 全部会话与材料库存 |
++| MANUAL 正式闭环 | 代码已有；本地纵向结果以 Trellis 日志为准；生产 NOT_VERIFIED | 真实批准样本正式提交→分析→必要复核→指标→行动→可比复测→resolve 签署 |
++| 内部试用 | NOT_STARTED | 获准人群/访问控制、计划/样本、反馈和缺陷负责人 |
++| 监控/观察期 | 902 资产已有；生产接入/校准 NOT_VERIFIED | exporter/dashboard/alert 实测、目标容量/阈值/时间与值班签署 |
++| 恢复/停止 | 903 隔离实现已有；本次本地结果另列；目标 NOT_VERIFIED；prepared阶段 artifact 失败恢复未覆盖 | 目标静默/备份、隔离恢复扫描、停止无新外发、恢复前对账、兼容镜像及发布所有者阶段恢复方案 |
++| 生产 smoke/页面安全 | NOT_RUN | 获准目标回环/公网 live/ready、前端、安全头/缓存/deep link/权限 |
++| Plan cron / 自动 evaluator | **NOT_MET / NOT_IMPLEMENTED** | 已授权后续实现与真实执行证据，或明确已接受的产品范围决策；906不补功能 |
++| R7 延期 | DEFERRED_POST_CORE；不作为核心依赖，不标已实现 | 恢复另依 ADR-006 与平台/生产授权 |
++| 最终核心正式可用 | **NOT_VERIFIED** | 上述必需门禁全部满足，人工签署后先 review，done 需用户接受 |
++
++## 4. 阻断与恢复输入
++
++必须补齐精确目标及获准入口或脱敏现场报告、固定 release/commit、各阶段人工批准、验收/恢复负责人、内部试用范围、目标容量/观察期/冻结停止阈值。
++真实 AI/OSS、密钥与会话材料只能在既有保护通道配置，不在聊天或 evidence 中提交秘密。
++生产阶段逐项取证，不把同一批准扩大到 Nginx reload、数据恢复或物理清理。
++当前范围不允许实现 cron/自动 evaluator；全核心最终验收不能悄悄跳过该已知缺口。
++当前frontend-only回滚仅支持PRODUCTION_INITIALIZED，prepared阶段不支持另一候选接管。
++该阶段若artifact失败，必须保持维护并补齐发布所有者的安全恢复方案，不能为进入回滚条件先激活或手改状态。
++
++本地已完成材料和原始验证结果保留，不改写 904/905 的失败/未验证历史，也不改 deferred 状态。
++有明确输入后继续 GEO-906 的同一 Task Brief；本次不提交、推送、归档或宣称上线。
+--- before/docs/geo-monitoring/04-delivery/geo-906-release-record.template.yaml
++++ candidate/docs/geo-monitoring/04-delivery/geo-906-release-record.template.yaml
+@@ -0,0 +1,114 @@
++# 低敏运维证据模板；复制后填真实事实，不可作为批准或 candidate manifest 使用。
++# 未知必须保持 null/NOT_VERIFIED；受保护证据引用不得含密码、DSN、Cookie 或密钥。
++record_kind: geo906_rollout_evidence
++task_id: GEO-906
++record_status: TEMPLATE_NOT_EXECUTED
++recorded_at_utc: null
++target:
++  environment_id: null
++  authorized_entry_ref: null
++  observed_runtime_owner_ref: null
++candidate:
++  release_id: null
++  commit: null
++  immutable_manifest_ref: null
++  source_archive_sha256: null
++  image_identity_evidence_ref: null
++  tracked_files_evidence_ref: null
++  expected_schema_head: 0065_geo_observability
++  observed_schema_head: null
++  # 已 initialized 的候选停止后恢复，必须另有新 release 身份和阶段批准。
++  recovery_candidate_manifest_ref: null
++approvals:
++  # 每阶段必须绑定同一目标/候选及具体操作，含审批人、时间、窗口、范围和恢复负责人。
++  expand: null
++  deploy: null
++  enable: null # 必须涵盖保护配置切换与 UPGRADE_PREPARED 同候选再次 deploy→activate。
++  public_traffic: null
++  stop_recovery_drill: null
++  production_data_restore: null
++stages:
++  prepare: NOT_STARTED
++  expand: NOT_STARTED
++  deploy: NOT_STARTED
++  enable_internal: NOT_STARTED
++  observation: NOT_STARTED
++  release: NOT_STARTED
++configuration:
++  # 期望值不是观察结果；运行值须从三进程与部署 profile/overlay 分别取证。
++  desired_browser_collection_enabled: false
++  api_observed_geo_flags: null
++  worker_observed_geo_flags: null
++  scheduler_observed_geo_flags: null
++  retention_dry_run_observed: null
++  celery_concurrency_observed: null
++  external_services_gate_evidence_ref: null
++browser:
++  status: NOT_VERIFIED
++  observed_at_utc: null
++  running_service_count: null
++  compose_profile_enabled: null
++  session_overlay_present: null
++  session_key_or_volume_mount_present: null
++  enabled_browser_profile_count: null
++  database_all_session_row_count: null
++  material_inventory_ref: null
++  material_count: null
++  negative_evidence_ref: null
++  # 只有同一目标完整负证据才 N/A；存在材料须802/901/903处理，不能删历史换取零。
++  cleanup_applicability: NOT_DETERMINED
++  session_recovery_applicability: NOT_DETERMINED
++backup_and_recovery:
++  quiescence_evidence_ref: null
++  protected_bundle_ref: null
++  authenticated_hash_inventory_ref: null
++  isolated_restore_result: NOT_VERIFIED
++  reconciliation_after_backup_ref: null
++  target_stop_drill_result: NOT_VERIFIED
++  target_recovery_drill_result: NOT_VERIFIED
++  schema_compatible_rollback_ref: null
++manual_acceptance:
++  status: NOT_VERIFIED
++  batch_id: null
++  submitted_run_ids: []
++  current_analysis_review_evidence_ref: null
++  metric_and_report_evidence_ref: null
++  opportunity_action_retest_resolve_evidence_ref: null
++  permissions_revision_idempotency_evidence_ref: null
++  business_acceptor: null
++  signed_at_utc: null
++internal_trial:
++  status: NOT_VERIFIED
++  cohort_and_access_control_ref: null
++  plans_and_sample_scope_ref: null
++  feedback_and_defects_ref: null
++  owner: null
++observation:
++  status: NOT_VERIFIED
++  capacity_target_and_load_ref: null
++  calibrated_thresholds_and_stop_policy_ref: null
++  period_start_utc: null
++  period_end_utc: null
++  exporter_dashboard_alert_evidence_ref: null
++  actual_samples_ref: null
++  on_call_owner: null
++verification:
++  local_commands_and_results_ref: null
++  production_loopback_smoke: NOT_VERIFIED
++  production_public_smoke: NOT_VERIFIED
++  frontend_security_and_navigation: NOT_VERIFIED
++  independent_review_ref: null
++known_implementation_gaps:
++  production_plan_cron_dispatch: NOT_IMPLEMENTED
++  automatic_opportunity_evaluator: NOT_IMPLEMENTED
++  pre_initialized_artifact_failure_recovery: NOT_SUPPORTED_BY_CURRENT_RELEASE_OWNER
++  disposition_approval_ref: null
++deferred_scope:
++  decision_ref: ADR-006
++  tasks: [GEO-804, GEO-805, GEO-806, GEO-807]
++  status: DEFERRED_POST_CORE
++final_acceptance:
++  status: NOT_VERIFIED
++  owner: null
++  evidence_and_signoff_ref: null
++  unresolved_blockers: []

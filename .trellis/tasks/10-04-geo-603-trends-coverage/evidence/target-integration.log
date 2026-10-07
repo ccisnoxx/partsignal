@@ -1,0 +1,84 @@
+ Container partsignal-geo603-validation-postgres-1 Running 
+ Container partsignal-geo603-validation-redis-1 Running 
+ Container partsignal-geo603-validation-fake-oss-1 Running 
+ Container partsignal-geo603-validation-postgres-1 Waiting 
+ Container partsignal-geo603-validation-postgres-1 Healthy 
+ Container partsignal-geo603-validation-backend-test-run-8daed0dfc756 Creating 
+ Container partsignal-geo603-validation-backend-test-run-8daed0dfc756 Created 
+.FF.F........                                                            [100%]
+=================================== FAILURES ===================================
+____ test_empty_contract_auth_closed_queries_and_legacy_operation_preserved ____
+
+overview_api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xff3fa17b89e0>, engineer_id=UUID('fcac2fca-2897-4802-b66b-e90914dcc7b3'))
+
+    def test_empty_contract_auth_closed_queries_and_legacy_operation_preserved(overview_api):
+        api = overview_api
+        value = insights(api, subject_ids=str(uuid4()))
+        assert (
+            value["current_cells"]
+            == value["previous_cells"]
+            == value["trends"]
+            == value["question_coverage"]
+            == []
+        )
+        contract = yaml.safe_load((Path("/contracts") / "openapi.yaml").read_text())
+        for document in (contract, app.openapi()):
+            validate(document, "GeoAnswerInsights", value)
+>           assert document["paths"]["/api/v1/geo/insights"]["get"]["operationId"] == "getGeoInsights"
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: '/api/v1/geo/insights'
+
+tests/integration/test_geo_answer_insights.py:103: KeyError
+_ test_product_platform_cells_and_sov_contributions_share_filters_and_current_review _
+
+overview_api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xff3fa0098620>, engineer_id=UUID('ca4f04c0-e32e-480b-b625-7854d619f557'))
+
+    def test_product_platform_cells_and_sov_contributions_share_filters_and_current_review(
+        overview_api,
+    ):
+        api = overview_api
+        case = api.create()
+        assert api.submit(case).status_code == 201
+        # 产品筛选保留冻结竞品集合，而产品矩阵只引用选中产品的完整cell。
+        product = next(s["product_id"] for s in case.input["subjects"] if s["product_id"])
+        value = insights(api, product_ids=product)
+>       assert len(value["product_matrix_cell_keys"]) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+
+tests/integration/test_geo_answer_insights.py:129: AssertionError
+_ test_rr_and_fixed_query_count_cover_both_windows_and_do_not_read_sensitive_columns _
+
+overview_api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xff3fa0370b60>, engineer_id=UUID('09be39fd-b58f-4c90-9f6e-f179403bbe16'))
+
+    def test_rr_and_fixed_query_count_cover_both_windows_and_do_not_read_sensitive_columns(
+        overview_api,
+    ):
+        api = overview_api
+        case = api.create()
+        inserted = False
+    
+        def after(conn, cursor, statement, parameters, context, many):
+            nonlocal inserted
+            if not inserted and "FROM geo_observation_runs" in statement:
+                inserted = True
+                assert api.submit(case).status_code == 201
+    
+        engine = api.harness.factory.kw["bind"]
+        event.listen(engine, "after_cursor_execute", after)
+        try:
+            value = insights(api)
+        finally:
+            event.remove(engine, "after_cursor_execute", after)
+        assert inserted
+>       assert all(m["eligible_run_count"] == 0 for c in value["current_cells"] for m in c["metrics"])
+E       assert False
+E        +  where False = all(<generator object test_rr_and_fixed_query_count_cover_both_windows_and_do_not_read_sensitive_columns.<locals>.<genexpr> at 0xff3f9a773e60>)
+
+tests/integration/test_geo_answer_insights.py:189: AssertionError
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_answer_insights.py::test_empty_contract_auth_closed_queries_and_legacy_operation_preserved
+FAILED tests/integration/test_geo_answer_insights.py::test_product_platform_cells_and_sov_contributions_share_filters_and_current_review
+FAILED tests/integration/test_geo_answer_insights.py::test_rr_and_fixed_query_count_cover_both_windows_and_do_not_read_sensitive_columns
+3 failed, 10 passed in 9.75s
+

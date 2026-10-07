@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "mypy",
+    "--config-file",
+    "backend/pyproject.toml",
+    "backend/app"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "exit_code": 1,
+  "started_at": "2026-10-04T07:11:09.605580+00:00",
+  "finished_at": "2026-10-04T07:11:10.292730+00:00"
+}

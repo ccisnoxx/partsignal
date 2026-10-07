@@ -1,0 +1,335 @@
+rule_files:
+- alerts.yaml
+evaluation_interval: 1m
+tests:
+- name: GEOObservabilityUnavailable
+  interval: 1m
+  input_series:
+  - series: geo_observability_up{job="partsignal-geo",instance="test"}
+    values: '0x20'
+  alert_rule_test:
+  - eval_time: 0m
+    alertname: GEOObservabilityUnavailable
+    exp_alerts: []
+  - eval_time: 4m
+    alertname: GEOObservabilityUnavailable
+    exp_alerts:
+    - exp_labels:
+        job: partsignal-geo
+        instance: test
+        severity: critical
+        category: system
+        service: partsignal-geo
+      exp_annotations:
+        summary: GEO观测采集失败、缺失或快照过期
+- name: GEOProcessHeartbeatStale
+  interval: 1m
+  input_series:
+  - series: geo_operation_observed{job="partsignal-geo",instance="test",operation="worker_heartbeat"}
+    values: '0x20'
+  alert_rule_test:
+  - eval_time: 0m
+    alertname: GEOProcessHeartbeatStale
+    exp_alerts: []
+  - eval_time: 4m
+    alertname: GEOProcessHeartbeatStale
+    exp_alerts:
+    - exp_labels:
+        job: partsignal-geo
+        instance: test
+        operation: worker_heartbeat
+        severity: critical
+        category: system
+        service: partsignal-geo
+      exp_annotations:
+        summary: Worker或Scheduler真实心跳过期；检查本机health和依赖
+- name: GEORecoverySweepStale
+  interval: 1m
+  input_series:
+  - series: geo_operation_observed{job="partsignal-geo",instance="test",operation="analysis_recovery"}
+    values: '0x20'
+  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
+    values: 1x20
+  alert_rule_test:
+  - eval_time: 0m
+    alertname: GEORecoverySweepStale
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: GEORecoverySweepStale
+    exp_alerts:
+    - exp_labels:
+        job: partsignal-geo
+        instance: test
+        operation: analysis_recovery
+        severity: warning
+        category: system
+        service: partsignal-geo
+      exp_annotations:
+        summary: 补投递或租约恢复扫描未成功；tick不能代替扫描
+- name: GEOAutomaticPendingOld
+  interval: 1m
+  input_series:
+  - series: geo_pending_oldest_seconds{job="partsignal-geo",instance="test",mode="API",stage="COLLECTION"}
+    values: 601x20
+  - series: geo_api_collection_enabled{job="partsignal-geo",instance="test"}
+    values: 1x20
+  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
+    values: 1x20
+  alert_rule_test:
+  - eval_time: 0m
+    alertname: GEOAutomaticPendingOld
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: GEOAutomaticPendingOld
+    exp_alerts:
+    - exp_labels:
+        job: partsignal-geo
+        instance: test
+        mode: API
+        stage: COLLECTION
+        severity: warning
+        category: system
+        service: partsignal-geo
+      exp_annotations:
+        summary: 自动采集或分析积压超过10分钟；受保护snapshot定位最老ID
+- name: GEOExpiredLease
+  interval: 1m
+  input_series:
+  - series: geo_running_expired_count{job="partsignal-geo",instance="test",stage="ANALYSIS"}
+    values: 1x20
+  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
+    values: 1x20
+  alert_rule_test:
+  - eval_time: 0m
+    alertname: GEOExpiredLease
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: GEOExpiredLease
+    exp_alerts:
+    - exp_labels:
+        job: partsignal-geo
+        instance: test
+        stage: ANALYSIS
+        severity: critical
+        category: system
+        service: partsignal-geo
+      exp_annotations:
+        summary: 存在过期采集或分析lease；按snapshot稳定ID排障
+- name: GEOTechnicalRunFailures
+  interval: 1m
+  input_series:
+  - series: geo_run_failure_count_24h{job="partsignal-geo",instance="test",mode="API",stage="COLLECTION",error_code="WORKER_LOST"}
+    values: 6x20
+  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
+    values: 1x20
+  alert_rule_test:
+  - eval_time: 0m
+    alertname: GEOTechnicalRunFailures
+    exp_alerts: []
+  - eval_time: 11m
+    alertname: GEOTechnicalRunFailures
+    exp_alerts:
+    - exp_labels:
+        job: partsignal-geo
+        instance: test
+        mode: API
+        stage: COLLECTION
+        error_code: WORKER_LOST
+        severity: warning
+        category: system
+        service: partsignal-geo
+      exp_annotations:
+        summary: 24小时技术失败超过5次；按mode/stage/error_code查看分布
+- name: GEOAnalysisFailures
+  interval: 1m
+  input_series:
+  - series: geo_analysis_failure_count_24h{job="partsignal-geo",instance="test",mode="MANUAL",error_code="ANALYSIS_FAILED"}
+    values: 6x20
+  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
+    values: 1x20
+  alert_rule_test:
+  - eval_time: 0m
+    alertname: GEOAnalysisFailures
+    exp_alerts: []
+  - eval_time: 11m
+    alertname: GEOAnalysisFailures
+    exp_alerts:
+    - exp_labels:
+        job: partsignal-geo
+        instance: test
+        mode: MANUAL
+        error_code: ANALYSIS_FAILED
+        severity: warning
+        category: system
+        service: partsignal-geo
+      exp_annotations:
+        summary: 24小时分析任务失败超过5次；不使用品牌低表现触发
+- name: GEOReportedCostUnknown
+  interval: 1m
+  input_series:
+  - series: geo_cost_unknown_daily{job="partsignal-geo",instance="test"}
+    values: 1x20
+  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
+    values: 1x20
+  alert_rule_test:
+  - eval_time: 0m
+    alertname: GEOReportedCostUnknown
+    exp_alerts: []
+  - eval_time: 16m
+    alertname: GEOReportedCostUnknown
+    exp_alerts:
+    - exp_labels:
+        job: partsignal-geo
+        instance: test
+        severity: warning
+        category: system
+        service: partsignal-geo
+      exp_annotations:
+        summary: UTC日存在已发送费用未知调用；禁止按零计费
+- name: GEOBudgetAnomaly
+  interval: 1m
+  input_series:
+  - series: geo_daily_budget_exceeded{job="partsignal-geo",instance="test",currency="USD"}
+    values: 1x20
+  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
+    values: 1x20
+  alert_rule_test:
+  - eval_time: 0m
+    alertname: GEOBudgetAnomaly
+    exp_alerts: []
+  - eval_time: 2m
+    alertname: GEOBudgetAnomaly
+    exp_alerts:
+    - exp_labels:
+        job: partsignal-geo
+        instance: test
+        currency: USD
+        severity: warning
+        category: system
+        service: partsignal-geo
+      exp_annotations:
+        summary: 预算超限、未知、币种不匹配或报告金额高于预估
+- name: GEOOperationFailures
+  interval: 1m
+  input_series:
+  - series: geo_operation_failure_total{job="partsignal-geo",instance="test",operation="storage_write"}
+    values: 0+1x20
+  alert_rule_test:
+  - eval_time: 0m
+    alertname: GEOOperationFailures
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: GEOOperationFailures
+    exp_alerts:
+    - exp_labels:
+        job: partsignal-geo
+        instance: test
+        operation: storage_write
+        severity: warning
+        category: system
+        service: partsignal-geo
+      exp_annotations:
+        summary: 运行边界出现失败；业务4xx拒绝已排除
+- name: GEOBrowserSessionMetadataUnhealthy
+  interval: 1m
+  input_series:
+  - series: geo_browser_session_unhealthy{job="partsignal-geo",instance="test"}
+    values: 1x20
+  - series: geo_browser_collection_enabled{job="partsignal-geo",instance="test"}
+    values: 1x20
+  alert_rule_test:
+  - eval_time: 0m
+    alertname: GEOBrowserSessionMetadataUnhealthy
+    exp_alerts: []
+  - eval_time: 6m
+    alertname: GEOBrowserSessionMetadataUnhealthy
+    exp_alerts:
+    - exp_labels:
+        job: partsignal-geo
+        instance: test
+        severity: warning
+        category: system
+        service: partsignal-geo
+      exp_annotations:
+        summary: 现有会话材料元数据异常；不代表已实现真实登录探针
+- name: 业务低表现、人工待录入、关闭能力和预算拒绝不产生系统故障
+  interval: 1m
+  input_series:
+  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
+    values: 1x20
+  - series: geo_api_collection_enabled{job="partsignal-geo",instance="test"}
+    values: '0x20'
+  - series: geo_browser_collection_enabled{job="partsignal-geo",instance="test"}
+    values: '0x20'
+  - series: geo_pending_oldest_seconds{job="partsignal-geo",instance="test",mode="MANUAL",stage="MANUAL_ENTRY"}
+    values: 99999x20
+  - series: geo_pending_oldest_seconds{job="partsignal-geo",instance="test",mode="API",stage="COLLECTION"}
+    values: 99999x20
+  - series: geo_browser_session_unhealthy{job="partsignal-geo",instance="test"}
+    values: 99x20
+  - series: geo_run_failure_count_24h{job="partsignal-geo",instance="test",mode="API",stage="COLLECTION",error_code="BUDGET_EXCEEDED"}
+    values: 99x20
+  - series: geo_brand_mention_rate{job="partsignal-geo",instance="test"}
+    values: '0x20'
+  - series: geo_pending_oldest_seconds{job="partsignal-geo",instance="test",mode="MANUAL",stage="ANALYSIS"}
+    values: 600x20
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: GEOAutomaticPendingOld
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: GEOBrowserSessionMetadataUnhealthy
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: GEOTechnicalRunFailures
+    exp_alerts: []
+- name: GEOProcessHeartbeatStale首次失败但从未成功
+  interval: 1m
+  input_series:
+  - series: geo_operation_observed{job="partsignal-geo",instance="test",operation="worker_heartbeat"}
+    values: 1x20
+  - series: geo_operation_success_total{job="partsignal-geo",instance="test",operation="worker_heartbeat"}
+    values: '0x20'
+  - series: geo_operation_last_success_timestamp_seconds{job="partsignal-geo",instance="test",operation="worker_heartbeat"}
+    values: NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN
+      NaN NaN NaN
+  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
+    values: 1x20
+  alert_rule_test:
+  - eval_time: 4m
+    alertname: GEOProcessHeartbeatStale
+    exp_alerts:
+    - exp_labels:
+        job: partsignal-geo
+        instance: test
+        operation: worker_heartbeat
+        severity: critical
+        category: system
+        service: partsignal-geo
+      exp_annotations:
+        summary: Worker或Scheduler真实心跳过期；检查本机health和依赖
+- name: GEORecoverySweepStale首次失败但从未成功
+  interval: 1m
+  input_series:
+  - series: geo_operation_observed{job="partsignal-geo",instance="test",operation="analysis_recovery"}
+    values: 1x20
+  - series: geo_operation_success_total{job="partsignal-geo",instance="test",operation="analysis_recovery"}
+    values: '0x20'
+  - series: geo_operation_last_success_timestamp_seconds{job="partsignal-geo",instance="test",operation="analysis_recovery"}
+    values: NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN
+      NaN NaN NaN
+  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
+    values: 1x20
+  alert_rule_test:
+  - eval_time: 6m
+    alertname: GEORecoverySweepStale
+    exp_alerts:
+    - exp_labels:
+        job: partsignal-geo
+        instance: test
+        operation: analysis_recovery
+        severity: warning
+        category: system
+        service: partsignal-geo
+      exp_annotations:
+        summary: 补投递或租约恢复扫描未成功；tick不能代替扫描

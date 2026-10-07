@@ -1,0 +1,1791 @@
+--- before/.env.example
++++ after/.env.example
+@@ -49,6 +49,11 @@
+ GEO_API_COLLECTION_ENABLED=false
+ GEO_BROWSER_COLLECTION_ENABLED=false
+ GEO_OPPORTUNITY_EVALUATION_ENABLED=false
++# GEO-405：采集 lease 与补投递；不授予外发/adapter 批准权限。
++GEO_PENDING_REDISPATCH_SECONDS=120
++GEO_COLLECTION_FINALIZE_GRACE_SECONDS=120
++GEO_RECOVERY_SCAN_SECONDS=60
++GEO_RECOVERY_BATCH_SIZE=100
+ 
+ # Development 对象存储。Production 不得使用这些 fake/local endpoint。
+ OBJECT_STORAGE_BACKEND=development
+--- before/.env.production.example
++++ after/.env.production.example
+@@ -58,6 +58,11 @@
+ GEO_API_COLLECTION_ENABLED=false
+ GEO_BROWSER_COLLECTION_ENABLED=false
+ GEO_OPPORTUNITY_EVALUATION_ENABLED=false
++# GEO-405：采集 lease 与补投递；不授予外发/adapter 批准权限。
++GEO_PENDING_REDISPATCH_SECONDS=120
++GEO_COLLECTION_FINALIZE_GRACE_SECONDS=120
++GEO_RECOVERY_SCAN_SECONDS=60
++GEO_RECOVERY_BATCH_SIZE=100
+ 
+ # 生产只使用真实 Aliyun OSS；不添加 fake-oss endpoint/path、19001 或 /object-storage/。
+ OBJECT_STORAGE_BACKEND=aliyun_oss
+--- before/backend/app/config.py
++++ after/backend/app/config.py
+@@ -121,6 +121,21 @@
+     )
+     ai_allow_local_http: bool = Field(
+         False, validation_alias=AliasChoices("AI_ALLOW_LOCAL_HTTP")
++    )
++    geo_pending_redispatch_seconds: int = Field(
++        default=120, ge=1, le=86400, validation_alias=AliasChoices("GEO_PENDING_REDISPATCH_SECONDS")
++    )
++    geo_collection_finalize_grace_seconds: int = Field(
++        default=120,
++        ge=1,
++        le=3600,
++        validation_alias=AliasChoices("GEO_COLLECTION_FINALIZE_GRACE_SECONDS"),
++    )
++    geo_recovery_scan_seconds: int = Field(
++        default=60, ge=5, le=3600, validation_alias=AliasChoices("GEO_RECOVERY_SCAN_SECONDS")
++    )
++    geo_recovery_batch_size: int = Field(
++        default=100, ge=1, le=1000, validation_alias=AliasChoices("GEO_RECOVERY_BATCH_SIZE")
+     )
+     geo_monitoring_enabled: bool = Field(
+         False, validation_alias=AliasChoices("GEO_MONITORING_ENABLED")
+--- before/backend/app/services/geo_batches.py
++++ after/backend/app/services/geo_batches.py
+@@ -32,6 +32,7 @@
+ from app.schemas.geo_runs import GeoBatchPlanSnapshot, GeoBatchRuleSnapshot
+ from app.services.geo_batch_snapshots import freeze_inputs
+ from app.services.geo_collector_eligibility import GeoRuntimeSwitches
++from app.services.geo_dispatch import dispatch_created_batch
+ from app.services.geo_plan_configuration import canonical_configuration
+ from app.services.geo_plan_locks import command, lock_plan, lock_resources
+ from app.services.geo_plan_policy import require_eligible, require_mutable, require_references
+@@ -250,6 +251,7 @@
+         )
+         result = _receipt(batch)
+         db.commit()
++        dispatch_created_batch(db, batch.id)
+         return result
+ 
+ 
+@@ -296,6 +298,7 @@
+             )
+             result = _receipt(batch)
+             db.commit()
++            dispatch_created_batch(db, batch.id)
+             return result
+     except Exception:
+         db.rollback()
+--- before/backend/app/services/geo_manual_collection.py
++++ after/backend/app/services/geo_manual_collection.py
+@@ -31,7 +31,6 @@
+ )
+ from app.schemas.geo_runs import (
+     GeoExternalCallState,
+-    GeoRunErrorStage,
+     GeoRunInputSnapshot,
+     GeoRunStatus,
+ )
+@@ -40,9 +39,10 @@
+ from app.services.file_records import DETACHED_RETENTION, schedule_unreferenced_file
+ from app.services.geo_answer_citations import prepare_answer_citations
+ from app.services.geo_answer_files import lock_answer_evidence_files
+-from app.services.geo_batch_policy import BatchRunState, batch_status
+ from app.services.geo_collection_profiles import profile_eligibility
+ from app.services.geo_plan_locks import command
++from app.services.geo_run_lifecycle import refresh_batch as _refresh_batch
++from app.services.geo_run_lifecycle import run_state as _state
+ from app.services.geo_run_policy import (
+     RunCommandAvailability,
+     RunState,
+@@ -84,23 +84,6 @@
+     if run is None:
+         raise not_found("GEO 运行")
+     return run
+-
+-
+-def _state(db: Session, run: GeoObservationRun) -> RunState:
+-    return RunState(
+-        status=GeoRunStatus(run.status),
+-        collection_mode=GeoCollectionMode(run.input_snapshot["profile"]["collection_mode"]),
+-        external_call_state=GeoExternalCallState(run.external_call_state),
+-        error_stage=GeoRunErrorStage(run.error_stage) if run.error_stage else None,
+-        has_answer=bool(
+-            db.scalar(select(GeoAnswerSnapshot.id).where(GeoAnswerSnapshot.run_id == run.id))
+-        ),
+-        has_successor=bool(
+-            db.scalar(
+-                select(GeoObservationRun.id).where(GeoObservationRun.previous_attempt_id == run.id)
+-            )
+-        ),
+-    )
+ 
+ 
+ def _require_pending(state: RunState) -> None:
+@@ -337,19 +320,6 @@
+         collection_status="COLLECTED",
+         analysis_dispatch="NOT_IMPLEMENTED",
+     )
+-
+-
+-def _refresh_batch(db: Session, batch: GeoObservationBatch, now: datetime) -> None:
+-    runs = list(db.scalars(select(GeoObservationRun).where(GeoObservationRun.batch_id == batch.id)))
+-    states = [BatchRunState(r.run_cell_key, r.attempt_no, _state(db, r)) for r in runs]
+-    status = batch_status(
+-        states, requested_run_count=batch.requested_run_count, matrix_committed=True
+-    )
+-    if batch.status != status:
+-        batch.status = status.value
+-        batch.revision += 1
+-        if batch.started_at is None:
+-            batch.started_at = now
+ 
+ 
+ def submit_manual_observation(
+--- before/backend/app/worker.py
++++ after/backend/app/worker.py
+@@ -1,4 +1,4 @@
+-"""Celery Worker 入口；Redis 仅传递生成作业 UUID。"""
++"""Celery Worker 入口；Redis 仅传递作业/Run UUID。"""
+ 
+ from __future__ import annotations
+ 
+@@ -13,6 +13,11 @@
+     fail_expired_generation_jobs,
+     redispatch_pending_generation_jobs,
+ )
++from app.services.geo_dispatch import (
++    fail_expired_collection_runs,
++    redispatch_pending_collection_runs,
++)
++from app.services.geo_runs import process_collection_run
+ 
+ celery_app = Celery("partsignal", broker=settings.redis_url)
+ celery_app.conf.update(
+@@ -21,6 +26,7 @@
+     task_reject_on_worker_lost=True,
+     worker_prefetch_multiplier=1,
+     broker_connection_retry_on_startup=True,
++    broker_transport_options={"socket_connect_timeout": 5, "socket_timeout": 5},
+     beat_schedule={
+         "recover-expired-generation-leases": {
+             "task": "partsignal.recover_expired_generation_jobs",
+@@ -29,6 +35,14 @@
+         "redispatch-pending-generation-jobs": {
+             "task": "partsignal.redispatch_pending_generation_jobs",
+             "schedule": float(settings.generation_recovery_scan_seconds),
++        },
++        "recover-expired-geo-leases": {
++            "task": "partsignal.recover_expired_geo_runs",
++            "schedule": float(settings.geo_recovery_scan_seconds),
++        },
++        "redispatch-pending-geo-runs": {
++            "task": "partsignal.redispatch_pending_geo_runs",
++            "schedule": float(settings.geo_recovery_scan_seconds),
+         },
+         "cleanup-platform-logo-files": {
+             "task": "partsignal.cleanup_platform_logo_files",
+@@ -60,3 +74,19 @@
+ def cleanup_platform_logos() -> None:
+     """按 PostgreSQL 权威状态清理全部到期且无引用的文件。"""
+     cleanup_file_records()
++
++
++@celery_app.task(name="partsignal.collect_geo_run")  # type: ignore[untyped-decorator]
++def collect_geo_run(run_id: str) -> None:
++    """消息只有 Run UUID；数据库重新裁决执行资格和 lease。"""
++    process_collection_run(uuid.UUID(run_id))
++
++
++@celery_app.task(name="partsignal.redispatch_pending_geo_runs")  # type: ignore[untyped-decorator]
++def redispatch_pending_geo_runs() -> None:
++    redispatch_pending_collection_runs(collect_geo_run.delay)
++
++
++@celery_app.task(name="partsignal.recover_expired_geo_runs")  # type: ignore[untyped-decorator]
++def recover_expired_geo_runs() -> None:
++    fail_expired_collection_runs()
+--- before/contracts/database.md
++++ after/contracts/database.md
+@@ -952,3 +952,30 @@
+ 每页Batch只批量读取compact完整attempt事实，不传全部输入/正文；Run页只加载当前页冻结输入。Run详情单请求组装所选attempt证据、batch summary、同cell attempts和真实时间线，禁止浏览器跨接口join。包含认证的非空读取固定SELECT：Batch列表6、Batch详情5、全局Run列表5、批次Run列表6、Run详情9；查询数不随批次、runs、引用数量增长。没有租户新模型，内部ADMIN/ENGINEER共享历史，created_by不是私有ACL。
+ 
+ 只读取白名单公共Run列，不加载lease_token；资格批量读取非敏感配置，不加载凭据正文、API请求参数或Header。文件只允许VERIFIED、verified_at非空、INTERNAL/RESTRICTED不可变引用，返回白名单元数据及现有EvidenceStorage限时签名；不返回原始字节、object_key/上传者/文件名，不做外部HEAD/HTTP。GET不重验对象存在性，实际下载沿现有签名校验。缺失历史/证据409 GEO_READ_MODEL_INCOMPLETE、不合格文件409 FILE_INTEGRITY_FAILED、已知签名不可用503 DEPENDENCY_UNAVAILABLE。详情Cache-Control:no-store。data_quality明确NOT_IMPLEMENTED且metric_eligible=NULL，不把当前采集资格等同指标资格，不创建分析/复核/指标/机会/重测数据。
++
++
++## GEO-405 采集执行写入合同
++
++复用 `0052_geo_profile_tests` head；无新表、列、索引、revision 或历史回填。
++创建 commit 后的首次 dispatch 和补投递只更新 PENDING 的 dispatch 计数/时间与 revision，
++不改变冻结输入或 execution attempt；入队与 PG metadata 不具备跨服务事务，重复消息由 claim 仲裁。
++
++采集 claim/发送前锁序为 Channel → Model → Surface → Profile → Batch → Run；结果/扫描只用
++Batch → Run，不反向获取配置锁。claim PENDING/NOT_STARTED/无答案/无后继，生成 token，
++RUNNING.started_at 与 lease 原子提交；provider I/O 无数据库事务。
++发送前重验 token/expiry/当前资格及依赖 revision，再写 SENT。
++答案 INSERT 前同事务 flush RUNNING/COMPLETED（revision+1），随后答案和 COLLECTED/清空lease
++一起提交（再次实际UPDATE revision+1），继续服从 0050 延迟完整性和不可变守卫。
++失败装配禁止中间 autoflush，状态/错误/lease/revision 同次UPDATE；错误摘要只允许固定安全文案。
++过期扫描将自动 RUNNING 保守 FAILED/WORKER_LOST，不恢复 PENDING，不重发，不改变终态。
++COLLECTED 保持非终态并投影 Batch RUNNING；分析尚未实施。
++
++GEO-405 当前提交仅正文/基本来源/闭合摘要，citation_count=0；非空引用或文件证据明确
++PROVIDER_RESPONSE_INVALID/COMPLETED 失败且不重发，避免提前实现 GEO-407 或静默丢弃证据。
++
++首次/补投递先在短事务预留 dispatch metadata 并 commit，再在事务外发布；预留回滚不发布。
++Broker 已接收后丢确认可造成重复入队，但不会重复调用。首次发布遇首个 Broker 错误即停止，
++其余预留 PENDING 后续按阈值扫描恢复，避免大矩阵在创建回执中逐项等待离线 Broker。
++Profile 资格锁使用 FOR NO KEY UPDATE，继续排斥修改/删除而允许答案提交的 FK KEY SHARE；
++同事务两次 Run UPDATE 会触发 FK 重验，FOR UPDATE 会与重复 claim 的 Profile→Batch 形成锁环。
++扫描默认使用 PG clock_timestamp；显式 now 仅用于定向测试。Redis socket/connect timeout 为5秒。
+--- before/deploy/scripts/check-production-inputs.py
++++ after/deploy/scripts/check-production-inputs.py
+@@ -22,12 +22,16 @@
+     "PARTSIGNAL_SEED_ADMIN_PASSWORD",
+     "PARTSIGNAL_SEED_ENGINEER_PASSWORD",
+ )
+-# 既有 runtime 无需补键或轮换密钥；省略这四项由唯一的 Settings 默认关闭。
+-OPTIONAL_GEO_FLAGS = {
++# 既有 runtime 无需补键或轮换密钥；功能默认关闭，Worker 参数使用 Settings 默认值。
++OPTIONAL_GEO_SETTINGS = {
+     "GEO_MONITORING_ENABLED",
+     "GEO_API_COLLECTION_ENABLED",
+     "GEO_BROWSER_COLLECTION_ENABLED",
+     "GEO_OPPORTUNITY_EVALUATION_ENABLED",
++    "GEO_PENDING_REDISPATCH_SECONDS",
++    "GEO_COLLECTION_FINALIZE_GRACE_SECONDS",
++    "GEO_RECOVERY_SCAN_SECONDS",
++    "GEO_RECOVERY_BATCH_SIZE",
+ }
+ 
+ 
+@@ -75,7 +79,7 @@
+ def check_runtime(values: dict[str, str]) -> list[str]:
+     """补足 Compose 消费前的输入合同；应用类型和边界继续由真实 backend 预检拥有。"""
+     template = parse_runtime((ROOT / ".env.production.example").read_text())
+-    if not set(template) - OPTIONAL_GEO_FLAGS <= set(values) <= set(template):
++    if not set(template) - OPTIONAL_GEO_SETTINGS <= set(values) <= set(template):
+         raise InputError("ENV_KEY_SET_MISMATCH")
+     missing = sorted(key for key in values if key != "VITE_API_BASE_URL" and not values[key])
+     if missing:
+--- before/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
++++ after/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
+@@ -577,3 +577,37 @@
+ 当前范围、逐项验证和限制见 [Task Brief](../../../.trellis/tasks/10-03-geo-404-openai-collector/prd.md)
+ 及 [实施证据](../../../.trellis/tasks/10-03-geo-404-openai-collector/implement.md)。生产 Worker、
+ 发送状态持久化、lease/迟到结果与恢复分别由后续 GEO-405/406 交付。
++
++
++## 当前 R3：GEO-405 采集执行链
++
++`geo_batches` 在创建事务 commit 后调用 `geo_dispatch`；消息参数仅 `run_id` 字符串。
++Broker 失败或接收后丢失确认不会撤销已接受的 Batch；PENDING 扫描按
++`coalesce(last_dispatch_attempt_at, created_at)` 节流并限批次补投递。重复消息不等于新 attempt。
++
++`geo_runs` 在短事务中依序锁 Channel → Model → Surface → Profile → Batch → Run，
++使用当前总/子开关、registry 批准、合规与测试资格和冻结 Profile revision/绑定裁决 claim。
++凭据只在执行内存解密；lease 为当前 Channel timeout + finalize grace，唯一 token 与
++数据库 expiry 联合守卫。连接/peer/TLS 成功后、首个请求字节前，重新锁定并校验当前资格与
++依赖 revision，持久化 SENT；provider 在事务外调用，无自动 retry/redirect。
++
++成功只推进到 COLLECTED，基本答案与状态原子提交；不触发分析或伪造完成状态。
++提交必须仍为 RUNNING、SENT 且 token/期限有效。Collector 固定失败映射到 COLLECTION；
++未经分类的执行/提交异常使用 WORKER_LOST。任何失败都不自动重发。
++过期扫描按 Batch → Run / SKIP LOCKED，把所有过期自动 RUNNING 保守标记 FAILED/WORKER_LOST，
++清除 lease，保留外部发送事实，重建 Batch 缓存。NOT_STARTED 安全重入、迟到证据和显式新 attempt
++由 GEO-406 交付；usage/cost、预算预留/rate limit 属于 GEO-407。
++
++生产 registry 的 API approved=false 与工厂 INTERNAL 分类保持。当前 PUBLIC-only Collector
++不能使 INTERNAL Run 外发；没有新增外发授权入口。有 budget_limit 的执行明确失败，不能忽略预算。
++MANUAL 不投递、不 claim；Browser 未接线。
++
++GEO-405 当前提交仅正文/基本来源/闭合摘要，citation_count=0；非空引用或文件证据明确
++PROVIDER_RESPONSE_INVALID/COMPLETED 失败且不重发，避免提前实现 GEO-407 或静默丢弃证据。
++
++首次/补投递先在短事务预留 dispatch metadata 并 commit，再在事务外发布；预留回滚不发布。
++Broker 已接收后丢确认可造成重复入队，但不会重复调用。首次发布遇首个 Broker 错误即停止，
++其余预留 PENDING 后续按阈值扫描恢复，避免大矩阵在创建回执中逐项等待离线 Broker。
++Profile 资格锁使用 FOR NO KEY UPDATE，继续排斥修改/删除而允许答案提交的 FK KEY SHARE；
++同事务两次 Run UPDATE 会触发 FK 重验，FOR UPDATE 会与重复 claim 的 Profile→Batch 形成锁环。
++扫描默认使用 PG clock_timestamp；显式 now 仅用于定向测试。Redis socket/connect timeout 为5秒。
+--- before/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
++++ after/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
+@@ -347,3 +347,22 @@
+ - 备份恢复演练通过；
+ - 监控和停止流程可用；
+ - Browser 功能默认关闭，除非试点全部门禁通过。
++
++
++## 当前 R3：GEO-405 运维参数
++
++| 参数 | 默认 / 范围 | 含义 |
++|---|---|---|
++| GEO_PENDING_REDISPATCH_SECONDS | 120 / 1–86400 | 距最近 dispatch 尝试（或创建）的补投递最小间隔 |
++| GEO_COLLECTION_FINALIZE_GRACE_SECONDS | 120 / 1–3600 | Channel timeout 后的结果提交余量 |
++| GEO_RECOVERY_SCAN_SECONDS | 60 / 5–3600 | Beat 两种 GEO 扫描周期 |
++| GEO_RECOVERY_BATCH_SIZE | 100 / 1–1000 | 单轮最多候选 Run，锁定失败跳过 |
++
++使用现有 worker/scheduler、Celery 默认队列；无需新增容器/基础设施。现有 runtime 可省略
++这些键，Settings 使用默认值；进程启动时读取配置，变更需重启相关进程，文件改动不等于热加载。
++Beat 注册 `partsignal.redispatch_pending_geo_runs` 和 `partsignal.recover_expired_geo_runs`。
++采集任务 `partsignal.collect_geo_run` 只接收 run ID。重复消费者/扫描器由 PG 行锁与 token 仲裁。
++
++安全停止：停 Worker/Beat 或关闭采集开关阻止新发送；已发送请求不重发，过期 lease 保留历史失败。
++诊断只记录 Run/Batch ID、固定 code 与异常类型，禁止记录原 prompt/回答/凭据或异常正文。
++当前 API 仍未生产批准、INTERNAL 工厂输入仍禁止外发、预算执行尚未完成，不能据此认定 R3 发布完成。
+--- before/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ after/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -732,7 +732,7 @@
+   phase: R3
+   release: R3
+   title: 实现采集 Worker、lease、dispatch 和补投递
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-303
+   - GEO-404
+@@ -750,6 +750,7 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  review_note: 2026-10-03 采集claim、lease、发送前裁决、原子结果、dispatch、PENDING补投递和expired lease扫描完成；真实Redis/Celery重复消息不重复调用已验证。最终lint、typecheck、后端2999及前端1125单元、841集成与diff检查通过；独立只读并发复核完成。无新OpenAPI或Alembic变更，生产批准和外发门禁保持；详细证据见GEO-405 Task Brief与implement.md。仅进入review，待人工验收；不实施GEO-406/407/506。
+ - id: GEO-406
+   phase: R3
+   release: R3
+--- before/docs/geo-monitoring/README.md
++++ after/docs/geo-monitoring/README.md
+@@ -281,3 +281,11 @@
+ 逐项证据与限制见 [Task Brief](../../.trellis/tasks/10-03-geo-404-openai-collector/prd.md) 和
+ [实施记录](../../.trellis/tasks/10-03-geo-404-openai-collector/implement.md)，当前状态以
+ [任务清单](./04-delivery/task-manifest.yaml) 为准；不代表 GEO-405/406 或 R3 发布完成。
++
++
++GEO-405 / R3 已接线采集 claim/lease、发送前当前资格裁决、原子结果、首次 dispatch、
++PENDING redispatch 和 expired lease 扫描；队列仅 run ID，重复消息不重复调用。
++本阶段 lease 保守失败，不自动重发；GEO-406/407/506 保持未实现。
++生产 adapter 批准和 INTERNAL 外发限制保持，状态以 [任务清单](./04-delivery/task-manifest.yaml) 为准。
++见 [Task Brief](../../.trellis/tasks/10-03-geo-405-collection-worker/prd.md) 和
++[实施证据](../../.trellis/tasks/10-03-geo-405-collection-worker/implement.md)。
+--- before/docs/geo-monitoring/SHA256SUMS
++++ after/docs/geo-monitoring/SHA256SUMS
+@@ -11,10 +11,10 @@
+ 71ad777c12034ec8d69b0dbfd1457aa1886d24de901c7e4fb3f304f19915812b  ./03-technical/02-data-architecture.md
+ 3ad8c855eb54244918d4d6774e40f3b5299f6e51d93befbf490d07b8cd7a41a3  ./03-technical/03-api-contract-design.md
+ 5f8dfd5ce025da9a312e800a4c13e48eb64dee88927e2668c82f81490457bd67  ./03-technical/04-frontend-architecture.md
+-ed9f4e203b0dd8c40ef0b2c8cf76a7d66de55b0654b298e12b95092ab03e7090  ./03-technical/05-worker-and-collector-architecture.md
++cd84361dc6f660718522ff7014abc25436fd2d4716f180e71235b0d70ca8b347  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+ 6637c4b8232d8d3b18d0f396411341af3a772215e7ab59c9e11c1efbdc372e1a  ./03-technical/07-testing-and-quality.md
+-61a4dd642c6f74b581e95eb2269453be79d71a75fa240269eb001e56f45e2b83  ./03-technical/08-deployment-and-operations.md
++3799a247a40d40d1226247b4b680dd51cc6a319b8d2c8ce5ae078c5a578189d3  ./03-technical/08-deployment-and-operations.md
+ f8c643e46c1159c51bd2e271e87de1d0e5a0448e2845af01f33bef5e4e1d411b  ./04-delivery/01-implementation-roadmap.md
+ acf0bde87ddfc34ebbc09543c1f2c2c1f496d48f330727b5e943807267eed41c  ./04-delivery/02-work-breakdown-structure.md
+ 7a1e4e0513d68d6c5462126076153405b3beecd47551cf0d4b519cf616e7292d  ./04-delivery/03-requirement-traceability-matrix.md
+@@ -102,7 +102,7 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-6f74736fef24ca5e3589f8e044f54357aa2c517ebd34a130b1f56b7d7d6babcc  ./04-delivery/task-manifest.yaml
++e0793a9b381108b8511d74cf5717251661d5ca160f5361e39f6e2a7e183eeb45  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+@@ -110,6 +110,6 @@
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+ 1889f9cc1ae9f48f00b3c6bc5711586b866aa889c7b682ed3f68a86a01245608  ./CHANGELOG.md
+-8b6755a6ef67ef9146f73571a69b63c9e79d8da80895be2f9708c8a166aeaa5f  ./README.md
++7949bde3b9edc622d1246a0bfcf49c85b14b96820c084a7911cad18f61017bae  ./README.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+ a80ebe00c833b45a53bf82b140a84b9bb1a20a49bb37688cb233ef6d5e818782  ./04-delivery/07-r2-acceptance.md
+--- before/docs/production-configuration.md
++++ after/docs/production-configuration.md
+@@ -140,3 +140,9 @@
+ 7. **后续 upgrade。** 继续指定 `ENV_FILE=/root/partsignal/shared/.env.production`，按新 manifest 运行受控 deploy/activate；未变更配置时无需交付 env，未清空数据库时无需再次 bootstrap。
+ 
+ 完整清单能把已知缺项挡在发布准备阶段；真实供应商拒绝、网络/TLS 故障或 OSS 权限漂移仍须由实际 Gate 发现，不能用填写完成冒充成功。本次模板交付没有执行配置上传、远端更新、新 release、maintenance 或 cutover。
++
++
++GEO-405 Worker 使用 `GEO_PENDING_REDISPATCH_SECONDS=120`、
++`GEO_COLLECTION_FINALIZE_GRACE_SECONDS=120`、`GEO_RECOVERY_SCAN_SECONDS=60`、
++`GEO_RECOVERY_BATCH_SIZE=100`。既有 runtime 可省略，唯一默认和范围校验由 Settings 拥有。
++变更后重启 Worker/Beat；这些运行参数不授予 adapter 批准或数据外发权限。
+--- /dev/null
++++ after/backend/app/services/geo_collection_execution.py
+@@ -0,0 +1,120 @@
++"""采集执行的当前配置/凭据边界；不发送请求，不维护 Run 状态。"""
++
++from dataclasses import dataclass
++
++from sqlalchemy import select
++from sqlalchemy.orm import Session
++
++from app.collectors.base import GeoCollector
++from app.collectors.contracts import CollectionRequest
++from app.collectors.errors import CollectorError, CollectorStage
++from app.collectors.openai_compatible import OpenAICompatibleGeoCollector
++from app.collectors.registry import collector_registry
++from app.config import settings
++from app.errors import AppError
++from app.models.ai_generation import AIChannel, AIChannelHeader, AIModel
++from app.models.geo_surfaces import GeoCollectionProfile
++from app.schemas.geo_runs import GeoExternalCallState as External
++from app.schemas.geo_runs import GeoRunErrorCode as Code
++from app.services.ai_configuration import request_credentials
++from app.services.geo_collection_profiles import load_profile_facts
++from app.services.geo_surface_locks import lock_bindings, lock_surface
++
++
++@dataclass(frozen=True)
++class ExecutionVersions:
++    channel: int
++    model: int
++    surface: int
++    profile: int
++
++
++def configuration_error(code: Code = Code.COLLECTOR_CONFIGURATION_INVALID) -> CollectorError:
++    return CollectorError(
++        code, stage=CollectorStage.CONFIGURATION, external_call_state=External.NOT_STARTED
++    )
++
++
++def lock_configuration(db: Session, request: CollectionRequest) -> None:
++    frozen = request.profile
++    initial = db.execute(
++        select(
++            GeoCollectionProfile.ai_channel_id,
++            GeoCollectionProfile.ai_model_id,
++            GeoCollectionProfile.engine_surface_id,
++        ).where(GeoCollectionProfile.id == frozen.id)
++    ).one_or_none()
++    if initial is None:
++        raise configuration_error()
++    lock_bindings(db, ((initial[0], initial[1]), (frozen.ai_channel_id, frozen.ai_model_id)))
++    lock_surface(db, initial[2])
++    # 同事务两次 Run UPDATE 会触发 Profile FK KEY SHARE 重验；NO KEY UPDATE
++    # 仍阻止配置修改/删除，但避免结果提交与重复 claim 的 Profile→Batch 锁环。
++    db.execute(
++        select(GeoCollectionProfile.id)
++        .where(GeoCollectionProfile.id == frozen.id)
++        .with_for_update(key_share=True)
++    ).all()
++
++
++def qualify(db: Session, request: CollectionRequest) -> ExecutionVersions:
++    """每次短事务重载当前资格；冻结配置不跟随新 Profile/模型绑定变更。"""
++    if not settings.geo_monitoring_enabled or not settings.geo_api_collection_enabled:
++        raise configuration_error(Code.COLLECTOR_DISABLED)
++    facts = load_profile_facts(db, [request.profile.id]).get(request.profile.id)
++    if (
++        facts is None
++        or not facts.eligibility(registry=collector_registry, configuration=settings).eligible
++    ):
++        raise configuration_error()
++    p, frozen = facts.profile, request.profile
++    registration = collector_registry.resolve(frozen.adapter_key)
++    if (
++        p.revision != frozen.revision
++        or p.engine_surface_id != frozen.engine_surface_id
++        or p.ai_channel_id != frozen.ai_channel_id
++        or p.ai_model_id != frozen.ai_model_id
++        or p.collection_mode != frozen.collection_mode
++        or p.adapter_key != frozen.adapter_key
++        or registration.version != frozen.adapter_version
++        or registration.validate_profile(p)
++    ):
++        raise configuration_error()
++    channel = db.get(AIChannel, frozen.ai_channel_id, populate_existing=True)
++    model = db.get(AIModel, frozen.ai_model_id, populate_existing=True)
++    if channel is None or model is None or model.channel_id != channel.id:
++        raise configuration_error()
++    return ExecutionVersions(channel.revision, model.revision, facts.surface.revision, p.revision)
++
++
++def build_collector(db: Session, request: CollectionRequest) -> GeoCollector:
++    """仅已实现的 API adapter；秘密不进入冻结快照、队列或错误正文。"""
++    if request.profile.adapter_key != "openai-compatible-chat":
++        raise configuration_error()
++    channel = db.get(AIChannel, request.profile.ai_channel_id, populate_existing=True)
++    model = db.get(AIModel, request.profile.ai_model_id, populate_existing=True)
++    assert channel is not None and model is not None
++    try:
++        api_key, headers = request_credentials(db, channel)
++    except AppError:
++        raise configuration_error() from None
++    sensitive = set(
++        db.scalars(
++            select(AIChannelHeader.normalized_name).where(
++                AIChannelHeader.channel_id == channel.id, AIChannelHeader.is_sensitive
++            )
++        )
++    )
++    return OpenAICompatibleGeoCollector(
++        channel_id=channel.id,
++        model_id=model.id,
++        protocol_type=channel.protocol_type,
++        base_url=channel.base_url,
++        provider_model=model.model_id,
++        api_key=api_key,
++        headers={k: v for k, v in headers.items() if k.lower() not in sensitive},
++        sensitive_headers={k: v for k, v in headers.items() if k.lower() in sensitive},
++        request_parameters=model.request_parameters,
++        allow_local_http=settings.ai_allow_local_http,
++        environment=settings.environment,
++    )
+--- /dev/null
++++ after/backend/app/services/geo_dispatch.py
+@@ -0,0 +1,196 @@
++"""提交后投递与数据库补投递；只有未发送的 PENDING 可入队。"""
++
++import logging
++from collections.abc import Callable
++from datetime import datetime, timedelta
++from uuid import UUID
++
++from sqlalchemy import func, select
++from sqlalchemy.orm import Session
++
++from app.config import settings
++from app.db import SessionLocal
++from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
++from app.services.geo_run_lifecycle import database_now, fail_run, lock_run, refresh_batch
++
++logger = logging.getLogger("partsignal.worker")
++type RunSender = Callable[[str], object]
++
++
++def _pending(run: GeoObservationRun) -> bool:
++    return (
++        run.status == "PENDING"
++        and run.external_call_state == "NOT_STARTED"
++        and run.input_snapshot["profile"]["collection_mode"] == "API"
++    )
++
++
++def _reserve(run: GeoObservationRun, now: datetime) -> None:
++    """先提交尝试时间；崩溃后仍由 PENDING 阈值恢复，无跨服务原子成功假象。"""
++    run.last_dispatch_attempt_at = now
++    run.dispatch_attempt_count += 1
++    run.revision += 1
++
++
++def _publish(run_id: UUID, sender: RunSender) -> bool:
++    try:
++        sender(str(run_id))
++        return True
++    except Exception as error:
++        logger.warning("GEO 投递失败 run_id=%s error_type=%s", run_id, type(error).__name__)
++        return False
++
++
++def dispatch_batch(db: Session, batch_id: UUID, sender: RunSender) -> int:
++    """工厂 commit 后调用；Broker/元数据故障不把已接受的创建回执改为失败。"""
++    try:
++        batch = db.scalar(
++            select(GeoObservationBatch.id)
++            .where(GeoObservationBatch.id == batch_id)
++            .with_for_update()
++        )
++        if batch is None:
++            db.rollback()
++            return 0
++        runs = list(
++            db.scalars(
++                select(GeoObservationRun)
++                .where(
++                    GeoObservationRun.batch_id == batch_id,
++                    GeoObservationRun.status == "PENDING",
++                    GeoObservationRun.dispatch_attempt_count == 0,
++                )
++                .order_by(GeoObservationRun.id)
++                .with_for_update()
++            )
++        )
++        now = database_now(db)
++        ids = [r.id for r in runs if _pending(r)]
++        for run in runs:
++            if _pending(run):
++                _reserve(run, now)
++        db.commit()
++
++    except Exception as error:
++        db.rollback()
++        logger.error(
++            "GEO 首次投递事务失败 batch_id=%s error_type=%s", batch_id, type(error).__name__
++        )
++        return 0
++
++    dispatched = 0
++    for run_id in ids:
++        if not _publish(run_id, sender):
++            # Broker 故障一次即停止首次同步发布；余下预留由 PENDING 扫描恢复。
++            break
++        dispatched += 1
++    return dispatched
++
++
++def dispatch_created_batch(db: Session, batch_id: UUID) -> None:
++    try:
++        # MANUAL 批次无需导入 Worker，更不尝试连接 Broker。
++        automatic = db.scalar(
++            select(GeoObservationRun.id)
++            .where(
++                GeoObservationRun.batch_id == batch_id,
++                GeoObservationRun.input_snapshot["profile"]["collection_mode"].astext == "API",
++                GeoObservationRun.status == "PENDING",
++                GeoObservationRun.dispatch_attempt_count == 0,
++            )
++            .limit(1)
++        )
++        db.rollback()
++        if automatic is not None:
++            from app.worker import collect_geo_run
++
++            dispatch_batch(db, batch_id, collect_geo_run.delay)
++    except Exception as error:
++        db.rollback()
++        logger.error("GEO 创建后投递失败 batch_id=%s error_type=%s", batch_id, type(error).__name__)
++
++
++def _scan_candidates(*, expired: bool, now: datetime) -> list[UUID]:
++    r = GeoObservationRun
++    due = r.lease_expires_at if expired else func.coalesce(r.last_dispatch_attempt_at, r.created_at)
++    cutoff = now if expired else now - timedelta(seconds=settings.geo_pending_redispatch_seconds)
++    with SessionLocal() as db:
++        return list(
++            db.scalars(
++                select(r.id)
++                .where(
++                    r.status == ("RUNNING" if expired else "PENDING"),
++                    due <= cutoff,
++                    r.input_snapshot["profile"]["collection_mode"].astext == "API",
++                )
++                .order_by(due, r.id)
++                .limit(settings.geo_recovery_batch_size)
++            )
++        )
++
++
++def _lock_candidate(db: Session, run_id: UUID) -> GeoObservationRun | None:
++    batch_id = db.scalar(select(GeoObservationRun.batch_id).where(GeoObservationRun.id == run_id))
++    # 不先锁 Run 再等待 Batch；同批次并行扫描 SKIP LOCKED 避免锁环。
++    if (
++        db.scalar(
++            select(GeoObservationBatch.id)
++            .where(GeoObservationBatch.id == batch_id)
++            .with_for_update(skip_locked=True)
++        )
++        is None
++    ):
++        return None
++    return db.scalar(
++        select(GeoObservationRun)
++        .where(GeoObservationRun.id == run_id)
++        .with_for_update(skip_locked=True)
++    )
++
++
++def redispatch_pending_collection_runs(sender: RunSender, *, now: datetime | None = None) -> int:
++    with SessionLocal() as db:
++        scan_time = now if now is not None else database_now(db)
++    dispatched = 0
++    for run_id in _scan_candidates(expired=False, now=scan_time):
++        with SessionLocal.begin() as db:
++            run = _lock_candidate(db, run_id)
++            if run is None or not _pending(run):
++                continue
++            due = run.last_dispatch_attempt_at or run.created_at
++            if due > scan_time - timedelta(seconds=settings.geo_pending_redispatch_seconds):
++                continue
++            _reserve(run, scan_time)
++        # 此处已提交并释放全部数据库锁，Broker 延迟不能拖住同批结果提交。
++        dispatched += _publish(run_id, sender)
++    return dispatched
++
++
++def fail_expired_collection_runs(*, now: datetime | None = None) -> int:
++    """GEO-405 保守终止全部过期采集；NOT_STARTED 恢复与迟到结果留 GEO-406。"""
++    with SessionLocal() as db:
++        scan_time = now if now is not None else database_now(db)
++    failed = 0
++    for run_id in _scan_candidates(expired=True, now=scan_time):
++        with SessionLocal.begin() as db:
++            candidate = _lock_candidate(db, run_id)
++            if (
++                candidate is None
++                or candidate.status != "RUNNING"
++                or candidate.lease_expires_at is None
++                or candidate.lease_expires_at > scan_time
++            ):
++                continue
++            locked = lock_run(db, run_id)
++            assert locked is not None
++            batch, run = locked
++            fail_run(
++                db,
++                run,
++                now=scan_time,
++                code="WORKER_LOST",
++                summary="采集 Worker 租约过期，禁止自动重发",
++            )
++            refresh_batch(db, batch, scan_time)
++            failed += 1
++    return failed
+--- /dev/null
++++ after/backend/app/services/geo_run_lifecycle.py
+@@ -0,0 +1,118 @@
++"""Run 锁、状态事实与 Batch 缓存维护；调用方拥有短事务。"""
++
++from datetime import datetime
++from uuid import UUID
++
++from sqlalchemy import exists, func, select
++from sqlalchemy.orm import Session, aliased
++
++from app.models.geo_answers import GeoAnswerSnapshot
++from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
++from app.schemas.geo_runs import (
++    GeoBatchStatus,
++    GeoExternalCallState,
++    GeoRunErrorStage,
++    GeoRunStatus,
++)
++from app.schemas.geo_surfaces import GeoCollectionMode
++from app.services.geo_batch_policy import BatchRunState, batch_status
++from app.services.geo_run_policy import RunState, run_transition
++
++
++def database_now(db: Session) -> datetime:
++    now = db.scalar(select(func.clock_timestamp()))
++    assert isinstance(now, datetime)
++    return now
++
++
++def lock_run(db: Session, run_id: UUID) -> tuple[GeoObservationBatch, GeoObservationRun] | None:
++    batch_id = db.scalar(select(GeoObservationRun.batch_id).where(GeoObservationRun.id == run_id))
++    if batch_id is None:
++        return None
++    batch = db.scalar(
++        select(GeoObservationBatch)
++        .where(GeoObservationBatch.id == batch_id)
++        .with_for_update()
++        .execution_options(populate_existing=True)
++    )
++    run = db.scalar(
++        select(GeoObservationRun)
++        .where(GeoObservationRun.id == run_id)
++        .with_for_update()
++        .execution_options(populate_existing=True)
++    )
++    assert batch is not None and run is not None
++    return batch, run
++
++
++def run_state(db: Session, run: GeoObservationRun) -> RunState:
++    return RunState(
++        status=GeoRunStatus(run.status),
++        collection_mode=GeoCollectionMode(run.input_snapshot["profile"]["collection_mode"]),
++        external_call_state=GeoExternalCallState(run.external_call_state),
++        error_stage=GeoRunErrorStage(run.error_stage) if run.error_stage else None,
++        has_answer=bool(db.scalar(select(exists().where(GeoAnswerSnapshot.run_id == run.id)))),
++        has_successor=bool(
++            db.scalar(select(exists().where(GeoObservationRun.previous_attempt_id == run.id)))
++        ),
++    )
++
++
++def refresh_batch(db: Session, batch: GeoObservationBatch, now: datetime) -> None:
++    # 完整集合一次读取，不按每个 Run 查询答案/后继；唯一纯策略裁决状态。
++    db.flush()
++    r, successor = GeoObservationRun, aliased(GeoObservationRun)
++    rows = db.execute(
++        select(
++            r,
++            exists().where(GeoAnswerSnapshot.run_id == r.id),
++            exists().where(successor.previous_attempt_id == r.id),
++        ).where(r.batch_id == batch.id)
++    ).all()
++    states = [
++        BatchRunState(
++            r.run_cell_key,
++            r.attempt_no,
++            RunState(
++                r.status,
++                r.input_snapshot["profile"]["collection_mode"],
++                r.external_call_state,
++                r.error_stage,
++                answer,
++                successor,
++            ),
++        )
++        for r, answer, successor in rows
++    ]
++    status = batch_status(
++        states, requested_run_count=batch.requested_run_count, matrix_committed=True
++    )
++    if batch.status != status:
++        batch.status = status.value
++        batch.revision += 1
++        if status != GeoBatchStatus.QUEUED and batch.started_at is None:
++            batch.started_at = now
++        if status in {
++            GeoBatchStatus.COMPLETED,
++            GeoBatchStatus.PARTIAL,
++            GeoBatchStatus.FAILED,
++            GeoBatchStatus.CANCELLED,
++            GeoBatchStatus.BUDGET_BLOCKED,
++        }:
++            batch.finished_at = now
++
++
++def fail_run(
++    db: Session, run: GeoObservationRun, *, now: datetime, code: str, summary: str
++) -> None:
++    # 调用方可能已更新发送事实；先裁决完整状态，禁止中间 UPDATE 绕过 revision。
++    with db.no_autoflush:
++        state = run_state(db, run)
++    run.status = run_transition(state, GeoRunStatus.FAILED).value
++    run.error_stage = "COLLECTION"
++    run.error_code = code
++    run.error_summary = summary
++    run.finished_at = now
++    run.lease_token = None
++    run.lease_expires_at = None
++    run.revision += 1
+--- /dev/null
++++ after/backend/app/services/geo_runs.py
+@@ -0,0 +1,217 @@
++"""采集 Worker 的事务 owner；每次执行一个冻结 Run，不自动重试外部调用。"""
++
++import logging
++from dataclasses import dataclass, replace
++from datetime import datetime, timedelta
++from uuid import UUID, uuid4
++
++from app.collectors.base import GeoCollector
++from app.collectors.contracts import CollectedAnswer, CollectionRequest
++from app.collectors.errors import CollectorError, CollectorStage
++from app.config import settings
++from app.db import SessionLocal
++from app.models.ai_generation import AIChannel
++from app.models.geo_answers import GeoAnswerSnapshot
++from app.models.geo_runs import GeoObservationRun
++from app.schemas.geo_runs import GeoExternalCallState as External
++from app.schemas.geo_runs import GeoRunErrorCode, GeoRunInputSnapshot, GeoRunStatus
++from app.services.geo_collection_execution import (
++    ExecutionVersions,
++    build_collector,
++    configuration_error,
++    lock_configuration,
++    qualify,
++)
++from app.services.geo_run_lifecycle import (
++    database_now,
++    fail_run,
++    lock_run,
++    refresh_batch,
++    run_state,
++)
++from app.services.geo_run_policy import run_transition
++
++logger = logging.getLogger("partsignal.worker")
++
++
++class LeaseLost(Exception):
++    """旧消息/旧 token 必须停止，不能创建新调用或修改当前结果。"""
++
++
++@dataclass(frozen=True, repr=False)
++class CollectionLease:
++    request: CollectionRequest
++    token: UUID
++    versions: ExecutionVersions
++    collector: GeoCollector
++
++
++def owns_lease(run: GeoObservationRun, token: UUID, now: datetime) -> bool:
++    return (
++        run.status == "RUNNING"
++        and run.lease_token == token
++        and run.lease_expires_at is not None
++        and run.lease_expires_at > now
++    )
++
++
++def claim_collection_run(run_id: UUID) -> CollectionLease | None:
++    with SessionLocal() as db:
++        run = db.get(GeoObservationRun, run_id)
++        if run is None or run.status != "PENDING":
++            return None
++        if run.input_snapshot["profile"]["collection_mode"] == "MANUAL":
++            return None
++        snapshot = GeoRunInputSnapshot.model_validate(run.input_snapshot)
++        request = CollectionRequest.from_snapshot(
++            run_id,
++            snapshot,
++            timeout_seconds=120,
++            max_response_bytes=2 * 1024 * 1024,
++            budget_remaining=None,
++        )
++    with SessionLocal.begin() as db:
++        lock_configuration(db, request)
++        locked = lock_run(db, run_id)
++        if locked is None:
++            return None
++        batch, run = locked
++        state = run_state(db, run)
++        if (
++            state.status != GeoRunStatus.PENDING
++            or state.has_answer
++            or state.has_successor
++            or state.external_call_state != External.NOT_STARTED
++        ):
++            return None
++        now = database_now(db)
++        try:
++            # 预算预留尚属 GEO-407；不能忽略已冻结的限额然后发送。
++            if batch.plan_snapshot.get("budget_limit") is not None:
++                raise configuration_error()
++            versions = qualify(db, request)
++            channel = db.get(AIChannel, request.profile.ai_channel_id)
++            assert channel is not None
++            request = replace(request, timeout_seconds=channel.timeout_seconds)
++            collector = build_collector(db, request)
++        except CollectorError as error:
++            fail_run(db, run, now=now, code=error.failure.code.value, summary=error.failure.message)
++            refresh_batch(db, batch, now)
++            return None
++        token = uuid4()
++        run.status = run_transition(state, GeoRunStatus.RUNNING).value
++        run.started_at = now
++        run.lease_token = token
++        run.lease_expires_at = now + timedelta(
++            seconds=request.timeout_seconds + settings.geo_collection_finalize_grace_seconds
++        )
++        run.revision += 1
++        refresh_batch(db, batch, now)
++        return CollectionLease(request, token, versions, collector)
++
++
++def authorize_send(lease: CollectionLease) -> None:
++    """首个请求字节前重验当前配置与 token，原子持久化 SENT 后立即释放锁。"""
++    with SessionLocal.begin() as db:
++        lock_configuration(db, lease.request)
++        locked = lock_run(db, lease.request.run_id)
++        if locked is None:
++            raise LeaseLost()
++        _, run = locked
++        now = database_now(db)
++        if not owns_lease(run, lease.token, now) or run.external_call_state != "NOT_STARTED":
++            raise LeaseLost()
++        if qualify(db, lease.request) != lease.versions:
++            raise configuration_error()
++        run.external_call_state = "SENT"
++        run.revision += 1
++
++
++def submit_collection_result(lease: CollectionLease, result: CollectedAnswer) -> bool:
++    """答案/状态同一事务；0050 延迟约束禁止半提交或历史覆盖。"""
++    with SessionLocal.begin() as db:
++        locked = lock_run(db, lease.request.run_id)
++        if locked is None:
++            return False
++        batch, run = locked
++        now = database_now(db)
++        if not owns_lease(run, lease.token, now) or run.external_call_state != "SENT":
++            return False
++        if (
++            result.citations
++            or result.raw_payload_bytes is not None
++            or result.screenshot_bytes is not None
++        ):
++            # 405 只提交正文；引用持久化属 407，文件 adapter 尚未接线，不能静默丢弃。
++            raise CollectorError(
++                GeoRunErrorCode.PROVIDER_RESPONSE_INVALID,
++                stage=CollectorStage.EVIDENCE,
++                external_call_state=External.COMPLETED,
++            )
++        run.external_call_state = "COMPLETED"
++        run.revision += 1
++        db.flush()  # INSERT 答案守卫要求数据库已是 RUNNING/COMPLETED。
++        answer = GeoAnswerSnapshot(
++            run_id=run.id,
++            prompt_text=lease.request.prompt_text,
++            answer_text=result.answer_text,
++            answer_format=result.answer_format,
++            source_product=result.source_product,
++            source_model=result.source_model,
++            source_version=result.source_version,
++            web_search_observed=result.web_search_observed,
++            raw_payload_summary=result.raw_payload_summary.to_contract().model_dump(mode="json"),
++            citation_count=0,
++            collected_at=now,
++        )
++        db.add(answer)
++        db.flush()
++        run.status = run_transition(
++            replace(run_state(db, run), has_answer=True), GeoRunStatus.COLLECTED
++        ).value
++        run.collected_at = now
++        run.lease_token = None
++        run.lease_expires_at = None
++        run.revision += 1
++        refresh_batch(db, batch, now)
++        return True
++
++
++def submit_collection_failure(lease: CollectionLease, error: CollectorError | None) -> bool:
++    with SessionLocal.begin() as db:
++        locked = lock_run(db, lease.request.run_id)
++        if locked is None:
++            return False
++        batch, run = locked
++        now = database_now(db)
++        if not owns_lease(run, lease.token, now):
++            return False
++        if error is not None:
++            external = error.failure.external_call_state.value
++            # 回调已持久化 SENT 时，传输异常不能把事实撤回 NOT_STARTED。
++            if external != "NOT_STARTED" and run.external_call_state != "COMPLETED":
++                run.external_call_state = external
++            code, summary = error.failure.code.value, error.failure.message
++        else:
++            code, summary = "WORKER_LOST", "采集执行或结果提交失败，禁止自动重发"
++        fail_run(db, run, now=now, code=code, summary=summary)
++        refresh_batch(db, batch, now)
++        return True
++
++
++def process_collection_run(run_id: UUID) -> None:
++    lease = claim_collection_run(run_id)
++    if lease is None:
++        return
++    try:
++        result = lease.collector.collect(lease.request, before_send=lambda: authorize_send(lease))
++        submit_collection_result(lease, result)
++    except LeaseLost:
++        logger.info("GEO 采集租约失效 run_id=%s", run_id)
++    except CollectorError as error:
++        submit_collection_failure(lease, error)
++        logger.warning("GEO 采集失败 run_id=%s code=%s", run_id, error.failure.code.value)
++    except Exception as error:
++        # 不打印异常正文或 traceback，供应商内容和凭据不能进入 Celery 日志。
++        submit_collection_failure(lease, None)
++        logger.error("GEO 采集执行失败 run_id=%s error_type=%s", run_id, type(error).__name__)
+--- /dev/null
++++ after/backend/tests/integration/geo_worker_support.py
+@@ -0,0 +1,181 @@
++"""GEO-405 虚构 PUBLIC 输入与已批准测试配置；不改变生产默认门禁。"""
++
++from dataclasses import dataclass, replace
++from datetime import UTC, datetime
++from types import MappingProxyType
++from uuid import UUID, uuid4
++
++import pytest
++from sqlalchemy import select
++
++from app.collectors.registry import collector_registry
++from app.config import settings
++from app.geo_fake_server import GeoFakeServer
++from app.models.ai_generation import AIChannel, AIChannelHeader, AIModel
++from app.models.geo_runs import GeoObservationRun
++from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
++from app.services import geo_batch_snapshots, geo_dispatch, geo_runs
++from app.services.credentials import CredentialCipher
++from tests.integration.geo_plans_support import PlansAPI
++
++
++@dataclass
++class WorkerGraph:
++    api: PlansAPI
++    profile: UUID
++    channel: UUID
++    call_id: UUID
++
++    def create(self, *, budget: str | None = None, repeat_count: int = 1) -> UUID:
++        value = self.api.payload(
++            collection_profile_ids=[str(self.profile)],
++            budget_limit=budget,
++            repeat_count=repeat_count,
++        )
++        response = self.api.api.engineer.post(
++            "/api/v1/geo/observation-batches",
++            json={"source": "AD_HOC", "configuration": value},
++            headers={"Idempotency-Key": f"geo405-{uuid4()}"},
++        )
++        assert response.status_code == 201, response.text
++        with self.api.api.factory() as db:
++            return db.scalar(
++                select(GeoObservationRun.id).where(
++                    GeoObservationRun.batch_id == UUID(response.json()["batch_id"])
++                )
++            )
++
++
++@pytest.fixture
++def worker_graph(
++    plans_api: PlansAPI, monkeypatch: pytest.MonkeyPatch, local_provider: GeoFakeServer
++):
++    from app.worker import collect_geo_run
++
++    monkeypatch.setattr(settings, "geo_api_collection_enabled", True)
++    monkeypatch.setattr(settings, "ai_allow_local_http", True)
++    monkeypatch.setattr(settings, "ai_credential_encryption_key", "A" * 43 + "=")
++    monkeypatch.setattr(geo_runs, "SessionLocal", plans_api.api.factory)
++    monkeypatch.setattr(geo_dispatch, "SessionLocal", plans_api.api.factory)
++    registration = replace(collector_registry.resolve("openai-compatible-chat"), approved=True)
++    monkeypatch.setattr(
++        collector_registry,
++        "_entries",
++        MappingProxyType(
++            {
++                "manual": collector_registry.resolve("manual"),
++                registration.key: registration,
++            }
++        ),
++    )
++    original = geo_batch_snapshots.BatchInputs.input_for
++
++    def public_input(self, prompt_id, profile_id):
++        value = original(self, prompt_id, profile_id)
++        value["data_classification"] = "PUBLIC"  # 仅虚构测试资料。
++        return value
++
++    monkeypatch.setattr(geo_batch_snapshots.BatchInputs, "input_for", public_input)
++
++    def unavailable(_run_id):
++        raise ConnectionError("虚构 Broker 离线")
++
++    monkeypatch.setattr(collect_geo_run, "delay", unavailable)
++    call_id, channel_id = uuid4(), uuid4()
++    with plans_api.api.factory() as db:
++        channel = AIChannel(
++            id=channel_id,
++            name=f"虚构渠道-{channel_id}",
++            description="本地模拟站",
++            protocol_type="openai-compatible-chat-completions",
++            provider_brand="CUSTOM",
++            base_url=local_provider.base_url + "/v1",
++            api_key_updated_at=datetime.now(UTC),
++            api_key_ciphertext=CredentialCipher(settings.ai_credential_encryption_key).encrypt(
++                "geo405-fake-secret", associated_data=f"ai_channel:{channel_id}:api_key"
++            ),
++            timeout_seconds=10,
++            is_enabled=True,
++            revision=0,
++            created_by=plans_api.api.admin_id,
++        )
++        db.add(channel)
++        db.flush()
++        model = AIModel(
++            channel_id=channel.id,
++            display_name="虚构模型",
++            model_id="fake-model",
++            request_parameters={},
++            is_enabled=True,
++            test_status="PASSED",
++            last_tested_at=datetime.now(UTC),
++            revision=0,
++            created_by=plans_api.api.admin_id,
++        )
++        surface = GeoEngineSurface(
++            name="虚构 API",
++            slug=f"geo405-{uuid4()}",
++            surface_kind="MODEL_API",
++            provider_brand="CUSTOM",
++            compliance_status="APPROVED",
++            is_active=True,
++            created_by=plans_api.api.admin_id,
++            capabilities={
++                "answer_text": True,
++                "citations": False,
++                "web_search_signal": False,
++                "model_version": False,
++                "usage": False,
++                "cost": False,
++            },
++        )
++        db.add_all(
++            [
++                model,
++                surface,
++                AIChannelHeader(
++                    channel_id=channel.id,
++                    name="X-GEO-Attempt-ID",
++                    normalized_name="x-geo-attempt-id",
++                    is_sensitive=False,
++                    plain_value=str(call_id),
++                ),
++            ]
++        )
++        db.flush()
++        profile = GeoCollectionProfile(
++            engine_surface_id=surface.id,
++            name="虚构已批准测试配置",
++            collection_mode="API",
++            adapter_key="openai-compatible-chat",
++            ai_channel_id=channel.id,
++            ai_model_id=model.id,
++            language_code="zh-hans",
++            region_code="CN",
++            login_state="NOT_APPLICABLE",
++            web_search_policy="UNKNOWN",
++            settings_json={},
++            is_active=True,
++            last_test_status="PASSED",
++            last_tested_at=datetime.now(UTC),
++            created_by=plans_api.api.admin_id,
++        )
++        db.add(profile)
++        db.commit()
++    yield WorkerGraph(plans_api, profile.id, channel_id, call_id)
++    from app.services.geo_run_lifecycle import fail_run, lock_run, refresh_batch
++
++    with plans_api.api.factory.begin() as db:
++        identities = list(
++            db.scalars(
++                select(GeoObservationRun.id).where(
++                    GeoObservationRun.collection_profile_id == profile.id,
++                    GeoObservationRun.status.in_(["PENDING", "RUNNING"]),
++                )
++            )
++        )
++        for identity in identities:
++            batch, run = lock_run(db, identity)
++            now = datetime.now(UTC)
++            fail_run(db, run, now=now, code="WORKER_LOST", summary="虚构测试数据结束")
++            refresh_batch(db, batch, now)
+--- /dev/null
++++ after/backend/tests/integration/test_geo_worker.py
+@@ -0,0 +1,488 @@
++"""真实 PostgreSQL/Redis/Celery 与 HTTP 模拟站验证采集生命周期。"""
++
++import base64
++import json
++import time
++from concurrent.futures import ThreadPoolExecutor
++from dataclasses import replace
++from datetime import UTC, datetime, timedelta
++from threading import Event
++from uuid import uuid4
++
++import pytest
++from celery.contrib.testing.worker import start_worker
++from redis import Redis
++from sqlalchemy import event, func, select
++from sqlalchemy.orm import Session
++
++from app.collectors.errors import CollectorError
++from app.config import settings
++from app.geo_fake_server import FakeMode, FakeScenario, running_geo_fake
++from app.models.ai_generation import AIChannel
++from app.models.geo_answers import GeoAnswerSnapshot
++from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
++from app.services import geo_dispatch, geo_runs
++from app.worker import celery_app, collect_geo_run
++from tests.integration.geo_plans_support import plans_api as plans_api
++from tests.integration.geo_plans_support import questions_api as questions_api
++from tests.integration.geo_plans_support import questions_engine as questions_engine
++from tests.integration.geo_worker_support import WorkerGraph
++from tests.integration.geo_worker_support import worker_graph as worker_graph
++
++pytestmark = pytest.mark.integration
++
++
++@pytest.fixture
++def local_provider():
++    with running_geo_fake() as server:
++        yield server
++
++
++def row(graph: WorkerGraph, identity):
++    with graph.api.api.factory() as db:
++        return db.get(GeoObservationRun, identity)
++
++
++def calls(server, graph):
++    return server.state.snapshot(graph.call_id)["count"]
++
++
++def test_duplicate_and_concurrent_messages_call_provider_once(worker_graph, local_provider):
++    run_id = worker_graph.create()
++    assert row(worker_graph, run_id).dispatch_attempt_count == 1
++    with ThreadPoolExecutor(max_workers=6) as pool:
++        list(pool.map(geo_runs.process_collection_run, [run_id] * 6))
++    geo_runs.process_collection_run(run_id)
++    run = row(worker_graph, run_id)
++    assert run.status == "COLLECTED" and run.external_call_state == "COMPLETED"
++    assert run.lease_token is None and run.lease_expires_at is None
++    assert run.cost_amount is None and run.total_tokens is None
++    assert calls(local_provider, worker_graph) == 1
++    with worker_graph.api.api.factory() as db:
++        answer = db.scalar(select(GeoAnswerSnapshot).where(GeoAnswerSnapshot.run_id == run_id))
++        assert answer.prompt_text == "虚构Plan问题"
++        assert answer.answer_text == "仅供测试的虚构回答；不得用于真实选型。"
++        assert db.get(GeoObservationBatch, run.batch_id).status == "RUNNING"
++
++
++def test_real_redis_celery_messages_only_run_id_and_one_call(
++    worker_graph, local_provider, monkeypatch
++):
++    queue = f"geo405-{uuid4().hex}"
++    redis = Redis.from_url(settings.redis_url)
++    monkeypatch.setattr(
++        collect_geo_run,
++        "delay",
++        lambda rid: collect_geo_run.apply_async(args=[rid], queue=queue, retry=False),
++    )
++    try:
++        run_id = worker_graph.create()
++        collect_geo_run.delay(str(run_id))
++        messages = redis.lrange(queue, 0, -1)
++        assert len(messages) == 2
++        for raw in messages:
++            message = json.loads(raw)
++            body = json.loads(base64.b64decode(message["body"]))
++            assert message["headers"]["task"] == "partsignal.collect_geo_run"
++            assert body[0] == [str(run_id)] and body[1] == {}
++            assert "geo405-fake-secret" not in raw.decode()
++        completed = Event()
++
++        def received(sender=None, **kwargs):
++            if kwargs.get("task_id"):
++                completed.set()
++
++        from celery.signals import task_postrun
++
++        task_postrun.connect(received, weak=False)
++        try:
++            with start_worker(
++                celery_app,
++                pool="solo",
++                queues=[queue],
++                perform_ping_check=False,
++                shutdown_timeout=15,
++                loglevel="ERROR",
++            ):
++                deadline = time.monotonic() + 15
++                while time.monotonic() < deadline:
++                    if row(worker_graph, run_id).status == "COLLECTED" and redis.llen(queue) == 0:
++                        break
++                    time.sleep(0.05)
++                assert completed.wait(2)
++                assert row(worker_graph, run_id).status == "COLLECTED"
++                assert redis.llen(queue) == 0
++        finally:
++            task_postrun.disconnect(received)
++        assert calls(local_provider, worker_graph) == 1
++    finally:
++        redis.delete(queue)
++        redis.close()
++
++
++def test_pending_redispatch_throttle_limit_and_skip_locked(
++    worker_graph, local_provider, monkeypatch
++):
++    ids = [worker_graph.create() for _ in range(3)]
++    now = datetime.now(UTC) + timedelta(minutes=3)
++    monkeypatch.setattr(settings, "geo_recovery_batch_size", 2)
++    sent = []
++    first_locked = Event()
++    release = Event()
++
++    def hold(value):
++        first_locked.set()
++        assert release.wait(5)
++        sent.append(value)
++
++    with ThreadPoolExecutor(max_workers=2) as pool:
++        future = pool.submit(geo_dispatch.redispatch_pending_collection_runs, hold, now=now)
++        assert first_locked.wait(5)
++        other = geo_dispatch.redispatch_pending_collection_runs(sent.append, now=now)
++        release.set()
++        total = future.result() + other
++    assert total == 3
++    assert sorted(sent) == sorted(map(str, ids))
++    assert geo_dispatch.redispatch_pending_collection_runs(sent.append, now=now) == 0
++    assert calls(local_provider, worker_graph) == 0
++    assert all(row(worker_graph, i).dispatch_attempt_count == 2 for i in ids)
++
++
++@pytest.mark.parametrize("sent", [False, True])
++def test_expired_lease_fails_and_rejects_old_token(worker_graph, local_provider, sent):
++    identity = worker_graph.create()
++    lease = geo_runs.claim_collection_run(identity)
++    assert lease is not None
++    if sent:
++        geo_runs.authorize_send(lease)
++    expired = row(worker_graph, identity).lease_expires_at + timedelta(seconds=1)
++    assert geo_dispatch.fail_expired_collection_runs(now=expired) >= 1
++    run = row(worker_graph, identity)
++    assert run.status == "FAILED" and run.error_code == "WORKER_LOST"
++    assert run.external_call_state == ("SENT" if sent else "NOT_STARTED")
++    assert (
++        geo_dispatch.redispatch_pending_collection_runs(
++            lambda _: pytest.fail("不得补发"), now=expired
++        )
++        == 0
++    )
++    with pytest.raises(geo_runs.LeaseLost):
++        geo_runs.authorize_send(lease)
++    assert geo_runs.submit_collection_failure(lease, None) is False
++    geo_runs.process_collection_run(identity)
++    assert calls(local_provider, worker_graph) == 0
++
++
++@pytest.mark.parametrize("mode", [FakeMode.RATE_LIMIT, FakeMode.INVALID_JSON, FakeMode.DISCONNECT])
++def test_after_send_failure_never_redispatches(worker_graph, local_provider, mode):
++    identity = worker_graph.create()
++    local_provider.state.configure(worker_graph.call_id, FakeScenario(mode=mode))
++    geo_runs.process_collection_run(identity)
++    run = row(worker_graph, identity)
++    assert run.status == "FAILED" and run.external_call_state != "NOT_STARTED"
++    expected = {
++        FakeMode.RATE_LIMIT: "PROVIDER_RATE_LIMITED",
++        FakeMode.INVALID_JSON: "PROVIDER_RESPONSE_INVALID",
++        FakeMode.DISCONNECT: "COLLECTOR_UNKNOWN_OUTCOME",
++    }
++    assert run.error_code == expected[mode]
++    geo_runs.process_collection_run(identity)
++    assert (
++        geo_dispatch.redispatch_pending_collection_runs(
++            lambda _: pytest.fail("不得补发"), now=datetime.now(UTC) + timedelta(hours=1)
++        )
++        == 0
++    )
++    assert calls(local_provider, worker_graph) == 1
++
++
++def test_send_rechecks_disable_rotation_and_old_token(worker_graph, local_provider):
++    identity = worker_graph.create()
++    lease = geo_runs.claim_collection_run(identity)
++    assert lease is not None
++    with pytest.raises(geo_runs.LeaseLost):
++        geo_runs.authorize_send(replace(lease, token=uuid4()))
++    with worker_graph.api.api.factory() as db:
++        channel = db.get(AIChannel, worker_graph.channel)
++        channel.is_enabled = False
++        channel.revision += 1
++        db.commit()
++    with pytest.raises(CollectorError):
++        geo_runs.authorize_send(lease)
++    assert row(worker_graph, identity).external_call_state == "NOT_STARTED"
++    assert calls(local_provider, worker_graph) == 0
++
++
++def test_result_rollback_no_partial_answer_and_no_second_call(worker_graph, local_provider):
++    identity = worker_graph.create()
++    lease = geo_runs.claim_collection_run(identity)
++    result = lease.collector.collect(
++        lease.request, before_send=lambda: geo_runs.authorize_send(lease)
++    )
++
++    def fail_commit(_db):
++        raise RuntimeError("虚构结果提交失败")
++
++    event.listen(Session, "before_commit", fail_commit)
++    try:
++        with pytest.raises(RuntimeError):
++            geo_runs.submit_collection_result(lease, result)
++    finally:
++        event.remove(Session, "before_commit", fail_commit)
++    run = row(worker_graph, identity)
++    assert run.status == "RUNNING" and run.external_call_state == "SENT"
++    with worker_graph.api.api.factory() as db:
++        assert (
++            db.scalar(
++                select(func.count())
++                .select_from(GeoAnswerSnapshot)
++                .where(GeoAnswerSnapshot.run_id == identity)
++            )
++            == 0
++        )
++    assert geo_runs.submit_collection_result(lease, result)
++    assert not geo_runs.submit_collection_result(lease, result)
++    geo_runs.process_collection_run(identity)
++    assert calls(local_provider, worker_graph) == 1
++
++
++def test_live_switch_and_budget_fail_before_external_call(
++    worker_graph, local_provider, monkeypatch
++):
++    budgeted = worker_graph.create(budget="1.00")
++    geo_runs.process_collection_run(budgeted)
++    assert row(worker_graph, budgeted).error_code == "COLLECTOR_CONFIGURATION_INVALID"
++    identity = worker_graph.create()
++    monkeypatch.setattr(settings, "geo_api_collection_enabled", False)
++    geo_runs.process_collection_run(identity)
++    assert row(worker_graph, identity).error_code == "COLLECTOR_DISABLED"
++    assert calls(local_provider, worker_graph) == 0
++
++
++def test_internal_data_not_sent_and_manual_not_claimed(worker_graph, local_provider, monkeypatch):
++    from app.services.geo_batch_snapshots import BatchInputs
++
++    public = BatchInputs.input_for
++
++    def internal(self, prompt_id, profile_id):
++        result = public(self, prompt_id, profile_id)
++        result["data_classification"] = "INTERNAL"
++        return result
++
++    monkeypatch.setattr(BatchInputs, "input_for", internal)
++    identity = worker_graph.create()
++    geo_runs.process_collection_run(identity)
++    assert row(worker_graph, identity).error_code == "DATA_CLASSIFICATION_FORBIDDEN"
++    assert calls(local_provider, worker_graph) == 0
++    value = worker_graph.api.payload()
++    result = worker_graph.api.api.engineer.post(
++        "/api/v1/geo/observation-batches",
++        json={"source": "AD_HOC", "configuration": value},
++        headers={"Idempotency-Key": f"manual-{uuid4()}"},
++    )
++    assert result.status_code == 201
++    with worker_graph.api.api.factory() as db:
++        manual = db.scalar(
++            select(GeoObservationRun).where(GeoObservationRun.batch_id == result.json()["batch_id"])
++        )
++        assert manual.status == "PENDING" and manual.dispatch_attempt_count == 0
++        assert geo_runs.claim_collection_run(manual.id) is None
++
++
++def test_received_citations_explicitly_rejected_without_partial_result(
++    worker_graph, local_provider
++):
++    from app.models.geo_answers import GeoAnswerCitation
++
++    identity = worker_graph.create()
++    local_provider.state.configure(worker_graph.call_id, FakeScenario(mode=FakeMode.CITATIONS))
++    geo_runs.process_collection_run(identity)
++    assert row(worker_graph, identity).status == "FAILED"
++    assert row(worker_graph, identity).error_code == "PROVIDER_RESPONSE_INVALID"
++    assert row(worker_graph, identity).external_call_state == "COMPLETED"
++    with worker_graph.api.api.factory() as db:
++        assert (
++            db.scalar(
++                select(func.count())
++                .select_from(GeoAnswerSnapshot)
++                .where(GeoAnswerSnapshot.run_id == identity)
++            )
++            == 0
++        )
++        assert (
++            db.scalar(
++                select(func.count())
++                .select_from(GeoAnswerCitation)
++                .join(
++                    GeoAnswerSnapshot, GeoAnswerSnapshot.id == GeoAnswerCitation.answer_snapshot_id
++                )
++                .where(GeoAnswerSnapshot.run_id == identity)
++            )
++            == 0
++        )
++    geo_runs.process_collection_run(identity)
++    assert calls(local_provider, worker_graph) == 1
++
++
++def test_late_success_does_not_overwrite_expired_terminal(worker_graph, local_provider):
++    identity = worker_graph.create()
++    lease = geo_runs.claim_collection_run(identity)
++    result = lease.collector.collect(
++        lease.request, before_send=lambda: geo_runs.authorize_send(lease)
++    )
++    expiry = row(worker_graph, identity).lease_expires_at + timedelta(seconds=1)
++    assert geo_dispatch.fail_expired_collection_runs(now=expiry) == 1
++    assert not geo_runs.submit_collection_result(lease, result)
++    assert row(worker_graph, identity).error_code == "WORKER_LOST"
++    with worker_graph.api.api.factory() as db:
++        assert (
++            db.scalar(
++                select(func.count())
++                .select_from(GeoAnswerSnapshot)
++                .where(GeoAnswerSnapshot.run_id == identity)
++            )
++            == 0
++        )
++    assert calls(local_provider, worker_graph) == 1
++
++
++def test_accepted_broker_lost_ack_redispatch_keeps_one_call(worker_graph, local_provider):
++    queue = f"geo405-lost-{uuid4().hex}"
++    redis = Redis.from_url(settings.redis_url)
++    identity = worker_graph.create()
++
++    def sender(value):
++        return collect_geo_run.apply_async(args=[value], queue=queue, retry=False)
++
++    def lost_ack(value):
++        sender(value)
++        raise ConnectionError("虚构 Redis 已接收后连接断开")
++
++    try:
++        future_time = datetime.now(UTC) + timedelta(minutes=3)
++        assert geo_dispatch.redispatch_pending_collection_runs(lost_ack, now=future_time) == 0
++        assert redis.llen(queue) == 1
++        assert row(worker_graph, identity).dispatch_attempt_count == 2
++        assert (
++            geo_dispatch.redispatch_pending_collection_runs(
++                sender, now=future_time + timedelta(minutes=3)
++            )
++            == 1
++        )
++        assert redis.llen(queue) == 2
++        with start_worker(
++            celery_app,
++            pool="solo",
++            queues=[queue],
++            perform_ping_check=False,
++            shutdown_timeout=15,
++            loglevel="ERROR",
++        ):
++            deadline = time.monotonic() + 15
++            while time.monotonic() < deadline:
++                if row(worker_graph, identity).status == "COLLECTED" and redis.llen(queue) == 0:
++                    break
++                time.sleep(0.05)
++            assert row(worker_graph, identity).status == "COLLECTED" and redis.llen(queue) == 0
++        assert calls(local_provider, worker_graph) == 1
++    finally:
++        redis.delete(queue)
++        redis.close()
++
++
++def test_blocked_broker_does_not_hold_same_batch_result_lock(worker_graph, local_provider):
++    identity = worker_graph.create(repeat_count=2)
++    lease = geo_runs.claim_collection_run(identity)
++    result = lease.collector.collect(
++        lease.request, before_send=lambda: geo_runs.authorize_send(lease)
++    )
++    publishing, release = Event(), Event()
++
++    def blocked_sender(_value):
++        publishing.set()
++        assert release.wait(5)
++
++    with ThreadPoolExecutor(max_workers=2) as pool:
++        publisher = pool.submit(
++            geo_dispatch.redispatch_pending_collection_runs,
++            blocked_sender,
++            now=datetime.now(UTC) + timedelta(minutes=3),
++        )
++        assert publishing.wait(5)
++        try:
++            submitted = pool.submit(geo_runs.submit_collection_result, lease, result)
++            assert submitted.result(timeout=2)
++        finally:
++            release.set()
++        assert publisher.result() == 1
++    assert row(worker_graph, identity).status == "COLLECTED"
++    assert calls(local_provider, worker_graph) == 1
++
++
++def test_dispatch_reservation_rollback_does_not_publish(worker_graph):
++    identity = worker_graph.create()
++    sent = []
++
++    def fail_commit(_session):
++        raise RuntimeError("虚构预留事务回滚")
++
++    event.listen(Session, "before_commit", fail_commit)
++    try:
++        with pytest.raises(RuntimeError):
++            geo_dispatch.redispatch_pending_collection_runs(
++                sent.append, now=datetime.now(UTC) + timedelta(minutes=3)
++            )
++    finally:
++        event.remove(Session, "before_commit", fail_commit)
++    assert sent == [] and row(worker_graph, identity).dispatch_attempt_count == 1
++    assert (
++        geo_dispatch.redispatch_pending_collection_runs(
++            sent.append, now=datetime.now(UTC) + timedelta(minutes=3)
++        )
++        == 1
++    )
++    assert sent == [str(identity)]
++
++
++def test_configuration_lock_allows_result_foreign_key_checks(worker_graph, local_provider):
++    from app.services.geo_collection_execution import lock_configuration
++
++    identity = worker_graph.create()
++    lease = geo_runs.claim_collection_run(identity)
++    result = lease.collector.collect(
++        lease.request, before_send=lambda: geo_runs.authorize_send(lease)
++    )
++    with ThreadPoolExecutor(max_workers=1) as pool, worker_graph.api.api.factory.begin() as db:
++        lock_configuration(db, lease.request)
++        future = pool.submit(geo_runs.submit_collection_result, lease, result)
++        try:
++            assert future.result(timeout=2)
++        finally:
++            db.rollback()
++    assert row(worker_graph, identity).status == "COLLECTED"
++    assert calls(local_provider, worker_graph) == 1
++
++
++def test_first_broker_failure_stops_publish_and_keeps_matrix_pending(worker_graph, monkeypatch):
++    seen = []
++
++    def offline(identity):
++        seen.append(identity)
++        raise ConnectionError("虚构 Broker 离线")
++
++    monkeypatch.setattr(collect_geo_run, "delay", offline)
++    identity = worker_graph.create(repeat_count=3)
++    assert len(seen) == 1
++    with worker_graph.api.api.factory() as db:
++        batch_id = db.get(GeoObservationRun, identity).batch_id
++        runs = list(
++            db.scalars(select(GeoObservationRun).where(GeoObservationRun.batch_id == batch_id))
++        )
++        assert len(runs) == 3
++        assert all(r.status == "PENDING" and r.dispatch_attempt_count == 1 for r in runs)
++    assert (
++        geo_dispatch.redispatch_pending_collection_runs(
++            seen.append, now=datetime.now(UTC) + timedelta(minutes=3)
++        )
++        == 3
++    )
+--- /dev/null
++++ after/backend/tests/unit/test_geo_worker_configuration.py
+@@ -0,0 +1,38 @@
++"""GEO-405 运行参数边界与既有 runtime 的兼容入口。"""
++
++import pytest
++from pydantic import ValidationError
++
++from app.config import Settings
++from tests.unit.test_geo_configuration import GEO_FLAGS
++from tests.unit.test_geo_configuration import (
++    test_production_input_checker_preserves_safe_defaults_and_strict_boundaries as check_runtime,
++)
++
++PARAMETERS = {
++    "GEO_PENDING_REDISPATCH_SECONDS": (120, 1, 86400),
++    "GEO_COLLECTION_FINALIZE_GRACE_SECONDS": (120, 1, 3600),
++    "GEO_RECOVERY_SCAN_SECONDS": (60, 5, 3600),
++    "GEO_RECOVERY_BATCH_SIZE": (100, 1, 1000),
++}
++
++
++@pytest.mark.parametrize("name", PARAMETERS)
++def test_worker_parameter_defaults_and_limits(name, monkeypatch):
++    for variable in [*GEO_FLAGS, *PARAMETERS]:
++        monkeypatch.delenv(variable, raising=False)
++    default, minimum, maximum = PARAMETERS[name]
++    value = Settings(_env_file=None, APP_ENV="test")
++    assert getattr(value, name.lower()) == default
++    for valid in (minimum, maximum):
++        assert (
++            getattr(Settings(_env_file=None, APP_ENV="test", **{name: valid}), name.lower())
++            == valid
++        )
++    for invalid in (minimum - 1, maximum + 1, "invalid"):
++        with pytest.raises(ValidationError):
++            Settings(_env_file=None, APP_ENV="test", **{name: invalid})
++
++
++def test_existing_runtime_can_omit_all_geo_settings(tmp_path):
++    check_runtime(tmp_path, dict.fromkeys([*GEO_FLAGS, *PARAMETERS]), "PASSED", None)

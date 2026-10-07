@@ -1,0 +1,14 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "ruff",
+    "check",
+    "backend/tests/performance"
+  ],
+  "started_at": "2026-10-04T13:44:10.087182+00:00",
+  "duration_seconds": 0.12739233300089836,
+  "exit_code": 0
+}

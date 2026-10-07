@@ -1,0 +1,16 @@
+{
+  "name": "gnu-frontend-regression",
+  "command": [
+    "python3",
+    "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/check-gnu-frontend.py"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "14dd7594452e4080826b15f64683eb3990450704",
+  "dirty": true,
+  "started_at": "2026-10-07T05:28:48.287036+00:00",
+  "ended_at": "2026-10-07T05:28:50.242154+00:00",
+  "exit_code": 0,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/gnu-frontend-regression.log",
+  "log_sha256": "b8dc9f075ba5dd9f688b8409467cc25638d2943f56747a5ece2518e801b0c42c"
+}

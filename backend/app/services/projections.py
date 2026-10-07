@@ -20,7 +20,9 @@ from app.models.configuration import (
     PlatformType,
 )
 from app.models.content import ContentReviewRecord, ContentTask, ContentVersion
+from app.models.geo_analysis import GeoAnalysisFactVersion
 from app.models.geo_files import FileRecord
+from app.models.geo_opportunities import GeoOpportunityAction
 from app.models.identity import AuditLog
 from app.models.product_facts import FactVersion, Product
 from app.models.publication import (
@@ -539,6 +541,10 @@ def fact_versions_out(
             ContentVersion.fact_version_id.label("resource_id"),
             literal("CONTENT_VERSION").label("blocker_type"),
         ).where(ContentVersion.fact_version_id.in_(version_ids)),
+        select(
+            GeoAnalysisFactVersion.fact_version_id.label("resource_id"),
+            literal("GEO_ANALYSIS").label("blocker_type"),
+        ).where(GeoAnalysisFactVersion.fact_version_id.in_(version_ids)),
     ).subquery()
     reference_counts = {
         (resource_id, blocker_type): int(count)
@@ -557,7 +563,7 @@ def fact_versions_out(
     for version in versions:
         blockers = [
             {"type": blocker_type, "count": count}
-            for blocker_type in ("CONTENT_TASK", "CONTENT_VERSION")
+            for blocker_type in ("CONTENT_TASK", "CONTENT_VERSION", "GEO_ANALYSIS")
             if (count := reference_counts.get((version.id, blocker_type), 0))
         ]
         actions: list[str] = list(fact_review_actions(version))
@@ -907,6 +913,17 @@ def content_tasks_out(
             .group_by(PublicationWork.content_task_id)
         ).tuples()
     }
+    action_counts = {
+        task_id: int(count)
+        for task_id, count in db.execute(
+            select(GeoOpportunityAction.target_id, func.count(GeoOpportunityAction.id))
+            .where(
+                GeoOpportunityAction.target_type == "ContentTask",
+                GeoOpportunityAction.target_id.in_(task_ids),
+            )
+            .group_by(GeoOpportunityAction.target_id)
+        ).tuples()
+    }
     current_ids = {
         task.current_content_version_id
         for task in tasks
@@ -963,6 +980,7 @@ def content_tasks_out(
                 and task.status != "COMPLETED"
                 and task.id not in busy_job_counts
                 and task.id not in published_article_counts
+                and task.id not in action_counts
             ),
             can_permanently_delete=can_permanently_delete,
         )
@@ -984,6 +1002,8 @@ def content_tasks_out(
                 else []
             ),
         ]
+        if task.id in action_counts:
+            blockers.append({"type": "GEO_OPPORTUNITY_ACTION", "count": action_counts[task.id]})
         payload["deletion"] = (
             {"blockers": []}
             if "DELETE" in available_actions

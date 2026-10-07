@@ -1,0 +1,15 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "ruff",
+    "check",
+    "backend/app/services/geo_analysis.py",
+    "backend/app/services/geo_citation_rules.py",
+    "backend/tests/unit/test_geo_citations.py",
+    "backend/tests/integration/test_geo_citations.py"
+  ],
+  "exit_code": 0
+}

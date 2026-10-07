@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "task_file_count": 31,
+  "baseline_file_count": 1360,
+  "unrelated_baseline_files_preserved": 1342,
+  "unexpected_changes": [],
+  "openapi_unchanged": true,
+  "frontend_baseline_files_unchanged": 530,
+  "new_file_whitespace_checks": "13 files, no diagnostic; no-index exit1 indicates expected diff",
+  "new_source_max_lines": 449
+}

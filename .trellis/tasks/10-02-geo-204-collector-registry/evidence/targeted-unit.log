@@ -1,0 +1,8 @@
+......................................................                   [100%]
+=============================== warnings summary ===============================
+backend/app/schemas/geo_surfaces.py:47
+  /Users/sc/PycharmProjects/partsignal/backend/app/schemas/geo_surfaces.py:47: PytestCollectionWarning: cannot collect test class 'GeoProfileTestStatus' because it has a __init__ constructor (from: tests/unit/test_geo_collector_registry.py)
+    class GeoProfileTestStatus(StrEnum):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+54 passed, 1 warning in 0.07s

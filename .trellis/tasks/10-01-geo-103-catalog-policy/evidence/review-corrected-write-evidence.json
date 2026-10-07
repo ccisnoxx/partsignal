@@ -1,0 +1,7 @@
+{
+  "paths_checked": 11,
+  "changed_paths": [],
+  "observed_write_paths": [],
+  "method": "11 candidate files SHA-256 + reviewer independent checksum and readonly statement",
+  "review_task_outcome": "accepted; confirmed initial P2 resolved, no new confirmed findings"
+}

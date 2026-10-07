@@ -1,0 +1,14 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "--import-mode=importlib",
+    "backend/tests/unit/test_geo_reports.py",
+    "backend/tests/integration/test_geo_reports.py"
+  ],
+  "exit_code": 0,
+  "duration_seconds": 7.79
+}

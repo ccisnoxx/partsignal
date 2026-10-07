@@ -1,0 +1,46 @@
+{
+  "paths": [
+    "/api/v1/geo/collection-profiles",
+    "/api/v1/geo/collection-profiles/{profile_id}",
+    "/api/v1/geo/collection-profiles/{profile_id}/disable",
+    "/api/v1/geo/collection-profiles/{profile_id}/enable",
+    "/api/v1/geo/engine-surfaces",
+    "/api/v1/geo/engine-surfaces/{surface_id}",
+    "/api/v1/geo/engine-surfaces/{surface_id}/disable",
+    "/api/v1/geo/engine-surfaces/{surface_id}/enable"
+  ],
+  "operations": [
+    "listGeoCollectionProfiles",
+    "createGeoCollectionProfile",
+    "getGeoCollectionProfile",
+    "updateGeoCollectionProfile",
+    "deleteGeoCollectionProfile",
+    "disableGeoCollectionProfile",
+    "enableGeoCollectionProfile",
+    "listGeoEngineSurfaces",
+    "createGeoEngineSurface",
+    "getGeoEngineSurface",
+    "updateGeoEngineSurface",
+    "deleteGeoEngineSurface",
+    "disableGeoEngineSurface",
+    "enableGeoEngineSurface"
+  ],
+  "new_components": [
+    "GeoCollectionProfileListPage",
+    "GeoCollectionProfileRead",
+    "GeoCollectionProfileSummary",
+    "GeoConfigurationAction",
+    "GeoConfigurationDeletionBlocker",
+    "GeoConfigurationDeletionBlockerType",
+    "GeoConfigurationDeletionProjection",
+    "GeoConfigurationPrimaryTask",
+    "GeoConfigurationRevisionRequest",
+    "GeoConfigurationWorkflowStage",
+    "GeoEngineSurfaceListPage",
+    "GeoEngineSurfaceRead",
+    "GeoEngineSurfaceSummary",
+    "GeoProfileActivationBlocker",
+    "ProfileBlockerCode"
+  ],
+  "changed_existing_components": []
+}

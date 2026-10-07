@@ -1,0 +1,17 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "frontend",
+    "exec",
+    "--",
+    "node",
+    "--input-type=module",
+    "-e",
+    "import {defaultStringifySearch,defaultParseSearch} from \"@tanstack/react-router\"; import assert from \"node:assert/strict\"; for (const q of [\"12345678\",\"76534e47\",\"abcd5678\"]) { const search=defaultStringifySearch({q}); assert.deepEqual(defaultParseSearch(search), {q}); } process.stdout.write(\"数字、科学计数法和普通字符串的 Router URL 往返均保持原搜索词\\n\");"
+  ],
+  "exit_code": 1,
+  "started_at": "2026-10-03T06:44:14.942461+00:00",
+  "seconds": 5.07,
+  "log": "numeric-url-contract.log"
+}

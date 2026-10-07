@@ -1,0 +1,13 @@
+{
+  "argv": [
+    "npm",
+    "--prefix",
+    "frontend",
+    "run",
+    "test",
+    "--",
+    "src/domains/audit/audit.model.test.ts"
+  ],
+  "exit_code": 1,
+  "elapsed_seconds": 0.778
+}

@@ -1,0 +1,59 @@
+{
+  "status": "ACCEPTED_IMPLEMENTATION_AND_PR_CODE",
+  "condition": "已满足：旧成功前序输入不变 + 固定候选delivery成功 + fresh增量与治理独立复审APPROVE",
+  "tasks": {
+    "GEO-1002": {
+      "scope": "ADR-007、首发范围及统一能力矩阵文档治理；不把政策值作为现场事实",
+      "limitations": [
+        "生产事实未接受"
+      ]
+    },
+    "GEO-1003": {
+      "scope": "production Settings/预检/部署/profile硬禁止与本地正负例",
+      "limitations": [
+        "目标三进程实际配置、全部Profile/会话/材料清点由1010核实"
+      ]
+    },
+    "GEO-1004": {
+      "scope": "Catalog当前User/Session锁序、权限重验、拒绝原子性及真实PG",
+      "limitations": [
+        "manifest原planned为治理漂移，实际Trellis入场review；不补造原transition"
+      ]
+    },
+    "GEO-1005": {
+      "scope": "CRON全部写/新窗口拒绝，历史原值只读，MANUAL正常",
+      "limitations": [
+        "既存ACTIVE不原地停用/删除，现场披露属1010"
+      ]
+    },
+    "GEO-1006": {
+      "scope": "ADMIN/CSRF实际API、幂等冻结回执/审计原子性/PG；无自动调度",
+      "limitations": [
+        "未知提交结果故障注入未覆盖；无生产真实评估验收"
+      ]
+    },
+    "GEO-1007": {
+      "scope": "原delivery页面/API能力真实性；两页说明、Reports三类CSV/空态/501、Action/Retest公共API组合和明确无公共重分析入口",
+      "limitations": [
+        "geo-loop evaluator前置隔离seed；实际管理员入口由1006单独HTTP/PG证据支持；不把组合证据表述为正式生产全程",
+        "内部分析能力及历史摘要不授予公开重新分析操作，FAILED/指标资格与不可变历史不更改"
+      ]
+    }
+  },
+  "retained_recovery_acceptance": {
+    "user_task": "GEO-1007",
+    "delivery_scope": "GEO-1008",
+    "commit": "baea420fb8a479d66d578d3f4fd91d38086b8c29"
+  },
+  "not_accepted": [
+    "GEO-1009",
+    "GEO-1010",
+    "production",
+    "RC"
+  ],
+  "accepted_at": "2026-10-07T09:41:01.437699+00:00",
+  "accepted_source_commit": "8d2e528cce0f804b224bf9b78e02bb2651f6ac62",
+  "authorization": "用户授权固定新SHA远端通过后整PR接受、Ready、合并及一次clean main门禁；本次明确授权8d2e528c一次delivery CI37598569164",
+  "delivery_run_id": 37598569164,
+  "whole_full_ci_claimed": false
+}

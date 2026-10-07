@@ -1,0 +1,10 @@
+{
+  "deploy/scripts/test-geo-configuration.py": "a87febb166e240afef9d6670d0b05986755a4d4d43e80e9eeb266c773ac23eb9",
+  "docs/geo-monitoring/README.md": "6ef404b993a1e2257185eddeba38c59639ab4bdc0869fcdd27a072754d3ca245",
+  "docs/geo-monitoring/CHANGELOG.md": "e5ce198e552514b03f29203b70f8ba335edaba5a03f2f9fa199ea28daa490f1f",
+  "docs/geo-monitoring/SHA256SUMS": "c2b511da6db193f3752081484b58d1885f2b9917fd6d52d4e190763514b321f6",
+  "docs/geo-monitoring/04-delivery/task-manifest.yaml": "fe68820ade0bd82f657e0ecbacc25c3e4048e830f0893a1ef1d4ef944857fd1c",
+  "docs/geo-monitoring/03-technical/08-deployment-and-operations.md": "1ea72f1c6dfa1073686e62f0f6f0cee1caefae9ed4d12e7d8ad5accc2578d137",
+  "docs/geo-monitoring/04-delivery/01-implementation-roadmap.md": "46f6d9585856b518af06b01863b0e25b3b00906ffde987d7453fcf810a85db93",
+  "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md": "fe8eb7c838c0616c6330ba9c9cc0b4c2c1d51a07d682e325764a74bff3283afd"
+}

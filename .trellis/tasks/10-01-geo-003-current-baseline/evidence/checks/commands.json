@@ -1,0 +1,62 @@
+[
+  {
+    "command": "git diff --check",
+    "exit_code": 0,
+    "seconds": 0.01,
+    "log": "01.log"
+  },
+  {
+    "command": "make contract-check",
+    "exit_code": 0,
+    "seconds": 2.39,
+    "log": "02.log"
+  },
+  {
+    "command": "make lint",
+    "exit_code": 0,
+    "seconds": 6.23,
+    "log": "03.log"
+  },
+  {
+    "command": "make typecheck",
+    "exit_code": 0,
+    "seconds": 6.84,
+    "log": "04.log"
+  },
+  {
+    "command": "make test-unit",
+    "exit_code": 0,
+    "seconds": 31.71,
+    "log": "05.log"
+  },
+  {
+    "command": "npm --prefix frontend run test",
+    "exit_code": 0,
+    "seconds": 18.75,
+    "log": "06.log"
+  },
+  {
+    "command": "npm --prefix frontend run typecheck",
+    "exit_code": 0,
+    "seconds": 5.77,
+    "log": "07.log"
+  },
+  {
+    "command": "make verify",
+    "exit_code": 2,
+    "seconds": 46.56,
+    "log": "08.log"
+  },
+  {
+    "command": "npm --prefix frontend run e2e:raw -- --list tests/e2e/geo-observations.spec.ts tests/e2e/new-geo-observation.spec.ts tests/e2e/geo-observation-detail.spec.ts tests/e2e/geo-observation-correction.spec.ts tests/e2e/geo-topics.spec.ts tests/e2e/geo-insights.spec.ts tests/e2e/geo-real-stack.spec.ts",
+    "exit_code": 0,
+    "seconds": 0.3,
+    "log": "09.log"
+  },
+  {
+    "command": "npm --prefix frontend run e2e -- tests/e2e/geo-observations.spec.ts tests/e2e/new-geo-observation.spec.ts tests/e2e/geo-observation-detail.spec.ts tests/e2e/geo-observation-correction.spec.ts tests/e2e/geo-topics.spec.ts tests/e2e/geo-insights.spec.ts --project=foundation-desktop",
+    "exit_code": 0,
+    "seconds": 51.35,
+    "log": "10.log"
+  }
+]

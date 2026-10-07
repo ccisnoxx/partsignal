@@ -1,0 +1,65 @@
+ Container geo704-validation-backend-test-run-a65b7d4dbcd9 Creating 
+ Container geo704-validation-backend-test-run-a65b7d4dbcd9 Created 
+....F.                                                                   [100%]
+=================================== FAILURES ===================================
+__ test_legacy_null_snapshot_issue_target_blocks_preview_and_delete_with_409 ___
+
+api = ReviewAPI(harness=AnalysisHarness(database=AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsig...s=<starlette.testclient.TestClient object at 0xff412421e330>, engineer_id=UUID('bb021f98-0eb1-44fb-8870-8e45d8e76929'))
+
+    def test_legacy_null_snapshot_issue_target_blocks_preview_and_delete_with_409(api):
+        identity, _, _, article_id = context(api)
+        with api.harness.factory() as db:
+            issue = publication.open_published_content_issue(
+                db=db,
+                article_id=article_id,
+                payload=PublishedContentIssueCreate(kind="CONTENT_CHANGED", description="旧行动问题"),
+                actor=db.get(User, api.engineer_id),
+                request_id="geo704-legacy",
+            )
+            # 0059实际可保存的形状，0060加法迁移的保留另由迁移测试验证。
+            db.add(
+                GeoOpportunityAction(
+                    opportunity_id=UUID(identity),
+                    action_type="OTHER",
+                    target_type="PublishedContentIssue",
+                    target_id=issue.id,
+                    status_snapshot="OPEN",
+                    created_by=api.engineer_id,
+                )
+            )
+            db.commit()
+            blockers = published_article_deletion_blockers(db, [article_id])[article_id]
+            assert [(b.type, b.count) for b in blockers] == [("GEO_OPPORTUNITY_ACTION", 1)]
+            for command in [
+                lambda: publication.preview_published_article_permanent_deletion(
+                    db=db, article_id=article_id
+                ),
+                lambda: publication.permanently_delete_published_article(
+                    db=db,
+                    article_id=article_id,
+                    payload=PublishedArticlePermanentDeleteRequest(
+                        expected_revision=3, confirmation_text="永久删除"
+                    ),
+                    actor=db.get(User, api.harness.database.runs.plan.actor),
+                    request_id="geo704-legacy-delete",
+                ),
+            ]:
+                with pytest.raises(AppError) as blocked:
+                    command()
+>               assert (
+                    blocked.value.code == "PUBLISHED_ARTICLE_IN_USE"
+                    and blocked.value.status_code == 409
+                )
+E               AssertionError: assert ('REVISION_CONFLICT' == 'PUBLISHED_ARTICLE_IN_USE'
+E                 
+E                 - PUBLISHED_ARTICLE_IN_USE
+E                 + REVISION_CONFLICT)
+
+tests/integration/test_geo_opportunity_action_guards.py:169: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_opportunity_action_guards.py::test_legacy_null_snapshot_issue_target_blocks_preview_and_delete_with_409
+1 failed, 5 passed in 7.67s
+

@@ -1,0 +1,155 @@
+..........FFFFFFF                                                        [100%]
+=================================== FAILURES ===================================
+____________ test_invalid_cron_is_validation_error[0-5/2/3 * * * *] ____________
+
+expression = '0-5/2/3 * * * *'
+
+    @pytest.mark.parametrize(
+        "expression",
+        [
+            "60 * * * *",
+            "0 24 * * *",
+            "0 0 32 * *",
+            "0 0 * 13 *",
+            "0 0 * * 7",
+            "*/0 * * * *",
+            "1,,2 * * * *",
+            "@daily",
+            "* * * * * *",
+            "*  * * * *",
+            "0-5/2/3 * * * *",
+            "*/5/2 * * * *",
+            "0-5/2! * * * *",
+        ],
+    )
+    def test_invalid_cron_is_validation_error(expression: str) -> None:
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+backend/tests/unit/test_geo_monitoring_plan_contract.py:155: Failed
+_____________ test_invalid_cron_is_validation_error[*/5/2 * * * *] _____________
+
+expression = '*/5/2 * * * *'
+
+    @pytest.mark.parametrize(
+        "expression",
+        [
+            "60 * * * *",
+            "0 24 * * *",
+            "0 0 32 * *",
+            "0 0 * 13 *",
+            "0 0 * * 7",
+            "*/0 * * * *",
+            "1,,2 * * * *",
+            "@daily",
+            "* * * * * *",
+            "*  * * * *",
+            "0-5/2/3 * * * *",
+            "*/5/2 * * * *",
+            "0-5/2! * * * *",
+        ],
+    )
+    def test_invalid_cron_is_validation_error(expression: str) -> None:
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+backend/tests/unit/test_geo_monitoring_plan_contract.py:155: Failed
+____________ test_invalid_cron_is_validation_error[0-5/2! * * * *] _____________
+
+expression = '0-5/2! * * * *'
+
+    @pytest.mark.parametrize(
+        "expression",
+        [
+            "60 * * * *",
+            "0 24 * * *",
+            "0 0 32 * *",
+            "0 0 * 13 *",
+            "0 0 * * 7",
+            "*/0 * * * *",
+            "1,,2 * * * *",
+            "@daily",
+            "* * * * * *",
+            "*  * * * *",
+            "0-5/2/3 * * * *",
+            "*/5/2 * * * *",
+            "0-5/2! * * * *",
+        ],
+    )
+    def test_invalid_cron_is_validation_error(expression: str) -> None:
+>       with pytest.raises(ValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'pydantic_core._pydantic_core.ValidationError'>
+
+backend/tests/unit/test_geo_monitoring_plan_contract.py:155: Failed
+________ test_budget_wire_negatives_rejected_by_static_and_runtime[-1] _________
+
+contract = {'components': {'headers': {'RequestIdResponseHeader': {'required': True, 'schema': {'maxLength': 100, 'minLength': 1,.../components/responses/ErrorResponse'}, '403': {'$ref': '#/components/responses/ErrorResponse'}, ...}, ...}}, ...}, ...}
+budget = '-1'
+
+    @pytest.mark.parametrize("budget", ["-1", "1garbage", 100000000, 0.0000001])
+    def test_budget_wire_negatives_rejected_by_static_and_runtime(
+        contract: dict[str, Any], budget: Any
+    ) -> None:
+        raw = payload(budget_limit=budget)
+>       with pytest.raises(SchemaValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'jsonschema.exceptions.ValidationError'>
+
+backend/tests/unit/test_geo_monitoring_plan_contract.py:193: Failed
+_____ test_budget_wire_negatives_rejected_by_static_and_runtime[1garbage] ______
+
+contract = {'components': {'headers': {'RequestIdResponseHeader': {'required': True, 'schema': {'maxLength': 100, 'minLength': 1,.../components/responses/ErrorResponse'}, '403': {'$ref': '#/components/responses/ErrorResponse'}, ...}, ...}}, ...}, ...}
+budget = '1garbage'
+
+    @pytest.mark.parametrize("budget", ["-1", "1garbage", 100000000, 0.0000001])
+    def test_budget_wire_negatives_rejected_by_static_and_runtime(
+        contract: dict[str, Any], budget: Any
+    ) -> None:
+        raw = payload(budget_limit=budget)
+>       with pytest.raises(SchemaValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'jsonschema.exceptions.ValidationError'>
+
+backend/tests/unit/test_geo_monitoring_plan_contract.py:193: Failed
+_____ test_budget_wire_negatives_rejected_by_static_and_runtime[100000000] _____
+
+contract = {'components': {'headers': {'RequestIdResponseHeader': {'required': True, 'schema': {'maxLength': 100, 'minLength': 1,.../components/responses/ErrorResponse'}, '403': {'$ref': '#/components/responses/ErrorResponse'}, ...}, ...}}, ...}, ...}
+budget = 100000000
+
+    @pytest.mark.parametrize("budget", ["-1", "1garbage", 100000000, 0.0000001])
+    def test_budget_wire_negatives_rejected_by_static_and_runtime(
+        contract: dict[str, Any], budget: Any
+    ) -> None:
+        raw = payload(budget_limit=budget)
+>       with pytest.raises(SchemaValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'jsonschema.exceptions.ValidationError'>
+
+backend/tests/unit/test_geo_monitoring_plan_contract.py:193: Failed
+_______ test_budget_wire_negatives_rejected_by_static_and_runtime[1e-07] _______
+
+contract = {'components': {'headers': {'RequestIdResponseHeader': {'required': True, 'schema': {'maxLength': 100, 'minLength': 1,.../components/responses/ErrorResponse'}, '403': {'$ref': '#/components/responses/ErrorResponse'}, ...}, ...}}, ...}, ...}
+budget = 1e-07
+
+    @pytest.mark.parametrize("budget", ["-1", "1garbage", 100000000, 0.0000001])
+    def test_budget_wire_negatives_rejected_by_static_and_runtime(
+        contract: dict[str, Any], budget: Any
+    ) -> None:
+        raw = payload(budget_limit=budget)
+>       with pytest.raises(SchemaValidationError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'jsonschema.exceptions.ValidationError'>
+
+backend/tests/unit/test_geo_monitoring_plan_contract.py:193: Failed
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_monitoring_plan_contract.py::test_invalid_cron_is_validation_error[0-5/2/3 * * * *]
+FAILED backend/tests/unit/test_geo_monitoring_plan_contract.py::test_invalid_cron_is_validation_error[*/5/2 * * * *]
+FAILED backend/tests/unit/test_geo_monitoring_plan_contract.py::test_invalid_cron_is_validation_error[0-5/2! * * * *]
+FAILED backend/tests/unit/test_geo_monitoring_plan_contract.py::test_budget_wire_negatives_rejected_by_static_and_runtime[-1]
+FAILED backend/tests/unit/test_geo_monitoring_plan_contract.py::test_budget_wire_negatives_rejected_by_static_and_runtime[1garbage]
+FAILED backend/tests/unit/test_geo_monitoring_plan_contract.py::test_budget_wire_negatives_rejected_by_static_and_runtime[100000000]
+FAILED backend/tests/unit/test_geo_monitoring_plan_contract.py::test_budget_wire_negatives_rejected_by_static_and_runtime[1e-07]
+7 failed, 10 passed, 40 deselected in 0.50s

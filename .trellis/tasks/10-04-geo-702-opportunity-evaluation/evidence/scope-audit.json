@@ -1,0 +1,36 @@
+{
+  "changed_existing": [
+    ".trellis/tasks/10-04-geo-702-opportunity-evaluation/prd.md",
+    ".trellis/tasks/10-04-geo-702-opportunity-evaluation/task.json",
+    "backend/app/models/geo_runs.py",
+    "backend/app/services/geo_catalog_queries.py",
+    "docs/geo-monitoring/03-technical/02-data-architecture.md",
+    "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/README.md",
+    "backend/app/models/__init__.py",
+    "backend/app/services/identity.py",
+    "contracts/database.md",
+    "contracts/openapi.yaml",
+    "frontend/src/shared/api/generated/schema.d.ts"
+  ],
+  "added_implementation": [
+    "backend/app/models/geo_opportunities.py",
+    "backend/app/schemas/geo_opportunities.py",
+    "backend/app/services/geo_opportunities.py",
+    "backend/app/services/geo_opportunity_policy.py",
+    "backend/app/services/geo_opportunity_types.py",
+    "backend/app/services/geo_opportunity_rules.py",
+    "backend/app/services/geo_opportunity_quality_rules.py",
+    "backend/alembic/versions/0059_geo_opportunities.py",
+    "backend/alembic/sql/0059_geo_opportunities.sql",
+    "backend/tests/unit/test_geo_opportunity_policy.py",
+    "backend/tests/unit/test_geo_opportunity_rules.py",
+    "backend/tests/integration/test_geo_opportunities.py",
+    "backend/tests/integration/test_geo_opportunity_migration.py",
+    "backend/tests/integration/test_geo_opportunity_migration_stop.py"
+  ],
+  "baseline_hash_count": 3372,
+  "note": "基线排除了其他任务历史evidence/results；本次路径按实际所有权确认，不将旧untracked记录误计为本次新增。"
+}

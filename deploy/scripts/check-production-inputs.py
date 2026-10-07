@@ -22,6 +22,40 @@ GENERATED_SECRETS = (
     "PARTSIGNAL_SEED_ADMIN_PASSWORD",
     "PARTSIGNAL_SEED_ENGINEER_PASSWORD",
 )
+# 既有 runtime 无需补键或轮换密钥；功能默认关闭，Worker 参数使用 Settings 默认值。
+OPTIONAL_GEO_SETTINGS = {
+    "GEO_MONITORING_ENABLED",
+    "GEO_API_COLLECTION_ENABLED",
+    "GEO_BROWSER_COLLECTION_ENABLED",
+    "GEO_OPPORTUNITY_EVALUATION_ENABLED",
+    "GEO_PENDING_REDISPATCH_SECONDS",
+    "GEO_COLLECTION_FINALIZE_GRACE_SECONDS",
+    "GEO_RECOVERY_SCAN_SECONDS",
+    "GEO_RECOVERY_BATCH_SIZE",
+    "GEO_RETENTION_DRY_RUN",
+    "GEO_RETENTION_BATCH_SIZE",
+    "GEO_RAW_PAYLOAD_RETENTION_DAYS",
+    "GEO_TERMINAL_DRAFT_RETENTION_DAYS",
+    "GEO_UNREFERENCED_FILE_RETENTION_DAYS",
+    "GEO_DAILY_BUDGET_LIMIT",
+}
+# 允许的执行环境由 manifest 已认证的脚本拥有；可编辑模板不能授权 loader 覆盖。
+# 新生产配置键必须同时更新此合同、模板及对应应用 Settings。
+PRODUCTION_RUNTIME_KEYS = OPTIONAL_GEO_SETTINGS | {
+    "AI_ALLOW_LOCAL_HTTP", "AI_CREDENTIAL_ENCRYPTION_KEY", "API_BASE_URL",
+    "APP_BASE_URL", "APP_ENV", "CELERY_CONCURRENCY", "CONTENT_GENERATOR",
+    "CORS_ALLOWED_ORIGINS", "CSRF_COOKIE_NAME", "DATABASE_URL",
+    "DOWNLOAD_URL_TTL_SECONDS", "GENERATION_EAGER",
+    "GENERATION_FINALIZE_GRACE_SECONDS", "GENERATION_PENDING_REDISPATCH_SECONDS",
+    "GENERATION_RECOVERY_BATCH_SIZE", "GENERATION_RECOVERY_SCAN_SECONDS",
+    "GEO_DAILY_BUDGET_CURRENCY", "LOG_LEVEL", "OBJECT_STORAGE_BACKEND",
+    "OSS_ACCESS_KEY_ID", "OSS_ACCESS_KEY_SECRET", "OSS_BUCKET", "OSS_ENDPOINT",
+    "PARTSIGNAL_SEED_ADMIN_PASSWORD", "PARTSIGNAL_SEED_ENGINEER_PASSWORD",
+    "POSTGRES_DB", "POSTGRES_PASSWORD", "POSTGRES_USER", "REDIS_URL",
+    "SESSION_COOKIE_NAME", "SESSION_COOKIE_SECURE", "SESSION_SECRET",
+    "SESSION_TTL_SECONDS", "UPLOAD_INTENT_TTL_SECONDS", "UPLOAD_SIGNING_SECRET",
+    "VITE_API_BASE_URL",
+}
 
 
 class InputError(ValueError):
@@ -68,9 +102,12 @@ def parse_runtime(text: str) -> dict[str, str]:
 def check_runtime(values: dict[str, str]) -> list[str]:
     """补足 Compose 消费前的输入合同；应用类型和边界继续由真实 backend 预检拥有。"""
     template = parse_runtime((ROOT / ".env.production.example").read_text())
-    if set(values) != set(template):
+    if not set(template) - OPTIONAL_GEO_SETTINGS <= set(values) <= PRODUCTION_RUNTIME_KEYS:
         raise InputError("ENV_KEY_SET_MISMATCH")
-    missing = sorted(key for key in template if key != "VITE_API_BASE_URL" and not values[key])
+    # Browser 是生产固定边界；不能因 Monitoring 开启或模板被改写而放行。
+    if values.get("GEO_BROWSER_COLLECTION_ENABLED", "false") != "false":
+        raise InputError("PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED")
+    missing = sorted(key for key in values if key != "VITE_API_BASE_URL" and not values[key])
     if missing:
         return missing
     for key in (
@@ -122,6 +159,33 @@ def check_runtime(values: dict[str, str]) -> list[str]:
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,61}[a-z0-9]", values["OSS_BUCKET"]):
         raise InputError("OSS_BUCKET_INVALID")
     return []
+
+
+def check_deployment_boundary(values: dict[str, str], environment: dict[str, str]) -> None:
+    """在维护锁/状态变更/Compose 前拒绝 Browser 绕过；只依赖宿主机标准库。"""
+    expected_compose = ROOT / "deploy/compose.prod.yaml"
+    if Path(environment.get("COMPOSE_FILE", str(expected_compose))).resolve() != (
+        expected_compose.resolve()
+    ):
+        raise InputError("PRODUCTION_COMPOSE_OVERLAY_FORBIDDEN")
+    for source in (values, environment):
+        # 迁移证明只接受默认缓存位置，不能让 runtime 改到源码树外。
+        if source.get("PYTHONPYCACHEPREFIX"):
+            raise InputError("PRODUCTION_MIGRATION_CACHE_PREFIX_FORBIDDEN")
+        profiles = source.get("COMPOSE_PROFILES", "").split(",")
+        if any(profile.strip() not in {"", "production-async"} for profile in profiles):
+            raise InputError("PRODUCTION_COMPOSE_PROFILE_FORBIDDEN")
+        if source.get("GEO_BROWSER_COLLECTION_ENABLED", "false") != "false":
+            raise InputError("PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED")
+        if any(value for key, value in source.items() if key.startswith((
+            "GEO_BROWSER_SESSION_", "PARTSIGNAL_GEO_BROWSER_SESSION_"
+        ))):
+            raise InputError("PRODUCTION_BROWSER_SESSION_FORBIDDEN")
+    if values.get("APP_ENV") != "production":
+        raise InputError("PRODUCTION_FIXED_VALUE_REQUIRED:APP_ENV")
+    # env_file 会覆盖镜像配置；沿用 runtime 合同拒绝加载路径等未声明输入。
+    if not set(values) <= PRODUCTION_RUNTIME_KEYS:
+        raise InputError("ENV_KEY_SET_MISMATCH")
 
 
 def strict_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -236,9 +300,15 @@ def main() -> int:
     parser.add_argument("runtime_file", type=Path, nargs="?")
     parser.add_argument("--ai-inputs", type=Path)
     parser.add_argument(
+        "--deployment-boundary", action="store_true",
+        help="部署入口在维护锁和状态变更前检查 production Browser/profile/overlay 边界",
+    )
+    parser.add_argument(
         "--ai-only", action="store_true", help="只检查 AI 输入，复用已验证的服务器 runtime 文件"
     )
     args = parser.parse_args()
+    if args.deployment_boundary and (args.ai_only or args.ai_inputs is not None):
+        parser.error("--deployment-boundary 仅检查 runtime_file，不能组合 AI 检查")
     if args.ai_only:
         if args.runtime_file is not None or args.ai_inputs is None:
             parser.error("--ai-only 需要 --ai-inputs，不能同时提供 runtime_file")
@@ -248,6 +318,10 @@ def main() -> int:
         values = (
             {"APP_ENV": "test"} if args.ai_only else parse_runtime(read_private(args.runtime_file))
         )
+        if args.deployment_boundary:
+            check_deployment_boundary(values, dict(os.environ))
+            print(json.dumps({"status": "PASSED", "production_browser_boundary": "PASSED"}))
+            return 0
         missing_runtime = [] if args.ai_only else check_runtime(values)
         ai, missing_ai = check_ai(args.ai_inputs) if args.ai_inputs else (None, [])
         if missing_runtime or missing_ai:

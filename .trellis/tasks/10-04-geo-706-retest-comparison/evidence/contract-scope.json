@@ -1,0 +1,47 @@
+{
+  "new_paths": [
+    "/api/v1/geo/opportunities/{opportunity_id}/comparison",
+    "/api/v1/geo/opportunities/{opportunity_id}/resolve",
+    "/api/v1/geo/opportunities/{opportunity_id}/continue"
+  ],
+  "new_schemas": [
+    "GeoOpportunityComparisonRead",
+    "GeoOpportunityContinueRequest",
+    "GeoOpportunityDecision",
+    "GeoOpportunityDecisionKind",
+    "GeoOpportunityDecisionResult",
+    "GeoOpportunityResolveRequest",
+    "GeoRetestComparison",
+    "GeoRetestComparisonChoice",
+    "GeoRetestComparisonDifference",
+    "GeoRetestComparisonEnvironment",
+    "GeoRetestComparisonMetric",
+    "GeoRetestComparisonWindow",
+    "GeoRetestRecovery",
+    "GeoRetestRecoveryStatus"
+  ],
+  "changed_schemas": [
+    "GeoOpportunityAction"
+  ],
+  "runtime_other_schema_changes": [
+    "GeoApiSettings",
+    "GeoManualSettings",
+    "GeoSubjectAliasKind",
+    "IntentType",
+    "GeoSubjectType",
+    "GeoSurfaceProviderBrand",
+    "GeoCollectionMode",
+    "ErrorEnvelope",
+    "ErrorDetail",
+    "GeoSubjectDomainRelationType",
+    "GeoPromptPriority",
+    "GeoSurfaceKind",
+    "GeoProfileLoginState",
+    "GeoComplianceStatus",
+    "GeoWebSearchPolicy",
+    "GeoBrowserSettings",
+    "GeoPromptMentionMode",
+    "GeoOpportunityAction",
+    "GeoSurfaceCapabilities"
+  ]
+}

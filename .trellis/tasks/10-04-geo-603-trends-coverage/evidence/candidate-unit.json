@@ -1,0 +1,10 @@
+{
+  "argv": [
+    "make",
+    "test-unit"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "exit_code": 0,
+  "started_at": "2026-10-04T07:18:47.328963+00:00",
+  "finished_at": "2026-10-04T07:20:10.132275+00:00"
+}

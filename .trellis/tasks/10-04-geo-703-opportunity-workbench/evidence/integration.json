@@ -1,0 +1,9 @@
+{
+  "argv": [
+    "make",
+    "test-integration",
+    "COMPOSE=docker compose -f .trellis/tasks/10-04-geo-703-opportunity-workbench/evidence/compose.yaml"
+  ],
+  "exit_code": 2,
+  "seconds": 530.97
+}

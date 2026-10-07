@@ -1,0 +1,21 @@
+[
+  "contracts/openapi.yaml",
+  "contracts/database.md",
+  "backend/app/main.py",
+  "backend/app/audit_types.py",
+  "backend/app/services/audit_logs.py",
+  "backend/app/services/geo_plans.py",
+  "backend/tests/unit/test_geo_monitoring_plan_contract.py",
+  "backend/tests/unit/test_geo_plan_preview_contract.py",
+  "frontend/src/shared/api/generated/schema.d.ts",
+  "docs/geo-monitoring/README.md",
+  "docs/geo-monitoring/CHANGELOG.md",
+  "docs/geo-monitoring/SHA256SUMS",
+  "docs/geo-monitoring/02-business/02-domain-model.md",
+  "docs/geo-monitoring/02-business/03-workflows-and-state-machines.md",
+  "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+  "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+  "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+  "backend/tests/unit/test_contract.py",
+  "backend/tests/unit/test_runtime_response_metadata.py"
+]

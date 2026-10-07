@@ -63,6 +63,29 @@ if ! test -d "$temporary_root"; then
   exit 2
 fi
 test_dir=$(mktemp -d "$temporary_root/partsignal-production-test.XXXXXX")
+# 部署脚本 mock 仍使用明确的 production runtime；不借开发 env 绕过生产入口。
+python3 - "$root/.env.example" "$test_dir/deployment-runtime.env" \
+  "$root/.env.production.example" "$test_dir/compose-runtime.env" <<'PYCONFIG'
+from pathlib import Path
+import sys
+allowed = {line.split("=", 1)[0] for line in Path(sys.argv[3]).read_text().splitlines()
+           if line and not line.startswith("#") and "=" in line}
+source = "\n".join(line for line in Path(sys.argv[1]).read_text().splitlines()
+                   if "=" in line and line.split("=", 1)[0] in allowed)
+source = source.replace("APP_ENV=development", "APP_ENV=production") + "\n"
+target = Path(sys.argv[2])
+target.write_text(source)
+target.chmod(0o600)
+# Compose 各版本保留 env_file 的 JSON 形态不同；用本次独有的公开 cookie 名检查实际绑定。
+probe = Path(sys.argv[4])
+lines = source.splitlines()
+assert sum(line.startswith("SESSION_COOKIE_NAME=") for line in lines) == 1
+probe.write_text("\n".join(
+    "SESSION_COOKIE_NAME=" + probe.parent.name if line.startswith("SESSION_COOKIE_NAME=") else line
+    for line in lines
+) + "\n")
+probe.chmod(0o600)
+PYCONFIG
 candidate_release=production-20260829-120000-0123456789ab
 next_release=production-20260829-130000-fedcba987654
 
@@ -92,23 +115,33 @@ printf '%s\n' old-object >"$test_dir/live/objects/marker"
 PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
 PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 \
 PARTSIGNAL_VERSION=test \
-PARTSIGNAL_RUNTIME_ENV_FILE="$root/.env.example" \
+PARTSIGNAL_RUNTIME_ENV_FILE="$test_dir/compose-runtime.env" \
 PARTSIGNAL_DATA_ROOT="$test_dir/live" \
   docker compose --env-file "$root/.env.example" -f "$root/deploy/compose.prod.yaml" \
-  config --no-env-resolution --format json >"$test_dir/compose.json"
+  config --format json >"$test_dir/compose.json"
 PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
 PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 \
 PARTSIGNAL_VERSION=test \
-PARTSIGNAL_RUNTIME_ENV_FILE="$root/.env.example" \
+PARTSIGNAL_RUNTIME_ENV_FILE="$test_dir/compose-runtime.env" \
 PARTSIGNAL_DATA_ROOT="$test_dir/live" \
   docker compose --profile production-async --env-file "$root/.env.example" \
   -f "$root/deploy/compose.prod.yaml" \
-  config --no-env-resolution --format json >"$test_dir/compose-async.json"
+  config --format json >"$test_dir/compose-async.json"
+PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
+PARTSIGNAL_MIGRATION_IMAGE=partsignal-migration:frozen-failed \
+PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 \
+PARTSIGNAL_VERSION=test \
+PARTSIGNAL_RUNTIME_ENV_FILE="$test_dir/compose-runtime.env" \
+PARTSIGNAL_DATA_ROOT="$test_dir/live" \
+  docker compose --env-file "$root/.env.example" -f "$root/deploy/compose.prod.yaml" \
+  config --format json >"$test_dir/compose-frozen-migration.json"
 
 if test "${PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE:-}" != network-compatibility; then
-python3 - "$test_dir/compose.json" "$test_dir/live" "$root/.env.example" \
-  "$test_dir/compose-async.json" "$root/deploy/compose.prod.yaml" <<'PY'
+python3 - "$test_dir/compose.json" "$test_dir/live" "$test_dir/compose-runtime.env" \
+  "$test_dir/compose-async.json" "$root/deploy/compose.prod.yaml" \
+  "$test_dir/compose-frozen-migration.json" <<'PY'
 import json
+from pathlib import Path
 import sys
 
 with open(sys.argv[1], encoding="utf-8") as config_file:
@@ -130,10 +163,21 @@ assert frontend["ports"] == [{
 }]
 assert services["postgres"]["volumes"][0]["source"] == f"{sys.argv[2]}/postgres"
 assert services["redis"]["volumes"][0]["source"] == f"{sys.argv[2]}/redis"
-assert services["api"]["env_file"] == [{"path": sys.argv[3]}]
+expected_environment = dict(line.split("=", 1) for line in Path(sys.argv[3]).read_text().splitlines())
+assert expected_environment["SESSION_COOKIE_NAME"] == Path(sys.argv[3]).parent.name
+for name in ("migrate", "api", "postgres"):
+    assert services[name]["environment"] == expected_environment, name
 assert services["frontend"]["networks"] == {"partsignal-staging-edge": None}
 assert "worker" not in services
 assert "scheduler" not in services
+assert services["migrate"]["image"] == services["api"]["image"] == "partsignal-backend:test"
+with open(sys.argv[6], encoding="utf-8") as config_file:
+    frozen_services = json.load(config_file)["services"]
+assert frozen_services["api"]["image"] == "partsignal-backend:test"
+assert frozen_services["migrate"]["image"] == "partsignal-migration:frozen-failed"
+assert frozen_services["migrate"]["command"] == ["alembic", "upgrade", "head"]
+for name in ("migrate", "api", "postgres"):
+    assert frozen_services[name]["environment"] == expected_environment, name
 with open(sys.argv[4], encoding="utf-8") as config_file:
     async_config = json.load(config_file)
 expected_networks = {"partsignal-staging-" + suffix for suffix in ("internal", "egress", "edge")}
@@ -156,6 +200,8 @@ for name, networks in expected_services.items():
     assert set(async_config["services"][name]["networks"]) == networks, name
     if name in services:
         assert set(services[name]["networks"]) == networks, name
+for name in ("migrate", "api", "worker", "scheduler", "postgres"):
+    assert async_config["services"][name]["environment"] == expected_environment, name
 for name in ("postgres", "redis"):
     assert not async_config["services"][name].get("ports"), name
 with open(sys.argv[5], encoding="utf-8") as source:
@@ -163,6 +209,7 @@ with open(sys.argv[5], encoding="utf-8") as source:
 assert all("partsignal-" + suffix not in text for suffix in ("internal", "egress", "edge"))
 assert "19001" not in text and "/object-storage/" not in text
 print("Production network identity static: 3 networks / 7 services passed")
+print("Production migration binding: frozen migration image / repaired backend / fixed command passed")
 PY
 fi
 
@@ -456,13 +503,17 @@ grep -q 'return 503 "PartSignal maintenance\\n";' "$maintenance_template"
 ! grep -q '/object-storage/' "$maintenance_template"
 
 mkdir "$test_dir/bin"
+export PARTSIGNAL_TEST_RUNTIME_BACKEND="$root/backend"
+export PARTSIGNAL_TEST_RUNTIME_ADAPTER="$root/deploy/scripts/test-migration-runtime-docker.py"
+export PARTSIGNAL_TEST_RUNTIME_STATE="$test_dir/runtime-fixtures"
 printf '%s\n' \
   '#!/bin/sh' \
+  'case "$1" in create | export | container) exec python3 "$PARTSIGNAL_TEST_RUNTIME_ADAPTER" "$PARTSIGNAL_TEST_RUNTIME_BACKEND" "$PARTSIGNAL_TEST_RUNTIME_STATE" "$@" ;; esac' \
   'case "$*" in' \
   '  "image inspect "*)' \
   '    printf "docker %s\n" "$*" >>"${COMMAND_LOG:-/dev/null}"' \
   '    case "$*" in *"${MISSING_IMAGE_REFERENCE:-__never__}"*) exit 1 ;; esac' \
-  '    printf '\''[{"Id":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","RepoDigests":["example@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]}]\n'\''' \
+  '    printf '\''[{"Id":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","RepoDigests":["example@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],"Config":{"Env":[],"WorkingDir":"/app","Entrypoint":null}}]\n'\''' \
   '    ;;' \
   '  "ps -q --filter label=com.docker.compose.project="*) printf "%s\n" "${DOCKER_PROJECT_IDS:-}" ;;' \
   '  "ps -q") printf "%s\n" "${DOCKER_RUNNING_IDS:-}" ;;' \
@@ -497,6 +548,7 @@ from types import SimpleNamespace
 
 
 script_path = sys.argv[1]
+sys.path.insert(0, str(Path(script_path).parent))
 spec = importlib.util.spec_from_file_location("prepare_production_data", script_path)
 assert spec is not None and spec.loader is not None
 module = importlib.util.module_from_spec(spec)
@@ -984,12 +1036,20 @@ tracked_names = {
     "deploy/nginx/partsignal-security-headers.conf",
     "deploy/nginx/partsignal.conf.template",
     "deploy/scripts/activate-production.sh",
+    "deploy/scripts/check-production-inputs.py",
     "deploy/scripts/deploy.sh",
     "deploy/scripts/prepare-production-data.py",
+    "deploy/scripts/production_upgrade_recovery.py",
+    "deploy/scripts/production_migration_runtime.py",
+    "deploy/scripts/production_maintenance_execution.py",
+    "deploy/scripts/production_deployment.py",
     "deploy/scripts/rollback-production-frontend.sh",
 }
 manifest = suite_root / "release-manifest.json"
+sys.path.insert(0, str(root / "deploy/scripts"))
+from production_migration_runtime import _fingerprint
 manifest_payload = {
+    "migration_runtime": _fingerprint("a" * 64, "b" * 64),
     "release_id": release_id,
     "commit": "e" * 40,
     "schema_head": "0043_geo_platform_identity",
@@ -1012,9 +1072,11 @@ manifest_payload = {
     },
     "tracked_files": {name: sha256(root / name) for name in sorted(tracked_names)},
 }
+manifest_payload["images"]["migration"] = dict(manifest_payload["images"]["backend"])
 manifest.write_text(json.dumps(manifest_payload, sort_keys=True), encoding="utf-8")
 candidate = {
     "manifest_sha256": sha256(manifest),
+    "migration_runtime": manifest_payload["migration_runtime"],
     "release_id": release_id,
     "commit": "e" * 40,
     "schema_head": "0043_geo_platform_identity",
@@ -1030,6 +1092,8 @@ candidate = {
         "registry.example/frontend@sha256:" + "5" * 64
     ],
 }
+
+candidate.update({"migration_reference": candidate["backend_reference"], "migration_image_id": candidate["backend_image_id"], "migration_repo_digests": candidate["backend_repo_digests"]})
 
 docker_script = fake_bin / "docker"
 docker_script.write_text(
@@ -1598,8 +1662,13 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
   --tracked-file "$root/deploy/nginx/partsignal-security-headers.conf" \
   --tracked-file "$root/deploy/nginx/partsignal.conf.template" \
   --tracked-file "$root/deploy/scripts/activate-production.sh" \
+  --tracked-file "$root/deploy/scripts/check-production-inputs.py" \
   --tracked-file "$root/deploy/scripts/deploy.sh" \
   --tracked-file "$root/deploy/scripts/prepare-production-data.py" \
+  --tracked-file "$root/deploy/scripts/production_upgrade_recovery.py" \
+  --tracked-file "$root/deploy/scripts/production_migration_runtime.py" \
+  --tracked-file "$root/deploy/scripts/production_maintenance_execution.py" \
+  --tracked-file "$root/deploy/scripts/production_deployment.py" \
   --tracked-file "$root/deploy/scripts/rollback-production-frontend.sh" \
   --output "$test_dir/v1-manifest.json" >/dev/null 2>"$test_dir/v1-manifest.err"
 v1_manifest_status=$?
@@ -1623,8 +1692,13 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
   --tracked-file "$root/deploy/nginx/partsignal-security-headers.conf" \
   --tracked-file "$root/deploy/nginx/partsignal.conf.template" \
   --tracked-file "$root/deploy/scripts/activate-production.sh" \
+  --tracked-file "$root/deploy/scripts/check-production-inputs.py" \
   --tracked-file "$root/deploy/scripts/deploy.sh" \
   --tracked-file "$root/deploy/scripts/prepare-production-data.py" \
+  --tracked-file "$root/deploy/scripts/production_upgrade_recovery.py" \
+  --tracked-file "$root/deploy/scripts/production_migration_runtime.py" \
+  --tracked-file "$root/deploy/scripts/production_maintenance_execution.py" \
+  --tracked-file "$root/deploy/scripts/production_deployment.py" \
   --tracked-file "$root/deploy/scripts/rollback-production-frontend.sh" \
   --output "$test_dir/release-manifest.json" >/dev/null
 PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
@@ -1642,8 +1716,13 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
   --tracked-file "$root/deploy/nginx/partsignal-security-headers.conf" \
   --tracked-file "$root/deploy/nginx/partsignal.conf.template" \
   --tracked-file "$root/deploy/scripts/activate-production.sh" \
+  --tracked-file "$root/deploy/scripts/check-production-inputs.py" \
   --tracked-file "$root/deploy/scripts/deploy.sh" \
   --tracked-file "$root/deploy/scripts/prepare-production-data.py" \
+  --tracked-file "$root/deploy/scripts/production_upgrade_recovery.py" \
+  --tracked-file "$root/deploy/scripts/production_migration_runtime.py" \
+  --tracked-file "$root/deploy/scripts/production_maintenance_execution.py" \
+  --tracked-file "$root/deploy/scripts/production_deployment.py" \
   --tracked-file "$root/deploy/scripts/rollback-production-frontend.sh" \
   --output "$test_dir/release-manifest-next.json" >/dev/null
 
@@ -1740,7 +1819,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/wrong-compose.log" \
   PARTSIGNAL_DEPLOY_MODE=clean-init \
   PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.staging.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.staging.yaml" \
   "$root/deploy/scripts/deploy.sh" >/dev/null 2>&1
 wrong_compose_status=$?
 set -e
@@ -1761,7 +1840,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/wrong-project.log" \
   PARTSIGNAL_DEPLOY_MODE=clean-init \
   PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/deploy.sh" >/dev/null 2>&1
 wrong_project_status=$?
 set -e
@@ -1782,7 +1861,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/invalid-image-delivery-mode.lo
   PARTSIGNAL_DEPLOY_MODE=clean-init \
   PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/deploy.sh" >"$test_dir/invalid-image-delivery-mode.out" \
   2>"$test_dir/invalid-image-delivery-mode.err"
 invalid_image_delivery_mode_status=$?
@@ -1806,7 +1885,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/empty-image-delivery-mode.log"
   PARTSIGNAL_DEPLOY_MODE=clean-init \
   PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/deploy.sh" >"$test_dir/empty-image-delivery-mode.out" \
   2>"$test_dir/empty-image-delivery-mode.err"
 empty_image_delivery_mode_status=$?
@@ -1830,7 +1909,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/v1-deploy.log" \
   PARTSIGNAL_DEPLOY_MODE=clean-init \
   PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/deploy.sh" >/dev/null 2>"$test_dir/v1-deploy.err"
 v1_deploy_status=$?
 set -e
@@ -1852,7 +1931,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/v1-backend-deploy.log" \
   PARTSIGNAL_DEPLOY_MODE=clean-init \
   PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/deploy.sh" >"$test_dir/v1-backend-deploy.out" \
   2>"$test_dir/v1-backend-deploy.err"
 v1_backend_deploy_status=$?
@@ -1876,7 +1955,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/missing-image.log" \
   PARTSIGNAL_DEPLOY_MODE=clean-init \
   PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/deploy.sh" >"$test_dir/missing-image.out" \
   2>"$test_dir/missing-image.err"
 missing_image_status=$?
@@ -1897,17 +1976,17 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/clean.log" \
   PARTSIGNAL_DEPLOY_MODE=clean-init \
   PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/deploy.sh" >/dev/null
 
 awk '
   /config --quiet/ { config = NR }
-  /pull api worker scheduler frontend/ { pull = NR }
+  /pull api worker scheduler frontend migrate/ { pull = NR }
   /image inspect/ { verify = NR }
   /up -d --wait postgres redis/ { data = NR }
   /preflight-production-config/ { production = NR }
   /run --rm migrate/ { migrate = NR }
-  /preflight-integrity/ { integrity = NR }
+  /preflight-integrity --require-schema$/ { integrity = NR }
   /initialize-accounts/ { accounts = NR }
   /up -d --wait api frontend/ { application = NR }
   / compose .* ps$/ { status = NR }
@@ -1936,7 +2015,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/local.log" \
   PARTSIGNAL_DEPLOY_MODE=clean-init \
   PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/deploy.sh" >/dev/null
 ! grep -q ' pull ' "$test_dir/local.log"
 grep -q 'up --pull never -d --wait postgres redis' "$test_dir/local.log"
@@ -1961,7 +2040,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/blocked-activation.log" \
   PARTSIGNAL_DEPLOY_MODE=clean-init PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
   PARTSIGNAL_EXTERNAL_SERVICES_GATE=NOT_MET \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/activate-production.sh" >/dev/null 2>&1
 blocked_status=$?
 set -e
@@ -1981,7 +2060,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/invalid-activation-mode.log" \
   PARTSIGNAL_DEPLOY_MODE=clean-init PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
   PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/activate-production.sh" >"$test_dir/invalid-activation-mode.out" \
   2>"$test_dir/invalid-activation-mode.err"
 invalid_activation_mode_status=$?
@@ -2005,7 +2084,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/empty-activation-mode.log" \
   PARTSIGNAL_DEPLOY_MODE=clean-init PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
   PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/activate-production.sh" >"$test_dir/empty-activation-mode.out" \
   2>"$test_dir/empty-activation-mode.err"
 empty_activation_mode_status=$?
@@ -2028,7 +2107,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/v1-activation.log" \
   PARTSIGNAL_DEPLOY_MODE=clean-init PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
   PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/activate-production.sh" >/dev/null 2>"$test_dir/v1-activation.err"
 v1_activation_status=$?
 set -e
@@ -2049,7 +2128,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/missing-bootstrap-activation.l
   PARTSIGNAL_DEPLOY_MODE=clean-init PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
   PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/activate-production.sh" \
   >"$test_dir/missing-bootstrap-activation.out" \
   2>"$test_dir/missing-bootstrap-activation.err"
@@ -2088,7 +2167,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/activate.log" \
   PARTSIGNAL_DEPLOY_MODE=clean-init PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
   PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/activate-production.sh" >/dev/null
 grep -q -- '--profile production-async.*up --pull never -d --wait worker scheduler' "$test_dir/activate.log"
 
@@ -2105,7 +2184,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/rollback-mismatch.log" \
   PARTSIGNAL_MAINTENANCE_LOCK_FILE="$test_dir/maintenance.lock" \
   PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/rollback-production-frontend.sh" >/dev/null 2>&1
 rollback_mismatch_status=$?
 set -e
@@ -2124,7 +2203,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/rollback.log" \
   PARTSIGNAL_MAINTENANCE_LOCK_FILE="$test_dir/maintenance.lock" \
   PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/rollback-production-frontend.sh" >/dev/null
 grep -q 'up -d --no-deps --no-build --pull never --force-recreate --wait frontend' \
   "$test_dir/rollback.log"
@@ -2190,7 +2269,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/unprepared-upgrade-activation.
   PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
   PARTSIGNAL_DEPLOY_MODE=upgrade PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest-next.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/activate-production.sh" >/dev/null 2>&1
 unprepared_upgrade_status=$?
 set -e
@@ -2207,14 +2286,15 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/upgrade.log" \
   PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
   PARTSIGNAL_DEPLOY_MODE=upgrade \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest-next.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/deploy.sh" >/dev/null
 awk '
-  /preflight-integrity/ { integrity = NR }
+  /preflight-integrity$/ { before = NR }
+  /preflight-integrity --require-schema$/ { after = NR }
   /stop api worker scheduler/ { stop = NR }
   /run --rm migrate/ { migrate = NR }
   /initialize-accounts/ { accounts = NR }
-  END { exit !(integrity < stop && stop < migrate && migrate < accounts) }
+  END { exit !(before < stop && stop < migrate && migrate < after && after < accounts) }
 ' "$test_dir/upgrade.log"
 ! grep -q 'up -d --wait worker scheduler' "$test_dir/upgrade.log"
 
@@ -2229,7 +2309,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/mismatched-upgrade-activation.
   PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
   PARTSIGNAL_DEPLOY_MODE=upgrade PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/activate-production.sh" >/dev/null 2>&1
 mismatched_upgrade_status=$?
 set -e
@@ -2246,7 +2326,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/upgrade-activation.log" \
   PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
   PARTSIGNAL_DEPLOY_MODE=upgrade PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest-next.json" \
-  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  ENV_FILE="$test_dir/deployment-runtime.env" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/activate-production.sh" >/dev/null
 grep -q -- '--profile production-async.*up -d --wait worker scheduler' \
   "$test_dir/upgrade-activation.log"
@@ -2454,8 +2534,13 @@ assert set(manifest["tracked_files"]) == {
     "deploy/nginx/partsignal-security-headers.conf",
     "deploy/nginx/partsignal.conf.template",
     "deploy/scripts/activate-production.sh",
+    "deploy/scripts/check-production-inputs.py",
     "deploy/scripts/deploy.sh",
     "deploy/scripts/prepare-production-data.py",
+    "deploy/scripts/production_upgrade_recovery.py",
+    "deploy/scripts/production_migration_runtime.py",
+    "deploy/scripts/production_maintenance_execution.py",
+    "deploy/scripts/production_deployment.py",
     "deploy/scripts/rollback-production-frontend.sh",
 }
 PY

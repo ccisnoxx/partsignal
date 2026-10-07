@@ -1,0 +1,820 @@
+npm --prefix frontend run api:generate
+
+> partsignal-frontend-v2@0.1.0 api:generate
+> openapi-typescript ../contracts/openapi.yaml -o src/shared/api/generated/schema.d.ts
+
+✨ openapi-typescript 7.13.0
+/Users/sc/PycharmProjects/partsignal/frontend/node_modules/@redocly/openapi-core/lib/resolve.js:131
+            throw new YamlParseError(e, source);
+                  ^
+
+YamlParseError: duplicated mapping key in "/Users/sc/PycharmProjects/partsignal/contracts/openapi.yaml" (15244:5)
+    at BaseResolver.parseDocument (/Users/sc/PycharmProjects/partsignal/frontend/node_modules/@redocly/openapi-core/lib/resolve.js:131:19)
+    at /Users/sc/PycharmProjects/partsignal/frontend/node_modules/@redocly/openapi-core/lib/resolve.js:141:25
+    at async parseSchema (file:///Users/sc/PycharmProjects/partsignal/frontend/node_modules/openapi-typescript/dist/lib/redoc.mjs:13:20)
+    at async validateAndBundle (file:///Users/sc/PycharmProjects/partsignal/frontend/node_modules/openapi-typescript/dist/lib/redoc.mjs:87:20)
+    at async openapiTS (file:///Users/sc/PycharmProjects/partsignal/frontend/node_modules/openapi-typescript/dist/index.mjs:40:18)
+    at async generateSchema (file:///Users/sc/PycharmProjects/partsignal/frontend/node_modules/openapi-typescript/bin/cli.js:143:5)
+    at async main (file:///Users/sc/PycharmProjects/partsignal/frontend/node_modules/openapi-typescript/bin/cli.js:280:20) {
+  originalError: YAMLException: duplicated mapping key in "/Users/sc/PycharmProjects/partsignal/contracts/openapi.yaml" (15244:5)
+  
+   15241 |       - BUDGET_BLOCKED
+   15242 |       title: GeoBatchStatus
+   15243 |       type: string
+   15244 |     GeoBatchPlanSnapshot:
+  -------------^
+   15245 |       additionalProperties: false
+   15246 |       allOf:
+      at generateError (/Users/sc/PycharmProjects/partsignal/frontend/node_modules/js-yaml/lib/loader.js:197:10)
+      at throwError (/Users/sc/PycharmProjects/partsignal/frontend/node_modules/js-yaml/lib/loader.js:201:9)
+      at storeMappingPair (/Users/sc/PycharmProjects/partsignal/frontend/node_modules/js-yaml/lib/loader.js:442:7)
+      at readBlockMapping (/Users/sc/PycharmProjects/partsignal/frontend/node_modules/js-yaml/lib/loader.js:1210:9)
+      at composeNode (/Users/sc/PycharmProjects/partsignal/frontend/node_modules/js-yaml/lib/loader.js:1507:53)
+      at readBlockMapping (/Users/sc/PycharmProjects/partsignal/frontend/node_modules/js-yaml/lib/loader.js:1201:11)
+      at composeNode (/Users/sc/PycharmProjects/partsignal/frontend/node_modules/js-yaml/lib/loader.js:1507:53)
+      at readBlockMapping (/Users/sc/PycharmProjects/partsignal/frontend/node_modules/js-yaml/lib/loader.js:1201:11)
+      at composeNode (/Users/sc/PycharmProjects/partsignal/frontend/node_modules/js-yaml/lib/loader.js:1507:53)
+      at readDocument (/Users/sc/PycharmProjects/partsignal/frontend/node_modules/js-yaml/lib/loader.js:1697:3) {
+    reason: 'duplicated mapping key',
+    mark: {
+      name: '/Users/sc/PycharmProjects/partsignal/contracts/openapi.yaml',
+      buffer: 'openapi: 3.1.0\n' +
+        'info:\n' +
+        '  title: PartSignal API\n' +
+        '  version: 0.1.1\n' +
+        '  description: PartSignal MVP 契约。除登录外，写请求必须携带 X-CSRF-Token。\n' +
+        'servers:\n' +
+        '  - url: /\n' +
+        'security:\n' +
+        '  - sessionCookie: []\n' +
+        'tags:\n' +
+        '  - name: health\n' +
+        '  - name: auth\n' +
+        '  - name: identity\n' +
+        '  - name: product-facts\n' +
+        '  - name: planning\n' +
+        '  - name: production\n' +
+        '  - name: review\n' +
+        '  - name: publication\n' +
+        '  - name: observation\n' +
+        '  - name: files\n' +
+        '  - name: configuration\n' +
+        '  - name: geo-catalog\n' +
+        '  - name: geo-surface-management\n' +
+        'paths:\n' +
+        '  /api/v1/geo/subjects:\n' +
+        '    get:\n' +
+        '      tags:\n' +
+        '      - geo-catalog\n' +
+        '      operationId: listGeoSubjects\n' +
+        '      security:\n' +
+        '      - sessionCookie: []\n' +
+        '      x-required-account-types:\n' +
+        '      - ADMIN\n' +
+        '      - ENGINEER\n' +
+        '      parameters:\n' +
+        "      - $ref: '#/components/parameters/RequestIdHeader'\n" +
+        '      - name: q\n' +
+        '        in: query\n' +
+        '        schema:\n' +
+        '          type: string\n' +
+        '          maxLength: 240\n' +
+        '      - name: subject_type\n' +
+        '        in: query\n' +
+        '        schema:\n' +
+        "          $ref: '#/components/schemas/GeoSubjectType'\n" +
+        '      - name: product_id\n' +
+        '        in: query\n' +
+        '        schema:\n' +
+        '          type: string\n' +
+        '          format: uuid\n' +
+        '      - name: parent_subject_id\n' +
+        '        in: query\n' +
+        '        schema:\n' +
+        '          type: string\n' +
+        '          format: uuid\n' +
+        '      - name: is_active\n' +
+        '        in: query\n' +
+        '        schema:\n' +
+        '          type: boolean\n' +
+        '      - name: sort\n' +
+        '        in: query\n' +
+        '        schema:\n' +
+        '          type: string\n' +
+        '          enum:\n' +
+        '          - NAME_ASC\n' +
+        '          - UPDATED_DESC\n' +
+        '          default: NAME_ASC\n' +
+        "      - $ref: '#/components/parameters/Page'\n" +
+        '      - name: page_size\n' +
+        '        in: query\n' +
+        '        schema:\n' +
+        '          type: integer\n' +
+        '          enum:\n' +
+        '          - 10\n' +
+        '          - 20\n' +
+        '          - 50\n' +
+        '          default: 20\n' +
+        '      responses:\n' +
+        "        '200':\n" +
+        '          description: Subject 聚合当前投影\n' +
+        '          headers:\n' +
+        '            X-Request-ID:\n' +
+        "              $ref: '#/components/headers/RequestIdResponseHeader'\n" +
+        '          content:\n' +
+        '            application/json:\n' +
+        '              schema:\n' +
+        "                $ref: '#/components/schemas/GeoSubjectListPage'\n" +
+        "        '400':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '401':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '403':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '422':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        '      x-error-codes:\n' +
+        "        '400':\n" +
+        '        - VALIDATION_ERROR\n' +
+        "        '401':\n" +
+        '        - AUTH_REQUIRED\n' +
+        "        '403':\n" +
+        '        - PASSWORD_CHANGE_REQUIRED\n' +
+        "        '422':\n" +
+        '        - VALIDATION_ERROR\n' +
+        '    post:\n' +
+        '      tags:\n' +
+        '      - geo-catalog\n' +
+        '      operationId: createGeoSubject\n' +
+        '      security:\n' +
+        '      - sessionCookie: []\n' +
+        '      x-required-account-types:\n' +
+        '      - ADMIN\n' +
+        '      parameters:\n' +
+        "      - $ref: '#/components/parameters/RequestIdHeader'\n" +
+        "      - $ref: '#/components/parameters/CsrfHeader'\n" +
+        '      responses:\n' +
+        "        '201':\n" +
+        '          description: Subject 聚合当前投影\n' +
+        '          headers:\n' +
+        '            X-Request-ID:\n' +
+        "              $ref: '#/components/headers/RequestIdResponseHeader'\n" +
+        '          content:\n' +
+        '            application/json:\n' +
+        '              schema:\n' +
+        "                $ref: '#/components/schemas/GeoSubjectOut'\n" +
+        "        '400':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '401':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '403':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '422':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '404':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '409':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        '      x-error-codes:\n' +
+        "        '400':\n" +
+        '        - VALIDATION_ERROR\n' +
+        "        '401':\n" +
+        '        - AUTH_REQUIRED\n' +
+        "        '403':\n" +
+        '        - PASSWORD_CHANGE_REQUIRED\n' +
+        '        - PERMISSION_DENIED\n' +
+        '        - CSRF_INVALID\n' +
+        "        '422':\n" +
+        '        - VALIDATION_ERROR\n' +
+        "        '404':\n" +
+        '        - NOT_FOUND\n' +
+        "        '409':\n" +
+        '        - GEO_SUBJECT_PRODUCT_EXISTS\n' +
+        '        - GEO_SUBJECT_PARENT_INVALID\n' +
+        '      requestBody:\n' +
+        '        required: true\n' +
+        '        content:\n' +
+        '          application/json:\n' +
+        '            schema:\n' +
+        "              $ref: '#/components/schemas/GeoSubjectCreate'\n" +
+        '  /api/v1/geo/subjects/{subject_id}:\n' +
+        '    get:\n' +
+        '      tags:\n' +
+        '      - geo-catalog\n' +
+        '      operationId: getGeoSubject\n' +
+        '      security:\n' +
+        '      - sessionCookie: []\n' +
+        '      x-required-account-types:\n' +
+        '      - ADMIN\n' +
+        '      - ENGINEER\n' +
+        '      parameters:\n' +
+        "      - $ref: '#/components/parameters/RequestIdHeader'\n" +
+        '      - name: subject_id\n' +
+        '        in: path\n' +
+        '        required: true\n' +
+        '        schema:\n' +
+        '          type: string\n' +
+        '          format: uuid\n' +
+        '      responses:\n' +
+        "        '200':\n" +
+        '          description: Subject 聚合当前投影\n' +
+        '          headers:\n' +
+        '            X-Request-ID:\n' +
+        "              $ref: '#/components/headers/RequestIdResponseHeader'\n" +
+        '          content:\n' +
+        '            application/json:\n' +
+        '              schema:\n' +
+        "                $ref: '#/components/schemas/GeoSubjectOut'\n" +
+        "        '400':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '401':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '403':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '422':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '404':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        '      x-error-codes:\n' +
+        "        '400':\n" +
+        '        - VALIDATION_ERROR\n' +
+        "        '401':\n" +
+        '        - AUTH_REQUIRED\n' +
+        "        '403':\n" +
+        '        - PASSWORD_CHANGE_REQUIRED\n' +
+        "        '422':\n" +
+        '        - VALIDATION_ERROR\n' +
+        "        '404':\n" +
+        '        - NOT_FOUND\n' +
+        '    patch:\n' +
+        '      tags:\n' +
+        '      - geo-catalog\n' +
+        '      operationId: updateGeoSubject\n' +
+        '      security:\n' +
+        '      - sessionCookie: []\n' +
+        '      x-required-account-types:\n' +
+        '      - ADMIN\n' +
+        '      parameters:\n' +
+        "      - $ref: '#/components/parameters/RequestIdHeader'\n" +
+        '      - name: subject_id\n' +
+        '        in: path\n' +
+        '        required: true\n' +
+        '        schema:\n' +
+        '          type: string\n' +
+        '          format: uuid\n' +
+        "      - $ref: '#/components/parameters/CsrfHeader'\n" +
+        '      responses:\n' +
+        "        '200':\n" +
+        '          description: Subject 聚合当前投影\n' +
+        '          headers:\n' +
+        '            X-Request-ID:\n' +
+        "              $ref: '#/components/headers/RequestIdResponseHeader'\n" +
+        '          content:\n' +
+        '            application/json:\n' +
+        '              schema:\n' +
+        "                $ref: '#/components/schemas/GeoSubjectOut'\n" +
+        "        '400':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '401':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '403':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '422':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '404':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '409':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        '      x-error-codes:\n' +
+        "        '400':\n" +
+        '        - VALIDATION_ERROR\n' +
+        "        '401':\n" +
+        '        - AUTH_REQUIRED\n' +
+        "        '403':\n" +
+        '        - PASSWORD_CHANGE_REQUIRED\n' +
+        '        - PERMISSION_DENIED\n' +
+        '        - CSRF_INVALID\n' +
+        "        '422':\n" +
+        '        - VALIDATION_ERROR\n' +
+        "        '404':\n" +
+        '        - NOT_FOUND\n' +
+        "        '409':\n" +
+        '        - REVISION_CONFLICT\n' +
+        '        - GEO_SUBJECT_PARENT_INVALID\n' +
+        '      requestBody:\n' +
+        '        required: true\n' +
+        '        content:\n' +
+        '          application/json:\n' +
+        '            schema:\n' +
+        "              $ref: '#/components/schemas/GeoSubjectUpdate'\n" +
+        '    delete:\n' +
+        '      tags:\n' +
+        '      - geo-catalog\n' +
+        '      operationId: deleteGeoSubject\n' +
+        '      security:\n' +
+        '      - sessionCookie: []\n' +
+        '      x-required-account-types:\n' +
+        '      - ADMIN\n' +
+        '      parameters:\n' +
+        "      - $ref: '#/components/parameters/RequestIdHeader'\n" +
+        '      - name: subject_id\n' +
+        '        in: path\n' +
+        '        required: true\n' +
+        '        schema:\n' +
+        '          type: string\n' +
+        '          format: uuid\n' +
+        "      - $ref: '#/components/parameters/CsrfHeader'\n" +
+        '      - name: expected_revision\n' +
+        '        in: query\n' +
+        '        required: true\n' +
+        '        schema:\n' +
+        '          type: integer\n' +
+        '          minimum: 0\n' +
+        '      responses:\n' +
+        "        '204':\n" +
+        '          description: 删除完成\n' +
+        '          headers:\n' +
+        '            X-Request-ID:\n' +
+        "              $ref: '#/components/headers/RequestIdResponseHeader'\n" +
+        "        '400':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '401':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '403':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '422':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '404':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '409':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        '      x-error-codes:\n' +
+        "        '400':\n" +
+        '        - VALIDATION_ERROR\n' +
+        "        '401':\n" +
+        '        - AUTH_REQUIRED\n' +
+        "        '403':\n" +
+        '        - PASSWORD_CHANGE_REQUIRED\n' +
+        '        - PERMISSION_DENIED\n' +
+        '        - CSRF_INVALID\n' +
+        "        '422':\n" +
+        '        - VALIDATION_ERROR\n' +
+        "        '404':\n" +
+        '        - NOT_FOUND\n' +
+        "        '409':\n" +
+        '        - REVISION_CONFLICT\n' +
+        '        - GEO_SUBJECT_IN_USE\n' +
+        '      description: expected_revision 是父 Subject revision；Subject 删除复核真实直接引用；子删除只移除当前字典，不改写历史。\n' +
+        '  /api/v1/geo/subjects/{subject_id}/enable:\n' +
+        '    post:\n' +
+        '      tags:\n' +
+        '      - geo-catalog\n' +
+        '      operationId: enableGeoSubject\n' +
+        '      security:\n' +
+        '      - sessionCookie: []\n' +
+        '      x-required-account-types:\n' +
+        '      - ADMIN\n' +
+        '      parameters:\n' +
+        "      - $ref: '#/components/parameters/RequestIdHeader'\n" +
+        '      - name: subject_id\n' +
+        '        in: path\n' +
+        '        required: true\n' +
+        '        schema:\n' +
+        '          type: string\n' +
+        '          format: uuid\n' +
+        "      - $ref: '#/components/parameters/CsrfHeader'\n" +
+        '      responses:\n' +
+        "        '200':\n" +
+        '          description: Subject 聚合当前投影\n' +
+        '          headers:\n' +
+        '            X-Request-ID:\n' +
+        "              $ref: '#/components/headers/RequestIdResponseHeader'\n" +
+        '          content:\n' +
+        '            application/json:\n' +
+        '              schema:\n' +
+        "                $ref: '#/components/schemas/GeoSubjectOut'\n" +
+        "        '400':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '401':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '403':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '422':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '404':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        "        '409':\n" +
+        "          $ref: '#/components/responses/ErrorResponse'\n" +
+        '      x-error-codes:\n' +
+        "        '400':\n" +
+        '        - VALIDATION_ERROR\n' +
+        "        '401':\n" +
+        '        - AUTH_REQUIRED\n' +
+        "        '403':\n" +
+        '        - PASSWORD_CHANGE_REQUIRED\n' +
+        '        - PERMISSION_DENIED\n' +
+        '        - CSRF_INVALID\n' +
+        "        '422':\n" +
+        '        - VALIDATION_ERROR\n' +
+        '        '... 558660 more characters,
+      position: 540080,
+      line: 15243,
+      column: 4,
+      snippet: ' 15241 |       - BUDGET_BLOCKED\n' +
+        ' 15242 |       title: GeoBatchStatus\n' +
+        ' 15243 |       type: string\n' +
+        ' 15244 |     GeoBatchPlanSnapshot:\n' +
+        '-------------^\n' +
+        ' 15245 |       additionalProperties: false\n' +
+        ' 15246 |       allOf:'
+    }
+  },
+  source: Source {
+    absoluteRef: '/Users/sc/PycharmProjects/partsignal/contracts/openapi.yaml',
+    body: 'openapi: 3.1.0\n' +
+      'info:\n' +
+      '  title: PartSignal API\n' +
+      '  version: 0.1.1\n' +
+      '  description: PartSignal MVP 契约。除登录外，写请求必须携带 X-CSRF-Token。\n' +
+      'servers:\n' +
+      '  - url: /\n' +
+      'security:\n' +
+      '  - sessionCookie: []\n' +
+      'tags:\n' +
+      '  - name: health\n' +
+      '  - name: auth\n' +
+      '  - name: identity\n' +
+      '  - name: product-facts\n' +
+      '  - name: planning\n' +
+      '  - name: production\n' +
+      '  - name: review\n' +
+      '  - name: publication\n' +
+      '  - name: observation\n' +
+      '  - name: files\n' +
+      '  - name: configuration\n' +
+      '  - name: geo-catalog\n' +
+      '  - name: geo-surface-management\n' +
+      'paths:\n' +
+      '  /api/v1/geo/subjects:\n' +
+      '    get:\n' +
+      '      tags:\n' +
+      '      - geo-catalog\n' +
+      '      operationId: listGeoSubjects\n' +
+      '      security:\n' +
+      '      - sessionCookie: []\n' +
+      '      x-required-account-types:\n' +
+      '      - ADMIN\n' +
+      '      - ENGINEER\n' +
+      '      parameters:\n' +
+      "      - $ref: '#/components/parameters/RequestIdHeader'\n" +
+      '      - name: q\n' +
+      '        in: query\n' +
+      '        schema:\n' +
+      '          type: string\n' +
+      '          maxLength: 240\n' +
+      '      - name: subject_type\n' +
+      '        in: query\n' +
+      '        schema:\n' +
+      "          $ref: '#/components/schemas/GeoSubjectType'\n" +
+      '      - name: product_id\n' +
+      '        in: query\n' +
+      '        schema:\n' +
+      '          type: string\n' +
+      '          format: uuid\n' +
+      '      - name: parent_subject_id\n' +
+      '        in: query\n' +
+      '        schema:\n' +
+      '          type: string\n' +
+      '          format: uuid\n' +
+      '      - name: is_active\n' +
+      '        in: query\n' +
+      '        schema:\n' +
+      '          type: boolean\n' +
+      '      - name: sort\n' +
+      '        in: query\n' +
+      '        schema:\n' +
+      '          type: string\n' +
+      '          enum:\n' +
+      '          - NAME_ASC\n' +
+      '          - UPDATED_DESC\n' +
+      '          default: NAME_ASC\n' +
+      "      - $ref: '#/components/parameters/Page'\n" +
+      '      - name: page_size\n' +
+      '        in: query\n' +
+      '        schema:\n' +
+      '          type: integer\n' +
+      '          enum:\n' +
+      '          - 10\n' +
+      '          - 20\n' +
+      '          - 50\n' +
+      '          default: 20\n' +
+      '      responses:\n' +
+      "        '200':\n" +
+      '          description: Subject 聚合当前投影\n' +
+      '          headers:\n' +
+      '            X-Request-ID:\n' +
+      "              $ref: '#/components/headers/RequestIdResponseHeader'\n" +
+      '          content:\n' +
+      '            application/json:\n' +
+      '              schema:\n' +
+      "                $ref: '#/components/schemas/GeoSubjectListPage'\n" +
+      "        '400':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '401':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '403':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '422':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      '      x-error-codes:\n' +
+      "        '400':\n" +
+      '        - VALIDATION_ERROR\n' +
+      "        '401':\n" +
+      '        - AUTH_REQUIRED\n' +
+      "        '403':\n" +
+      '        - PASSWORD_CHANGE_REQUIRED\n' +
+      "        '422':\n" +
+      '        - VALIDATION_ERROR\n' +
+      '    post:\n' +
+      '      tags:\n' +
+      '      - geo-catalog\n' +
+      '      operationId: createGeoSubject\n' +
+      '      security:\n' +
+      '      - sessionCookie: []\n' +
+      '      x-required-account-types:\n' +
+      '      - ADMIN\n' +
+      '      parameters:\n' +
+      "      - $ref: '#/components/parameters/RequestIdHeader'\n" +
+      "      - $ref: '#/components/parameters/CsrfHeader'\n" +
+      '      responses:\n' +
+      "        '201':\n" +
+      '          description: Subject 聚合当前投影\n' +
+      '          headers:\n' +
+      '            X-Request-ID:\n' +
+      "              $ref: '#/components/headers/RequestIdResponseHeader'\n" +
+      '          content:\n' +
+      '            application/json:\n' +
+      '              schema:\n' +
+      "                $ref: '#/components/schemas/GeoSubjectOut'\n" +
+      "        '400':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '401':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '403':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '422':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '404':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '409':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      '      x-error-codes:\n' +
+      "        '400':\n" +
+      '        - VALIDATION_ERROR\n' +
+      "        '401':\n" +
+      '        - AUTH_REQUIRED\n' +
+      "        '403':\n" +
+      '        - PASSWORD_CHANGE_REQUIRED\n' +
+      '        - PERMISSION_DENIED\n' +
+      '        - CSRF_INVALID\n' +
+      "        '422':\n" +
+      '        - VALIDATION_ERROR\n' +
+      "        '404':\n" +
+      '        - NOT_FOUND\n' +
+      "        '409':\n" +
+      '        - GEO_SUBJECT_PRODUCT_EXISTS\n' +
+      '        - GEO_SUBJECT_PARENT_INVALID\n' +
+      '      requestBody:\n' +
+      '        required: true\n' +
+      '        content:\n' +
+      '          application/json:\n' +
+      '            schema:\n' +
+      "              $ref: '#/components/schemas/GeoSubjectCreate'\n" +
+      '  /api/v1/geo/subjects/{subject_id}:\n' +
+      '    get:\n' +
+      '      tags:\n' +
+      '      - geo-catalog\n' +
+      '      operationId: getGeoSubject\n' +
+      '      security:\n' +
+      '      - sessionCookie: []\n' +
+      '      x-required-account-types:\n' +
+      '      - ADMIN\n' +
+      '      - ENGINEER\n' +
+      '      parameters:\n' +
+      "      - $ref: '#/components/parameters/RequestIdHeader'\n" +
+      '      - name: subject_id\n' +
+      '        in: path\n' +
+      '        required: true\n' +
+      '        schema:\n' +
+      '          type: string\n' +
+      '          format: uuid\n' +
+      '      responses:\n' +
+      "        '200':\n" +
+      '          description: Subject 聚合当前投影\n' +
+      '          headers:\n' +
+      '            X-Request-ID:\n' +
+      "              $ref: '#/components/headers/RequestIdResponseHeader'\n" +
+      '          content:\n' +
+      '            application/json:\n' +
+      '              schema:\n' +
+      "                $ref: '#/components/schemas/GeoSubjectOut'\n" +
+      "        '400':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '401':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '403':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '422':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '404':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      '      x-error-codes:\n' +
+      "        '400':\n" +
+      '        - VALIDATION_ERROR\n' +
+      "        '401':\n" +
+      '        - AUTH_REQUIRED\n' +
+      "        '403':\n" +
+      '        - PASSWORD_CHANGE_REQUIRED\n' +
+      "        '422':\n" +
+      '        - VALIDATION_ERROR\n' +
+      "        '404':\n" +
+      '        - NOT_FOUND\n' +
+      '    patch:\n' +
+      '      tags:\n' +
+      '      - geo-catalog\n' +
+      '      operationId: updateGeoSubject\n' +
+      '      security:\n' +
+      '      - sessionCookie: []\n' +
+      '      x-required-account-types:\n' +
+      '      - ADMIN\n' +
+      '      parameters:\n' +
+      "      - $ref: '#/components/parameters/RequestIdHeader'\n" +
+      '      - name: subject_id\n' +
+      '        in: path\n' +
+      '        required: true\n' +
+      '        schema:\n' +
+      '          type: string\n' +
+      '          format: uuid\n' +
+      "      - $ref: '#/components/parameters/CsrfHeader'\n" +
+      '      responses:\n' +
+      "        '200':\n" +
+      '          description: Subject 聚合当前投影\n' +
+      '          headers:\n' +
+      '            X-Request-ID:\n' +
+      "              $ref: '#/components/headers/RequestIdResponseHeader'\n" +
+      '          content:\n' +
+      '            application/json:\n' +
+      '              schema:\n' +
+      "                $ref: '#/components/schemas/GeoSubjectOut'\n" +
+      "        '400':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '401':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '403':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '422':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '404':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '409':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      '      x-error-codes:\n' +
+      "        '400':\n" +
+      '        - VALIDATION_ERROR\n' +
+      "        '401':\n" +
+      '        - AUTH_REQUIRED\n' +
+      "        '403':\n" +
+      '        - PASSWORD_CHANGE_REQUIRED\n' +
+      '        - PERMISSION_DENIED\n' +
+      '        - CSRF_INVALID\n' +
+      "        '422':\n" +
+      '        - VALIDATION_ERROR\n' +
+      "        '404':\n" +
+      '        - NOT_FOUND\n' +
+      "        '409':\n" +
+      '        - REVISION_CONFLICT\n' +
+      '        - GEO_SUBJECT_PARENT_INVALID\n' +
+      '      requestBody:\n' +
+      '        required: true\n' +
+      '        content:\n' +
+      '          application/json:\n' +
+      '            schema:\n' +
+      "              $ref: '#/components/schemas/GeoSubjectUpdate'\n" +
+      '    delete:\n' +
+      '      tags:\n' +
+      '      - geo-catalog\n' +
+      '      operationId: deleteGeoSubject\n' +
+      '      security:\n' +
+      '      - sessionCookie: []\n' +
+      '      x-required-account-types:\n' +
+      '      - ADMIN\n' +
+      '      parameters:\n' +
+      "      - $ref: '#/components/parameters/RequestIdHeader'\n" +
+      '      - name: subject_id\n' +
+      '        in: path\n' +
+      '        required: true\n' +
+      '        schema:\n' +
+      '          type: string\n' +
+      '          format: uuid\n' +
+      "      - $ref: '#/components/parameters/CsrfHeader'\n" +
+      '      - name: expected_revision\n' +
+      '        in: query\n' +
+      '        required: true\n' +
+      '        schema:\n' +
+      '          type: integer\n' +
+      '          minimum: 0\n' +
+      '      responses:\n' +
+      "        '204':\n" +
+      '          description: 删除完成\n' +
+      '          headers:\n' +
+      '            X-Request-ID:\n' +
+      "              $ref: '#/components/headers/RequestIdResponseHeader'\n" +
+      "        '400':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '401':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '403':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '422':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '404':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '409':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      '      x-error-codes:\n' +
+      "        '400':\n" +
+      '        - VALIDATION_ERROR\n' +
+      "        '401':\n" +
+      '        - AUTH_REQUIRED\n' +
+      "        '403':\n" +
+      '        - PASSWORD_CHANGE_REQUIRED\n' +
+      '        - PERMISSION_DENIED\n' +
+      '        - CSRF_INVALID\n' +
+      "        '422':\n" +
+      '        - VALIDATION_ERROR\n' +
+      "        '404':\n" +
+      '        - NOT_FOUND\n' +
+      "        '409':\n" +
+      '        - REVISION_CONFLICT\n' +
+      '        - GEO_SUBJECT_IN_USE\n' +
+      '      description: expected_revision 是父 Subject revision；Subject 删除复核真实直接引用；子删除只移除当前字典，不改写历史。\n' +
+      '  /api/v1/geo/subjects/{subject_id}/enable:\n' +
+      '    post:\n' +
+      '      tags:\n' +
+      '      - geo-catalog\n' +
+      '      operationId: enableGeoSubject\n' +
+      '      security:\n' +
+      '      - sessionCookie: []\n' +
+      '      x-required-account-types:\n' +
+      '      - ADMIN\n' +
+      '      parameters:\n' +
+      "      - $ref: '#/components/parameters/RequestIdHeader'\n" +
+      '      - name: subject_id\n' +
+      '        in: path\n' +
+      '        required: true\n' +
+      '        schema:\n' +
+      '          type: string\n' +
+      '          format: uuid\n' +
+      "      - $ref: '#/components/parameters/CsrfHeader'\n" +
+      '      responses:\n' +
+      "        '200':\n" +
+      '          description: Subject 聚合当前投影\n' +
+      '          headers:\n' +
+      '            X-Request-ID:\n' +
+      "              $ref: '#/components/headers/RequestIdResponseHeader'\n" +
+      '          content:\n' +
+      '            application/json:\n' +
+      '              schema:\n' +
+      "                $ref: '#/components/schemas/GeoSubjectOut'\n" +
+      "        '400':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '401':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '403':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '422':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '404':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      "        '409':\n" +
+      "          $ref: '#/components/responses/ErrorResponse'\n" +
+      '      x-error-codes:\n' +
+      "        '400':\n" +
+      '        - VALIDATION_ERROR\n' +
+      "        '401':\n" +
+      '        - AUTH_REQUIRED\n' +
+      "        '403':\n" +
+      '        - PASSWORD_CHANGE_REQUIRED\n' +
+      '        - PERMISSION_DENIED\n' +
+      '        - CSRF_INVALID\n' +
+      "        '422':\n" +
+      '        - VALIDATION_ERROR\n' +
+      '        '... 558660 more characters,
+    mimeType: undefined
+  },
+  line: 15244,
+  col: 5
+}
+
+Node.js v24.16.0
+make: *** [contract-generate] Error 1

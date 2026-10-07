@@ -5,6 +5,9 @@ x-backend: &backend
   image: ${PARTSIGNAL_BACKEND_IMAGE:?必须指定 PARTSIGNAL_BACKEND_IMAGE}:${PARTSIGNAL_VERSION:?必须指定 PARTSIGNAL_VERSION}
   env_file:
     - ${PARTSIGNAL_RUNTIME_ENV_FILE:?必须指定 PARTSIGNAL_RUNTIME_ENV_FILE}
+  # 生产入口不能以非生产 Settings 绕过校验；Browser 原始输入由 Settings 明确拒绝。
+  environment:
+    APP_ENV: production
   depends_on:
     postgres:
       condition: service_healthy
@@ -23,6 +26,8 @@ x-backend: &backend
 services:
   migrate:
     <<: *backend
+    # 恢复候选显式保留已冻结的迁移程序；应用 artifact 独立修复。
+    image: ${PARTSIGNAL_MIGRATION_IMAGE:-${PARTSIGNAL_BACKEND_IMAGE}:${PARTSIGNAL_VERSION}}
     command: [alembic, upgrade, head]
     restart: 'no'
 
@@ -43,15 +48,16 @@ services:
   worker:
     <<: *backend
     profiles: [production-async]
-    command: [celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --concurrency=1, --pidfile=/tmp/partsignal-worker.pid]
+    command: [celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --pidfile=/tmp/partsignal-worker.pid]
     restart: unless-stopped
     mem_limit: 1g
     cpus: 1.5
     healthcheck:
-      test: [CMD, python, -c, "import os, pathlib; os.kill(int(pathlib.Path('/tmp/partsignal-worker.pid').read_text()), 0)"]
-      interval: 10s
-      timeout: 3s
-      retries: 12
+      test: [CMD, python, -m, app.geo_observability, health, worker]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 90s
 
   scheduler:
     <<: *backend
@@ -61,10 +67,11 @@ services:
     mem_limit: 192m
     cpus: 0.25
     healthcheck:
-      test: [CMD, python, -c, "import os, pathlib; os.kill(int(pathlib.Path('/tmp/partsignal-beat.pid').read_text()), 0)"]
-      interval: 10s
-      timeout: 3s
-      retries: 12
+      test: [CMD, python, -m, app.geo_observability, health, scheduler]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 90s
 
   frontend:
     image: ${PARTSIGNAL_FRONTEND_IMAGE:?必须指定 PARTSIGNAL_FRONTEND_IMAGE}:${PARTSIGNAL_FRONTEND_VERSION:-${PARTSIGNAL_VERSION}}

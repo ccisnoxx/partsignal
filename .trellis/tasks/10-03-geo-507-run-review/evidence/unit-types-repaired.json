@@ -1,0 +1,13 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "mypy",
+    "--config-file",
+    "backend/pyproject.toml",
+    "backend/app"
+  ],
+  "exit_code": 1
+}

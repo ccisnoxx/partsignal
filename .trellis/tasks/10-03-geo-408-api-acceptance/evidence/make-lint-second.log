@@ -1,0 +1,14 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+E501 Line too long (103 > 100)
+  --> backend/tests/unit/test_geo_e2e_runtime.py:28:101
+   |
+26 |         "APP_ENV": "test",
+27 |         "AI_ALLOW_LOCAL_HTTP": "true",
+28 |         "DATABASE_URL": f"postgresql+psycopg://test:test@127.0.0.1/partsignal_e2e_20261003_{'a' * 32}",
+   |                                                                                                     ^^^
+29 |         "REDIS_URL": "redis://127.0.0.1/14",
+30 |         "PARTSIGNAL_E2E_DATABASE_OWNER_TOKEN": "b" * 32,
+   |
+
+Found 1 error.
+make: *** [lint] Error 1

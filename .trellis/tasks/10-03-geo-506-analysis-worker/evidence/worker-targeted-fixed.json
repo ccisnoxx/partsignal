@@ -1,0 +1,22 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "-p",
+    "partsignal-geo506-validation",
+    "-f",
+    ".trellis/tasks/10-03-geo-506-analysis-worker/evidence/validation-compose.yaml",
+    "run",
+    "--rm",
+    "backend-test",
+    "pytest",
+    "tests/integration/test_geo_analysis_worker.py",
+    "tests/integration/test_geo_analysis.py",
+    "tests/integration/test_geo_analysis_input.py",
+    "tests/integration/test_geo_claims.py",
+    "tests/integration/test_geo_worker.py",
+    "tests/integration/test_geo_manual_collection.py",
+    "-x"
+  ],
+  "exit_code": 0
+}

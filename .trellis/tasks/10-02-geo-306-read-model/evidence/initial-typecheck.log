@@ -1,0 +1,12 @@
+backend/app/services/geo_read_queries.py:70: error: Incompatible return value type (got "datetime | None", expected "datetime")  [return-value]
+backend/app/services/geo_read_queries.py:73: error: Function is missing a return type annotation  [no-untyped-def]
+backend/app/services/geo_read_queries.py:97: error: Function is missing a return type annotation  [no-untyped-def]
+backend/app/services/geo_read_queries.py:110: error: Function is missing a return type annotation  [no-untyped-def]
+backend/app/services/geo_read_queries.py:110: error: Function is missing a type annotation for one or more parameters  [no-untyped-def]
+backend/app/services/geo_read_queries.py:118: error: Function is missing a return type annotation  [no-untyped-def]
+backend/app/services/geo_read_queries.py:118: error: Function is missing a type annotation for one or more parameters  [no-untyped-def]
+backend/app/services/geo_read_queries.py:243: error: Argument 1 to "run_item" has incompatible type "RowMapping"; expected "Mapping[str, Any]"  [arg-type]
+backend/app/services/geo_read_queries.py:285: error: Item "None" of "EvidenceStorage | None" has no attribute "download_url"  [union-attr]
+backend/app/services/geo_read_queries.py:303: error: Function is missing a return type annotation  [no-untyped-def]
+backend/app/services/geo_read_queries.py:358: error: Argument 1 to "run_item" has incompatible type "RowMapping"; expected "Mapping[str, Any]"  [arg-type]
+Found 11 errors in 1 file (checked 142 source files)

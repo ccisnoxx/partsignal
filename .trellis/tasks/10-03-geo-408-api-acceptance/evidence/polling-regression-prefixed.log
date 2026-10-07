@@ -1,0 +1,30 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/geo-runs/runs.api.test.ts -t 后台 GET 完成后
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+ ❯ src/domains/geo-runs/runs.api.test.ts (7 tests | 1 failed | 6 skipped) 5ms
+     × 后台 GET 完成后，fresh 数据返回前台仍按 interval 恢复读取 5ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/domains/geo-runs/runs.api.test.ts > 读取频率与请求边界 > 后台 GET 完成后，fresh 数据返回前台仍按 interval 恢复读取
+AssertionError: expected "GET" to be called 2 times, but got 1 times
+ ❯ src/domains/geo-runs/runs.api.test.ts:58:19
+     56|       focusManager.setFocused(true);
+     57|       await vi.advanceTimersByTimeAsync(3000);
+     58|       expect(get).toHaveBeenCalledTimes(2);
+       |                   ^
+     59|     } finally {
+     60|       unsubscribe(); client.unmount(); client.clear();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 skipped (7)
+   Start at  06:28:42
+   Duration  492ms (transform 28ms, setup 70ms, import 38ms, tests 5ms, environment 321ms)
+

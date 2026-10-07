@@ -1,0 +1,10 @@
+{
+  "argv": [
+    "backend/.venv/bin/python",
+    ".trellis/scripts/task.py",
+    "validate",
+    ".trellis/tasks/10-04-geo-707-r6-acceptance"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 0.038
+}

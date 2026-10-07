@@ -1,0 +1,15 @@
+{
+  "command": [
+    "env",
+    "UV_CACHE_DIR=.cache/uv",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_recommendations.py",
+    "-k",
+    "negated-first or indirect-negation or not-only or unmonitored or three-coordinated or header-ranked"
+  ],
+  "exit_code": 1
+}

@@ -1,0 +1,22 @@
+{
+  "authorization": "用户明确允许在当前135d801e再运行一次delivery CI",
+  "expected_head_sha": "135d801edc9b1e8dc72dc9892897dd233404a667",
+  "checks_group": "delivery",
+  "started_at": "2026-10-07T07:32:03.971462+00:00",
+  "command": [
+    "gh",
+    "workflow",
+    "run",
+    "ci.yml",
+    "--repo",
+    "ccisnoxx/partsignal",
+    "--ref",
+    "geo/GEO-906",
+    "-f",
+    "checks_group=delivery"
+  ],
+  "ended_at": "2026-10-07T07:32:06.413303+00:00",
+  "exit_code": 0,
+  "stdout": "https://github.com/ccisnoxx/partsignal/actions/runs/37587914372\n",
+  "stderr": ""
+}

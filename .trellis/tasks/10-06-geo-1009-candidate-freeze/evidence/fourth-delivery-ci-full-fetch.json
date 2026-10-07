@@ -1,0 +1,21 @@
+{
+  "name": "fourth-delivery-ci-full-fetch",
+  "command": [
+    "gh",
+    "run",
+    "view",
+    "37587914372",
+    "--repo",
+    "ccisnoxx/partsignal",
+    "--log"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "135d801edc9b1e8dc72dc9892897dd233404a667",
+  "dirty": false,
+  "started_at": "2026-10-07T07:47:03.541440+00:00",
+  "ended_at": "2026-10-07T07:47:07.067484+00:00",
+  "exit_code": 0,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/fourth-delivery-ci-full-fetch.log",
+  "log_sha256": "8712b59533ec64d6af1bef60f39c0b42ec8270d73a49efc62b5d1d44ea872b3b"
+}

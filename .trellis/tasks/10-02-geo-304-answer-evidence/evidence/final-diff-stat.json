@@ -1,0 +1,162 @@
+[
+  {
+    "file": "contracts/openapi.yaml",
+    "added": 247,
+    "removed": 0
+  },
+  {
+    "file": "contracts/database.md",
+    "added": 31,
+    "removed": 1
+  },
+  {
+    "file": "backend/app/models/__init__.py",
+    "added": 1,
+    "removed": 0
+  },
+  {
+    "file": "backend/app/services/storage.py",
+    "added": 15,
+    "removed": 0
+  },
+  {
+    "file": "backend/app/services/file_records.py",
+    "added": 3,
+    "removed": 0
+  },
+  {
+    "file": "backend/tests/integration/test_migrations.py",
+    "added": 3,
+    "removed": 3
+  },
+  {
+    "file": "frontend/src/shared/api/generated/schema.d.ts",
+    "added": 131,
+    "removed": 0
+  },
+  {
+    "file": "docs/geo-monitoring/README.md",
+    "added": 2,
+    "removed": 0
+  },
+  {
+    "file": "docs/geo-monitoring/01-product/02-geo-core-prd.md",
+    "added": 4,
+    "removed": 24
+  },
+  {
+    "file": "docs/geo-monitoring/02-business/02-domain-model.md",
+    "added": 5,
+    "removed": 1
+  },
+  {
+    "file": "docs/geo-monitoring/03-technical/02-data-architecture.md",
+    "added": 26,
+    "removed": 30
+  },
+  {
+    "file": "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+    "added": 2,
+    "removed": 0
+  },
+  {
+    "file": "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+    "added": 4,
+    "removed": 0
+  },
+  {
+    "file": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "added": 2,
+    "removed": 1
+  },
+  {
+    "file": "docs/geo-monitoring/CHANGELOG.md",
+    "added": 8,
+    "removed": 0
+  },
+  {
+    "file": "docs/geo-monitoring/SHA256SUMS",
+    "added": 8,
+    "removed": 8
+  },
+  {
+    "file": "backend/tests/integration/test_geo_batch_creation_migration.py",
+    "added": 1,
+    "removed": 1
+  },
+  {
+    "file": "backend/app/geo_citation_urls.py",
+    "added": 52,
+    "removed": 0
+  },
+  {
+    "file": "backend/app/models/geo_answers.py",
+    "added": 131,
+    "removed": 0
+  },
+  {
+    "file": "backend/app/schemas/geo_answers.py",
+    "added": 99,
+    "removed": 0
+  },
+  {
+    "file": "backend/app/services/geo_answer_citations.py",
+    "added": 42,
+    "removed": 0
+  },
+  {
+    "file": "backend/app/services/geo_answer_files.py",
+    "added": 82,
+    "removed": 0
+  },
+  {
+    "file": "backend/alembic/versions/0050_geo_answer_evidence.py",
+    "added": 93,
+    "removed": 0
+  },
+  {
+    "file": "backend/alembic/sql/0050_geo_answer_functions.sql",
+    "added": 42,
+    "removed": 0
+  },
+  {
+    "file": "backend/alembic/sql/0050_geo_answer_guards.sql",
+    "added": 120,
+    "removed": 0
+  },
+  {
+    "file": "backend/tests/integration/geo_answers_support.py",
+    "added": 122,
+    "removed": 0
+  },
+  {
+    "file": "backend/tests/integration/test_geo_answers.py",
+    "added": 262,
+    "removed": 0
+  },
+  {
+    "file": "backend/tests/integration/test_geo_answer_files.py",
+    "added": 192,
+    "removed": 0
+  },
+  {
+    "file": "backend/tests/integration/test_geo_answer_migration.py",
+    "added": 72,
+    "removed": 0
+  },
+  {
+    "file": "backend/tests/integration/test_geo_answer_migration_precheck.py",
+    "added": 62,
+    "removed": 0
+  },
+  {
+    "file": "backend/tests/unit/test_geo_answer_contract.py",
+    "added": 169,
+    "removed": 0
+  },
+  {
+    "file": "backend/tests/unit/test_platform_logo_cleanup.py",
+    "added": 8,
+    "removed": 6
+  }
+]

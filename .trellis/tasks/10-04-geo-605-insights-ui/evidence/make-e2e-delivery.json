@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "env",
+    "DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55468/partsignal",
+    "REDIS_URL=redis://127.0.0.1:56408/14",
+    "make",
+    "e2e"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-04T09:51:30.939559+00:00",
+  "finished_at": "2026-10-04T10:03:46.737332+00:00"
+}

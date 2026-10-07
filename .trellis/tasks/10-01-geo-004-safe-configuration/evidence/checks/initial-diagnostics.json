@@ -1,0 +1,12 @@
+[
+  {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend python deploy/scripts/test-geo-configuration.py",
+    "exit_code": 1,
+    "cause": "启动探针把既有 HealthResponse.checks 的 null 错写成 {}，非应用行为错误",
+    "fix": "按 schemas/common.py 的真实合同改为 None；后续18组通过"
+  },
+  {
+    "command": "UV_CACHE_DIR=.cache/uv uv run --project backend ruff check backend/tests/unit/test_geo_configuration.py backend/app/config.py",
+    "result": "E501 单行102字符；已拆行，make lint随后通过"
+  }
+]

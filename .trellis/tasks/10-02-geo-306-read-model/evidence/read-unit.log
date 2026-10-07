@@ -1,0 +1,92 @@
+.FFF.................................................................... [  9%]
+........................................................................ [ 18%]
+........................................................................ [ 27%]
+........................................................................ [ 37%]
+........................................................................ [ 46%]
+........................................................................ [ 55%]
+........................................................................ [ 64%]
+........................................................................ [ 74%]
+........................................................................ [ 83%]
+........................................................................ [ 92%]
+........................................................                 [100%]
+=================================== FAILURES ===================================
+_____________ test_read_components_match_authority[GeoBatchDetail] _____________
+
+contract = {'components': {'headers': {'RequestIdResponseHeader': {'required': True, 'schema': {'maxLength': 100, 'minLength': 1,.../components/responses/ErrorResponse'}, '403': {'$ref': '#/components/responses/ErrorResponse'}, ...}, ...}}, ...}, ...}
+model = <class 'app.schemas.geo_read_models.GeoBatchDetail'>
+
+    @pytest.mark.parametrize(
+        "model",
+        [read.GeoBatchListPage, read.GeoBatchDetail, read.GeoRunListPage, read.GeoRunDetail],
+    )
+    def test_read_components_match_authority(contract, model):
+        schema = TypeAdapter(model).json_schema(
+            ref_template="#/components/schemas/{model}", mode="serialization"
+        )
+        definitions = schema.pop("$defs", {})
+        assert contract["components"]["schemas"][model.__name__] == schema
+        for name, value in definitions.items():
+>           assert contract["components"]["schemas"][name] == value
+E           AssertionError: assert {'additionalP...jection', ...} == {'additionalP...jection', ...}
+E             
+E             Omitting 4 identical items, use -vv to show
+E             Differing items:
+E             {'properties': {'available_actions': {'items': {'$ref': '#/components/schemas/GeoBatchAction'}, 'type': 'array'}, 'pri...ef': '#/components/schemas/GeoBatchStatus'}, 'workflow_stage': {'$ref': '#/components/schemas/GeoBatchWorkflowStage'}}} != {'properties': {'available_actions': {'items': {'$ref': '#/components/schemas/GeoBatchAction'}, 'title': 'Available Ac...ef': '#/components/schemas/GeoBatchStatus'}, 'workflow_stage': {'$ref': '#/components/schemas/GeoBatchWorkflowStage'}}}
+E             Use -v to get more diff
+
+backend/tests/unit/test_geo_read_contract.py:25: AssertionError
+_____________ test_read_components_match_authority[GeoRunListPage] _____________
+
+contract = {'components': {'headers': {'RequestIdResponseHeader': {'required': True, 'schema': {'maxLength': 100, 'minLength': 1,.../components/responses/ErrorResponse'}, '403': {'$ref': '#/components/responses/ErrorResponse'}, ...}, ...}}, ...}, ...}
+model = <class 'app.schemas.geo_read_models.GeoRunListPage'>
+
+    @pytest.mark.parametrize(
+        "model",
+        [read.GeoBatchListPage, read.GeoBatchDetail, read.GeoRunListPage, read.GeoRunDetail],
+    )
+    def test_read_components_match_authority(contract, model):
+        schema = TypeAdapter(model).json_schema(
+            ref_template="#/components/schemas/{model}", mode="serialization"
+        )
+        definitions = schema.pop("$defs", {})
+        assert contract["components"]["schemas"][model.__name__] == schema
+        for name, value in definitions.items():
+>           assert contract["components"]["schemas"][name] == value
+E           AssertionError: assert {'additionalP...pe': 'object'} == {'additionalP...pe': 'object'}
+E             
+E             Omitting 3 identical items, use -vv to show
+E             Right contains 1 more item:
+E             {'title': 'GeoApiSettings'}
+E             Use -v to get more diff
+
+backend/tests/unit/test_geo_read_contract.py:25: AssertionError
+______________ test_read_components_match_authority[GeoRunDetail] ______________
+
+contract = {'components': {'headers': {'RequestIdResponseHeader': {'required': True, 'schema': {'maxLength': 100, 'minLength': 1,.../components/responses/ErrorResponse'}, '403': {'$ref': '#/components/responses/ErrorResponse'}, ...}, ...}}, ...}, ...}
+model = <class 'app.schemas.geo_read_models.GeoRunDetail'>
+
+    @pytest.mark.parametrize(
+        "model",
+        [read.GeoBatchListPage, read.GeoBatchDetail, read.GeoRunListPage, read.GeoRunDetail],
+    )
+    def test_read_components_match_authority(contract, model):
+        schema = TypeAdapter(model).json_schema(
+            ref_template="#/components/schemas/{model}", mode="serialization"
+        )
+        definitions = schema.pop("$defs", {})
+        assert contract["components"]["schemas"][model.__name__] == schema
+        for name, value in definitions.items():
+>           assert contract["components"]["schemas"][name] == value
+E           AssertionError: assert {'additionalP...pe': 'object'} == {'additionalP...pe': 'object'}
+E             
+E             Omitting 3 identical items, use -vv to show
+E             Right contains 1 more item:
+E             {'title': 'GeoApiSettings'}
+E             Use -v to get more diff
+
+backend/tests/unit/test_geo_read_contract.py:25: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_read_contract.py::test_read_components_match_authority[GeoBatchDetail]
+FAILED backend/tests/unit/test_geo_read_contract.py::test_read_components_match_authority[GeoRunListPage]
+FAILED backend/tests/unit/test_geo_read_contract.py::test_read_components_match_authority[GeoRunDetail]
+3 failed, 773 passed in 0.75s

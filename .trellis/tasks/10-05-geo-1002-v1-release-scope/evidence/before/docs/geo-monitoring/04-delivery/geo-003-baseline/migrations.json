@@ -1,0 +1,266 @@
+{
+  "source_heads": [
+    "0043_geo_platform_identity"
+  ],
+  "live_revision_verified": false,
+  "revisions": [
+    {
+      "file": "backend/alembic/versions/0001_identity_audit.py",
+      "revision": "0001_identity_audit",
+      "down_revision": null,
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0002_product_facts.py",
+      "revision": "0002_product_facts",
+      "down_revision": "0001_identity_audit",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0003_content_planning.py",
+      "revision": "0003_content_planning",
+      "down_revision": "0002_product_facts",
+      "geo_or_topic_source_mentions": true
+    },
+    {
+      "file": "backend/alembic/versions/0004_content_production.py",
+      "revision": "0004_content_production",
+      "down_revision": "0003_content_planning",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0005_content_review.py",
+      "revision": "0005_content_review",
+      "down_revision": "0004_content_production",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0006_publication.py",
+      "revision": "0006_publication",
+      "down_revision": "0005_content_review",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0007_geo_observation.py",
+      "revision": "0007_geo_observation",
+      "down_revision": "0006_publication",
+      "geo_or_topic_source_mentions": true
+    },
+    {
+      "file": "backend/alembic/versions/0008_files.py",
+      "revision": "0008_files",
+      "down_revision": "0007_geo_observation",
+      "geo_or_topic_source_mentions": true
+    },
+    {
+      "file": "backend/alembic/versions/0009_config_center.py",
+      "revision": "0009_config_center",
+      "down_revision": "0008_files",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0010_user_cleanup.py",
+      "revision": "0010_user_cleanup",
+      "down_revision": "0009_config_center",
+      "geo_or_topic_source_mentions": true
+    },
+    {
+      "file": "backend/alembic/versions/0011_generation_reliability.py",
+      "revision": "0011_generation_reliability",
+      "down_revision": "0010_user_cleanup",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0012_ai_data_classification.py",
+      "revision": "0012_ai_data_classification",
+      "down_revision": "0011_generation_reliability",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0013_publication_closure.py",
+      "revision": "0013_publication_closure",
+      "down_revision": "0012_ai_data_classification",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0014_platform_prompt_ownership.py",
+      "revision": "0014_platform_prompt_ownership",
+      "down_revision": "0013_publication_closure",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0015_platform_rule_draft_editing.py",
+      "revision": "0015_platform_rule_draft_editing",
+      "down_revision": "0014_platform_prompt_ownership",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0016_fact_review_cleanup.py",
+      "revision": "0016_fact_review_cleanup",
+      "down_revision": "0015_platform_rule_draft_editing",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0017_content_humanization.py",
+      "revision": "0017_content_humanization",
+      "down_revision": "0016_fact_review_cleanup",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0018_manual_geo_observation.py",
+      "revision": "0018_manual_geo_observation",
+      "down_revision": "0017_content_humanization",
+      "geo_or_topic_source_mentions": true
+    },
+    {
+      "file": "backend/alembic/versions/0019_product_driven_tasks.py",
+      "revision": "0019_product_driven_tasks",
+      "down_revision": "0018_manual_geo_observation",
+      "geo_or_topic_source_mentions": true
+    },
+    {
+      "file": "backend/alembic/versions/0020_platform_branding_task_list.py",
+      "revision": "0020_platform_branding_task_list",
+      "down_revision": "0019_product_driven_tasks",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0021_ai_channel_model_management.py",
+      "revision": "0021_ai_channel_model_management",
+      "down_revision": "0020_platform_branding_task_list",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0022_geo_observation_insights.py",
+      "revision": "0022_geo_observation_insights",
+      "down_revision": "0021_ai_channel_model_management",
+      "geo_or_topic_source_mentions": true
+    },
+    {
+      "file": "backend/alembic/versions/0023_platform_management.py",
+      "revision": "0023_platform_management",
+      "down_revision": "0022_geo_observation_insights",
+      "geo_or_topic_source_mentions": true
+    },
+    {
+      "file": "backend/alembic/versions/0024_audit_outcome.py",
+      "revision": "0024_audit_outcome",
+      "down_revision": "0023_platform_management",
+      "geo_or_topic_source_mentions": true
+    },
+    {
+      "file": "backend/alembic/versions/0025_markdown_facts_direct_platform.py",
+      "revision": "0025_markdown_facts",
+      "down_revision": "0024_audit_outcome",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0026_publication_account_dedup.py",
+      "revision": "0026_publication_account_dedup",
+      "down_revision": "0025_markdown_facts",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0027_guard_audit_actor_user_delete.py",
+      "revision": "0027_audit_user_delete_guard",
+      "down_revision": "0026_publication_account_dedup",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0028_platform_logo_lifecycle.py",
+      "revision": "0028_platform_logo_lifecycle",
+      "down_revision": "0027_audit_user_delete_guard",
+      "geo_or_topic_source_mentions": true
+    },
+    {
+      "file": "backend/alembic/versions/0029_manual_geo_independent_facts.py",
+      "revision": "0029_geo_evidence_management",
+      "down_revision": "0028_platform_logo_lifecycle",
+      "geo_or_topic_source_mentions": true
+    },
+    {
+      "file": "backend/alembic/versions/0030_publication_record_delete.py",
+      "revision": "0030_publication_record_delete",
+      "down_revision": "0029_geo_evidence_management",
+      "geo_or_topic_source_mentions": true
+    },
+    {
+      "file": "backend/alembic/versions/0031_reusable_platform_prompts.py",
+      "revision": "0031_reusable_platform_prompts",
+      "down_revision": "0030_publication_record_delete",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0032_content_task_idempotency.py",
+      "revision": "0032_content_task_idempotency",
+      "down_revision": "0031_reusable_platform_prompts",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0033_task_owned_history_delete.py",
+      "revision": "0033_task_owned_history_delete",
+      "down_revision": "0032_content_task_idempotency",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0034_publication_workflow_redesign.py",
+      "revision": "0034_publication_redesign",
+      "down_revision": "0033_task_owned_history_delete",
+      "geo_or_topic_source_mentions": true
+    },
+    {
+      "file": "backend/alembic/versions/0035_business_workflow_primary_tasks.py",
+      "revision": "0035_business_workflow",
+      "down_revision": "0034_publication_redesign",
+      "geo_or_topic_source_mentions": true
+    },
+    {
+      "file": "backend/alembic/versions/0036_remove_publication_section_url.py",
+      "revision": "0036_remove_section_url",
+      "down_revision": "0035_business_workflow",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0037_simplify_deletion_lifecycle.py",
+      "revision": "0037_simplify_deletion_lifecycle",
+      "down_revision": "0036_remove_section_url",
+      "geo_or_topic_source_mentions": true
+    },
+    {
+      "file": "backend/alembic/versions/0038_published_article_delete.py",
+      "revision": "0038_published_article_delete",
+      "down_revision": "0037_simplify_deletion_lifecycle",
+      "geo_or_topic_source_mentions": true
+    },
+    {
+      "file": "backend/alembic/versions/0039_published_article_delete_missing_platform.py",
+      "revision": "0039_article_delete_platform",
+      "down_revision": "0038_published_article_delete",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0040_content_draft_management.py",
+      "revision": "0040_content_draft_management",
+      "down_revision": "0039_article_delete_platform",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0041_content_task_list.py",
+      "revision": "0041_content_task_list",
+      "down_revision": "0040_content_draft_management",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0042_content_version_detail.py",
+      "revision": "0042_content_version_detail",
+      "down_revision": "0041_content_task_list",
+      "geo_or_topic_source_mentions": false
+    },
+    {
+      "file": "backend/alembic/versions/0043_geo_insight_platform_identity.py",
+      "revision": "0043_geo_platform_identity",
+      "down_revision": "0042_content_version_detail",
+      "geo_or_topic_source_mentions": true
+    }
+  ]
+}

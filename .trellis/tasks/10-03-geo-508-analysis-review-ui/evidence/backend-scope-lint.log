@@ -1,0 +1,34 @@
+E501 Line too long (107 > 100)
+  --> backend/tests/integration/test_geo_r4_acceptance.py:57:101
+   |
+55 |     assert stale.status_code == 409
+56 |     assert stale.json()["error"]["code"] == "GEO_REVIEW_STALE_ANALYSIS"
+57 |     machine = next(row for row in current["analysis"]["revisions"] if row["analysis"]["id"] == str(new_id))
+   |                                                                                                     ^^^^^^^
+58 |     current_claim = machine["claims"][0]
+59 |     correction = {
+   |
+
+E501 Line too long (176 > 100)
+  --> backend/tests/integration/test_geo_r4_acceptance.py:61:101
+   |
+59 | …
+60 | …ations": [],
+61 | …": "INCORRECT", "severity": "HIGH", "explanation": "人工核验后保留高风险错误，需纠正回答中的供电电压"}],
+   |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+62 | …
+63 | …orrection, comment="已逐条处理当前严重声明")
+   |
+
+E501 Line too long (116 > 100)
+  --> backend/tests/integration/test_geo_r4_acceptance.py:63:97
+   |
+61 |         "claims": [{"claim_assessment_id": current_claim["id"], "verdict": "INCORRECT", "severity": "HIGH", "explanation": "人工核验后    …
+62 |     }
+63 |     second = api.submit(case, decision="CORRECTED", correction_payload=correction, comment="已逐条处理当前严重声明")
+   |                                                                                                     ^^^^^^^^^^^^^^^^
+64 |     assert second.status_code == 201
+65 |     final = api.detail(case)
+   |
+
+Found 3 errors.

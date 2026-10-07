@@ -21,6 +21,10 @@ from app.main import (
     REQUEST_ID_PATTERN,
     app,
 )
+from app.schemas.geo_answers import GeoAnswerCitationOut, GeoRawPayloadSummary
+from app.schemas.geo_rules import GeoRuleConfiguration
+from app.schemas.geo_runs import GeoBatchPlanSnapshot
+from app.schemas.geo_surfaces import GeoApiSettings
 from app.tools.contract_check import compare_response_contracts
 
 WAVE_1_OPERATION_IDS = (
@@ -562,8 +566,7 @@ def _strip_request_context_metadata(document: dict[str, Any]) -> dict[str, Any]:
                 for parameter in original_parameters or []
                 if not (
                     isinstance(parameter, dict)
-                    and parameter.get("$ref")
-                    == "#/components/parameters/RequestIdHeader"
+                    and parameter.get("$ref") == "#/components/parameters/RequestIdHeader"
                 )
             ]
             if not operation["parameters"]:
@@ -579,21 +582,17 @@ def _strip_request_context_metadata(document: dict[str, Any]) -> dict[str, Any]:
     return stripped
 
 
-def _wave_projection(
-    document: dict[str, Any], operation_ids: tuple[str, ...]
-) -> dict[str, Any]:
+def _wave_projection(document: dict[str, Any], operation_ids: tuple[str, ...]) -> dict[str, Any]:
     projected = deepcopy(document)
     projected["paths"] = {
         path: {
             method: operation
             for method, operation in path_item.items()
-            if isinstance(operation, dict)
-            and operation.get("operationId") in operation_ids
+            if isinstance(operation, dict) and operation.get("operationId") in operation_ids
         }
         for path, path_item in document["paths"].items()
         if any(
-            isinstance(operation, dict)
-            and operation.get("operationId") in operation_ids
+            isinstance(operation, dict) and operation.get("operationId") in operation_ids
             for operation in path_item.values()
         )
     }
@@ -624,7 +623,7 @@ def wave_operations() -> tuple[dict[str, Any], dict[str, Any]]:
 
 
 def test_wave_1_inventory_is_complete(
-    wave_operations: tuple[dict[str, Any], dict[str, Any]]
+    wave_operations: tuple[dict[str, Any], dict[str, Any]],
 ) -> None:
     contract, runtime = wave_operations
     assert len(WAVE_1_OPERATION_IDS) == 63
@@ -644,9 +643,9 @@ def test_runtime_request_context_covers_all_operations_and_responses() -> None:
     runtime = app.openapi()
     operations = _operation_map(runtime)
 
-    assert len(operations) == 164
-    assert len(set(operations)) == 164
-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1039
+    assert len(operations) == 256
+    assert len(set(operations)) == 256
+    assert sum(len(operation["responses"]) for operation in operations.values()) == 1667
     parameter_ref = {"$ref": "#/components/parameters/RequestIdHeader"}
     header_ref = {"$ref": "#/components/headers/RequestIdResponseHeader"}
     parameter_schema = {
@@ -664,17 +663,11 @@ def test_runtime_request_context_covers_all_operations_and_responses() -> None:
     assert runtime["components"]["responses"]["ErrorResponse"] == {
         "description": "业务或校验错误",
         "headers": {REQUEST_ID_HEADER_NAME: header_ref},
-        "content": {
-            "application/json": {
-                "schema": {"$ref": "#/components/schemas/ErrorEnvelope"}
-            }
-        },
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorEnvelope"}}},
     }
     for operation in operations.values():
         assert sum(parameter == parameter_ref for parameter in operation["parameters"]) == 1
-        assert operation["responses"]["400"] == {
-            "$ref": "#/components/responses/ErrorResponse"
-        }
+        assert operation["responses"]["400"] == {"$ref": "#/components/responses/ErrorResponse"}
         assert "default" not in operation["responses"]
         assert "4XX" not in operation["responses"]
         for response in operation["responses"].values():
@@ -691,10 +684,42 @@ def test_runtime_request_context_merge_does_not_change_route_metadata() -> None:
     augmented = app.openapi()
     stripped = _strip_request_context_metadata(augmented)
 
-    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 875
-    assert sum(
-        len(operation["responses"]) for operation in _operation_map(stripped).values()
-    ) == 875
+    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1411
+    assert (
+        sum(len(operation["responses"]) for operation in _operation_map(stripped).values()) == 1411
+    )
+    # 安装版本的 FastAPI 省略 None 默认；这里只移除已声明且显式恢复的 nullable annotation。
+    raw_settings = raw["components"]["schemas"]["GeoApiSettings"]["properties"]
+    stripped_settings = stripped["components"]["schemas"]["GeoApiSettings"]["properties"]
+    for name in ("temperature", "max_output_tokens"):
+        assert GeoApiSettings.model_fields[name].default is None
+        assert "default" not in raw_settings[name]
+        assert "default" in stripped_settings[name]
+        assert stripped_settings[name].pop("default") is None
+    for name in ("payload_format", "payload_bytes", "finish_reason"):
+        assert GeoRawPayloadSummary.model_fields[name].default is None
+        raw_summary = raw["components"]["schemas"]["GeoRawPayloadSummary"]["properties"]
+        stripped_summary = stripped["components"]["schemas"]["GeoRawPayloadSummary"]["properties"]
+        assert "default" not in raw_summary[name]
+        assert stripped_summary[name].pop("default") is None
+    for model, names in (
+        (GeoBatchPlanSnapshot, ("budget_limit", "cron_expression")),
+        (GeoAnswerCitationOut, ("title",)),
+        (
+            GeoRuleConfiguration,
+            (
+                "data_quality_minimum_success_rate",
+                "data_quality_minimum_evidence_rate",
+                "run_failure_consecutive_limit",
+            ),
+        ),
+    ):
+        raw_properties = raw["components"]["schemas"][model.__name__]["properties"]
+        stripped_properties = stripped["components"]["schemas"][model.__name__]["properties"]
+        for name in names:
+            assert model.model_fields[name].default is None
+            assert "default" not in raw_properties[name]
+            assert stripped_properties[name].pop("default") is None
     assert compare_response_contracts(raw, stripped) == []
     assert _operation_map(raw) == _operation_map(stripped)
 
@@ -721,7 +746,7 @@ def test_custom_openapi_does_not_cache_document_when_metadata_merge_fails(
 
 
 def test_wave_2_inventory_is_complete(
-    wave_operations: tuple[dict[str, Any], dict[str, Any]]
+    wave_operations: tuple[dict[str, Any], dict[str, Any]],
 ) -> None:
     contract, runtime = wave_operations
     assert len(WAVE_2_OPERATION_IDS) == 58
@@ -738,7 +763,7 @@ def test_wave_2_inventory_is_complete(
 
 
 def test_wave_3_inventory_is_complete_and_disjoint(
-    wave_operations: tuple[dict[str, Any], dict[str, Any]]
+    wave_operations: tuple[dict[str, Any], dict[str, Any]],
 ) -> None:
     contract, runtime = wave_operations
     assert len(WAVE_3_OPERATION_IDS) == 43
@@ -750,9 +775,7 @@ def test_wave_3_inventory_is_complete_and_disjoint(
     }
     assert set().union(*WAVE_3_GROUPS.values()) == set(WAVE_3_OPERATION_IDS)
     assert set(WAVE_3_EXPECTED_STATUSES) == set(WAVE_3_OPERATION_IDS)
-    all_wave_ids = (
-        set(WAVE_1_OPERATION_IDS) | set(WAVE_2_OPERATION_IDS) | set(WAVE_3_OPERATION_IDS)
-    )
+    all_wave_ids = set(WAVE_1_OPERATION_IDS) | set(WAVE_2_OPERATION_IDS) | set(WAVE_3_OPERATION_IDS)
     assert len(all_wave_ids) == 164
     assert not set(WAVE_1_OPERATION_IDS) & set(WAVE_2_OPERATION_IDS)
     assert not set(WAVE_1_OPERATION_IDS) & set(WAVE_3_OPERATION_IDS)
@@ -788,11 +811,9 @@ def test_wave_3_error_responses_use_project_error_envelope(
     responses = runtime[operation_id]["responses"]
     error_statuses = expected_statuses - {"200", "201", "202", "204"}
     for status_code in error_statuses:
-        assert _resolved_runtime_response(responses[status_code])["content"][
-            "application/json"
-        ]["schema"] == {
-            "$ref": "#/components/schemas/ErrorEnvelope"
-        }
+        assert _resolved_runtime_response(responses[status_code])["content"]["application/json"][
+            "schema"
+        ] == {"$ref": "#/components/schemas/ErrorEnvelope"}
     assert not {code for code in responses if code.startswith("5")}
     assert "4XX" not in responses
     assert "default" not in responses
@@ -801,7 +822,7 @@ def test_wave_3_error_responses_use_project_error_envelope(
 
 
 def test_wave_3_success_occurrences_and_response_boundaries(
-    wave_operations: tuple[dict[str, Any], dict[str, Any]]
+    wave_operations: tuple[dict[str, Any], dict[str, Any]],
 ) -> None:
     _, runtime = wave_operations
     assert {
@@ -980,25 +1001,21 @@ def test_wave_2_error_statuses_use_project_error_envelope(
     responses = runtime[operation_id]["responses"]
     error_statuses = expected_statuses - {"200", "201", "202", "204"}
     for status_code in error_statuses:
-        assert _resolved_runtime_response(responses[status_code])["content"][
-            "application/json"
-        ]["schema"] == {
-            "$ref": "#/components/schemas/ErrorEnvelope"
-        }
+        assert _resolved_runtime_response(responses[status_code])["content"]["application/json"][
+            "schema"
+        ] == {"$ref": "#/components/schemas/ErrorEnvelope"}
     if operation_id == "listQueryTopics":
         assert "422" not in responses
         assert "4XX" not in responses
         assert "default" not in responses
     else:
-        assert _resolved_runtime_response(responses["422"])["content"][
-            "application/json"
-        ]["schema"] == {
-            "$ref": "#/components/schemas/ErrorEnvelope"
-        }
+        assert _resolved_runtime_response(responses["422"])["content"]["application/json"][
+            "schema"
+        ] == {"$ref": "#/components/schemas/ErrorEnvelope"}
 
 
 def test_wave_2_success_occurrences_and_response_boundaries(
-    wave_operations: tuple[dict[str, Any], dict[str, Any]]
+    wave_operations: tuple[dict[str, Any], dict[str, Any]],
 ) -> None:
     _, runtime = wave_operations
     success_occurrences = {
@@ -1028,9 +1045,9 @@ def test_error_statuses_use_project_error_envelope(
     expected_statuses = set(contract[operation_id]["responses"])
     responses = runtime[operation_id]["responses"]
     if "422" in expected_statuses:
-        schema = _resolved_runtime_response(responses["422"])["content"][
-            "application/json"
-        ]["schema"]
+        schema = _resolved_runtime_response(responses["422"])["content"]["application/json"][
+            "schema"
+        ]
         assert schema == {"$ref": "#/components/schemas/ErrorEnvelope"}
     else:
         assert "422" not in responses

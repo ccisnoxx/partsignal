@@ -1,0 +1,6 @@
+{
+  "command": "make test-integration 'COMPOSE=docker compose --env-file .env.example -p partsignal-geo102-validation -f deploy/compose.dev.yaml -f .trellis/tasks/10-01-geo-102-catalog-orm/evidence/compose-validation.yaml'",
+  "exit_code": 0,
+  "duration_seconds": 307.97,
+  "log": "test-integration.log"
+}

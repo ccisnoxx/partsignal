@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/backend/directory-structure.md", "reason": "现有模块边界与服务所有权"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "事务、Alembic与历史不变"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "AppError映射与低敏异常边界"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "日志隐私和诊断字段"}
+{"file": "contracts/database.md", "reason": "业务状态与0065运维元数据权威合同"}
+{"file": ".trellis/tasks/10-05-geo-902-observability/design.md", "reason": "902已确定设计与范围"}

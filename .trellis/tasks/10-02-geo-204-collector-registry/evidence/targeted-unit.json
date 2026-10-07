@@ -1,0 +1,14 @@
+{
+  "command": [
+    "env",
+    "UV_CACHE_DIR=.cache/uv",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_collector_registry.py"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 0.26
+}

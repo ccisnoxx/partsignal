@@ -1,0 +1,24 @@
+{
+  "compose_project": "partsignal-geo305-validation",
+  "command": "docker --context colima compose -f .trellis/tasks/10-02-geo-305-manual-collection/evidence/compose.validation.yaml down --volumes",
+  "exit_code": 0,
+  "containers_removed": [
+    "postgres",
+    "redis",
+    "fake-oss"
+  ],
+  "volumes_removed": [
+    "partsignal-geo305-validation_geo305-postgres",
+    "partsignal-geo305-validation_geo305-oss"
+  ],
+  "network_removed": "partsignal-geo305-validation_default",
+  "colima_stop_exit_code": 0,
+  "colima_status_exit_code": 1,
+  "colima_status_result": "colima is not running",
+  "docker_context": "default",
+  "logs": [
+    "infra-cleanup.log",
+    "colima-stop.log",
+    "docker-context-restored.log"
+  ]
+}

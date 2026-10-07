@@ -1,0 +1,82 @@
+{
+  "status": "PASS",
+  "run_id": 37598569164,
+  "sha": "8d2e528cce0f804b224bf9b78e02bb2651f6ac62",
+  "job_started_at": "2026-10-07T09:09:23Z",
+  "job_completed_at": "2026-10-07T09:39:43Z",
+  "duration_seconds": 1820,
+  "watch_exit_code": 0,
+  "full_log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/sixth-delivery-ci-full.log",
+  "full_log_sha256": "693c4514bf05645a58a76a7461a5f5aa876f4509b69cae92c8cc2c806c995d92",
+  "observed_lines": [
+    "verify (delivery)\tRun make build test-deploy-scripts\t2026-10-07T09:12:06.8267496Z 194 passed in 15.83s",
+    "verify (delivery)\tRun make build test-deploy-scripts\t2026-10-07T09:13:22.3015242Z E2E_POST_RUN_SECRET_TEST status=passed",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:16:55.6797956Z Running 32 tests using 1 worker",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:22:14.5400049Z   32 passed (5.3m)",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:22:14.7205130Z E2E_SECRET_SCAN status=clean",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:22:17.0266973Z E2E_CLEANUP redis_db=14 keys=1 status=deleted",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:22:17.0268087Z E2E_CLEANUP ports=8000,9001,4174,19009 status=released",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:22:17.2921492Z E2E_CLEANUP database=partsignal_e2e_20261007_35b23e9a19947390d4199c85d14559e8 status=dropped",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:22:17.2964975Z E2E_CLEANUP storage=/tmp/partsignal-e2e-storage.IA9VIB status=removed",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:22:17.3002930Z E2E_GEO phase=enabled status=begin",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:22:59.5107410Z Running 2 tests using 1 worker",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:23:54.4819943Z   1 skipped",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:23:54.4820256Z   1 passed (55.2s)",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:23:54.5958831Z E2E_SECRET_SCAN status=clean",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:23:56.0856120Z E2E_CLEANUP redis_db=14 keys=1 status=deleted",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:23:56.0857065Z E2E_CLEANUP ports=8000,9001,4174,19009,19012 status=released",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:23:56.3365316Z E2E_CLEANUP database=partsignal_e2e_20261007_333d045023ead449e7c8c06852940c5b status=dropped",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:23:56.3383559Z E2E_CLEANUP storage=/tmp/partsignal-e2e-storage.fon9tA status=removed",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:23:56.3395393Z E2E_GEO phase=enabled status=passed",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:23:56.3396048Z E2E_GEO phase=api-disabled status=begin",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:24:39.9953855Z Running 2 tests using 1 worker",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:24:42.2373289Z   1 skipped",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:24:42.2373711Z   1 passed (2.3s)",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:24:42.3642356Z E2E_SECRET_SCAN status=clean",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:24:44.2998982Z E2E_CLEANUP redis_db=14 keys=1 status=deleted",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:24:44.2999869Z E2E_CLEANUP ports=8000,9001,4174,19009,19012 status=released",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:24:44.5442241Z E2E_CLEANUP database=partsignal_e2e_20261007_660ea0a0e5dd0b22df2a2eb91c510a8f status=dropped",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:24:44.5459491Z E2E_CLEANUP storage=/tmp/partsignal-e2e-storage.sRDRAw status=removed",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:24:44.5471483Z E2E_GEO phase=api-disabled status=passed",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:24:44.5472176Z E2E_GEO phase=monitoring-disabled status=begin",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:25:27.9086757Z Running 2 tests using 1 worker",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:25:30.2144401Z   1 skipped",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:25:30.2144885Z   1 passed (2.4s)",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:25:30.3298675Z E2E_SECRET_SCAN status=clean",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:25:31.8757141Z E2E_CLEANUP redis_db=14 keys=1 status=deleted",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:25:31.8757742Z E2E_CLEANUP ports=8000,9001,4174,19009,19012 status=released",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:25:32.1175132Z E2E_CLEANUP database=partsignal_e2e_20261007_0ed3808bb693ade4a5d228593d5f67c5 status=dropped",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:25:32.1191120Z E2E_CLEANUP storage=/tmp/partsignal-e2e-storage.8jrIg0 status=removed",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:25:32.1203079Z E2E_GEO phase=monitoring-disabled status=passed",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:26:06.6756886Z Running 572 tests using 1 worker",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:39:38.9266145Z   74 skipped",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:39:38.9266681Z   498 passed (14.1m)",
+    "verify (delivery)\tRun make e2e\t2026-10-07T09:39:39.0278431Z E2E_SECRET_SCAN status=clean"
+  ],
+  "scope": "delivery only; previous unchanged unit/PostgreSQL/local-full evidence reused; six predecessor steps and frontend shard skipped",
+  "full_ci_claimed": false,
+  "counts": {
+    "canonical_real_stack": {
+      "passed": 32
+    },
+    "geo_modes": {
+      "enabled": {
+        "passed": 1,
+        "skipped": 1
+      },
+      "api-disabled": {
+        "passed": 1,
+        "skipped": 1
+      },
+      "monitoring-disabled": {
+        "passed": 1,
+        "skipped": 1
+      }
+    },
+    "fixture": {
+      "passed": 498,
+      "skipped": 74
+    },
+    "secret_scans_clean": 5
+  }
+}

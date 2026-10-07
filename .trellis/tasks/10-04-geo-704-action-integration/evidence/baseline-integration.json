@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "docker",
+    "compose",
+    "-f",
+    ".trellis/tasks/10-04-geo-704-action-integration/evidence/compose.yaml",
+    "run",
+    "--rm",
+    "backend-test",
+    "pytest",
+    "-o",
+    "addopts=",
+    "-q",
+    "tests/integration/test_geo_opportunity_workbench.py",
+    "tests/integration/test_geo_opportunities.py"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 19.435
+}

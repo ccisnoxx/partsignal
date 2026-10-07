@@ -1,0 +1,285 @@
+{
+  "task": "GEO-308",
+  "release": "R2",
+  "manifest_status": "review",
+  "trellis_status": "review",
+  "completedAt": null,
+  "dependency": {
+    "GEO-307": "done"
+  },
+  "modified_existing_files": [
+    "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/SHA256SUMS",
+    "frontend/tests/e2e/geo-real-stack.spec.ts",
+    "frontend/tests/e2e/questions-real-stack.spec.ts",
+    "frontend/tests/e2e/runs-real-stack.spec.ts",
+    "frontend/tests/e2e/surfaces-real-stack.spec.ts"
+  ],
+  "new_main_files": [
+    "backend/tests/integration/test_geo_manual_races.py",
+    "backend/tests/integration/test_geo_r2_immutability.py",
+    "docs/geo-monitoring/04-delivery/07-r2-acceptance.md"
+  ],
+  "unrelated_start_files_preserved": true,
+  "manifest_changed_tasks": [
+    "GEO-308"
+  ],
+  "validation": {
+    "diff-check-final": {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T07:09:55.674965+00:00",
+      "seconds": 0.03,
+      "log": "diff-check-final.log"
+    },
+    "lint-final-candidate": {
+      "command": [
+        "make",
+        "lint"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:46:24.976813+00:00",
+      "seconds": 11.44,
+      "log": "lint-final-candidate.log"
+    },
+    "typecheck": {
+      "command": [
+        "make",
+        "typecheck"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:32:25.372925+00:00",
+      "seconds": 7.88,
+      "log": "typecheck.log"
+    },
+    "test-unit": {
+      "command": [
+        "make",
+        "test-unit"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:33:00.314301+00:00",
+      "seconds": 64.88,
+      "log": "test-unit.log"
+    },
+    "test-integration": {
+      "command": [
+        "make",
+        "test-integration",
+        "COMPOSE=docker compose -f .trellis/tasks/10-02-geo-308-r2-acceptance/evidence/compose.validation.yaml"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:33:06.649894+00:00",
+      "seconds": 450.11,
+      "log": "test-integration.log"
+    },
+    "frontend-test": {
+      "command": [
+        "npm",
+        "--prefix",
+        "frontend",
+        "run",
+        "test"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:38:07.189141+00:00",
+      "seconds": 33.39,
+      "log": "frontend-test.log"
+    },
+    "frontend-typecheck-candidate": {
+      "command": [
+        "npm",
+        "--prefix",
+        "frontend",
+        "run",
+        "typecheck"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:44:42.890522+00:00",
+      "seconds": 9.58,
+      "log": "frontend-typecheck-candidate.log"
+    },
+    "e2e": {
+      "command": [
+        "make",
+        "e2e"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:38:06.032234+00:00",
+      "seconds": 569.32,
+      "log": "e2e.log"
+    },
+    "verify": {
+      "command": [
+        "make",
+        "verify",
+        "COMPOSE=docker compose -f .trellis/tasks/10-02-geo-308-r2-acceptance/evidence/compose.validation.yaml"
+      ],
+      "exit_code": 2,
+      "started_at": "2026-10-03T06:41:01.422642+00:00",
+      "seconds": 720.4,
+      "log": "verify.log"
+    },
+    "verify-resumed": {
+      "command": [
+        "make",
+        "verify",
+        "-o",
+        "contract-check",
+        "-o",
+        "test-unit",
+        "-o",
+        "test-integration",
+        "COMPOSE=docker compose -f .trellis/tasks/10-02-geo-308-r2-acceptance/evidence/compose.validation.yaml"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:56:12.022908+00:00",
+      "seconds": 602.75,
+      "log": "verify-resumed.log"
+    },
+    "contract-check": {
+      "command": [
+        "make",
+        "contract-check"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:35:42.340533+00:00",
+      "seconds": 3.27,
+      "log": "contract-check.log"
+    },
+    "r2-integration-final": {
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "pytest",
+        "backend/tests/integration/test_geo_manual_races.py",
+        "backend/tests/integration/test_geo_r2_immutability.py"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:33:00.314365+00:00",
+      "seconds": 6.01,
+      "log": "r2-integration-final.log"
+    },
+    "geo-e2e-url-fix": {
+      "command": [
+        "deploy/scripts/e2e-local.sh"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:54:52.950901+00:00",
+      "seconds": 32.74,
+      "log": "geo-e2e-url-fix.log"
+    },
+    "dev-compose-config": {
+      "command": [
+        "docker",
+        "compose",
+        "--env-file",
+        ".env",
+        "-f",
+        "deploy/compose.dev.yaml",
+        "config",
+        "--quiet"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:41:02.579284+00:00",
+      "seconds": 0.06,
+      "log": "dev-compose-config.log"
+    },
+    "numeric-url-values": {
+      "command": [
+        "node",
+        "--input-type=module",
+        "-e",
+        "import {defaultStringifySearch,defaultParseSearch} from \"@tanstack/react-router\"; import assert from \"node:assert/strict\"; for (const q of [\"12345678\",\"76534e47\",\"abcd5678\"]) { const search=defaultStringifySearch({q}); assert.equal(defaultParseSearch(search).q, q); } process.stdout.write(\"数字、科学计数法和普通字符串的 Router URL 往返均保持原搜索词\\n\");"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:44:55.591602+00:00",
+      "seconds": 0.05,
+      "log": "numeric-url-values.log"
+    },
+    "document-hashes-final": {
+      "command": [
+        "shasum",
+        "-a",
+        "256",
+        "-c",
+        "SHA256SUMS"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T07:07:44.614137+00:00",
+      "seconds": 0.03,
+      "log": "document-hashes-final.log"
+    },
+    "task-context": {
+      "command": [
+        "python3",
+        ".trellis/scripts/task.py",
+        "validate",
+        ".trellis/tasks/10-02-geo-308-r2-acceptance"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T06:39:34.631378+00:00",
+      "seconds": 0.04,
+      "log": "task-context.log"
+    },
+    "environment-down": {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        ".trellis/tasks/10-02-geo-308-r2-acceptance/evidence/compose.validation.yaml",
+        "down",
+        "--volumes"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T07:06:34.008627+00:00",
+      "seconds": 0.42,
+      "log": "environment-down.log"
+    },
+    "colima-restored": {
+      "command": [
+        "colima",
+        "stop"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-03T07:07:16.221112+00:00",
+      "seconds": 2.15,
+      "log": "colima-restored.log"
+    }
+  },
+  "tested_source_hashes": {
+    "backend/tests/integration/test_geo_manual_races.py": "07be82010a3797da9c2b6469a79a61af092c3668df28741b7cb36b7b1812d956",
+    "backend/tests/integration/test_geo_r2_immutability.py": "6ac14a1ecad81f9e74e190116340418a5ca3687acf2d2f2be8c6525b48e6712d",
+    "frontend/tests/e2e/geo-real-stack.spec.ts": "53509ccbf5025e0134b6ebd26802be8d60d0de1b4fccdf4da5429353efffdb0f",
+    "frontend/tests/e2e/runs-real-stack.spec.ts": "364f29968ec151b4b1897f83f7c0f62c0b73a47e14111b95a1c53302cd520832",
+    "frontend/tests/e2e/surfaces-real-stack.spec.ts": "76f95f6c06d82775690caa58f7a934a2ae895f7572aafa42e99f8325e0c61a95",
+    "frontend/tests/e2e/questions-real-stack.spec.ts": "29e790b74852e178c7f436058b26bd684704c3de74b4e1d374d51f0d43bd8cc6"
+  },
+  "verify_reuse_evidence": "verify-reuse.json",
+  "cleanup": {
+    "compose_down_exit": 0,
+    "running_containers_after_down": 0,
+    "baseline_oss_pid": 8829,
+    "baseline_oss_exit": 143,
+    "baseline_oss_exit_reason": "task-owned SIGTERM; graceful shutdown confirmed",
+    "baseline_storage_existed": true,
+    "baseline_storage_removed": true,
+    "port_19008_released": true,
+    "colima_restored_to_initial_stopped": true
+  },
+  "limitations": [
+    "取消只验收既有策略与测试存储writer，无公共命令",
+    "人工正式提交停在COLLECTED，analysis_dispatch=NOT_IMPLEMENTED",
+    "未发布、未执行生产迁移或真人外部AI试用"
+  ],
+  "tested_source_hashes_match_current": true
+}

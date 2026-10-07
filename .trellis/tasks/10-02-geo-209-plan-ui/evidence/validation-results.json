@@ -1,0 +1,108 @@
+{
+  "task": "GEO-209",
+  "phase": "R1",
+  "database_head": "0047_geo_monitoring_plans",
+  "new_migration": false,
+  "validation_state": "complete_with_three_unrelated_e2e_failures",
+  "environment": {
+    "compose_project": "partsignal-geo209",
+    "postgres_port": 55449,
+    "redis_port": 56389,
+    "redis_db": 14,
+    "fake_services_only": true,
+    "restored": "Docker default context / Colima stopped / dedicated project and volumes removed / all validation ports closed"
+  },
+  "checks": [
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "result": "最终执行退出0；相对任务起点包含21个新文件的candidate.diff空白检查也为0问题",
+      "log": "git-diff-check.log"
+    },
+    {
+      "command": "make lint",
+      "exit_code": 0,
+      "result": "Ruff与ESLint通过，最终候选无警告",
+      "log": "lint-candidate-final.log"
+    },
+    {
+      "command": "make typecheck",
+      "exit_code": 0,
+      "result": "mypy 117 source files与frontend TypeScript通过",
+      "log": "make-typecheck-final.log"
+    },
+    {
+      "command": "npm --prefix frontend run test",
+      "exit_code": 0,
+      "result": "111 files / 1067 passed；最终409反例已覆盖",
+      "log": "frontend-full-final.log"
+    },
+    {
+      "command": "npm --prefix frontend run typecheck",
+      "exit_code": 0,
+      "result": "最终候选TypeScript通过",
+      "log": "frontend-typecheck-candidate.log"
+    },
+    {
+      "command": "make verify COMPOSE=\"docker compose -p partsignal-geo209 -f .trellis/tasks/10-02-geo-209-plan-ui/evidence/validation-compose.yaml\"",
+      "exit_code": 2,
+      "result": "contract/lint/types、1247后端unit、111 files/1066前端旧候选unit、625 integration/8既有警告、前后端镜像通过；真实E2E 23 passed / 2既有范围外失败；未进入后续步骤",
+      "log": "make-verify-final.log"
+    },
+    {
+      "command": "PARTSIGNAL_E2E_SPEC=tests/e2e/plans-real-stack.spec.ts deploy/scripts/e2e-local.sh",
+      "exit_code": 0,
+      "result": "1 passed (10.6s)；375/768/1024/1440、375空态bounding box、keyboard、UI业务闭环；secret_scan=0；四类cleanup成功",
+      "log": "plans-e2e-layout.log"
+    },
+    {
+      "command": "npm --prefix frontend run test -- src/domains/geo-plans/plans-page.test.tsx",
+      "exit_code": 0,
+      "result": "最终409工作区与空态修改9 passed",
+      "log": "list-empty-layout.log"
+    },
+    {
+      "command": "docker compose -p partsignal-geo209 -f .trellis/tasks/10-02-geo-209-plan-ui/evidence/validation-compose.yaml config --quiet",
+      "exit_code": 0,
+      "result": "通过，只读配置检查",
+      "log": "dev-compose-config.log"
+    },
+    {
+      "command": "PARTSIGNAL_BACKEND_IMAGE=partsignal-backend PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 PARTSIGNAL_VERSION=test PARTSIGNAL_RUNTIME_ENV_FILE=/Users/sc/PycharmProjects/partsignal/.env PARTSIGNAL_DATA_ROOT=/Users/sc/PycharmProjects/partsignal/data docker compose --env-file .env -f deploy/compose.prod.yaml config --quiet",
+      "exit_code": 0,
+      "result": "通过，只读配置检查，未部署",
+      "log": "prod-compose-config.log"
+    },
+    {
+      "command": "python3 .trellis/scripts/task.py validate .trellis/tasks/10-02-geo-209-plan-ui",
+      "exit_code": 0,
+      "result": "上下文文件有效；大文件自动注入长度警告已用手动合同阅读补足",
+      "log": "trellis-context-validation.log"
+    },
+    {
+      "command": "PARTSIGNAL_E2E_SPEC=tests/e2e/plans-real-stack.spec.ts make e2e",
+      "exit_code": 2,
+      "result": "Plan真实栈1 passed；完整fixture 497 passed / 52 skipped / 1范围外Users失败；两阶段标准secret_scan=0",
+      "log": "make-e2e-targeted.log"
+    },
+    {
+      "command": "make test-deploy-scripts",
+      "exit_code": 0,
+      "result": "串行运行通过：Frontend容器/GEO fixture与配置/进程与数据库与敏感产物生命周期/staging/production模拟检查；首次并行运行失败另保留",
+      "log": "deploy-scripts-serial.log"
+    }
+  ],
+  "failure_classification": "gate-failure-classification.md",
+  "pending": [],
+  "task_status": "review",
+  "required_commands_unrun": [],
+  "not_performed": [
+    "Firefox/Safari浏览器矩阵：本任务未改变浏览器兼容合同",
+    "生产数据库前滚/历史迁移/部署：本任务无DDL或发布授权",
+    "真实AI provider/外部采集：明确范围外，测试只用本地fake"
+  ],
+  "final_scope_review": "working-tree-review.json",
+  "candidate_diff": "candidate.diff",
+  "subagent_digest": "SUBAGENT_EXECUTION_DIGEST.json",
+  "audit_id": "20261002T195404Z-geo-209-plan-ui-a4c491a1"
+}

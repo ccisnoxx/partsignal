@@ -1,0 +1,10 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+backend/app/schemas/geo_catalog.py:134: error: List item 0 has incompatible type "dict[str, object]"; expected "int | float | str | list[JsonValue] | JsonDict | None"  [list-item]
+backend/app/schemas/geo_catalog.py:172: error: List item 0 has incompatible type "dict[str, object]"; expected "int | float | str | list[JsonValue] | JsonDict | None"  [list-item]
+backend/app/schemas/geo_catalog.py:327: error: List item 0 has incompatible type "dict[str, dict[str, dict[str, dict[str, str]]]]"; expected "int | float | str | list[JsonValue] | JsonDict | None"  [list-item]
+backend/app/schemas/geo_catalog.py:328: error: List item 1 has incompatible type "dict[str, object]"; expected "int | float | str | list[JsonValue] | JsonDict | None"  [list-item]
+backend/app/schemas/geo_catalog.py:352: error: List item 0 has incompatible type "dict[str, dict[str, dict[str, dict[str, str]]]]"; expected "int | float | str | list[JsonValue] | JsonDict | None"  [list-item]
+backend/app/schemas/geo_catalog.py:353: error: List item 1 has incompatible type "dict[str, object]"; expected "int | float | str | list[JsonValue] | JsonDict | None"  [list-item]
+backend/app/schemas/geo_catalog.py:364: error: List item 3 has incompatible type "dict[str, object]"; expected "int | float | str | list[JsonValue] | JsonDict | None"  [list-item]
+Found 7 errors in 1 file (checked 85 source files)
+make: *** [typecheck] Error 1

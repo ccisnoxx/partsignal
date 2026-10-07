@@ -1,0 +1,13 @@
+{
+  "changed_task": "GEO-503",
+  "transition": [
+    "planned",
+    "in_progress",
+    "review"
+  ],
+  "other_entries_unchanged": true,
+  "dependencies": {
+    "GEO-501": "done",
+    "GEO-502": "done"
+  }
+}

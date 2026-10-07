@@ -1,0 +1,23 @@
+--- initial/Makefile
++++ final/Makefile
+@@ -3,7 +3,7 @@
+ UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
+ UV := UV_CACHE_DIR=$(UV_CACHE_DIR) uv
+ 
+-.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate initialize-accounts lint typecheck test-unit test-integration e2e build build-frontend verify test-deploy-scripts test-frontend-container staging-redeploy-fast down
++.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate initialize-accounts lint typecheck test-unit test-integration e2e build build-frontend verify test-deploy-scripts test-frontend-container staging-redeploy-fast down test-geo-fixtures
+ 
+ bootstrap:
+ 	@test -f .env || cp .env.example .env
+@@ -62,7 +62,11 @@
+ 	$(COMPOSE) config --quiet
+ 	PARTSIGNAL_BACKEND_IMAGE=partsignal-backend PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 PARTSIGNAL_VERSION=test PARTSIGNAL_RUNTIME_ENV_FILE=$(CURDIR)/.env PARTSIGNAL_DATA_ROOT=$(CURDIR)/data docker compose --env-file .env -f deploy/compose.prod.yaml config --quiet
+ 
++test-geo-fixtures:
++	$(UV) run --project backend python deploy/scripts/check-geo-fixtures.py
++
+ test-deploy-scripts: test-frontend-container
++	$(UV) run --project backend python deploy/scripts/check-geo-fixtures.py
+ 	$(UV) run --project backend python deploy/scripts/test-geo-configuration.py
+ 	deploy/scripts/test-e2e-run-lifecycle.sh
+ 	deploy/scripts/test-e2e-database-lifecycle.sh

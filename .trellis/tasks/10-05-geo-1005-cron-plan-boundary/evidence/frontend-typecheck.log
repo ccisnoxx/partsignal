@@ -1,0 +1,5 @@
+
+> partsignal-frontend-v2@0.1.0 typecheck
+> tsc -b --pretty false
+
+src/domains/geo-runs/batch-create.test.tsx(57,36): error TS2339: Property 'params' does not exist on type 'never'.

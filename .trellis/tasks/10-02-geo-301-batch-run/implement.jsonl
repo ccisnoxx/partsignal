@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "不可变、事务、迁移与PostgreSQL最终防线"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "闭合错误边界和精确约束映射"}
+{"file": "docs/geo-monitoring/05-decisions/ADR-002-unified-observation-run-model.md", "reason": "独立回答级Run与旧观测保留"}
+{"file": "docs/geo-monitoring/05-decisions/ADR-003-separate-collection-analysis-review.md", "reason": "采集与分析revision职责分离"}

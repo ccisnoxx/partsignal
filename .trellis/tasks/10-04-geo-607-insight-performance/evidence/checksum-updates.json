@@ -1,0 +1,35 @@
+{
+  "updated": [
+    {
+      "path": "./03-technical/02-data-architecture.md",
+      "before": "005d3d0bbf76fd04de5c7ab74ec6ea1b021647e88500da98870e5bfe1899a4e9",
+      "after": "bd5b42576bec0242cd0ea180951fdc3273922409f6effa092a9bc6691a71d1b8"
+    },
+    {
+      "path": "./03-technical/07-testing-and-quality.md",
+      "before": "e4575dc052343117d4c8585cec26aaa89eef46ff202f5844e2779fe0acfdab6e",
+      "after": "e054bc0f0e82ae8778d14f7c084467ec8dbe7559476da30f580fb970e31ea76b"
+    },
+    {
+      "path": "./04-delivery/task-manifest.yaml",
+      "before": "0928b2cadf4feb409b75057af8de8332f8a32a98ac88fa251c3a6a50cce27f0c",
+      "after": "c0de03c98b80ce3f35ce9721fb6b1b3352ba071ef593bfb1f70047fe05adc022"
+    },
+    {
+      "path": "./CHANGELOG.md",
+      "before": "45390003f1918baaf068ad5525654131a194e0efb80d111f2d9539336ddd478c",
+      "after": "784f0819744a527f09815af7fbe0965979e18de45c8e180d166f6776db4b7605"
+    },
+    {
+      "path": "./README.md",
+      "before": "1fc6e7f245fa8616eb365d5080319fe1dd314861044cc036cbfc9c04d90c70d4",
+      "after": "9915328146e89b71dc06c99d8693080c000033782a7844ddbb4cb53096e2fdc5"
+    }
+  ],
+  "added": [
+    "./04-delivery/06-r5-insight-performance-acceptance.md"
+  ],
+  "preexisting_unregistered": [
+    "./04-delivery/09-r4-analysis-acceptance.md"
+  ]
+}

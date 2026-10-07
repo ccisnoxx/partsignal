@@ -1,0 +1,78 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/app/services/identity.py:3:1
+   |
+ 1 |   """账号、密码与 PostgreSQL 会话的事务命令。"""
+ 2 |
+ 3 | / from __future__ import annotations
+ 4 | |
+ 5 | | import csv
+ 6 | | import io
+ 7 | | import uuid
+ 8 | | from datetime import UTC, datetime, timedelta
+ 9 | | from typing import Literal
+10 | |
+11 | | from sqlalchemy import func, or_, select, text, union_all
+12 | | from sqlalchemy import update as sa_update
+13 | | from sqlalchemy.exc import IntegrityError
+14 | | from sqlalchemy.orm import Session
+15 | | from sqlalchemy.sql import Select
+16 | | from sqlalchemy.sql.elements import ColumnElement
+17 | |
+18 | | from app.audit import append_audit
+19 | | from app.audit_types import AuditEntry, AuditModule, AuditOutcome
+20 | | from app.config import settings
+21 | | from app.errors import AppError, in_use, not_found
+22 | | from app.models.ai_generation import AIChannel, AIModel, GenerationJob
+23 | | from app.models.configuration import ContentHumanizationPrompt, PlatformPrompt, PlatformType
+24 | | from app.models.content import ContentReviewRecord, ContentTask, ContentVersion
+25 | | from app.models.geo_analysis import GeoRunReview
+26 | | from app.models.geo_catalog import GeoSubject
+27 | | from app.models.geo_files import FileRecord, GeoObservation
+28 | | from app.models.geo_manual_collection import GeoManualDraft, GeoManualSubmission
+29 | | from app.models.geo_monitoring_plans import GeoMonitoringPlan
+30 | | from app.models.geo_opportunities import (
+31 | |     GeoOpportunity,
+32 | |     GeoOpportunityAction,
+33 | |     GeoOpportunityEvaluation,
+34 | | )
+35 | | from app.models.geo_prompt_variants import GeoPromptVariant
+36 | | from app.models.geo_rules import GeoRuleSetRevision
+37 | | from app.models.geo_retests import GeoRetestBaseline, GeoRetestRequest
+38 | | from app.models.geo_runs import GeoObservationBatch
+39 | | from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
+40 | | from app.models.identity import (
+41 | |     SessionRecord,
+42 | |     User,
+43 | | )
+44 | | from app.models.product_facts import FactReviewRecord, FactVersion
+45 | | from app.models.publication import (
+46 | |     PublicationVerification,
+47 | |     PublicationWork,
+48 | |     PublicationWorkEvent,
+49 | |     PublishedContentIssue,
+50 | | )
+51 | | from app.schemas.common import (
+52 | |     ChangePasswordRequest,
+53 | |     LoginRequest,
+54 | |     ResetPasswordRequest,
+55 | |     UserBulkStatusFailure,
+56 | |     UserBulkStatusFailureCode,
+57 | |     UserBulkStatusRequest,
+58 | |     UserCreate,
+59 | |     UserList,
+60 | |     UserOut,
+61 | |     UserStatus,
+62 | |     UserSummary,
+63 | |     UserUpdate,
+64 | | )
+65 | | from app.security import generate_token, hash_password, hash_token, verify_password
+   | |___________________________________________________________________________________^
+66 |
+67 |   _USER_STATE_LOCK = text("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE")
+   |
+help: Organize imports
+
+Found 1 error.
+[*] 1 fixable with the `--fix` option.
+make: *** [lint] Error 1

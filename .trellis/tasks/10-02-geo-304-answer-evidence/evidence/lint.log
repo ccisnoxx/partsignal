@@ -1,0 +1,38 @@
+UV_CACHE_DIR=.cache/uv uv run --project backend ruff check backend
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/app/models/__init__.py:3:1
+   |
+ 1 |   """导入全部 ORM 模块以向共享 metadata 注册映射。"""
+ 2 |
+ 3 | / import app.models.ai_generation  # noqa: F401
+ 4 | | import app.models.configuration  # noqa: F401
+ 5 | | import app.models.content  # noqa: F401
+ 6 | | import app.models.geo_batch_creation  # noqa: F401
+ 7 | | import app.models.geo_catalog  # noqa: F401
+ 8 | | import app.models.geo_files  # noqa: F401
+ 9 | | import app.models.geo_monitoring_plans  # noqa: F401
+10 | | import app.models.geo_prompt_variants  # noqa: F401
+11 | | import app.models.geo_runs  # noqa: F401
+12 | | import app.models.geo_surfaces  # noqa: F401
+13 | | import app.models.geo_answers  # noqa: F401
+14 | | import app.models.identity  # noqa: F401
+15 | | import app.models.product_facts  # noqa: F401
+16 | | import app.models.publication  # noqa: F401
+   | |_____________________________^
+   |
+help: Organize imports
+
+E501 Line too long (133 > 100)
+  --> backend/tests/integration/test_geo_answer_migration_precheck.py:18:101
+   |
+16 |         identity = run(conn, db, batch(conn, db))
+17 |         conn.execute(
+18 |             "UPDATE geo_observation_runs SET status='COLLECTED',started_at=now(),collected_at=now(),revision=revision+1 WHERE id=%s",
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+19 |             (identity,),
+20 |         )
+   |
+
+Found 2 errors.
+[*] 1 fixable with the `--fix` option.
+make: *** [lint] Error 1

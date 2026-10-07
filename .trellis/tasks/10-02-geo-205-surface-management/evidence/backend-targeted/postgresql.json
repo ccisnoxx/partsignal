@@ -1,0 +1,18 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/integration/test_geo_surface_management_api.py",
+    "backend/tests/integration/test_geo_surface_management_transactions.py",
+    "backend/tests/integration/test_geo_surface_management_concurrency.py",
+    "backend/tests/integration/test_geo_surface_management_reads.py",
+    "backend/tests/integration/test_geo_profile_eligibility.py",
+    "backend/tests/integration/test_geo_surfaces_profiles.py",
+    "--tb=short"
+  ],
+  "exit_code": 0,
+  "seconds": 8.535960540990345
+}

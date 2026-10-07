@@ -1,0 +1,46 @@
+FF.                                                                      [100%]
+=================================== FAILURES ===================================
+________________ test_recommendation_gold[name-containing-cue] _________________
+
+case = {'expected': {'recommendations': [{'rank': None, 'recommendation': 'UNKNOWN', 'subject_id': 'subject-cue-name'}], 'rev...ns': ['RECOMMENDATION_UNCERTAIN']}, 'id': 'name-containing-cue', 'subject_ids': ['subject-cue-name'], 'text': '推荐示例牌。'}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_recommendation_gold(case: dict[str, Any]) -> None:
+        inputs = snapshots(case["subject_ids"])
+        result = classify_recommendations(case["text"], freeze_subject_aliases(inputs))
+        actual = {r.subject_id: (r.recommendation.value, r.rank) for r in result.recommendations}
+>       assert actual == {
+            identity(r["subject_id"]): (r["recommendation"], r["rank"])
+            for r in case["expected"]["recommendations"]
+        }
+E       AssertionError: assert {UUID('0b793f...ENDED', None)} == {UUID('0b793f...KNOWN', None)}
+E         
+E         Differing items:
+E         {UUID('0b793f30-e49a-5ef9-8a3f-17f1af449f6f'): ('RECOMMENDED', None)} != {UUID('0b793f30-e49a-5ef9-8a3f-17f1af449f6f'): ('UNKNOWN', None)}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_recommendations.py:72: AssertionError
+_____________ test_recommendation_gold[alias-containing-rank-cue] ______________
+
+case = {'expected': {'recommendations': [{'rank': None, 'recommendation': 'RECOMMENDED', 'subject_id': 'subject-cue-name'}], ...ns': ['UNRELIABLE_RANK']}, 'id': 'alias-containing-rank-cue', 'subject_ids': ['subject-cue-name'], 'text': '推荐 首选示例牌。'}
+
+    @pytest.mark.parametrize("case", GOLD["cases"], ids=lambda row: row["id"])
+    def test_recommendation_gold(case: dict[str, Any]) -> None:
+        inputs = snapshots(case["subject_ids"])
+        result = classify_recommendations(case["text"], freeze_subject_aliases(inputs))
+        actual = {r.subject_id: (r.recommendation.value, r.rank) for r in result.recommendations}
+>       assert actual == {
+            identity(r["subject_id"]): (r["recommendation"], r["rank"])
+            for r in case["expected"]["recommendations"]
+        }
+E       AssertionError: assert {UUID('0b793f...OMMENDED', 1)} == {UUID('0b793f...ENDED', None)}
+E         
+E         Differing items:
+E         {UUID('0b793f30-e49a-5ef9-8a3f-17f1af449f6f'): ('RECOMMENDED', 1)} != {UUID('0b793f30-e49a-5ef9-8a3f-17f1af449f6f'): ('RECOMMENDED', None)}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_recommendations.py:72: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_recommendations.py::test_recommendation_gold[name-containing-cue]
+FAILED backend/tests/unit/test_geo_recommendations.py::test_recommendation_gold[alias-containing-rank-cue]
+2 failed, 1 passed, 80 deselected in 0.16s

@@ -1,0 +1,13 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "ruff",
+    "check",
+    "backend/tests/integration/geo_analysis_support.py",
+    "backend/tests/integration/test_geo_r4_acceptance.py"
+  ],
+  "exit_code": 1
+}

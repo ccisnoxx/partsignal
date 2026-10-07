@@ -1,0 +1,161 @@
+docker --context colima compose -p partsignal-geo407 -f .trellis/tasks/10-03-geo-407-cost-budget/evidence/validation-compose.yaml run --rm backend-test
+ Container partsignal-geo407-postgres-1 Running 
+ Container partsignal-geo407-redis-1 Running 
+ Container partsignal-geo407-fake-oss-1 Running 
+ Container partsignal-geo407-postgres-1 Waiting 
+ Container partsignal-geo407-postgres-1 Healthy 
+ Container partsignal-geo407-backend-test-run-a1b5cec11ebc Creating 
+ Container partsignal-geo407-backend-test-run-a1b5cec11ebc Created 
+........................................................................ [  8%]
+........................................................................ [ 16%]
+........................................................................ [ 24%]
+........................................................................ [ 32%]
+........................................................................ [ 40%]
+........................................................................ [ 49%]
+........................................................................ [ 57%]
+........................................................................ [ 65%]
+........F......................F........................................ [ 73%]
+........................................................................ [ 81%]
+........................................................................ [ 90%]
+........................................................................ [ 98%]
+................                                                         [100%]
+=================================== FAILURES ===================================
+_____________________ test_generated_cell_and_public_rows ______________________
+
+connection = <psycopg.Connection [INTRANS] (host=postgres user=partsignal database=partsignal_geo206_b5e5db7247) at 0xf775d5b10230>
+run_database = RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal_geo206_b5e5db7247',...n': 'RECOMMENDED', 'search_platform': None, 'observation_kind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]])
+
+>   ???
+E   pydantic_core._pydantic_core.ValidationError: 2 validation errors for GeoObservationRunOut
+E   provider_status
+E     Field required [type=missing, input_value={'id': '84a5f294-8a18-4a7...patch_attempt_at': None}, input_type=dict]
+E       For further information visit https://errors.pydantic.dev/2.13/v/missing
+E   retry_after_seconds
+E     Field required [type=missing, input_value={'id': '84a5f294-8a18-4a7...patch_attempt_at': None}, input_type=dict]
+E       For further information visit https://errors.pydantic.dev/2.13/v/missing
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_runs.py:69: ValidationError
+________ test_sql_snapshot_leaf_types_reject_hidden_secret_objects[API] ________
+
+connection = <psycopg.Connection [INERROR] (host=postgres user=partsignal database=partsignal_geo206_b5e5db7247) at 0xf775d5333230>
+run_database = RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal_geo206_b5e5db7247',...n': 'RECOMMENDED', 'search_platform': None, 'observation_kind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]])
+mode = 'API'
+
+>   ???
+
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_runs.py:303: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/integration/geo_runs_support.py:107: in run
+    insert_row(
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_catalog.py:32: in insert_row
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Connection [INERROR] (host=postgres user=partsignal database=partsignal_geo206_b5e5db7247) at 0xf775d5333230>
+query = Composed([SQL('INSERT INTO '), Identifier('geo_observation_runs'), SQL(' ('), Composed([Identifier('id'), SQL(', '), I...), SQL(', '), Placeholder(), SQL(', '), Placeholder(), SQL(', '), Placeholder(), SQL(', '), Placeholder()]), SQL(')')])
+params = (UUID('449d0178-12cf-4cfe-93d1-117e36b8b912'), UUID('a0061f8a-f837-419a-855c-8c9067b8ddcd'), UUID('bb260cf6-2509-4271-...32abfa'), UUID('93c290f7-721d-404b-9fd8-5bdf743052ab'), 1, Jsonb({'schema_version': 1, 'data_classif ... (1454 chars)))
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool = False,
+    ) -> Cursor[Row]:
+        """Execute a query and return a cursor to read its results."""
+        try:
+            cur = self.cursor()
+            if binary:
+                cur.format = BINARY
+    
+            if isinstance(query, Template):
+                if params is not None:
+                    raise TypeError(
+                        "'execute()' with string template query doesn't support parameters"
+                    )
+                return cur.execute(query, prepare=prepare)
+            else:
+                return cur.execute(query, params, prepare=prepare)
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           psycopg.errors.CheckViolation: new row for relation "geo_observation_runs" violates check constraint "ck_geo_runs_input"
+E           DETAIL:  Failing row contains (449d0178-12cf-4cfe-93d1-117e36b8b912, a0061f8a-f837-419a-855c-8c9067b8ddcd, bb260cf6-2509-4271-bbb4-6e5ccd32abfa, 93c290f7-721d-404b-9fd8-5bdf743052ab, 1, 8c90839f3a22bfb881268006eecfbca135801716dfe201ecf091d550062845c5, 1, null, PENDING, 0, {"prompt": {"id": "bb260cf6-2509-4271-bbb4-6e5ccd32abfa", "prior..., NOT_STARTED, null, null, 0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, 2026-10-03 12:09:05.002759+00).
+
+/opt/venv/lib/python3.12/site-packages/psycopg/connection.py:300: CheckViolation
+=============================== warnings summary ===============================
+tests/integration/test_geo_admission_migration.py::test_0053_preserves_run_history_and_backfills_unknown
+  /app/tests/integration/test_geo_admission_migration.py:132: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_admission_migration.py::test_0053_preserves_run_history_and_backfills_unknown
+  /app/tests/integration/test_geo_admission_migration.py:132: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_answer_migration.py::test_forward_keeps_nonempty_history_and_matches_models
+  /app/tests/integration/test_geo_answer_migration.py:54: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_answer_migration.py::test_forward_keeps_nonempty_history_and_matches_models
+  /app/tests/integration/test_geo_answer_migration.py:54: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_batch_creation_migration.py::test_forward_preserves_nonempty_frozen_inputs_and_matches_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_batch_creation_migration.py:82: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_batch_creation_migration.py::test_forward_preserves_nonempty_frozen_inputs_and_matches_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_batch_creation_migration.py:82: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_catalog.py::test_catalog_metadata_matches_migrated_postgresql
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_catalog.py:187: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_catalog.py::test_catalog_metadata_matches_migrated_postgresql
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_catalog.py:187: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_manual_migration.py::test_0051_preserves_nonempty_0050_evidence_and_safe_stop
+  /app/tests/integration/test_geo_manual_migration.py:71: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_manual_migration.py::test_0051_preserves_nonempty_0050_evidence_and_safe_stop
+  /app/tests/integration/test_geo_manual_migration.py:71: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_monitoring_plans.py::test_forward_preserves_existing_data_and_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_monitoring_plans.py:240: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_monitoring_plans.py::test_forward_preserves_existing_data_and_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_monitoring_plans.py:240: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_profile_test_migration.py::test_0052_forward_invalidates_only_current_api_qualification
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_profile_test_migration.py:76: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_profile_test_migration.py::test_0052_forward_invalidates_only_current_api_qualification
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_profile_test_migration.py:76: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_prompt_variants.py::test_additive_migration_metadata_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_prompt_variants.py:176: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_prompt_variants.py::test_additive_migration_metadata_and_safe_stop
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_prompt_variants.py:176: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+tests/integration/test_geo_run_migration.py::test_forward_preserves_nonempty_old_geo_and_matches_metadata
+  /app/tests/integration/test_geo_run_migration.py:67: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_run_migration.py::test_forward_preserves_nonempty_old_geo_and_matches_metadata
+  /app/tests/integration/test_geo_run_migration.py:67: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_surfaces_profiles.py::test_old_head_forward_preserves_rows_metadata_and_downgrade_stops
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surfaces_profiles.py:216: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+
+tests/integration/test_geo_surfaces_profiles.py::test_old_head_forward_preserves_rows_metadata_and_downgrade_stops
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_surfaces_profiles.py:216: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_runs.py::test_generated_cell_and_public_rows
+FAILED tests/integration/test_geo_runs.py::test_sql_snapshot_leaf_types_reject_hidden_secret_objects[API]
+2 failed, 878 passed, 20 warnings in 416.71s (0:06:56)
+
+make: *** [test-integration] Error 1

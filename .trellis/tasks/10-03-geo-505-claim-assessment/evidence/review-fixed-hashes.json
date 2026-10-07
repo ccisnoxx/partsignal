@@ -1,0 +1,9 @@
+{
+  "backend/app/services/geo_claims.py": "7b31a61aa26fc467f22153e123d9c6bb19f63e2dad047c5e0ef38944f1b0ed46",
+  "backend/app/services/geo_claim_rules.py": "1ea9744a078222d7e844e570510e69fe395582750873b8507b83865ed79883de",
+  "backend/app/services/geo_fact_versions.py": "7832cb502cbfd859b4c7857d11bfefa2fc4baf15aa6217c4e0cda9c016d05de6",
+  "backend/tests/unit/test_geo_claims.py": "fb1547459eebbdbe8a9505348dccc494f349b8b96bb781b8da89895de5470694",
+  "backend/tests/fixtures/geo_analysis/claims-v1.json": "9505d4aecf8d2d7247472b27dd73cb0637a02ecba9fe301db2633d63d5346f56",
+  ".trellis/tasks/10-03-geo-505-claim-assessment/design.md": "06157cca26b22fc13174a38ca5e678cd776dc7642f7c0c5b4166b7c6560b1e26",
+  ".trellis/tasks/10-03-geo-505-claim-assessment/evidence/independent-review.md": "b70188a85ec52683b517e20e49f02c02a8dba057ad6cbe57696ebcfeddec6a63"
+}

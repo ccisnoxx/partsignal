@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    ".trellis/scripts/task.py",
+    "validate",
+    ".trellis/tasks/10-02-geo-308-r2-acceptance"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-03T06:39:34.631378+00:00",
+  "seconds": 0.04,
+  "log": "task-context.log"
+}

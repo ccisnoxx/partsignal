@@ -1,0 +1,11 @@
+npm --prefix browser-collector run typecheck
+
+> partsignal-browser-collector@0.1.0 typecheck
+> tsc
+
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+backend/app/services/geo_ops_logging.py:60: error: Incompatible types in assignment (expression has type "int | None", variable has type "UUID | None")  [assignment]
+backend/app/services/geo_ops_logging.py:66: error: Non-overlapping identity check (left operand type: "type[UUID]", right operand type: "type[int]")  [comparison-overlap]
+backend/app/geo_ops_health.py:44: error: Untyped decorator makes function "worker_heartbeat" untyped  [untyped-decorator]
+Found 3 errors in 2 files (checked 248 source files)
+make: *** [typecheck] Error 1

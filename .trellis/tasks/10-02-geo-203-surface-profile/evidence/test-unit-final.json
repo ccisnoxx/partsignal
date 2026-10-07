@@ -1,0 +1,6 @@
+{
+  "command": "make test-unit",
+  "exit_code": 0,
+  "seconds": 46.11,
+  "log": "test-unit-final.log"
+}

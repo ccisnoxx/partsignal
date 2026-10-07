@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "docker",
+    "compose",
+    "-f",
+    ".trellis/tasks/10-04-geo-702-opportunity-evaluation/evidence/compose.yaml",
+    "run",
+    "--rm",
+    "backend-test",
+    "pytest",
+    "tests/integration/test_geo_opportunities.py::test_lock_refreshes_preloaded_opportunity_after_other_session_appends_evidence",
+    "tests/integration/test_geo_opportunities.py::test_service_unique_fallback_uses_clock_after_raw_competitor_wins",
+    "-q"
+  ],
+  "exit_code": 1,
+  "seconds": 6.49
+}

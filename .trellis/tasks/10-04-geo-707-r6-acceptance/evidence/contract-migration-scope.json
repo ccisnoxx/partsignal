@@ -1,0 +1,9 @@
+{
+  "scope": "OpenAPI、generated schema与Alembic维护源；数据库Markdown语义变化单独记录，不包含在此不变性断言中",
+  "existing_contract_and_migration_file_count": 86,
+  "changed": [],
+  "new_revisions_or_sql": [],
+  "head": "0062_geo_opportunity_decisions",
+  "new_revision": null,
+  "historical_data_backfill": false
+}

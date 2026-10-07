@@ -1,0 +1,4 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+backend/app/services/geo_recommendation_rules.py:106: error: Need type annotation for "parts" (hint: "parts: list[<type>] = ...")  [var-annotated]
+Found 1 error in 1 file (checked 162 source files)
+make: *** [typecheck] Error 1

@@ -1,0 +1,7 @@
+{
+  "recorded_at": "2026-10-07T08:14:43.847303+00:00",
+  "status": "INVALIDATED_NOT_EXECUTED",
+  "prepared_acceptance_script": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/accept-after-fourth-delivery.py",
+  "script_sha256": "b3147798c5923175d5a6a3a1118a7e8951369ea6441adcccfd28021f35e7fd86",
+  "reason": "run37587914372 at135d801e concluded failure; its success guard remains false. No PR acceptance/Ready/main/RC action ran."
+}

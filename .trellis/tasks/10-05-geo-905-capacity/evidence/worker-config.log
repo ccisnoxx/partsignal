@@ -1,0 +1,97 @@
+ Container partsignal-dev-postgres-1 Running 
+ Container partsignal-dev-redis-1 Running 
+ Container partsignal-dev-postgres-1 Waiting 
+ Container partsignal-dev-redis-1 Waiting 
+ Container partsignal-dev-redis-1 Healthy 
+ Container partsignal-dev-postgres-1 Healthy 
+ Container partsignal-dev-backend-test-run-56ec1443b2fa Creating 
+ Container partsignal-dev-backend-test-run-56ec1443b2fa Created 
+.....FF                                                                  [100%]
+=================================== FAILURES ===================================
+_______________ test_existing_runtime_can_omit_all_geo_settings ________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_existing_runtime_can_omit0')
+
+    def test_existing_runtime_can_omit_all_geo_settings(tmp_path):
+>       check_runtime(tmp_path, dict.fromkeys([*GEO_FLAGS, *[p for p in PARAMETERS
+                                                       if p != "CELERY_CONCURRENCY"]]),
+                      "PASSED", None)
+
+tests/unit/test_geo_worker_configuration.py:39: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/sc/PycharmProjects/partsignal/backend/tests/unit/test_geo_configuration.py:135: in test_production_input_checker_preserves_safe_defaults_and_strict_boundaries
+    ???
+/Users/sc/PycharmProjects/partsignal/backend/tests/unit/test_geo_configuration.py:37: in production_configuration
+    ???
+/usr/local/lib/python3.12/pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/.env.production.example'), mode = 'r', buffering = -1
+encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/.env.production.example'
+
+/usr/local/lib/python3.12/pathlib.py:1013: FileNotFoundError
+__________ test_worker_consumes_concurrency_without_compose_override ___________
+
+    def test_worker_consumes_concurrency_without_compose_override():
+        """真实Celery consumer接受启动配置；部署命令不能再次覆盖它。"""
+        from pathlib import Path
+    
+        from celery.worker.worker import WorkController
+    
+        from app.worker import celery_app
+    
+        for concurrency in (1, 10):
+            with celery_app.connection_for_write():
+                controller = WorkController.__new__(WorkController)
+                controller.app = celery_app
+                with pytest.MonkeyPatch.context() as patch:
+                    patch.setitem(celery_app.conf, "worker_concurrency", concurrency)
+                    controller.setup_defaults()
+                    assert controller.concurrency == concurrency
+        root = Path(__file__).resolve().parents[3]
+        for name in ("dev", "staging", "prod"):
+>           assert "--concurrency" not in (root / f"deploy/compose.{name}.yaml").read_text()
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/unit/test_geo_worker_configuration.py:62: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/usr/local/lib/python3.12/pathlib.py:1027: in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = PosixPath('/deploy/compose.dev.yaml'), mode = 'r', buffering = -1
+encoding = 'locale', errors = None, newline = None
+
+    def open(self, mode='r', buffering=-1, encoding=None,
+             errors=None, newline=None):
+        """
+        Open the file pointed to by this path and return a file object, as
+        the built-in open() function does.
+        """
+        if "b" not in mode:
+            encoding = io.text_encoding(encoding)
+>       return io.open(self, mode, buffering, encoding, errors, newline)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       FileNotFoundError: [Errno 2] No such file or directory: '/deploy/compose.dev.yaml'
+
+/usr/local/lib/python3.12/pathlib.py:1013: FileNotFoundError
+=========================== short test summary info ============================
+FAILED tests/unit/test_geo_worker_configuration.py::test_existing_runtime_can_omit_all_geo_settings
+FAILED tests/unit/test_geo_worker_configuration.py::test_worker_consumes_concurrency_without_compose_override
+2 failed, 5 passed in 0.62s
+

@@ -1,0 +1,16 @@
+{
+  "name": "fourth-ci-three-e2e-fix",
+  "command": [
+    "python3",
+    "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/run-three-e2e.py"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "135d801edc9b1e8dc72dc9892897dd233404a667",
+  "dirty": true,
+  "started_at": "2026-10-07T07:54:21.890911+00:00",
+  "ended_at": "2026-10-07T07:54:22.521263+00:00",
+  "exit_code": 1,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/fourth-ci-three-e2e-fix.log",
+  "log_sha256": "14b60d09572124aa93845abaed8764a575cf4147d5b8a74639d71c9db739ba2d"
+}

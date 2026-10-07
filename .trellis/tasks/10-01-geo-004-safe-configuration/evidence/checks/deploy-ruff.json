@@ -1,0 +1,16 @@
+{
+  "command": [
+    "UV_CACHE_DIR=.cache/uv",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "ruff",
+    "check",
+    "deploy/scripts/test-geo-configuration.py",
+    "deploy/scripts/check-production-inputs.py"
+  ],
+  "exit_code": 0,
+  "result": "All checks passed!",
+  "evidence": "本会话实际工具返回；未重复执行已成功且输入未变的检查"
+}

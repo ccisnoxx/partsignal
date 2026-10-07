@@ -1,0 +1,1382 @@
+deploy/scripts/e2e-local.sh
+E2E_SECRET_REGISTRATION status=ready
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+
+> partsignal-frontend-v2@0.1.0 build
+> tsc -b && vite build --config vite.config.ts
+
+vite v8.2.1 building client environment for production...
+[2Ktransforming...✓ 2899 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                    0.57 kB │ gzip:   0.34 kB
+dist/assets/index-CJf8wn7P.css                                    79.52 kB │ gzip:  13.80 kB
+dist/assets/queryOptions-Dfvzj6n2.js                               0.03 kB │ gzip:   0.05 kB
+dist/assets/route-3YAM3tuL.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-B2aZ3QBi.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-B41ZhOLB.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-BQmWoCus.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-C5cBrTK3.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-COvhN9v6.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-CW62_yWg.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-DEzmN659.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-DQwB-ZOv.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-DYSd7FA3.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-DYSd7FA32.js                                     0.07 kB │ gzip:   0.08 kB
+dist/assets/route-DrPtIM3S.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-DsXtGSAg.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-TEQwWL7Y.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/coerce-B2ZdfpdB.js                                     0.08 kB │ gzip:   0.10 kB
+dist/assets/isElementDisabled-KSuuBj8D.js                          0.11 kB │ gzip:   0.11 kB
+dist/assets/chevron-right-qgw1vctK.js                              0.13 kB │ gzip:   0.14 kB
+dist/assets/canonical-uuid-_wH0bgbz.js                             0.13 kB │ gzip:   0.13 kB
+dist/assets/settings.ai-CipVaq6G.js                                0.21 kB │ gzip:   0.20 kB
+dist/assets/_taskId_.editor-_qjLAkbp.js                            0.22 kB │ gzip:   0.20 kB
+dist/assets/_taskId_.review-zeX8OAEE.js                            0.22 kB │ gzip:   0.20 kB
+dist/assets/route-DFljbmbX.js                                      0.22 kB │ gzip:   0.20 kB
+dist/assets/system.audit-qBeF2bb1.js                               0.22 kB │ gzip:   0.20 kB
+dist/assets/system.users-0TM8kiXu.js                               0.22 kB │ gzip:   0.20 kB
+dist/assets/settings.prompts-9jQdIs2s.js                           0.22 kB │ gzip:   0.20 kB
+dist/assets/_taskId-Vsd3-0WC.js                                    0.22 kB │ gzip:   0.21 kB
+dist/assets/settings.platforms.types-C4NjYBws.js                   0.22 kB │ gzip:   0.21 kB
+dist/assets/versions_._versionId-BW6wP3pa.js                       0.22 kB │ gzip:   0.21 kB
+dist/assets/_platformId-BeKfjBVf.js                                0.22 kB │ gzip:   0.20 kB
+dist/assets/settings.ai_._channelId-Z_MUrH5D.js                    0.22 kB │ gzip:   0.20 kB
+dist/assets/_observationId-B3QjNhkV.js                             0.23 kB │ gzip:   0.21 kB
+dist/assets/useControlled-DMK4Pb-8.js                              0.24 kB │ gzip:   0.21 kB
+dist/assets/skeleton-Ged3Zc9T.js                                   0.24 kB │ gzip:   0.20 kB
+dist/assets/table-shell-BGuXgMNH.js                                0.33 kB │ gzip:   0.24 kB
+dist/assets/usePopupHandleStore-D9Ys5NRI.js                        0.35 kB │ gzip:   0.25 kB
+dist/assets/table-toolbar-JNNhOzlg.js                              0.42 kB │ gzip:   0.27 kB
+dist/assets/route-error-Bl0menBv.js                                0.46 kB │ gzip:   0.31 kB
+dist/assets/_productId-Cu3oT6KN.js                                 0.49 kB │ gzip:   0.35 kB
+dist/assets/_productId_.facts-C-S7KVKf.js                          0.50 kB │ gzip:   0.36 kB
+dist/assets/_productId_.facts_.versions_._versionId-996oc21h.js    0.50 kB │ gzip:   0.36 kB
+dist/assets/_productId_.facts_.review-CtF33cCX.js                  0.50 kB │ gzip:   0.37 kB
+dist/assets/_observationId_.correct-2bpGD_E7.js                    0.51 kB │ gzip:   0.37 kB
+dist/assets/useCompositeItem-BGClVRCY.js                           0.54 kB │ gzip:   0.37 kB
+dist/assets/_observationId_.correct-BfMWxgNd.js                    0.58 kB │ gzip:   0.32 kB
+dist/assets/content-version.model-BVKgM5xI.js                      0.61 kB │ gzip:   0.43 kB
+dist/assets/detail-section-Dm8gVxQG.js                             0.63 kB │ gzip:   0.34 kB
+dist/assets/return-to-BzbJXkRi.js                                  0.63 kB │ gzip:   0.39 kB
+dist/assets/workbench.api-Cm9VqJUK.js                              0.71 kB │ gzip:   0.46 kB
+dist/assets/route-Do6Dxmmm.js                                      0.72 kB │ gzip:   0.50 kB
+dist/assets/textarea-CPcbKIlY.js                                   0.83 kB │ gzip:   0.43 kB
+dist/assets/table-skeleton-DhD_SVns.js                             0.94 kB │ gzip:   0.54 kB
+dist/assets/timeline-BSjJ8olh.js                                   0.94 kB │ gzip:   0.49 kB
+dist/assets/form-field-Dwoq3h4m.js                                 0.97 kB │ gzip:   0.54 kB
+dist/assets/rowSortingFeature-ACLn7Mq8.js                          1.02 kB │ gzip:   0.49 kB
+dist/assets/security-BQvhjNAp.js                                   1.08 kB │ gzip:   0.59 kB
+dist/assets/geo-observation-actions-C2i_qn8N.js                    1.09 kB │ gzip:   0.67 kB
+dist/assets/login-CLSjHkVh.js                                      1.17 kB │ gzip:   0.64 kB
+dist/assets/print-SuPbZQdp.js                                      1.20 kB │ gzip:   0.67 kB
+dist/assets/product-deletion-dialog-CytqNXfO.js                    1.20 kB │ gzip:   0.76 kB
+dist/assets/filter-bar-DqibL3G4.js                                 1.23 kB │ gzip:   0.71 kB
+dist/assets/new-BLwMm8RG.js                                        1.23 kB │ gzip:   0.71 kB
+dist/assets/form-layout-B0Bgsdpq.js                                1.29 kB │ gzip:   0.69 kB
+dist/assets/file-transfer-bcVkqTxX.js                              1.41 kB │ gzip:   0.83 kB
+dist/assets/useBaseUiId-C9V7pCeo.js                                1.42 kB │ gzip:   0.80 kB
+dist/assets/table-pagination-CgiduCIp.js                           1.48 kB │ gzip:   0.80 kB
+dist/assets/badge-DofVsWMx.js                                      1.57 kB │ gzip:   0.70 kB
+dist/assets/audit.api-B9fRjT5f.js                                  1.62 kB │ gzip:   0.76 kB
+dist/assets/sticky-action-bar-CW_ejBGI.js                          1.62 kB │ gzip:   0.86 kB
+dist/assets/versions_._versionId-CMgyuL12.js                       1.72 kB │ gzip:   0.88 kB
+dist/assets/_productId_.facts_.versions_._versionId-r6FEmuWU.js    1.77 kB │ gzip:   0.89 kB
+dist/assets/workspace-shell-BV7vfTW8.js                            1.77 kB │ gzip:   0.83 kB
+dist/assets/insights-CL02p7sb.js                                   1.78 kB │ gzip:   0.96 kB
+dist/assets/articles-v_dHKAXv.js                                   1.79 kB │ gzip:   0.95 kB
+dist/assets/_productId_.facts_.versions-BZBJ32DK.js                1.92 kB │ gzip:   1.04 kB
+dist/assets/new-lIwENVIU.js                                        1.94 kB │ gzip:   1.06 kB
+dist/assets/_articleId-ICcufbkd.js                                 1.96 kB │ gzip:   1.09 kB
+dist/assets/issues-C451U8wc.js                                     1.96 kB │ gzip:   1.03 kB
+dist/assets/settings.platforms.types-eLdp_IKN.js                   1.98 kB │ gzip:   1.00 kB
+dist/assets/_taskId-DAVAuqNw.js                                    2.00 kB │ gzip:   1.06 kB
+dist/assets/work-BUh9qeYt.js                                       2.07 kB │ gzip:   1.08 kB
+dist/assets/new-CtFPKSu-.js                                        2.08 kB │ gzip:   1.17 kB
+dist/assets/_observationId-BnBC_14q.js                             2.09 kB │ gzip:   1.08 kB
+dist/assets/_productId-C6oKwaTw.js                                 2.14 kB │ gzip:   1.11 kB
+dist/assets/platforms-CDj21Pub.js                                  2.15 kB │ gzip:   1.12 kB
+dist/assets/_taskId_.review-BNRu_ZjN.js                            2.16 kB │ gzip:   1.12 kB
+dist/assets/_productId_.facts_.review-C_zV6wu3.js                  2.17 kB │ gzip:   1.11 kB
+dist/assets/_productId_.facts-CT6P1rJa.js                          2.22 kB │ gzip:   1.15 kB
+dist/assets/tasks-Bw8POY8K.js                                      2.23 kB │ gzip:   1.15 kB
+dist/assets/observations-C5Ew_FKV.js                               2.24 kB │ gzip:   1.16 kB
+dist/assets/useRegisterFieldControl-BcstcGLC.js                    2.25 kB │ gzip:   1.07 kB
+dist/assets/_issueId-DZBYeW6y.js                                   2.27 kB │ gzip:   1.25 kB
+dist/assets/useStore-VZN0-5bO.js                                   2.27 kB │ gzip:   0.97 kB
+dist/assets/_taskId_.editor-DFcj2ZNO.js                            2.27 kB │ gzip:   1.17 kB
+dist/assets/topics-CRwJkcGF.js                                     2.30 kB │ gzip:   1.20 kB
+dist/assets/system.audit-CiFE6Db9.js                               2.31 kB │ gzip:   1.16 kB
+dist/assets/dialog-BT-m_AAF.js                                     2.33 kB │ gzip:   0.91 kB
+dist/assets/input-BctqO2IH.js                                      2.47 kB │ gzip:   1.25 kB
+dist/assets/settings.ai-C-r-ytZO.js                                2.57 kB │ gzip:   1.31 kB
+dist/assets/dirty-guard-CAZghR2z.js                                2.58 kB │ gzip:   1.23 kB
+dist/assets/prompt.api-DzGm0lBb.js                                 2.65 kB │ gzip:   1.01 kB
+dist/assets/products-Dlmn4fK-.js                                   2.69 kB │ gzip:   1.39 kB
+dist/assets/security-DVarp8FO.js                                   3.03 kB │ gzip:   1.48 kB
+dist/assets/login-CSE8FwQ6.js                                      3.04 kB │ gzip:   1.49 kB
+dist/assets/useCompositeListItem-u8lPl9Q5.js                       3.11 kB │ gzip:   1.41 kB
+dist/assets/settings.ai_._channelId-CtV9ysTT.js                    3.11 kB │ gzip:   1.55 kB
+dist/assets/sheet-BCcd9umo.js                                      3.73 kB │ gzip:   1.45 kB
+dist/assets/audit-detail-content-ID0DRxxk.js                       3.90 kB │ gzip:   1.61 kB
+dist/assets/print-CC4OSuxK.js                                      4.13 kB │ gzip:   1.66 kB
+dist/assets/product.model-CJj2pdxb.js                              4.40 kB │ gzip:   2.01 kB
+dist/assets/Match-CvdDQUn7.js                                      4.41 kB │ gzip:   1.72 kB
+dist/assets/new-fDYn-ou_.js                                        4.45 kB │ gzip:   1.95 kB
+dist/assets/_workId-BmXaUvHG.js                                    4.72 kB │ gzip:   2.42 kB
+dist/assets/settings.prompts-Dj4K3h_z.js                           4.89 kB │ gzip:   2.40 kB
+dist/assets/issues-Dn29iaT6.js                                     5.06 kB │ gzip:   2.12 kB
+dist/assets/_productId_.facts_.versions-DJ4gWMrE.js                5.23 kB │ gzip:   2.35 kB
+dist/assets/composite-fD04X5Jm.js                                  5.88 kB │ gzip:   2.28 kB
+dist/assets/articles-DvIAbO5q.js                                   5.92 kB │ gzip:   2.40 kB
+dist/assets/geo-evidence-upload-B-HOU_dI.js                        6.15 kB │ gzip:   2.67 kB
+dist/assets/client-C6dNGmfD.js                                     6.59 kB │ gzip:   2.58 kB
+dist/assets/principal-epoch-C10oPH-p.js                            6.87 kB │ gzip:   2.33 kB
+dist/assets/globalFilteringFeature-OcpEbAX6.js                     6.95 kB │ gzip:   1.98 kB
+dist/assets/_platformId-DI2zM86h.js                                7.70 kB │ gzip:   3.45 kB
+dist/assets/_app-C3MxuYtA.js                                       7.72 kB │ gzip:   2.58 kB
+dist/assets/QueryClientProvider-CWfwOWtR.js                        7.80 kB │ gzip:   3.04 kB
+dist/assets/product.api-OefW6fwS.js                                7.94 kB │ gzip:   2.60 kB
+dist/assets/_productId_.facts_.versions_._versionId-6NQDcHgr.js    8.18 kB │ gzip:   2.62 kB
+dist/assets/jsx-runtime-B-hcVAMW.js                                8.55 kB │ gzip:   3.26 kB
+dist/assets/x-XJjxulgc.js                                          8.72 kB │ gzip:   3.14 kB
+dist/assets/new-418FKHMv.js                                        8.95 kB │ gzip:   3.78 kB
+dist/assets/geo-entities-HkeijLcV.js                               8.99 kB │ gzip:   3.57 kB
+dist/assets/products-CtvPsq2E.js                                   9.21 kB │ gzip:   3.69 kB
+dist/assets/tasks-ChxVF8zH.js                                      9.23 kB │ gzip:   3.55 kB
+dist/assets/platform.api-CtEX0mSn.js                               9.71 kB │ gzip:   3.25 kB
+dist/assets/geo-insights-report-CDsRXGHt.js                       10.34 kB │ gzip:   2.88 kB
+dist/assets/versions_._versionId-B9qwAUv8.js                      12.02 kB │ gzip:   3.81 kB
+dist/assets/content-task-lifecycle-D9Zr1dJY.js                    12.47 kB │ gzip:   4.63 kB
+dist/assets/tabs-foHLDtB_.js                                      12.50 kB │ gzip:   4.72 kB
+dist/assets/system.audit-DVWf8iBi.js                              12.50 kB │ gzip:   4.37 kB
+dist/assets/observations-DQ5snDJg.js                              12.51 kB │ gzip:   4.85 kB
+dist/assets/system.users-C-fNVTzu.js                              12.83 kB │ gzip:   5.46 kB
+dist/assets/route-CX9e7UFG2.js                                    13.25 kB │ gzip:   5.04 kB
+dist/assets/insights-DFdRgov5.js                                  13.39 kB │ gzip:   4.90 kB
+dist/assets/_taskId-DLZj0Jcv.js                                   14.87 kB │ gzip:   4.63 kB
+dist/assets/content.api-nJzbAfQS.js                               14.90 kB │ gzip:   4.32 kB
+dist/assets/_productId_.facts_.review-BxsPb0DI.js                 15.83 kB │ gzip:   5.63 kB
+dist/assets/work-cpO8ia-y.js                                      15.88 kB │ gzip:   5.19 kB
+dist/assets/publication.api-CRNM6i1P.js                           16.20 kB │ gzip:   4.80 kB
+dist/assets/_articleId-VewqyMSN.js                                16.27 kB │ gzip:   5.43 kB
+dist/assets/useQuery-fTBak1Kd.js                                  16.32 kB │ gzip:   5.46 kB
+dist/assets/settings.platforms.types-BGq2p8RE.js                  16.38 kB │ gzip:   5.90 kB
+dist/assets/audit.model-BPA2_jnp.js                               16.43 kB │ gzip:   5.32 kB
+dist/assets/new-FArhBzAH.js                                       16.94 kB │ gzip:   6.04 kB
+dist/assets/platforms-Bo8kk4s8.js                                 17.03 kB │ gzip:   6.16 kB
+dist/assets/_productId_.facts-C98R1wTL.js                         17.33 kB │ gzip:   5.82 kB
+dist/assets/settings.ai-CztyHVfV.js                               17.46 kB │ gzip:   6.29 kB
+dist/assets/_taskId_.review-B4PfZ2GH.js                           17.48 kB │ gzip:   6.06 kB
+dist/assets/_productId-vK1u6zlg.js                                17.55 kB │ gzip:   5.89 kB
+dist/assets/row-actions-CiBvcosC.js                               17.90 kB │ gzip:   6.59 kB
+dist/assets/_observationId-Cwap9htN.js                            18.05 kB │ gzip:   5.76 kB
+dist/assets/auth-provider-DCft83kd.js                             18.48 kB │ gzip:   6.77 kB
+dist/assets/geo.api-CPaBHYGA.js                                   18.53 kB │ gzip:   5.93 kB
+dist/assets/_issueId-BUIJQiQ1.js                                  19.62 kB │ gzip:   6.52 kB
+dist/assets/topics-CpbL-XKz.js                                    19.94 kB │ gzip:   7.03 kB
+dist/assets/ai-channel-workspace.model-DBm3GC0a.js                20.72 kB │ gzip:   6.32 kB
+dist/assets/lazyRouteComponent-DO9cANYk.js                        24.20 kB │ gzip:   8.98 kB
+dist/assets/_observationId_.correct-DV1__wX8.js                   24.42 kB │ gzip:   8.24 kB
+dist/assets/_workId-C9ncjCiC.js                                   28.51 kB │ gzip:   8.89 kB
+dist/assets/select-D5UWFn3g.js                                    30.10 kB │ gzip:  10.91 kB
+dist/assets/settings.prompts-BYL_1rSA.js                          30.81 kB │ gzip:   9.97 kB
+dist/assets/system.users-BCn_JpLi.js                              30.96 kB │ gzip:   9.73 kB
+dist/assets/providers-C-6YA_FH.js                                 34.62 kB │ gzip:  10.34 kB
+dist/assets/icon-button-B-PGW0EJ.js                               36.26 kB │ gzip:  12.08 kB
+dist/assets/column-header-C63pI9Nv.js                             36.45 kB │ gzip:  11.43 kB
+dist/assets/ToolbarRootContext-Bl13SDVu.js                        36.62 kB │ gzip:  14.02 kB
+dist/assets/geo-entities-C2jmpI8Q.js                              36.97 kB │ gzip:  11.37 kB
+dist/assets/_taskId_.editor-Dnbk9hJj.js                           37.91 kB │ gzip:  11.54 kB
+dist/assets/_platformId-BZxRawiZ.js                               38.91 kB │ gzip:  11.58 kB
+dist/assets/createLucideIcon-D8eep5ar.js                          39.80 kB │ gzip:  14.03 kB
+dist/assets/button-BZhX1_Og.js                                    40.12 kB │ gzip:  13.54 kB
+dist/assets/zod-CS-qYe1E.js                                       40.85 kB │ gzip:  14.09 kB
+dist/assets/route-Dq6VVEDs.js                                     43.50 kB │ gzip:  15.66 kB
+dist/assets/settings.ai_._channelId-BKIRpYjc.js                   49.67 kB │ gzip:  13.68 kB
+dist/assets/schemas-B5ktV2ZU.js                                   69.76 kB │ gzip:  18.62 kB
+dist/assets/index-CBSjke5A.js                                    188.45 kB │ gzip:  60.21 kB
+dist/assets/markdown-editor-D4nhc2fI.js                          729.88 kB │ gzip: 245.01 kB
+
+✓ built in 453ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+已创建或确认管理员和内容工程师账号。
+INFO:     Started server process [27602]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:9001 (Press CTRL+C to quit)
+INFO:     Started server process [27601]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:19009 (Press CTRL+C to quit)
+  ➜  Local:   http://127.0.0.1:4174/
+INFO:     Started server process [27600]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:52145 - "GET /api/health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52148 - "GET /v1/models HTTP/1.1" 200 OK
+
+> partsignal-frontend-v2@0.1.0 e2e:raw
+> playwright test tests/e2e/ai-channel-configuration-real-stack.spec.ts tests/e2e/product-facts-real-stack.spec.ts tests/e2e/catalog-real-stack.spec.ts tests/e2e/content-ai-real-stack.spec.ts tests/e2e/content-review-real-stack.spec.ts tests/e2e/content-version-detail-real-stack.spec.ts tests/e2e/publication-workspace-real-stack.spec.ts tests/e2e/geo-real-stack.spec.ts tests/e2e/auth-session-real-stack.spec.ts tests/e2e/system-admin-real-stack.spec.ts --project=foundation-desktop
+
+
+Running 22 tests using 1 worker
+
+(node:27631) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+INFO:     127.0.0.1:52155 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52155 - "POST /api/v1/platform-prompts HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52155 - "POST /api/v1/platform-types HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52155 - "POST /api/v1/platform-profiles HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52155 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52155 - "GET /api/v1/products/b3899925-a3e9-4dfb-b96b-fb3a887fcb89/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52155 - "PUT /api/v1/products/b3899925-a3e9-4dfb-b96b-fb3a887fcb89/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52155 - "POST /api/v1/products/b3899925-a3e9-4dfb-b96b-fb3a887fcb89/fact-review-submissions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52155 - "POST /api/v1/fact-versions/6e1cad05-fa08-472d-96b1-03727bcf8ce2/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52155 - "POST /api/v1/content-tasks HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52155 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52155 - "GET /api/v1/products/48f53ab0-4481-446e-9106-41e83e8b977e/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52155 - "PUT /api/v1/products/48f53ab0-4481-446e-9106-41e83e8b977e/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52155 - "POST /api/v1/products/48f53ab0-4481-446e-9106-41e83e8b977e/fact-review-submissions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52155 - "POST /api/v1/fact-versions/088a7c77-876b-484e-874f-4303072fd1db/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52155 - "POST /api/v1/content-tasks HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52162 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/platform-prompts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/platform-prompts/40130b80-07ab-4e2a-8ec7-243af6c45c20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/platform-prompts/40130b80-07ab-4e2a-8ec7-243af6c45c20/preview-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/content-tasks?archive_status=ACTIVE&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/platform-profiles HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/content-tasks?q=CONFIG-098388ac&archive_status=ACTIVE&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/content-tasks/02c072fa-4807-444c-af21-70b805c4bd78/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/content-tasks/02c072fa-4807-444c-af21-70b805c4bd78/generation-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52165 - "OPTIONS /api/v1/ai-channels HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "POST /api/v1/ai-channels HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52165 - "OPTIONS /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "PATCH /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52155 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52155 - "PATCH /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "PATCH /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 409 Conflict
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52165 - "OPTIONS /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/headers HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "POST /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/headers HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52163 - "POST /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/headers HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52165 - "OPTIONS /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/discover-models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52166 - "GET /v1/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "POST /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/discover-models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52165 - "OPTIONS /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "POST /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/models HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "POST /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/models HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52165 - "OPTIONS /api/v1/ai-models/72077ce3-be46-4b24-8579-2ffb4e7beea9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "PATCH /api/v1/ai-models/72077ce3-be46-4b24-8579-2ffb4e7beea9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52165 - "OPTIONS /api/v1/ai-models/e4af4196-7054-420d-a1b3-d3482aaac6fe?expected_revision=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "DELETE /api/v1/ai-models/e4af4196-7054-420d-a1b3-d3482aaac6fe?expected_revision=0 HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52165 - "OPTIONS /api/v1/ai-models/72077ce3-be46-4b24-8579-2ffb4e7beea9/test HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52167 - "POST /v1/chat/completions HTTP/1.1" 400 Bad Request
+INFO:     127.0.0.1:52163 - "POST /api/v1/ai-models/72077ce3-be46-4b24-8579-2ffb4e7beea9/test HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52168 - "GET /e2e/calls/e2e-config-model-098388ac HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52165 - "OPTIONS /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/api-key HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "PUT /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/api-key HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52165 - "OPTIONS /api/v1/ai-channel-headers/d4f8f20f-e163-4580-a2d7-cc70c8fc8dae HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "PATCH /api/v1/ai-channel-headers/d4f8f20f-e163-4580-a2d7-cc70c8fc8dae HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52170 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "POST /api/v1/ai-models/72077ce3-be46-4b24-8579-2ffb4e7beea9/test HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52165 - "OPTIONS /api/v1/ai-models/72077ce3-be46-4b24-8579-2ffb4e7beea9/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "POST /api/v1/ai-models/72077ce3-be46-4b24-8579-2ffb4e7beea9/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52165 - "OPTIONS /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "POST /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/platform-prompts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/platform-prompts/40130b80-07ab-4e2a-8ec7-243af6c45c20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/platform-prompts/40130b80-07ab-4e2a-8ec7-243af6c45c20/preview-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/content-tasks?archive_status=ACTIVE&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/platform-profiles HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/content-tasks?q=CONFIG-098388ac&archive_status=ACTIVE&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/content-tasks/02c072fa-4807-444c-af21-70b805c4bd78/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/content-tasks/02c072fa-4807-444c-af21-70b805c4bd78/generation-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels?q=E2E%20%E6%9C%8D%E5%8A%A1%E7%AB%AF%E6%B8%A0%E9%81%93%20098388ac&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/usage-summary?period=30d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/platform-prompts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/platform-prompts/40130b80-07ab-4e2a-8ec7-243af6c45c20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/platform-prompts/40130b80-07ab-4e2a-8ec7-243af6c45c20/preview-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52165 - "OPTIONS /api/v1/content-tasks/2f913299-2f94-467b-81e2-2654225166a8/generation-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "POST /api/v1/content-tasks/2f913299-2f94-467b-81e2-2654225166a8/generation-jobs HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:52163 - "GET /api/v1/platform-prompts/40130b80-07ab-4e2a-8ec7-243af6c45c20/preview-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/content-tasks/2f913299-2f94-467b-81e2-2654225166a8/generation-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52174 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/content-tasks/2f913299-2f94-467b-81e2-2654225166a8/generation-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/content-versions/6219119c-43bc-4e77-84e0-c0f30d60b18f HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/platform-prompts/40130b80-07ab-4e2a-8ec7-243af6c45c20/preview-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52176 - "GET /e2e/calls/e2e-config-model-098388ac HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/content-tasks?archive_status=ACTIVE&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/platform-profiles HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/content-tasks?q=CONFIG-098388ac&archive_status=ACTIVE&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/content-tasks/02c072fa-4807-444c-af21-70b805c4bd78/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/content-tasks/02c072fa-4807-444c-af21-70b805c4bd78/generation-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52165 - "OPTIONS /api/v1/content-tasks/02c072fa-4807-444c-af21-70b805c4bd78/generation-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "POST /api/v1/content-tasks/02c072fa-4807-444c-af21-70b805c4bd78/generation-jobs HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:52177 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/content-tasks/02c072fa-4807-444c-af21-70b805c4bd78/generation-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/content-tasks/02c072fa-4807-444c-af21-70b805c4bd78/generation-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/content-tasks/02c072fa-4807-444c-af21-70b805c4bd78/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /api/v1/content-tasks/02c072fa-4807-444c-af21-70b805c4bd78/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52176 - "GET /e2e/calls/e2e-config-model-098388ac HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52176 - "GET /e2e/payloads/e2e-config-model-098388ac HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels?q=E2E%20%E6%9C%8D%E5%8A%A1%E7%AB%AF%E6%B8%A0%E9%81%93%20098388ac&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/usage-summary?period=30d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/usage-summary?period=all HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/audit-logs?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/audit-logs/842b154d-687c-4280-9361-565a40147e61 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/audit-logs?page=1&page_size=50 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52165 - "OPTIONS /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/disable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "POST /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/disable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/audit-logs?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52165 - "OPTIONS /api/v1/ai-models/72077ce3-be46-4b24-8579-2ffb4e7beea9/disable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "POST /api/v1/ai-models/72077ce3-be46-4b24-8579-2ffb4e7beea9/disable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52165 - "OPTIONS /api/v1/ai-channel-headers/40fa2050-37b8-4d3d-86e5-c44731f7e9db?expected_channel_revision=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "DELETE /api/v1/ai-channel-headers/40fa2050-37b8-4d3d-86e5-c44731f7e9db?expected_channel_revision=8 HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52165 - "OPTIONS /api/v1/ai-models/72077ce3-be46-4b24-8579-2ffb4e7beea9?expected_revision=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "DELETE /api/v1/ai-models/72077ce3-be46-4b24-8579-2ffb4e7beea9?expected_revision=8 HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52162 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52165 - "OPTIONS /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee?expected_revision=9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52163 - "DELETE /api/v1/ai-channels/ae0f558e-42cf-4c02-ac57-7046605bb3ee?expected_revision=9 HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52163 - "GET /api/v1/ai-channels?page=1&page_size=20 HTTP/1.1" 200 OK
+  ✓   1 [foundation-desktop] › tests/e2e/ai-channel-configuration-real-stack.spec.ts:206:1 › AI Channel Configuration 真实栈闭环 (15.2s)
+INFO:     127.0.0.1:52178 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52186 - "OPTIONS /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52185 - "GET /api/v1/products/9ad90594-c3b6-4fae-9f75-cb60884d47bc/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/products/9ad90594-c3b6-4fae-9f75-cb60884d47bc/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52186 - "OPTIONS /api/v1/products/9ad90594-c3b6-4fae-9f75-cb60884d47bc/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "PUT /api/v1/products/9ad90594-c3b6-4fae-9f75-cb60884d47bc/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52186 - "OPTIONS /api/v1/products/9ad90594-c3b6-4fae-9f75-cb60884d47bc/fact-review-submissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "POST /api/v1/products/9ad90594-c3b6-4fae-9f75-cb60884d47bc/fact-review-submissions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52185 - "GET /api/v1/products/9ad90594-c3b6-4fae-9f75-cb60884d47bc/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/products/9ad90594-c3b6-4fae-9f75-cb60884d47bc/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52186 - "OPTIONS /api/v1/fact-versions/55f4744f-bac9-441f-a6f8-d7099ed438a3/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "POST /api/v1/fact-versions/55f4744f-bac9-441f-a6f8-d7099ed438a3/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/products/9ad90594-c3b6-4fae-9f75-cb60884d47bc/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /api/v1/products/9ad90594-c3b6-4fae-9f75-cb60884d47bc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /api/v1/products/9ad90594-c3b6-4fae-9f75-cb60884d47bc/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /api/v1/products/9ad90594-c3b6-4fae-9f75-cb60884d47bc/fact-versions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /api/v1/products/9ad90594-c3b6-4fae-9f75-cb60884d47bc/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/geo/subjects?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52187 - "GET /api/v1/geo/subjects?page=1&page_size=10&sort=NAME_ASC&subject_type=OWN_BRAND HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/products?search=&page=1&page_size=10&sort=MODEL_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/products?search=GEO106-b1982176&page=1&page_size=10&sort=MODEL_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52186 - "OPTIONS /api/v1/geo/subjects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "POST /api/v1/geo/subjects HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52187 - "GET /api/v1/geo/subjects?page=1&page_size=10&sort=NAME_ASC&subject_type=OWN_BRAND HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/geo/subjects?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52188 - "GET /api/v1/geo/subjects/891f10ab-82f6-4ad1-9a53-f9ee52ab6a87 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52186 - "OPTIONS /api/v1/geo/subjects/891f10ab-82f6-4ad1-9a53-f9ee52ab6a87/aliases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52188 - "POST /api/v1/geo/subjects/891f10ab-82f6-4ad1-9a53-f9ee52ab6a87/aliases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52188 - "GET /api/v1/geo/subjects?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52186 - "OPTIONS /api/v1/geo/subjects/891f10ab-82f6-4ad1-9a53-f9ee52ab6a87/domains HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52188 - "POST /api/v1/geo/subjects/891f10ab-82f6-4ad1-9a53-f9ee52ab6a87/domains HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52188 - "GET /api/v1/geo/subjects?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/geo/subjects?page=1&page_size=10&sort=NAME_ASC&subject_type=OWN_BRAND HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52188 - "GET /api/v1/products?search=&page=1&page_size=10&sort=MODEL_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52188 - "POST /api/v1/geo/subjects HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52188 - "GET /api/v1/geo/subjects?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/geo/subjects/f62e8eab-1498-4e0c-bbce-adb84b336894 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52188 - "GET /api/v1/geo/subjects?page=1&page_size=10&sort=NAME_ASC&subject_type=OWN_BRAND HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/products?search=&page=1&page_size=10&sort=MODEL_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/geo/subjects?page=1&page_size=10&sort=NAME_ASC&subject_type=COMPETITOR_BRAND HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/geo/subjects?page=1&page_size=10&sort=NAME_ASC&q=%E8%99%9A%E6%9E%84%E7%AB%9E%E5%93%81%E5%93%81%E7%89%8C-b1982176&subject_type=COMPETITOR_BRAND HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "POST /api/v1/geo/subjects HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52185 - "GET /api/v1/geo/subjects?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52187 - "GET /api/v1/geo/subjects/19737030-9b0f-47d4-8b99-f5a82a7c34ea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52186 - "OPTIONS /api/v1/geo/subjects/19737030-9b0f-47d4-8b99-f5a82a7c34ea/aliases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52187 - "POST /api/v1/geo/subjects/19737030-9b0f-47d4-8b99-f5a82a7c34ea/aliases HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52187 - "GET /api/v1/geo/subjects?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52186 - "OPTIONS /api/v1/geo/subjects/19737030-9b0f-47d4-8b99-f5a82a7c34ea/domains HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52187 - "POST /api/v1/geo/subjects/19737030-9b0f-47d4-8b99-f5a82a7c34ea/domains HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52187 - "GET /api/v1/geo/subjects?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /api/v1/geo/subjects/891f10ab-82f6-4ad1-9a53-f9ee52ab6a87 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /api/v1/geo/subjects/19737030-9b0f-47d4-8b99-f5a82a7c34ea HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52187 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/geo/subjects/891f10ab-82f6-4ad1-9a53-f9ee52ab6a87 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52187 - "GET /api/v1/geo/subjects?page=1&page_size=20&sort=NAME_ASC&q=GEO106-b1982176 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52187 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/geo/subjects/891f10ab-82f6-4ad1-9a53-f9ee52ab6a87 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52187 - "GET /api/v1/geo/subjects?page=1&page_size=20&sort=NAME_ASC&q=GEO106-b1982176 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52187 - "GET /api/v1/geo/subjects?page=1&page_size=20&sort=NAME_ASC&q=PS-b1982176 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52187 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/geo/subjects/891f10ab-82f6-4ad1-9a53-f9ee52ab6a87 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52187 - "GET /api/v1/geo/subjects?page=1&page_size=20&sort=NAME_ASC&q=PS-b1982176 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52185 - "GET /api/v1/geo/subjects?page=1&page_size=10&sort=NAME_ASC&subject_type=OWN_BRAND HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52187 - "GET /api/v1/products?search=&page=1&page_size=10&sort=MODEL_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52187 - "GET /api/v1/products?search=GEO106-b1982176&page=1&page_size=10&sort=MODEL_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52187 - "POST /api/v1/geo/subjects HTTP/1.1" 409 Conflict
+INFO:     127.0.0.1:52178 - "GET /api/v1/geo/subjects?product_id=9ad90594-c3b6-4fae-9f75-cb60884d47bc&is_active=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /api/v1/products/9ad90594-c3b6-4fae-9f75-cb60884d47bc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /api/v1/products/9ad90594-c3b6-4fae-9f75-cb60884d47bc/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /api/v1/products/9ad90594-c3b6-4fae-9f75-cb60884d47bc/fact-versions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /api/v1/products/9ad90594-c3b6-4fae-9f75-cb60884d47bc/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /api/v1/products/9ad90594-c3b6-4fae-9f75-cb60884d47bc HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "POST /api/v1/users HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52178 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "POST /api/v1/auth/change-password HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52197 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52198 - "GET /api/v1/geo/subjects/891f10ab-82f6-4ad1-9a53-f9ee52ab6a87 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52197 - "GET /api/v1/geo/subjects?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52197 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52197 - "GET /api/v1/geo/subjects?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+  ✓   2 [foundation-desktop] › tests/e2e/catalog-real-stack.spec.ts:50:1 › 从已批准事实的 Product 建立唯一监测身份、竞品和字典，刷新及 ENGINEER 只读 (5.3s)
+INFO:     127.0.0.1:52178 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "POST /api/v1/platform-prompts HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52178 - "POST /api/v1/platform-types HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52178 - "POST /api/v1/platform-profiles HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52178 - "GET /api/v1/content-humanization-prompt HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52178 - "PUT /api/v1/content-humanization-prompt HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "POST /api/v1/ai-channels HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52178 - "POST /api/v1/ai-channels/296e1cdb-4158-4089-9790-0c8c8edd15db/headers HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52178 - "POST /api/v1/ai-channels/296e1cdb-4158-4089-9790-0c8c8edd15db/headers HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52178 - "POST /api/v1/ai-channels/296e1cdb-4158-4089-9790-0c8c8edd15db/models HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52199 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "POST /api/v1/ai-models/90687bac-c66e-4df2-bbfa-6736fb2b67f0/test HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "POST /api/v1/ai-models/90687bac-c66e-4df2-bbfa-6736fb2b67f0/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "POST /api/v1/ai-channels/296e1cdb-4158-4089-9790-0c8c8edd15db/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "POST /api/v1/ai-channels HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52178 - "POST /api/v1/ai-channels/80e8ce08-0228-4148-ab9f-7d6438bc6ab5/headers HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52178 - "POST /api/v1/ai-channels/80e8ce08-0228-4148-ab9f-7d6438bc6ab5/headers HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52178 - "POST /api/v1/ai-channels/80e8ce08-0228-4148-ab9f-7d6438bc6ab5/models HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52200 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "POST /api/v1/ai-models/21de99d2-973d-427d-a40f-ad98828f62c1/test HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "POST /api/v1/ai-models/21de99d2-973d-427d-a40f-ad98828f62c1/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "POST /api/v1/ai-channels/80e8ce08-0228-4148-ab9f-7d6438bc6ab5/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52207 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52208 - "OPTIONS /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52207 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52207 - "GET /api/v1/products/55df4618-3fc8-49e0-8233-1fe2642ed5a3/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52207 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52207 - "GET /api/v1/products/55df4618-3fc8-49e0-8233-1fe2642ed5a3/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52208 - "OPTIONS /api/v1/products/55df4618-3fc8-49e0-8233-1fe2642ed5a3/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52207 - "PUT /api/v1/products/55df4618-3fc8-49e0-8233-1fe2642ed5a3/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52208 - "OPTIONS /api/v1/products/55df4618-3fc8-49e0-8233-1fe2642ed5a3/fact-review-submissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/products?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/products?page=1&page_size=20&search=AI-V2-9c1c3a8e&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/products/55df4618-3fc8-49e0-8233-1fe2642ed5a3/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52208 - "OPTIONS /api/v1/fact-versions/a1f30e40-f4dd-4faf-86dd-37ef26cc7d96/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "POST /api/v1/fact-versions/a1f30e40-f4dd-4faf-86dd-37ef26cc7d96/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/products/55df4618-3fc8-49e0-8233-1fe2642ed5a3/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/products/55df4618-3fc8-49e0-8233-1fe2642ed5a3/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/creation-options?requested_product_id=55df4618-3fc8-49e0-8233-1fe2642ed5a3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52208 - "OPTIONS /api/v1/content-tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "POST /api/v1/content-tasks HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/be40d70e-b1a5-4a13-9df5-2cfaa958451f/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/be40d70e-b1a5-4a13-9df5-2cfaa958451f/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/be40d70e-b1a5-4a13-9df5-2cfaa958451f/generation-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52208 - "OPTIONS /api/v1/content-tasks/be40d70e-b1a5-4a13-9df5-2cfaa958451f/generation-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "POST /api/v1/content-tasks/be40d70e-b1a5-4a13-9df5-2cfaa958451f/generation-jobs HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:52210 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/be40d70e-b1a5-4a13-9df5-2cfaa958451f/generation-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/be40d70e-b1a5-4a13-9df5-2cfaa958451f/generation-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/be40d70e-b1a5-4a13-9df5-2cfaa958451f/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /api/v1/content-tasks/be40d70e-b1a5-4a13-9df5-2cfaa958451f/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /api/v1/content-versions/82a69d4c-8328-4743-b55a-ff5bcfc0a676 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/be40d70e-b1a5-4a13-9df5-2cfaa958451f/generation-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52208 - "OPTIONS /api/v1/content-versions/82a69d4c-8328-4743-b55a-ff5bcfc0a676/humanization-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "POST /api/v1/content-versions/82a69d4c-8328-4743-b55a-ff5bcfc0a676/humanization-jobs HTTP/1.1" 202 Accepted
+{"event":"E2E_HUMANIZATION_RESPONSE","job_id":"503b78c6-86bc-45b3-8861-52a89ffddfce","request_id":"4db7c5e0-3a9b-4737-817d-7d02cda7f42a","status":"PENDING"}
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/be40d70e-b1a5-4a13-9df5-2cfaa958451f/generation-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52211 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/be40d70e-b1a5-4a13-9df5-2cfaa958451f/generation-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/be40d70e-b1a5-4a13-9df5-2cfaa958451f/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /api/v1/content-tasks/be40d70e-b1a5-4a13-9df5-2cfaa958451f/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /api/v1/generation-jobs/503b78c6-86bc-45b3-8861-52a89ffddfce HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52178 - "GET /api/v1/content-versions/82a69d4c-8328-4743-b55a-ff5bcfc0a676 HTTP/1.1" 200 OK
+{"attempt_count":1,"content_version_id":"23fbcd5d-9e00-4ca4-95d0-da4738906b49","event":"E2E_HUMANIZATION_TERMINAL","finished_at":"2026-10-02T11:11:47.307974Z","job_id":"503b78c6-86bc-45b3-8861-52a89ffddfce","provider_request_id":"e2e-provider-request","started_at":"2026-10-02T11:11:47.289604Z","status":"SUCCEEDED"}
+INFO:     127.0.0.1:52209 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/products/55df4618-3fc8-49e0-8233-1fe2642ed5a3/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/creation-options?requested_product_id=55df4618-3fc8-49e0-8233-1fe2642ed5a3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "POST /api/v1/content-tasks HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/b4f8f4b3-3db6-4882-9cfb-1592474312fc/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/b4f8f4b3-3db6-4882-9cfb-1592474312fc/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/b4f8f4b3-3db6-4882-9cfb-1592474312fc/generation-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52208 - "OPTIONS /api/v1/content-tasks/b4f8f4b3-3db6-4882-9cfb-1592474312fc/generation-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "POST /api/v1/content-tasks/b4f8f4b3-3db6-4882-9cfb-1592474312fc/generation-jobs HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/b4f8f4b3-3db6-4882-9cfb-1592474312fc/generation-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/b4f8f4b3-3db6-4882-9cfb-1592474312fc/generation-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/b4f8f4b3-3db6-4882-9cfb-1592474312fc/generation-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/b4f8f4b3-3db6-4882-9cfb-1592474312fc/generation-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/b4f8f4b3-3db6-4882-9cfb-1592474312fc/generation-jobs HTTP/1.1" 200 OK
+[2026-10-02 04:12:01,058: ERROR/MainProcess] AI 作业失败 job_id=aff8261d-0449-4e8c-b7cd-ddccfab02bd9 job_type=GENERATE source_content_version_id=None status=FAILED error_code=AI_PROVIDER_TIMEOUT error_type=AppError
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/b4f8f4b3-3db6-4882-9cfb-1592474312fc/generation-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/b4f8f4b3-3db6-4882-9cfb-1592474312fc/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "GET /api/v1/content-tasks/b4f8f4b3-3db6-4882-9cfb-1592474312fc/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "GET /api/v1/generation-jobs/aff8261d-0449-4e8c-b7cd-ddccfab02bd9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/generation-jobs/aff8261d-0449-4e8c-b7cd-ddccfab02bd9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "PUT /api/v1/ai-channels/80e8ce08-0228-4148-ab9f-7d6438bc6ab5/api-key HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "PATCH /api/v1/ai-channel-headers/a71315ac-6418-4ef6-9b47-0a872ab42d5c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52222 - "GET /api/v1/ai-channels/80e8ce08-0228-4148-ab9f-7d6438bc6ab5/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52223 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "POST /api/v1/ai-models/21de99d2-973d-427d-a40f-ad98828f62c1/test HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "POST /api/v1/ai-models/21de99d2-973d-427d-a40f-ad98828f62c1/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "POST /api/v1/ai-channels/80e8ce08-0228-4148-ab9f-7d6438bc6ab5/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52230 - "OPTIONS /api/v1/generation-jobs/aff8261d-0449-4e8c-b7cd-ddccfab02bd9/retry HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "POST /api/v1/generation-jobs/aff8261d-0449-4e8c-b7cd-ddccfab02bd9/retry HTTP/1.1" 202 Accepted
+INFO:     127.0.0.1:52231 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/b4f8f4b3-3db6-4882-9cfb-1592474312fc/generation-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/b4f8f4b3-3db6-4882-9cfb-1592474312fc/generation-jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/v1/content-tasks/b4f8f4b3-3db6-4882-9cfb-1592474312fc/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "GET /api/v1/content-tasks/b4f8f4b3-3db6-4882-9cfb-1592474312fc/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "GET /api/v1/generation-jobs/b597cd5f-be8c-49fa-93ac-f1c9ba11f006 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52232 - "GET /e2e/calls/e2e-timeout-model-9c1c3a8e HTTP/1.1" 200 OK
+  ✓   3 [foundation-desktop] › tests/e2e/content-ai-real-stack.spec.ts:269:1 › AI Production：成功、自然化、失败详情与 exact snapshot retry (22.6s)
+INFO:     127.0.0.1:52220 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "POST /api/v1/platform-types HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52220 - "POST /api/v1/platform-profiles HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52239 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52240 - "OPTIONS /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52239 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52239 - "GET /api/v1/products/6c8b8390-e0b3-4069-bab4-033d9220e36e/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52239 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52239 - "GET /api/v1/products/6c8b8390-e0b3-4069-bab4-033d9220e36e/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52240 - "OPTIONS /api/v1/products/6c8b8390-e0b3-4069-bab4-033d9220e36e/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52239 - "PUT /api/v1/products/6c8b8390-e0b3-4069-bab4-033d9220e36e/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52240 - "OPTIONS /api/v1/products/6c8b8390-e0b3-4069-bab4-033d9220e36e/fact-review-submissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/products?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/products?page=1&page_size=20&search=CR-c67636f8&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/products/6c8b8390-e0b3-4069-bab4-033d9220e36e/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52240 - "OPTIONS /api/v1/fact-versions/0c2c1973-020e-4df6-936c-d6545b740241/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "POST /api/v1/fact-versions/0c2c1973-020e-4df6-936c-d6545b740241/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/products/6c8b8390-e0b3-4069-bab4-033d9220e36e/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/products/6c8b8390-e0b3-4069-bab4-033d9220e36e/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/content-tasks/creation-options?requested_product_id=6c8b8390-e0b3-4069-bab4-033d9220e36e HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52240 - "OPTIONS /api/v1/content-tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "POST /api/v1/content-tasks HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52241 - "GET /api/v1/content-tasks/d3f90abb-8aa2-46c5-b1b9-fa5fca6d22a3/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/content-tasks/d3f90abb-8aa2-46c5-b1b9-fa5fca6d22a3/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52240 - "OPTIONS /api/v1/content-tasks/d3f90abb-8aa2-46c5-b1b9-fa5fca6d22a3/manual-versions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "POST /api/v1/content-tasks/d3f90abb-8aa2-46c5-b1b9-fa5fca6d22a3/manual-versions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52241 - "GET /api/v1/content-tasks/d3f90abb-8aa2-46c5-b1b9-fa5fca6d22a3/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52240 - "OPTIONS /api/v1/content-versions/d51738e4-66d3-492e-bb5d-ec61659dc3fb HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "PUT /api/v1/content-versions/d51738e4-66d3-492e-bb5d-ec61659dc3fb HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/content-tasks/d3f90abb-8aa2-46c5-b1b9-fa5fca6d22a3/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52240 - "OPTIONS /api/v1/content-versions/d51738e4-66d3-492e-bb5d-ec61659dc3fb/submit-review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "POST /api/v1/content-versions/d51738e4-66d3-492e-bb5d-ec61659dc3fb/submit-review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/content-tasks/d3f90abb-8aa2-46c5-b1b9-fa5fca6d22a3/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/content-tasks/d3f90abb-8aa2-46c5-b1b9-fa5fca6d22a3/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/content-tasks/d3f90abb-8aa2-46c5-b1b9-fa5fca6d22a3/review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/content-tasks/d3f90abb-8aa2-46c5-b1b9-fa5fca6d22a3/review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "GET /api/v1/content-tasks/d3f90abb-8aa2-46c5-b1b9-fa5fca6d22a3/review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52240 - "OPTIONS /api/v1/content-versions/d51738e4-66d3-492e-bb5d-ec61659dc3fb/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "POST /api/v1/content-versions/d51738e4-66d3-492e-bb5d-ec61659dc3fb/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/content-tasks/d3f90abb-8aa2-46c5-b1b9-fa5fca6d22a3/review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "GET /api/v1/content-tasks/d3f90abb-8aa2-46c5-b1b9-fa5fca6d22a3/review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/content-tasks/d3f90abb-8aa2-46c5-b1b9-fa5fca6d22a3/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "GET /api/v1/content-tasks/d3f90abb-8aa2-46c5-b1b9-fa5fca6d22a3/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52241 - "GET /api/v1/content-versions/d51738e4-66d3-492e-bb5d-ec61659dc3fb/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "GET /api/v1/content-versions/d51738e4-66d3-492e-bb5d-ec61659dc3fb/detail HTTP/1.1" 200 OK
+  ✓   4 [foundation-desktop] › tests/e2e/content-review-real-stack.spec.ts:200:1 › Flow A：人工内容批准后进入只读版本并出现发布交接 (3.7s)
+INFO:     127.0.0.1:52220 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "POST /api/v1/platform-types HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52220 - "POST /api/v1/platform-profiles HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52249 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52250 - "OPTIONS /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52249 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52249 - "GET /api/v1/products/8cbbb9f6-81f3-4305-b63f-c0b6effb4658/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52249 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52249 - "GET /api/v1/products/8cbbb9f6-81f3-4305-b63f-c0b6effb4658/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52250 - "OPTIONS /api/v1/products/8cbbb9f6-81f3-4305-b63f-c0b6effb4658/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52249 - "PUT /api/v1/products/8cbbb9f6-81f3-4305-b63f-c0b6effb4658/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52250 - "OPTIONS /api/v1/products/8cbbb9f6-81f3-4305-b63f-c0b6effb4658/fact-review-submissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/products?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/products?page=1&page_size=20&search=CR-bed074f8&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/products/8cbbb9f6-81f3-4305-b63f-c0b6effb4658/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52250 - "OPTIONS /api/v1/fact-versions/b174f92a-36bc-41d1-98cf-035ddecdbddf/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "POST /api/v1/fact-versions/b174f92a-36bc-41d1-98cf-035ddecdbddf/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/products/8cbbb9f6-81f3-4305-b63f-c0b6effb4658/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/products/8cbbb9f6-81f3-4305-b63f-c0b6effb4658/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/content-tasks/creation-options?requested_product_id=8cbbb9f6-81f3-4305-b63f-c0b6effb4658 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52250 - "OPTIONS /api/v1/content-tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "POST /api/v1/content-tasks HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52251 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52250 - "OPTIONS /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/manual-versions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "POST /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/manual-versions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52251 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52250 - "OPTIONS /api/v1/content-versions/c902e078-4345-4cde-8bec-bff3ddc4c899 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "PUT /api/v1/content-versions/c902e078-4345-4cde-8bec-bff3ddc4c899 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52250 - "OPTIONS /api/v1/content-versions/c902e078-4345-4cde-8bec-bff3ddc4c899/submit-review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "POST /api/v1/content-versions/c902e078-4345-4cde-8bec-bff3ddc4c899/submit-review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52250 - "OPTIONS /api/v1/content-versions/c902e078-4345-4cde-8bec-bff3ddc4c899/request-changes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "POST /api/v1/content-versions/c902e078-4345-4cde-8bec-bff3ddc4c899/request-changes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52250 - "OPTIONS /api/v1/content-versions/c902e078-4345-4cde-8bec-bff3ddc4c899/revisions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "POST /api/v1/content-versions/c902e078-4345-4cde-8bec-bff3ddc4c899/revisions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52251 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52250 - "OPTIONS /api/v1/content-versions/4c52cd98-2a1e-4ab4-9ea7-53d3f11ecfec HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "PUT /api/v1/content-versions/4c52cd98-2a1e-4ab4-9ea7-53d3f11ecfec HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52250 - "OPTIONS /api/v1/content-versions/4c52cd98-2a1e-4ab4-9ea7-53d3f11ecfec/submit-review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "POST /api/v1/content-versions/4c52cd98-2a1e-4ab4-9ea7-53d3f11ecfec/submit-review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52250 - "OPTIONS /api/v1/content-versions/4c52cd98-2a1e-4ab4-9ea7-53d3f11ecfec/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "POST /api/v1/content-versions/4c52cd98-2a1e-4ab4-9ea7-53d3f11ecfec/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52251 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "GET /api/v1/content-tasks/13a48b2c-ba81-4b2b-80d0-08260d635bce/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "GET /api/v1/content-versions/c902e078-4345-4cde-8bec-bff3ddc4c899/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52252 - "GET /api/v1/content-versions/4c52cd98-2a1e-4ab4-9ea7-53d3f11ecfec/detail HTTP/1.1" 200 OK
+  ✓   5 [foundation-desktop] › tests/e2e/content-review-real-stack.spec.ts:293:1 › Flow B：退回后创建 HUMAN revision，重新送审批准且历史不串线 (4.2s)
+INFO:     127.0.0.1:52252 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52252 - "POST /api/v1/platform-types HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52252 - "POST /api/v1/platform-profiles HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52252 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52252 - "GET /api/v1/products/2f120346-4fb2-4ef0-b831-9b0b90862931/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52252 - "PUT /api/v1/products/2f120346-4fb2-4ef0-b831-9b0b90862931/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52252 - "POST /api/v1/products/2f120346-4fb2-4ef0-b831-9b0b90862931/fact-review-submissions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52252 - "POST /api/v1/fact-versions/ddd6e97a-fb3f-4a52-b47d-9a700738c151/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52252 - "POST /api/v1/content-tasks HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52252 - "POST /api/v1/content-tasks/3c4c680c-3e1c-4c73-99ec-8103a388f5f5/manual-versions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52259 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52259 - "GET /api/v1/content-versions/c206fd9e-31e4-4e72-8f09-2af9c1836e22/detail HTTP/1.1" 200 OK
+  ✓   6 [foundation-desktop] › tests/e2e/content-version-detail-real-stack.spec.ts:135:1 › 独立真实栈：单一 detail GET 读取 HUMAN 当前版本且页面无写入口 (263ms)
+INFO:     127.0.0.1:52252 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52252 - "POST /api/v1/platform-types HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52252 - "POST /api/v1/platform-profiles HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52252 - "POST /api/v1/platform-accounts HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52252 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52252 - "GET /api/v1/products/91c74f0e-0fff-48e7-a111-d65c086f37c4/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52252 - "PUT /api/v1/products/91c74f0e-0fff-48e7-a111-d65c086f37c4/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52252 - "POST /api/v1/products/91c74f0e-0fff-48e7-a111-d65c086f37c4/fact-review-submissions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52252 - "POST /api/v1/fact-versions/0ecb2e9e-5810-4172-b5b6-6973e32ab855/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52252 - "POST /api/v1/content-tasks HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52252 - "POST /api/v1/content-tasks/06e31450-a170-453c-9daf-ea213b230c3e/manual-versions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52252 - "POST /api/v1/content-versions/59f4de05-eb36-4dca-8a46-4524240d4b95/submit-review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52252 - "POST /api/v1/content-versions/59f4de05-eb36-4dca-8a46-4524240d4b95/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52252 - "POST /api/v1/publication-works HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52252 - "PUT /api/v1/publication-works/fc1079f7-b1f4-46b0-802f-023d13b049bf/result HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52252 - "POST /api/v1/publication-works/fc1079f7-b1f4-46b0-802f-023d13b049bf/verifications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52252 - "GET /api/v1/published-articles/fc1079f7-b1f4-46b0-802f-023d13b049bf HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52252 - "POST /api/v1/query-topics HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52266 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52266 - "GET /api/v1/products?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52267 - "GET /api/v1/query-topics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52267 - "GET /api/v1/products?page=1&page_size=20&search=GEO-91bb58b6&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52267 - "GET /api/v1/geo-observation-publications?product_id=91c74f0e-0fff-48e7-a111-d65c086f37c4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52268 - "OPTIONS /api/v1/files/upload-intents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52267 - "POST /api/v1/files/upload-intents HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52268 - "OPTIONS /api/v1/files/e91a778d-b005-49e4-90f1-5e3fe610b049/content HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52267 - "PUT /api/v1/files/e91a778d-b005-49e4-90f1-5e3fe610b049/content HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52268 - "OPTIONS /api/v1/files/e91a778d-b005-49e4-90f1-5e3fe610b049/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52267 - "POST /api/v1/files/e91a778d-b005-49e4-90f1-5e3fe610b049/complete HTTP/1.1" 200 OK
+  ✘   7 [foundation-desktop] › tests/e2e/geo-real-stack.spec.ts:327:1 › Flow A：新建 Observation 后追加 Correction，原记录保持不可变 (1.8s)
+(node:27693) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+INFO:     127.0.0.1:52271 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/platform-types HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/platform-profiles HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/platform-accounts HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "GET /api/v1/products/d06df62e-3115-465c-837c-c8568d123b5d/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "PUT /api/v1/products/d06df62e-3115-465c-837c-c8568d123b5d/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/products/d06df62e-3115-465c-837c-c8568d123b5d/fact-review-submissions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/fact-versions/12cf096c-e308-403c-8204-8ccb7744d96c/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/content-tasks HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/content-tasks/408d0b4c-e0e4-468d-93f9-85e6fabe3895/manual-versions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/content-versions/d16eb948-b678-4911-a087-493079a6ac7f/submit-review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/content-versions/d16eb948-b678-4911-a087-493079a6ac7f/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/publication-works HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "PUT /api/v1/publication-works/1749f63a-5fb3-4e0f-8fb6-1176443b2191/result HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/publication-works/1749f63a-5fb3-4e0f-8fb6-1176443b2191/verifications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "GET /api/v1/published-articles/1749f63a-5fb3-4e0f-8fb6-1176443b2191 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/query-topics HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/geo-observations HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/geo-observations HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/geo-observations HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/geo-observations HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/geo-observations HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/geo-observations HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52278 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52278 - "GET /api/v1/geo-insights?date_from=2026-07-01&date_to=2026-07-31&product_id=d06df62e-3115-465c-837c-c8568d123b5d&content_platform_id=a7fdcc25-f09d-4b6c-967d-a2273671bd4a&published_article_id=1749f63a-5fb3-4e0f-8fb6-1176443b2191 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52278 - "GET /api/v1/content-tasks/creation-options?requested_product_id=d06df62e-3115-465c-837c-c8568d123b5d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52279 - "OPTIONS /api/v1/geo-insights/optimization-content-tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52278 - "POST /api/v1/geo-insights/optimization-content-tasks HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52278 - "GET /api/v1/geo-insights?date_from=2026-07-01&date_to=2026-07-31&product_id=d06df62e-3115-465c-837c-c8568d123b5d&content_platform_id=a7fdcc25-f09d-4b6c-967d-a2273671bd4a&published_article_id=1749f63a-5fb3-4e0f-8fb6-1176443b2191 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52280 - "GET /api/v1/content-tasks/cf818494-c39f-4727-ba89-474c638fd4b4/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "GET /api/v1/content-tasks/cf818494-c39f-4727-ba89-474c638fd4b4/detail HTTP/1.1" 200 OK
+  ✓   8 [foundation-desktop] › tests/e2e/geo-real-stack.spec.ts:542:1 › Flow B：真实 Insights 复算异常并创建带不可变 GEO 来源的优化任务 (1.0s)
+INFO:     127.0.0.1:52271 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/platform-types HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/platform-profiles HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52287 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52288 - "OPTIONS /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52287 - "GET /api/v1/products/32345e45-a76a-4e3a-8ed3-d6f23f89d903/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "GET /api/v1/products/32345e45-a76a-4e3a-8ed3-d6f23f89d903/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52288 - "OPTIONS /api/v1/products/32345e45-a76a-4e3a-8ed3-d6f23f89d903/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "PUT /api/v1/products/32345e45-a76a-4e3a-8ed3-d6f23f89d903/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52288 - "OPTIONS /api/v1/products/32345e45-a76a-4e3a-8ed3-d6f23f89d903/fact-review-submissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "POST /api/v1/products/32345e45-a76a-4e3a-8ed3-d6f23f89d903/fact-review-submissions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52287 - "GET /api/v1/products/32345e45-a76a-4e3a-8ed3-d6f23f89d903/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "GET /api/v1/products/32345e45-a76a-4e3a-8ed3-d6f23f89d903/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52288 - "OPTIONS /api/v1/fact-versions/3dc6823f-643c-4b3b-81c2-b2d4020e3697/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "POST /api/v1/fact-versions/3dc6823f-643c-4b3b-81c2-b2d4020e3697/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "GET /api/v1/products/32345e45-a76a-4e3a-8ed3-d6f23f89d903/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "GET /api/v1/products?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "GET /api/v1/products?page=1&page_size=20&search=PF-A-3843687c&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "GET /api/v1/products/32345e45-a76a-4e3a-8ed3-d6f23f89d903/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "GET /api/v1/products/32345e45-a76a-4e3a-8ed3-d6f23f89d903/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "GET /api/v1/content-tasks/creation-options?requested_product_id=32345e45-a76a-4e3a-8ed3-d6f23f89d903 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52288 - "OPTIONS /api/v1/content-tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "POST /api/v1/content-tasks HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52287 - "GET /api/v1/content-tasks/cda5319c-2f2a-49c3-8f43-15825b5af925/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "GET /api/v1/products?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "GET /api/v1/products?page=1&page_size=20&search=PF-A-3843687c&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "GET /api/v1/products/32345e45-a76a-4e3a-8ed3-d6f23f89d903/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52287 - "GET /api/v1/fact-versions/3dc6823f-643c-4b3b-81c2-b2d4020e3697 HTTP/1.1" 200 OK
+  ✓   9 [foundation-desktop] › tests/e2e/product-facts-real-stack.spec.ts:134:1 › Flow A：批准事实后展示不可变版本并交接 CREATE_CONTENT_TASK (2.5s)
+INFO:     127.0.0.1:52271 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52296 - "OPTIONS /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52295 - "GET /api/v1/products/e7b8ea01-3999-4d38-9692-bae237604d41/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/products/e7b8ea01-3999-4d38-9692-bae237604d41/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52296 - "OPTIONS /api/v1/products/e7b8ea01-3999-4d38-9692-bae237604d41/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "PUT /api/v1/products/e7b8ea01-3999-4d38-9692-bae237604d41/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52296 - "OPTIONS /api/v1/products/e7b8ea01-3999-4d38-9692-bae237604d41/fact-review-submissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "POST /api/v1/products/e7b8ea01-3999-4d38-9692-bae237604d41/fact-review-submissions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52295 - "GET /api/v1/products/e7b8ea01-3999-4d38-9692-bae237604d41/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/products?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/products?page=1&page_size=20&search=PF-B-a519c2c8&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/products/e7b8ea01-3999-4d38-9692-bae237604d41/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52296 - "OPTIONS /api/v1/fact-versions/0735282e-6375-46a1-ab0c-b99bf1b6575c/request-changes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "POST /api/v1/fact-versions/0735282e-6375-46a1-ab0c-b99bf1b6575c/request-changes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/products/e7b8ea01-3999-4d38-9692-bae237604d41/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/products?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/products?page=1&page_size=20&search=PF-B-a519c2c8&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/products/e7b8ea01-3999-4d38-9692-bae237604d41/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "PUT /api/v1/products/e7b8ea01-3999-4d38-9692-bae237604d41/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "POST /api/v1/products/e7b8ea01-3999-4d38-9692-bae237604d41/fact-review-submissions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52295 - "GET /api/v1/products/e7b8ea01-3999-4d38-9692-bae237604d41/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/products?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/products?page=1&page_size=20&search=PF-B-a519c2c8&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/products/e7b8ea01-3999-4d38-9692-bae237604d41/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52296 - "OPTIONS /api/v1/fact-versions/a7d90b93-04c2-48e8-a245-c7c955cde6f1/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "POST /api/v1/fact-versions/a7d90b93-04c2-48e8-a245-c7c955cde6f1/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/products/e7b8ea01-3999-4d38-9692-bae237604d41/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "GET /api/v1/products/e7b8ea01-3999-4d38-9692-bae237604d41/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/products?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/products?page=1&page_size=20&search=PF-B-a519c2c8&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/products/e7b8ea01-3999-4d38-9692-bae237604d41/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/products/e7b8ea01-3999-4d38-9692-bae237604d41/fact-history?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52295 - "GET /api/v1/fact-versions/a7d90b93-04c2-48e8-a245-c7c955cde6f1 HTTP/1.1" 200 OK
+  ✓  10 [foundation-desktop] › tests/e2e/product-facts-real-stack.spec.ts:231:1 › Flow B：退回后修订产生新版本，审核历史严格归属当前 FactVersion (2.6s)
+INFO:     127.0.0.1:52271 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52305 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52306 - "OPTIONS /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52305 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52305 - "GET /api/v1/products/3d0d0ff6-03bb-41f3-973a-e33203c3bcdd/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52305 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52305 - "GET /api/v1/products/3d0d0ff6-03bb-41f3-973a-e33203c3bcdd/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52306 - "OPTIONS /api/v1/products/3d0d0ff6-03bb-41f3-973a-e33203c3bcdd/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52305 - "PUT /api/v1/products/3d0d0ff6-03bb-41f3-973a-e33203c3bcdd/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52306 - "OPTIONS /api/v1/products/3d0d0ff6-03bb-41f3-973a-e33203c3bcdd/fact-review-submissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52305 - "POST /api/v1/products/3d0d0ff6-03bb-41f3-973a-e33203c3bcdd/fact-review-submissions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52305 - "GET /api/v1/products/3d0d0ff6-03bb-41f3-973a-e33203c3bcdd/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52305 - "GET /api/v1/products?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52305 - "GET /api/v1/products?page=1&page_size=20&search=PF-D-2d30dfed&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52305 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52305 - "GET /api/v1/products/3d0d0ff6-03bb-41f3-973a-e33203c3bcdd/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "GET /api/v1/products/3d0d0ff6-03bb-41f3-973a-e33203c3bcdd/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/fact-versions/cd443996-b355-4a37-ae4a-240ae72cc808/request-changes HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52306 - "OPTIONS /api/v1/fact-versions/cd443996-b355-4a37-ae4a-240ae72cc808/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52305 - "POST /api/v1/fact-versions/cd443996-b355-4a37-ae4a-240ae72cc808/approve HTTP/1.1" 409 Conflict
+INFO:     127.0.0.1:52305 - "GET /api/v1/products/3d0d0ff6-03bb-41f3-973a-e33203c3bcdd/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "GET /api/v1/products/3d0d0ff6-03bb-41f3-973a-e33203c3bcdd/fact-review-context HTTP/1.1" 200 OK
+  ✓  11 [foundation-desktop] › tests/e2e/product-facts-real-stack.spec.ts:319:1 › Flow D：过期 revision 真实返回 409，不重放并保留服务端最新状态 (1.3s)
+INFO:     127.0.0.1:52271 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/platform-types HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/platform-profiles HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52313 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52314 - "OPTIONS /api/v1/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52313 - "GET /api/v1/products/5db65c73-f70d-45b5-b273-30db6d568ead/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "GET /api/v1/products/5db65c73-f70d-45b5-b273-30db6d568ead/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52314 - "OPTIONS /api/v1/products/5db65c73-f70d-45b5-b273-30db6d568ead/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "PUT /api/v1/products/5db65c73-f70d-45b5-b273-30db6d568ead/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52314 - "OPTIONS /api/v1/products/5db65c73-f70d-45b5-b273-30db6d568ead/fact-review-submissions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "POST /api/v1/products/5db65c73-f70d-45b5-b273-30db6d568ead/fact-review-submissions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52313 - "GET /api/v1/products/5db65c73-f70d-45b5-b273-30db6d568ead/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "GET /api/v1/products?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "GET /api/v1/products?page=1&page_size=20&search=CE-C-967aa4ab&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "GET /api/v1/products/5db65c73-f70d-45b5-b273-30db6d568ead/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52314 - "OPTIONS /api/v1/fact-versions/d90782d6-84ca-469f-87f6-ec310ed4a074/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "POST /api/v1/fact-versions/d90782d6-84ca-469f-87f6-ec310ed4a074/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "GET /api/v1/products/5db65c73-f70d-45b5-b273-30db6d568ead/fact-review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "GET /api/v1/products?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "GET /api/v1/products?page=1&page_size=20&search=CE-C-967aa4ab&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "GET /api/v1/products/5db65c73-f70d-45b5-b273-30db6d568ead/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "GET /api/v1/products/5db65c73-f70d-45b5-b273-30db6d568ead/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "GET /api/v1/content-tasks/creation-options?requested_product_id=5db65c73-f70d-45b5-b273-30db6d568ead HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52314 - "OPTIONS /api/v1/content-tasks HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "POST /api/v1/content-tasks HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52313 - "GET /api/v1/content-tasks/1ce9b59a-7606-4365-99f1-b964d1375bd2/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "GET /api/v1/content-tasks/1ce9b59a-7606-4365-99f1-b964d1375bd2/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52314 - "OPTIONS /api/v1/content-tasks/1ce9b59a-7606-4365-99f1-b964d1375bd2/manual-versions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "POST /api/v1/content-tasks/1ce9b59a-7606-4365-99f1-b964d1375bd2/manual-versions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52313 - "GET /api/v1/content-tasks/1ce9b59a-7606-4365-99f1-b964d1375bd2/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52314 - "OPTIONS /api/v1/content-versions/cee1f0a0-62b8-42a3-8703-5090b9099420 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "PUT /api/v1/content-versions/cee1f0a0-62b8-42a3-8703-5090b9099420 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "GET /api/v1/content-tasks/1ce9b59a-7606-4365-99f1-b964d1375bd2/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52314 - "OPTIONS /api/v1/content-versions/cee1f0a0-62b8-42a3-8703-5090b9099420/submit-review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "POST /api/v1/content-versions/cee1f0a0-62b8-42a3-8703-5090b9099420/submit-review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52313 - "GET /api/v1/content-tasks/1ce9b59a-7606-4365-99f1-b964d1375bd2/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "GET /api/v1/content-tasks/1ce9b59a-7606-4365-99f1-b964d1375bd2/editor-context HTTP/1.1" 200 OK
+  ✓  12 [foundation-desktop] › tests/e2e/product-facts-real-stack.spec.ts:400:1 › Flow C：独立 ContentTask 经人工首稿、保存后提交审核 (2.9s)
+INFO:     127.0.0.1:52271 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/platform-types HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/platform-profiles HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/platform-accounts HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/platform-accounts HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "GET /api/v1/products/d463ccc7-9581-42f3-92af-c569d85eed48/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "PUT /api/v1/products/d463ccc7-9581-42f3-92af-c569d85eed48/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/products/d463ccc7-9581-42f3-92af-c569d85eed48/fact-review-submissions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/fact-versions/e6e9ea3c-6977-44c0-9c7f-5a0c01333888/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/content-tasks HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/content-tasks/863b9d0b-3db8-4628-a5ad-1c5cfa75326f/manual-versions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/content-versions/f9de0c9b-2751-471f-bf42-5315a3144a46/submit-review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/content-versions/f9de0c9b-2751-471f-bf42-5315a3144a46/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52321 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52321 - "GET /api/v1/publication-works?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/publication-ready-items HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52321 - "GET /api/v1/publication-workbench-summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52323 - "OPTIONS /api/v1/publication-works HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52321 - "POST /api/v1/publication-works HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52324 - "GET /api/v1/publication-works?page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52321 - "GET /api/v1/publication-workbench-summary HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/publication-ready-items HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/publication-works/a79a90e0-f531-44ec-b60b-3611d2171521/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52323 - "OPTIONS /api/v1/publication-works/a79a90e0-f531-44ec-b60b-3611d2171521/preparation HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "PATCH /api/v1/publication-works/a79a90e0-f531-44ec-b60b-3611d2171521/preparation HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/publication-works/a79a90e0-f531-44ec-b60b-3611d2171521/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52323 - "OPTIONS /api/v1/publication-works/a79a90e0-f531-44ec-b60b-3611d2171521/platform-review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "POST /api/v1/publication-works/a79a90e0-f531-44ec-b60b-3611d2171521/platform-review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/publication-works/a79a90e0-f531-44ec-b60b-3611d2171521/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52323 - "OPTIONS /api/v1/files/upload-intents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "POST /api/v1/files/upload-intents HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52323 - "OPTIONS /api/v1/files/bb4f9b50-fb06-4383-b3af-57d8dd0f3f97/content HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "PUT /api/v1/files/bb4f9b50-fb06-4383-b3af-57d8dd0f3f97/content HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52323 - "OPTIONS /api/v1/files/bb4f9b50-fb06-4383-b3af-57d8dd0f3f97/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "POST /api/v1/files/bb4f9b50-fb06-4383-b3af-57d8dd0f3f97/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52323 - "OPTIONS /api/v1/publication-works/a79a90e0-f531-44ec-b60b-3611d2171521/result HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "PUT /api/v1/publication-works/a79a90e0-f531-44ec-b60b-3611d2171521/result HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/publication-works/a79a90e0-f531-44ec-b60b-3611d2171521/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/publication-works/a79a90e0-f531-44ec-b60b-3611d2171521/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52323 - "OPTIONS /api/v1/publication-works/a79a90e0-f531-44ec-b60b-3611d2171521/verifications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "POST /api/v1/publication-works/a79a90e0-f531-44ec-b60b-3611d2171521/verifications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/publication-works/a79a90e0-f531-44ec-b60b-3611d2171521/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/published-articles/a79a90e0-f531-44ec-b60b-3611d2171521 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52323 - "OPTIONS /api/v1/published-articles/a79a90e0-f531-44ec-b60b-3611d2171521/issues HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "POST /api/v1/published-articles/a79a90e0-f531-44ec-b60b-3611d2171521/issues HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52322 - "GET /api/v1/published-articles/a79a90e0-f531-44ec-b60b-3611d2171521 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/published-content-issues/3b9c03dc-0113-48db-95f5-6f6894ef2eba/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/published-content-issues/3b9c03dc-0113-48db-95f5-6f6894ef2eba/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/published-content-issues/3b9c03dc-0113-48db-95f5-6f6894ef2eba/repair-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52323 - "OPTIONS /api/v1/published-content-issues/3b9c03dc-0113-48db-95f5-6f6894ef2eba/repair-task HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "POST /api/v1/published-content-issues/3b9c03dc-0113-48db-95f5-6f6894ef2eba/repair-task HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52322 - "GET /api/v1/published-content-issues/3b9c03dc-0113-48db-95f5-6f6894ef2eba/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/published-content-issues/3b9c03dc-0113-48db-95f5-6f6894ef2eba/repair-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/published-content-issues?page=1&page_size=20&status=OPEN HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/content-tasks/2049dc3d-c286-4714-a583-05abea9b116d/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/published-content-issues/3b9c03dc-0113-48db-95f5-6f6894ef2eba/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52323 - "OPTIONS /api/v1/published-content-issues/3b9c03dc-0113-48db-95f5-6f6894ef2eba/resolve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "POST /api/v1/published-content-issues/3b9c03dc-0113-48db-95f5-6f6894ef2eba/resolve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52322 - "GET /api/v1/published-content-issues/3b9c03dc-0113-48db-95f5-6f6894ef2eba/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "GET /api/v1/publication-works/a79a90e0-f531-44ec-b60b-3611d2171521/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "GET /api/v1/published-articles/a79a90e0-f531-44ec-b60b-3611d2171521 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "GET /api/v1/published-content-issues/3b9c03dc-0113-48db-95f5-6f6894ef2eba/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "GET /api/v1/content-tasks/2049dc3d-c286-4714-a583-05abea9b116d/detail HTTP/1.1" 200 OK
+  ✓  13 [foundation-desktop] › tests/e2e/publication-workspace-real-stack.spec.ts:145:1 › Flow A：V2 UI 从开始发布连续完成成果、修复任务与问题解决 (4.2s)
+INFO:     127.0.0.1:52271 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/platform-types HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/platform-profiles HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/platform-accounts HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/platform-accounts HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "GET /api/v1/products/ab3f782f-ccd1-47eb-8eb8-acbe0cfc1f11/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "PUT /api/v1/products/ab3f782f-ccd1-47eb-8eb8-acbe0cfc1f11/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/products/ab3f782f-ccd1-47eb-8eb8-acbe0cfc1f11/fact-review-submissions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/fact-versions/291f7bf5-c0d4-443e-ad5a-74685f84c379/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/content-tasks HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/content-tasks/59ae1788-5f0b-41d8-af7e-fd9bf6237b7a/manual-versions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/content-versions/571eaeac-97f8-48a4-819f-ab6a2abdbb34/submit-review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/content-versions/571eaeac-97f8-48a4-819f-ab6a2abdbb34/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/publication-works HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52333 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/publication-works/d6646a0c-b0cb-439b-b4ec-1c3201e21aee/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52334 - "OPTIONS /api/v1/publication-works/d6646a0c-b0cb-439b-b4ec-1c3201e21aee/result HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "PUT /api/v1/publication-works/d6646a0c-b0cb-439b-b4ec-1c3201e21aee/result HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/publication-works/d6646a0c-b0cb-439b-b4ec-1c3201e21aee/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "GET /api/v1/publication-works/d6646a0c-b0cb-439b-b4ec-1c3201e21aee/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52334 - "OPTIONS /api/v1/publication-works/d6646a0c-b0cb-439b-b4ec-1c3201e21aee/verifications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "POST /api/v1/publication-works/d6646a0c-b0cb-439b-b4ec-1c3201e21aee/verifications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/publication-works/d6646a0c-b0cb-439b-b4ec-1c3201e21aee/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/content-tasks/59ae1788-5f0b-41d8-af7e-fd9bf6237b7a/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/content-tasks/59ae1788-5f0b-41d8-af7e-fd9bf6237b7a/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52334 - "OPTIONS /api/v1/content-versions/571eaeac-97f8-48a4-819f-ab6a2abdbb34/revisions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "POST /api/v1/content-versions/571eaeac-97f8-48a4-819f-ab6a2abdbb34/revisions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52333 - "GET /api/v1/content-tasks/59ae1788-5f0b-41d8-af7e-fd9bf6237b7a/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52334 - "OPTIONS /api/v1/content-versions/c938031f-206c-48fc-af98-77759094af7d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "PUT /api/v1/content-versions/c938031f-206c-48fc-af98-77759094af7d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/content-tasks/59ae1788-5f0b-41d8-af7e-fd9bf6237b7a/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52334 - "OPTIONS /api/v1/content-versions/c938031f-206c-48fc-af98-77759094af7d/submit-review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "POST /api/v1/content-versions/c938031f-206c-48fc-af98-77759094af7d/submit-review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/content-tasks/59ae1788-5f0b-41d8-af7e-fd9bf6237b7a/editor-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/content-tasks/59ae1788-5f0b-41d8-af7e-fd9bf6237b7a/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/content-tasks/59ae1788-5f0b-41d8-af7e-fd9bf6237b7a/review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52334 - "OPTIONS /api/v1/content-versions/c938031f-206c-48fc-af98-77759094af7d/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "POST /api/v1/content-versions/c938031f-206c-48fc-af98-77759094af7d/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/content-tasks/59ae1788-5f0b-41d8-af7e-fd9bf6237b7a/review-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/content-tasks/59ae1788-5f0b-41d8-af7e-fd9bf6237b7a/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/publication-works/d6646a0c-b0cb-439b-b4ec-1c3201e21aee/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52334 - "OPTIONS /api/v1/publication-works/d6646a0c-b0cb-439b-b4ec-1c3201e21aee/content-version HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "POST /api/v1/publication-works/d6646a0c-b0cb-439b-b4ec-1c3201e21aee/content-version HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/publication-works/d6646a0c-b0cb-439b-b4ec-1c3201e21aee/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "PUT /api/v1/publication-works/d6646a0c-b0cb-439b-b4ec-1c3201e21aee/result HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/publication-works/d6646a0c-b0cb-439b-b4ec-1c3201e21aee/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "POST /api/v1/publication-works/d6646a0c-b0cb-439b-b4ec-1c3201e21aee/verifications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52333 - "GET /api/v1/publication-works/d6646a0c-b0cb-439b-b4ec-1c3201e21aee/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "GET /api/v1/publication-works/d6646a0c-b0cb-439b-b4ec-1c3201e21aee/workspace-context HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "GET /api/v1/content-tasks/59ae1788-5f0b-41d8-af7e-fd9bf6237b7a/detail HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "GET /api/v1/published-articles/d6646a0c-b0cb-439b-b4ec-1c3201e21aee HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "GET /api/v1/content-versions/571eaeac-97f8-48a4-819f-ab6a2abdbb34/detail HTTP/1.1" 200 OK
+  ✓  14 [foundation-desktop] › tests/e2e/publication-workspace-real-stack.spec.ts:466:1 › Flow B：失败核验经内容修订审批、换版和重登记后完成发布 (3.4s)
+INFO:     127.0.0.1:52271 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/platform-types HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/platform-profiles HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/platform-accounts HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/platform-accounts HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "GET /api/v1/products/1fa319fe-b7cb-417a-9eeb-df9f3a16f1f5/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "PUT /api/v1/products/1fa319fe-b7cb-417a-9eeb-df9f3a16f1f5/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/products/1fa319fe-b7cb-417a-9eeb-df9f3a16f1f5/fact-review-submissions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/fact-versions/5dce5c21-d952-4e4a-ac16-7d386bcbaa88/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/content-tasks HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/content-tasks/945bb9af-7903-4578-bf52-482d8fdbc2aa/manual-versions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "POST /api/v1/content-versions/1da3e589-92b9-4221-8e89-1c59f36f3d47/submit-review HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/content-versions/1da3e589-92b9-4221-8e89-1c59f36f3d47/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/publication-works HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52271 - "PUT /api/v1/publication-works/a5745a62-ada3-439a-bc14-42806728aa76/result HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52271 - "POST /api/v1/publication-works/a5745a62-ada3-439a-bc14-42806728aa76/verifications HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52342 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52342 - "GET /api/v1/published-articles?page=1&page_size=20&search=23bdd3e8&sort=VERIFIED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52342 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52342 - "GET /api/v1/published-articles/a5745a62-ada3-439a-bc14-42806728aa76 HTTP/1.1" 200 OK
+  ✓  15 [foundation-desktop] › tests/e2e/publication-workspace-real-stack.spec.ts:653:1 › Published Article：真实栈列表进入单请求只读详情 (441ms)
+(node:27714) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+INFO:     127.0.0.1:52349 - "GET /api/v1/auth/session HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52350 - "OPTIONS /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52349 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52349 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52349 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52351 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52349 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52349 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52349 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52349 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52352 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52349 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+  ✓  16 [foundation-desktop] › tests/e2e/auth-session-real-stack.spec.ts:101:1 › 同一 BrowserContext 双页面以 session binding 封闭 A→B→A 的迟到 mutation (984ms)
+INFO:     127.0.0.1:52359 - "GET /api/v1/auth/session HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52360 - "OPTIONS /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52359 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52359 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52359 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52359 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52351 - "POST /api/v1/auth/logout HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52359 - "GET /api/v1/auth/session HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52359 - "GET /api/v1/auth/session HTTP/1.1" 204 No Content
+  ✓  17 [foundation-desktop] › tests/e2e/auth-session-real-stack.spec.ts:257:1 › 退出已由服务端提交但响应丢失时发送页与同源页各自只做一次 canonical recovery (595ms)
+INFO:     127.0.0.1:52367 - "GET /api/v1/auth/session HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52368 - "OPTIONS /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52367 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52367 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52371 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52371 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52379 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52379 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+  ✓  18 [foundation-desktop] › tests/e2e/auth-session-real-stack.spec.ts:333:1 › 跨标签页 owner 终止后由 lease 回收存活页与全页面重载 (21.5s)
+INFO:     127.0.0.1:52390 - "GET /api/v1/auth/session HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52391 - "OPTIONS /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52390 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52390 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52390 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52390 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52390 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52390 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+  ✓  19 [foundation-desktop] › tests/e2e/auth-session-real-stack.spec.ts:445:1 › durable terminal reconciliation 与异常协议 marker 保持 fail-closed (614ms)
+INFO:     127.0.0.1:52398 - "GET /api/v1/auth/session HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52399 - "OPTIONS /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52398 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52399 - "OPTIONS /api/v1/auth/change-password HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52398 - "POST /api/v1/auth/change-password HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52398 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52398 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52398 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52398 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52398 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52399 - "OPTIONS /api/v1/auth/logout HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52398 - "POST /api/v1/auth/logout HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52400 - "GET /api/v1/auth/session HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52400 - "GET /api/v1/auth/session HTTP/1.1" 401 Unauthorized
+  ✓  20 [foundation-desktop] › tests/e2e/auth-session-real-stack.spec.ts:624:1 › Auth 真实栈完成 login → forced change → admin 403 → logout (730ms)
+INFO:     127.0.0.1:52407 - "GET /api/v1/auth/session HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52408 - "OPTIONS /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52407 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52407 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "GET /api/v1/auth/csrf HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "POST /api/v1/users HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52415 - "GET /api/v1/auth/session HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52416 - "OPTIONS /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52415 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52416 - "OPTIONS /api/v1/auth/change-password HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52415 - "POST /api/v1/auth/change-password HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52415 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52415 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52407 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52407 - "GET /api/v1/users?status=ENABLED&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52417 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52417 - "GET /api/v1/users?status=ENABLED&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52408 - "OPTIONS /api/v1/users/0de0f0fd-20c0-4115-b577-ab20ba560994 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52417 - "PATCH /api/v1/users/0de0f0fd-20c0-4115-b577-ab20ba560994 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52417 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52417 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "GET /api/v1/auth/csrf HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "PATCH /api/v1/users/0de0f0fd-20c0-4115-b577-ab20ba560994 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52417 - "GET /api/v1/auth/session HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52417 - "GET /api/v1/auth/session HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52417 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52407 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52417 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52407 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52407 - "GET /api/v1/users?status=ENABLED&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52418 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52418 - "GET /api/v1/users?status=ENABLED&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52418 - "POST /api/v1/users/bulk-status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "GET /api/v1/auth/session HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:52418 - "GET /api/v1/auth/session HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:52400 - "GET /api/v1/auth/csrf HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "PATCH /api/v1/users/0de0f0fd-20c0-4115-b577-ab20ba560994 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52418 - "GET /api/v1/auth/session HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52418 - "GET /api/v1/auth/session HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52418 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52407 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52418 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52418 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52418 - "GET /api/v1/users?status=ENABLED&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52418 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52418 - "GET /api/v1/users?status=ENABLED&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "POST /api/v1/users/bulk-status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52421 - "GET /api/v1/auth/session HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:52418 - "GET /api/v1/auth/session HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:52400 - "GET /api/v1/auth/csrf HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "PATCH /api/v1/users/0de0f0fd-20c0-4115-b577-ab20ba560994 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52418 - "GET /api/v1/auth/session HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52418 - "GET /api/v1/auth/session HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52418 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52421 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52418 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52418 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52422 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52418 - "GET /api/v1/users?status=ENABLED&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52422 - "GET /api/v1/users?status=ENABLED&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52422 - "PATCH /api/v1/users/0de0f0fd-20c0-4115-b577-ab20ba560994 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52422 - "GET /api/v1/auth/session HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:52422 - "GET /api/v1/auth/session HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:52400 - "GET /api/v1/auth/csrf HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "PATCH /api/v1/users/0de0f0fd-20c0-4115-b577-ab20ba560994 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52429 - "GET /api/v1/auth/session HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52430 - "OPTIONS /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52429 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "GET /api/v1/auth/csrf HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52429 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "GET /api/v1/users?q=e2e-boundary-admin-4af1b809&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "PATCH /api/v1/users/b4514062-60ea-42cf-82b6-677f0c3499df HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "DELETE /api/v1/users/b4514062-60ea-42cf-82b6-677f0c3499df?expected_revision=2 HTTP/1.1" 204 No Content
+  ✓  21 [foundation-desktop] › tests/e2e/system-admin-real-stack.spec.ts:289:1 › 当前管理员自降权与自停用通过同一 BrowserContext principal boundary 收敛双页面 (3.8s)
+INFO:     127.0.0.1:52437 - "GET /api/v1/auth/session HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52438 - "OPTIONS /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "GET /api/v1/users?status=ENABLED&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52438 - "OPTIONS /api/v1/users HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "POST /api/v1/users HTTP/1.1" 201 Created
+INFO:     127.0.0.1:52437 - "GET /api/v1/users?status=ENABLED&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "GET /api/v1/auth/csrf HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "GET /api/v1/audit-logs?page=1&page_size=20&request_id=8ee8e558-70d7-4419-b584-fa34e25d2140 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52446 - "GET /api/v1/auth/session HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52447 - "OPTIONS /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52446 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "GET /api/v1/auth/csrf HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52447 - "OPTIONS /api/v1/auth/change-password HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52446 - "POST /api/v1/auth/change-password HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52446 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52446 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52446 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52446 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "GET /api/v1/users HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:52400 - "POST /api/v1/users/bulk-status HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:52400 - "GET /api/v1/users/export HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:52400 - "GET /api/v1/audit-logs HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:52400 - "GET /api/v1/audit-logs/filter-options HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:52400 - "GET /api/v1/audit-logs/ff64d286-c248-4f64-9819-0c87050c99f1 HTTP/1.1" 403 Forbidden
+INFO:     127.0.0.1:52437 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "GET /api/v1/users?status=ENABLED&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52438 - "OPTIONS /api/v1/users/7a6e6475-02bc-4a54-ae6f-80c5529f37c8/reset-password HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "POST /api/v1/users/7a6e6475-02bc-4a54-ae6f-80c5529f37c8/reset-password HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "GET /api/v1/users?status=ENABLED&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "GET /api/v1/auth/me HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:52446 - "GET /api/v1/auth/session HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:52446 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52446 - "POST /api/v1/auth/change-password HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52446 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52446 - "GET /api/v1/workbench HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "GET /api/v1/users?status=ENABLED&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52438 - "OPTIONS /api/v1/users/bulk-status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "POST /api/v1/users/bulk-status HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "GET /api/v1/users?status=ENABLED&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52400 - "GET /api/v1/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "GET /api/v1/audit-logs?page=1&page_size=20&created_from=2026-09-29T11%3A13%3A03.868Z&created_to=2026-10-02T11%3A13%3A03.868Z&request_id=8ee8e558-70d7-4419-b584-fa34e25d2140 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52448 - "GET /api/v1/audit-logs/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52448 - "GET /api/v1/audit-logs/ff64d286-c248-4f64-9819-0c87050c99f1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52448 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52448 - "GET /api/v1/audit-logs?page=1&page_size=20&created_from=2026-09-29T11%3A13%3A03.998Z&created_to=2026-10-02T11%3A13%3A03.998Z&request_id=64cf0c35-b17a-45fe-9a87-0cac78ec22c3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "GET /api/v1/audit-logs/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "GET /api/v1/audit-logs?page=1&page_size=20&created_from=2026-09-29T11%3A13%3A04.052Z&created_to=2026-10-02T11%3A13%3A04.052Z&request_id=917f2adb-2995-41c7-bc1d-7c2f5f006369 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52448 - "GET /api/v1/audit-logs/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52448 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52448 - "GET /api/v1/audit-logs?page=1&page_size=20&created_from=2026-09-29T11%3A13%3A04.110Z&created_to=2026-10-02T11%3A13%3A04.110Z&action=user.password_changed&target_id=7a6e6475-02bc-4a54-ae6f-80c5529f37c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "GET /api/v1/audit-logs/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "GET /api/v1/users?q=e2e-engineer-e7041e30&status=DISABLED&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52438 - "OPTIONS /api/v1/users/7a6e6475-02bc-4a54-ae6f-80c5529f37c8?expected_revision=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "DELETE /api/v1/users/7a6e6475-02bc-4a54-ae6f-80c5529f37c8?expected_revision=4 HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:52437 - "GET /api/v1/users?q=e2e-engineer-e7041e30&status=DISABLED&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52448 - "GET /api/v1/audit-logs/filter-options HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52437 - "GET /api/v1/audit-logs?page=1&page_size=20&created_from=2026-09-29T11%3A13%3A04.663Z&created_to=2026-10-02T11%3A13%3A04.663Z&action=user.password_changed&target_id=7a6e6475-02bc-4a54-ae6f-80c5529f37c8 HTTP/1.1" 200 OK
+  ✓  22 [foundation-desktop] › tests/e2e/system-admin-real-stack.spec.ts:864:1 › System Admin 真实栈完成用户、权限、会话与审计闭环 (3.1s)
+
+
+  1) [foundation-desktop] › tests/e2e/geo-real-stack.spec.ts:327:1 › Flow A：新建 Observation 后追加 Correction，原记录保持不可变 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    Expected: {"data": [80, 97, 114, 116, 83, 105, 103, 110, 97, 108, …], "type": "Buffer"}
+    Received: null
+
+      290 |   ).toBe(true);
+      291 |   expect(transferRequest.headers()['content-type']).toBe('application/octet-stream');
+    > 292 |   expect(transferRequest.postDataBuffer()).toEqual(Buffer.from(`PartSignal GEO evidence ${filename}`));
+          |                                            ^
+      293 |   expect(file).toMatchObject({
+      294 |     id: intent.file.id,
+      295 |     original_filename: filename,
+        at uploadEvidence (/Users/sc/PycharmProjects/partsignal/frontend/tests/e2e/geo-real-stack.spec.ts:292:44)
+        at /Users/sc/PycharmProjects/partsignal/frontend/tests/e2e/geo-real-stack.spec.ts:367:20
+
+    Error Context: .cache/playwright-results/geo-real-stack-Flow-A：新建-Observation-后追加-Correction，原记录保持不可变-foundation-desktop/error-context.md
+
+  1 failed
+    [foundation-desktop] › tests/e2e/geo-real-stack.spec.ts:327:1 › Flow A：新建 Observation 后追加 Correction，原记录保持不可变 
+  21 passed (1.7m)
+E2E_SECRET_SCAN status=clean
+E2E_RESULT playwright=1 secret_scan=0
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [27602]
+
+worker: Warm shutdown (MainProcess)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [27601]
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [27600]
+E2E_CLEANUP redis_db=14 keys=1 status=deleted
+E2E_CLEANUP ports=8000,9001,4174,19009 status=released
+E2E_CLEANUP database=partsignal_e2e_20261002_76b56a22f90bd4989143673922fae588 status=dropped
+E2E_CLEANUP storage=/var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T//partsignal-e2e-storage.QTjVtb status=removed
+make: *** [e2e] Error 1

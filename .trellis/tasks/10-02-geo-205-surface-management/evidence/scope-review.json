@@ -1,0 +1,22 @@
+{
+  "changed_maintained_files": 60,
+  "changed_counts": {
+    "backend": 22,
+    "contracts": 2,
+    "deploy": 2,
+    "docs": 7,
+    "frontend": 27
+  },
+  "unchanged_initial_files": 3621,
+  "deleted_initial_files": [],
+  "unrelated_initial_changes_preserved": true,
+  "inspection": [
+    "根合同与生成产物相对Task起始diff",
+    "新增服务/路由/投影/页面与真实E2E维护源",
+    "共享错误与审计增量及只读容器挂载",
+    "仅GEO-205 manifest状态改变",
+    "无新依赖或Alembic revision，无未来任务实现",
+    "无重复资格owner、静默fallback、写重放或秘密数据回显",
+    "原有超限文件仅扩展当前合同库存/动作映射；无新增源码超500行"
+  ]
+}

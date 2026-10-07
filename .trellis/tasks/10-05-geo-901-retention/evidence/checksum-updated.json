@@ -1,0 +1,12 @@
+[
+  "docs/geo-monitoring/01-product/02-geo-core-prd.md",
+  "docs/geo-monitoring/02-business/02-domain-model.md",
+  "docs/geo-monitoring/02-business/03-workflows-and-state-machines.md",
+  "docs/geo-monitoring/03-technical/02-data-architecture.md",
+  "docs/geo-monitoring/03-technical/06-security-and-compliance.md",
+  "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+  "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+  "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+  "docs/geo-monitoring/CHANGELOG.md",
+  "docs/geo-monitoring/README.md"
+]

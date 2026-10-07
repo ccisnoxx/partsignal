@@ -1,0 +1,15 @@
+{
+  "audit_id": "20261005T084954Z-geo-802-95ef7b23",
+  "audit_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261005T084954Z-geo-802-95ef7b23",
+  "sequence": 2,
+  "name": "frontend",
+  "prefix": "02-frontend",
+  "paths": {
+    "draft": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261005T084954Z-geo-802-95ef7b23/02-frontend.draft.json",
+    "plan": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261005T084954Z-geo-802-95ef7b23/02-frontend.plan.json",
+    "dispatch_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261005T084954Z-geo-802-95ef7b23/02-frontend.dispatches",
+    "execution": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261005T084954Z-geo-802-95ef7b23/02-frontend.execution.json",
+    "summary_json": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261005T084954Z-geo-802-95ef7b23/02-frontend.summary.json",
+    "summary_text": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261005T084954Z-geo-802-95ef7b23/02-frontend.summary.txt"
+  }
+}

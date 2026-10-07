@@ -1,0 +1,19 @@
+{
+  "observed_agent_write_paths": [],
+  "parent_changed_paths_since_review_start": [
+    "backend/app/schemas/geo_monitoring_plans.py",
+    "backend/tests/integration/test_geo_plan_reference_api.py",
+    "backend/tests/integration/test_geo_questions_api.py",
+    "backend/tests/unit/test_geo_monitoring_plan_contract.py",
+    "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/SHA256SUMS",
+    "backend/tests/integration/test_migrations.py",
+    "contracts/database.md",
+    "contracts/openapi.yaml",
+    "frontend/src/shared/api/generated/schema.d.ts"
+  ],
+  "all_changes_accounted_for_by_primary_tool_calls": true,
+  "unexpected_deleted_paths": [],
+  "note": "三位只读代理的内存工具无写操作；各最终报告有候选哈希复核。主代理显式修复/文档变更在增量记录中，除此之外未观察到源码写入。"
+}

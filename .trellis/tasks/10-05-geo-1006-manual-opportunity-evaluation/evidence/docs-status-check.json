@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "hash_entries": 131,
+  "mismatches": [],
+  "updated_entries": [
+    "01-product/05-v1-release-capability-matrix.md",
+    "02-business/03-workflows-and-state-machines.md",
+    "03-technical/09-backup-recovery-runbook.md",
+    "03-technical/10-core-rollout-runbook.md",
+    "04-delivery/task-manifest.yaml"
+  ],
+  "runbook_head_expand_manual_entry": "0066 consistent",
+  "task_status": "review",
+  "manifest_status": "review"
+}

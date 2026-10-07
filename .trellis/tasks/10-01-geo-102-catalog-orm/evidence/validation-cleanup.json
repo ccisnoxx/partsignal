@@ -1,0 +1,6 @@
+{
+  "command": "docker compose --env-file .env.example -p partsignal-geo102-validation -f deploy/compose.dev.yaml -f .trellis/tasks/10-01-geo-102-catalog-orm/evidence/compose-validation.yaml down --volumes --remove-orphans",
+  "exit_code": 0,
+  "duration_seconds": 0.32,
+  "log": "validation-cleanup.log"
+}

@@ -1,0 +1,65 @@
+{
+  "manifest": {
+    "tasks": 80,
+    "original_tasks_unchanged": 71,
+    "new_tasks": 9,
+    "acyclic": true,
+    "geo1002": "review",
+    "following_tasks": "planned",
+    "r7_dependency": false
+  },
+  "links": {
+    "checked": 716,
+    "baseline_broken": [
+      {
+        "file": "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+        "target": "../../../../.trellis/tasks/10-05-geo-902-observability/implement.md",
+        "error": "missing_path"
+      },
+      {
+        "file": "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+        "target": "../../../../deploy/observability/geo/README.md",
+        "error": "missing_path"
+      },
+      {
+        "file": "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+        "target": "../../../../.trellis/tasks/10-05-geo-902-observability/prd.md",
+        "error": "missing_path"
+      },
+      {
+        "file": "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+        "target": "../../../../.trellis/tasks/10-05-geo-902-observability/implement.md",
+        "error": "missing_path"
+      }
+    ],
+    "current_broken": [],
+    "fixed": [
+      {
+        "file": "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+        "target": "../../../../.trellis/tasks/10-05-geo-902-observability/implement.md",
+        "error": "missing_path"
+      },
+      {
+        "file": "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+        "target": "../../../../deploy/observability/geo/README.md",
+        "error": "missing_path"
+      },
+      {
+        "file": "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+        "target": "../../../../.trellis/tasks/10-05-geo-902-observability/prd.md",
+        "error": "missing_path"
+      },
+      {
+        "file": "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+        "target": "../../../../.trellis/tasks/10-05-geo-902-observability/implement.md",
+        "error": "missing_path"
+      }
+    ],
+    "new_broken": []
+  },
+  "protected": {
+    "unchanged_protected_files": 1350,
+    "audit_and_original_readiness_unchanged": true,
+    "production_verified": false
+  }
+}

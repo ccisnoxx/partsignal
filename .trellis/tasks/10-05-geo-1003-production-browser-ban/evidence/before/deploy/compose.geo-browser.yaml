@@ -1,0 +1,45 @@
+# GEO-801 仅运行隔离骨架；后续 adapter 的批准 egress 必须在对应任务中单独建立。
+services:
+  browser-collector:
+    image: ${PARTSIGNAL_BROWSER_COLLECTOR_IMAGE:-partsignal-browser-collector}:${PARTSIGNAL_BROWSER_COLLECTOR_VERSION:-geo801}
+    build:
+      context: ../browser-collector
+    profiles: [geo-browser]
+    init: true
+    user: pwuser
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./geo-browser-seccomp.json
+    environment:
+      GEO_MONITORING_ENABLED: ${GEO_MONITORING_ENABLED-false}
+      GEO_BROWSER_COLLECTION_ENABLED: ${GEO_BROWSER_COLLECTION_ENABLED-false}
+      GEO_BROWSER_KILL_SWITCH_FILE: /run/control/STOP
+    volumes:
+      - type: bind
+        source: ${PARTSIGNAL_GEO_BROWSER_CONTROL_DIR:-./geo-browser-control}
+        target: /run/control
+        read_only: true
+        bind:
+          create_host_path: false
+    tmpfs:
+      - /tmp:size=128m,nosuid,nodev,mode=1777
+    shm_size: 128m
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 128
+    restart: 'no'
+    stop_grace_period: 10s
+    healthcheck:
+      test: [CMD, node, src/healthcheck.mjs]
+      interval: 10s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'

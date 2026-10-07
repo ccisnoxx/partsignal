@@ -1,0 +1,43 @@
+{
+  "id": "geo-702-opportunity-evaluation",
+  "name": "geo-702-opportunity-evaluation",
+  "title": "GEO-702：Opportunity 模型、identity 和评估器",
+  "description": "GEO-702机会数据模型、确定性identity与10规则批量评估",
+  "status": "completed",
+  "dev_type": "backend",
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-04",
+  "completedAt": "2026-10-04",
+  "branch": "geo/GEO-702",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml"
+  ],
+  "notes": "2026-10-04 本会话用户已人工审查并接受GEO-702实现与测试证据；本次仅记录验收，manifest=done、Trellis=completed，不修改其他任务状态、不实施后续任务，不提交或归档。",
+  "meta": {
+    "geo_task_id": "GEO-702",
+    "release": "R6",
+    "manifest_status": "done",
+    "dependencies_verified": {
+      "GEO-701": "done",
+      "GEO-603": "done",
+      "GEO-604": "done"
+    },
+    "delivery_status": "done",
+    "accepted_at": "2026-10-04",
+    "accepted_by": "本会话用户",
+    "accepted_scope": "GEO-702 opportunities/sources/actions、确定性identity、十条初始规则、批量评估及已记录的实现与测试证据；不包含后续任务。",
+    "acceptance_basis": "用户明确表示：我已经人工审查并接受 GEO-702 的实现与测试证据。",
+    "validation_record": ".trellis/tasks/10-04-geo-702-opportunity-evaluation/implement.md"
+  }
+}

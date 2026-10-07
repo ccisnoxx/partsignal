@@ -1,0 +1,15 @@
+{
+  "audit_id": "20261002T181713Z-geo-206-monitoring-plan-fa180bae",
+  "audit_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T181713Z-geo-206-monitoring-plan-fa180bae",
+  "sequence": 1,
+  "name": "independent-review",
+  "prefix": "01-independent-review",
+  "paths": {
+    "draft": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T181713Z-geo-206-monitoring-plan-fa180bae/01-independent-review.draft.json",
+    "plan": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T181713Z-geo-206-monitoring-plan-fa180bae/01-independent-review.plan.json",
+    "dispatch_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T181713Z-geo-206-monitoring-plan-fa180bae/01-independent-review.dispatches",
+    "execution": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T181713Z-geo-206-monitoring-plan-fa180bae/01-independent-review.execution.json",
+    "summary_json": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T181713Z-geo-206-monitoring-plan-fa180bae/01-independent-review.summary.json",
+    "summary_text": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T181713Z-geo-206-monitoring-plan-fa180bae/01-independent-review.summary.txt"
+  }
+}

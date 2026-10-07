@@ -1,0 +1,18 @@
+{
+  "frontend/src/domains/geo-opportunities/comparison.model.ts": "c0d1f45397b37cea619debd8d18206675afee1e151178ada87c963dcb6b7cc65",
+  "frontend/src/domains/geo-opportunities/opportunities-page.test.tsx": "45a08edcea674ace739af43a8e02bca9b9c57461d74452a5158faf6e2b6d11f7",
+  "frontend/src/domains/geo-opportunities/opportunities-page.tsx": "0f45d98efdbf28cfd8b32427773f2b53159d3772de88b91ac723bbf5dc31eb26",
+  "frontend/src/domains/geo-opportunities/opportunities.api.test.ts": "17c04c2bb914098a801593bf20e52c1e82a3640988a48e5c399120b907ee6b4b",
+  "frontend/src/domains/geo-opportunities/opportunities.api.ts": "fcdf836157a9651d6181f84fa0dacb6f48da46c8c8958e3181caa5262beee15f",
+  "frontend/src/domains/geo-opportunities/opportunities.model.test.ts": "55c4137d11a805cfac4e1536fa3930138420e955764cd4980d3d5a5ad788555e",
+  "frontend/src/domains/geo-opportunities/opportunities.model.ts": "d7d1f05139c8dc5eafba34f9206990bda4907b5b27bb49d1405d33f98432f7f1",
+  "frontend/src/domains/geo-opportunities/opportunities.test-support.tsx": "ded7e80c36cba01cbb2fb16220d8c00111f6743a05467b2da541ba52d2688772",
+  "frontend/src/domains/geo-opportunities/opportunity-commands.tsx": "972a6b0dcafdd23f6eae148fd37829f42ee012b25a4915d3d80d57011cce3781",
+  "frontend/src/domains/geo-opportunities/opportunity-comparison.test.tsx": "022087702ac6aa2303001f7fdbe56f106b60e4325832ec408320d21b48cd4092",
+  "frontend/src/domains/geo-opportunities/opportunity-comparison.tsx": "57504b5b9c5ceecbddd5e788d9ab753ff3f2061f30be9edd985357c7cc1cb7e2",
+  "frontend/src/domains/geo-opportunities/opportunity-decisions.tsx": "fff22819bee5d292e68eaeb18c3b8e4b566d1ee2700ea515d02c92d3ef0e73d6",
+  "frontend/src/domains/geo-opportunities/opportunity-detail.tsx": "7755c0bc6cbf7857b5ee0ed961487b4982c52db2c0c90c6634917106feb99a3d",
+  "frontend/src/domains/geo-opportunities/opportunity-filters.tsx": "b40430213b6fa88c33cfdc32ec069aa3a4aae91585deb15680f25c3be51473ed",
+  "frontend/src/domains/geo-opportunities/opportunity-list.tsx": "719294735501fd7888b2f41cd079dccc051fcd1dd2167c04b709107631a6457f",
+  "frontend/src/routes/_app/geo/opportunities.tsx": "2ad6776ae4489ed2d2f150bd43385ae46b71bab5f6650d98c3ae02e562865a3a"
+}

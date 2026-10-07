@@ -1,0 +1,7 @@
+npm --prefix frontend run api:generate
+
+> partsignal-frontend-v2@0.1.0 api:generate
+> openapi-typescript ../contracts/openapi.yaml -o src/shared/api/generated/schema.d.ts
+
+✨ openapi-typescript 7.13.0
+🚀 ../contracts/openapi.yaml → src/shared/api/generated/schema.d.ts [168.4ms]

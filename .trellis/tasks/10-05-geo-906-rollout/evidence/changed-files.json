@@ -1,0 +1,13 @@
+[
+  "deploy/scripts/test-geo-configuration.py",
+  "docs/geo-monitoring/README.md",
+  "docs/geo-monitoring/CHANGELOG.md",
+  "docs/geo-monitoring/SHA256SUMS",
+  "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+  "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+  "docs/geo-monitoring/04-delivery/01-implementation-roadmap.md",
+  "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+  "docs/geo-monitoring/03-technical/10-core-rollout-runbook.md",
+  "docs/geo-monitoring/04-delivery/13-r8-core-release-acceptance.md",
+  "docs/geo-monitoring/04-delivery/geo-906-release-record.template.yaml"
+]

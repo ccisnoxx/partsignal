@@ -1,0 +1,10 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+Success: no issues found in 107 source files
+npm --prefix frontend run typecheck
+
+> partsignal-frontend-v2@0.1.0 typecheck
+> tsc -b --pretty false
+
+src/domains/geo-catalog/surfaces-commands.test.tsx(93,35): error TS2488: Type 'never' must have a '[Symbol.iterator]()' method that returns an iterator.
+src/domains/geo-catalog/surfaces-page.test.tsx(88,33): error TS2488: Type 'never' must have a '[Symbol.iterator]()' method that returns an iterator.
+make: *** [typecheck] Error 2

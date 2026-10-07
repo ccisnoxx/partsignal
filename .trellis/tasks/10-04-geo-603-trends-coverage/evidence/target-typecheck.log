@@ -1,0 +1,5 @@
+backend/app/services/geo_answer_insights.py:90: error: Incompatible types in assignment (expression has type "bool", variable has type "set[UUID]")  [assignment]
+backend/app/services/geo_answer_insights.py:93: error: Incompatible types in assignment (expression has type "tuple[MetricCode, ...]", variable has type "tuple[MetricCode, MetricCode, MetricCode] | tuple[()]")  [assignment]
+backend/app/services/geo_answer_insights.py:158: error: Need type annotation for "current" (hint: "current: list[<type>] = ...")  [var-annotated]
+backend/app/services/geo_answer_insights.py:158: error: Need type annotation for "previous" (hint: "previous: list[<type>] = ...")  [var-annotated]
+Found 4 errors in 1 file (checked 189 source files)

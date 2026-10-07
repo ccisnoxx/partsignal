@@ -1,0 +1,1815 @@
+--- a/contracts/openapi.yaml
++++ b/contracts/openapi.yaml
+@@ -6252,6 +6252,7 @@
+       tags:
+       - geo-plans
+       operationId: listGeoMonitoringPlans
++      description: 支持按 CRON 查询只读历史；其存储 ACTIVE 不表示 V1.0 调度可用，读模型投影为 UNSUPPORTED_SCHEDULE 且无写动作。
+       parameters:
+       - name: q
+         in: query
+@@ -6334,6 +6335,7 @@
+       tags:
+       - geo-plans
+       operationId: createGeoMonitoringPlan
++      description: V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。
+       parameters:
+       - &id002
+         name: X-CSRF-Token
+@@ -6411,6 +6413,7 @@
+       tags:
+       - geo-plans
+       operationId: getGeoMonitoringPlan
++      description: 历史 CRON 保留原始 status，workflow_stage 为 UNSUPPORTED_SCHEDULE，primary_task 为 VIEW_HISTORY，available_actions 为空；run_entry.reason_code 为 GEO_PLAN_CRON_UNSUPPORTED。不承诺自动运行。
+       parameters:
+       - &id003
+         name: plan_id
+@@ -6447,6 +6450,7 @@
+       tags:
+       - geo-plans
+       operationId: updateGeoMonitoringPlan
++      description: V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。
+       parameters:
+       - *id003
+       - *id002
+@@ -6485,6 +6489,7 @@
+       tags:
+       - geo-plans
+       operationId: deleteGeoMonitoringPlan
++      description: V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。
+       parameters:
+       - *id003
+       - name: expected_revision
+@@ -6521,6 +6526,7 @@
+       tags:
+       - geo-plans
+       operationId: activateGeoMonitoringPlan
++      description: V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。
+       parameters:
+       - *id003
+       - *id002
+@@ -6560,6 +6566,7 @@
+       tags:
+       - geo-plans
+       operationId: pauseGeoMonitoringPlan
++      description: V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。
+       parameters:
+       - *id003
+       - *id002
+@@ -6599,6 +6606,7 @@
+       tags:
+       - geo-plans
+       operationId: resumeGeoMonitoringPlan
++      description: V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。
+       parameters:
+       - *id003
+       - *id002
+@@ -6638,6 +6646,7 @@
+       tags:
+       - geo-plans
+       operationId: archiveGeoMonitoringPlan
++      description: V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。
+       parameters:
+       - *id003
+       - *id002
+@@ -6677,6 +6686,7 @@
+       tags:
+       - geo-plans
+       operationId: copyGeoMonitoringPlan
++      description: V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。
+       parameters:
+       - *id003
+       - *id002
+@@ -6717,6 +6727,7 @@
+       - geo-plans
+       summary: Run Now
+       operationId: runGeoMonitoringPlanNow
++      description: V1.0 首次运行仅支持 MANUAL_ONLY；历史 CRON 首次 run 返回 409 GEO_PLAN_CRON_UNSUPPORTED，配置与快照只读保留。已有幂等回执只读重放，不创建 Batch/Run 或重新投递。
+       security:
+       - sessionCookie: []
+       parameters:
+@@ -6901,6 +6912,7 @@
+       - geo-batches
+       summary: Create Batch
+       operationId: createGeoObservationBatch
++      description: V1.0 首次 PLAN 批次仅接受 MANUAL_ONLY，历史 CRON 返回 409 GEO_PLAN_CRON_UNSUPPORTED；AD_HOC 仅人工配置。已提交幂等回执只读重放，不创建或重新投递。
+       security:
+       - sessionCookie: []
+       parameters:
+@@ -11134,6 +11146,7 @@
+       - geo-opportunities
+       summary: Create Retest
+       operationId: createGeoOpportunityRetest
++      description: 人工独立复测从已提交的不可变基线复制严格矩阵并创建 RETEST；历史 plan_id/CRON 快照仅作来源追溯，不执行或修改当前 Plan，继续受可比性、权限与外发门禁约束。
+       security:
+       - sessionCookie: []
+       parameters:
+@@ -19927,6 +19940,7 @@
+       type: string
+     GeoPlanWorkflowStage:
+       enum:
++      - UNSUPPORTED_SCHEDULE
+       - CONFIGURATION_REQUIRED
+       - READY
+       - ACTIVE
+@@ -19952,6 +19966,7 @@
+             - PLAN_NOT_DISABLED
+             - ARCHIVED
+             - HAS_BATCH_HISTORY
++            - SCHEDULE_UNSUPPORTED
+             type: string
+           title: Blockers
+           type: array
+@@ -19967,7 +19982,9 @@
+           title: Available
+           type: boolean
+         reason_code:
+-          const: UI_NOT_IMPLEMENTED
++          enum:
++          - UI_NOT_IMPLEMENTED
++          - GEO_PLAN_CRON_UNSUPPORTED
+           title: Reason Code
+           type: string
+       required:
+--- a/contracts/database.md
++++ b/contracts/database.md
+@@ -13,6 +13,18 @@
+ ## GEO MonitoringPlan 合同（GEO-206 / R1）
+ 
+ `0047_geo_monitoring_plans` 从 `0046_geo_surfaces_profiles` 仅新增四表、完整性/归档守卫和时区目录函数。不回填旧 QueryTopic/GeoObservation，不创建 Batch/Run，不执行调度或外部采集。公司内部单租户共享配置，created_by/updated_by 是服务端追溯，不是用户私有归属。GEO-208 已接线 Plan 命令、权限/CAS/审计；矩阵、当前资源活动和运行资格复用 GEO-207。无新表/列/Alembic revision。
++
++### V1.0 调度边界（GEO-1005）
++
++V1.0 仅允许 MANUAL_ONLY Plan 配置写入；从当前 Plan 首次人工建批仅接受 MANUAL_ONLY。CRON 枚举、表达式 Schema、存储状态及不可变快照结构保留，供升级前历史读取；它们不构成运行授权，不新增数据库状态或迁移。
++
++`geo_plan_policy.require_supported_schedule` 是版本边界的唯一 owner。经过身份重验和既有 Plan 锁/CAS 的新建、更新、activate/resume/pause/archive/copy/delete、首次 `/run` 或 PLAN Batch 创建，以及内部 scheduled factory 首次窗口，均对 CRON 返回 `409 GEO_PLAN_CRON_UNSUPPORTED`，message 为“V1.0 不支持 CRON 计划；历史计划只读，请新建人工计划或人工批次”，details={}。MANUAL→CRON 与历史 CRON→MANUAL 更新同样拒绝。格式不合法仍是 422 VALIDATION_ERROR，过期 revision 仍为 REVISION_CONFLICT；鉴权/CSRF 边界保持。
++
++历史 CRON 的配置、关系、status（包括旧 ACTIVE）、revision、追溯、Batch/Run/快照和审计不变、不删除。列表/详情投影 `workflow_stage=UNSUPPORTED_SCHEDULE`、`primary_task=VIEW_HISTORY`、`available_actions=[]`、deletion blocker `SCHEDULE_UNSUPPORTED`、run reason `GEO_PLAN_CRON_UNSUPPORTED`；存储 ACTIVE 仅是历史生命周期，UI 明确当前版本不调度、不运行。不能原地停用或默认为 MANUAL。
++
++拒绝在任何业务 flush、规则冻结、引用锁存、Batch/Run/幂等记录/成功审计或提交后投递之前发生，事务 owner 回滚。MANUAL create/activate/run 及 AD_HOC 人工 Batch 正常。已提交手工幂等回执或 scheduled 同窗口回执仍可只读重放，返回原 batch，不重验当前资格、不建数据、不重投 Redis；这不构成新的 CRON 执行入口。Beat 不注册到期建批任务，现有分析/租约恢复/补投递继续独立工作。未来接入生产 Scheduler 须另行交付与验收后解除本边界。
++
++现有 Retest 是人工调用的独立 Batch 命令：从已提交、不可变的基线 Batch 复制严格矩阵，创建 trigger_type=RETEST 的批次。原 plan_id 和 CRON 快照仅作来源追溯，不读取或执行当前 CRON Plan、不改写原计划或快照，不伪装成 SCHEDULED；既有可比性、权限及外发门禁继续裁决。这不属于当前 Plan 的执行入口；详见 GEO-705 冻结基线合同。
+ 
+ ### geo_monitoring_plans
+ 
+@@ -64,13 +76,13 @@
+ 
+ ### GEO-208 命令、快照与审计
+ 
+-ADMIN/ENGINEER 管理内部共享配置，创建/复制强制 DISABLED/revision0，服务器创建与更新身份。PATCH 完整替换配置；忽略集合顺序的 no-op 不改 revision/updated_at/updated_by 或审计。DISABLED/PAUSED 可保存存在且结构完整但当前不可运行的资源选择；ACTIVE 实际修改与 activate/resume 必须通过共享资格。状态转换只允许 DISABLED→ACTIVE、ACTIVE→PAUSED、PAUSED→ACTIVE、非归档→ARCHIVED；重复命令明确拒绝。ACTIVE 归档在同事务内先暂停，无可见中间态、一次 revision 和一条归档审计。ARCHIVED 只读/复制。DELETE 仅 DISABLED，保留审计 tombstone；当前未建 Batch 表，不伪造历史引用。
++ADMIN/ENGINEER 管理内部共享配置，创建/复制强制 DISABLED/revision0，服务器创建与更新身份。PATCH 完整替换配置；忽略集合顺序的 no-op 不改 revision/updated_at/updated_by 或审计。DISABLED/PAUSED 可保存存在且结构完整但当前不可运行的资源选择；ACTIVE 实际修改与 activate/resume 必须通过共享资格。状态转换只允许 DISABLED→ACTIVE、ACTIVE→PAUSED、PAUSED→ACTIVE、非归档→ARCHIVED；重复命令明确拒绝。ACTIVE 归档在同事务内先暂停，无可见中间态、一次 revision 和一条归档审计。ARCHIVED 只读/复制。DELETE 仅 DISABLED，保留审计 tombstone；Batch 历史引用由 GEO-303 的真实计数保护；上述命令仅适用于 V1.0 的 MANUAL_ONLY，历史 CRON 遵循只读边界。
+ 
+ 命令要求 READ COMMITTED，User FOR NO KEY UPDATE→Channel→Model→Product→品牌Subject→Subject→QueryTopic→Variant→Surface→Profile→Plan。资源取旧/新配置并集且各组 UUID 排序；锁后重验 Subject 父身份、Variant 主题、Profile 绑定/revision 与 Plan revision/配置。漂移返回 409 REVISION_CONFLICT，不扩大锁集、不自动重放。运行资格读取非敏感当前列，不加载凭据正文。读请求在认证前建立 REPEATABLE READ、禁 autoflush；详情7次/列表非空页8次应用批量 SELECT，空页2次，与页内Plan数量无关。
+ 
+ 业务 flush 后只对四项 Plan 完整性 constraint triggers 执行 SET CONSTRAINTS … IMMEDIATE，再追加最小白名单成功审计并 commit。新增八个 `geo_monitoring_plan.*` 成功动作，CONFIGURATION 模块、GeoMonitoringPlan target；facts 仅 status/revision，不存名称、description、问题、settings 或秘密。审计失败/未知完整性失败整体回滚。精确 `23514 + ck_geo_monitoring_plans_archived` 映射 409 GEO_PLAN_ARCHIVED；三种 required 完整性约束映射 422 GEO_PLAN_EMPTY；三个 membership 资源FK的 `23503` 映射 422 GEO_PLAN_REFERENCE_INVALID；其他异常原样失败。非法转换/资格失败/非DISABLED删除分别409 INVALID_STATE_TRANSITION / GEO_PLAN_PROFILE_INELIGIBLE（明确预算超出为GEO_PLAN_BUDGET_EXCEEDED）/GEO_PLAN_IN_USE。
+ 
+-`/run` 接受 required expected_revision、Idempotency-Key，通过身份/锁/revision/归档边界后501 NOT_IMPLEMENTED；不保存命令或幂等结果、不创建Batch/Run、不写成功审计、不投递Redis。重复相同key仍501。Plan配置更新只写自身四表，配置引用不标记历史首次运行；已创建Batch冻结由GEO-303实现并独立验证，GEO-208不提供伪造快照证明。
++`/run` 已由 GEO-303 接线：required expected_revision、Idempotency-Key，首次 MANUAL_ONLY 通过身份/锁/revision/归档与当前资格后返回 201 冻结 Batch/Run；相同请求重放首次回执。CRON 首次 run 返回 409 GEO_PLAN_CRON_UNSUPPORTED。Plan 配置命令只写自身四表，不标记资源首次运行；首次引用与执行快照由批次创建 owner 持锁冻结。MANUAL 采集不连接 Redis；已获准的 API Collection 仍遵循既有提交后投递合同。
+ 
+ ## GEO EngineSurface / CollectionProfile 合同（GEO-203 / R1）
+ 
+@@ -882,7 +894,7 @@
+ 
+ 同一事务先插入PLANNED/revision0 Batch、主体引用和完整根矩阵（每块250行），最后更新QUEUED/revision1；根Runs保持PENDING/revision0/attempt1/NOT_STARTED。提前执行0048数量与0049主体完整性约束，再提交审计及手工幂等记录；任一阶段失败全部回滚，包括首次引用锁存。矩阵至少覆盖1000 roots，不乘主体数量，不静默缩减阻断资源。
+ 
+-手工幂等在当前用户鉴权后先查已提交记录：同请求返回首次batch_id/requested_run_count/created_at；异请求409 IDEMPOTENCY_CONFLICT；配置修订/停用/归档不影响重放，也不重复成功审计。首次计划请求必填expected_revision，ARCHIVED拒绝；DISABLED/PAUSED/ACTIVE均可在当前资格满足时手工创建，不改变计划状态/revision。调度内部服务只接受ACTIVE CRON计划的新窗口；身份SHA256(`geo-batch-schedule:` + plan UUID + `:` + UTC ISO微秒时间)，不含revision，同窗口重放不检查后续配置。HTTP不能伪造SCHEDULED或RETEST。
++手工幂等在当前用户鉴权后先查已提交记录：同请求返回首次batch_id/requested_run_count/created_at；异请求409 IDEMPOTENCY_CONFLICT；配置修订/停用/归档不影响重放，也不重复成功审计。首次计划请求必填expected_revision，ARCHIVED拒绝；DISABLED/PAUSED/ACTIVE均可在当前资格满足时手工创建，不改变计划状态/revision。V1.0 调度内部服务拒绝 CRON 首次窗口（409 GEO_PLAN_CRON_UNSUPPORTED）；未来交付后才可接受 ACTIVE CRON 新窗口；身份SHA256(`geo-batch-schedule:` + plan UUID + `:` + UTC ISO微秒时间)，不含revision，同窗口重放不检查后续配置。HTTP不能伪造SCHEDULED或RETEST。
+ 
+ 主体真实run引用由Batch主体关系连接Runs统计；Profile、Plan、User的删除投影及命令接入真实历史。手工成功审计 geo_observation_batch.created 与业务同事务，只包含plan_id、requested_run_count、trigger_type。系统调度created_by=NULL，不伪造审计用户。无Redis/Collector/派发/分析。唯一冲突仅按精确23505+约束名映射，其他未知数据库失败不吞掉。0049禁止破坏性降级；保留历史并前向修复。
+ 
+--- a/frontend/tests/e2e/plans-real-stack.spec.ts
++++ b/frontend/tests/e2e/plans-real-stack.spec.ts
+@@ -1,4 +1,4 @@
+-/** GEO-209：向导与生命周期使用真实 API，所有业务写入经过 UI。 */
++/** GEO-209 / GEO-1005：MANUAL 向导与生命周期使用真实 API，所有业务写入经过 UI。 */
+ import { randomInt, randomUUID } from 'node:crypto';
+ import { defaultStringifySearch } from '@tanstack/react-router';
+ import { expect, test, type APIResponse, type Page, type Response } from '@playwright/test';
+@@ -37,7 +37,7 @@
+   else { await detail.getByRole('button', { name: '更多操作：当前计划' }).click(); await page.getByRole('menuitem', { name: label, exact: true }).click(); }
+ }
+ 
+-test('工程师八步创建、服务端预览、dirty、URL、启停修订复制归档与删除持久化', async ({ page, browser }, testInfo) => {
++test('工程师 MANUAL 八步创建、CRON 不可选、服务端预览、启停修订复制归档与删除持久化', async ({ page, browser }, testInfo) => {
+   // 数字形文本必须经 Router 序列化，避免原始 q 被 JSON 解析成 number 后丢失。
+   const suffix = String(randomInt(10_000_000, 100_000_000));
+   const adminPassword = process.env.PARTSIGNAL_SEED_ADMIN_PASSWORD;
+@@ -144,8 +144,12 @@
+     await engineer.getByRole('button', { name: '下一步', exact: true }).click();
+     await expect(engineer.getByRole('spinbutton', { name: '重复次数' })).toHaveValue('3');
+     await engineer.getByRole('button', { name: '下一步', exact: true }).click();
+-    await choose(engineer, '调度方式', '定时配置');
+-    await engineer.getByRole('textbox', { name: 'Cron 表达式' }).fill('0 9 * * *');
++    await expect(engineer.getByRole('combobox', { name: '调度方式', exact: true })).toContainText('手动触发');
++    await engineer.getByRole('combobox', { name: '调度方式', exact: true }).click();
++    await expect(engineer.getByRole('option')).toHaveCount(1);
++    await expect(engineer.getByRole('option', { name: '定时配置', exact: true })).toHaveCount(0);
++    await engineer.getByRole('option', { name: '手动触发', exact: true }).click();
++    await expect(engineer.getByRole('textbox', { name: 'Cron 表达式' })).toHaveCount(0);
+     await engineer.getByRole('button', { name: '下一步', exact: true }).click();
+     const serverPreview = await mutate<components['schemas']['GeoMonitoringPlanPreview']>('preview', 'POST', `${plans}/preview`, () => engineer.getByRole('button', { name: '预览当前配置' }).click());
+     expect(serverPreview).toMatchObject({ run_count: 3, manual_run_count: 3, estimated_cost: { value: null }, blockers: [] });
+@@ -167,7 +171,7 @@
+     await engineer.screenshot({ path: testInfo.outputPath('geo209-wizard-preview.png'), fullPage: true });
+     await engineer.getByRole('button', { name: '下一步', exact: true }).click();
+     const created = await mutate<Plan>('create', 'POST', plans, () => engineer.getByRole('button', { name: '创建监测计划', exact: true }).click(), 201);
+-    expect(created).toMatchObject({ status: 'DISABLED', revision: 0, prompt_variant_ids: [variant.id], collection_profile_ids: [profile.summary.id], subjects: [{ subject_id: subject.id, role: 'PRIMARY' }], cron_expression: '0 9 * * *' });
++    expect(created).toMatchObject({ status: 'DISABLED', revision: 0, prompt_variant_ids: [variant.id], collection_profile_ids: [profile.summary.id], subjects: [{ subject_id: subject.id, role: 'PRIMARY' }], schedule_kind: 'MANUAL_ONLY', cron_expression: null });
+     await expect(engineer).toHaveURL(new RegExp(`selected=${created.id}`));
+     const detail = engineer.getByRole('region', { name: '监测计划详情' });
+     await expect(detail.getByText(/NOT_IMPLEMENTED/)).toBeVisible();
+@@ -196,7 +200,7 @@
+     await mutate('delete', 'DELETE', `${plans}/${copied.id}`, () => engineer.getByRole('dialog', { name: '确认删除计划' }).getByRole('button', { name: '确认操作' }).click(), 204);
+     await expect(engineer.getByRole('dialog', { name: '监测计划工作区' })).toBeHidden();
+     await engineer.waitForLoadState('networkidle');
+-    await engineer.goto(`/geo/plans${defaultStringifySearch({ selected: created.id, q: suffix, schedule_kind: 'CRON', sort: 'NAME_ASC' })}`);
++    await engineer.goto(`/geo/plans${defaultStringifySearch({ selected: created.id, q: suffix, schedule_kind: 'MANUAL_ONLY', sort: 'NAME_ASC' })}`);
+     await planAction(engineer, '归档计划');
+     const archived = await mutate<Plan>('archive', 'POST', `${plans}/${created.id}/archive`, () => engineer.getByRole('dialog', { name: '确认归档计划' }).getByRole('button', { name: '确认操作' }).click());
+     expect(archived).toMatchObject({ status: 'ARCHIVED', revision: 5, available_actions: ['COPY'] });
+@@ -204,7 +208,7 @@
+     expect(await body<Plan>(await engineer.request.get(`${api}${plans}/${created.id}`))).toMatchObject({ status: 'ARCHIVED', revision: 5, name: `${planName} 已修订` });
+     await engineer.getByRole('button', { name: '关闭', exact: true }).click();
+     await expect(engineer.getByRole('textbox', { name: '搜索计划名称' })).toHaveValue(suffix);
+-    await expect(engineer.getByRole('combobox', { name: '筛选调度' })).toContainText('定时配置');
++    await expect(engineer.getByRole('combobox', { name: '筛选调度' })).toContainText('手动触发');
+     expect(trafficExpectationErrors(audit.attempts, audit.responses, expectations, createAuthTrafficScope(apiOrigin))).toEqual([]);
+     expect(audit.errors).toEqual([]);
+     expect(audit.attempts.some((item) => /\/(run|runs|batches)(\/|$)/.test(item.pathname))).toBe(false);
+--- a/frontend/src/domains/geo-runs/batch-create.test.tsx
++++ b/frontend/src/domains/geo-runs/batch-create.test.tsx
+@@ -44,6 +44,24 @@
+   await userEvent.click(await screen.findByRole('button', { name: /原始监测计划 · Revision 7/ }));
+ }
+ describe('批次创建的快照与幂等身份', () => {
++  it('向服务端仅查询人工计划，历史 CRON 投影不可选且没有写请求', async () => {
++    const get = vi.spyOn(api, 'GET').mockResolvedValue(response({ items: [plan({
++      schedule_kind: 'CRON', cron_expression: '0 * * * *', status: 'ACTIVE',
++      workflow_stage: 'UNSUPPORTED_SCHEDULE', primary_task: 'VIEW_HISTORY', available_actions: [],
++      deletion: { blockers: ['SCHEDULE_UNSUPPORTED'] },
++      run_entry: { available: false, reason_code: 'GEO_PLAN_CRON_UNSUPPORTED' },
++    })], total: 1, page: 1, page_size: 20 }));
++    const post = vi.spyOn(api, 'POST');
++    setup();
++    const historical = await screen.findByRole('button', { name: /原始监测计划 · Revision 7/ });
++    expect(get).toHaveBeenCalledWith('/api/v1/geo/monitoring-plans', expect.objectContaining({
++      params: { query: expect.objectContaining({ schedule_kind: 'MANUAL_ONLY' }) },
++    }));
++    expect(historical).toBeDisabled();
++    await userEvent.click(historical);
++    expect(screen.getByRole('button', { name: '确认创建批次' })).toBeDisabled();
++    expect(post).not.toHaveBeenCalled();
++  });
+   it('未知结果保留原计划修订和同键，显式重试后采用canonical batch ID', async () => {
+     vi.spyOn(api, 'GET').mockResolvedValue(response({ items: [plan()], total: 1, page: 1, page_size: 20 }));
+     const post = vi
+--- a/frontend/src/domains/geo-runs/batch-create.tsx
++++ b/frontend/src/domains/geo-runs/batch-create.tsx
+@@ -23,8 +23,9 @@
+   const [q, setQ] = useState('');
+   const [filter, setFilter] = useState('');
+   const [page, setPage] = useState(1);
+-  const plans = useQuery(planListOptions({ q: filter || undefined, page: page > 1 ? page : undefined }));
++  const plans = useQuery(planListOptions({ schedule_kind: 'MANUAL_ONLY', q: filter || undefined, page: page > 1 ? page : undefined }));
+   const [selected, setSelected] = useState<Plan>();
++  const unsupported = selected?.workflow_stage === 'UNSUPPORTED_SCHEDULE';
+   const [pending, setPending] = useState(false);
+   const [error, setError] = useState<unknown>();
+   const [held, setHeld] = useState(false);
+@@ -38,7 +39,7 @@
+     };
+   }, []);
+   async function create() {
+-    if (working.current || !selected || held || !csrfToken) return;
++    if (working.current || !selected || unsupported || held || !csrfToken) return;
+     const continuation = capturePrincipalContinuation(client);
+     working.current = true;
+     setPending(true);
+@@ -114,7 +115,7 @@
+         </Button>
+       </header>
+       <p className="text-sm text-text-secondary">
+-        创建时冻结当前计划和全部运行输入。人工模式等待录入；API 模式由 Worker 执行，服务端会重新检查开关、批准、预算和当前配置资格。
++        V1.0 仅从人工计划创建批次；历史 CRON 计划只读，不支持调度，不能从该计划创建批次。创建时冻结当前计划和全部运行输入。人工模式等待录入；API 模式由 Worker 执行，服务端会重新检查开关、批准、预算和当前配置资格。
+       </p>
+       <form
+         className="flex flex-wrap items-end gap-2"
+@@ -147,7 +148,7 @@
+             <Button
+               aria-pressed={selected?.id === plan.id}
+               className="h-auto w-full justify-start whitespace-normal text-left"
+-              disabled={pending || Boolean(request)}
++              disabled={pending || Boolean(request) || plan.workflow_stage === 'UNSUPPORTED_SCHEDULE'}
+               onClick={() => {
+                 setSelected(plan);
+                 setRequest(undefined);
+@@ -158,6 +159,7 @@
+               variant={selected?.id === plan.id ? 'secondary' : 'outline'}
+             >
+               {plan.name} · Revision {plan.revision} · {plan.preview.run_count} 次运行
++              {plan.workflow_stage === 'UNSUPPORTED_SCHEDULE' && ' · 历史只读，V1.0 不支持调度'}
+             </Button>
+           </li>
+         ))}
+@@ -189,6 +191,7 @@
+           ))}
+         </div>
+       )}
++      {unsupported && <p role="status">该计划为历史 CRON，只读且不能从该计划创建批次，请选择人工计划。</p>}
+       {Boolean(error) && (
+         <p className="text-sm text-danger" role="alert">
+           {message(error)}
+@@ -202,7 +205,7 @@
+           重新读取计划并确认
+         </Button>
+       )}
+-      <Button disabled={!selected || pending || held || !csrfToken} onClick={() => void create()} type="button">
++      <Button disabled={!selected || unsupported || pending || held || !csrfToken} onClick={() => void create()} type="button">
+         {pending ? '创建中…' : request ? '确认原批次创建结果' : '确认创建批次'}
+       </Button>
+     </section>
+--- a/frontend/src/domains/geo-plans/plans.test-support.tsx
++++ b/frontend/src/domains/geo-plans/plans.test-support.tsx
+@@ -19,6 +19,9 @@
+ }
+ function plan(overrides: Partial<PlanDetail> = {}): PlanDetail {
+   return { id: planId, name: '原始监测计划', description: '计划说明', subjects: [{ subject_id: subjectId, role: 'PRIMARY' }], prompt_variant_ids: [promptId], collection_profile_ids: [profileId], repeat_count: 3, schedule_kind: 'MANUAL_ONLY', cron_expression: null, timezone: 'Asia/Shanghai', budget_limit: null, rule_set_revision: 1, status: 'DISABLED', revision: 7, created_by: user.id, updated_by: user.id, created_at: '2026-10-02T08:00:00Z', updated_at: '2026-10-02T08:00:00Z', preview: preview(), workflow_stage: 'READY', primary_task: 'ACTIVATE', available_actions: ['UPDATE', 'PREVIEW', 'ACTIVATE', 'ARCHIVE', 'COPY', 'DELETE'], deletion: { blockers: [] }, run_entry: { available: false, reason_code: 'UI_NOT_IMPLEMENTED' }, ...overrides };
++}
++function unsupportedPlan(overrides: Partial<PlanDetail> = {}): PlanDetail {
++  return plan({ schedule_kind: 'CRON', cron_expression: '0 9 * * *', status: 'ACTIVE', workflow_stage: 'UNSUPPORTED_SCHEDULE', primary_task: 'VIEW_HISTORY', available_actions: [], deletion: { blockers: ['SCHEDULE_UNSUPPORTED'] }, run_entry: { available: false, reason_code: 'GEO_PLAN_CRON_UNSUPPORTED' }, ...overrides });
+ }
+ function response<T>(data: T) { return { data, response: Response.json(data) } as never; }
+ function failure(code = 'REVISION_CONFLICT', status = 409) {
+@@ -43,4 +46,4 @@
+   const view = render(<QueryClientProvider client={client}><TooltipProvider><RouterProvider router={router} context={{ queryClient: client, auth }} /></TooltipProvider></QueryClientProvider>);
+   return { client, router, view };
+ }
+-export { failure, mockReads, plan, planId, preview, profileId, promptId, renderPlans, response, subjectId };
++export { failure, mockReads, plan, planId, preview, profileId, promptId, renderPlans, response, subjectId, unsupportedPlan };
+--- a/frontend/src/domains/geo-plans/plans-page.test.tsx
++++ b/frontend/src/domains/geo-plans/plans-page.test.tsx
+@@ -4,7 +4,7 @@
+ import { invalidatePrincipalEpoch } from '@/app/auth/principal-epoch';
+ import { api } from '@/shared/api/client';
+ import { planKeys } from './plans.api';
+-import { failure, mockReads, plan, planId, renderPlans, response } from './plans.test-support';
++import { failure, mockReads, plan, planId, renderPlans, response, unsupportedPlan } from './plans.test-support';
+ 
+ afterEach(() => vi.restoreAllMocks());
+ async function action(label: string) {
+@@ -14,6 +14,62 @@
+   return driver;
+ }
+ describe('计划真实路由与状态工作区', () => {
++  it.each([['DISABLED', '未启用'], ['ACTIVE', '已启用'], ['PAUSED', '已暂停'], ['ARCHIVED', '已归档']] as const)('历史 CRON %s 只读，保留配置与真实历史状态且不发送写请求', async (status, label) => {
++    const historical = unsupportedPlan({ status });
++    mockReads(() => historical);
++    const post = vi.spyOn(api, 'POST'); const patch = vi.spyOn(api, 'PATCH'); const remove = vi.spyOn(api, 'DELETE');
++    renderPlans(); const driver = userEvent.setup();
++    const detail = await screen.findByRole('region', { name: '监测计划详情' });
++    expect(within(detail).getByText(/此历史计划只读/)).toHaveTextContent('不会自动创建批次');
++    expect(within(detail).getByText(/历史状态：/)).toHaveTextContent(`${label}（${status}）`);
++    expect(within(detail).getByText('Revision 7')).toBeVisible();
++    expect(within(detail).getByText(/0 9 \* \* \*/)).toHaveTextContent('Asia/Shanghai');
++    expect(within(detail).queryByRole('link', { name: '运行中心' })).not.toBeInTheDocument();
++    const history = within(detail).getByRole('link', { name: '查看批次历史' });
++    expect(history.getAttribute('href')).toContain(`plan_id=${planId}`);
++    expect(history.getAttribute('href')).not.toContain('create=');
++    await driver.click(within(detail).getByRole('button', { name: '更多操作：当前计划' }));
++    expect((await screen.findAllByRole('menuitem')).map((item) => item.textContent)).toEqual(['查看删除条件']);
++    await driver.click(screen.getByRole('menuitem', { name: '查看删除条件' }));
++    expect(within(detail).getByRole('region', { name: '删除条件' })).toHaveTextContent('历史计划只读，不能删除');
++    await driver.click(screen.getByRole('button', { name: '关闭' }));
++    const list = await screen.findByRole('region', { name: '监测计划列表' });
++    expect(within(list).getByText('调度不支持')).toBeVisible();
++    expect(within(list).getByText(`历史状态：${label}`)).toBeVisible();
++    expect(post).not.toHaveBeenCalled(); expect(patch).not.toHaveBeenCalled(); expect(remove).not.toHaveBeenCalled();
++  });
++  it.each(['DISABLED', 'ACTIVE', 'PAUSED', 'ARCHIVED'] as const)('直接访问历史 CRON %s 编辑 URL 仍只读，无表单、预览或保存请求', async (status) => {
++    mockReads(() => unsupportedPlan({ status }));
++    const post = vi.spyOn(api, 'POST'); const patch = vi.spyOn(api, 'PATCH'); const remove = vi.spyOn(api, 'DELETE');
++    const { router } = renderPlans(`/geo/plans?selected=${planId}&edit=1`);
++    const readonly = await screen.findByRole('region', { name: '历史计划只读配置' });
++    expect(readonly).toHaveTextContent(`（${status}）`);
++    expect(readonly).toHaveTextContent('Revision 7');
++    expect(readonly).toHaveTextContent('0 9 * * *');
++    expect(screen.queryByRole('form', { name: '编辑监测计划' })).not.toBeInTheDocument();
++    expect(within(readonly).queryByRole('textbox')).not.toBeInTheDocument();
++    expect(within(readonly).queryByRole('button', { name: /预览|保存/ })).not.toBeInTheDocument();
++    await userEvent.setup().click(within(readonly).getByRole('button', { name: '关闭向导' }));
++    await waitFor(() => expect(router.state.location.search.selected).toBeUndefined());
++    expect(post).not.toHaveBeenCalled(); expect(patch).not.toHaveBeenCalled(); expect(remove).not.toHaveBeenCalled();
++  });
++  it('稳定 CRON 错误码展示版本限制和请求 ID，重新读取历史后不能重放旧启用命令', async () => {
++    let current = plan(); mockReads(() => current);
++    const post = vi.spyOn(api, 'POST').mockResolvedValue(failure('GEO_PLAN_CRON_UNSUPPORTED'));
++    const driver = userEvent.setup(); renderPlans();
++    const detail = await screen.findByRole('region', { name: '监测计划详情' });
++    await driver.click(within(detail).getByRole('button', { name: '启用计划' }));
++    const dialog = await screen.findByRole('dialog', { name: '确认启用计划' });
++    await driver.click(within(dialog).getByRole('button', { name: '确认操作' }));
++    expect(await within(dialog).findByText(/GEO_PLAN_CRON_UNSUPPORTED/)).toHaveTextContent('V1.0 不支持定时调度');
++    expect(within(dialog).getByText(/GEO_PLAN_CRON_UNSUPPORTED/)).toHaveTextContent('plan-test-request');
++    expect(within(dialog).getByRole('button', { name: '确认操作' })).toBeDisabled();
++    current = unsupportedPlan();
++    await driver.click(within(dialog).getByRole('button', { name: '重新读取计划' }));
++    await waitFor(() => expect(within(detail).getByText(/历史状态：/)).toHaveTextContent('ACTIVE'));
++    expect(within(dialog).getByRole('button', { name: '确认操作' })).toBeDisabled();
++    expect(post).toHaveBeenCalledOnce();
++  });
+   it('URL 恢复筛选和详情，直接显示服务端矩阵值', async () => {
+     const get = mockReads(() => plan({ preview: { ...plan().preview, run_count: 97 } }));
+     const { router } = renderPlans(`/geo/plans?selected=${planId}&q=原始&status=DISABLED&schedule_kind=MANUAL_ONLY&page=2&page_size=10&sort=NAME_ASC`);
+--- a/frontend/src/domains/geo-plans/plan-detail.tsx
++++ b/frontend/src/domains/geo-plans/plan-detail.tsx
+@@ -14,7 +14,7 @@
+ import { changePlanStatus, copyPlan, deletePlan, PlanRequestError, planKeys, type PlanStatusCommand } from './plans.api';
+ import { actionLabels, assertNever, planFormSchema, roleLabels, scheduleLabels, shouldBlockPlanNavigation, stageLabels, type PlanDetail } from './plans.model';
+ import { parsePlanCommand, planOverflow, planPrimary } from './plan-actions';
+-import { PlanNotice, planErrorMessage } from './plan-controls';
++import { PlanNotice, UnsupportedPlanNotice, planErrorMessage } from './plan-controls';
+ import { PlanPreviewPanel } from './plan-preview';
+ 
+ type Command = PlanStatusCommand | 'COPY' | 'DELETE';
+@@ -26,7 +26,7 @@
+   onSaved: (plan: PlanDetail) => void; onDeleted: (id: string) => void; onReload: () => Promise<PlanDetail>; onEdit: (step?: number) => void; readBlocked?: boolean; ref?: Ref<PlanDetailHandle>;
+ }) {
+   const client = useQueryClient();
+-  const [intent, setIntent] = useState<Intent | undefined>(() => initialAction && ['ACTIVATE', 'PAUSE', 'RESUME', 'ARCHIVE', 'COPY', 'DELETE'].includes(initialAction) ? { action: initialAction as Command, revision: plan.revision } : undefined);
++  const [intent, setIntent] = useState<Intent | undefined>(() => initialAction && initialAction !== 'VIEW_DELETION_CONDITIONS' && plan.available_actions.includes(initialAction) && ['ACTIVATE', 'PAUSE', 'RESUME', 'ARCHIVE', 'COPY', 'DELETE'].includes(initialAction) ? { action: initialAction as Command, revision: plan.revision } : undefined);
+   const copyForm = useForm<{ name: string }>({ defaultValues: { name: `${plan.name.slice(0, 195)} 副本` }, resolver: zodResolver(copySchema), mode: 'onChange' });
+   const { isValid: copyValid, errors: copyErrors, isDirty: copyDirty } = copyForm.formState;
+   const [error, setError] = useState<unknown>();
+@@ -50,8 +50,9 @@
+       default: return assertNever(target.action);
+     }
+   } });
++  const unsupportedScheduleError = error instanceof PlanRequestError && error.detail?.code === 'GEO_PLAN_CRON_UNSUPPORTED';
+   const held = conflicted;
+-  const canConfirm = Boolean(!readBlocked && intent && plan.available_actions.includes(intent.action) && plan.revision === intent.revision);
++  const canConfirm = Boolean(!readBlocked && !unsupportedScheduleError && intent && plan.available_actions.includes(intent.action) && plan.revision === intent.revision);
+   function begin(action: ReturnType<typeof parsePlanCommand>, focus?: HTMLElement | null) {
+     if (readBlocked || inFlight.current || refreshing) return;
+     finalFocus.current = focus ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+@@ -97,22 +98,22 @@
+   return <section aria-label="监测计划详情" className="min-w-0 space-y-5">
+     <DirtyGuard shouldBlockNavigation={({ current, next }) => shouldBlockPlanNavigation(current, next)} when={busy || Boolean(intent?.action === 'COPY' && copyDirty)} />
+     <header className="flex flex-wrap items-center justify-between gap-3"><div className="flex flex-wrap items-center gap-2"><Badge variant={plan.workflow_stage === 'ACTIVE' ? 'success' : 'secondary'}>{stageLabels[plan.workflow_stage]}</Badge><span className="text-sm">Revision {plan.revision}</span></div><RowActions objectLabel="当前计划" onCommand={(action, focus) => begin(parsePlanCommand(action), focus)} overflow={planOverflow(plan, busy || readBlocked)} primary={primary ? { ...primary, enabled: primary.enabled && !busy && !readBlocked } : undefined} /></header>
++    {plan.workflow_stage === 'UNSUPPORTED_SCHEDULE' && <UnsupportedPlanNotice plan={plan} />}
+     {message && <PlanNotice>{message}</PlanNotice>}
+     <dl className="grid min-w-0 gap-3 text-sm sm:grid-cols-2"><div className="sm:col-span-2"><dt className="text-text-muted">计划名称</dt><dd className="break-words">{plan.name}</dd></div><div className="sm:col-span-2"><dt className="text-text-muted">说明</dt><dd className="whitespace-pre-wrap break-words">{plan.description || '未填写说明'}</dd></div><div><dt className="text-text-muted">调度配置</dt><dd className="break-words">{scheduleLabels[plan.schedule_kind]} · {plan.cron_expression ?? '按需触发'} · {plan.timezone}</dd></div><div><dt className="text-text-muted">预算上限</dt><dd>{plan.budget_limit ?? '未设置'}</dd></div><div className="sm:col-span-2"><dt className="text-text-muted">监测对象与角色</dt><dd className="space-y-1">{plan.subjects.map((item) => <p className="break-all" key={item.subject_id}>{roleLabels[item.role]} · {item.subject_id}</p>)}</dd></div><div className="sm:col-span-2"><dt className="text-text-muted">问题变体</dt><dd className="space-y-1">{plan.prompt_variant_ids.map((id) => <p className="break-all" key={id}><a className="text-interaction-primary underline" href={`/geo/questions?selected=${id}`} rel="noopener noreferrer" target="_blank">{id}</a></p>)}</dd></div><div className="sm:col-span-2"><dt className="text-text-muted">采集配置</dt><dd className="space-y-1">{plan.collection_profile_ids.map((id) => <p className="break-all" key={id}>{id}</p>)}</dd></div></dl>
+     <section className="min-w-0 space-y-3" ref={preview} tabIndex={-1}><PlanPreviewPanel onFix={plan.available_actions.includes('UPDATE') || plan.available_actions.includes('CREATE_REVISION') ? (step) => onEdit(step) : undefined} preview={plan.preview} /></section>
+-    <PlanNotice>当前页面提供配置与预览。人工批次可在 <Link className="text-primary underline" to="/geo/runs" search={{ plan_id: plan.id, create: 1 }}>运行中心</Link> 创建并录入；计划内运行入口（{plan.run_entry.reason_code}）和定时执行尚未开放。</PlanNotice>
++    {plan.workflow_stage !== 'UNSUPPORTED_SCHEDULE' && <PlanNotice>当前页面提供配置与预览。人工批次可在 <Link className="text-primary underline" to="/geo/runs" search={{ plan_id: plan.id, create: 1 }}>运行中心</Link> 创建并录入；计划内运行入口（{plan.run_entry.reason_code}）和定时执行尚未开放。</PlanNotice>}
+     {plan.deletion.blockers.length > 0 && <section aria-label="删除条件" className="space-y-2 border-t border-border-subtle pt-3" ref={conditions} tabIndex={-1}><h3 className="type-section-title">删除条件</h3>{plan.deletion.blockers.map((code) => <p className="text-sm" key={code}>{deletionReason(code)}</p>)}</section>}
+     <Dialog onOpenChange={(open) => { if (!open && !busy) setIntent(undefined); }} open={Boolean(intent)}><DialogContent finalFocus={() => finalFocus.current?.isConnected ? finalFocus.current : null} showCloseButton={!busy}><DialogHeader><DialogTitle>确认{intent ? actionLabels[intent.action] : '操作'}</DialogTitle><DialogDescription>{intent ? confirmationText(intent.action) : ''} Revision {intent?.revision}。</DialogDescription></DialogHeader>
+       {intent?.action === 'COPY' && <div className="space-y-1 text-sm"><label htmlFor="plan-copy-name">新计划名称</label><Input {...copyForm.register('name')} aria-describedby={copyErrors.name ? 'plan-copy-error' : undefined} aria-invalid={Boolean(copyErrors.name)} disabled={busy} id="plan-copy-name" maxLength={200} />{copyErrors.name && <span className="text-danger" id="plan-copy-error">{copyErrors.name.message}</span>}</div>}
+       {Boolean(error) && <PlanNotice error>{planErrorMessage(error)}</PlanNotice>}
+-      {held && <p role="alert">此前操作返回409，本地输入保留。请显式重新读取并核对后再次确认。</p>}
+-      {!canConfirm && <p role="alert">当前版本或服务端动作已变化，请重新读取并核对。</p>}
+-      {(held || !canConfirm) && <Button disabled={busy} onClick={() => void reloadIntent()} type="button" variant="outline">重新读取并重新确认</Button>}
++      {unsupportedScheduleError ? <p role="alert">此调度在 V1.0 中不受支持，不能重试操作。请重新读取计划以查看历史。</p> : <>{held && <p role="alert">此前操作返回409，本地输入保留。请显式重新读取并核对后再次确认。</p>}{!canConfirm && <p role="alert">当前版本或服务端动作已变化，请重新读取并核对。</p>}</>}
++      {(held || !canConfirm) && <Button disabled={busy} onClick={() => void reloadIntent()} type="button" variant="outline">{unsupportedScheduleError ? '重新读取计划' : '重新读取并重新确认'}</Button>}
+       <DialogFooter><Button disabled={busy} onClick={() => setIntent(undefined)} type="button" variant="outline">取消</Button><Button disabled={!canConfirm || held || busy || !csrfToken || intent?.action === 'COPY' && !copyValid} onClick={() => void confirm()} type="button" variant={intent?.action === 'DELETE' || intent?.action === 'ARCHIVE' ? 'destructive' : 'default'}>{busy ? '提交中…' : '确认操作'}</Button></DialogFooter>
+     </DialogContent></Dialog>
+   </section>;
+ }
+-function deletionReason(code: PlanDetail['deletion']['blockers'][number]) { switch (code) { case 'PLAN_NOT_DISABLED': return '当前计划不是未启用状态，服务端不允许删除；可按可用动作归档。'; case 'HAS_BATCH_HISTORY': return '计划已有批次历史，请归档以保留执行记录。'; case 'ARCHIVED': return '归档计划只读，不能删除；可复制为新计划。'; default: return assertNever(code); } }
++function deletionReason(code: PlanDetail['deletion']['blockers'][number]) { switch (code) { case 'PLAN_NOT_DISABLED': return '当前计划不是未启用状态，服务端不允许删除；可按可用动作归档。'; case 'HAS_BATCH_HISTORY': return '计划已有批次历史，请归档以保留执行记录。'; case 'ARCHIVED': return '归档计划只读，不能删除。'; case 'SCHEDULE_UNSUPPORTED': return 'V1.0 不支持定时调度，历史计划只读，不能删除。'; default: return assertNever(code); } }
+ function confirmationText(action: Command) { switch (action) {
+   case 'ACTIVATE': return '服务端会重新检查当前资源资格。启用仅保存计划状态，R1 尚未执行调度或采集。';
+   case 'PAUSE': return '暂停计划，不改变已保存的配置或历史。';
+--- a/frontend/src/domains/geo-plans/plan-wizard-steps.tsx
++++ b/frontend/src/domains/geo-plans/plan-wizard-steps.tsx
+@@ -1,4 +1,3 @@
+-import { useFormContext, useWatch } from 'react-hook-form';
+ import { FormField } from '@/design-system/forms/form-field';
+ import { Input } from '@/design-system/primitives/input';
+ import { Textarea } from '@/design-system/primitives/textarea';
+@@ -8,22 +7,20 @@
+ 
+ const planStepLabels = ['基本信息', '监测对象', '问题变体', '采集配置', '重复和预算', '调度', '服务端预览', '保存'] as const;
+ const stepFields: (keyof PlanValues)[][] = [
+-  ['name', 'description'], ['subjects'], ['prompt_variant_ids'], ['collection_profile_ids'], ['repeat_count', 'budget_limit', 'rule_set_revision'], ['schedule_kind', 'cron_expression', 'timezone'], [], [],
++  ['name', 'description'], ['subjects'], ['prompt_variant_ids'], ['collection_profile_ids'], ['repeat_count', 'budget_limit', 'rule_set_revision'], ['schedule_kind', 'timezone'], [], [],
+ ];
+ function TextField({ name, label, description, required, number = false, maxLength }: {
+-  name: 'name' | 'budget_limit' | 'repeat_count' | 'rule_set_revision' | 'cron_expression' | 'timezone'; label: string; description?: string; required?: boolean; number?: boolean; maxLength?: number;
++  name: 'name' | 'budget_limit' | 'repeat_count' | 'rule_set_revision' | 'timezone'; label: string; description?: string; required?: boolean; number?: boolean; maxLength?: number;
+ }) {
+   return <FormField<PlanValues, typeof name> description={description} id={`plan-${name}`} label={label} name={name} required={required} render={({ field, inputId, ...aria }) => <Input {...field} aria-describedby={aria['aria-describedby']} aria-invalid={aria['aria-invalid']} aria-required={aria['aria-required']} id={inputId} inputMode={name === 'budget_limit' ? 'decimal' : undefined} maxLength={maxLength} min={number ? 1 : undefined} onChange={(event) => field.onChange(number ? (event.currentTarget.value === '' ? NaN : Number(event.currentTarget.value)) : event.currentTarget.value)} step={number ? 1 : undefined} type={number ? 'number' : 'text'} value={typeof field.value === 'number' && Number.isNaN(field.value) ? '' : field.value} />} />;
+ }
+ function PlanWizardStep({ step, disabled }: { step: number; disabled: boolean }) {
+-  const { control } = useFormContext<PlanValues>();
+-  const schedule = useWatch({ control, name: 'schedule_kind' });
+   if (step === 0) return <div className="space-y-4"><TextField label="计划名称" maxLength={200} name="name" required /><FormField<PlanValues, 'description'> id="plan-description" label="计划说明" name="description" render={({ field, inputId, ...aria }) => <Textarea {...field} aria-describedby={aria['aria-describedby']} aria-invalid={aria['aria-invalid']} id={inputId} rows={4} />} /></div>;
+   if (step === 1) return <FormField<PlanValues, 'subjects'> description="每个对象必须显式选择角色，至少一个主要监测对象。角色独立于对象类型。" id="plan-subjects-label" label="监测对象与角色" name="subjects" required render={({ field, ...aria }) => <PlanOptions describedBy={aria['aria-describedby']} disabled={disabled} invalid={aria['aria-invalid']} kind="subjects" onChange={() => {}} onSubjectsChange={field.onChange} selected={field.value.map((item) => item.subject_id)} subjects={field.value} />} />;
+   if (step === 2) return <FormField<PlanValues, 'prompt_variant_ids'> id="plan-prompt_variant_ids-label" label="问题变体" name="prompt_variant_ids" required render={({ field, ...aria }) => <PlanOptions describedBy={aria['aria-describedby']} disabled={disabled} invalid={aria['aria-invalid']} kind="prompts" onChange={field.onChange} selected={field.value} />} />;
+   if (step === 3) return <FormField<PlanValues, 'collection_profile_ids'> description="同一观测面的不同配置独立选择。这里只展示非敏感摘要，运行资格以服务端预览为准。" id="plan-collection_profile_ids-label" label="采集配置" name="collection_profile_ids" required render={({ field, ...aria }) => <PlanOptions describedBy={aria['aria-describedby']} disabled={disabled} invalid={aria['aria-invalid']} kind="profiles" onChange={field.onChange} selected={field.value} />} />;
+   if (step === 4) return <div className="space-y-4"><TextField description="每个问题与采集配置组合的重复次数，范围 1–10。" label="重复次数" name="repeat_count" number required /><TextField description="可留空；填写非负十进制金额。币种与是否超限由服务端估价裁决，未知费用不会按零补齐。" label="预算上限" name="budget_limit" /><TextField description="保存适用规则集的修订号。" label="规则集修订号" name="rule_set_revision" number required /></div>;
+-  if (step === 5) return <div className="space-y-4"><FormField<PlanValues, 'schedule_kind'> id="plan-schedule_kind" label="调度方式" name="schedule_kind" required render={({ field, inputId, ...aria }) => <PlanSelect choices={Object.entries(scheduleLabels).map(([value, label]) => ({ value, label }))} describedBy={aria['aria-describedby']} id={inputId} invalid={aria['aria-invalid']} label="调度方式" onChange={field.onChange} required value={field.value} />} />{schedule === 'CRON' && <TextField description="五字段 Cron，例如 0 9 * * *。当前保存调度配置，实际调度执行尚未实施。" label="Cron 表达式" maxLength={120} name="cron_expression" required />}<TextField description="IANA 时区，例如 Asia/Shanghai；服务端验证时区与 Cron。" label="时区" maxLength={64} name="timezone" required /></div>;
++  if (step === 5) return <div className="space-y-4"><FormField<PlanValues, 'schedule_kind'> description="V1.0 只支持手动触发，定时调度尚未开放。" id="plan-schedule_kind" label="调度方式" name="schedule_kind" required render={({ field, inputId, ...aria }) => <PlanSelect choices={[{ value: 'MANUAL_ONLY', label: scheduleLabels.MANUAL_ONLY }]} describedBy={aria['aria-describedby']} id={inputId} invalid={aria['aria-invalid']} label="调度方式" onChange={field.onChange} required value={field.value} />} /><TextField description="IANA 时区，例如 Asia/Shanghai；服务端验证时区。" label="时区" maxLength={64} name="timezone" required /></div>;
+   return null;
+ }
+ function PlanConfigurationSummary({ values }: { values: PlanValues }) {
+--- a/frontend/src/domains/geo-plans/plans.model.ts
++++ b/frontend/src/domains/geo-plans/plans.model.ts
+@@ -8,7 +8,7 @@
+ type PlanListParams = NonNullable<operations['listGeoMonitoringPlans']['parameters']['query']>;
+ type PlanAction = PlanDetail['available_actions'][number];
+ const statusLabels = { DISABLED: '未启用', ACTIVE: '已启用', PAUSED: '已暂停', ARCHIVED: '已归档' } satisfies Record<PlanDetail['status'], string>;
+-const stageLabels = { CONFIGURATION_REQUIRED: '配置待修正', READY: '可以启用', ACTIVE: '已启用', PAUSED: '已暂停', ARCHIVED: '已归档' } satisfies Record<PlanDetail['workflow_stage'], string>;
++const stageLabels = { UNSUPPORTED_SCHEDULE: '调度不支持', CONFIGURATION_REQUIRED: '配置待修正', READY: '可以启用', ACTIVE: '已启用', PAUSED: '已暂停', ARCHIVED: '已归档' } satisfies Record<PlanDetail['workflow_stage'], string>;
+ const scheduleLabels = { MANUAL_ONLY: '手动触发', CRON: '定时配置' } satisfies Record<PlanDetail['schedule_kind'], string>;
+ const actionLabels = { UPDATE: '编辑计划', PREVIEW: '预览配置', ACTIVATE: '启用计划', PAUSE: '暂停计划', RESUME: '恢复计划', ARCHIVE: '归档计划', COPY: '复制为新计划', CREATE_REVISION: '修订配置', DELETE: '删除计划' } satisfies Record<PlanAction, string>;
+ const roleLabels = { PRIMARY: '主要监测对象', COMPETITOR: '竞品', REFERENCE: '参考对象' } satisfies Record<components['schemas']['GeoPlanSubjectRole'], string>;
+@@ -47,18 +47,19 @@
+   subjects: z.array(z.object({ subject_id: canonicalUuidSchema, role: z.enum(['PRIMARY', 'COMPETITOR', 'REFERENCE']) })).min(1, '请选择监测对象').refine((items) => items.some((item) => item.role === 'PRIMARY'), '请至少选择一个主要监测对象').refine((items) => new Set(items.map((item) => item.subject_id)).size === items.length, '监测对象不能重复'),
+   prompt_variant_ids: idsSchema, collection_profile_ids: idsSchema,
+   repeat_count: z.number().int('重复次数必须为整数').min(1, '至少重复 1 次').max(10, '最多重复 10 次'),
+-  schedule_kind: schedules, cron_expression: z.string().max(120, 'Cron 最多 120 字符'),
++  schedule_kind: schedules.refine((value) => value === 'MANUAL_ONLY', 'V1.0 不支持定时调度，请使用手动触发'), cron_expression: z.string().max(120, 'Cron 最多 120 字符'),
+   timezone: z.string().min(1, '请填写 IANA 时区').max(64, '时区最多 64 字符'),
+   budget_limit: z.string().refine((value) => value === '' || /^(?:0|[1-9][0-9]{0,7})(?:\.[0-9]{1,6})?$/.test(value), '预算为非负十进制，最多 8 位整数、6 位小数'),
+   rule_set_revision: z.number().int().min(1),
+-}).superRefine((value, context) => {
+-  if (value.schedule_kind === 'CRON' && value.cron_expression.trim().split(/\s+/).length !== 5) context.addIssue({ code: 'custom', path: ['cron_expression'], message: '请填写五字段 Cron；服务端会校验其执行语义' });
+ });
+ type PlanValues = z.input<typeof planFormSchema>;
+ function planValues(plan?: PlanDetail): PlanValues { return plan ? {
+   name: plan.name, description: plan.description, subjects: plan.subjects.map((item) => ({ ...item })), prompt_variant_ids: [...plan.prompt_variant_ids], collection_profile_ids: [...plan.collection_profile_ids], repeat_count: plan.repeat_count, schedule_kind: plan.schedule_kind, cron_expression: plan.cron_expression ?? '', timezone: plan.timezone, budget_limit: plan.budget_limit ?? '', rule_set_revision: plan.rule_set_revision,
+ } : { name: '', description: '', subjects: [], prompt_variant_ids: [], collection_profile_ids: [], repeat_count: 3, schedule_kind: 'MANUAL_ONLY', cron_expression: '', timezone: 'Asia/Shanghai', budget_limit: '', rule_set_revision: 1 }; }
+-function planCreate(values: PlanValues): PlanCreate { return { ...values, cron_expression: values.schedule_kind === 'CRON' ? values.cron_expression : null, budget_limit: values.budget_limit === '' ? null : values.budget_limit }; }
++function planCreate(values: PlanValues): PlanCreate {
++  const configuration = planFormSchema.parse(values);
++  return { ...configuration, cron_expression: null, budget_limit: configuration.budget_limit === '' ? null : configuration.budget_limit };
++}
+ function planUpdate(values: PlanValues, revision: number): components['schemas']['GeoMonitoringPlanUpdate'] { return { ...planCreate(values), expected_revision: revision }; }
+ function assertNever(value: never): never { throw new Error(`计划返回未知合同值：${String(value)}`); }
+ export { actionLabels, assertNever, isCanonicalPlanSearch, planCreate, planEditorIdentity, planFormSchema, planSearchSchema, planSearchToParams, planUpdate, planValues, roleLabels, scheduleLabels, shouldBlockPlanNavigation, stageLabels, statusLabels };
+--- a/frontend/src/domains/geo-plans/plan-wizard.test.tsx
++++ b/frontend/src/domains/geo-plans/plan-wizard.test.tsx
+@@ -93,6 +93,10 @@
+     await user.click(await screen.findByRole('button', { name: '选择采集配置：工程师采集摘要' }));
+     await user.click(screen.getByRole('button', { name: '下一步' }));
+     await user.click(screen.getByRole('button', { name: '下一步' }));
++    await user.click(screen.getByRole('combobox', { name: '调度方式' }));
++    expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual(['手动触发']);
++    await user.click(screen.getByRole('option', { name: '手动触发' }));
++    expect(screen.queryByRole('textbox', { name: 'Cron 表达式' })).not.toBeInTheDocument();
+     await user.click(screen.getByRole('button', { name: '下一步' }));
+     expect(post).not.toHaveBeenCalled();
+     await user.click(screen.getByRole('button', { name: '预览当前配置' }));
+@@ -102,8 +106,20 @@
+     await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+     expect(post.mock.calls.map((call) => call[0])).toEqual(['/api/v1/geo/monitoring-plans/preview', '/api/v1/geo/monitoring-plans']);
+     const create = post.mock.calls[1]![1] as { body: components['schemas']['GeoMonitoringPlanCreate']; params: { header: Record<string, string> } };
+-    expect(create.body).toMatchObject({ name: '新监测计划', subjects: [{ subject_id: subjectId, role: 'PRIMARY' }], prompt_variant_ids: [promptId], collection_profile_ids: [profileId], repeat_count: 3, cron_expression: null, budget_limit: null });
++    expect(create.body).toMatchObject({ name: '新监测计划', subjects: [{ subject_id: subjectId, role: 'PRIMARY' }], prompt_variant_ids: [promptId], collection_profile_ids: [profileId], repeat_count: 3, schedule_kind: 'MANUAL_ONLY', cron_expression: null, budget_limit: null });
+     expect(create.params.header['X-CSRF-Token']).toBe('wizard-csrf');
++  });
++  it('MANUAL 编辑仅有手动触发选项且没有 Cron 输入，不能切换到定时调度', async () => {
++    const post = vi.spyOn(api, 'POST'); const patch = vi.spyOn(api, 'PATCH');
++    renderWizard({ initialStep: 5 }); const user = userEvent.setup();
++    const schedule = await screen.findByRole('combobox', { name: '调度方式' });
++    expect(schedule).toHaveTextContent('手动触发');
++    await user.click(schedule);
++    expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual(['手动触发']);
++    await user.click(screen.getByRole('option', { name: '手动触发' }));
++    expect(screen.queryByRole('textbox', { name: 'Cron 表达式' })).not.toBeInTheDocument();
++    expect(screen.getByText('V1.0 只支持手动触发，定时调度尚未开放。')).toBeVisible();
++    expect(post).not.toHaveBeenCalled(); expect(patch).not.toHaveBeenCalled();
+   });
+   it('409 保留全部输入与 preview，显式重读只更新 revision，必须重新预览且无自动重放', async () => {
+     const post = vi.spyOn(api, 'POST').mockResolvedValue(response(preview()));
+@@ -125,8 +141,8 @@
+     await serverPreview(user); await user.click(screen.getByRole('button', { name: '8. 保存' })); await user.click(screen.getByRole('button', { name: '保存计划配置' }));
+     await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+     expect(post).toHaveBeenCalledTimes(2);
+-    expect((patch.mock.calls[0]![1] as { body: object }).body).toMatchObject({ expected_revision: 7, name: '本地名称', description: '本地说明' });
+-    expect((patch.mock.calls[1]![1] as { body: object }).body).toMatchObject({ expected_revision: 9, name: '本地名称', description: '本地说明' });
++    expect((patch.mock.calls[0]![1] as { body: object }).body).toMatchObject({ expected_revision: 7, name: '本地名称', description: '本地说明', schedule_kind: 'MANUAL_ONLY', cron_expression: null });
++    expect((patch.mock.calls[1]![1] as { body: object }).body).toMatchObject({ expected_revision: 9, name: '本地名称', description: '本地说明', schedule_kind: 'MANUAL_ONLY', cron_expression: null });
+   });
+   it('新建 409 后可修正草稿，显式重新 preview 后手动创建，不能陷入不可恢复冲突', async () => {
+     reads(); let createAttempts = 0;
+--- a/frontend/src/domains/geo-plans/plan-list.tsx
++++ b/frontend/src/domains/geo-plans/plan-list.tsx
+@@ -24,7 +24,7 @@
+     const helper = createColumnHelper<typeof features, PlanDetail>();
+     return helper.columns([
+       helper.accessor('name', { header: '计划名称', meta: { role: 'primary' }, cell: ({ row }) => <div className="min-w-0 max-w-md space-y-1"><Button className="h-auto w-full min-w-0 justify-start p-0 text-left" onClick={(event) => onOpen(row.original, undefined, event.currentTarget)} type="button" variant="link"><span className="table-cell-ellipsis">{row.original.name}</span></Button><p className="table-cell-ellipsis text-xs text-text-muted">Revision {row.original.revision}</p></div> }),
+-      helper.accessor('workflow_stage', { header: '状态', meta: { role: 'status' }, cell: ({ row, getValue }) => <div className="space-y-1"><Badge variant={getValue() === 'ACTIVE' ? 'success' : 'secondary'}>{stageLabels[getValue()]}</Badge><p className="text-xs">{statusLabels[row.original.status]}</p></div> }),
++      helper.accessor('workflow_stage', { header: '状态', meta: { role: 'status' }, cell: ({ row, getValue }) => <div className="space-y-1"><Badge variant={getValue() === 'ACTIVE' ? 'success' : 'secondary'}>{stageLabels[getValue()]}</Badge><p className="text-xs">{getValue() === 'UNSUPPORTED_SCHEDULE' ? '历史状态：' : ''}{statusLabels[row.original.status]}</p></div> }),
+       helper.display({ id: 'matrix', header: '单次运行预览', meta: { role: 'metadata' }, cell: ({ row }) => <div className="text-sm"><p>{row.original.preview.run_count} 次运行</p><p className="text-xs text-text-muted">{row.original.preview.prompt_count} 个变体 · {row.original.preview.profile_count} 个配置 · {row.original.preview.repeat_count} 次重复</p>{row.original.preview.blockers.length > 0 && <p className="text-xs text-danger">存在运行阻断</p>}</div> }),
+       helper.accessor('schedule_kind', { header: '调度配置', meta: { role: 'metadata' }, cell: ({ row, getValue }) => <div className="text-sm"><p>{scheduleLabels[getValue()]}</p><p className="text-xs text-text-muted">{row.original.cron_expression ?? '按需触发'} · {row.original.timezone}</p></div> }),
+       helper.accessor('updated_at', { header: '更新时间', meta: { role: 'date' }, cell: ({ getValue }) => <time dateTime={getValue()}>{new Date(getValue()).toLocaleString('zh-CN')}</time> }),
+--- a/frontend/src/domains/geo-plans/plans.api.ts
++++ b/frontend/src/domains/geo-plans/plans.api.ts
+@@ -68,7 +68,11 @@
+   const body = result.error;
+   if (isRecord(body) && isRecord(body.error)) {
+     const detail = body.error;
+-    if (typeof detail.code === 'string' && typeof detail.message === 'string' && typeof detail.request_id === 'string' && isRecord(detail.details)) return new PlanRequestError(`${detail.message}（请求 ID：${detail.request_id}）`, result.response.status, detail as ErrorDetail);
++    if (typeof detail.code === 'string' && typeof detail.message === 'string' && typeof detail.request_id === 'string' && isRecord(detail.details)) {
++      const message = detail.code === 'GEO_PLAN_CRON_UNSUPPORTED' ? 'V1.0 不支持定时调度（CRON），历史计划只读，不能修改或运行。' : detail.message;
++      const code = detail.code === 'GEO_PLAN_CRON_UNSUPPORTED' ? `${detail.code}；` : '';
++      return new PlanRequestError(`${message}（${code}请求 ID：${detail.request_id}）`, result.response.status, detail as ErrorDetail);
++    }
+   }
+   return new PlanRequestError(`${action}失败（HTTP ${result.response.status}）`, result.response.status);
+ }
+--- a/frontend/src/domains/geo-plans/plan-controls.tsx
++++ b/frontend/src/domains/geo-plans/plan-controls.tsx
+@@ -1,5 +1,7 @@
+ import type { ReactNode } from 'react';
++import { Link } from '@tanstack/react-router';
+ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/design-system/primitives/select';
++import { statusLabels, type PlanDetail } from './plans.model';
+ function PlanSelect({ label, value, choices, onChange, disabled, id, describedBy, invalid, required }: {
+   label: string; value: string; choices: readonly { value: string; label: string }[]; onChange: (value: string) => void;
+   disabled?: boolean; id?: string; describedBy?: string; invalid?: boolean; required?: boolean;
+@@ -7,5 +9,12 @@
+   return <Select disabled={disabled} items={choices} onValueChange={(next) => { if (next !== null) onChange(next); }} value={value}><SelectTrigger aria-describedby={describedBy} aria-invalid={invalid} aria-label={label} aria-required={required} className="w-full min-w-0" id={id}><SelectValue /></SelectTrigger><SelectContent>{choices.map((choice) => <SelectItem key={choice.value} value={choice.value}>{choice.label}</SelectItem>)}</SelectContent></Select>;
+ }
+ function PlanNotice({ children, error = false }: { children: ReactNode; error?: boolean }) { return <div className={`space-y-2 rounded-lg border p-3 text-sm ${error ? 'border-danger/30 bg-danger/5 text-danger' : 'border-border-default bg-surface-raised text-text-secondary'}`} role={error ? 'alert' : 'status'}>{children}</div>; }
++function UnsupportedPlanNotice({ plan }: { plan: PlanDetail }) {
++  return <PlanNotice>
++    <p>V1.0 不支持定时调度（CRON）。此历史计划只读，不能编辑、复制、删除或运行，不会自动创建批次（Batch）。</p>
++    <p>历史状态：{statusLabels[plan.status]}（{plan.status}）。原配置与历史记录保留；历史状态不表示当前正在调度。</p>
++    <p>运行入口不可用（{plan.run_entry.reason_code}）。<Link className="text-interaction-primary underline" to="/geo/runs" search={{ plan_id: plan.id }}>查看批次历史</Link></p>
++  </PlanNotice>;
++}
+ function planErrorMessage(error: unknown) { return error instanceof Error ? error.message : '监测计划请求发生未知错误'; }
+-export { PlanNotice, PlanSelect, planErrorMessage };
++export { PlanNotice, PlanSelect, UnsupportedPlanNotice, planErrorMessage };
+--- a/frontend/src/domains/geo-plans/plans.model.test.ts
++++ b/frontend/src/domains/geo-plans/plans.model.test.ts
+@@ -1,7 +1,7 @@
+ import { describe, expect, it } from 'vitest';
+-import { planCreate, planFormSchema, planSearchSchema, planSearchToParams, planValues, shouldBlockPlanNavigation } from './plans.model';
++import { planCreate, planFormSchema, planSearchSchema, planSearchToParams, planUpdate, planValues, shouldBlockPlanNavigation } from './plans.model';
+ import { planOverflow, planPrimary } from './plan-actions';
+-import { plan, planId } from './plans.test-support';
++import { plan, planId, unsupportedPlan } from './plans.test-support';
+ 
+ describe('计划 URL 与 generated 配置边界', () => {
+   it('规范筛选、分页和单一编辑身份；列表请求不携带工作区状态', () => {
+@@ -25,10 +25,26 @@
+     expect(planFormSchema.safeParse({ ...values, prompt_variant_ids: [...values.prompt_variant_ids, ...values.prompt_variant_ids] }).success).toBe(false);
+     for (const budget_limit of ['1e3', '-1', '100000000', '0.0000001']) expect(planFormSchema.safeParse({ ...values, budget_limit }).success).toBe(false);
+   });
++  it('CRON 保留读取值，但不能通过表单或创建、更新载荷转换提交，也不静默改成手动', () => {
++    const values = planValues(plan({ schedule_kind: 'CRON', cron_expression: '0 9 * * *' }));
++    expect(values).toMatchObject({ schedule_kind: 'CRON', cron_expression: '0 9 * * *' });
++    const result = planFormSchema.safeParse(values);
++    expect(result.success).toBe(false);
++    if (!result.success) expect(result.error.issues).toContainEqual(expect.objectContaining({ path: ['schedule_kind'], message: expect.stringContaining('V1.0') }));
++    expect(() => planCreate(values)).toThrow();
++    expect(() => planUpdate(values, 7)).toThrow();
++  });
+   it('动作只来自服务端，归档仅提供 COPY，缺少 ACTIVATE 时主动作禁用', () => {
+     const archived = plan({ status: 'ARCHIVED', workflow_stage: 'ARCHIVED', primary_task: 'VIEW_HISTORY', available_actions: ['COPY'], deletion: { blockers: ['ARCHIVED'] } });
+     expect(planPrimary(archived)).toBeUndefined();
+     expect(planOverflow(archived).map((item) => item.key)).toEqual(['COPY', 'VIEW_DELETION_CONDITIONS']);
+     expect(planPrimary(plan({ available_actions: [] }))).toMatchObject({ key: 'ACTIVATE', enabled: false });
+   });
++  it.each(['DISABLED', 'ACTIVE', 'PAUSED', 'ARCHIVED'] as const)('历史 CRON 的 %s 状态不补充写动作，只呈现删除阻断说明', (status) => {
++    const historical = unsupportedPlan({ status });
++    expect(planPrimary(historical)).toBeUndefined();
++    expect(planOverflow(historical).map((item) => item.key)).toEqual(['VIEW_DELETION_CONDITIONS']);
++    expect(planValues(historical)).toMatchObject({ schedule_kind: 'CRON', cron_expression: '0 9 * * *' });
++    expect(historical.status).toBe(status);
++  });
+ });
+--- a/frontend/src/domains/geo-plans/plan-wizard.tsx
++++ b/frontend/src/domains/geo-plans/plan-wizard.tsx
+@@ -5,7 +5,7 @@
+ import { capturePrincipalContinuation, type PrincipalContinuation } from '@/app/auth/principal-epoch';
+ import { DirtyGuard } from '@/design-system/forms/dirty-guard';
+ import { Button } from '@/design-system/primitives/button';
+-import { PlanNotice, planErrorMessage } from './plan-controls';
++import { PlanNotice, UnsupportedPlanNotice, planErrorMessage } from './plan-controls';
+ import { planFieldStep } from './plan-preview.model';
+ import { PlanPreviewPanel } from './plan-preview';
+ import { PlanConfigurationSummary, PlanWizardStep, planStepLabels, stepFields } from './plan-wizard-steps';
+@@ -86,6 +86,7 @@
+   function recordFailure(failure: unknown) {
+     setError(failure);
+     if (!(failure instanceof PlanRequestError)) return;
++    if (failure.detail?.code === 'GEO_PLAN_CRON_UNSUPPORTED') { setWriteBlocked(true); return; }
+     if (failure.status === 403 || failure.status === 404) setWriteBlocked(true);
+     if (failure.status === 409) setConflict(true);
+     if (failure.status !== 422 || !failure.detail) return;
+@@ -189,6 +190,13 @@
+     }
+   }
+   const issues = formIssues(errors);
++  const unsupportedPlan = plan?.workflow_stage === 'UNSUPPORTED_SCHEDULE' ? plan : baseline?.workflow_stage === 'UNSUPPORTED_SCHEDULE' ? baseline : undefined;
++  if (unsupportedPlan) return <section aria-label="历史计划只读配置" className="min-w-0 space-y-4">
++    <UnsupportedPlanNotice plan={unsupportedPlan} />
++    <p className="text-sm text-text-muted">Revision {unsupportedPlan.revision}</p>
++    <PlanConfigurationSummary values={planValues(unsupportedPlan)} />
++    <Button onClick={onCancel} type="button" variant="outline">关闭向导</Button>
++  </section>;
+   return <FormProvider {...form}>
+     <DirtyGuard shouldBlockNavigation={({ current, next: destination }) => shouldBlockPlanNavigation(current, destination)} when={isDirty || busy} />
+     <form aria-label={plan ? '编辑监测计划' : '新建监测计划'} className="min-w-0 space-y-4" noValidate onSubmit={(event) => {
+--- a/frontend/src/shared/api/generated/schema.d.ts
++++ b/frontend/src/shared/api/generated/schema.d.ts
+@@ -2488,8 +2488,10 @@
+             path?: never;
+             cookie?: never;
+         };
++        /** @description 支持按 CRON 查询只读历史；其存储 ACTIVE 不表示 V1.0 调度可用，读模型投影为 UNSUPPORTED_SCHEDULE 且无写动作。 */
+         get: operations["listGeoMonitoringPlans"];
+         put?: never;
++        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+         post: operations["createGeoMonitoringPlan"];
+         delete?: never;
+         options?: never;
+@@ -2520,12 +2522,15 @@
+             path?: never;
+             cookie?: never;
+         };
++        /** @description 历史 CRON 保留原始 status，workflow_stage 为 UNSUPPORTED_SCHEDULE，primary_task 为 VIEW_HISTORY，available_actions 为空；run_entry.reason_code 为 GEO_PLAN_CRON_UNSUPPORTED。不承诺自动运行。 */
+         get: operations["getGeoMonitoringPlan"];
+         put?: never;
+         post?: never;
++        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+         delete: operations["deleteGeoMonitoringPlan"];
+         options?: never;
+         head?: never;
++        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+         patch: operations["updateGeoMonitoringPlan"];
+         trace?: never;
+     };
+@@ -2538,6 +2543,7 @@
+         };
+         get?: never;
+         put?: never;
++        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+         post: operations["activateGeoMonitoringPlan"];
+         delete?: never;
+         options?: never;
+@@ -2554,6 +2560,7 @@
+         };
+         get?: never;
+         put?: never;
++        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+         post: operations["pauseGeoMonitoringPlan"];
+         delete?: never;
+         options?: never;
+@@ -2570,6 +2577,7 @@
+         };
+         get?: never;
+         put?: never;
++        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+         post: operations["resumeGeoMonitoringPlan"];
+         delete?: never;
+         options?: never;
+@@ -2586,6 +2594,7 @@
+         };
+         get?: never;
+         put?: never;
++        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+         post: operations["archiveGeoMonitoringPlan"];
+         delete?: never;
+         options?: never;
+@@ -2602,6 +2611,7 @@
+         };
+         get?: never;
+         put?: never;
++        /** @description V1.0 仅支持 MANUAL_ONLY。合法 CRON 请求或历史 CRON 写命令返回 409 GEO_PLAN_CRON_UNSUPPORTED；历史配置、状态和快照只读保留，不降级、不创建执行。 */
+         post: operations["copyGeoMonitoringPlan"];
+         delete?: never;
+         options?: never;
+@@ -2618,7 +2628,10 @@
+         };
+         get?: never;
+         put?: never;
+-        /** Run Now */
++        /**
++         * Run Now
++         * @description V1.0 首次运行仅支持 MANUAL_ONLY；历史 CRON 首次 run 返回 409 GEO_PLAN_CRON_UNSUPPORTED，配置与快照只读保留。已有幂等回执只读重放，不创建 Batch/Run 或重新投递。
++         */
+         post: operations["runGeoMonitoringPlanNow"];
+         delete?: never;
+         options?: never;
+@@ -2636,7 +2649,10 @@
+         /** listGeoObservationBatches */
+         get: operations["listGeoObservationBatches"];
+         put?: never;
+-        /** Create Batch */
++        /**
++         * Create Batch
++         * @description V1.0 首次 PLAN 批次仅接受 MANUAL_ONLY，历史 CRON 返回 409 GEO_PLAN_CRON_UNSUPPORTED；AD_HOC 仅人工配置。已提交幂等回执只读重放，不创建或重新投递。
++         */
+         post: operations["createGeoObservationBatch"];
+         delete?: never;
+         options?: never;
+@@ -3220,7 +3236,10 @@
+         };
+         get?: never;
+         put?: never;
+-        /** Create Retest */
++        /**
++         * Create Retest
++         * @description 人工独立复测从已提交的不可变基线复制严格矩阵并创建 RETEST；历史 plan_id/CRON 快照仅作来源追溯，不执行或修改当前 Plan，继续受可比性、权限与外发门禁约束。
++         */
+         post: operations["createGeoOpportunityRetest"];
+         delete?: never;
+         options?: never;
+@@ -8180,7 +8199,7 @@
+          * GeoPlanWorkflowStage
+          * @enum {string}
+          */
+-        GeoPlanWorkflowStage: "CONFIGURATION_REQUIRED" | "READY" | "ACTIVE" | "PAUSED" | "ARCHIVED";
++        GeoPlanWorkflowStage: "UNSUPPORTED_SCHEDULE" | "CONFIGURATION_REQUIRED" | "READY" | "ACTIVE" | "PAUSED" | "ARCHIVED";
+         /**
+          * GeoPlanPrimaryTask
+          * @enum {string}
+@@ -8189,7 +8208,7 @@
+         /** GeoPlanDeletion */
+         GeoPlanDeletion: {
+             /** Blockers */
+-            blockers: ("PLAN_NOT_DISABLED" | "ARCHIVED" | "HAS_BATCH_HISTORY")[];
++            blockers: ("PLAN_NOT_DISABLED" | "ARCHIVED" | "HAS_BATCH_HISTORY" | "SCHEDULE_UNSUPPORTED")[];
+         };
+         /** GeoPlanRunEntry */
+         GeoPlanRunEntry: {
+@@ -8200,9 +8219,9 @@
+             available: false;
+             /**
+              * Reason Code
+-             * @constant
+-             */
+-            reason_code: "UI_NOT_IMPLEMENTED";
++             * @enum {string}
++             */
++            reason_code: "UI_NOT_IMPLEMENTED" | "GEO_PLAN_CRON_UNSUPPORTED";
+         };
+         /** GeoMonitoringPlanCopy */
+         GeoMonitoringPlanCopy: {
+--- a/backend/app/schemas/geo_plan_management.py
++++ b/backend/app/schemas/geo_plan_management.py
+@@ -27,6 +27,7 @@
+ 
+ 
+ class GeoPlanWorkflowStage(StrEnum):
++    UNSUPPORTED_SCHEDULE = "UNSUPPORTED_SCHEDULE"
+     CONFIGURATION_REQUIRED = "CONFIGURATION_REQUIRED"
+     READY = "READY"
+     ACTIVE = "ACTIVE"
+@@ -43,12 +44,14 @@
+ 
+ 
+ class GeoPlanDeletion(ContractModel):
+-    blockers: list[Literal["PLAN_NOT_DISABLED", "ARCHIVED", "HAS_BATCH_HISTORY"]]
++    blockers: list[
++        Literal["PLAN_NOT_DISABLED", "ARCHIVED", "HAS_BATCH_HISTORY", "SCHEDULE_UNSUPPORTED"]
++    ]
+ 
+ 
+ class GeoPlanRunEntry(ContractModel):
+     available: Literal[False]
+-    reason_code: Literal["UI_NOT_IMPLEMENTED"]
++    reason_code: Literal["UI_NOT_IMPLEMENTED", "GEO_PLAN_CRON_UNSUPPORTED"]
+ 
+ 
+ class GeoMonitoringPlanCopy(GeoMonitoringPlanRevisionRequest):
+--- a/backend/app/services/geo_plan_commands.py
++++ b/backend/app/services/geo_plan_commands.py
+@@ -32,6 +32,7 @@
+     require_eligible,
+     require_mutable,
+     require_references,
++    require_supported_schedule,
+     transition,
+ )
+ from app.services.geo_plan_queries import (
+@@ -150,6 +151,7 @@
+ def _create(
+     db: Session, value: GeoMonitoringPlanConfiguration, actor: User, request_id: str, action: str
+ ) -> GeoMonitoringPlanDetail:
++    require_supported_schedule(value.schedule_kind)
+     preview = previews(db, [value])[0]
+     require_references(preview)
+     plan = GeoMonitoringPlan(
+@@ -171,6 +173,7 @@
+ ) -> GeoMonitoringPlanDetail:
+     with command(db, actor) as current:
+         value = canonical_configuration(payload)
++        require_supported_schedule(value.schedule_kind)
+         lock_resources(db, [value])
+         return _create(db, value, current, request_id, "created")
+ 
+@@ -181,6 +184,8 @@
+     with command(db, actor) as current:
+         value = canonical_configuration(payload)
+         plan, before = lock_plan(db, plan_id, payload.expected_revision, value)
++        require_supported_schedule(before.schedule_kind)
++        require_supported_schedule(value.schedule_kind)
+         require_mutable(Status(plan.status))
+         preview = previews(db, [value])[0]
+         require_references(preview)
+@@ -218,6 +223,7 @@
+ ) -> GeoMonitoringPlanDetail:
+     with command(db, actor) as current:
+         plan, value = lock_plan(db, plan_id, expected_revision)
++        require_supported_schedule(value.schedule_kind)
+         target = transition(Status(plan.status), operation)
+         preview = previews(db, [value])[0]
+         if target == Status.ACTIVE:
+@@ -252,7 +258,8 @@
+     *, db: Session, plan_id: UUID, expected_revision: int, actor: User, request_id: str
+ ) -> None:
+     with command(db, actor) as current:
+-        plan, _ = lock_plan(db, plan_id, expected_revision)
++        plan, value = lock_plan(db, plan_id, expected_revision)
++        require_supported_schedule(value.schedule_kind)
+         require_mutable(Status(plan.status))
+         if plan.status != Status.DISABLED:
+             raise AppError(
+--- a/backend/app/services/geo_batches.py
++++ b/backend/app/services/geo_batches.py
+@@ -36,7 +36,12 @@
+ from app.services.geo_ops_runtime import observe
+ from app.services.geo_plan_configuration import canonical_configuration
+ from app.services.geo_plan_locks import command, lock_plan, lock_resources
+-from app.services.geo_plan_policy import require_eligible, require_mutable, require_references
++from app.services.geo_plan_policy import (
++    require_eligible,
++    require_mutable,
++    require_references,
++    require_supported_schedule,
++)
+ from app.services.geo_plans import PlanMatrixSelection, RunMatrixBuilder, load_matrix_facts
+ from app.services.geo_rules import freeze_current_rules
+ 
+@@ -108,6 +113,7 @@
+     identity: str | None,
+     request_id: str | None,
+ ) -> GeoObservationBatch:
++    require_supported_schedule(value.schedule_kind)
+     # 当前规则只在创建边界读取一次；幂等重放在进入本函数前返回原快照。
+     rules = freeze_current_rules(db)
+     value = value.model_copy(update={"rule_set_revision": rules.revision})
+@@ -238,6 +244,7 @@
+             return result
+         if isinstance(payload, GeoPlanBatchCreate):
+             plan, value = lock_plan(db, payload.plan_id, payload.expected_revision)
++            require_supported_schedule(value.schedule_kind)
+             require_mutable(GeoMonitoringPlanStatus(plan.status))
+         else:
+             plan = None
+@@ -294,6 +301,7 @@
+             if initial is None:
+                 raise not_found("监测计划")
+             plan, value = lock_plan(db, plan_id, initial.revision)
++            require_supported_schedule(value.schedule_kind)
+             if plan.status != "ACTIVE" or value.schedule_kind != "CRON":
+                 raise AppError("INVALID_STATE_TRANSITION", "调度只允许活动 CRON 计划", 409)
+             batch = _create(
+--- a/backend/app/services/geo_plan_policy.py
++++ b/backend/app/services/geo_plan_policy.py
+@@ -4,6 +4,7 @@
+ 
+ from app.errors import AppError
+ from app.schemas.geo_monitoring_plans import GeoMonitoringPlanStatus as Status
++from app.schemas.geo_monitoring_plans import GeoPlanScheduleKind
+ from app.schemas.geo_plan_management import (
+     GeoPlanAction as Action,
+ )
+@@ -19,6 +20,16 @@
+ from app.schemas.geo_plan_preview import GeoMonitoringPlanPreview
+ 
+ type PlanTransition = Literal["activate", "pause", "resume", "archive"]
++
++
++def require_supported_schedule(schedule_kind: GeoPlanScheduleKind) -> None:
++    """V1.0 无生产到期入口；保留历史 CRON，但禁止写入和首次执行。"""
++    if schedule_kind == GeoPlanScheduleKind.CRON:
++        raise AppError(
++            "GEO_PLAN_CRON_UNSUPPORTED",
++            "V1.0 不支持 CRON 计划；历史计划只读，请新建人工计划或人工批次",
++            409,
++        )
+ 
+ 
+ def require_mutable(status: Status) -> None:
+@@ -41,8 +52,18 @@
+ 
+ 
+ def projection(
+-    status: Status, *, eligible: bool
++    status: Status,
++    *,
++    eligible: bool,
++    schedule_kind: GeoPlanScheduleKind = GeoPlanScheduleKind.MANUAL_ONLY,
+ ) -> tuple[Stage, Task, list[Action], GeoPlanDeletion]:
++    if schedule_kind == GeoPlanScheduleKind.CRON:
++        return (
++            Stage.UNSUPPORTED_SCHEDULE,
++            Task.VIEW_HISTORY,
++            [],
++            GeoPlanDeletion(blockers=["SCHEDULE_UNSUPPORTED"]),
++        )
+     if status == Status.ARCHIVED:
+         return (
+             Stage.ARCHIVED,
+--- a/backend/app/services/geo_plan_queries.py
++++ b/backend/app/services/geo_plan_queries.py
+@@ -134,7 +134,9 @@
+     preview: GeoMonitoringPlanPreview,
+     batch_count: int = 0,
+ ) -> GeoMonitoringPlanDetail:
+-    stage, task, actions, deletion = projection(Status(plan.status), eligible=not preview.blockers)
++    stage, task, actions, deletion = projection(
++        Status(plan.status), eligible=not preview.blockers, schedule_kind=value.schedule_kind
++    )
+     if batch_count:
+         actions = [action for action in actions if action != "DELETE"]
+         deletion.blockers.append("HAS_BATCH_HISTORY")
+@@ -147,7 +149,12 @@
+             "primary_task": task,
+             "available_actions": actions,
+             "deletion": deletion,
+-            "run_entry": GeoPlanRunEntry(available=False, reason_code="UI_NOT_IMPLEMENTED"),
++            "run_entry": GeoPlanRunEntry(
++                available=False,
++                reason_code="GEO_PLAN_CRON_UNSUPPORTED"
++                if value.schedule_kind == GeoPlanScheduleKind.CRON
++                else "UI_NOT_IMPLEMENTED",
++            ),
+         }
+     )
+ 
+--- a/backend/tests/unit/test_geo_plan_management.py
++++ b/backend/tests/unit/test_geo_plan_management.py
+@@ -8,12 +8,13 @@
+ 
+ from app.errors import AppError
+ from app.schemas.geo_monitoring_plans import GeoMonitoringPlanStatus as Status
++from app.schemas.geo_monitoring_plans import GeoPlanScheduleKind
+ from app.schemas.geo_plan_management import (
+     GeoMonitoringPlanCopy,
+     GeoMonitoringPlanDetail,
+     GeoMonitoringPlanListPage,
+ )
+-from app.services.geo_plan_policy import projection, transition
++from app.services.geo_plan_policy import projection, require_supported_schedule, transition
+ 
+ 
+ @pytest.mark.parametrize("state", list(Status))
+@@ -80,3 +81,21 @@
+     run = paths["/api/v1/geo/monitoring-plans/{plan_id}/run"]["post"]
+     assert "201" in run["responses"] and "501" not in run["responses"]
+ 
++
++@pytest.mark.parametrize("state", list(Status))
++@pytest.mark.parametrize("eligible", [True, False])
++def test_historical_cron_projection_is_readonly(state, eligible):
++    stage, task, actions, deletion = projection(
++        state, eligible=eligible, schedule_kind=GeoPlanScheduleKind.CRON
++    )
++    assert stage == "UNSUPPORTED_SCHEDULE"
++    assert task == "VIEW_HISTORY" and actions == []
++    assert deletion.blockers == ["SCHEDULE_UNSUPPORTED"]
++
++
++def test_v1_schedule_boundary():
++    require_supported_schedule(GeoPlanScheduleKind.MANUAL_ONLY)
++    with pytest.raises(AppError) as caught:
++        require_supported_schedule(GeoPlanScheduleKind.CRON)
++    assert caught.value.code == "GEO_PLAN_CRON_UNSUPPORTED"
++    assert caught.value.status_code == 409
+--- a/backend/tests/integration/geo_recovery_support.py
++++ b/backend/tests/integration/geo_recovery_support.py
+@@ -11,7 +11,7 @@
+ import sys
+ import time
+ from datetime import UTC, datetime, timedelta
+-from uuid import UUID, uuid4
++from uuid import uuid4
+ 
+ import pytest
+ from sqlalchemy import create_engine, text
+@@ -20,9 +20,10 @@
+ from app.models.ai_generation import AIChannel, AIChannelHeader
+ from app.models.geo_files import FileRecord
+ from app.models.geo_runs import GeoObservationRun
+-from app.services import geo_analysis_runs, geo_batches
++from app.services import geo_analysis_runs
+ from app.services.credentials import CredentialCipher
+ from app.services.storage import DevelopmentEvidenceStorage
++from tests.integration.geo_cron_support import historical_scheduled_batch
+ from tests.integration.geo_plans_support import plans_api as plans_api
+ from tests.integration.geo_questions_support import questions_api as questions_api
+ from tests.integration.test_geo_manual_collection import batch_run, payload, submit
+@@ -252,13 +253,8 @@
+         assert review.status_code == 201, review.text
+         with api.api.factory() as db:
+             assert db.get(GeoObservationRun, run.id).status == "COMPLETED"
+-        plan = api.create(schedule_kind="CRON", cron_expression="0 * * * *")
+-        assert api.action(plan, "activate").status_code == 200
+         window = datetime(2026, 10, 5, tzinfo=UTC)
+-        with api.api.factory() as db:
+-            scheduled = geo_batches.create_scheduled_batch(
+-                db=db, plan_id=UUID(plan["id"]), scheduled_for=window
+-            )
++        plan, scheduled = historical_scheduled_batch(api, window)
+         for name, value in (
+             ("backup-key", base64.b64encode(os.urandom(32))),
+             (
+--- a/backend/tests/integration/test_geo_batch_creation.py
++++ b/backend/tests/integration/test_geo_batch_creation.py
+@@ -17,6 +17,7 @@
+ from app.models.identity import AuditLog, User
+ from app.schemas.geo_batch_creation import GeoAdHocBatchCreate, GeoPlanBatchCreate
+ from app.services import geo_batches
++from tests.integration.geo_cron_support import historical_scheduled_batch
+ from tests.integration.geo_plans_support import (
+     PREFIX,
+     PlansAPI,
+@@ -322,43 +323,47 @@
+         assert db.get(GeoEngineSurface, api.surface).first_referenced_at is None
+ 
+ 
+-def test_schedule_concurrent_window_identity_ignores_revision(plans_api: PlansAPI):
+-    api = plans_api
+-    row = api.create(schedule_kind="CRON", cron_expression="0 * * * *")
+-    active = api.action(row, "activate").json()
++def test_historical_schedule_replay_is_readonly_and_new_window_rejected(
++    plans_api: PlansAPI, monkeypatch
++):
++    api = plans_api
+     window = datetime(2026, 10, 3, tzinfo=UTC)
++    row, receipt = historical_scheduled_batch(api, window)
++    before = counts(api)
+     barrier = Barrier(2)
+ 
+-    def attempt():
++    def forbidden_dispatch(*args, **kwargs):
++        raise AssertionError("历史回执重放不得投递 Redis")
++
++    monkeypatch.setattr(geo_batches, "dispatch_created_batch", forbidden_dispatch)
++
++    def replay():
+         barrier.wait(timeout=5)
+         with api.api.factory() as db:
+             return geo_batches.create_scheduled_batch(
+                 db=db, plan_id=UUID(row["id"]), scheduled_for=window
+             )
+ 
+-    before = counts(api)
+     with ThreadPoolExecutor(max_workers=2) as pool:
+-        receipts = list(pool.map(lambda _: attempt(), range(2)))
+-    assert receipts[0] == receipts[1]
+-    assert tuple(a - b for a, b in zip(counts(api), before, strict=True)) == (1, 3, 0, 1, 0)
+-    paused = api.action(active, "pause").json()
+-    assert paused["revision"] != active["revision"]
+-    with api.api.factory() as db:
+-        replay = geo_batches.create_scheduled_batch(
++        assert list(pool.map(lambda _: replay(), range(2))) == [receipt, receipt]
++    with api.api.factory() as db:
++        same_window = geo_batches.create_scheduled_batch(
+             db=db,
+             plan_id=UUID(row["id"]),
+             scheduled_for=window.astimezone(timezone(timedelta(hours=8))),
+         )
+-        assert replay == receipts[0]
+-        with pytest.raises(AppError, match="调度"):
++        assert same_window == receipt
++        with pytest.raises(AppError) as caught:
+             geo_batches.create_scheduled_batch(
+                 db=db, plan_id=UUID(row["id"]), scheduled_for=window + timedelta(hours=1)
+             )
+-        batch = db.get(GeoObservationBatch, receipts[0].batch_id)
+-        assert (
+-            batch.created_by is None and batch.plan_snapshot["plan_revision"] == active["revision"]
+-        )
++        assert caught.value.code == "GEO_PLAN_CRON_UNSUPPORTED"
++        batch = db.get(GeoObservationBatch, receipt.batch_id)
++        assert batch.created_by is None
+         assert batch.schedule_identity == geo_batches.schedule_identity(UUID(row["id"]), window)
++        assert batch.plan_snapshot["schedule_kind"] == "CRON"
++    assert counts(api) == before
++    assert api.api.engineer.get(f"{PREFIX}/{row['id']}").json() == row
+ 
+ 
+ def test_creation_rejects_untrusted_fields_and_auth_failures(plans_api: PlansAPI):
+--- a/docs/geo-monitoring/CHANGELOG.md
++++ b/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,12 @@
+ # 文档包变更记录
++
++## GEO-1005 / V1.0 CRON Plan 边界 — 2026-10-05（review）
++
++- CRON 新建、MANUAL 改 CRON、全部历史 Plan 写命令与首次 run/PLAN 建批及 scheduled 新窗口返回 409 GEO_PLAN_CRON_UNSUPPORTED；守卫由 Plan policy 统一拥有。
++- 历史配置、状态（包括旧 ACTIVE）、revision、关系、Batch/Run/快照只读保留，读模型 UNSUPPORTED_SCHEDULE / VIEW_HISTORY、无写动作；页面不承诺调度，只能新建人工计划。
++- 运行中心创建器也仅选择 MANUAL_ONLY，旧缓存的历史 CRON 投影不可选；MANUAL create/activate/run 和人工 Batch 保持；现有人工 Retest 从冻结基线创建 RETEST，来源可追溯但不执行当前 CRON Plan。
++- 不接线 Beat 到期任务、不降级、不回写/删除历史；已有回执只读重放不再投递。无 DDL/迁移/生产操作。
++- 更新 OpenAPI/数据库合同、PRD、Runbook、能力矩阵及 ADR 澄清。实际验证、独立复核与限制见 [实施记录](../../.trellis/tasks/10-05-geo-1005-cron-plan-boundary/implement.md)。当前生产同候选/历史清点仍 NOT_VERIFIED，发布 NO-GO 保留。
+ 
+ ## GEO-1003 / R9A 生产 Browser 硬禁止 — 2026-10-05（review）
+ 
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -1,25 +1,25 @@
+ a13698828ce6facd07deb3b789e9134d363ea26af1e05918a63f1603477bd4fa  00-governance/01-document-governance.md
+ b5906690eb04c8d27911a09722761e7cf4c244ecab2fbe39a55d94c794ee8728  00-governance/02-glossary.md
+ c2712f08697489a04597c9c8da1bc87b0316a6dad321b36bbc2d850377ca63c8  01-product/01-product-vision-and-scope.md
+-dcb2e50c723df8758173ba472a63a6a12b51eed074b2e82a408e56f78980b5f2  01-product/02-geo-core-prd.md
++b1ed9e956eed455178d190b5cfd72e43ee0ae706890e1b5e39ab8d53229c6786  01-product/02-geo-core-prd.md
+ 95637e55031a56bf3e70073207439e2d7cd6f879be9ddaefa1b7edc3192d7751  01-product/03-information-architecture-and-page-spec.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  01-product/04-catalog-user-guide.md
+-e3004a74f9786ac22ca5b2a623de9b41dd095d6df79ea599ba02dcdf24ac7c83  01-product/05-v1-release-capability-matrix.md
++314ead7e6e4679dd1ebc3a11b9e2bd534e006186881e6a1ef111e1b84d9c4e37  01-product/05-v1-release-capability-matrix.md
+ 45b864ba43a27d184a5161086b4a8332615fd831ec1aad4f908d1705e6bb3594  02-business/01-business-architecture.md
+ 140e16f4dc3d712628c4cbba8bab938848f24c2bf8e0b530fd52b4de5c6c4ec1  02-business/02-domain-model.md
+-c0957fde7fb609dd1746d4d29e4a3f8e14129e685787bf4046c8d8941a314054  02-business/03-workflows-and-state-machines.md
++6f0d7a0f1fa6de0387527657e84ad12e726a35f3ba8c3098582069e38967191c  02-business/03-workflows-and-state-machines.md
+ aeec9d65d22cc1f2640c46968e1923d328ed842bbc086f18e5dc4bd376a4bb02  02-business/04-monitoring-methodology-and-metrics.md
+ 2ecb8425899de5f1ae4f6a1f0b130f93aba201fbc9c084856d6893835d0484e9  02-business/05-manual-geo-observation-sop.md
+-b2349ebacd9ae9240b17204ea6b11116ca51638c6ff36c1f8174a43c7259e1c5  03-technical/01-technical-architecture.md
+-dfa99da7fce0e0ab5678cff7f0aa722565dba13514bf770efceeacdc812de817  03-technical/02-data-architecture.md
++ce09fc392c20e25cc44c5ef73896d7c4abcf22461997e00ab4d46b1f5fe2fa16  03-technical/01-technical-architecture.md
++2fe91ec9b578d928757a082698389ccc1ac2fb6786f5c2c066d5e3daa248e635  03-technical/02-data-architecture.md
+ 22f8976a569a88800331d5f8ad54a83d753450f469bd30b70e4ac79a8f18c2e9  03-technical/03-api-contract-design.md
+ a0291d4a77609a1db741e3adc84d19ab712ac3ffff8c49f8572ac09b1c5327eb  03-technical/04-frontend-architecture.md
+-daf8f8cec2dfb8996c316ca259ae6eea161d944337f340ce9c6180bc9c87c0f5  03-technical/05-worker-and-collector-architecture.md
++56c8b069f03dae75d7ab57d9900174eb4395b11989d244fcd48894a052d8b1e3  03-technical/05-worker-and-collector-architecture.md
+ 596532a0304d246a9051872ebed910156983b9fd2cd146ef234fd6700e07c1eb  03-technical/06-security-and-compliance.md
+ 10e3e60c5885c23cd36e941d0d46dc2d1e30a01d3b7817b2f1ecf6700151f654  03-technical/07-testing-and-quality.md
+ 95ff451b9d6927240bbf19ba157f22952212178b52089f4053f6644c889fa7b7  03-technical/08-deployment-and-operations.md
+-48ee02798a720cd1c74067e040677bf18947e56933521c2d409b4feb81cc4c0e  03-technical/09-backup-recovery-runbook.md
+-df13d35d50290528c9561531c8f62740d5990e8735dee8d36ce0a95f635e757c  03-technical/10-core-rollout-runbook.md
++24a1a9a0c7a8076e3521304053a52f411dc4943a4316f542718f9b507dc1be7c  03-technical/09-backup-recovery-runbook.md
++d8d690fb7c4cacd17071936a9f57672c3de7e50962ce723e37c610fb8e417516  03-technical/10-core-rollout-runbook.md
+ 9edd3f79af2d9f91932e9e668b41c6f3e9a38ebe781ec9dc8b6517c135f3ee49  04-delivery/01-implementation-roadmap.md
+ 0c43e4072efeb3b4271cbad3f6e7ff896dcc075530e73f2e98bf2d74c0c48e19  04-delivery/02-work-breakdown-structure.md
+ ff9c5c9426eadc2f53c9df96daccba3761c8a736d1c7c4feb547f39f2b58adbc  04-delivery/03-requirement-traceability-matrix.md
+@@ -117,15 +117,15 @@
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  04-delivery/geo-003-baseline/validation.md
+ e047efc782933053f13f46e205e6aff331b4d3e2f8574a1c6857c97d426115cc  04-delivery/geo-906-release-record.template.yaml
+-70523cc5e6cf46093ac9582f2c249b9a4eb37ca368db339bbd548bb184d29c74  04-delivery/task-manifest.yaml
++5a04070ad601361055dd0eb55890f4d697b1af2c6e5890048356a955f562a8d9  04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  05-decisions/ADR-003-separate-collection-analysis-review.md
+ 8f4f24331d4ea91574e5a4a56c3eacd9d89e193011c48f8d9f5e413198793909  05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  05-decisions/ADR-005-staged-collector-rollout.md
+ 2fbec827c69bc5ed179ee8752b252ef1419f97392c38b6770c9184fa9ba641ba  05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md
+-4029e4be716aff7605368c51df6b797b55bb5fa9aba293c75a0e76b3943c2259  05-decisions/ADR-007-manual-first-v1-release-scope.md
++d9431452a1e5c033dec86e07e3d40d05af13968de5894c90aa1fc883fba44911  05-decisions/ADR-007-manual-first-v1-release-scope.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  05-decisions/GEO-002-architecture-review.md
+ b949243cf6b9715e2ecad7c36bee3d9e094d76ed9f50dca1bc365da77c956fb3  06-reviews/GEO-1001-release-readiness-audit.md
+-40c124440db341004ca0993431c87ac9bd6603ff118008f2aa05900782725e28  CHANGELOG.md
++4bf765fa4d49d49736ac5b9422a5e63ff2ccdd20f1ee937223b98a1bf944748c  CHANGELOG.md
+ 8cbc60f79a6d232f0504175d9221678ec5b8881849957ddad395fe249c312f58  README.md
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -1738,7 +1738,7 @@
+   phase: R9A
+   release: V1.0-manual-first
+   title: V1.0 禁止 CRON 假 ACTIVE 并治理既存计划
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-1002
+   - GEO-208
+@@ -1748,9 +1748,9 @@
+   - frontend plan actions
+   - targeted tests
+   - docs
+-  deliverables: 服务端禁止 CRON activate/resume 和通过 ACTIVE update/copy 绕过；读模型/页面披露 V1.0 不自动调度；定义并执行获批的既存 ACTIVE CRON 安全停用/审计路径，历史快照保留。
+-  tests: 策略及 PG API 定向：创建/启用/恢复、ACTIVE MANUAL 改 CRON、复制、并发与既存 ACTIVE 治理；目标计划页面 E2E；证明无到期调度副作用，MANUAL 人工创建正常。
+-  acceptance: 没有可达的 CRON 看似 ACTIVE 但不执行；服务端拒绝与动作投影一致，既存 ACTIVE 不留假运行承诺、不静默改成人工类型或删除历史；不实现 CRON Scheduler；独立只读复核通过。
++  deliverables: 服务端拒绝 CRON Plan 新建、全部历史写命令与首次 run/PLAN 建批及 scheduled 新窗口，409 GEO_PLAN_CRON_UNSUPPORTED；前端仅创建人工计划；历史 CRON 配置/状态/revision/快照只读保留，投影 UNSUPPORTED_SCHEDULE/VIEW_HISTORY 和空动作，明确不自动调度。产品澄清不原地停用、不删除或降级；人工 Retest 仍严格复制不可变基线，保留来源但不执行当前 CRON Plan。
++  tests: 策略及 PG API 定向：CRON 创建/全部历史写命令/首次建批拒绝、各状态 MANUAL 改 CRON、并发首次窗口与历史回执只读重放；目标计划页面测试/E2E；数据库摘要与 Redis/投递拦截证明零副作用，MANUAL create/activate/run 和人工 Batch 正常。
++  acceptance: 新建/启用 CRON 被拒绝；历史 ACTIVE 仅作真实历史值，投影与页面明确当前版本只读、不支持调度，无修改/执行动作；不静默改人工、不删除或回写历史，不接线 CRON Scheduler；MANUAL 正常、零拒绝副作用，独立只读复核通过。
+   required_docs:
+   - 01-product/02-geo-core-prd.md
+   - 01-product/05-v1-release-capability-matrix.md
+@@ -1761,7 +1761,8 @@
+   - 05-decisions/ADR-007-manual-first-v1-release-scope.md
+   - 06-reviews/GEO-1001-release-readiness-audit.md
+   audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
+-  scope_note: 后续独立任务；本次 GEO-1002 只登记范围、依赖与验收，不开始实现或生产操作。
++  scope_note: GEO-1005 按 2026-10-05 产品决策实施；历史只读优先于原停用设想，无迁移、生产操作或发布授权。
++  review_note: "2026-10-05：V1.0 Plan policy/命令/读模型、PLAN/scheduled 首次建批及前端边界完成；历史原值只读，不回填/降级，人工 Retest 保留独立冻结基线合同。后端111单元、30个独立PG/API用例、前端89+5目标用例、桌面真实栈1项、lint/type/contract/生成一致性和文档哈希通过；首轮测试准备/类型失败及纠正保留。fresh独立只读复核无阻断发现，审计Bundle校验通过。详情见Trellis implement/evidence；仅review，待人工接受，不提交/生产操作；GEO-1009/1010完整门禁与现场验证仍未执行。"
+ - id: GEO-1006
+   phase: R9A
+   release: V1.0-manual-first
+--- a/docs/geo-monitoring/03-technical/09-backup-recovery-runbook.md
++++ b/docs/geo-monitoring/03-technical/09-backup-recovery-runbook.md
+@@ -94,7 +94,7 @@
+ | COMPLETED/FAILED/CANCELLED/BUDGET_BLOCKED | 保持不可变；迟到结果不覆盖 |
+ | 已有plan/window | `create_scheduled_batch`按(plan_id,scheduled_for)返回旧回执，唯一约束不包含plan revision；重复/并发不会新建旧窗口 |
+ 
+-不新增生产cron接线，不凭backup去追补全部错过的时间窗口。恢复演练测试实际调用现有工厂验证同窗口并发回放且恰好一条batch，并比对完整DB摘要。生产放开任何consumer前须处理源系统是否仍在运行、备份之后已发送请求是否可确认：备份点之后的外发不在dump中，不能仅凭旧NOT_STARTED保证真实平台未接收。结果不明时保持停止并人工对账，不盲目自动发出。
++V1.0 不新增生产 cron 接线，GEO-1005 禁止 CRON 首次窗口；恢复历史 CRON 配置、状态和快照后仍只读披露，不补跑错过窗口。恢复演练从完整人工冻结输入 INSERT 测试专用的升级前历史批次，再调用现有工厂验证同窗口并发只读回执重放且仍恰好一条该窗口 batch，完整 DB 摘要不变；不绕过版本守卫创建新窗口。生产放开任何consumer前须处理源系统是否仍在运行、备份之后已发送请求是否可确认：备份点之后的外发不在dump中，不能仅凭旧NOT_STARTED保证真实平台未接收。结果不明时保持停止并人工对账，不盲目自动发出。
+ 
+ ## Browser 条件分支
+ 
+--- a/docs/geo-monitoring/03-technical/02-data-architecture.md
++++ b/docs/geo-monitoring/03-technical/02-data-architecture.md
+@@ -153,7 +153,7 @@
+ | created_by/updated_by | UUID | |
+ | created_at/updated_at | timestamptz | |
+ 
+-CRON 配置约束：`schedule_kind=CRON` 时提供有效五字段表达式，`MANUAL_ONLY` 时必须为空。输入解析复用 Celery；数据库 CHECK 保证字段结构，IANA 时区由 PostgreSQL 目录验证。预算为 numeric(14,6) 的有限非负数，NULL 表示未设置上限。
++CRON 配置约束：`schedule_kind=CRON` 时提供有效五字段表达式，`MANUAL_ONLY` 时必须为空。输入解析复用 Celery；数据库 CHECK 保证字段结构，IANA 时区由 PostgreSQL 目录验证。GEO-1005 保留历史 CRON Schema/状态和快照结构，但 V1.0 服务端拒绝新建、全部历史 Plan 写命令、首次 run/PLAN 建批及 scheduled 新窗口（409 GEO_PLAN_CRON_UNSUPPORTED）；不作历史状态迁移。预算为 numeric(14,6) 的有限非负数，NULL 表示未设置上限。
+ 
+ ## 4.3 Join tables
+ 
+--- a/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
++++ b/docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md
+@@ -168,7 +168,7 @@
+ 
+ ### 6.1 扫描
+ 
+-Scheduler 按固定频率扫描 ACTIVE CRON 计划，计算应触发窗口。
++以下是延期的目标设计：Scheduler 按固定频率扫描 ACTIVE CRON 计划，计算应触发窗口。V1.0 不注册该 Beat 任务，GEO-1005 拒绝所有 CRON 首次窗口，不承诺到期运行；既有分析/恢复/补投递扫描独立保留。
+ 
+ 每个窗口构造：
+ 
+@@ -176,7 +176,7 @@
+ schedule_identity = sha256(plan_id + canonical_utc_scheduled_for)
+ ```
+ 
+-GEO-301 已定义数据库唯一 `(plan_id, scheduled_for)` 及非空 SHA256 摘要索引；身份不含 plan_revision，计划更新不能使同窗口再次创建。GEO-303内部批次工厂已规范化aware窗口为UTC微秒时间，创建身份使用固定命名空间与计划ID，不含revision；同窗口重放首次批次。仅首次新窗口要求ACTIVE CRON及当前资格。窗口计算、扫描、补跑与调度执行仍为后续任务，按WBS和manifest分配；GEO-402仅建设fake provider与合同套件，工厂不派发Redis或调用Collector。
++GEO-301 已定义数据库唯一 `(plan_id, scheduled_for)` 及非空 SHA256 摘要索引；身份不含 plan_revision，计划更新不能使同窗口再次创建。GEO-303内部批次工厂已规范化aware窗口为UTC微秒时间，创建身份使用固定命名空间与计划ID，不含revision；同窗口重放首次批次。未来调度交付时才可在首次新窗口要求 ACTIVE CRON 及当前资格；V1.0 首次窗口返回 409 GEO_PLAN_CRON_UNSUPPORTED，历史窗口回执只读重放。窗口计算、扫描、补跑与调度执行仍为后续任务，按WBS和manifest分配；GEO-402仅建设fake provider与合同套件，工厂不派发Redis或调用Collector。
+ 
+ ### 6.2 时区和错过窗口
+ 
+--- a/docs/geo-monitoring/03-technical/10-core-rollout-runbook.md
++++ b/docs/geo-monitoring/03-technical/10-core-rollout-runbook.md
+@@ -15,7 +15,7 @@
+ | 范围与任务接受 | ADR-007 Accepted；1002～1009 已人工接受，候选包含全部修复；范围外能力披露 | GEO-1002 交付 review；后续 planned，当前 NOT_MET |
+ | Browser production 硬禁止 | Settings/启动预检/profile-overlay 明确拒绝 true/显式启动，负例通过且独立复核；现场三进程 false、零服务/profile/会话/材料 | NOT_MET / NOT_VERIFIED；1003/1010 |
+ | Catalog 当前身份 | 正确锁序及锁内 active/ADMIN/改密重验；真实 PG 角色变化竞态拒绝且零业务写入，独立复核 | NOT_MET；1004 |
+-| CRON 禁用与既存治理 | 不可 activate/resume 或通过 ACTIVE 更新绕过；既存 ACTIVE CRON 安全治理、审计与明确说明；MANUAL 入口正常 | NOT_MET；1005/1010；不要求自动到期入口 |
++| CRON 禁用与既存治理 | 禁止 CRON Plan 新建/全部写命令/首次 run、PLAN 建批及 scheduled 新窗口，稳定 409；历史配置/状态/快照只读，无写动作且页面明确不调度；MANUAL 入口正常 | GEO-1005 本地实现交付 review；目标/候选历史清点及投影现场证据 NOT_VERIFIED（1010）；不要求自动到期入口 |
+ | Opportunity 显式评估 | ADMIN 经实际受保护入口评估，非管理员/资格关闭拒绝，重复触发去重、来源可追溯；无周期或隐式触发 | NOT_MET；1006/1010；测试 seed 不替代入口 |
+ | 能力真实性 | 现有报告/三类 CSV/API 与页面说明一致；未实现 CSV/UI/重分析/占位明确不可用，无依据无引用不推断 | NOT_VERIFIED；1007 |
+ | 升级失败恢复 | 未 initialized 的 UPGRADE_DEPLOYING/PREPARED artifact 失败可安全前向/阶段恢复；身份/兼容/维护锁/再次失败拒绝演练和独立复核 | NOT_MET；1008；旧同候选重入不足以覆盖新 artifact |
+@@ -91,14 +91,14 @@
+ | GEO_BROWSER_COLLECTION_ENABLED | **false；production 硬禁止 true** | **false；production 硬禁止 true** |
+ | GEO_OPPORTUNITY_EVALUATION_ENABLED | false | GEO-1006 显式入口验收且批准后 true；只授权管理员评估，无自动周期/隐式触发 |
+ | MANUAL Collection | 随总开关不开放新写入 | 启用；无独立 MANUAL 配置键 |
+-| CRON Plan | 不启用 | 禁止 ACTIVE/resume/更新绕过并治理既存 ACTIVE；不实现到期调度 |
++| CRON Plan | 禁止新建/启用 | 历史只读披露、不删除或回写状态；禁止从当前 Plan 首次建批，不接到期调度 |
+ | Opportunity 自动调度 | 不注册周期/隐式触发 | 关闭；不把评估资格开关当自动调度开关 |
+ | GEO_RETENTION_DRY_RUN | true | true；实际删除与期限另需数据负责人批准 |
+ | CELERY_CONCURRENCY | 1 | 1；提升需目标容量证据和批准 |
+ 
+ API/Worker/Beat 从 runtime env_file 读取共享 Settings，设置在启动时生效；编辑文件不证明运行进程已改变。Compose 的 Browser profile/开关还受部署 shell/`--env-file` 影响，必须同时核对实际启动 argv/profile、容器、overlay/mount 与进程配置。仅记录四个布尔值/摘要，不输出完整 `docker compose config`、inspect/env 或秘密路径。
+ 
+-GEO-1003 必须先交付 production 硬禁止的负例和启动边界证据；当前默认 false 尚不足。GEO-1005 必须证明 CRON 非 ACTIVE、不能 resume/更新绕过及既存状态治理；GEO-1006 必须证明评估资格仅经显式管理员入口消费，没有自动周期/隐式触发。
++GEO-1003 必须先交付 production 硬禁止的负例和启动边界证据；当前默认 false 尚不足。GEO-1005 已将 CRON 新建、全部历史 Plan 写命令与首次 run、PLAN 建批及 scheduled 新窗口收口；GEO-1010 必须证明同候选现场命令拒绝、历史只读与 UNSUPPORTED_SCHEDULE 披露，不能把存储 ACTIVE 当作调度可用，也不要求篡改历史为非 ACTIVE；GEO-1006 必须证明评估资格仅经显式管理员入口消费，没有自动周期/隐式触发。
+ 
+ 生产负证据必须绑定同一目标/候选/时点并包含：
+ 
+@@ -109,6 +109,26 @@
+ 5. API 批准 inventory 和模式开关仍关闭；不使用内部 factory 中未批准的 `openai-compatible-chat`。
+ 
+ Browser 清理/恢复仅当服务/profile/overlay 未部署且 PG 总行数 0、受保护库存确认无材料时可记 **N/A**，附上述证据。任何材料存在都先按 802/901/903 保护、撤销、PURGE 或成套恢复；不得为取得“零会话”删除不可变历史。无法证实即 NOT_VERIFIED，停止核心 enable，延期不豁免材料责任。
++
++### 3.1 CRON 历史清点与验证（GEO-1005）
++
++在获准的目标读取权限下，使用只读事务记录低敏计数（不输出名称、表达式、正文或配置）：
++
++```sql
++BEGIN READ ONLY;
++SELECT status, count(*) FROM geo_monitoring_plans
++WHERE schedule_kind = 'CRON' GROUP BY status ORDER BY status;
++SELECT count(*) FROM geo_observation_batches WHERE trigger_type = 'SCHEDULED';
++COMMIT;
++```
++
++同候选 API 列表/详情应把每个 CRON 投影为 UNSUPPORTED_SCHEDULE / VIEW_HISTORY、空 available_actions 和 GEO_PLAN_CRON_UNSUPPORTED run reason；UI 显示历史只读与无自动运行，原存储状态仅作历史字段。未知现场计数为 NOT_VERIFIED，不能填零。无 DELETE/UPDATE/批量停用脚本，不清理或改写历史，也不把 CRON 转为 MANUAL。
++
++负例仅在授权的隔离验证范围调用：合法 CRON create、activate/resume、update/copy/delete/archive、run 与 PLAN Batch 均应明确 409 GEO_PLAN_CRON_UNSUPPORTED，CAS/鉴权失败仍按原合同裁决；前后数据库摘要一致，无 Batch/Run/Redis/成功审计副作用。正例通过 MANUAL create/activate/run 与 AD_HOC 创建证明人工入口正常。不要对目标反复做写探针来代替本地测试。
++
++人工 Retest 保留现有独立入口：严格复制已提交基线，历史 plan_id/CRON 快照仅作来源，trigger_type=RETEST，不执行当前 Plan，不改原计划或快照；可比性/权限/外发门禁继续生效。它不属于本节禁止的 PLAN/scheduled 建批，不应为治理 CRON 而删除或改写基线。
++
++确认 Beat 注册表没有到期建批扫描；现有分析/恢复/补投递仍保留。历史同窗口回执重放仅返回原 batch，不产生执行。恢复备份后同样运行清点及投影验证，不补跑错过窗口。此变更无 DDL/数据回填；代码回退不会改历史，但会重新暴露旧 CRON 写入能力，首发候选不能因此继续开放。
+ 
+ ## 4. MANUAL 正式闭环与内部试用
+ 
+--- a/docs/geo-monitoring/03-technical/01-technical-architecture.md
++++ b/docs/geo-monitoring/03-technical/01-technical-architecture.md
+@@ -36,7 +36,7 @@
+ 
+ ### V1.0 发布约束
+ 
+-[ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md)与[能力矩阵](../01-product/05-v1-release-capability-matrix.md)冻结首发执行范围。现有 API 采集保留，初始试运行默认关闭；production Browser 必须硬禁止（当前尚缺，GEO-1003），不启动服务/profile/会话。CRON 到期入口和 Opportunity 自动周期评估延期，服务端禁止 CRON 假 ACTIVE（GEO-1005），管理员显式评估入口待 GEO-1006。
++[ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md)与[能力矩阵](../01-product/05-v1-release-capability-matrix.md)冻结首发执行范围。现有 API 采集保留，初始试运行默认关闭；production Browser 必须硬禁止（当前尚缺，GEO-1003），不启动服务/profile/会话。CRON 到期入口和 Opportunity 自动周期评估延期，服务端禁止 CRON 创建/全部历史 Plan 写命令、首次 run/PLAN 建批及 scheduled 新窗口，历史保留原值但投影 UNSUPPORTED_SCHEDULE 只读、明确不调度（GEO-1005），管理员显式评估入口待 GEO-1006。
+ 
+ GEO_OPPORTUNITY_EVALUATION_ENABLED 控制评估资格：获批 MANUAL enable 后可 true，但不授权自动调度，不新增虚构的 MANUAL/自动调度环境键。现有确定性分析、租约恢复、补投递及保留扫描继续按资格执行。下面任务名称、容器和监控列表保留完整目标设计，不代表 `partsignal.geo_evaluate_opportunities` 已注册或生产 Scheduler 可创建 CRON 批次。
+ 
+--- a/docs/geo-monitoring/01-product/02-geo-core-prd.md
++++ b/docs/geo-monitoring/01-product/02-geo-core-prd.md
+@@ -434,7 +434,11 @@
+ 
+ ## 9.3 监测计划
+ 
+-V1.0 只承诺人工启动/创建批次。以下调度字段保留目标设计和既有配置模型，当前协议以 OpenAPI 为准；CRON 在 V1.0 禁止 activate/resume 或通过 ACTIVE update 绕过，既存 ACTIVE 必须按 GEO-1005 治理并披露，不能把未来运行时间当作已接线 Scheduler。
++V1.0 只支持人工启动计划/创建批次，当前协议为 `schedule_kind=MANUAL_ONLY`。GEO-1005 在后端拒绝新建 CRON、MANUAL 改 CRON，以及历史 CRON 的全部修改、启用/恢复、复制、删除、归档和首次 run/PLAN 建批，返回稳定 `409 GEO_PLAN_CRON_UNSUPPORTED`；不会静默降级。前端创建/编辑仅提供人工计划。
++
++历史 CRON 只读保留原配置、表达式、状态、revision 与不可变 Batch/Run 快照；旧 ACTIVE 是历史元数据，读模型投影为 UNSUPPORTED_SCHEDULE / VIEW_HISTORY、无写动作，页面明确 V1.0 不调度。已有批次回执重放只读，不创建或重新投递。内部工厂禁止 CRON 首次窗口，不接入 Beat 到期任务；MANUAL create/activate/run 与 AD_HOC 人工 Batch 继续可用。以下字段中的未来调度能力仅为目标设计。
++
++现有 Retest 是人工调用的独立 Batch 命令：从已提交、不可变的基线 Batch 复制严格矩阵，创建 trigger_type=RETEST 的批次。原 plan_id 和 CRON 快照仅作来源追溯，不读取或执行当前 CRON Plan、不改写原计划或快照，不伪装成 SCHEDULED；既有可比性、权限及外发门禁继续裁决。
+ 
+ ### 计划字段
+ 
+@@ -446,14 +450,14 @@
+ | geo_surface_ids | 观测平台范围 |
+ | variant_policy | FIXED、ALL、ROTATE |
+ | repetitions | 同一问题和平台的重复采样次数，默认 3 |
+-| schedule_type | MANUAL、DAILY、WEEKLY、CRON |
++| schedule_type | 目标设计 MANUAL、DAILY、WEEKLY、CRON；V1.0 协议写入仅 MANUAL_ONLY，CRON 只读历史 |
+ | schedule | 运行时间或 Cron 表达式 |
+ | business_timezone | 业务时区，默认 Asia/Shanghai |
+ | collection_mode_policy | 使用平台默认方式或显式选择方式 |
+ | max_cost_per_batch | API 调用批次预算上限 |
+ | max_concurrency | 批次并发限制 |
+ | review_policy | 全量复核、风险复核或抽样复核 |
+-| is_enabled | 是否允许定时触发 |
++| is_enabled | 目标设计是否允许定时触发；V1.0 MANUAL 的 ACTIVE 仅是配置生命周期，不承诺定时运行 |
+ | revision | 修订号 |
+ 
+ ### 创建/编辑交互
+@@ -482,7 +486,7 @@
+ - 立即运行；
+ - 复制计划；
+ - 查看历史；
+-- 查看下次运行时间；
++- 后续调度版本才可查看下次运行时间；V1.0 不提供虚构的到期运行承诺；
+ - 预览运行矩阵。
+ 
+ ### 约束
+--- a/docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md
++++ b/docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md
+@@ -32,12 +32,12 @@
+ | Opportunity 管理员生产评估入口 | not implemented | 目前未接线 Router/运维命令；本次不新增协议 | GEO-1006 必须先交付并验收；V1.0 必需 |
+ | Opportunity 列表/详情、确认/忽略 | available | 现有工作台与服务端状态/证据已实现 | 机会需显式评估产生；保持来源历史 |
+ | 现有 Action API | available | 事实/内容/发布/补测应用服务协调及公共 API 已实现 | 人工调用；AI 仅草稿；GEO-1007/1010 |
+-| 现有 Retest API 与比较/解决 | available | preview/create、冻结基线、可比性门禁及显式解决已实现 | 不可比/未知版本阻断；不承诺因果 |
++| 现有 Retest API 与比较/解决 | available | preview/create、冻结基线、可比性门禁及显式解决已实现 | 不可比/未知版本阻断；不承诺因果；可复现的历史基线即使来自 CRON，人工 RETEST 仍按冻结矩阵执行，保留来源且不运行当前 Plan |
+ | MANUAL 内部试运行 | manual-only | 本地真实栈有证据，生产试用未执行 | GEO-1010；负责人、范围、时长、反馈需签署 |
+ | API Collection 初始试运行 | disabled | 采集/Worker/发送恢复已有实现，生产供应商批准与验收未取得 | 默认 false；后续启用需单独批准与验收 |
+ | Browser production Collection/会话 | disabled | GEO-1003 已实现 Settings/预检/部署入口硬拒绝 true 和会话材料；production Compose 无 Browser；交付 review，现场未知 | GEO-1003 待人工接受＋GEO-1010 零启用/零材料证据 |
+ | Browser 真实界面 Adapter/生产证据采集 | deferred | GEO-804～807 延期；真实 Adapter/证据路径未实现 | ADR-006；801～803 done 保留 |
+-| CRON 到期自动创建批次 | disabled | 内部 scheduled factory 存在，生产扫描未接线；可能假 ACTIVE | GEO-1005 禁止 ACTIVE/resume/绕过并治理既存状态 |
++| CRON Plan 创建/启用及到期建批 | disabled | GEO-1005：CRON Plan 写命令/首次 run、PLAN 建批及 scheduled 新窗口均 409 GEO_PLAN_CRON_UNSUPPORTED；历史仅 UNSUPPORTED_SCHEDULE 只读，无写动作；Beat 无到期入口 | 本地交付 review；GEO-1010 核实同候选与现场历史披露，不原地停用/删除 |
+ | CRON 生产自动调度交付 | deferred | not implemented：无生产到期入口 | 后续重新排期；V1.0 不以自动执行为门禁 |
+ | Opportunity 自动调度 | disabled | 开关是评估资格，不证明自动调度；当前无生产周期入口 | GEO-1006/1007 保持无周期/隐式触发 |
+ | Opportunity 自动周期评估交付 | deferred | not implemented：只有内部 evaluator 与测试/seed 调用 | 后续重新排期；V1.0 不以周期执行为门禁 |
+@@ -55,7 +55,7 @@
+ | MANUAL Collection | 随总开关不开放新写入 | 启用；没有独立 MANUAL 环境键 | 人工采集/创建，确定性分析和复核继续执行 |
+ | GEO_API_COLLECTION_ENABLED | false | false（初始默认） | 保留已有代码，不自动回退到 API |
+ | GEO_BROWSER_COLLECTION_ENABLED | false | production **硬禁止 true** | GEO-1003 实现/本地验证交付 review；现场 GEO-1010 |
+-| CRON Plan | 不启用 | 不得 ACTIVE/resume，既存 ACTIVE 必须治理 | 防假 ACTIVE 尚缺：GEO-1005；不新增 Schema 状态 |
++| CRON Plan | 禁止新建和启用 | 全部历史 CRON Plan 只读，不能从当前 Plan 建批 | GEO-1005 已实现；旧 ACTIVE 原值保留但投影明确不支持；不新增存储状态 |
+ | GEO_OPPORTUNITY_EVALUATION_ENABLED | false | 显式评估获批时 true | 这是资格开关；入口尚缺：GEO-1006 |
+ | Opportunity 自动调度 | 无周期注册/隐式触发 | 关闭 | 不虚构新的已实现环境键；保持人工评估与自动调度分开 |
+ 
+--- a/docs/geo-monitoring/05-decisions/ADR-007-manual-first-v1-release-scope.md
++++ b/docs/geo-monitoring/05-decisions/ADR-007-manual-first-v1-release-scope.md
+@@ -19,7 +19,7 @@
+ 2. V1.0 不包含 Browser 真实界面 Adapter、Browser 生产会话/证据采集、CRON 到期自动创建批次、Opportunity 自动周期评估、Opportunity CSV、Action/Retest 完整页面操作、公共管理员重分析入口，以及不可观测的“无引用”自动推断。
+ 3. [能力矩阵](../01-product/05-v1-release-capability-matrix.md)区分 available、manual-only、disabled、deferred、not implemented，并单列当前实现。available 只表示仓库已有实现，manual-only 限定人工触发；二者均不代表生产已启用。未实现的手动评估入口必须由 GEO-1006 交付后才可作为正式操作入口。
+ 4. GEO Monitoring 按环境启用；MANUAL 初始试运行启用且不新增独立 MANUAL 开关；API Collection 初始试运行默认关闭。生产必须硬拒绝 Browser Collection 启用，同时核实服务/profile 未启用，且无生产会话/会话材料；模板默认 false 不足以放行。
+-5. CRON 自动到期执行延期，V1.0 服务端必须禁止 CRON Plan 进入看似 ACTIVE 但不执行的状态；既存 ACTIVE CRON 要有明确治理路径、用户说明和审计，不删除历史或自动转成手动语义。保存停用配置可以保留；人工执行只允许现有明确人工创建入口，不能伪装为调度成功。GEO-1005 交付前该保证 NOT_MET。
++5. CRON 自动到期执行延期。GEO-1005 的产品澄清：V1.0 拒绝新建、启用和任何 CRON Plan 写命令/首次 run、PLAN 建批及 scheduled 新窗口（409 GEO_PLAN_CRON_UNSUPPORTED），前端仅创建人工计划；历史 CRON 只读保留，不原地停用、不删除、不转为 MANUAL。旧 ACTIVE 只作历史值，服务器与页面投影 UNSUPPORTED_SCHEDULE、无写动作，明确当前版本不调度。历史清点通过只读计数与原审计记录完成，不伪造治理成功审计或执行。MANUAL 人工入口继续可用；已有批次回执只读重放保留。现有 Retest 是人工调用的独立 Batch 命令：从已提交、不可变的基线 Batch 复制严格矩阵，创建 trigger_type=RETEST 的批次。原 plan_id 和 CRON 快照仅作来源追溯，不读取或执行当前 CRON Plan、不改写原计划或快照，不伪装成 SCHEDULED；既有可比性、权限及外发门禁继续裁决。本地实现交付 review，现场同候选验证由 GEO-1010 完成。
+ 6. Opportunity 自动调度关闭；允许管理员显式评估。已有 GEO_OPPORTUNITY_EVALUATION_ENABLED 是评估资格开关，不能当作独立的自动调度开关：MANUAL enable 获批后可设 true，以支持显式评估，但不得登记周期任务或以提交/聚合读请求自动触发。总开关关闭或评估资格关闭时明确拒绝，ENGINEER 不得触发管理员评估。
+ 7. 零引用且缺少可观测依据不等于“确定无引用”。不更改指标分母、current/review 资格、null/UNKNOWN、不可变历史、权限、数据分级、API 外发批准或 at-most-once；内部重分析能力不构成公共入口，分析失败 Run 不因内部重分析成功而回退终态。
+ 8. 增加 R9A 与 GEO-1002～1010，依次闭合范围、安全、能力真实性、升级恢复、候选和现场证据。任务细目及依赖以 [manifest](../04-delivery/task-manifest.yaml) 为准。GEO-1001 是已完成审计输入，不在本轮补造任务接受状态；R0—R8 全部原状态和记录保留。
+--- a/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
++++ b/docs/geo-monitoring/02-business/03-workflows-and-state-machines.md
+@@ -8,7 +8,7 @@
+ 
+ ## V1.0 执行范围裁决
+ 
+-依据 [ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md)，下列图和状态集合保留原始领域设计，本次不改 Schema/OpenAPI 或运行状态机。V1.0 只承诺人工启动/创建批次；CRON 自动到期创建延期，GEO-1005 必须在命令权威边界禁止 CRON activate/resume、ACTIVE 更新绕过，并治理既存假 ACTIVE，保留历史快照和审计。页面隐藏不构成服务端禁止。
++依据 [ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md)，下列图和存储状态集合保留原始领域设计。V1.0 只承诺人工启动/创建批次；GEO-1005 禁止 CRON 创建、全部历史 Plan 写命令、首次 run/PLAN 建批及 scheduled 新窗口，稳定 409 GEO_PLAN_CRON_UNSUPPORTED。历史 CRON 原状态/快照/审计只读保留；服务器投影 UNSUPPORTED_SCHEDULE / VIEW_HISTORY 与空动作，页面明确不调度，不原地停用或转人工。页面隐藏不构成服务端禁止。
+ 
+ Opportunity 由 ADMIN 显式评估（生产入口待 GEO-1006），不由周期、提交或指标读请求自动触发。Action/Retest 采用现有 API；公开管理员重分析入口不属于 V1.0。确定性分析扫描、租约恢复和 PENDING 补投递继续执行，不能因为禁用业务 CRON 而停整个 Beat。
+ 
+--- a/backend/tests/integration/geo_cron_support.py
++++ b/backend/tests/integration/geo_cron_support.py
+@@ -0,0 +1,93 @@
++"""只在测试中构造升级前的 CRON 数据，不绕过运行时版本守卫。"""
++
++from uuid import UUID, uuid4
++
++from sqlalchemy import select, text
++
++from app.models.geo_batch_creation import GeoBatchSubject
++from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
++from app.schemas.geo_batch_creation import GeoBatchCreated
++from app.services.geo_batches import schedule_identity
++from tests.integration.geo_plans_support import PREFIX, PlansAPI
++
++
++def historical_cron(api: PlansAPI, status: str = "ACTIVE") -> dict:
++    row = api.create()
++    with api.api.factory() as db:
++        db.execute(
++            text(
++                "UPDATE geo_monitoring_plans SET schedule_kind='CRON', "
++                "cron_expression='0 * * * *', status=:status WHERE id=:id"
++            ),
++            {"id": row["id"], "status": status},
++        )
++        db.commit()
++    return api.api.engineer.get(f"{PREFIX}/{row['id']}").json()
++
++
++def historical_scheduled_batch(api: PlansAPI, window) -> tuple[dict, GeoBatchCreated]:
++    # 先用受支持的人工入口取得完整冻结输入，再 INSERT 升级前的历史聚合。
++    manual = api.create()
++    response = api.api.engineer.post(
++        f"{PREFIX}/{manual['id']}/run",
++        json={"expected_revision": manual["revision"]},
++        headers={"Idempotency-Key": f"historical-template-{uuid4()}"},
++    )
++    assert response.status_code == 201, response.text
++    plan = historical_cron(api)
++    with api.api.factory() as db:
++        source = db.get(GeoObservationBatch, UUID(response.json()["batch_id"]))
++        snapshot = source.plan_snapshot | {
++            "plan_id": plan["id"],
++            "plan_revision": plan["revision"],
++            "schedule_kind": "CRON",
++            "cron_expression": plan["cron_expression"],
++        }
++        batch = GeoObservationBatch(
++            **{c.name: getattr(source, c.name) for c in GeoObservationBatch.__table__.columns}
++            | {
++                "id": uuid4(),
++                "plan_id": UUID(plan["id"]),
++                "trigger_type": "SCHEDULED",
++                "scheduled_for": window,
++                "schedule_identity": schedule_identity(UUID(plan["id"]), window),
++                "created_by": None,
++                "plan_snapshot": snapshot,
++                "status": "PLANNED",
++                "revision": 0,
++            }
++        )
++        db.add(batch)
++        db.flush()
++        for source_run in db.scalars(
++            select(GeoObservationRun).where(GeoObservationRun.batch_id == source.id)
++        ):
++            db.add(
++                GeoObservationRun(
++                    **{
++                        c.name: getattr(source_run, c.name)
++                        for c in GeoObservationRun.__table__.columns
++                        if c.computed is None
++                    }
++                    | {"id": uuid4(), "batch_id": batch.id}
++                )
++            )
++        for subject in db.scalars(
++            select(GeoBatchSubject).where(GeoBatchSubject.batch_id == source.id)
++        ):
++            db.add(
++                GeoBatchSubject(
++                    **{c.name: getattr(subject, c.name) for c in GeoBatchSubject.__table__.columns}
++                    | {"batch_id": batch.id}
++                )
++            )
++        db.flush()
++        batch.status = "QUEUED"
++        batch.revision = 1
++        db.commit()
++        plan = api.api.engineer.get(f"{PREFIX}/{plan['id']}").json()
++        return plan, GeoBatchCreated(
++            batch_id=batch.id,
++            requested_run_count=batch.requested_run_count,
++            created_at=batch.created_at,
++        )
+--- a/backend/tests/integration/test_geo_cron_boundary.py
++++ b/backend/tests/integration/test_geo_cron_boundary.py
+@@ -0,0 +1,214 @@
++"""GEO-1005：真实 PG/API 的版本边界，拒绝不产生执行或 Broker 副作用。"""
++
++from concurrent.futures import ThreadPoolExecutor
++from datetime import UTC, datetime
++from threading import Barrier
++from uuid import UUID, uuid4
++
++import pytest
++import redis
++from sqlalchemy import text
++
++from app.errors import AppError
++from app.services import geo_batches
++from tests.integration.geo_cron_support import historical_cron
++from tests.integration.geo_plans_support import PREFIX, PlansAPI
++from tests.integration.geo_plans_support import plans_api as plans_api
++from tests.integration.geo_plans_support import questions_api as questions_api
++from tests.integration.geo_plans_support import questions_engine as questions_engine
++from tests.unit.test_geo_surface_contract import contract as contract
++from tests.unit.test_geo_surface_contract import validate
++
++pytestmark = pytest.mark.integration
++BATCHES = "/api/v1/geo/observation-batches"
++TABLES = (
++    "geo_monitoring_plans",
++    "geo_monitoring_plan_subjects",
++    "geo_monitoring_plan_prompts",
++    "geo_monitoring_plan_profiles",
++    "geo_observation_batches",
++    "geo_observation_runs",
++    "geo_batch_creation_requests",
++    "geo_batch_subjects",
++    "geo_prompt_variants",
++    "geo_engine_surfaces",
++    "geo_collection_profiles",
++    "geo_rule_set_revisions",
++    "geo_rule_set_current",
++    "audit_logs",
++)
++
++
++def snapshot(api: PlansAPI) -> dict[str, str]:
++    with api.api.factory() as db:
++        return {
++            table: db.scalar(
++                text(
++                    "SELECT md5(COALESCE(string_agg(row::text, ',' ORDER BY row::text), '')) "
++                    f"FROM (SELECT to_jsonb(t) AS row FROM {table} t) source"
++                )
++            )
++            for table in TABLES
++        }
++
++
++def rejected(response) -> None:
++    assert response.status_code == 409, response.text
++    error = response.json()["error"]
++    assert error["code"] == "GEO_PLAN_CRON_UNSUPPORTED"
++    assert error["message"] == "V1.0 不支持 CRON 计划；历史计划只读，请新建人工计划或人工批次"
++    assert error["details"] == {}
++    assert error["request_id"] == response.headers["X-Request-ID"]
++
++
++@pytest.fixture
++def no_redis(monkeypatch):
++    def forbidden(*args, **kwargs):
++        raise AssertionError("拒绝路径不得到达批次派发或 Redis")
++
++    monkeypatch.setattr(redis.Redis, "execute_command", forbidden)
++    monkeypatch.setattr(geo_batches, "dispatch_created_batch", forbidden)
++
++
++def test_cron_create_rejected_without_writes(plans_api: PlansAPI, no_redis):
++    api = plans_api
++    before = snapshot(api)
++    rejected(
++        api.api.engineer.post(
++            PREFIX, json=api.payload(schedule_kind="CRON", cron_expression="0 * * * *")
++        )
++    )
++    # 版本拒绝先于资源资格，未知资源不应促成保存一个 CRON 草稿。
++    rejected(
++        api.api.admin.post(
++            PREFIX,
++            json=api.payload(
++                schedule_kind="CRON",
++                cron_expression="0 * * * *",
++                collection_profile_ids=[str(uuid4())],
++            ),
++        )
++    )
++    assert snapshot(api) == before
++
++
++@pytest.mark.parametrize("status", ["DISABLED", "ACTIVE", "PAUSED", "ARCHIVED"])
++def test_historical_cron_is_readonly_for_all_commands(
++    plans_api: PlansAPI, status, contract, no_redis
++):
++    api = plans_api
++    row = historical_cron(api, status)
++    before = snapshot(api)
++    path = f"{PREFIX}/{row['id']}"
++    assert row["status"] == status and row["schedule_kind"] == "CRON"
++    assert row["workflow_stage"] == "UNSUPPORTED_SCHEDULE"
++    assert row["primary_task"] == "VIEW_HISTORY" and row["available_actions"] == []
++    assert row["run_entry"] == {"available": False, "reason_code": "GEO_PLAN_CRON_UNSUPPORTED"}
++    assert row["deletion"]["blockers"] == ["SCHEDULE_UNSUPPORTED"]
++    validate(contract, "GeoMonitoringPlanDetail", row)
++    for op in ("activate", "resume", "pause", "archive", "copy"):
++        rejected(api.action(row, op, **({"name": "不得创建的副本"} if op == "copy" else {})))
++    # CRON->MANUAL 的显式更新同样修改历史，因此拒绝。
++    rejected(api.api.engineer.patch(path, json=api.payload(expected_revision=row["revision"])))
++    rejected(
++        api.api.engineer.patch(
++            path,
++            json=api.payload(
++                expected_revision=row["revision"], schedule_kind="CRON", cron_expression="1 * * * *"
++            ),
++        )
++    )
++    rejected(api.api.engineer.delete(path, params={"expected_revision": row["revision"]}))
++    rejected(
++        api.api.engineer.post(
++            f"{path}/run",
++            json={"expected_revision": row["revision"]},
++            headers={"Idempotency-Key": "cron-run"},
++        )
++    )
++    rejected(
++        api.api.engineer.post(
++            BATCHES,
++            json={"source": "PLAN", "plan_id": row["id"], "expected_revision": row["revision"]},
++            headers={"Idempotency-Key": "cron-batch"},
++        )
++    )
++    with api.api.factory() as db:
++        with pytest.raises(AppError) as caught:
++            geo_batches.create_scheduled_batch(
++                db=db, plan_id=UUID(row["id"]), scheduled_for=datetime(2026, 10, 5, tzinfo=UTC)
++            )
++        assert caught.value.code == "GEO_PLAN_CRON_UNSUPPORTED"
++    assert api.api.engineer.get(path).json() == row
++    listed = api.api.engineer.get(PREFIX, params={"q": api.name, "schedule_kind": "CRON"}).json()
++    assert row in listed["items"]
++    assert snapshot(api) == before
++
++
++@pytest.mark.parametrize("state", ["DISABLED", "ACTIVE", "PAUSED"])
++def test_manual_cannot_be_changed_to_cron(plans_api: PlansAPI, state, no_redis):
++    api = plans_api
++    row = api.create()
++    if state != "DISABLED":
++        row = api.action(row, "activate").json()
++    if state == "PAUSED":
++        row = api.action(row, "pause").json()
++    before = snapshot(api)
++    rejected(
++        api.api.engineer.patch(
++            f"{PREFIX}/{row['id']}",
++            json=api.payload(
++                expected_revision=row["revision"], schedule_kind="CRON", cron_expression="0 * * * *"
++            ),
++        )
++    )
++    assert api.api.engineer.get(f"{PREFIX}/{row['id']}").json() == row
++    assert snapshot(api) == before
++
++
++def test_parallel_legacy_cron_first_windows_are_rejected(plans_api: PlansAPI, no_redis):
++    api = plans_api
++    row = historical_cron(api)
++    before = snapshot(api)
++    barrier = Barrier(2)
++
++    def attempt(_):
++        barrier.wait(timeout=5)
++        with api.api.factory() as db:
++            with pytest.raises(AppError) as caught:
++                geo_batches.create_scheduled_batch(
++                    db=db, plan_id=UUID(row["id"]), scheduled_for=datetime(2026, 10, 5, tzinfo=UTC)
++                )
++            return caught.value.code
++
++    with ThreadPoolExecutor(max_workers=2) as pool:
++        assert list(pool.map(attempt, range(2))) == ["GEO_PLAN_CRON_UNSUPPORTED"] * 2
++    assert snapshot(api) == before
++
++
++def test_manual_create_activate_run_and_adhoc_remain_available(plans_api: PlansAPI, monkeypatch):
++    api = plans_api
++
++    def forbidden(*args, **kwargs):
++        raise AssertionError("MANUAL 采集不应访问 Redis")
++
++    monkeypatch.setattr(redis.Redis, "execute_command", forbidden)
++    row = api.create(repeat_count=2)
++    row = api.action(row, "activate").json()
++    assert row["status"] == "ACTIVE" and row["workflow_stage"] == "ACTIVE"
++    assert row["schedule_kind"] == "MANUAL_ONLY"
++    response = api.api.engineer.post(
++        f"{PREFIX}/{row['id']}/run",
++        json={"expected_revision": row["revision"]},
++        headers={"Idempotency-Key": "manual-supported"},
++    )
++    assert response.status_code == 201, response.text
++    assert response.json()["requested_run_count"] == 2
++    response = api.api.engineer.post(
++        BATCHES,
++        json={"source": "AD_HOC", "configuration": api.payload(repeat_count=1)},
++        headers={"Idempotency-Key": "adhoc-supported"},
++    )
++    assert response.status_code == 201, response.text
++    assert response.json()["requested_run_count"] == 1
++    assert api.api.engineer.get(f"{PREFIX}/{row['id']}").json()["revision"] == row["revision"]

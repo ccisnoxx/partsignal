@@ -1,0 +1,53 @@
+{
+  "id": "geo-704-action-integration",
+  "name": "geo-704-action-integration",
+  "title": "GEO-704：集成事实修订、内容任务和发布修复行动",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-04",
+  "completedAt": "2026-10-04",
+  "branch": "geo/GEO-704",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "contracts/openapi.yaml",
+    "contracts/database.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml"
+  ],
+  "notes": "2026-10-04 本会话用户已人工审查并接受GEO-704实现与测试证据；本次仅记录验收，manifest=done、Trellis=completed，不修改其他任务状态、不实施后续任务，不提交或归档。",
+  "meta": {
+    "geo_task_id": "GEO-704",
+    "release": "R6",
+    "manifest_status": "done",
+    "dependencies_verified": {
+      "GEO-703": "done"
+    },
+    "delivery_status": "done",
+    "validation": {
+      "lint": "passed",
+      "typecheck": "passed",
+      "unit": "3649 backend + 1244 frontend passed",
+      "integration": "1062 passed, 31 metadata warnings",
+      "contract": "passed",
+      "e2e": "30 canonical + 3 GEO + 498 fixture passed; 71 phase skips",
+      "targeted": "16 PG passed",
+      "independent_review_audit_id": "20261004T192838Z-geo-704-3eb5e6cf"
+    },
+    "accepted_at": "2026-10-04",
+    "accepted_by": "本会话用户",
+    "accepted_scope": "GEO-704事实修订导航、内容任务、发布修复行动、action link及来源快照、跨域事务/幂等/审计与已记录的实现和测试证据；不包含后续任务。",
+    "acceptance_basis": "用户明确表示：我已经人工审查并接受 GEO-704 的实现与测试证据。",
+    "validation_record": ".trellis/tasks/10-04-geo-704-action-integration/implement.md"
+  }
+}

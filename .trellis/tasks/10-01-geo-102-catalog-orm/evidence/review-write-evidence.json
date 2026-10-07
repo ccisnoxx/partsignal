@@ -1,0 +1,8 @@
+{
+  "candidate_paths_checked": 7,
+  "changed_paths": [],
+  "observed_write_paths": [],
+  "scope": "候选源码及测试在 fresh 只读复核前后逐项指纹一致；文档/证据由主代理维护",
+  "runtime_status": "completed",
+  "status_source": "agents.list_agents"
+}

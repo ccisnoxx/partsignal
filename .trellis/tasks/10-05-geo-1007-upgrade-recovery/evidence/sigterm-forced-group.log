@@ -1,0 +1,1 @@
+SIGTERM ignored：10秒期限内结束整组；退出前锁占用、退出后释放、phase/data未推进

@@ -1,0 +1,1 @@
+{"current_task": {"dir": ".trellis/tasks/10-04-geo-705-retest-planner", "id": "geo-705-retest-planner", "title": "GEO-705：RetestPlanner、基线冻结与严格可比性门禁", "status": "review", "parent": null, "children": [], "branch": "geo/GEO-705", "base_branch": "main"}, "source": "session:codex_01a10961-d96d-7512-b35b-d73d99db75cc", "stale": false}

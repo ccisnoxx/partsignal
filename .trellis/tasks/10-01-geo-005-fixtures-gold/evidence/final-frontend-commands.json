@@ -1,0 +1,65 @@
+[
+  {
+    "name": "fixture-frontend-final",
+    "command": "npm --prefix frontend run test -- src/test/geo-fixtures.test.ts",
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "started_at": "2026-10-01T22:12:21.128907+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 0.752,
+    "log": ".trellis/tasks/10-01-geo-005-fixtures-gold/evidence/fixture-frontend-final.log"
+  },
+  {
+    "name": "lint-final",
+    "command": "make lint",
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "started_at": "2026-10-01T22:12:21.881201+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 6.108,
+    "log": ".trellis/tasks/10-01-geo-005-fixtures-gold/evidence/lint-final.log"
+  },
+  {
+    "name": "typecheck-final",
+    "command": "make typecheck",
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "started_at": "2026-10-01T22:12:27.989552+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 5.64,
+    "log": ".trellis/tasks/10-01-geo-005-fixtures-gold/evidence/typecheck-final.log"
+  },
+  {
+    "name": "test-unit-final",
+    "command": "make test-unit",
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "started_at": "2026-10-01T22:12:33.629540+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 34.524,
+    "log": ".trellis/tasks/10-01-geo-005-fixtures-gold/evidence/test-unit-final.log"
+  },
+  {
+    "name": "frontend-test-final",
+    "command": "npm --prefix frontend run test",
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "started_at": "2026-10-01T22:13:08.153930+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 18.919,
+    "log": ".trellis/tasks/10-01-geo-005-fixtures-gold/evidence/frontend-test-final.log"
+  },
+  {
+    "name": "frontend-typecheck-final",
+    "command": "npm --prefix frontend run typecheck",
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "started_at": "2026-10-01T22:13:27.073393+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 5.657,
+    "log": ".trellis/tasks/10-01-geo-005-fixtures-gold/evidence/frontend-typecheck-final.log"
+  },
+  {
+    "name": "isolated-frontend-build",
+    "command": "python3 .trellis/tasks/10-01-geo-005-fixtures-gold/evidence/check-frontend-context.py",
+    "cwd": "/Users/sc/PycharmProjects/partsignal",
+    "started_at": "2026-10-01T22:13:32.730952+00:00",
+    "exit_code": 0,
+    "elapsed_seconds": 7.025,
+    "log": ".trellis/tasks/10-01-geo-005-fixtures-gold/evidence/isolated-frontend-build.log"
+  }
+]

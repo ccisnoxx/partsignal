@@ -1,0 +1,8 @@
+{
+  "command": [
+    "make",
+    "test-integration",
+    "COMPOSE=docker compose -p partsignal-geo601-validation -f .trellis/tasks/10-03-geo-601-metric-formulas/evidence/validation-compose.yaml"
+  ],
+  "exit_code": 0
+}

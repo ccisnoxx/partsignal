@@ -1,0 +1,32 @@
+[
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0,
+    "log": "diff-check.log"
+  },
+  {
+    "command": [
+      "shasum",
+      "-a",
+      "256",
+      "-c",
+      "SHA256SUMS"
+    ],
+    "exit_code": 0,
+    "log": "document-hashes.log"
+  },
+  {
+    "command": [
+      "python3",
+      ".trellis/scripts/task.py",
+      "validate",
+      ".trellis/tasks/10-02-geo-201-prompt-variant"
+    ],
+    "exit_code": 0,
+    "log": "trellis-validate.log"
+  }
+]

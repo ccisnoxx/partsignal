@@ -1,0 +1,10 @@
+{
+  "command": [
+    "colima",
+    "stop"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-03T07:07:16.221112+00:00",
+  "seconds": 2.15,
+  "log": "colima-restored.log"
+}

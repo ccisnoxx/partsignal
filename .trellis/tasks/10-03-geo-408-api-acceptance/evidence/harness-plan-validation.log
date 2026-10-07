@@ -1,0 +1,83 @@
+{
+  "version": 5,
+  "planner_version": "1.5.1",
+  "plan_id": "geo408-harness",
+  "max_concurrent_workers": 1,
+  "effective_capacity": 1,
+  "open_workers": 0,
+  "available_slots": 1,
+  "role_profiles": {
+    "deep_engineer": {
+      "name": "deep_engineer",
+      "model": "gpt-6.1-sol",
+      "model_reasoning_effort": "xhigh",
+      "sandbox_mode": "workspace-write",
+      "profile_source": "agent_toml",
+      "config_file": "deep_engineer.toml",
+      "config_sha256": "8e2684a65f92cd36438b41a22b0aef3d57f1ef4744c534b16da346ff6756e653"
+    }
+  },
+  "codex_config_evidence": {
+    "config_file": "config.toml",
+    "config_sha256": "74600198b74e5607a453914f311b34225a6a9ef7c590f7472bf0203e8caeddde",
+    "configured_max_concurrent_threads_per_session": 4,
+    "capacity_source": "codex_config"
+  },
+  "runtime_workers": [],
+  "prior_tasks": [],
+  "tasks": [
+    {
+      "task_id": "geo_test_harness",
+      "task_name": "geo_test_harness",
+      "agent_type": "deep_engineer",
+      "attempt": 1,
+      "replaces_task_id": null,
+      "depends_on": [],
+      "read_paths": [
+        "backend",
+        "deploy",
+        ".trellis/spec/infra"
+      ],
+      "write_paths": [
+        "backend/tests/geo_e2e_runtime.py",
+        "backend/tests/geo_e2e_provider.py",
+        "backend/tests/unit/test_geo_e2e_runtime.py",
+        "deploy/scripts/e2e-local.sh",
+        "deploy/scripts/e2e-environment.py",
+        "deploy/scripts/e2e-geo.sh",
+        "Makefile",
+        "backend/tests/geo_e2e_environment.py",
+        "backend/tests/geo_e2e_fixture.py"
+      ],
+      "independent_review": false,
+      "review_of_task_ids": [],
+      "reuse_worker_id": null,
+      "accounting_scope": "not_available",
+      "dispatch_method": "spawn_agent",
+      "fork_turns": "none",
+      "delivery_mode": "complete_task",
+      "progress_policy": "blocker_or_final",
+      "deliverable": "安全隔离的GEO fake真实栈测试装配与三阶段开关验收入口",
+      "acceptance_criteria": [
+        "生产批准/分级/网络安全边界保持，所有装配仅test ownedDB loopback",
+        "测试模块目标检查通过并交付真实栈接线"
+      ],
+      "assigned_wave": 1
+    }
+  ],
+  "waves": [
+    {
+      "wave": 1,
+      "task_ids": [
+        "geo_test_harness"
+      ]
+    }
+  ],
+  "ready_task_ids": [
+    "geo_test_harness"
+  ],
+  "deferred_task_ids": [],
+  "blocked_task_ids": [],
+  "blocked_reasons": {},
+  "superseded_worker_ids": []
+}

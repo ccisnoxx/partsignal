@@ -1,0 +1,270 @@
+F821 Undefined name `alias`
+  --> backend/tests/integration/geo_reviews_support.py:72:27
+   |
+70 |                 GeoSubjectAlias(
+71 |                     subject_id=subject,
+72 |                     alias=alias,
+   |                           ^^^^^
+73 |                     normalized_alias=alias,
+74 |                     alias_kind="NAME",
+   |
+
+F821 Undefined name `alias`
+  --> backend/tests/integration/geo_reviews_support.py:73:38
+   |
+71 |                     subject_id=subject,
+72 |                     alias=alias,
+73 |                     normalized_alias=alias,
+   |                                      ^^^^^
+74 |                     alias_kind="NAME",
+75 |                     is_active=True,
+   |
+
+E501 Line too long (106 > 100)
+  --> backend/tests/integration/test_geo_reviews.py:24:101
+   |
+23 | pytestmark = pytest.mark.integration
+24 | __all__ = ["analysis_engine", "answer_database", "harness", "plan_database", "review_api", "run_database"]
+   |                                                                                                     ^^^^^^
+   |
+
+E501 Line too long (111 > 100)
+  --> backend/tests/integration/test_geo_reviews.py:28:101
+   |
+27 | def empty_correction(**patch):
+28 |     return {"schema_version": 1, "mentions": [], "recommendations": [], "claims": [], "citations": [], **patch}
+   |                                                                                                     ^^^^^^^^^^^
+   |
+
+E501 Line too long (180 > 100)
+  --> backend/tests/integration/test_geo_reviews.py:35:101
+   |
+33 | …
+34 | … " +
+35 | …lysis_revisions"} else "analysis_revision_id IN (SELECT id FROM geo_analysis_revisions WHERE run_id=:id)")
+   |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+36 | …
+37 | … "geo_entity_mentions", "geo_recommendations", "geo_claim_assessments", "geo_citation_classifications")
+   |
+
+E501 Line too long (177 > 100)
+  --> backend/tests/integration/test_geo_reviews.py:37:101
+   |
+35 | …nalysis_revisions"} else "analysis_revision_id IN (SELECT id FROM geo_analysis_revisions WHERE run_id=:id)")
+36 | …
+37 | …", "geo_entity_mentions", "geo_recommendations", "geo_claim_assessments", "geo_citation_classifications")
+   |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+38 | …
+   |
+
+E501 Line too long (106 > 100)
+  --> backend/tests/integration/test_geo_reviews.py:73:101
+   |
+71 |         assert audit.action == "geo_observation_run.reviewed"
+72 |         assert audit.details["facts"] == {
+73 |             "run_id": str(case.run_id), "analysis_revision_id": receipt["review"]["analysis_revision_id"],
+   |                                                                                                     ^^^^^^
+74 |             "review_id": receipt["review"]["id"], "decision": "CONFIRMED",
+75 |         }
+   |
+
+E501 Line too long (118 > 100)
+  --> backend/tests/integration/test_geo_reviews.py:88:101
+   |
+86 |     citation = before["citations"][0]["id"]
+87 |     correction = empty_correction(
+88 |         mentions=[{"subject_id": subject, "mention_count": 0, "first_character_offset": None, "matched_aliases": []}],
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^
+89 |         recommendations=[{"subject_id": subject, "recommendation": "NOT_RECOMMENDED", "rank": None, "rationale_excerpt": "虚构人工判定"     …
+90 |         claims=[{"claim_assessment_id": claim["id"], "verdict": "PARTIAL", "severity": "LOW", "explanation": "虚构核验说明"}],
+   |
+
+E501 Line too long (138 > 100)
+  --> backend/tests/integration/test_geo_reviews.py:89:101
+   |
+87 | …
+88 | …unt": 0, "first_character_offset": None, "matched_aliases": []}],
+89 | …ommendation": "NOT_RECOMMENDED", "rank": None, "rationale_excerpt": "虚构人工判定"}],
+   |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+90 | …"verdict": "PARTIAL", "severity": "LOW", "explanation": "虚构核验说明"}],
+91 | …category": "INDUSTRY_MEDIA", "subject_id": None}],
+   |
+
+E501 Line too long (126 > 100)
+  --> backend/tests/integration/test_geo_reviews.py:90:101
+   |
+88 |         mentions=[{"subject_id": subject, "mention_count": 0, "first_character_offset": None, "matched_aliases": []}],
+89 |         recommendations=[{"subject_id": subject, "recommendation": "NOT_RECOMMENDED", "rank": None, "rationale_excerpt": "虚构人工判定"     …
+90 |         claims=[{"claim_assessment_id": claim["id"], "verdict": "PARTIAL", "severity": "LOW", "explanation": "虚构核验说明"}],
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+91 |         citations=[{"citation_id": citation, "source_category": "INDUSTRY_MEDIA", "subject_id": None}],
+92 |     )
+   |
+
+E501 Line too long (103 > 100)
+  --> backend/tests/integration/test_geo_reviews.py:91:101
+   |
+89 |         recommendations=[{"subject_id": subject, "recommendation": "NOT_RECOMMENDED", "rank": None, "rationale_excerpt": "虚构人工判定"     …
+90 |         claims=[{"claim_assessment_id": claim["id"], "verdict": "PARTIAL", "severity": "LOW", "explanation": "虚构核验说明"}],
+91 |         citations=[{"citation_id": citation, "source_category": "INDUSTRY_MEDIA", "subject_id": None}],
+   |                                                                                                     ^^^
+92 |     )
+93 |     first = api.submit(case, decision="CORRECTED", correction_payload=correction, comment="虚构人工修正")
+   |
+
+E501 Line too long (105 > 100)
+  --> backend/tests/integration/test_geo_reviews.py:93:97
+   |
+91 |         citations=[{"citation_id": citation, "source_category": "INDUSTRY_MEDIA", "subject_id": None}],
+92 |     )
+93 |     first = api.submit(case, decision="CORRECTED", correction_payload=correction, comment="虚构人工修正")
+   |                                                                                                      ^^^^
+94 |     assert first.status_code == 201, first.text
+95 |     after = api.detail(case)
+   |
+
+E501 Line too long (106 > 100)
+   --> backend/tests/integration/test_geo_reviews.py:99:101
+    |
+ 97 |     assert effective["mentions"][0]["mention_count"] == 0
+ 98 |     assert effective["recommendations"][0]["recommendation"] == "NOT_RECOMMENDED"
+ 99 |     assert effective["claims"][0]["verdict"] == "PARTIAL" and effective["claims"][0]["confidence"] is None
+    |                                                                                                     ^^^^^^
+100 |     assert effective["citations"][0]["source_category"] == "INDUSTRY_MEDIA"
+101 |     assert after["analysis"]["revisions"] == before["analysis"]["revisions"]
+    |
+
+E501 Line too long (125 > 100)
+   --> backend/tests/integration/test_geo_reviews.py:108:101
+    |
+106 |     assert second.status_code == 201, second.text
+107 |     latest = api.detail(case)
+108 |     assert latest["analysis"]["effective_results"]["mentions"][0]["mention_count"] == machine["mentions"][0]["mention_count"]
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+109 |     assert latest["analysis"]["effective_results"]["claims"][0]["verdict"] == claim["verdict"]
+110 |     assert api.submit(case).status_code == 201
+    |
+
+E501 Line too long (105 > 100)
+   --> backend/tests/integration/test_geo_reviews.py:131:101
+    |
+129 |     assert current["run"]["status"] == "COMPLETED"
+130 |     assert current["analysis"]["selection"]["current_review_id"] is None
+131 |     assert current["analysis"]["review_required"] and current["data_quality"]["metric_eligible"] is False
+    |                                                                                                     ^^^^^
+132 |     assert current["analysis"]["reviews"][0]["is_current"] is False
+133 |     assert len(current["analysis"]["revisions"]) == 2
+    |
+
+E501 Line too long (124 > 100)
+   --> backend/tests/integration/test_geo_reviews.py:154:101
+    |
+152 |     old = api.harness.run(case.run_id)
+153 |     value = {
+154 |         "mentions": {"subject_id": str(uuid4()), "mention_count": 0, "first_character_offset": None, "matched_aliases": []},
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^
+155 |         "recommendations": {"subject_id": str(uuid4()), "recommendation": "UNKNOWN", "rank": None, "rationale_excerpt": None},
+156 |         "claims": {"claim_assessment_id": str(uuid4()), "verdict": "ACCURATE", "severity": "LOW", "explanation": "虚构说明"},
+    |
+
+E501 Line too long (126 > 100)
+   --> backend/tests/integration/test_geo_reviews.py:155:101
+    |
+153 |     value = {
+154 |         "mentions": {"subject_id": str(uuid4()), "mention_count": 0, "first_character_offset": None, "matched_aliases": []},
+155 |         "recommendations": {"subject_id": str(uuid4()), "recommendation": "UNKNOWN", "rank": None, "rationale_excerpt": None},
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+156 |         "claims": {"claim_assessment_id": str(uuid4()), "verdict": "ACCURATE", "severity": "LOW", "explanation": "虚构说明"},
+157 |         "citations": {"citation_id": str(uuid4()), "source_category": "OTHER", "subject_id": None},
+    |
+
+E501 Line too long (125 > 100)
+   --> backend/tests/integration/test_geo_reviews.py:156:101
+    |
+154 |         "mentions": {"subject_id": str(uuid4()), "mention_count": 0, "first_character_offset": None, "matched_aliases": []},
+155 |         "recommendations": {"subject_id": str(uuid4()), "recommendation": "UNKNOWN", "rank": None, "rationale_excerpt": None},
+156 |         "claims": {"claim_assessment_id": str(uuid4()), "verdict": "ACCURATE", "severity": "LOW", "explanation": "虚构说明"},
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+157 |         "citations": {"citation_id": str(uuid4()), "source_category": "OTHER", "subject_id": None},
+158 |     }[field]
+    |
+
+E501 Line too long (130 > 100)
+   --> backend/tests/integration/test_geo_reviews.py:159:101
+    |
+157 |         "citations": {"citation_id": str(uuid4()), "source_category": "OTHER", "subject_id": None},
+158 |     }[field]
+159 |     response = api.submit(case, decision="CORRECTED", correction_payload=empty_correction(**{field: [value]}), comment="虚构拒绝")
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+160 |     assert response.status_code == 422 and response.json()["error"]["code"] == "VALIDATION_ERROR"
+161 |     assert api.harness.run(case.run_id).revision == old.revision
+    |
+
+E501 Line too long (119 > 100)
+   --> backend/tests/integration/test_geo_reviews.py:163:101
+    |
+161 |     assert api.harness.run(case.run_id).revision == old.revision
+162 |     with api.harness.factory() as db:
+163 |         assert db.scalar(select(func.count()).select_from(GeoRunReview).where(GeoRunReview.run_id == case.run_id)) == 0
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^
+    |
+
+E501 Line too long (139 > 100)
+   --> backend/tests/integration/test_geo_reviews.py:166:101
+    |
+166 | …", 401), ("csrf", 403), ("missing-csrf", 422), ("disabled", 401), ("password", 403)])
+    |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+167 | …e, expected):
+168 | …
+    |
+
+E501 Line too long (113 > 100)
+   --> backend/tests/integration/test_geo_reviews.py:183:101
+    |
+181 |     response = client.post(f"{RUNS}/{case.run_id}/review", json=api.payload(case))
+182 |     assert response.status_code == expected, response.text
+183 |     assert not api.detail(case)["analysis"]["reviews"] if mode in {"anonymous", "csrf", "missing-csrf"} else True
+    |                                                                                                     ^^^^^^^^^^^^^
+    |
+
+E501 Line too long (136 > 100)
+   --> backend/tests/integration/test_geo_reviews.py:192:101
+    |
+190 | …t
+191 | …
+192 | …un_id}/review", json={**api.payload(pending), "analysis_revision_id": str(uuid4())})
+    |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+193 | …json()["error"]["code"] == "GEO_ANALYSIS_NOT_AVAILABLE"
+    |
+
+E501 Line too long (107 > 100)
+   --> backend/tests/integration/test_geo_reviews.py:193:101
+    |
+191 |     pending = api.harness.create()
+192 |     response = api.engineer.post(f"{RUNS}/{pending.run_id}/review", json={**api.payload(pending), "analysis_revision_id": str(uuid4()…
+193 |     assert response.status_code == 409 and response.json()["error"]["code"] == "GEO_ANALYSIS_NOT_AVAILABLE"
+    |                                                                                                     ^^^^^^^
+    |
+
+E501 Line too long (111 > 100)
+   --> backend/tests/integration/test_geo_reviews.py:203:101
+    |
+201 |     canary = "虚构敏感正文不能回显"
+202 |     if phase == "audit":
+203 |         monkeypatch.setattr(service, "append_audit", lambda *args: (_ for _ in ()).throw(RuntimeError(canary)))
+    |                                                                                                     ^^^^^^^^^^^
+204 |     else:
+205 |         from sqlalchemy.orm import Session
+    |
+
+E501 Line too long (104 > 100)
+   --> backend/tests/integration/test_geo_reviews.py:207:101
+    |
+205 |         from sqlalchemy.orm import Session
+206 |
+207 |         monkeypatch.setattr(Session, "commit", lambda self: (_ for _ in ()).throw(RuntimeError(canary)))
+    |                                                                                                     ^^^^
+208 |     from fastapi.testclient import TestClient
+    |
+
+Found 30 errors (4 fixed, 26 remaining).

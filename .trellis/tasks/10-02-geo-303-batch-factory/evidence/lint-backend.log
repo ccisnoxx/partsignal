@@ -1,0 +1,53 @@
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/app/main.py:3:1
+   |
+ 1 |   """FastAPI 应用入口与跨模块基础设施。"""
+ 2 |
+ 3 | / from __future__ import annotations
+ 4 | |
+ 5 | | import logging
+ 6 | | import time
+ 7 | | import uuid
+ 8 | | from copy import deepcopy
+ 9 | | from typing import Any
+10 | |
+11 | | from fastapi import FastAPI, Request
+12 | | from fastapi.exceptions import RequestValidationError
+13 | | from fastapi.middleware.cors import CORSMiddleware
+14 | | from fastapi.openapi.utils import get_openapi
+15 | | from redis import Redis
+16 | | from sqlalchemy import text
+17 | |
+18 | | from app.config import settings
+19 | | from app.db import engine
+20 | | from app.errors import (
+21 | |     AppError,
+22 | |     app_error_handler,
+23 | |     error_response,
+24 | |     error_responses,
+25 | |     validation_error_handler,
+26 | | )
+27 | | from app.routers.configuration import router as configuration_router
+28 | | from app.routers.files import router as files_router
+29 | | from app.routers.geo_catalog import router as geo_catalog_router
+30 | | from app.routers.geo_batches import router as geo_batches_router
+31 | | from app.routers.geo_monitoring_plans import router as geo_monitoring_plans_router
+32 | | from app.routers.geo_questions import router as geo_questions_router
+33 | | from app.routers.geo_surface_management import router as geo_surface_management_router
+34 | | from app.routers.identity import router as identity_router
+35 | | from app.routers.observation import router as observation_router
+36 | | from app.routers.planning import router as planning_router
+37 | | from app.routers.product_facts import router as product_facts_router
+38 | | from app.routers.production import router as production_router
+39 | | from app.routers.publication import router as publication_router
+40 | | from app.routers.workbench import router as workbench_router
+41 | | from app.schemas.common import HealthResponse
+42 | | from app.schemas.geo_surfaces import GeoApiSettings
+   | |___________________________________________________^
+43 |
+44 |   logger = logging.getLogger("partsignal.api")
+   |
+help: Organize imports
+
+Found 1 error.
+[*] 1 fixable with the `--fix` option.

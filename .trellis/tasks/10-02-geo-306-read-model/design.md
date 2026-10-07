@@ -1,0 +1,13 @@
+# GEO-306 读取设计
+
+复用geo_plan_queries.read_snapshot，保证认证SELECT已经处于RR且禁autoflush。应用查询要求RR/SERIALIZABLE，生命周期由请求Session管理，关闭即rollback认证heartbeat。
+
+Batch summary按每cell最新attempt统计九种状态，requested不变；attempt_count/费用覆盖基于全部attempt。Batch缓存由已有命令同事务维护；读取及status筛选从完整最新attempt集合重建，共用geo_batch_policy.BATCH_STATUS_RULES有序规则，不能依赖缓存或复制第二套规则。Run列表默认latest_only=true，显式false可看旧尝试，筛选必须在latest选择后执行。冻结Prompt/Topic/Profile/Surface/Subject身份及名称为筛选与展示依据，不join当前名称。
+
+批次与run分页只返回当前页；详情不返回全批次runs。当前资格批量读取ProfileFacts，展示与历史输入分离，绑定模式/Surface改变明确阻断动作。manual_entry接线true，cancel/retry false。
+
+详情单请求装配选中Run、批次summary、原始Answer、按position排序Citation、最多两个签名文件、同cell全部attempts，以及仅由实际created/started/collected/finished字段构成的时间线。不补造未记录的中间状态时间。数据质量assessment=NOT_IMPLEMENTED、metric_eligible=null，未实现区块明确枚举，不造分析历史/分母。
+
+签名沿现有EvidenceStorage.download_url，使用DB当前as_of加已配置TTL；不调用HEAD/HTTP，不把object_key/uploader/raw字节当普通元数据公开。只允许VERIFIED已提交内部文件，缺失或不合格返回显式错误。DETAIL响应Cache-Control:no-store保护临时签名。
+
+数据库不改；无迁移/回填/新日志/Redis消息。新公共只读合同和一致性须fresh critical_reviewer独立复核。

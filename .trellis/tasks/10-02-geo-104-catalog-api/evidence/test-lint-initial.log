@@ -1,0 +1,166 @@
+E501 Line too long (102 > 100)
+  --> backend/tests/integration/test_geo_catalog_api.py:91:101
+   |
+89 |     assert disabled["revision"] == 6 and disabled["workflow_stage"] == "DISABLED"
+90 |     before = catalog_state(api, sid)
+91 |     assert api.admin.post(f"{PREFIX}/{sid}/disable", json={"expected_revision": 6}).status_code == 200
+   |                                                                                                     ^^
+92 |     assert catalog_state(api, sid) == before
+93 |     error(api.admin.post(f"{PREFIX}/{sid}/disable", json={"expected_revision": 5}),
+   |
+
+E501 Line too long (104 > 100)
+   --> backend/tests/integration/test_geo_catalog_api.py:103:101
+    |
+101 |         assert len(logs) == 9
+102 |         assert {item.action for item in logs} == {
+103 |             "geo_subject.created", "geo_subject.disabled", "geo_subject.enabled", "geo_subject.deleted",
+    |                                                                                                     ^^^^
+104 |             "geo_subject_alias.created", "geo_subject_alias.updated", "geo_subject_alias.deleted",
+105 |             "geo_subject_domain.created", "geo_subject_domain.deleted",
+    |
+
+E501 Line too long (101 > 100)
+   --> backend/tests/integration/test_geo_catalog_api.py:126:101
+    |
+124 |     assert parent["deletion"]["blockers"] == [{"type": "CHILD_SUBJECT", "count": 1}]
+125 |     assert "DELETE" not in parent["available_actions"]
+126 |     error(api.admin.delete(f"{PREFIX}/{brand['id']}?expected_revision=0"), 409, "GEO_SUBJECT_IN_USE")
+    |                                                                                                     ^
+127 |     assert api.admin.post(f"{PREFIX}/{brand['id']}/disable", json={"expected_revision": 0}).status_code == 200
+128 |     assert api.admin.get(f"{PREFIX}/{sid}").json()["is_active"]
+    |
+
+E501 Line too long (110 > 100)
+   --> backend/tests/integration/test_geo_catalog_api.py:127:101
+    |
+125 |     assert "DELETE" not in parent["available_actions"]
+126 |     error(api.admin.delete(f"{PREFIX}/{brand['id']}?expected_revision=0"), 409, "GEO_SUBJECT_IN_USE")
+127 |     assert api.admin.post(f"{PREFIX}/{brand['id']}/disable", json={"expected_revision": 0}).status_code == 200
+    |                                                                                                     ^^^^^^^^^^
+128 |     assert api.admin.get(f"{PREFIX}/{sid}").json()["is_active"]
+129 |     with api.factory() as db:
+    |
+
+E501 Line too long (101 > 100)
+   --> backend/tests/integration/test_geo_catalog_api.py:134:96
+    |
+132 |         db.commit()
+133 |     current = api.engineer.get(f"{PREFIX}/{sid}").json()
+134 |     assert current["canonical_name"] == "PS-104B" and current["display_name"] == "新虚构品牌 PS-104B"
+    |                                                                                                     ^
+135 |     assert current["product"]["revision"] == 1 and current["revision"] == 0
+136 |     assert current["available_actions"] == [] and current["deletion"] is None
+    |
+
+E501 Line too long (111 > 100)
+   --> backend/tests/integration/test_geo_catalog_api.py:137:101
+    |
+135 |     assert current["product"]["revision"] == 1 and current["revision"] == 0
+136 |     assert current["available_actions"] == [] and current["deletion"] is None
+137 |     duplicate = api.admin.post(PREFIX, json={"subject_type": "OWN_PRODUCT", "product_id": str(api.product_id)})
+    |                                                                                                     ^^^^^^^^^^^
+138 |     error(duplicate, 409, "GEO_SUBJECT_PRODUCT_EXISTS")
+139 |     assert api.admin.post(f"{PREFIX}/{sid}/disable", json={"expected_revision": 0}).status_code == 200
+    |
+
+E501 Line too long (102 > 100)
+   --> backend/tests/integration/test_geo_catalog_api.py:139:101
+    |
+137 |     duplicate = api.admin.post(PREFIX, json={"subject_type": "OWN_PRODUCT", "product_id": str(api.product_id)})
+138 |     error(duplicate, 409, "GEO_SUBJECT_PRODUCT_EXISTS")
+139 |     assert api.admin.post(f"{PREFIX}/{sid}/disable", json={"expected_revision": 0}).status_code == 200
+    |                                                                                                     ^^
+140 |     second = api.admin.post(PREFIX, json={"subject_type": "OWN_PRODUCT", "product_id": str(api.product_id)})
+141 |     assert second.status_code == 201
+    |
+
+E501 Line too long (108 > 100)
+   --> backend/tests/integration/test_geo_catalog_api.py:140:101
+    |
+138 |     error(duplicate, 409, "GEO_SUBJECT_PRODUCT_EXISTS")
+139 |     assert api.admin.post(f"{PREFIX}/{sid}/disable", json={"expected_revision": 0}).status_code == 200
+140 |     second = api.admin.post(PREFIX, json={"subject_type": "OWN_PRODUCT", "product_id": str(api.product_id)})
+    |                                                                                                     ^^^^^^^^
+141 |     assert second.status_code == 201
+142 |     before = catalog_state(api, sid)
+    |
+
+E501 Line too long (104 > 100)
+   --> backend/tests/integration/test_geo_catalog_api.py:151:101
+    |
+149 |     error(api.admin.delete(f"/api/v1/products/{api.product_id}?expected_revision=1"),409,"PRODUCT_IN_USE")
+150 |     with api.factory() as db:
+151 |         stored = db.execute(text("SELECT canonical_name,normalized_name,display_name FROM geo_subjects "
+    |                                                                                                     ^^^^
+152 |                                  "WHERE id=:id"), {"id": sid}).one()
+153 |         assert tuple(stored) == (None, None, None)
+    |
+
+E501 Line too long (102 > 100)
+   --> backend/tests/integration/test_geo_catalog_api.py:170:101
+    |
+168 |     error(api.admin.delete(f"{PREFIX}/{other['id']}/aliases/{alias['id']}?expected_revision=0"),404,"NOT_FOUND")
+169 |     error(api.admin.patch(f"{PREFIX}/{row['id']}", json={
+170 |         "subject_type": row["subject_type"], "expected_revision": 1, "parent_subject_id": other["id"],
+    |                                                                                                     ^^
+171 |     }),409,"GEO_SUBJECT_PARENT_INVALID")
+172 |     error(api.admin.patch(f"{PREFIX}/{row['id']}", json={
+    |
+
+E501 Line too long (102 > 100)
+   --> backend/tests/integration/test_geo_catalog_api.py:173:101
+    |
+171 |     }),409,"GEO_SUBJECT_PARENT_INVALID")
+172 |     error(api.admin.patch(f"{PREFIX}/{row['id']}", json={
+173 |         "subject_type": row["subject_type"], "expected_revision": 0, "parent_subject_id": other["id"],
+    |                                                                                                     ^^
+174 |     }),409,"REVISION_CONFLICT")
+175 |     error(api.admin.patch(f"{PREFIX}/{row['id']}", json={
+    |
+
+E501 Line too long (107 > 100)
+   --> backend/tests/integration/test_geo_catalog_api.py:184:101
+    |
+182 | WRITE_ROUTES = [
+183 |     ("POST", "", {"subject_type": "REFERENCE_PART", "canonical_name": "X", "display_name": "X"}),
+184 |     ("PATCH", "/{id}", {"subject_type": "COMPETITOR_PRODUCT", "expected_revision": 0, "description": "X"}),
+    |                                                                                                     ^^^^^^^
+185 |     ("DELETE", "/{id}?expected_revision=0", None),
+186 |     ("POST", "/{id}/enable", {"expected_revision": 0}),
+    |
+
+E501 Line too long (107 > 100)
+   --> backend/tests/integration/test_geo_catalog_api.py:191:101
+    |
+189 |     ("PATCH", "/{id}/aliases/{child}", {"expected_revision": 0, "alias": "X"}),
+190 |     ("DELETE", "/{id}/aliases/{child}?expected_revision=0", None),
+191 |     ("POST", "/{id}/domains", {"expected_revision": 0, "hostname": "a.example", "relation_type": "OWNED"}),
+    |                                                                                                     ^^^^^^^
+192 |     ("DELETE", "/{id}/domains/{child}?expected_revision=0", None),
+193 | ]
+    |
+
+E501 Line too long (112 > 100)
+   --> backend/tests/integration/test_geo_catalog_api.py:225:101
+    |
+223 |         api.create(canonical_name=f"CP-{index:02}", display_name=f"虚构 {index:02}")
+224 |     wildcard = api.create(subject_type="REFERENCE_PART", canonical_name="CP-%_")
+225 |     rows = api.engineer.get(PREFIX, params={"page_size":10,"page":2,"subject_type":"COMPETITOR_PRODUCT"}).json()
+    |                                                                                                     ^^^^^^^^^^^^
+226 |     assert rows["total"] == 12 and len(rows["items"]) == 2
+227 |     assert [item["canonical_name"] for item in rows["items"]] == ["CP-10","CP-11"]
+    |
+
+E501 Line too long (102 > 100)
+   --> backend/tests/integration/test_geo_catalog_api.py:245:95
+    |
+243 |         db.flush()
+244 |         db.add(GeoSubject(subject_type="REFERENCE_PART", canonical_name="CP-X",
+245 |                           normalized_name="cp-x", display_name="虚构参考型号", created_by=creator.id))
+    |                                                                                                     ^^
+246 |         db.commit()
+247 |         projected = users_out(db, [creator], actor=acting)[0]
+    |
+
+Found 16 errors (1 fixed, 15 remaining).

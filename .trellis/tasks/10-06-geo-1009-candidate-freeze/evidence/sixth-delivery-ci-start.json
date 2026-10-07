@@ -1,0 +1,31 @@
+{
+  "conclusion": "",
+  "createdAt": "2026-10-07T09:08:43Z",
+  "databaseId": 37598569164,
+  "headSha": "8d2e528cce0f804b224bf9b78e02bb2651f6ac62",
+  "jobs": [
+    {
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "databaseId": 112717055706,
+      "name": "verify (delivery)",
+      "startedAt": "2026-10-07T09:08:44Z",
+      "status": "queued",
+      "steps": [],
+      "url": "https://github.com/ccisnoxx/partsignal/actions/runs/37598569164/job/112717055706"
+    },
+    {
+      "completedAt": "2026-10-07T09:08:44Z",
+      "conclusion": "skipped",
+      "databaseId": 112717057770,
+      "name": "frontend-test",
+      "startedAt": "2026-10-07T09:08:45Z",
+      "status": "completed",
+      "steps": [],
+      "url": "https://github.com/ccisnoxx/partsignal/actions/runs/37598569164/job/112717057770"
+    }
+  ],
+  "status": "queued",
+  "updatedAt": "2026-10-07T09:08:43Z",
+  "url": "https://github.com/ccisnoxx/partsignal/actions/runs/37598569164"
+}

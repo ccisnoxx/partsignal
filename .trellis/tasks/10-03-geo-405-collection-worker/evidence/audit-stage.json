@@ -1,0 +1,15 @@
+{
+  "audit_id": "20261003T102013Z-geo-405-2062a5cd",
+  "audit_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T102013Z-geo-405-2062a5cd",
+  "sequence": 1,
+  "name": "concurrency-review",
+  "prefix": "01-concurrency-review",
+  "paths": {
+    "draft": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T102013Z-geo-405-2062a5cd/01-concurrency-review.draft.json",
+    "plan": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T102013Z-geo-405-2062a5cd/01-concurrency-review.plan.json",
+    "dispatch_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T102013Z-geo-405-2062a5cd/01-concurrency-review.dispatches",
+    "execution": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T102013Z-geo-405-2062a5cd/01-concurrency-review.execution.json",
+    "summary_json": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T102013Z-geo-405-2062a5cd/01-concurrency-review.summary.json",
+    "summary_text": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261003T102013Z-geo-405-2062a5cd/01-concurrency-review.summary.txt"
+  }
+}

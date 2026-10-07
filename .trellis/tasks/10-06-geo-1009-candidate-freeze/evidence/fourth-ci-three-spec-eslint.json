@@ -1,0 +1,16 @@
+{
+  "name": "fourth-ci-three-spec-eslint",
+  "command": [
+    "python3",
+    "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/run-eslint-three.py"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "0b6e5aa01e8bd37e70433e0b7c9e3da1d31b6756",
+  "dirty": false,
+  "started_at": "2026-10-07T08:12:47.321908+00:00",
+  "ended_at": "2026-10-07T08:12:47.981015+00:00",
+  "exit_code": 0,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/fourth-ci-three-spec-eslint.log",
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

@@ -1,0 +1,554 @@
+ M .env.example
+ M .env.production.example
+ M .github/workflows/ci.yml
+ M .trellis/spec/infra/ci-execution.md
+ M .trellis/spec/infra/e2e-isolation.md
+ M Makefile
+ M backend/app/audit_types.py
+ M backend/app/config.py
+ M backend/app/errors.py
+ M backend/app/main.py
+ M backend/app/models/__init__.py
+ M backend/app/models/ai_generation.py
+ M backend/app/models/geo_files.py
+ M backend/app/schemas/common.py
+ M backend/app/services/audit_logs.py
+ M backend/app/services/content_planning.py
+ M backend/app/services/file_records.py
+ M backend/app/services/identity.py
+ M backend/app/services/openai_client.py
+ M backend/app/services/pinned_http.py
+ M backend/app/services/product_facts.py
+ M backend/app/services/projections.py
+ M backend/app/services/publication.py
+ M backend/app/services/publication_queries.py
+ M backend/app/services/storage.py
+ M backend/app/worker.py
+ M backend/pyproject.toml
+ M backend/tests/integration/test_migrations.py
+ M backend/tests/unit/test_contract.py
+ M backend/tests/unit/test_platform_logo_cleanup.py
+ M backend/tests/unit/test_runtime_response_metadata.py
+ M backend/tests/unit/test_workflow_projections.py
+ M backend/uv.lock
+ M contracts/database.md
+ M contracts/openapi.yaml
+ M deploy/compose.dev.yaml
+ M deploy/compose.prod.yaml
+ M deploy/compose.staging.yaml
+ M deploy/scripts/check-production-inputs.py
+ M deploy/scripts/e2e-environment.py
+ M deploy/scripts/e2e-local.sh
+ M docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md
+ M docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-804.md
+ M docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-805.md
+ M docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-806.md
+ M docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-807.md
+ M docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-901.md
+ M docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-903.md
+ M docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-904.md
+ M docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-906.md
+ M docs/geo-monitoring/04-delivery/codex-prompts/README.md
+ M docs/geo-monitoring/04-delivery/codex-prompts/SHA256SUMS
+ M docs/production-configuration.md
+ M frontend/src/app/auth/auth-provider.tsx
+ M frontend/src/app/layout/app-shell.tsx
+ M frontend/src/app/navigation.test.ts
+ M frontend/src/app/navigation.ts
+ M frontend/src/domains/audit/audit.model.test.ts
+ M frontend/src/domains/audit/audit.model.ts
+ M frontend/src/domains/content/content-task-lifecycle.tsx
+ M frontend/src/domains/identity/user.api.ts
+ M frontend/src/domains/product/product.model.ts
+ M frontend/src/routeTree.gen.ts
+ M frontend/src/shared/api/generated/schema.d.ts
+ M frontend/src/styles/global.css
+ M frontend/tests/e2e/fact-workspace.spec.ts
+ M frontend/tests/e2e/geo-real-stack.spec.ts
+?? .trellis/tasks/10-01-geo-002-adr-review/
+?? .trellis/tasks/10-01-geo-003-current-baseline/
+?? .trellis/tasks/10-01-geo-004-safe-configuration/
+?? .trellis/tasks/10-01-geo-005-fixtures-gold/
+?? .trellis/tasks/10-01-geo-101-catalog-contract/
+?? .trellis/tasks/10-01-geo-102-catalog-orm/
+?? .trellis/tasks/10-01-geo-103-catalog-policy/
+?? .trellis/tasks/10-02-geo-104-catalog-api/
+?? .trellis/tasks/10-02-geo-105-catalog-ui/
+?? .trellis/tasks/10-02-geo-106-catalog-acceptance/
+?? .trellis/tasks/10-02-geo-201-prompt-variant/
+?? .trellis/tasks/10-02-geo-202-question-workspace/
+?? .trellis/tasks/10-02-geo-203-surface-profile/
+?? .trellis/tasks/10-02-geo-204-collector-registry/
+?? .trellis/tasks/10-02-geo-205-surface-management/
+?? .trellis/tasks/10-02-geo-206-monitoring-plan/
+?? .trellis/tasks/10-02-geo-207-run-matrix/
+?? .trellis/tasks/10-02-geo-208-plan-api/
+?? .trellis/tasks/10-02-geo-209-plan-ui/
+?? .trellis/tasks/10-02-geo-301-batch-run/
+?? .trellis/tasks/10-02-geo-302-state-policy/
+?? .trellis/tasks/10-02-geo-303-batch-factory/
+?? .trellis/tasks/10-02-geo-304-answer-evidence/
+?? .trellis/tasks/10-02-geo-305-manual-collection/
+?? .trellis/tasks/10-02-geo-306-read-model/
+?? .trellis/tasks/10-02-geo-307-run-center/
+?? .trellis/tasks/10-02-geo-308-r2-acceptance/
+?? .trellis/tasks/10-03-geo-401-collector-contract/
+?? .trellis/tasks/10-03-geo-402-fake-provider/
+?? .trellis/tasks/10-03-geo-403-profile-test/
+?? .trellis/tasks/10-03-geo-404-openai-collector/
+?? .trellis/tasks/10-03-geo-405-collection-worker/
+?? .trellis/tasks/10-03-geo-406-at-most-once/
+?? .trellis/tasks/10-03-geo-407-cost-budget/
+?? .trellis/tasks/10-03-geo-408-api-acceptance/
+?? .trellis/tasks/10-03-geo-501-analysis-contract/
+?? .trellis/tasks/10-03-geo-502-mention-matching/
+?? .trellis/tasks/10-03-geo-503-recommendation-ranking/
+?? .trellis/tasks/10-03-geo-504-citation-attribution/
+?? .trellis/tasks/10-03-geo-505-claim-assessment/
+?? .trellis/tasks/10-03-geo-506-analysis-worker/
+?? .trellis/tasks/10-03-geo-507-run-review/
+?? .trellis/tasks/10-03-geo-508-analysis-review-ui/
+?? .trellis/tasks/10-03-geo-601-metric-formulas/
+?? .trellis/tasks/10-03-geo-602-overview/
+?? .trellis/tasks/10-04-geo-603-trends-coverage/
+?? .trellis/tasks/10-04-geo-604-citation-risk-quality/
+?? .trellis/tasks/10-04-geo-605-insights-ui/
+?? .trellis/tasks/10-04-geo-606-reports/
+?? .trellis/tasks/10-04-geo-607-insight-performance/
+?? .trellis/tasks/10-04-geo-701-rule-configuration/
+?? .trellis/tasks/10-04-geo-702-opportunity-evaluation/
+?? .trellis/tasks/10-04-geo-703-opportunity-workbench/
+?? .trellis/tasks/10-04-geo-704-action-integration/
+?? .trellis/tasks/10-04-geo-705-retest-planner/
+?? .trellis/tasks/10-04-geo-706-retest-comparison/
+?? .trellis/tasks/10-04-geo-707-r6-acceptance/
+?? .trellis/tasks/10-05-geo-801-browser-collector/
+?? .trellis/tasks/10-05-geo-802-browser-session/
+?? .trellis/tasks/10-05-geo-803-browser-contract/
+?? .trellis/tasks/10-05-geo-804-approved-browser-adapter/
+?? .trellis/tasks/10-05-geo-901-retention/
+?? .trellis/tasks/10-05-geo-902-observability/
+?? .trellis/tasks/10-05-geo-browser-scope-adjustment/
+?? backend/alembic/sql/
+?? backend/alembic/versions/0044_geo_catalog.py
+?? backend/alembic/versions/0045_geo_prompt_variants.py
+?? backend/alembic/versions/0046_geo_surfaces_profiles.py
+?? backend/alembic/versions/0047_geo_monitoring_plans.py
+?? backend/alembic/versions/0048_geo_batches_runs.py
+?? backend/alembic/versions/0049_geo_batch_creation.py
+?? backend/alembic/versions/0050_geo_answer_evidence.py
+?? backend/alembic/versions/0051_geo_manual_collection.py
+?? backend/alembic/versions/0052_geo_profile_tests.py
+?? backend/alembic/versions/0053_geo_collection_admission.py
+?? backend/alembic/versions/0054_geo_analysis_contract.py
+?? backend/alembic/versions/0055_geo_analysis_worker.py
+?? backend/alembic/versions/0056_geo_run_review.py
+?? backend/alembic/versions/0057_geo_insight_indexes.py
+?? backend/alembic/versions/0058_geo_rule_configuration.py
+?? backend/alembic/versions/0059_geo_opportunities.py
+?? backend/alembic/versions/0060_geo_opportunity_actions.py
+?? backend/alembic/versions/0061_geo_retests.py
+?? backend/alembic/versions/0062_geo_opportunity_decisions.py
+?? backend/alembic/versions/0063_geo_browser_sessions.py
+?? backend/alembic/versions/0064_geo_retention.py
+?? backend/app/collectors/
+?? backend/app/geo_citation_urls.py
+?? backend/app/geo_fake_server.py
+?? backend/app/geo_prompt_variants.py
+?? backend/app/models/geo_analysis.py
+?? backend/app/models/geo_analysis_worker.py
+?? backend/app/models/geo_answers.py
+?? backend/app/models/geo_batch_creation.py
+?? backend/app/models/geo_browser_sessions.py
+?? backend/app/models/geo_catalog.py
+?? backend/app/models/geo_collection_admission.py
+?? backend/app/models/geo_manual_collection.py
+?? backend/app/models/geo_monitoring_plans.py
+?? backend/app/models/geo_opportunities.py
+?? backend/app/models/geo_opportunity_decisions.py
+?? backend/app/models/geo_prompt_variants.py
+?? backend/app/models/geo_retention.py
+?? backend/app/models/geo_retests.py
+?? backend/app/models/geo_rules.py
+?? backend/app/models/geo_runs.py
+?? backend/app/models/geo_surfaces.py
+?? backend/app/routers/geo_answer_insights.py
+?? backend/app/routers/geo_batches.py
+?? backend/app/routers/geo_browser_sessions.py
+?? backend/app/routers/geo_catalog.py
+?? backend/app/routers/geo_manual_collection.py
+?? backend/app/routers/geo_monitoring_plans.py
+?? backend/app/routers/geo_opportunities.py
+?? backend/app/routers/geo_overview.py
+?? backend/app/routers/geo_questions.py
+?? backend/app/routers/geo_reads.py
+?? backend/app/routers/geo_reports.py
+?? backend/app/routers/geo_retests.py
+?? backend/app/routers/geo_reviews.py
+?? backend/app/routers/geo_rules.py
+?? backend/app/routers/geo_run_commands.py
+?? backend/app/routers/geo_surface_management.py
+?? backend/app/schemas/geo_analysis.py
+?? backend/app/schemas/geo_answer_insights.py
+?? backend/app/schemas/geo_answers.py
+?? backend/app/schemas/geo_batch_creation.py
+?? backend/app/schemas/geo_browser_sessions.py
+?? backend/app/schemas/geo_catalog.py
+?? backend/app/schemas/geo_insight_details.py
+?? backend/app/schemas/geo_insights.py
+?? backend/app/schemas/geo_manual_collection.py
+?? backend/app/schemas/geo_metric_values.py
+?? backend/app/schemas/geo_monitoring_plans.py
+?? backend/app/schemas/geo_opportunities.py
+?? backend/app/schemas/geo_opportunity_actions.py
+?? backend/app/schemas/geo_opportunity_workbench.py
+?? backend/app/schemas/geo_plan_management.py
+?? backend/app/schemas/geo_plan_preview.py
+?? backend/app/schemas/geo_prompt_variants.py
+?? backend/app/schemas/geo_read_filters.py
+?? backend/app/schemas/geo_read_models.py
+?? backend/app/schemas/geo_reports.py
+?? backend/app/schemas/geo_retest_comparisons.py
+?? backend/app/schemas/geo_retests.py
+?? backend/app/schemas/geo_reviews.py
+?? backend/app/schemas/geo_rules.py
+?? backend/app/schemas/geo_run_retry.py
+?? backend/app/schemas/geo_run_workflow.py
+?? backend/app/schemas/geo_runs.py
+?? backend/app/schemas/geo_surface_management.py
+?? backend/app/schemas/geo_surfaces.py
+?? backend/app/services/geo_analysis.py
+?? backend/app/services/geo_analysis_dispatch.py
+?? backend/app/services/geo_analysis_execution.py
+?? backend/app/services/geo_analysis_inputs.py
+?? backend/app/services/geo_analysis_queries.py
+?? backend/app/services/geo_analysis_runs.py
+?? backend/app/services/geo_answer_citations.py
+?? backend/app/services/geo_answer_evidence.py
+?? backend/app/services/geo_answer_files.py
+?? backend/app/services/geo_answer_insights.py
+?? backend/app/services/geo_batch_policy.py
+?? backend/app/services/geo_batch_snapshots.py
+?? backend/app/services/geo_batches.py
+?? backend/app/services/geo_browser_session_vault.py
+?? backend/app/services/geo_browser_sessions.py
+?? backend/app/services/geo_browser_storage_state.py
+?? backend/app/services/geo_catalog.py
+?? backend/app/services/geo_catalog_locks.py
+?? backend/app/services/geo_catalog_normalization.py
+?? backend/app/services/geo_catalog_policy.py
+?? backend/app/services/geo_catalog_queries.py
+?? backend/app/services/geo_citation_rules.py
+?? backend/app/services/geo_claim_rules.py
+?? backend/app/services/geo_claim_signatures.py
+?? backend/app/services/geo_claims.py
+?? backend/app/services/geo_collection_admission.py
+?? backend/app/services/geo_collection_execution.py
+?? backend/app/services/geo_collection_profiles.py
+?? backend/app/services/geo_collector_eligibility.py
+?? backend/app/services/geo_dispatch.py
+?? backend/app/services/geo_fact_versions.py
+?? backend/app/services/geo_insight_details.py
+?? backend/app/services/geo_insight_evidence.py
+?? backend/app/services/geo_insight_quality.py
+?? backend/app/services/geo_manual_collection.py
+?? backend/app/services/geo_metric_inputs.py
+?? backend/app/services/geo_metric_types.py
+?? backend/app/services/geo_metric_views.py
+?? backend/app/services/geo_metrics.py
+?? backend/app/services/geo_opportunities.py
+?? backend/app/services/geo_opportunity_action_views.py
+?? backend/app/services/geo_opportunity_actions.py
+?? backend/app/services/geo_opportunity_commands.py
+?? backend/app/services/geo_opportunity_decisions.py
+?? backend/app/services/geo_opportunity_evidence.py
+?? backend/app/services/geo_opportunity_policy.py
+?? backend/app/services/geo_opportunity_quality_rules.py
+?? backend/app/services/geo_opportunity_queries.py
+?? backend/app/services/geo_opportunity_rules.py
+?? backend/app/services/geo_opportunity_types.py
+?? backend/app/services/geo_overview.py
+?? backend/app/services/geo_overview_queries.py
+?? backend/app/services/geo_plan_commands.py
+?? backend/app/services/geo_plan_configuration.py
+?? backend/app/services/geo_plan_locks.py
+?? backend/app/services/geo_plan_policy.py
+?? backend/app/services/geo_plan_queries.py
+?? backend/app/services/geo_plans.py
+?? backend/app/services/geo_profile_tests.py
+?? backend/app/services/geo_prompt_variant_queries.py
+?? backend/app/services/geo_prompt_variants.py
+?? backend/app/services/geo_read_projections.py
+?? backend/app/services/geo_read_queries.py
+?? backend/app/services/geo_reanalysis.py
+?? backend/app/services/geo_recommendation_rules.py
+?? backend/app/services/geo_report_csv.py
+?? backend/app/services/geo_report_formulas.py
+?? backend/app/services/geo_reports.py
+?? backend/app/services/geo_retention.py
+?? backend/app/services/geo_retest_baselines.py
+?? backend/app/services/geo_retest_comparability.py
+?? backend/app/services/geo_retest_comparison_inputs.py
+?? backend/app/services/geo_retest_comparison_metrics.py
+?? backend/app/services/geo_retest_comparisons.py
+?? backend/app/services/geo_retest_recovery.py
+?? backend/app/services/geo_retests.py
+?? backend/app/services/geo_review_projection.py
+?? backend/app/services/geo_reviews.py
+?? backend/app/services/geo_rule_policy.py
+?? backend/app/services/geo_rules.py
+?? backend/app/services/geo_run_lifecycle.py
+?? backend/app/services/geo_run_policy.py
+?? backend/app/services/geo_run_retries.py
+?? backend/app/services/geo_runs.py
+?? backend/app/services/geo_subjects.py
+?? backend/app/services/geo_surface_commands.py
+?? backend/app/services/geo_surface_locks.py
+?? backend/app/services/geo_surface_projections.py
+?? backend/app/services/geo_surface_queries.py
+?? backend/tests/fixtures/
+?? backend/tests/geo_collector_contract.py
+?? backend/tests/geo_e2e_environment.py
+?? backend/tests/geo_e2e_fixture.py
+?? backend/tests/geo_e2e_provider.py
+?? backend/tests/geo_e2e_runtime.py
+?? backend/tests/geo_fixtures.py
+?? backend/tests/geo_loop_e2e_seed.py
+?? backend/tests/geo_network_guard.py
+?? backend/tests/geo_openai_support.py
+?? backend/tests/geo_opportunity_e2e_seed.py
+?? backend/tests/geo_reference_collector.py
+?? backend/tests/integration/geo_analysis_support.py
+?? backend/tests/integration/geo_analysis_worker_support.py
+?? backend/tests/integration/geo_answers_support.py
+?? backend/tests/integration/geo_catalog_support.py
+?? backend/tests/integration/geo_comparisons_support.py
+?? backend/tests/integration/geo_loop_support.py
+?? backend/tests/integration/geo_opportunity_actions_support.py
+?? backend/tests/integration/geo_plans_support.py
+?? backend/tests/integration/geo_profile_test_support.py
+?? backend/tests/integration/geo_questions_support.py
+?? backend/tests/integration/geo_retests_support.py
+?? backend/tests/integration/geo_reviews_support.py
+?? backend/tests/integration/geo_runs_support.py
+?? backend/tests/integration/geo_surface_management_support.py
+?? backend/tests/integration/geo_worker_support.py
+?? backend/tests/integration/test_geo_admission_migration.py
+?? backend/tests/integration/test_geo_analysis.py
+?? backend/tests/integration/test_geo_analysis_concurrency.py
+?? backend/tests/integration/test_geo_analysis_input.py
+?? backend/tests/integration/test_geo_analysis_migration.py
+?? backend/tests/integration/test_geo_analysis_worker.py
+?? backend/tests/integration/test_geo_analysis_worker_guards.py
+?? backend/tests/integration/test_geo_analysis_worker_migration.py
+?? backend/tests/integration/test_geo_answer_files.py
+?? backend/tests/integration/test_geo_answer_insights.py
+?? backend/tests/integration/test_geo_answer_migration.py
+?? backend/tests/integration/test_geo_answer_migration_precheck.py
+?? backend/tests/integration/test_geo_answers.py
+?? backend/tests/integration/test_geo_at_most_once.py
+?? backend/tests/integration/test_geo_batch_creation.py
+?? backend/tests/integration/test_geo_batch_creation_migration.py
+?? backend/tests/integration/test_geo_browser_boundary.py
+?? backend/tests/integration/test_geo_browser_session_migration.py
+?? backend/tests/integration/test_geo_browser_sessions.py
+?? backend/tests/integration/test_geo_catalog.py
+?? backend/tests/integration/test_geo_catalog_acceptance.py
+?? backend/tests/integration/test_geo_catalog_api.py
+?? backend/tests/integration/test_geo_catalog_concurrency.py
+?? backend/tests/integration/test_geo_catalog_constraints.py
+?? backend/tests/integration/test_geo_catalog_read_regressions.py
+?? backend/tests/integration/test_geo_catalog_transactions.py
+?? backend/tests/integration/test_geo_citations.py
+?? backend/tests/integration/test_geo_claims.py
+?? backend/tests/integration/test_geo_collection_admission.py
+?? backend/tests/integration/test_geo_decision_migration.py
+?? backend/tests/integration/test_geo_insight_details.py
+?? backend/tests/integration/test_geo_insight_indexes.py
+?? backend/tests/integration/test_geo_manual_collection.py
+?? backend/tests/integration/test_geo_manual_collection_boundaries.py
+?? backend/tests/integration/test_geo_manual_migration.py
+?? backend/tests/integration/test_geo_manual_races.py
+?? backend/tests/integration/test_geo_monitoring_plans.py
+?? backend/tests/integration/test_geo_opportunities.py
+?? backend/tests/integration/test_geo_opportunity_action_guards.py
+?? backend/tests/integration/test_geo_opportunity_action_migration.py
+?? backend/tests/integration/test_geo_opportunity_actions.py
+?? backend/tests/integration/test_geo_opportunity_baseline.py
+?? backend/tests/integration/test_geo_opportunity_loop.py
+?? backend/tests/integration/test_geo_opportunity_migration.py
+?? backend/tests/integration/test_geo_opportunity_migration_stop.py
+?? backend/tests/integration/test_geo_opportunity_workbench.py
+?? backend/tests/integration/test_geo_overview.py
+?? backend/tests/integration/test_geo_plan_api.py
+?? backend/tests/integration/test_geo_plan_concurrency.py
+?? backend/tests/integration/test_geo_plan_preview.py
+?? backend/tests/integration/test_geo_plan_reads.py
+?? backend/tests/integration/test_geo_plan_reference_api.py
+?? backend/tests/integration/test_geo_plan_transactions.py
+?? backend/tests/integration/test_geo_profile_eligibility.py
+?? backend/tests/integration/test_geo_profile_test_migration.py
+?? backend/tests/integration/test_geo_profile_test_races.py
+?? backend/tests/integration/test_geo_profile_tests.py
+?? backend/tests/integration/test_geo_prompt_variants.py
+?? backend/tests/integration/test_geo_questions_api.py
+?? backend/tests/integration/test_geo_questions_transactions.py
+?? backend/tests/integration/test_geo_r2_immutability.py
+?? backend/tests/integration/test_geo_r4_acceptance.py
+?? backend/tests/integration/test_geo_read_consistency.py
+?? backend/tests/integration/test_geo_read_models.py
+?? backend/tests/integration/test_geo_reports.py
+?? backend/tests/integration/test_geo_retention.py
+?? backend/tests/integration/test_geo_retest_comparisons.py
+?? backend/tests/integration/test_geo_retest_history.py
+?? backend/tests/integration/test_geo_retest_migration.py
+?? backend/tests/integration/test_geo_retests.py
+?? backend/tests/integration/test_geo_review_concurrency.py
+?? backend/tests/integration/test_geo_review_guards.py
+?? backend/tests/integration/test_geo_review_migration.py
+?? backend/tests/integration/test_geo_review_reads.py
+?? backend/tests/integration/test_geo_reviews.py
+?? backend/tests/integration/test_geo_rule_snapshots.py
+?? backend/tests/integration/test_geo_rules.py
+?? backend/tests/integration/test_geo_run_migration.py
+?? backend/tests/integration/test_geo_runs.py
+?? backend/tests/integration/test_geo_surface_management_api.py
+?? backend/tests/integration/test_geo_surface_management_concurrency.py
+?? backend/tests/integration/test_geo_surface_management_constraint_mapping.py
+?? backend/tests/integration/test_geo_surface_management_reads.py
+?? backend/tests/integration/test_geo_surface_management_transactions.py
+?? backend/tests/integration/test_geo_surfaces_profiles.py
+?? backend/tests/integration/test_geo_worker.py
+?? backend/tests/performance/
+?? backend/tests/unit/geo_metrics_gold.py
+?? backend/tests/unit/test_geo_analysis.py
+?? backend/tests/unit/test_geo_analysis_contract.py
+?? backend/tests/unit/test_geo_answer_contract.py
+?? backend/tests/unit/test_geo_answer_insights.py
+?? backend/tests/unit/test_geo_batch_creation_contract.py
+?? backend/tests/unit/test_geo_batch_policy.py
+?? backend/tests/unit/test_geo_browser_boundary.py
+?? backend/tests/unit/test_geo_browser_session_vault.py
+?? backend/tests/unit/test_geo_browser_storage_state.py
+?? backend/tests/unit/test_geo_catalog_contract.py
+?? backend/tests/unit/test_geo_catalog_errors.py
+?? backend/tests/unit/test_geo_catalog_metadata.py
+?? backend/tests/unit/test_geo_catalog_policy.py
+?? backend/tests/unit/test_geo_catalog_projection.py
+?? backend/tests/unit/test_geo_catalog_schema.py
+?? backend/tests/unit/test_geo_citations.py
+?? backend/tests/unit/test_geo_claims.py
+?? backend/tests/unit/test_geo_collector_contract.py
+?? backend/tests/unit/test_geo_collector_registry.py
+?? backend/tests/unit/test_geo_collector_suite.py
+?? backend/tests/unit/test_geo_configuration.py
+?? backend/tests/unit/test_geo_e2e_runtime.py
+?? backend/tests/unit/test_geo_fake_provider.py
+?? backend/tests/unit/test_geo_fixtures.py
+?? backend/tests/unit/test_geo_insight_details.py
+?? backend/tests/unit/test_geo_manual_collection_contract.py
+?? backend/tests/unit/test_geo_metric_inputs.py
+?? backend/tests/unit/test_geo_metric_trends.py
+?? backend/tests/unit/test_geo_metrics.py
+?? backend/tests/unit/test_geo_monitoring_plan_contract.py
+?? backend/tests/unit/test_geo_openai_collector.py
+?? backend/tests/unit/test_geo_openai_network.py
+?? backend/tests/unit/test_geo_openai_response.py
+?? backend/tests/unit/test_geo_opportunity_actions.py
+?? backend/tests/unit/test_geo_opportunity_baseline.py
+?? backend/tests/unit/test_geo_opportunity_policy.py
+?? backend/tests/unit/test_geo_opportunity_rules.py
+?? backend/tests/unit/test_geo_opportunity_workbench.py
+?? backend/tests/unit/test_geo_overview.py
+?? backend/tests/unit/test_geo_performance_contracts.py
+?? backend/tests/unit/test_geo_plan_management.py
+?? backend/tests/unit/test_geo_plan_preview_contract.py
+?? backend/tests/unit/test_geo_profile_test_policy.py
+?? backend/tests/unit/test_geo_prompt_variant_contract.py
+?? backend/tests/unit/test_geo_questions_errors.py
+?? backend/tests/unit/test_geo_read_contract.py
+?? backend/tests/unit/test_geo_recommendations.py
+?? backend/tests/unit/test_geo_reports.py
+?? backend/tests/unit/test_geo_retention.py
+?? backend/tests/unit/test_geo_retest_recovery.py
+?? backend/tests/unit/test_geo_review_contract.py
+?? backend/tests/unit/test_geo_rules.py
+?? backend/tests/unit/test_geo_run_contract.py
+?? backend/tests/unit/test_geo_run_matrix.py
+?? backend/tests/unit/test_geo_run_policy.py
+?? backend/tests/unit/test_geo_run_workflow_contract.py
+?? backend/tests/unit/test_geo_surface_contract.py
+?? backend/tests/unit/test_geo_surface_management_errors.py
+?? backend/tests/unit/test_geo_worker_configuration.py
+?? backend/tests/unit/test_validation_error_safety.py
+?? browser-collector/
+?? deploy/compose.geo-browser-sessions.yaml
+?? deploy/compose.geo-browser.yaml
+?? deploy/geo-browser-control/
+?? deploy/geo-browser-seccomp.json
+?? deploy/scripts/check-geo-fixtures.py
+?? deploy/scripts/e2e-geo.sh
+?? deploy/scripts/test-geo-browser-contract.py
+?? deploy/scripts/test-geo-browser.py
+?? deploy/scripts/test-geo-collector-contract.py
+?? deploy/scripts/test-geo-configuration.py
+?? docs/geo-monitoring/00-governance/
+?? docs/geo-monitoring/01-product/
+?? docs/geo-monitoring/02-business/
+?? docs/geo-monitoring/03-technical/
+?? docs/geo-monitoring/04-delivery/01-implementation-roadmap.md
+?? docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md
+?? docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md
+?? docs/geo-monitoring/04-delivery/04-codex-execution-guide.md
+?? docs/geo-monitoring/04-delivery/05-task-template.md
+?? docs/geo-monitoring/04-delivery/06-current-geo-baseline.md
+?? docs/geo-monitoring/04-delivery/06-r5-insight-performance-acceptance.md
+?? docs/geo-monitoring/04-delivery/07-r2-acceptance.md
+?? docs/geo-monitoring/04-delivery/08-r3-api-acceptance.md
+?? docs/geo-monitoring/04-delivery/09-r4-analysis-acceptance.md
+?? docs/geo-monitoring/04-delivery/10-r6-opportunity-acceptance.md
+?? docs/geo-monitoring/04-delivery/geo-003-baseline/
+?? docs/geo-monitoring/04-delivery/task-manifest.yaml
+?? docs/geo-monitoring/05-decisions/
+?? docs/geo-monitoring/CHANGELOG.md
+?? docs/geo-monitoring/README.md
+?? docs/geo-monitoring/SHA256SUMS
+?? frontend/src/domains/geo-catalog/
+?? frontend/src/domains/geo-insights/
+?? frontend/src/domains/geo-opportunities/
+?? frontend/src/domains/geo-plans/
+?? frontend/src/domains/geo-questions/
+?? frontend/src/domains/geo-reports/
+?? frontend/src/domains/geo-rules/
+?? frontend/src/domains/geo-runs/
+?? frontend/src/routes/_app/configuration/geo-entities.tsx
+?? frontend/src/routes/_app/configuration/geo-rules.tsx
+?? frontend/src/routes/_app/configuration/geo-surfaces.tsx
+?? frontend/src/routes/_app/geo/insights/answers.tsx
+?? frontend/src/routes/_app/geo/opportunities.tsx
+?? frontend/src/routes/_app/geo/overview.tsx
+?? frontend/src/routes/_app/geo/plans.tsx
+?? frontend/src/routes/_app/geo/questions.tsx
+?? frontend/src/routes/_app/geo/reports/
+?? frontend/src/routes/_app/geo/runs.tsx
+?? frontend/src/test/geo-fixtures.test.ts
+?? frontend/src/test/geo-fixtures.ts
+?? frontend/tests/e2e/browser-session-real-stack.spec.ts
+?? frontend/tests/e2e/catalog-real-stack.spec.ts
+?? frontend/tests/e2e/catalog-ui.spec.ts
+?? frontend/tests/e2e/geo-api-real-stack.spec.ts
+?? frontend/tests/e2e/geo-api-support.ts
+?? frontend/tests/e2e/geo-comparison-real-stack.spec.ts
+?? frontend/tests/e2e/geo-loop-real-stack.spec.ts
+?? frontend/tests/e2e/geo-loop-support.ts
+?? frontend/tests/e2e/geo-review-real-stack.spec.ts
+?? frontend/tests/e2e/geo-review-support.ts
+?? frontend/tests/e2e/insights-real-stack.spec.ts
+?? frontend/tests/e2e/opportunities-real-stack.spec.ts
+?? frontend/tests/e2e/plans-real-stack.spec.ts
+?? frontend/tests/e2e/questions-real-stack.spec.ts
+?? frontend/tests/e2e/reports-real-stack.spec.ts
+?? frontend/tests/e2e/rules-real-stack.spec.ts
+?? frontend/tests/e2e/runs-real-stack.spec.ts
+?? frontend/tests/e2e/surfaces-real-stack.spec.ts
+?? tests/

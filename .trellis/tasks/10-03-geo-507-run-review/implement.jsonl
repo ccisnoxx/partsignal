@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/10-03-geo-507-run-review/prd.md", "reason": "507单任务范围及验收"}
+{"file": ".trellis/tasks/10-03-geo-507-run-review/design.md", "reason": "current review、锁、追加历史和受控迁移边界"}
+{"file": "backend/AGENTS.md", "reason": "Application Service拥有事务与状态不变量"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "闭合错误和敏感数据边界"}
+{"file": "docs/geo-monitoring/05-decisions/ADR-003-separate-collection-analysis-review.md", "reason": "采集、分析、review独立历史生命周期"}

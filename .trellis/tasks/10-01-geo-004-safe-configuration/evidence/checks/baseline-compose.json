@@ -1,0 +1,15 @@
+[
+  {
+    "command": "docker compose --env-file .env.example -f deploy/compose.dev.yaml config --quiet",
+    "exit_code": 0
+  },
+  {
+    "command": "PARTSIGNAL_VERSION=test docker compose --env-file .env.example -f deploy/compose.staging.yaml config --no-env-resolution --quiet",
+    "exit_code": 0,
+    "limit": "不解析缺失的 .env.staging；最终定向脚本已在受控临时文件中解析 Staging 完整环境"
+  },
+  {
+    "command": "PARTSIGNAL_BACKEND_IMAGE=partsignal-backend PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 PARTSIGNAL_VERSION=test PARTSIGNAL_RUNTIME_ENV_FILE=/Users/sc/PycharmProjects/partsignal/.env.example PARTSIGNAL_DATA_ROOT=/tmp/partsignal-geo-004-config docker compose --profile production-async --env-file .env.example -f deploy/compose.prod.yaml config --quiet",
+    "exit_code": 0
+  }
+]

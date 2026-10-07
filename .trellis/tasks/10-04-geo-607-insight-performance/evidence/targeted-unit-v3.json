@@ -1,0 +1,15 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_metrics.py",
+    "backend/tests/unit/test_geo_answer_contract.py",
+    "backend/tests/unit/test_geo_performance_contracts.py"
+  ],
+  "started_at": "2026-10-04T13:16:13.928019+00:00",
+  "duration_seconds": 1.0121488340082578,
+  "exit_code": 0
+}

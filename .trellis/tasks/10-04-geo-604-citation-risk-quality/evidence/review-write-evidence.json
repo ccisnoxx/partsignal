@@ -1,0 +1,11 @@
+{
+  "changed": [
+    "backend/tests/integration/test_geo_insight_details.py",
+    "contracts/openapi.yaml"
+  ],
+  "main_owned_changes": {
+    "contracts/openapi.yaml": "新三路径RequestIdHeader去重；复核代理已重新核对",
+    "backend/tests/integration/test_geo_insight_details.py": "主代理修正夹具并补两个HTTP覆盖缺口；应用代码冻结无变化"
+  },
+  "unexpected": []
+}

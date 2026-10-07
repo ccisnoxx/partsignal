@@ -1,0 +1,15 @@
+{
+  "audit_id": "20261002T195404Z-geo-209-plan-ui-a4c491a1",
+  "audit_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T195404Z-geo-209-plan-ui-a4c491a1",
+  "sequence": 2,
+  "name": "independent-review",
+  "prefix": "02-independent-review",
+  "paths": {
+    "draft": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T195404Z-geo-209-plan-ui-a4c491a1/02-independent-review.draft.json",
+    "plan": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T195404Z-geo-209-plan-ui-a4c491a1/02-independent-review.plan.json",
+    "dispatch_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T195404Z-geo-209-plan-ui-a4c491a1/02-independent-review.dispatches",
+    "execution": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T195404Z-geo-209-plan-ui-a4c491a1/02-independent-review.execution.json",
+    "summary_json": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T195404Z-geo-209-plan-ui-a4c491a1/02-independent-review.summary.json",
+    "summary_text": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261002T195404Z-geo-209-plan-ui-a4c491a1/02-independent-review.summary.txt"
+  }
+}

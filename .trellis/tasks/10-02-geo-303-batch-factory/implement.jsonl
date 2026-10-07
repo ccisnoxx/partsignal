@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "后端规范入口"}
+{"file": "contracts/database.md", "reason": "冻结、历史引用与事务权威"}
+{"file": "docs/geo-monitoring/03-technical/03-api-contract-design.md", "reason": "创建命令与幂等公共合同"}
+{"file": ".trellis/tasks/10-02-geo-303-batch-factory/design.md", "reason": "本任务锁、快照和创建身份设计"}

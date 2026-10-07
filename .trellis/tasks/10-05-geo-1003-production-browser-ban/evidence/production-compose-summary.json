@@ -1,0 +1,47 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "--profile",
+    "*",
+    "--env-file",
+    "/Users/sc/PycharmProjects/partsignal/.env.production.example",
+    "-f",
+    "/Users/sc/PycharmProjects/partsignal/deploy/compose.prod.yaml",
+    "config",
+    "--format",
+    "json"
+  ],
+  "exit_code": 0,
+  "services": [
+    "api",
+    "frontend",
+    "migrate",
+    "postgres",
+    "redis",
+    "scheduler",
+    "worker"
+  ],
+  "profiles": [
+    "production-async"
+  ],
+  "browser_service_count": 0,
+  "browser_session_mount_count": 0,
+  "backend_settings": {
+    "api": {
+      "APP_ENV": "production",
+      "GEO_MONITORING_ENABLED": "false",
+      "GEO_BROWSER_COLLECTION_ENABLED": "false"
+    },
+    "worker": {
+      "APP_ENV": "production",
+      "GEO_MONITORING_ENABLED": "false",
+      "GEO_BROWSER_COLLECTION_ENABLED": "false"
+    },
+    "scheduler": {
+      "APP_ENV": "production",
+      "GEO_MONITORING_ENABLED": "false",
+      "GEO_BROWSER_COLLECTION_ENABLED": "false"
+    }
+  }
+}

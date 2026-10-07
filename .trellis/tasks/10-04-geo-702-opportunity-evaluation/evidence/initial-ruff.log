@@ -1,0 +1,12 @@
+E501 Line too long (101 > 100)
+  --> backend/tests/unit/test_geo_opportunity_policy.py:61:101
+   |
+59 |         rule_code="TOPIC_COVERAGE_GAP", scope=dict(subject_id=SCOPE.subject_id,
+60 |         query_topic_id=SCOPE.query_topic_id, prompt_variant_id=SCOPE.prompt_variant_id,
+61 |         collection_profile_id=SCOPE.collection_profile_id, engine_surface_id=SCOPE.engine_surface_id,
+   |                                                                                                     ^
+62 |         batch_id=None, environment_key=SCOPE.environment_key), source_date_from=START,
+63 |         source_date_to=END, triggered=True, priority="MEDIUM", value=0.0, threshold=0.0,
+   |
+
+Found 2 errors (1 fixed, 1 remaining).

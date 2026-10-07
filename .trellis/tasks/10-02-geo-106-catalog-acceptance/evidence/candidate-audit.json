@@ -1,0 +1,22 @@
+{
+  "changed_existing_files": [
+    "docs/geo-monitoring/01-product/03-information-architecture-and-page-spec.md",
+    "docs/geo-monitoring/03-technical/04-frontend-architecture.md",
+    "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+    "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/SHA256SUMS",
+    ".trellis/spec/infra/e2e-isolation.md",
+    "deploy/scripts/e2e-local.sh"
+  ],
+  "protected_unchanged": {
+    "contracts/openapi.yaml": true,
+    "contracts/database.md": true,
+    "backend/alembic/versions/0044_geo_catalog.py": true,
+    "frontend/src/shared/api/generated/schema.d.ts": true,
+    "frontend/tests/e2e/geo-real-stack.spec.ts": true
+  },
+  "runtime_changed_files": []
+}

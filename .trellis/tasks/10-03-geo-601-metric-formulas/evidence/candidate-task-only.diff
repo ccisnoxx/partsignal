@@ -1,0 +1,1537 @@
+--- before/docs/geo-monitoring/01-product/02-geo-core-prd.md
++++ after/docs/geo-monitoring/01-product/02-geo-core-prd.md
+@@ -1088,10 +1088,10 @@
+ 
+ 部分指标只适用于特定问题意图：
+ 
+-- 推荐类指标：REPLACEMENT、COMPARISON、PRODUCT、APPLICATION、PURCHASE；
++- 推荐类指标：REPLACEMENT、COMPARISON、PRODUCT、APPLICATION（当前 IntentType 不含 PURCHASE，不扩展枚举）；
+ - 自然可见指标：`naming_mode = UNBRANDED`；
+ - 品牌声誉指标：`naming_mode = BRANDED`；
+-- 引用指标：存在引用能力且本次回答实际产生引用或联网搜索；
++- 引用指标：本次回答实际发生引用，或有明确依据支持该次回答的“无引用”结论；仅能力开关或联网搜索信号不足以证明无引用；
+ - 准确性指标：存在可判断声明。
+ 
+ ### 空分母
+@@ -1108,7 +1108,7 @@
+ | 品牌回答覆盖率 | 点名有效运行中对目标品牌/产品有实质回答的运行数 ÷ 点名有效运行数 | 与自然可见率分开 |
+ | 产品提及率 | 提及指定公司产品的有效运行数 ÷ 该产品相关有效运行数 | 产品级指标 |
+ | 推荐率 | 明确推荐我方目标实体的推荐适用运行数 ÷ 推荐适用有效运行数 | 未出现也计入分母 |
+-| 首位推荐率 | 我方目标实体排名第 1 的推荐适用运行数 ÷ 推荐适用有效运行数 | 无排序结果不计入分子 |
++| 首位推荐率 | 我方目标实体排名第 1 的推荐适用运行数 ÷ 存在可靠推荐顺序的推荐适用有效运行数 | 无可靠排序的运行不进入该指标分母 |
+ | 平均推荐位置 | 我方被列入有序推荐列表时的 rank 总和 ÷ 我方被排序的运行数 | 同时显示“被排序覆盖数” |
+ | 提及 SOV | 我方实体提及 presence 数 ÷ 我方与受监测竞品实体提及 presence 总数 | 每个实体每次运行最多计 1 次 |
+ | 推荐 SOV | 我方实体推荐 presence 数 ÷ 我方与受监测竞品实体推荐 presence 总数 | 每个实体每次运行最多计 1 次 |
+@@ -1117,7 +1117,7 @@
+ | 准确声明率 | ACCURATE 声明数 ÷ 可判断声明数 | 可判断 = ACCURATE + PARTIAL + INCORRECT |
+ | 部分准确率 | PARTIAL 声明数 ÷ 可判断声明数 | 单独显示，不并入准确 |
+ | 错误声明率 | INCORRECT 声明数 ÷ 可判断声明数 | 声明级指标 |
+-| 严重错误运行率 | 至少一个 CRITICAL/HIGH INCORRECT 声明的运行数 ÷ 有效运行数 | 运行级风险指标 |
++| 严重错误运行率 | 至少一个 CRITICAL/HIGH INCORRECT 声明的运行数 ÷ 有可判断声明的有效运行数 | 运行级风险指标 |
+ | 问题监测覆盖率 | 当前周期至少有一个有效运行的问题主题数 ÷ 计划应监测的问题主题数 | 衡量是否完成计划 |
+ | 正向问题覆盖率 | 达到管理员可见率阈值的问题主题数 ÷ 有有效运行的问题主题数 | 阈值必须在报告中展示 |
+ | 运行成功率 | COMPLETED 运行数 ÷ 实际创建运行数 | CANCELLED、FAILED 等计入分母 |
+--- before/docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md
++++ after/docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md
+@@ -502,3 +502,55 @@
+ ```
+ 
+ 前端不得仅接收 `value` 后自行推断样本、趋势或告警。
++
++
++## 18. GEO-601 回答级公式字典（当前内部计算合同）
++
++2026-10-03 用户裁决首位推荐率和严重错误运行率均采用本文方法口径；见 ADR-004 的 GEO-601 裁决记录。内部纯计算唯一入口为 `backend/app/services/geo_metrics.py:calculate_metric`，版本 `geo-answer-v1`。此版本不提供 Overview、趋势、数据质量卡片、洞察明细、管理员配置或 HTTP 指标响应；后续 API 必须显式投影本库结果，前端不复制公式。旧文章关系指标保持独立。
++
++### 18.1 输入与资格
++
++`MetricRun`/`MetricDimensions`/`MetricScope` 是冻结内部模型；`metric_run_from_snapshot` 显式转换服务端一致快照，按 current analysis pointer 和它绑定的 current review 调用 GEO-507 的有效结果投影，不能回退历史成功分析、不能累计旧人工修正。回答与分析的运行 ID、回答 ID、答案哈希必须匹配；required review 不能用旧 analysis 的 review 清门禁。无成功 current analysis 的输入排除。
++
++调用方负责在同一一致读快照加载输入，以及确定 latest attempt、题目适用 subject binding、实质描述事实、管理员明确排除、完整性和“无引用可观察”的证据。错误页/登录页、影响结论的截断、未提交人工录入、profile 必需证据缺失必须由完整性门禁排除，不从字符串猜测。`described` 独立于 `mentioned`，点名问题中只复述品牌名称不算实质回答；不得把 mention 自动提升为 described。无引用事实不能由 surface.capabilities 或 web_search_observed 自动推出。
++
++输入可保留被 superseded 的 attempt，但不能计入分母。同一逻辑样本只接受一条未 superseded 的 attempt；重复 run ID 或同一 batch/prompt/profile/repeat 的多条 active attempt 均显式报错，即使其中一条失败也不择优。通用资格是 COMPLETED、非空答案、成功 current analysis、必要 current review、完整性通过、未管理员排除、维度一致且目标在事先确定的适用 binding 中。
++
++`metric_scope_from_snapshot` 从冻结对象类型确定产品资格，从 PRIMARY/COMPETITOR 角色形成 SOV 集合，REFERENCE 不贡献默认 SOV。集合必须包含目标且是冻结 binding 的子集。不要用当前可变 Catalog 或答案提及情况反推历史适用集合。
++
++### 18.2 可比维度与结果
++
++每次只计算调用方显式指定的 cell；不匹配输入按 `DIMENSION_MISMATCH` 排除。维度包括 topic/prompt/profile/surface 身份和 revision、MANUAL/API/BROWSER、语言/地区/登录状态、BRANDED/UNBRANDED、意图、已知采集模型/产品及版本、规则/分析配置指纹、冻结 subject revision、声明事实版本绑定、时间窗口。未知版本保持 null。SOV 的实际对象集合另存入结果 scope，集合变化后不能静默比较。稳定性另要求同一 batch、至少两个不同 repeat 的合格运行。
++
++所有结果返回 `metric_code`、`formula_version`、`dimensions`、`scope`、`value`、`numerator`、`denominator`、`sample_level`、`eligible_run_count`、`excluded_run_count`、`exclusion_reason_counts`、`eligible_run_ids` 和 `unjudgeable_claim_count`。`value` 是原始比值，位置均值可大于 1，不是百分数；无分母返回 null。样本等级始终依据进入该指标的合格运行数，不能用引用或声明事件数提升等级。0/1–2/3–4/≥5 对应 NONE/OBSERVED/REPORTABLE/STABLE；显式传入冻结 SamplePolicy 可改变门槛，但本任务不保存管理员配置，不触发规则。
++
++排除原因计数按原因分别计，同一运行可有多个原因，`excluded_run_count` 仍只计一次。原因码包括未完成运行、缺失答案、不可用 current analysis、缺必要 current review、完整性错误、管理员排除、旧 attempt、维度不匹配、对象/意图/点名不适用、无可靠排序/目标 rank、引用不可观察/分类不完整、无可判断声明、重复样本不足。没有任何事件的 SOV/引用份额可以有 OBSERVED 等合格运行等级但 value=null；不是 0%。
++
++### 18.3 指标字典
++
++以下公式均先应用通用资格；“目标”是 scope.subject_id。推荐适用意图为现有 PRODUCT/REPLACEMENT/COMPARISON/APPLICATION，当前公共枚举没有 PURCHASE，不在本任务新增。
++
++| metric_code | 统计单位 | 分子 / 分母 | 特定资格或排除 |
++|---|---|---|---|
++| answer_coverage | 运行 | 目标 mentioned 运行 / 合格运行 | 全部适用题目 |
++| natural_visibility | 运行 | 目标 mentioned 运行 / 合格运行 | 仅 UNBRANDED |
++| branded_answer | 运行 | 目标 described 运行 / 合格运行 | 仅 BRANDED，described 为实质描述独立事实 |
++| product_mention | 运行 | 目标 mentioned 运行 / 产品相关合格运行 | 产品类型；适用 binding 事先确定 |
++| recommendation_rate | 运行 | 目标 RECOMMENDED 运行 / 推荐适用合格运行 | CONSIDERED/NOT_RECOMMENDED/UNKNOWN 不贡献分子 |
++| top_recommendation_rate | 运行 | 目标可靠 rank=1 运行 / 有可靠排序的推荐适用合格运行 | 任一对象有可靠正整数 rank；目标缺席仍进入分母 |
++| average_recommendation_rank | 目标有序运行 | 目标可靠 rank 总和 / 目标有 rank 的运行 | 无可靠顺序不补默认位置 |
++| mention_sov | 运行—对象事件 | 目标提及事件 / 监测集合提及事件 | UNBRANDED；每运行每对象至多一次；固定集合 |
++| recommendation_sov | 运行—对象事件 | 目标推荐事件 / 监测集合推荐事件 | UNBRANDED、推荐适用；固定集合 |
++| owned_source_coverage | 运行 | 有 OWNED 引用运行 / 合格引用运行 | 实际引用或明确可观察无引用；分类完整 |
++| owned_citation_share | 引用事件 | OWNED 规范 URL 数 / 全部规范 URL 数 | 同一回答的规范 URL 去重；冲突分类报错 |
++| domain_coverage | 运行 | 引用指定 hostname 运行 / 合格引用运行 | 调用方明确提供已归一域名；精确 hostname |
++| accurate_claim_rate | 目标声明 | ACCURATE / 可判断目标声明 | 有可判断目标声明的运行 |
++| partial_claim_rate | 目标声明 | PARTIAL / 可判断目标声明 | 部分正确不计入准确分子 |
++| incorrect_claim_rate | 目标声明 | INCORRECT / 可判断目标声明 | UNJUDGEABLE 不进入分母，数量另返 |
++| severe_error_run_rate | 运行 | 有 HIGH/CRITICAL INCORRECT 目标声明运行 / 有可判断目标声明运行 | HIGH/CRITICAL PARTIAL 不计严重错误 |
++| mention_stability | 同批次重复运行 | max(目标提及次数,未提及次数) / 合格重复数 | 至少 2 个；不跨 batch |
++| recommendation_stability | 同批次重复运行 | max(目标推荐次数,未推荐次数) / 合格重复数 | 至少 2 个；推荐适用；不跨 batch |
++
++准确性各项按 scope 目标声明计算，不将其他对象错误归给目标。UNJUDGEABLE 单独计数包含仅因“没有可判断声明”被排除的运行；失败、旧 attempt、维度不符等通用不合格运行中的声明不计数。稳定性全未提及/未推荐可以为 1，描述一致性而不是表现好坏。
++
++完整独立金标在 `backend/tests/unit/geo_metrics_gold.py`，使用四条虚构运行及人工复算常量；18 项公式覆盖与边界由 `test_geo_metrics.py` 验证，current pointer/review 转换由 `test_geo_metric_inputs.py` 验证。不得用同一待测公式生成预期值。
+--- before/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ after/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -999,7 +999,7 @@
+   phase: R5
+   release: R5
+   title: 实现 MetricEligibility、样本等级和公式库
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-507
+   areas:
+@@ -1014,6 +1014,8 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  trellis_task: .trellis/tasks/10-03-geo-601-metric-formulas
++  execution_note: "2026-10-03：GEO-507 done已核对；用户裁决两项均采用指标方法口径：首位推荐率只用可靠排序运行，严重错误运行率只用可判断声明运行。解除阻断，完成601纯计算库、18项金标及125项定向验证；lint/typecheck/unit/integration通过，交付review等待人工接受。不接入后续洞察API。"
+ - id: GEO-602
+   phase: R5
+   release: R5
+--- before/docs/geo-monitoring/05-decisions/ADR-004-no-unified-geo-score.md
++++ after/docs/geo-monitoring/05-decisions/ADR-004-no-unified-geo-score.md
+@@ -37,3 +37,7 @@
+ - 分析成功率不得用可多次追加的成功 AnalysisRevision 数除以回答运行数。可选运行级覆盖率或分析尝试级成功率，但需各有明确名称、分母及版本。
+ - 新回答级指标与旧文章关系指标分别展示；未知值不补零，环境、重复采样和重试口径必须可解释。
+ - 详细依据、示例及备选方案见 [GEO-002 架构评审记录](./GEO-002-architecture-review.md)。
++
++## GEO-601 分母裁决（2026-10-03）
++
++用户在本任务会话明确裁决“两个都采用指标方法口径”：首位推荐率分母为存在可靠推荐顺序的推荐适用合格运行；严重错误运行率分母为存在可判断声明的合格运行。PRD §12.2与指标字典据此同步。无排序、只有UNJUDGEABLE声明的运行分别排除，不填0。运行成功率及分析成功率的未决口径不由GEO-601实施或裁决。
+--- before/docs/geo-monitoring/README.md
++++ after/docs/geo-monitoring/README.md
+@@ -348,3 +348,8 @@
+ ## GEO-508 / R4 分析复核与金标验收
+ 
+ GEO-508依赖已人工接受的GEO-507，详情接入原文、机器四类结果、声明事实依据、有效人工结果及只读revision/review历史；严重错误需逐条人工核对并说明，最新复核整体替换旧修正。全部分析金标质量口径、已知映射与实际结果见 [R4验收报告](./04-delivery/09-r4-analysis-acceptance.md)，精确门禁、浏览器证据和限制见 [Task Brief](../../.trellis/tasks/10-03-geo-508-analysis-review-ui/prd.md) 与 [实施证据](../../.trellis/tasks/10-03-geo-508-analysis-review-ui/implement.md)。完成后仅review等待人工接受；无新OpenAPI/数据库/Alembic、生产迁移或发布。完整指标、Opportunity和Browser仍由后续任务交付。
++
++
++## GEO-601 / R5 指标资格与公式库
++
++GEO-601 已实现内部 MetricEligibility、可比维度、样本等级和18项透明公式，完整本地验证已完成，交付review等待人工接受，状态以manifest为准。两个争议分母已由用户裁决采用指标方法口径；唯一字典见 [指标方法 §18](./02-business/04-monitoring-methodology-and-metrics.md#18-geo-601-回答级公式字典当前内部计算合同)。快照转换复用GEO-507 current有效结果，失败/旧attempt不进入业务分母，模式和点名默认分离。Task Brief及逐项证据见 [任务记录](../../.trellis/tasks/10-03-geo-601-metric-formulas/prd.md) 与 [实施记录](../../.trellis/tasks/10-03-geo-601-metric-formulas/implement.md)。本任务没有新API、数据库/Alembic、前端页面或生产启用；GEO-602/603/604/701尚未实施，当前公开资格占位尚未接线此库。
+--- before/docs/geo-monitoring/SHA256SUMS
++++ after/docs/geo-monitoring/SHA256SUMS
+@@ -1,13 +1,13 @@
+ 0ec5e67515fa5c383612130415bfc70185a607ac65006fcc932dd750c137bbde  ./00-governance/01-document-governance.md
+ b5906690eb04c8d27911a09722761e7cf4c244ecab2fbe39a55d94c794ee8728  ./00-governance/02-glossary.md
+ 670367ab19f32e811ec651a5be24a9ca062699f1fec60571c97b055ac7f1fb15  ./01-product/01-product-vision-and-scope.md
+-34e8d0d88ee6482c23d568880ea6b004d9e54a656c812eebd79f46508b6db48c  ./01-product/02-geo-core-prd.md
++e06743a06dddaaaa1f424c7a4162e67acbe86412caa0e6d67e51a63f759bcb76  ./01-product/02-geo-core-prd.md
+ 7ea6985cdc63749a10c73b801f69349dc2f0ac797b9aa87622723f26b988bcbe  ./01-product/03-information-architecture-and-page-spec.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+ 3892c8f83318ee460de04960a5162b4d777db06eb731a5999cdee946cd8042e3  ./02-business/01-business-architecture.md
+ ecf9472b259ebe572775405e0fcd5d3dddf35a13d68be130a44baec5a3db9f98  ./02-business/02-domain-model.md
+ f3aeee99fa15b2c6b28c33ef869aed12283334a2b17116b8dd0ddda6272ae0cd  ./02-business/03-workflows-and-state-machines.md
+-30e1976c61c18150724cf4b89ead9e2d960b0cea729ba377b06c7c384c264899  ./02-business/04-monitoring-methodology-and-metrics.md
++0e07d8fbb634da298e1c66a3993130f03932e625ab7bc13d9cb49e5a17640b01  ./02-business/04-monitoring-methodology-and-metrics.md
+ 90c2a635615b591f0d1a282fb62f289de0fbad030ea2dcb19ce7dd10983b85b2  ./03-technical/01-technical-architecture.md
+ 005d3d0bbf76fd04de5c7ab74ec6ea1b021647e88500da98870e5bfe1899a4e9  ./03-technical/02-data-architecture.md
+ 99dac7d9ecc586638b30f096fa991851958bbdcfd21f25d97c72a6be5ca05d50  ./03-technical/03-api-contract-design.md
+@@ -105,12 +105,12 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-1a1319df825ca08144156aaef7e108827e77cc61eb7937d1b1882b15f7afe5f6  ./04-delivery/task-manifest.yaml
++08c757c894987dc638173bb6a9bd3dc6a047003cd45e184b98a250f665aca0ad  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+-09d2ba6a3d8f07ca61309d0a9d4a557c30a1d16853d73139e15b43ca6f1303bb  ./05-decisions/ADR-004-no-unified-geo-score.md
++e1a4d98aa15478c60965ba0a943a3bff2e4dc30774e0050b451350c90796a4ed  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+ d7a354e0c2ee450fb3fdeec73c2194fb54d76d9f1566608cfe8b3da8bc711b1c  ./CHANGELOG.md
+-782f4f74854eb0916aa2d7c4ed1ef050aa27c25ba1aa65e4ad8e896cdf8efd42  ./README.md
++8a4ccb5d1daead76547ebac060eaa0eb319b9d6bc5a3d62535522f157e9b954c  ./README.md
+--- /dev/null
++++ backend/app/services/geo_metric_inputs.py
+@@ -0,0 +1,198 @@
++"""把服务端一致读快照显式转换成指标内部事实；不查询或写入 ORM。"""
++
++from collections.abc import Sequence
++from hashlib import sha256
++from uuid import UUID
++
++from app.schemas.geo_analysis import GeoRecommendationKind
++from app.schemas.geo_answers import GeoAnswerCitationOut, GeoAnswerSnapshotOut
++from app.schemas.geo_reviews import GeoRunAnalysisDetail
++from app.schemas.geo_runs import GeoRunInputSnapshot, GeoRunStatus
++from app.services.geo_metric_types import (
++    MetricCitation,
++    MetricClaim,
++    MetricDimensions,
++    MetricRun,
++    MetricScope,
++    MetricSubject,
++)
++from app.services.geo_review_projection import reviewed_results
++
++
++def metric_run_from_snapshot(
++    *,
++    run_id: UUID,
++    batch_id: UUID,
++    repeat_index: int,
++    status: GeoRunStatus,
++    snapshot: GeoRunInputSnapshot,
++    answer: GeoAnswerSnapshotOut | None,
++    citations: Sequence[GeoAnswerCitationOut],
++    analysis_detail: GeoRunAnalysisDetail,
++    window_key: str,
++    applicable_subject_ids: frozenset[UUID],
++    described_subject_ids: frozenset[UUID],
++    citation_absence_observable: bool,
++    integrity_valid: bool,
++    administrator_excluded: bool = False,
++    superseded_attempt: bool = False,
++) -> MetricRun:
++    """适用/实质描述/无引用结论须有独立依据，不能从未提及或能力开关反推。
++
++    调用方负责同一 RR 快照及 latest attempt 筛选。稳定性和重复输入由公式库再守卫。
++    integrity_valid 包含错误/登录页、影响结论的截断和 profile 所需证据门禁。
++    """
++    if analysis_detail.selection.run_id != run_id or (answer and answer.run_id != run_id):
++        raise ValueError("指标输入必须属于同一运行")
++    if any(answer is None or item.answer_snapshot_id != answer.id for item in citations):
++        raise ValueError("引用必须属于指标原始回答")
++    current_id = analysis_detail.selection.current_analysis_revision_id
++    current = next(
++        (item for item in analysis_detail.revisions if item.analysis.id == current_id), None
++    )
++    available = (
++        current is not None
++        and current.analysis.status == "COMPLETED"
++        and current.analysis.run_id == run_id
++        and answer is not None
++        and current.analysis.answer_snapshot_id == answer.id
++        and current.analysis.input_snapshot.answer_sha256 == answer.answer_sha256
++    )
++    current_review_id = analysis_detail.selection.current_review_id
++    review = next(
++        (
++            item.review
++            for item in analysis_detail.reviews
++            if item.is_current and item.review.id == current_review_id
++        ),
++        None,
++    )
++    valid_review = (
++        review is not None and review.run_id == run_id and review.analysis_revision_id == current_id
++    )
++    if current_review_id is not None and not valid_review:
++        integrity_valid = False
++    required = current is not None and bool(current.analysis.review_required_reasons)
++    results = (
++        reviewed_results(current, review if valid_review else None, citation_count=len(citations))
++        if available and current
++        else None
++    )
++    mentions = (
++        {item.subject_id: item.mention_count > 0 for item in results.mentions} if results else {}
++    )
++    recommendations = {item.subject_id: item for item in results.recommendations} if results else {}
++    bound = {item.id for item in snapshot.subjects}
++    if not described_subject_ids <= bound:
++        raise ValueError("实质描述对象必须属于冻结 subject binding")
++    subjects = tuple(
++        MetricSubject(
++            subject_id=identity,
++            mentioned=mentions.get(identity, False),
++            described=identity in described_subject_ids,
++            recommendation=recommendations[identity].recommendation
++            if identity in recommendations
++            else GeoRecommendationKind.UNKNOWN,
++            rank=recommendations[identity].rank if identity in recommendations else None,
++        )
++        for identity in sorted(bound)
++    )
++    categories = {item.citation_id: item for item in results.citations} if results else {}
++    complete = (
++        answer is not None
++        and answer.citation_count == len(citations)
++        and len({item.id for item in citations}) == len(citations)
++        and results is not None
++        and results.citation_classification_complete
++        and set(categories) == {item.id for item in citations}
++    )
++    dimensions = MetricDimensions(
++        query_topic_id=snapshot.prompt.query_topic_id,
++        query_topic_revision=snapshot.prompt.query_topic_revision,
++        prompt_variant_id=snapshot.prompt.id,
++        prompt_revision=snapshot.prompt.revision,
++        collection_profile_id=snapshot.profile.id,
++        profile_revision=snapshot.profile.revision,
++        engine_surface_id=snapshot.profile.surface.id,
++        surface_revision=snapshot.profile.surface.revision,
++        collection_mode=snapshot.profile.collection_mode,
++        language_code=snapshot.profile.language_code,
++        region_code=snapshot.profile.region_code,
++        login_state=snapshot.profile.login_state,
++        mention_mode=snapshot.prompt.mention_mode,
++        intent_type=snapshot.prompt.intent_type,
++        source_model=answer.source_model if answer else None,
++        source_product=answer.source_product if answer else None,
++        model_version=answer.source_version if answer and answer.source_model else None,
++        product_version=answer.source_version if answer and answer.source_product else None,
++        rule_set_version=f"{snapshot.rule_set_revision}:"
++        + (
++            f"{current.analysis.analyzer_version}:"
++            f"{current.analysis.input_snapshot.configuration.rule_set_version}"
++            if available and current
++            else "unavailable"
++        ),
++        subject_versions=tuple(sorted((item.id, item.revision) for item in snapshot.subjects)),
++        analysis_configuration_key=sha256(
++            current.analysis.input_snapshot.configuration.model_dump_json().encode()
++        ).hexdigest()
++        if available and current
++        else "unavailable",
++        fact_version_bindings=tuple(
++            sorted(
++                (item.subject_id, item.fact_version_id)
++                for item in current.analysis.input_snapshot.fact_versions
++            )
++        )
++        if available and current
++        else (),
++        window_key=window_key,
++    )
++    return MetricRun(
++        run_id=run_id,
++        batch_id=batch_id,
++        repeat_index=repeat_index,
++        dimensions=dimensions,
++        status=status,
++        answer_present=answer is not None and bool(answer.answer_text.strip()),
++        current_analysis_available=available,
++        review_required=required,
++        current_review_valid=valid_review,
++        integrity_valid=integrity_valid,
++        administrator_excluded=administrator_excluded,
++        superseded_attempt=superseded_attempt,
++        applicable_subject_ids=applicable_subject_ids,
++        subjects=subjects,
++        citations=tuple(
++            MetricCitation(
++                item.normalized_url,
++                item.hostname,
++                item.id in categories and categories[item.id].source_category == "OWNED",
++            )
++            for item in citations
++        ),
++        claims=tuple(
++            MetricClaim(item.subject_id, item.verdict, item.severity) for item in results.claims
++        )
++        if results
++        else (),
++        citation_absence_observable=citation_absence_observable,
++        citation_classification_complete=complete,
++    )
++
++
++def metric_scope_from_snapshot(
++    snapshot: GeoRunInputSnapshot, *, subject_id: UUID, domain: str | None = None
++) -> MetricScope:
++    """监测集合来自冻结 PRIMARY/COMPETITOR 绑定，REFERENCE 不贡献 SOV。"""
++    subject = next((item for item in snapshot.subjects if item.id == subject_id), None)
++    if subject is None:
++        raise ValueError("指标目标必须属于冻结 subject binding")
++    return MetricScope(
++        subject_id=subject_id,
++        is_product=subject.subject_type in {"OWN_PRODUCT", "COMPETITOR_PRODUCT"},
++        sov_subject_ids=frozenset(
++            item.id for item in snapshot.subjects if item.role in {"PRIMARY", "COMPETITOR"}
++        ),
++        domain=domain,
++    )
+--- /dev/null
++++ backend/app/services/geo_metric_types.py
+@@ -0,0 +1,210 @@
++"""GEO-601 纯计算的不可变内部合同；不属于 API DTO 或持久化模型。"""
++
++from dataclasses import dataclass
++from enum import StrEnum
++from uuid import UUID
++
++from app.schemas.configuration import IntentType
++from app.schemas.geo_analysis import GeoClaimSeverity, GeoClaimVerdict, GeoRecommendationKind
++from app.schemas.geo_runs import GeoRunStatus
++
++
++class MetricCode(StrEnum):
++    ANSWER_COVERAGE = "answer_coverage"
++    NATURAL_VISIBILITY = "natural_visibility"
++    BRANDED_ANSWER = "branded_answer"
++    PRODUCT_MENTION = "product_mention"
++    RECOMMENDATION_RATE = "recommendation_rate"
++    TOP_RECOMMENDATION_RATE = "top_recommendation_rate"
++    AVERAGE_RECOMMENDATION_RANK = "average_recommendation_rank"
++    MENTION_SOV = "mention_sov"
++    RECOMMENDATION_SOV = "recommendation_sov"
++    OWNED_SOURCE_COVERAGE = "owned_source_coverage"
++    OWNED_CITATION_SHARE = "owned_citation_share"
++    DOMAIN_COVERAGE = "domain_coverage"
++    ACCURATE_CLAIM_RATE = "accurate_claim_rate"
++    PARTIAL_CLAIM_RATE = "partial_claim_rate"
++    INCORRECT_CLAIM_RATE = "incorrect_claim_rate"
++    SEVERE_ERROR_RUN_RATE = "severe_error_run_rate"
++    MENTION_STABILITY = "mention_stability"
++    RECOMMENDATION_STABILITY = "recommendation_stability"
++
++
++class SampleLevel(StrEnum):
++    NONE = "NONE"
++    OBSERVED = "OBSERVED"
++    REPORTABLE = "REPORTABLE"
++    STABLE = "STABLE"
++
++
++class MetricExclusion(StrEnum):
++    RUN_NOT_COMPLETED = "RUN_NOT_COMPLETED"
++    ANSWER_MISSING_OR_EMPTY = "ANSWER_MISSING_OR_EMPTY"
++    CURRENT_ANALYSIS_UNAVAILABLE = "CURRENT_ANALYSIS_UNAVAILABLE"
++    CURRENT_REVIEW_REQUIRED = "CURRENT_REVIEW_REQUIRED"
++    INTEGRITY_ERROR = "INTEGRITY_ERROR"
++    ADMINISTRATOR_EXCLUDED = "ADMINISTRATOR_EXCLUDED"
++    SUPERSEDED_ATTEMPT = "SUPERSEDED_ATTEMPT"
++    DIMENSION_MISMATCH = "DIMENSION_MISMATCH"
++    SUBJECT_NOT_APPLICABLE = "SUBJECT_NOT_APPLICABLE"
++    MENTION_MODE_NOT_APPLICABLE = "MENTION_MODE_NOT_APPLICABLE"
++    INTENT_NOT_APPLICABLE = "INTENT_NOT_APPLICABLE"
++    RELIABLE_ORDER_UNAVAILABLE = "RELIABLE_ORDER_UNAVAILABLE"
++    TARGET_RANK_UNAVAILABLE = "TARGET_RANK_UNAVAILABLE"
++    CITATION_OBSERVATION_UNAVAILABLE = "CITATION_OBSERVATION_UNAVAILABLE"
++    CITATION_CLASSIFICATION_INCOMPLETE = "CITATION_CLASSIFICATION_INCOMPLETE"
++    ASSESSABLE_CLAIM_UNAVAILABLE = "ASSESSABLE_CLAIM_UNAVAILABLE"
++    INSUFFICIENT_REPEATS = "INSUFFICIENT_REPEATS"
++
++
++@dataclass(frozen=True)
++class MetricDimensions:
++    """未知版本保持 None；profile/subject 版本和规则版本变化也默认分开。"""
++
++    query_topic_id: UUID
++    query_topic_revision: int
++    prompt_variant_id: UUID
++    prompt_revision: int
++    collection_profile_id: UUID
++    profile_revision: int
++    engine_surface_id: UUID
++    surface_revision: int
++    collection_mode: str
++    language_code: str
++    region_code: str
++    login_state: str
++    mention_mode: str
++    intent_type: IntentType
++    source_model: str | None
++    source_product: str | None
++    model_version: str | None
++    product_version: str | None
++    rule_set_version: str
++    analysis_configuration_key: str
++    subject_versions: tuple[tuple[UUID, int], ...]
++    fact_version_bindings: tuple[tuple[UUID, UUID], ...]
++    window_key: str
++
++
++@dataclass(frozen=True)
++class MetricSubject:
++    subject_id: UUID
++    mentioned: bool
++    described: bool
++    recommendation: GeoRecommendationKind
++    rank: int | None
++
++    def __post_init__(self) -> None:
++        if self.rank is not None and (
++            self.rank < 1 or self.recommendation != GeoRecommendationKind.RECOMMENDED
++        ):
++            raise ValueError("可靠 rank 必须为正整数且属于 RECOMMENDED 对象")
++
++    @property
++    def recommended(self) -> bool:
++        return self.recommendation == GeoRecommendationKind.RECOMMENDED
++
++
++@dataclass(frozen=True)
++class MetricCitation:
++    """URL/hostname 已通过 GEO-304 归一边界；此处不请求 URL。"""
++
++    normalized_url: str
++    hostname: str
++    owned: bool
++
++
++@dataclass(frozen=True)
++class MetricClaim:
++    subject_id: UUID
++    verdict: GeoClaimVerdict
++    severity: GeoClaimSeverity
++
++
++@dataclass(frozen=True)
++class MetricRun:
++    """调用方提供一致快照中的 current 有效事实，禁止历史最佳结果回退。"""
++
++    run_id: UUID
++    batch_id: UUID
++    repeat_index: int
++    dimensions: MetricDimensions
++    status: GeoRunStatus
++    answer_present: bool
++    current_analysis_available: bool
++    review_required: bool
++    current_review_valid: bool
++    integrity_valid: bool
++    administrator_excluded: bool
++    superseded_attempt: bool
++    applicable_subject_ids: frozenset[UUID]
++    subjects: tuple[MetricSubject, ...]
++    citations: tuple[MetricCitation, ...]
++    claims: tuple[MetricClaim, ...]
++    citation_absence_observable: bool
++    citation_classification_complete: bool
++
++    def __post_init__(self) -> None:
++        if self.repeat_index < 1:
++            raise ValueError("repeat_index 必须为正整数")
++        identities = [subject.subject_id for subject in self.subjects]
++        if len(set(identities)) != len(identities):
++            raise ValueError("同一运行的对象事实不得重复")
++        bound = {identity for identity, _ in self.dimensions.subject_versions}
++        if not set(identities) <= bound or not self.applicable_subject_ids <= bound:
++            raise ValueError("指标事实和适用对象必须属于冻结 subject binding")
++        if any(claim.subject_id not in bound for claim in self.claims):
++            raise ValueError("声明必须属于冻结 subject binding")
++
++
++@dataclass(frozen=True)
++class MetricScope:
++    subject_id: UUID
++    is_product: bool = False
++    sov_subject_ids: frozenset[UUID] = frozenset()
++    domain: str | None = None
++
++
++@dataclass(frozen=True)
++class MetricEligibility:
++    exclusion_reasons: tuple[MetricExclusion, ...]
++
++    @property
++    def eligible(self) -> bool:
++        return not self.exclusion_reasons
++
++
++@dataclass(frozen=True)
++class SamplePolicy:
++    reportable_minimum: int = 3
++    stable_minimum: int = 5
++
++    def __post_init__(self) -> None:
++        if not 1 < self.reportable_minimum < self.stable_minimum:
++            raise ValueError("样本门槛须满足 1 < REPORTABLE < STABLE")
++
++    def level(self, eligible_run_count: int) -> SampleLevel:
++        if eligible_run_count == 0:
++            return SampleLevel.NONE
++        if eligible_run_count < self.reportable_minimum:
++            return SampleLevel.OBSERVED
++        if eligible_run_count < self.stable_minimum:
++            return SampleLevel.REPORTABLE
++        return SampleLevel.STABLE
++
++
++@dataclass(frozen=True)
++class MetricResult:
++    metric_code: MetricCode
++    formula_version: str
++    dimensions: MetricDimensions
++    scope: MetricScope
++    value: float | None
++    numerator: int
++    denominator: int
++    sample_level: SampleLevel
++    eligible_run_count: int
++    excluded_run_count: int
++    exclusion_reason_counts: tuple[tuple[MetricExclusion, int], ...]
++    eligible_run_ids: tuple[UUID, ...]
++    unjudgeable_claim_count: int
+--- /dev/null
++++ backend/app/services/geo_metrics.py
+@@ -0,0 +1,252 @@
++"""回答级 GEO 资格和公式唯一所有者；GEO-602 再接入读模型/API。"""
++
++from collections import Counter
++from collections.abc import Sequence
++
++from app.schemas.configuration import IntentType
++from app.schemas.geo_analysis import GeoClaimSeverity, GeoClaimVerdict
++from app.services.geo_metric_types import (
++    MetricCode,
++    MetricDimensions,
++    MetricEligibility,
++    MetricExclusion,
++    MetricResult,
++    MetricRun,
++    MetricScope,
++    MetricSubject,
++    SamplePolicy,
++)
++
++FORMULA_VERSION = "geo-answer-v1"
++DEFAULT_SAMPLE_POLICY = SamplePolicy()
++RECOMMENDATION_INTENTS = frozenset(
++    {IntentType.PRODUCT, IntentType.REPLACEMENT, IntentType.COMPARISON, IntentType.APPLICATION}
++)
++RECOMMENDATION_METRICS = frozenset(
++    {
++        MetricCode.RECOMMENDATION_RATE,
++        MetricCode.TOP_RECOMMENDATION_RATE,
++        MetricCode.AVERAGE_RECOMMENDATION_RANK,
++        MetricCode.RECOMMENDATION_SOV,
++        MetricCode.RECOMMENDATION_STABILITY,
++    }
++)
++CITATION_METRICS = frozenset(
++    {MetricCode.OWNED_SOURCE_COVERAGE, MetricCode.OWNED_CITATION_SHARE, MetricCode.DOMAIN_COVERAGE}
++)
++CLAIM_METRICS = frozenset(
++    {
++        MetricCode.ACCURATE_CLAIM_RATE,
++        MetricCode.PARTIAL_CLAIM_RATE,
++        MetricCode.INCORRECT_CLAIM_RATE,
++        MetricCode.SEVERE_ERROR_RUN_RATE,
++    }
++)
++SOV_METRICS = frozenset({MetricCode.MENTION_SOV, MetricCode.RECOMMENDATION_SOV})
++STABILITY_METRICS = frozenset({MetricCode.MENTION_STABILITY, MetricCode.RECOMMENDATION_STABILITY})
++
++
++def subject_fact(run: MetricRun, scope: MetricScope) -> MetricSubject | None:
++    return next((item for item in run.subjects if item.subject_id == scope.subject_id), None)
++
++
++def unique_citations(run: MetricRun) -> dict[str, tuple[str, bool]]:
++    citations: dict[str, tuple[str, bool]] = {}
++    for citation in run.citations:
++        classification = (citation.hostname, citation.owned)
++        existing = citations.setdefault(citation.normalized_url, classification)
++        if existing != classification:
++            raise ValueError("同一规范 URL 的引用事实冲突")
++    return citations
++
++
++def metric_eligibility(
++    run: MetricRun,
++    *,
++    metric: MetricCode,
++    scope: MetricScope,
++    dimensions: MetricDimensions,
++) -> MetricEligibility:
++    """收集稳定原因码，不把不合格运行转换为 false 的业务事实。"""
++    reasons: list[MetricExclusion] = []
++    checks = (
++        (run.status != "COMPLETED", MetricExclusion.RUN_NOT_COMPLETED),
++        (not run.answer_present, MetricExclusion.ANSWER_MISSING_OR_EMPTY),
++        (not run.current_analysis_available, MetricExclusion.CURRENT_ANALYSIS_UNAVAILABLE),
++        (
++            run.review_required and not run.current_review_valid,
++            MetricExclusion.CURRENT_REVIEW_REQUIRED,
++        ),
++        (not run.integrity_valid, MetricExclusion.INTEGRITY_ERROR),
++        (run.administrator_excluded, MetricExclusion.ADMINISTRATOR_EXCLUDED),
++        (run.superseded_attempt, MetricExclusion.SUPERSEDED_ATTEMPT),
++        (run.dimensions != dimensions, MetricExclusion.DIMENSION_MISMATCH),
++        (
++            scope.subject_id not in run.applicable_subject_ids,
++            MetricExclusion.SUBJECT_NOT_APPLICABLE,
++        ),
++    )
++    reasons.extend(reason for failed, reason in checks if failed)
++    unbranded_only = metric == MetricCode.NATURAL_VISIBILITY or metric in SOV_METRICS
++    if (unbranded_only and dimensions.mention_mode != "UNBRANDED") or (
++        metric == MetricCode.BRANDED_ANSWER and dimensions.mention_mode != "BRANDED"
++    ):
++        reasons.append(MetricExclusion.MENTION_MODE_NOT_APPLICABLE)
++    if metric == MetricCode.PRODUCT_MENTION and not scope.is_product:
++        reasons.append(MetricExclusion.SUBJECT_NOT_APPLICABLE)
++    if metric in RECOMMENDATION_METRICS and dimensions.intent_type not in RECOMMENDATION_INTENTS:
++        reasons.append(MetricExclusion.INTENT_NOT_APPLICABLE)
++    if metric == MetricCode.TOP_RECOMMENDATION_RATE and not any(
++        subject.rank is not None for subject in run.subjects
++    ):
++        reasons.append(MetricExclusion.RELIABLE_ORDER_UNAVAILABLE)
++    fact = subject_fact(run, scope)
++    if metric == MetricCode.AVERAGE_RECOMMENDATION_RANK and (fact is None or fact.rank is None):
++        reasons.append(MetricExclusion.TARGET_RANK_UNAVAILABLE)
++    if metric in CITATION_METRICS:
++        if not run.citations and not run.citation_absence_observable:
++            reasons.append(MetricExclusion.CITATION_OBSERVATION_UNAVAILABLE)
++        if not run.citation_classification_complete:
++            reasons.append(MetricExclusion.CITATION_CLASSIFICATION_INCOMPLETE)
++    if metric in CLAIM_METRICS and not any(
++        claim.subject_id == scope.subject_id and claim.verdict != GeoClaimVerdict.UNJUDGEABLE
++        for claim in run.claims
++    ):
++        reasons.append(MetricExclusion.ASSESSABLE_CLAIM_UNAVAILABLE)
++    return MetricEligibility(tuple(dict.fromkeys(reasons)))
++
++
++def _events(run: MetricRun, metric: MetricCode, scope: MetricScope) -> tuple[int, int]:
++    fact = subject_fact(run, scope)
++    mentioned = fact is not None and fact.mentioned
++    recommended = fact is not None and fact.recommended
++    if metric in {
++        MetricCode.ANSWER_COVERAGE,
++        MetricCode.NATURAL_VISIBILITY,
++        MetricCode.PRODUCT_MENTION,
++        MetricCode.MENTION_STABILITY,
++    }:
++        return int(mentioned), 1
++    if metric == MetricCode.BRANDED_ANSWER:
++        return int(fact is not None and fact.described), 1
++    if metric in {MetricCode.RECOMMENDATION_RATE, MetricCode.RECOMMENDATION_STABILITY}:
++        return int(recommended), 1
++    if metric == MetricCode.TOP_RECOMMENDATION_RATE:
++        return int(fact is not None and fact.rank == 1), 1
++    if metric == MetricCode.AVERAGE_RECOMMENDATION_RANK:
++        assert fact is not None and fact.rank is not None
++        return fact.rank, 1
++    if metric in SOV_METRICS:
++        events = {
++            item.subject_id
++            for item in run.subjects
++            if item.subject_id in scope.sov_subject_ids
++            and (item.mentioned if metric == MetricCode.MENTION_SOV else item.recommended)
++        }
++        return int(scope.subject_id in events), len(events)
++    if metric in CITATION_METRICS:
++        citations = unique_citations(run)
++        if metric == MetricCode.OWNED_CITATION_SHARE:
++            return sum(owned for _, owned in citations.values()), len(citations)
++        if metric == MetricCode.OWNED_SOURCE_COVERAGE:
++            return int(any(owned for _, owned in citations.values())), 1
++        return int(any(host == scope.domain for host, _ in citations.values())), 1
++    if metric in CLAIM_METRICS:
++        claims = [
++            claim
++            for claim in run.claims
++            if claim.subject_id == scope.subject_id and claim.verdict != GeoClaimVerdict.UNJUDGEABLE
++        ]
++        if metric == MetricCode.SEVERE_ERROR_RUN_RATE:
++            severe = any(
++                claim.verdict == GeoClaimVerdict.INCORRECT
++                and claim.severity in {GeoClaimSeverity.HIGH, GeoClaimSeverity.CRITICAL}
++                for claim in claims
++            )
++            return int(severe), 1
++        verdict = {
++            MetricCode.ACCURATE_CLAIM_RATE: GeoClaimVerdict.ACCURATE,
++            MetricCode.PARTIAL_CLAIM_RATE: GeoClaimVerdict.PARTIAL,
++            MetricCode.INCORRECT_CLAIM_RATE: GeoClaimVerdict.INCORRECT,
++        }[metric]
++        return sum(claim.verdict == verdict for claim in claims), len(claims)
++    raise ValueError("未定义的指标公式")
++
++
++def calculate_metric(
++    runs: Sequence[MetricRun],
++    *,
++    metric: MetricCode,
++    scope: MetricScope,
++    dimensions: MetricDimensions,
++    sample_policy: SamplePolicy = DEFAULT_SAMPLE_POLICY,
++) -> MetricResult:
++    """一个明确 cell 的比例；不聚合不同环境，不按平均百分比计算事件份额。"""
++    if metric in SOV_METRICS and (
++        scope.subject_id not in scope.sov_subject_ids
++        or not scope.sov_subject_ids <= {identity for identity, _ in dimensions.subject_versions}
++    ):
++        raise ValueError("SOV 必须指定包含目标的冻结监测对象集合")
++    if metric == MetricCode.DOMAIN_COVERAGE and not scope.domain:
++        raise ValueError("域名覆盖必须指定已归一域名")
++    if len({run.run_id for run in runs}) != len(runs):
++        raise ValueError("同一运行不得重复输入")
++    active_samples = [
++        (
++            run.batch_id,
++            run.dimensions.prompt_variant_id,
++            run.dimensions.collection_profile_id,
++            run.repeat_index,
++        )
++        for run in runs
++        if not run.superseded_attempt and run.dimensions == dimensions
++    ]
++    if len(set(active_samples)) != len(active_samples):
++        raise ValueError("每个重复样本只能提供 latest attempt，不能按成功挑选重试")
++    eligible: list[MetricRun] = []
++    reasons: Counter[MetricExclusion] = Counter()
++    excluded = 0
++    unjudgeable = 0
++    for run in runs:
++        qualification = metric_eligibility(run, metric=metric, scope=scope, dimensions=dimensions)
++        # 不可判断数包含仅因没有可判断声明而排除的运行，不包含失败或旧分析。
++        if metric in CLAIM_METRICS and not (
++            set(qualification.exclusion_reasons) - {MetricExclusion.ASSESSABLE_CLAIM_UNAVAILABLE}
++        ):
++            unjudgeable += sum(
++                claim.subject_id == scope.subject_id
++                and claim.verdict == GeoClaimVerdict.UNJUDGEABLE
++                for claim in run.claims
++            )
++        if qualification.eligible:
++            eligible.append(run)
++        else:
++            excluded += 1
++            reasons.update(qualification.exclusion_reasons)
++    if metric in STABILITY_METRICS:
++        if len({run.batch_id for run in eligible}) > 1:
++            raise ValueError("稳定性只能在同一批次的同一 cell 计算")
++        if len(eligible) < 2:
++            reasons[MetricExclusion.INSUFFICIENT_REPEATS] += len(eligible)
++            excluded += len(eligible)
++            eligible = []
++    events = [_events(run, metric, scope) for run in eligible]
++    numerator = sum(item[0] for item in events)
++    denominator = sum(item[1] for item in events)
++    if metric in STABILITY_METRICS:
++        numerator = max(numerator, denominator - numerator)
++    return MetricResult(
++        metric_code=metric,
++        formula_version=FORMULA_VERSION,
++        dimensions=dimensions,
++        scope=scope,
++        value=numerator / denominator if denominator else None,
++        numerator=numerator,
++        denominator=denominator,
++        sample_level=sample_policy.level(len(eligible)),
++        eligible_run_count=len(eligible),
++        excluded_run_count=excluded,
++        exclusion_reason_counts=tuple(sorted(reasons.items())),
++        eligible_run_ids=tuple(sorted(run.run_id for run in eligible)),
++        unjudgeable_claim_count=unjudgeable,
++    )
+--- /dev/null
++++ backend/tests/unit/geo_metrics_gold.py
+@@ -0,0 +1,142 @@
++"""GEO-601 人工复算金标：虚构冻结样本，预期值不由待测公式生成。"""
++
++from dataclasses import replace
++from uuid import UUID
++
++from app.schemas.configuration import IntentType
++from app.schemas.geo_analysis import GeoClaimSeverity, GeoClaimVerdict, GeoRecommendationKind
++from app.schemas.geo_runs import GeoRunStatus
++from app.services.geo_metric_types import (
++    MetricCitation,
++    MetricClaim,
++    MetricDimensions,
++    MetricRun,
++    MetricScope,
++    MetricSubject,
++)
++
++OWN, COMPETITOR, REFERENCE = UUID(int=1), UUID(int=2), UUID(int=3)
++DIMENSIONS = MetricDimensions(
++    query_topic_id=UUID(int=10),
++    query_topic_revision=0,
++    prompt_variant_id=UUID(int=11),
++    prompt_revision=0,
++    collection_profile_id=UUID(int=12),
++    profile_revision=0,
++    engine_surface_id=UUID(int=13),
++    surface_revision=0,
++    collection_mode="API",
++    language_code="zh-hans",
++    region_code="CN",
++    login_state="NOT_APPLICABLE",
++    mention_mode="UNBRANDED",
++    intent_type=IntentType.PRODUCT,
++    source_model="fake-model",
++    source_product="fake-product",
++    model_version="v1",
++    product_version="v1",
++    rule_set_version="v1",
++    analysis_configuration_key="fixture",
++    subject_versions=((OWN, 0), (COMPETITOR, 0), (REFERENCE, 0)),
++    fact_version_bindings=((OWN, UUID(int=20)),),
++    window_key="2026-10-03",
++)
++SCOPE = MetricScope(
++    OWN, is_product=True, sov_subject_ids=frozenset({OWN, COMPETITOR}), domain="other.example"
++)
++
++
++def subject(identity, mentioned=False, described=False, recommendation="UNKNOWN", rank=None):
++    return MetricSubject(
++        identity, mentioned, described, GeoRecommendationKind(recommendation), rank
++    )
++
++
++def claim(verdict, severity="LOW", identity=OWN):
++    return MetricClaim(identity, GeoClaimVerdict(verdict), GeoClaimSeverity(severity))
++
++
++def observation(index=1, **patch):
++    run = MetricRun(
++        run_id=UUID(int=100 + index),
++        batch_id=UUID(int=99),
++        repeat_index=index,
++        dimensions=DIMENSIONS,
++        status=GeoRunStatus.COMPLETED,
++        answer_present=True,
++        current_analysis_available=True,
++        review_required=False,
++        current_review_valid=False,
++        integrity_valid=True,
++        administrator_excluded=False,
++        superseded_attempt=False,
++        applicable_subject_ids=frozenset({OWN, COMPETITOR}),
++        subjects=(),
++        citations=(),
++        claims=(),
++        citation_absence_observable=True,
++        citation_classification_complete=True,
++    )
++    return replace(run, **patch)
++
++
++def gold_runs():
++    # r1/r2 提及 own+competitor；r3 全部未提及。REFERENCE 始终出现但不属于 SOV 集合。
++    reference = subject(REFERENCE, True, recommendation="RECOMMENDED", rank=3)
++    first = observation(
++        subjects=(
++            subject(OWN, True, True, "RECOMMENDED", 1),
++            subject(COMPETITOR, True, False, "RECOMMENDED", 2),
++            reference,
++        ),
++        citations=(
++            MetricCitation("https://owned.example/a", "owned.example", True),
++            MetricCitation("https://owned.example/a", "owned.example", True),
++            MetricCitation("https://other.example/a", "other.example", False),
++        ),
++        claims=(
++            claim("ACCURATE"),
++            claim("ACCURATE"),
++            claim("PARTIAL"),
++            claim("INCORRECT", "HIGH"),
++            claim("UNJUDGEABLE"),
++        ),
++    )
++    second = observation(
++        2,
++        subjects=(
++            subject(OWN, True, False, "CONSIDERED"),
++            subject(COMPETITOR, True, False, "RECOMMENDED", 1),
++            reference,
++        ),
++        citations=(MetricCitation("https://other.example/b", "other.example", False),),
++        claims=(claim("ACCURATE"), claim("INCORRECT", "LOW")),
++    )
++    third = observation(3, claims=(claim("UNJUDGEABLE"),))
++    # 失败即使带有正确分析事实也整体排除，不能当作未提及或择优成功重试。
++    failed = replace(first, run_id=UUID(int=104), repeat_index=4, status=GeoRunStatus.FAILED)
++    return (first, second, third, failed)
++
++
++# (metric_code, numerator, denominator, eligible runs, excluded runs, UNJUDGEABLE count)
++# 18 项覆盖字典全部公式；比例用下列整数独立手算。
++GOLD = [
++    ("answer_coverage", 2, 3, 3, 1, 0),
++    ("natural_visibility", 2, 3, 3, 1, 0),
++    ("branded_answer", 1, 3, 3, 1, 0),
++    ("product_mention", 2, 3, 3, 1, 0),
++    ("recommendation_rate", 1, 3, 3, 1, 0),
++    ("top_recommendation_rate", 1, 2, 2, 2, 0),
++    ("average_recommendation_rank", 1, 1, 1, 3, 0),
++    ("mention_sov", 2, 4, 3, 1, 0),
++    ("recommendation_sov", 1, 3, 3, 1, 0),
++    ("owned_source_coverage", 1, 3, 3, 1, 0),
++    ("owned_citation_share", 1, 3, 3, 1, 0),
++    ("domain_coverage", 2, 3, 3, 1, 0),
++    ("accurate_claim_rate", 3, 6, 2, 2, 2),
++    ("partial_claim_rate", 1, 6, 2, 2, 2),
++    ("incorrect_claim_rate", 2, 6, 2, 2, 2),
++    ("severe_error_run_rate", 1, 2, 2, 2, 2),
++    ("mention_stability", 2, 3, 3, 1, 0),
++    ("recommendation_stability", 2, 3, 3, 1, 0),
++]
+--- /dev/null
++++ backend/tests/unit/test_geo_metric_inputs.py
+@@ -0,0 +1,252 @@
++"""一致快照转换不选历史最佳分析，只消费 pointer 内当前人工修正。"""
++
++from datetime import UTC, datetime
++from hashlib import sha256
++from uuid import UUID, uuid4
++
++import pytest
++
++from app.schemas.geo_analysis import (
++    GeoAnalysisRevisionOut,
++    GeoAnalysisSelection,
++    GeoEntityMentionOut,
++    GeoRunReviewOut,
++)
++from app.schemas.geo_answers import GeoAnswerSnapshotOut
++from app.schemas.geo_reviews import GeoAnalysisResult, GeoReviewHistoryItem, GeoRunAnalysisDetail
++from app.schemas.geo_runs import GeoRunInputSnapshot, GeoRunStatus
++from app.services.geo_metric_inputs import metric_run_from_snapshot, metric_scope_from_snapshot
++from app.services.geo_metric_types import MetricCode, MetricExclusion, MetricScope
++from app.services.geo_metrics import calculate_metric
++from tests.unit.test_geo_analysis_contract import revision_payload
++from tests.unit.test_geo_run_contract import input_snapshot
++
++
++def case():
++    snapshot = GeoRunInputSnapshot.model_validate(input_snapshot("API"))
++    identity, answer_id = uuid4(), uuid4()
++    text = "虚构回答"
++    digest = sha256(text.encode()).hexdigest()
++    timestamp = datetime.now(UTC)
++    answer = GeoAnswerSnapshotOut(
++        id=answer_id,
++        run_id=identity,
++        prompt_text=snapshot.prompt.prompt_text,
++        answer_text=text,
++        answer_sha256=digest,
++        answer_format="TEXT",
++        source_product=None,
++        source_model="fake",
++        source_version=None,
++        web_search_observed=True,
++        raw_payload_summary={"schema_version": 1},
++        raw_payload_file_id=None,
++        screenshot_file_id=None,
++        citation_count=0,
++        collected_at=timestamp,
++        created_at=timestamp,
++    )
++    payload = revision_payload()
++    payload.update(
++        run_id=str(identity),
++        answer_snapshot_id=str(answer_id),
++        status="COMPLETED",
++        created_at=timestamp.isoformat(),
++        finished_at=timestamp.isoformat(),
++        review_required_reasons=["LOW_CONFIDENCE"],
++    )
++    payload["input_snapshot"]["answer_sha256"] = digest
++    payload["input_snapshot"]["subjects"] = snapshot.model_dump(mode="json")["subjects"]
++    analysis = GeoAnalysisRevisionOut.model_validate(payload)
++    subject_id = snapshot.subjects[0].id
++    mention = GeoEntityMentionOut(
++        id=uuid4(),
++        analysis_revision_id=analysis.id,
++        subject_id=subject_id,
++        mention_count=7,
++        first_character_offset=None,
++        matched_aliases=["虚构品牌"],
++        confidence=None,
++    )
++    machine = GeoAnalysisResult(
++        analysis=analysis,
++        mentions=[mention],
++        recommendations=[],
++        claims=[],
++        citations=[],
++        citation_classification_complete=True,
++    )
++    review = GeoRunReviewOut(
++        id=uuid4(),
++        run_id=identity,
++        analysis_revision_id=analysis.id,
++        decision="CORRECTED",
++        correction_payload={
++            "schema_version": 1,
++            "mentions": [
++                {
++                    "subject_id": str(subject_id),
++                    "mention_count": 0,
++                    "first_character_offset": None,
++                    "matched_aliases": [],
++                }
++            ],
++            "recommendations": [],
++            "claims": [],
++            "citations": [],
++        },
++        comment="修正误匹配",
++        reviewer_id=uuid4(),
++        created_at=timestamp,
++    )
++    detail = GeoRunAnalysisDetail(
++        selection=GeoAnalysisSelection(
++            run_id=identity, current_analysis_revision_id=analysis.id, current_review_id=review.id
++        ),
++        revisions=[machine],
++        reviews=[GeoReviewHistoryItem(review=review, is_current=True)],
++        effective_results=None,
++        review_required=False,
++        review_gate_passed=True,
++        available_actions=[],
++    )
++    return dict(
++        run_id=identity,
++        batch_id=uuid4(),
++        repeat_index=1,
++        status=GeoRunStatus.COMPLETED,
++        snapshot=snapshot,
++        answer=answer,
++        citations=[],
++        analysis_detail=detail,
++        window_key="test",
++        applicable_subject_ids=frozenset({subject_id}),
++        described_subject_ids=frozenset(),
++        citation_absence_observable=False,
++        integrity_valid=True,
++    )
++
++
++def result(value, code=MetricCode.ANSWER_COVERAGE):
++    run = metric_run_from_snapshot(**value)
++    return calculate_metric(
++        [run],
++        metric=code,
++        scope=MetricScope(value["snapshot"].subjects[0].id),
++        dimensions=run.dimensions,
++    )
++
++
++def test_current_review_removes_machine_mention_without_mutating_history():
++    value = case()
++    assert result(value).value == 0
++    assert value["analysis_detail"].revisions[0].mentions[0].mention_count == 7
++    assert not metric_run_from_snapshot(**value).subjects[0].described
++
++
++def test_unreviewed_current_machine_is_excluded():
++    value = case()
++    detail = value["analysis_detail"]
++    detail.selection.current_review_id = None
++    assert result(value).value is None
++    assert MetricExclusion.CURRENT_REVIEW_REQUIRED in dict(result(value).exclusion_reason_counts)
++
++
++def test_current_without_review_requirement_uses_machine_results():
++    value = case()
++    detail = value["analysis_detail"]
++    detail.selection.current_review_id = None
++    detail.revisions[0].analysis.review_required_reasons = []
++    assert result(value).value == 1
++
++
++@pytest.mark.parametrize("selected", [None, UUID(int=999)])
++def test_pointer_never_falls_back_to_historical_success(selected):
++    value = case()
++    detail = value["analysis_detail"]
++    detail.selection.current_analysis_revision_id = selected
++    detail.selection.current_review_id = None
++    assert result(value).value is None
++    assert not metric_run_from_snapshot(**value).current_analysis_available
++
++
++def test_current_failed_analysis_not_historical_success():
++    value = case()
++    detail = value["analysis_detail"]
++    old = detail.revisions[0].model_copy(deep=True)
++    old.analysis.id = uuid4()
++    detail.revisions.append(old)
++    detail.revisions[0].analysis.status = "FAILED"
++    assert result(value).value is None
++
++
++def test_review_for_old_analysis_does_not_clear_current_gate():
++    value = case()
++    value["analysis_detail"].reviews[0].review.analysis_revision_id = uuid4()
++    result_value = result(value)
++    assert result_value.value is None
++    assert MetricExclusion.CURRENT_REVIEW_REQUIRED in dict(result_value.exclusion_reason_counts)
++    assert MetricExclusion.INTEGRITY_ERROR in dict(result_value.exclusion_reason_counts)
++
++
++def test_latest_selected_review_replaces_old_corrections():
++    value = case()
++    detail = value["analysis_detail"]
++    old = detail.reviews[0].model_copy(deep=True)
++    old.is_current = False
++    old.review.id = uuid4()
++    detail.reviews.append(old)
++    current = detail.reviews[0].review
++    current.decision = "CONFIRMED"
++    current.correction_payload = None
++    assert result(value).value == 1
++
++
++def test_capability_or_web_search_signal_is_not_no_citation_proof():
++    value = case()
++    assert value["answer"].web_search_observed
++    assert result(value, MetricCode.OWNED_SOURCE_COVERAGE).value is None
++    value["citation_absence_observable"] = True
++    assert result(value, MetricCode.OWNED_SOURCE_COVERAGE).value == 0
++
++
++def test_citation_count_mismatch_blocks_citation_metrics():
++    value = case()
++    value["answer"].citation_count = 1
++    value["citation_absence_observable"] = True
++    assert result(value, MetricCode.OWNED_SOURCE_COVERAGE).value is None
++
++
++@pytest.mark.parametrize("field", ["run_id", "answer_snapshot_id"])
++def test_mismatched_current_analysis_identity_excluded(field):
++    value = case()
++    setattr(value["analysis_detail"].revisions[0].analysis, field, uuid4())
++    assert result(value).value is None
++
++
++def test_answer_digest_must_match_current_analysis_input():
++    value = case()
++    value["analysis_detail"].revisions[0].analysis.input_snapshot.answer_sha256 = "a" * 64
++    assert result(value).value is None
++
++
++def test_cross_run_inputs_fail_explicitly():
++    value = case()
++    value["answer"].run_id = uuid4()
++    with pytest.raises(ValueError, match="同一运行"):
++        metric_run_from_snapshot(**value)
++
++
++def test_scope_uses_frozen_bindings_not_answer_or_live_catalog():
++    value = case()
++    snapshot = value["snapshot"]
++    target = snapshot.subjects[0].id
++    reference = snapshot.subjects[0].model_copy(deep=True)
++    reference.id = uuid4()
++    reference.role = "REFERENCE"
++    snapshot.subjects.append(reference)
++    scope = metric_scope_from_snapshot(snapshot, subject_id=target)
++    assert scope.sov_subject_ids == frozenset({target})
++    assert not scope.is_product
++    with pytest.raises(ValueError, match="冻结"):
++        metric_scope_from_snapshot(snapshot, subject_id=uuid4())
+--- /dev/null
++++ backend/tests/unit/test_geo_metrics.py
+@@ -0,0 +1,299 @@
++"""透明分母、资格与不可比环境的金标行为合同。"""
++
++from dataclasses import fields, replace
++from uuid import UUID
++
++import pytest
++
++from app.schemas.configuration import IntentType
++from app.schemas.geo_runs import GeoRunStatus
++from app.services.geo_metric_types import (
++    MetricCitation,
++    MetricCode,
++    MetricDimensions,
++    MetricExclusion,
++    MetricScope,
++    SampleLevel,
++    SamplePolicy,
++)
++from app.services.geo_metrics import calculate_metric, metric_eligibility
++from tests.unit.geo_metrics_gold import (
++    COMPETITOR,
++    DIMENSIONS,
++    GOLD,
++    OWN,
++    SCOPE,
++    claim,
++    gold_runs,
++    observation,
++    subject,
++)
++
++
++def calculate(runs, code=MetricCode.ANSWER_COVERAGE, dimensions=DIMENSIONS, scope=SCOPE):
++    return calculate_metric(runs, metric=MetricCode(code), scope=scope, dimensions=dimensions)
++
++
++@pytest.mark.parametrize("code,numerator,denominator,eligible,excluded,unjudgeable", GOLD)
++def test_complete_formula_gold(code, numerator, denominator, eligible, excluded, unjudgeable):
++    runs = gold_runs()
++    dimensions = DIMENSIONS
++    if code == "branded_answer":
++        dimensions = replace(dimensions, mention_mode="BRANDED")
++        runs = tuple(replace(run, dimensions=dimensions) for run in runs)
++    result = calculate(runs, code, dimensions)
++    assert (result.numerator, result.denominator) == (numerator, denominator)
++    assert result.value == pytest.approx(numerator / denominator)
++    assert (result.eligible_run_count, result.excluded_run_count) == (eligible, excluded)
++    assert result.unjudgeable_claim_count == unjudgeable
++    assert result.sample_level == (
++        SampleLevel.REPORTABLE if eligible == 3 else SampleLevel.OBSERVED
++    )
++    assert result.formula_version == "geo-answer-v1"
++    assert result.scope == SCOPE and result.dimensions == dimensions
++    assert MetricExclusion.RUN_NOT_COMPLETED in dict(result.exclusion_reason_counts)
++    assert UUID(int=104) not in result.eligible_run_ids
++
++
++def test_gold_covers_every_defined_metric():
++    assert {MetricCode(row[0]) for row in GOLD} == set(MetricCode)
++
++
++@pytest.mark.parametrize("code", MetricCode)
++def test_empty_denominator_is_null(code):
++    result = calculate([], code)
++    assert (result.value, result.numerator, result.denominator) == (None, 0, 0)
++    assert result.sample_level == SampleLevel.NONE
++    assert result.eligible_run_count == result.excluded_run_count == 0
++
++
++@pytest.mark.parametrize(
++    "patch,reason",
++    [
++        ({"status": GeoRunStatus.FAILED}, MetricExclusion.RUN_NOT_COMPLETED),
++        ({"status": GeoRunStatus.NEEDS_REVIEW}, MetricExclusion.RUN_NOT_COMPLETED),
++        ({"answer_present": False}, MetricExclusion.ANSWER_MISSING_OR_EMPTY),
++        ({"current_analysis_available": False}, MetricExclusion.CURRENT_ANALYSIS_UNAVAILABLE),
++        ({"review_required": True}, MetricExclusion.CURRENT_REVIEW_REQUIRED),
++        ({"integrity_valid": False}, MetricExclusion.INTEGRITY_ERROR),
++        ({"administrator_excluded": True}, MetricExclusion.ADMINISTRATOR_EXCLUDED),
++        ({"superseded_attempt": True}, MetricExclusion.SUPERSEDED_ATTEMPT),
++        ({"applicable_subject_ids": frozenset()}, MetricExclusion.SUBJECT_NOT_APPLICABLE),
++    ],
++)
++def test_generic_exclusions_never_become_absence(patch, reason):
++    run = observation(**patch)
++    eligibility = metric_eligibility(
++        run, metric=MetricCode.ANSWER_COVERAGE, scope=SCOPE, dimensions=DIMENSIONS
++    )
++    assert eligibility.exclusion_reasons == (reason,)
++    result = calculate([run])
++    assert result.value is None and result.denominator == 0
++    assert result.excluded_run_count == 1
++    assert dict(result.exclusion_reason_counts) == {reason: 1}
++
++
++@pytest.mark.parametrize("status", [status for status in GeoRunStatus if status != "COMPLETED"])
++def test_only_completed_runs_eligible(status):
++    assert calculate([observation(status=status)]).value is None
++
++
++def test_current_review_passes_required_gate():
++    result = calculate([observation(review_required=True, current_review_valid=True)])
++    assert result.denominator == 1
++
++
++@pytest.mark.parametrize("name", [field.name for field in fields(MetricDimensions)])
++def test_each_comparison_dimension_is_enforced(name):
++    previous = getattr(DIMENSIONS, name)
++    if isinstance(previous, UUID):
++        value = UUID(int=999)
++    elif isinstance(previous, int):
++        value = previous + 1
++    elif name == "subject_versions":
++        value = tuple((identity, revision + 1) for identity, revision in previous)
++    elif isinstance(previous, tuple):
++        value = ()
++    else:
++        value = "different"
++    result = calculate([observation(dimensions=replace(DIMENSIONS, **{name: value}))])
++    assert result.denominator == 0
++    assert MetricExclusion.DIMENSION_MISMATCH in dict(result.exclusion_reason_counts)
++
++
++@pytest.mark.parametrize("mode", ["MANUAL", "BROWSER"])
++def test_manual_api_browser_default_separate(mode):
++    manual = observation(2, dimensions=replace(DIMENSIONS, collection_mode=mode))
++    result = calculate([observation(), manual])
++    assert (result.denominator, result.excluded_run_count) == (1, 1)
++
++
++@pytest.mark.parametrize("code", ["natural_visibility", "mention_sov", "recommendation_sov"])
++def test_branded_not_in_natural_or_default_sov(code):
++    dimensions = replace(DIMENSIONS, mention_mode="BRANDED")
++    assert calculate([observation(dimensions=dimensions)], code, dimensions).value is None
++
++
++@pytest.mark.parametrize("kind", ["RECOMMENDED", "CONSIDERED", "NOT_RECOMMENDED", "UNKNOWN"])
++def test_recommendation_states_are_not_mention_or_sentiment(kind):
++    run = observation(subjects=(subject(OWN, True, recommendation=kind),))
++    assert calculate([run], "recommendation_rate").numerator == int(kind == "RECOMMENDED")
++    assert calculate([run], "average_recommendation_rank").value is None
++
++
++@pytest.mark.parametrize("intent", [IntentType.BRAND, IntentType.TROUBLESHOOTING])
++def test_non_recommendation_intents_excluded(intent):
++    dimensions = replace(DIMENSIONS, intent_type=intent)
++    assert (
++        calculate([observation(dimensions=dimensions)], "recommendation_rate", dimensions).value
++        is None
++    )
++
++
++def test_product_relevance_is_prebound_not_inferred_from_mentions():
++    run = observation(subjects=(subject(OWN, True),), applicable_subject_ids=frozenset())
++    assert calculate([run], "product_mention").value is None
++    assert calculate([observation()], "product_mention").value == 0
++    assert (
++        calculate([observation()], "product_mention", scope=replace(SCOPE, is_product=False)).value
++        is None
++    )
++
++
++def test_sov_zero_events_and_frozen_set():
++    result = calculate([observation()], "mention_sov")
++    assert result.value is None and result.sample_level == SampleLevel.OBSERVED
++    with pytest.raises(ValueError, match="冻结监测"):
++        calculate(gold_runs(), "mention_sov", scope=MetricScope(OWN))
++    result = calculate(
++        gold_runs(), "mention_sov", scope=replace(SCOPE, sov_subject_ids=frozenset({OWN}))
++    )
++    assert (result.numerator, result.denominator) == (2, 2)
++    assert result.scope.sov_subject_ids == frozenset({OWN})
++
++
++def test_unknown_citation_absence_not_counted_as_zero():
++    run = observation(citation_absence_observable=False)
++    assert calculate([run], "owned_source_coverage").value is None
++    assert (
++        calculate([replace(run, citation_absence_observable=True)], "owned_source_coverage").value
++        == 0
++    )
++    assert calculate([run], "answer_coverage").denominator == 1
++
++
++def test_citation_classification_gate_and_unique_url_conflict():
++    first = gold_runs()[0]
++    assert (
++        calculate(
++            [replace(first, citation_classification_complete=False)], "owned_citation_share"
++        ).value
++        is None
++    )
++    bad = replace(
++        first,
++        citations=first.citations
++        + (MetricCitation("https://owned.example/a", "owned.example", False),),
++    )
++    with pytest.raises(ValueError, match="冲突"):
++        calculate([bad], "owned_citation_share")
++
++
++def test_sample_grade_uses_runs_not_citation_or_claim_events():
++    run = observation(claims=(claim("ACCURATE"),) * 20)
++    result = calculate([run], "accurate_claim_rate")
++    assert result.denominator == 20 and result.sample_level == SampleLevel.OBSERVED
++
++
++@pytest.mark.parametrize(
++    "count,level",
++    [
++        (0, "NONE"),
++        (1, "OBSERVED"),
++        (2, "OBSERVED"),
++        (3, "REPORTABLE"),
++        (4, "REPORTABLE"),
++        (5, "STABLE"),
++    ],
++)
++def test_sample_thresholds(count, level):
++    assert calculate([observation(index) for index in range(1, count + 1)]).sample_level == level
++
++
++def test_sample_policy_explicit_and_validated():
++    result = calculate_metric(
++        [observation(1), observation(2)],
++        metric=MetricCode.ANSWER_COVERAGE,
++        scope=SCOPE,
++        dimensions=DIMENSIONS,
++        sample_policy=SamplePolicy(2, 4),
++    )
++    assert result.sample_level == SampleLevel.REPORTABLE
++    with pytest.raises(ValueError):
++        SamplePolicy(3, 3)
++
++
++@pytest.mark.parametrize("code", ["mention_stability", "recommendation_stability"])
++def test_stability_needs_two_distinct_repeats_in_one_batch(code):
++    assert calculate([observation()], code).value is None
++    assert calculate([observation(1), observation(2)], code).value == 1
++    with pytest.raises(ValueError, match="同一批次"):
++        calculate([observation(1), observation(2, batch_id=UUID(int=9))], code)
++    with pytest.raises(ValueError, match="latest attempt"):
++        calculate([observation(1), observation(2, repeat_index=1)], code)
++
++
++def test_retry_supersedes_success_and_latest_failure_is_not_absence():
++    old = observation(superseded_attempt=True, subjects=(subject(OWN, True),))
++    latest = observation(2, repeat_index=1, status=GeoRunStatus.FAILED)
++    result = calculate([old, latest])
++    assert result.value is None and result.excluded_run_count == 2
++    with pytest.raises(ValueError, match="重复输入"):
++        calculate([old, old])
++
++
++def test_rank_must_be_reliable_positive_recommendation():
++    with pytest.raises(ValueError, match="rank"):
++        subject(OWN, recommendation="CONSIDERED", rank=1)
++    with pytest.raises(ValueError, match="rank"):
++        subject(OWN, recommendation="RECOMMENDED", rank=0)
++
++
++def test_high_partial_is_not_severe_incorrect_and_claims_are_subject_scoped():
++    run = observation(
++        claims=(claim("PARTIAL", "CRITICAL"), claim("INCORRECT", "CRITICAL", identity=COMPETITOR))
++    )
++    assert calculate([run], "severe_error_run_rate").value == 0
++    assert calculate([run], "partial_claim_rate").value == 1
++
++
++def test_two_denominators_follow_user_methodology_decision():
++    ranked = observation(
++        subjects=(subject(OWN, recommendation="RECOMMENDED", rank=1),),
++        claims=(claim("INCORRECT", "CRITICAL"),),
++    )
++    unavailable = observation(2, claims=(claim("UNJUDGEABLE"),))
++    assert calculate([ranked, unavailable], "top_recommendation_rate").value == 1
++    assert calculate([ranked, unavailable], "severe_error_run_rate").value == 1
++    assert calculate([ranked, unavailable], "recommendation_rate").value == 0.5
++
++
++def test_average_rank_is_mean_of_reliable_target_positions():
++    first = observation(subjects=(subject(OWN, recommendation="RECOMMENDED", rank=1),))
++    third = observation(2, subjects=(subject(OWN, recommendation="RECOMMENDED", rank=3),))
++    result = calculate([first, third, observation(3)], "average_recommendation_rank")
++    assert (result.value, result.numerator, result.denominator) == (2, 4, 2)
++
++
++def test_multiple_exclusion_reasons_do_not_inflate_excluded_run_count():
++    result = calculate([observation(status=GeoRunStatus.FAILED, answer_present=False)])
++    assert result.excluded_run_count == 1
++    assert dict(result.exclusion_reason_counts) == {
++        MetricExclusion.RUN_NOT_COMPLETED: 1,
++        MetricExclusion.ANSWER_MISSING_OR_EMPTY: 1,
++    }
++
++
++def test_two_active_attempts_are_rejected_even_if_latest_failed():
++    with pytest.raises(ValueError, match="latest attempt"):
++        calculate([observation(1), observation(2, repeat_index=1, status=GeoRunStatus.FAILED)])

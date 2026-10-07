@@ -1,0 +1,9 @@
+{
+  "command": [
+    "deploy/scripts/e2e-local.sh"
+  ],
+  "exit_code": 1,
+  "started_at": "2026-10-03T06:34:06.209473+00:00",
+  "seconds": 31.78,
+  "log": "geo-e2e-candidate.log"
+}

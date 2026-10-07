@@ -1,0 +1,42 @@
+{
+  "status": "review",
+  "results": [
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "result": "通过",
+      "evidence": "diff-check.log"
+    },
+    {
+      "command": "make lint",
+      "exit_code": 0,
+      "result": "Ruff + frontend ESLint通过",
+      "evidence": "lint-final.log"
+    },
+    {
+      "command": "make typecheck",
+      "exit_code": 0,
+      "result": "mypy153文件 + frontend tsc通过",
+      "evidence": "typecheck-final.log"
+    },
+    {
+      "command": "make test-unit",
+      "exit_code": 0,
+      "backend_passed": 2999,
+      "frontend_passed": 1125,
+      "frontend_files": 120,
+      "evidence": "test-unit-final.log"
+    },
+    {
+      "command": "make test-integration COMPOSE='docker --context colima compose -p partsignal-geo405 -f .trellis/tasks/10-03-geo-405-collection-worker/evidence/validation-compose.yaml'",
+      "exit_code": 0,
+      "passed": 841,
+      "warnings": 18,
+      "geo_worker_tests": 19,
+      "seconds": 401.89,
+      "evidence": "test-integration-final.log"
+    }
+  ],
+  "isolated_compose_down_exit_code": 0,
+  "retained_test_volumes": true
+}

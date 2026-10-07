@@ -1,0 +1,2751 @@
+"""追加式 GEO 观测的查询、投影、创建与纠正服务。"""
+
+from __future__ import annotations
+
+import uuid
+from collections import defaultdict
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
+
+from sqlalchemy import Select, delete, exists, func, literal, or_, select, text
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session, aliased
+from sqlalchemy.sql.elements import ColumnElement
+
+from app.audit import append_audit
+from app.audit_types import AuditEntry, AuditModule, AuditOutcome
+from app.config import settings
+from app.errors import AppError, not_found
+from app.models.configuration import PlatformProfile, QueryTopic
+from app.models.content import ContentTask, ContentTaskGeoSource, ContentVersion
+from app.models.geo_files import (
+    FileRecord,
+    GeoObservation,
+    GeoObservationAttachment,
+    GeoObservationCitation,
+    GeoObservationPublication,
+)
+from app.models.identity import User
+from app.models.product_facts import Product
+from app.models.publication import PublicationWork, PublishedArticle, PublishedContentIssue
+from app.schemas import geo_files as geo_schema
+from app.schemas.common import SignedUrl
+from app.schemas.content import ActorSummary, ContentTaskCreate
+from app.schemas.geo_files import (
+    GeoAccuracy,
+    GeoArticleResultOut,
+    GeoCitation,
+    GeoContentDeclineBasis,
+    GeoLongUnmentionedBasis,
+    GeoMetrics,
+    GeoObservationAction,
+    GeoObservationCorrectionContext,
+    GeoObservationCorrectionHistoryItem,
+    GeoObservationCreate,
+    GeoObservationDetail,
+    GeoObservationDetailEvidence,
+    GeoObservationDetailPublication,
+    GeoObservationDetailQueryTopic,
+    GeoObservationKind,
+    GeoObservationList,
+    GeoObservationListIndicator,
+    GeoObservationListItem,
+    GeoObservationListOutcomes,
+    GeoObservationListPage,
+    GeoObservationListProduct,
+    GeoObservationListSort,
+    GeoObservationOut,
+    GeoObservationPageSize,
+    GeoObservationSortOrder,
+    GeoOptimizationContentTaskCreate,
+    GeoPublicationCandidate,
+    GeoQuestionCoverageGapBasis,
+    LegacyGeoObservationDetail,
+    LegacyGeoObservationOut,
+    LegacyRecommendation,
+    ManualGeoObservationDetail,
+    ManualGeoObservationOut,
+)
+from app.schemas.publication import FileRecordOut
+from app.services.content_planning import (
+    ContentTaskFactProductMismatch,
+    add_locked_content_task,
+    lock_content_task_creation_resources,
+)
+from app.services.file_records import schedule_unreferenced_file, verified_files
+from app.services.storage import get_evidence_storage
+
+
+@dataclass(frozen=True, slots=True)
+class GeoObservationFilters:
+    """列表与指标共享的受约束筛选条件。"""
+
+    date_from: date | None = None
+    date_to: date | None = None
+    observation_kind: GeoObservationKind | None = None
+    product_id: uuid.UUID | None = None
+    search: str | None = None
+    query_topic_id: uuid.UUID | None = None
+    model_name: str | None = None
+    search_platform: str | None = None
+    publication_search: str | None = None
+    discovered: bool | None = None
+    mentioned: bool | None = None
+    recommendation: LegacyRecommendation | None = None
+    has_citation: bool | None = None
+    accuracy: GeoAccuracy | None = None
+    recorder_search: str | None = None
+    only_mine: bool = False
+    include_history: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class GeoObservationListFilters:
+    """Frontend V2 紧凑列表唯一支持的服务端筛选。"""
+
+    search: str | None = None
+    product_id: uuid.UUID | None = None
+    geo_platform: str | None = None
+    accuracy: GeoAccuracy | None = None
+    date_from: date | None = None
+    date_to: date | None = None
+    query_topic_id: uuid.UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class GeoInsightFilters:
+    """分析页面全部区块共用的精确筛选。"""
+
+    date_from: date | None = None
+    date_to: date | None = None
+    product_id: uuid.UUID | None = None
+    content_platform_id: uuid.UUID | None = None
+    geo_platform: str | None = None
+    published_article_id: uuid.UUID | None = None
+    query_topic_id: uuid.UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class _GeoInsightRow:
+    observation_id: uuid.UUID
+    tested_at: datetime
+    query_topic_id: uuid.UUID | None
+    product_id: uuid.UUID
+    geo_platform: str
+    published_article_id: uuid.UUID
+    title: str
+    published_at: datetime | None
+    content_platform_id: uuid.UUID
+    content_platform: str
+    discovered: bool | None
+    mentioned: bool | None
+    accuracy: str | None
+
+
+def _contains_pattern(value: str) -> str:
+    """把用户搜索文本转换为字面量 LIKE 模式，不开放通配符语义。"""
+    escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
+def _current_observation_clause() -> ColumnElement[bool]:
+    """返回纠正链尾谓词，旧列表与 V2 紧凑列表共用同一所有权。"""
+    superseding = aliased(GeoObservation)
+    return ~exists(select(superseding.id).where(superseding.supersedes_id == GeoObservation.id))
+
+
+def _apply_observation_date_range(
+    query: Select[tuple[GeoObservation]],
+    *,
+    date_from: date | None,
+    date_to: date | None,
+) -> Select[tuple[GeoObservation]]:
+    """统一按 UTC 自然日应用观测时间闭区间筛选。"""
+    if date_from is not None:
+        query = query.where(
+            GeoObservation.tested_at
+            >= datetime.combine(date_from, datetime.min.time(), tzinfo=UTC)
+        )
+    if date_to is not None:
+        query = query.where(
+            GeoObservation.tested_at
+            < datetime.combine(date_to + timedelta(days=1), datetime.min.time(), tzinfo=UTC)
+        )
+    return query
+
+
+def geo_observation_query(
+    filters: GeoObservationFilters, *, actor_id: uuid.UUID
+) -> Select[tuple[GeoObservation]]:
+    """构造列表与指标唯一共用的观测筛选查询。"""
+    query = select(GeoObservation)
+    if not filters.include_history:
+        query = query.where(_current_observation_clause())
+    query = _apply_observation_date_range(
+        query,
+        date_from=filters.date_from,
+        date_to=filters.date_to,
+    )
+    if filters.observation_kind is not None:
+        query = query.where(GeoObservation.observation_kind == filters.observation_kind)
+    if filters.product_id is not None:
+        query = query.where(GeoObservation.product_id == filters.product_id)
+    if filters.search is not None:
+        pattern = _contains_pattern(filters.search)
+        query = query.where(
+            or_(
+                GeoObservation.actual_prompt.ilike(pattern, escape="\\"),
+                GeoObservation.search_query.ilike(pattern, escape="\\"),
+            )
+        )
+    if filters.query_topic_id is not None:
+        query = query.where(GeoObservation.query_topic_id == filters.query_topic_id)
+    if filters.model_name is not None:
+        query = query.where(
+            GeoObservation.observation_kind == "LEGACY_MODEL_RESULT",
+            GeoObservation.model_name == filters.model_name,
+        )
+    if filters.search_platform is not None:
+        query = query.where(
+            GeoObservation.observation_kind == "MANUAL_ARTICLE_SEARCH",
+            GeoObservation.search_platform == filters.search_platform,
+        )
+    if filters.publication_search is not None:
+        pattern = _contains_pattern(filters.publication_search)
+        query = query.where(
+            exists(
+                select(GeoObservationPublication.observation_id)
+                .join(
+                    PublicationWork,
+                    PublicationWork.id == GeoObservationPublication.published_article_id,
+                )
+                .join(
+                    ContentVersion,
+                    ContentVersion.id == PublicationWork.content_version_id,
+                )
+                .where(
+                    GeoObservationPublication.observation_id == GeoObservation.id,
+                    or_(
+                        ContentVersion.title.ilike(pattern, escape="\\"),
+                        PublicationWork.actual_title.ilike(pattern, escape="\\"),
+                        PublicationWork.final_url.ilike(pattern, escape="\\"),
+                    ),
+                )
+            )
+        )
+    if filters.discovered is not None:
+        query = query.where(
+            GeoObservation.observation_kind == "MANUAL_ARTICLE_SEARCH",
+            exists(
+                select(GeoObservationPublication.observation_id).where(
+                    GeoObservationPublication.observation_id == GeoObservation.id,
+                    GeoObservationPublication.discovered.is_(filters.discovered),
+                )
+            ),
+        )
+    if filters.mentioned is not None:
+        manual_mentioned = exists(
+            select(GeoObservationPublication.observation_id).where(
+                GeoObservationPublication.observation_id == GeoObservation.id,
+                GeoObservationPublication.mentioned.is_(filters.mentioned),
+            )
+        )
+        query = query.where(
+            or_(
+                (
+                    (GeoObservation.observation_kind == "LEGACY_MODEL_RESULT")
+                    & GeoObservation.mentioned.is_(filters.mentioned)
+                ),
+                (
+                    (GeoObservation.observation_kind == "MANUAL_ARTICLE_SEARCH")
+                    & manual_mentioned
+                ),
+            )
+        )
+    if filters.recommendation is not None:
+        query = query.where(
+            GeoObservation.observation_kind == "LEGACY_MODEL_RESULT",
+            GeoObservation.recommendation == filters.recommendation,
+        )
+    if filters.has_citation is not None:
+        citation_exists = exists(
+            select(GeoObservationCitation.id).where(
+                GeoObservationCitation.observation_id == GeoObservation.id
+            )
+        )
+        query = query.where(
+            GeoObservation.observation_kind == "LEGACY_MODEL_RESULT",
+            citation_exists if filters.has_citation else ~citation_exists,
+        )
+    if filters.accuracy is not None:
+        manual_accuracy = exists(
+            select(GeoObservationPublication.observation_id).where(
+                GeoObservationPublication.observation_id == GeoObservation.id,
+                GeoObservationPublication.accuracy == filters.accuracy,
+            )
+        )
+        query = query.where(
+            or_(
+                (
+                    (GeoObservation.observation_kind == "LEGACY_MODEL_RESULT")
+                    & (GeoObservation.accuracy == filters.accuracy)
+                ),
+                (
+                    (GeoObservation.observation_kind == "MANUAL_ARTICLE_SEARCH")
+                    & manual_accuracy
+                ),
+            )
+        )
+    if filters.recorder_search is not None:
+        pattern = _contains_pattern(filters.recorder_search)
+        query = query.where(
+            exists(
+                select(User.id).where(
+                    User.id == GeoObservation.tested_by,
+                    or_(
+                        User.username.ilike(pattern, escape="\\"),
+                        User.display_name.ilike(pattern, escape="\\"),
+                    ),
+                )
+            )
+        )
+    if filters.only_mine:
+        query = query.where(GeoObservation.tested_by == actor_id)
+    return query
+
+
+def geo_observation_list_query(
+    filters: GeoObservationListFilters,
+) -> Select[tuple[GeoObservation]]:
+    """构造 V2 列表的唯一服务端搜索、筛选与链尾查询。"""
+    query = select(GeoObservation).where(_current_observation_clause())
+    query = _apply_observation_date_range(
+        query,
+        date_from=filters.date_from,
+        date_to=filters.date_to,
+    )
+    if filters.product_id is not None:
+        query = query.where(GeoObservation.product_id == filters.product_id)
+    if filters.query_topic_id is not None:
+        query = query.where(GeoObservation.query_topic_id == filters.query_topic_id)
+    if filters.search is not None:
+        pattern = _contains_pattern(filters.search)
+        query = query.where(
+            or_(
+                GeoObservation.actual_prompt.ilike(pattern, escape="\\"),
+                GeoObservation.search_query.ilike(pattern, escape="\\"),
+                exists(
+                    select(QueryTopic.id).where(
+                        QueryTopic.id == GeoObservation.query_topic_id,
+                        QueryTopic.canonical_question.ilike(pattern, escape="\\"),
+                    )
+                ),
+                exists(
+                    select(Product.id).where(
+                        Product.id == GeoObservation.product_id,
+                        or_(
+                            Product.brand.ilike(pattern, escape="\\"),
+                            Product.part_number.ilike(pattern, escape="\\"),
+                        ),
+                    )
+                ),
+            )
+        )
+    if filters.geo_platform is not None:
+        normalized_platform = filters.geo_platform.lower()
+        query = query.where(
+            or_(
+                (
+                    (GeoObservation.observation_kind == "LEGACY_MODEL_RESULT")
+                    & (func.lower(GeoObservation.model_name) == normalized_platform)
+                ),
+                (
+                    (GeoObservation.observation_kind == "MANUAL_ARTICLE_SEARCH")
+                    & (func.lower(GeoObservation.search_platform) == normalized_platform)
+                ),
+            )
+        )
+    if filters.accuracy is not None:
+        manual_accuracy = exists(
+            select(GeoObservationPublication.observation_id).where(
+                GeoObservationPublication.observation_id == GeoObservation.id,
+                GeoObservationPublication.accuracy == filters.accuracy,
+            )
+        )
+        query = query.where(
+            or_(
+                (
+                    (GeoObservation.observation_kind == "LEGACY_MODEL_RESULT")
+                    & (GeoObservation.accuracy == filters.accuracy)
+                ),
+                (
+                    (GeoObservation.observation_kind == "MANUAL_ARTICLE_SEARCH")
+                    & manual_accuracy
+                ),
+            )
+        )
+    return query
+
+
+def _geo_observation_actions(
+    observation: GeoObservation,
+    *,
+    actor: User,
+    is_current: bool,
+) -> list[GeoObservationAction]:
+    """从当前链尾、观测类型与操作者投影唯一动作集合。"""
+    if not is_current or observation.observation_kind != "MANUAL_ARTICLE_SEARCH":
+        return []
+    actions: list[GeoObservationAction] = []
+    if actor.account_type in {"ADMIN", "ENGINEER"}:
+        actions.append("CORRECT")
+    if actor.account_type == "ADMIN":
+        actions.append("DELETE")
+    return actions
+
+
+def _geo_observation_attachment_ids(
+    db: Session,
+    observations: list[GeoObservation],
+) -> dict[uuid.UUID, list[uuid.UUID]]:
+    """批量返回各观测可见证据，人工纠正链继承祖先截图。"""
+    attachments: dict[uuid.UUID, list[uuid.UUID]] = defaultdict(list)
+    manual_ids = [
+        item.id for item in observations if item.observation_kind == "MANUAL_ARTICLE_SEARCH"
+    ]
+    if manual_ids:
+        ancestor_chain = (
+            select(
+                GeoObservation.id.label("requested_id"),
+                GeoObservation.id.label("node_id"),
+                literal(0).label("depth"),
+            )
+            .where(GeoObservation.id.in_(manual_ids))
+            .cte("geo_observation_ancestor_chain", recursive=True)
+        )
+        chain_node = aliased(GeoObservation)
+        ancestor_chain = ancestor_chain.union_all(
+            select(
+                ancestor_chain.c.requested_id,
+                chain_node.supersedes_id,
+                ancestor_chain.c.depth + 1,
+            )
+            .join(chain_node, chain_node.id == ancestor_chain.c.node_id)
+            .where(chain_node.supersedes_id.is_not(None))
+        )
+        for requested_id, file_id in db.execute(
+            select(ancestor_chain.c.requested_id, GeoObservationAttachment.file_id)
+            .join(
+                GeoObservationAttachment,
+                GeoObservationAttachment.observation_id == ancestor_chain.c.node_id,
+            )
+            .order_by(
+                ancestor_chain.c.requested_id,
+                ancestor_chain.c.depth.desc(),
+                GeoObservationAttachment.file_id,
+            )
+        ).all():
+            if file_id not in attachments[requested_id]:
+                attachments[requested_id].append(file_id)
+    legacy_ids = [
+        item.id for item in observations if item.observation_kind == "LEGACY_MODEL_RESULT"
+    ]
+    if legacy_ids:
+        for observation_id, file_id in db.execute(
+            select(GeoObservationAttachment.observation_id, GeoObservationAttachment.file_id)
+            .where(GeoObservationAttachment.observation_id.in_(legacy_ids))
+            .order_by(GeoObservationAttachment.observation_id, GeoObservationAttachment.file_id)
+        ).all():
+            attachments[observation_id].append(file_id)
+    return attachments
+
+
+def geo_observations_out(
+    db: Session, observations: list[GeoObservation], *, actor: User
+) -> list[GeoObservationOut]:
+    """批量投影视图上下文，列表循环不再调用详情查询。"""
+    if not observations:
+        return []
+    observation_ids = [item.id for item in observations]
+    product_ids = {item.product_id for item in observations}
+    recorder_ids = {item.tested_by for item in observations}
+
+    products = {
+        product.id: product
+        for product in db.scalars(select(Product).where(Product.id.in_(product_ids)))
+    }
+    recorders = {
+        user.id: user for user in db.scalars(select(User).where(User.id.in_(recorder_ids)))
+    }
+    superseded_ids = set(
+        db.scalars(
+            select(GeoObservation.supersedes_id).where(
+                GeoObservation.supersedes_id.in_(observation_ids)
+            )
+        )
+    )
+
+    attachments = _geo_observation_attachment_ids(db, observations)
+
+    relations: dict[
+        uuid.UUID,
+        list[tuple[GeoObservationPublication, PublicationWork, str, str]],
+    ] = defaultdict(list)
+    for relation, publication, content_title, platform_name in db.execute(
+        select(
+            GeoObservationPublication,
+            PublicationWork,
+            ContentVersion.title,
+            PublicationWork.platform_profile_name_snapshot,
+        )
+        .join(
+            PublicationWork,
+            PublicationWork.id == GeoObservationPublication.published_article_id,
+        )
+        .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
+        .where(GeoObservationPublication.observation_id.in_(observation_ids))
+        .order_by(GeoObservationPublication.observation_id, PublicationWork.id)
+    ).all():
+        relations[relation.observation_id].append(
+            (relation, publication, content_title, platform_name)
+        )
+
+    citations: dict[uuid.UUID, list[GeoObservationCitation]] = defaultdict(list)
+    for citation in db.scalars(
+        select(GeoObservationCitation)
+        .where(GeoObservationCitation.observation_id.in_(observation_ids))
+        .order_by(GeoObservationCitation.observation_id, GeoObservationCitation.id)
+    ):
+        citations[citation.observation_id].append(citation)
+
+    outputs: list[GeoObservationOut] = []
+    for observation in observations:
+        product = products.get(observation.product_id)
+        recorder = recorders.get(observation.tested_by)
+        if product is None or recorder is None:
+            raise AppError(
+                "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+                "GEO 观测关联的产品或记录人不存在",
+                409,
+            )
+        is_current = observation.id not in superseded_ids
+        available_actions = _geo_observation_actions(
+            observation,
+            actor=actor,
+            is_current=is_current,
+        )
+        common = {
+            "observation_kind": observation.observation_kind,
+            "id": observation.id,
+            "product_id": observation.product_id,
+            "product_label": f"{product.brand} {product.part_number}",
+            "tested_at": observation.tested_at,
+            "attachment_file_ids": attachments[observation.id],
+            "notes": observation.notes,
+            "supersedes_id": observation.supersedes_id,
+            "tested_by": observation.tested_by,
+            "recorder": ActorSummary(
+                id=recorder.id,
+                username=recorder.username,
+                display_name=recorder.display_name,
+            ),
+            "is_current": is_current,
+            "available_actions": available_actions,
+            "created_at": observation.created_at,
+        }
+        if observation.observation_kind == "MANUAL_ARTICLE_SEARCH":
+            article_results: list[GeoArticleResultOut] = []
+            for relation, publication, content_title, platform_name in relations[observation.id]:
+                if publication.final_url is None:
+                    raise AppError(
+                        "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+                        "人工 GEO 观测关联的发布地址不存在",
+                        409,
+                    )
+                article_results.append(
+                    GeoArticleResultOut.model_validate(
+                        {
+                            "published_article_id": publication.id,
+                            "discovered": relation.discovered,
+                            "mentioned": relation.mentioned,
+                            "accuracy": relation.accuracy,
+                            "title": publication.actual_title or content_title,
+                            "platform_name": platform_name,
+                            "final_url": publication.final_url,
+                        }
+                    )
+                )
+            outputs.append(
+                ManualGeoObservationOut.model_validate(
+                    {
+                        **common,
+                        "workflow_stage": (
+                            "SUPERSEDED"
+                            if not is_current
+                            else (
+                                "READY"
+                                if observation.query_topic_id is not None
+                                and all(
+                                    item.discovered is not None and item.mentioned is not None
+                                    for item in article_results
+                                )
+                                else "INCOMPLETE"
+                            )
+                        ),
+                        "primary_task": (
+                            "VIEW_CORRECTION_HISTORY"
+                            if not is_current
+                            else (
+                                "VIEW_ANALYSIS"
+                                if observation.query_topic_id is not None
+                                and all(
+                                    item.discovered is not None and item.mentioned is not None
+                                    for item in article_results
+                                )
+                                else (
+                                    "CORRECT_OBSERVATION"
+                                    if "CORRECT" in available_actions
+                                    else "VIEW_CORRECTION_HISTORY"
+                                )
+                            )
+                        ),
+                        "query_topic_id": observation.query_topic_id,
+                        "search_platform": observation.search_platform,
+                        "search_query": observation.search_query,
+                        "article_results": article_results,
+                    }
+                )
+            )
+            continue
+
+        outputs.append(
+            LegacyGeoObservationOut.model_validate(
+                {
+                    **common,
+                    "workflow_stage": "LEGACY",
+                    "primary_task": "VIEW_HISTORICAL_RECORD",
+                    "query_topic_id": observation.query_topic_id,
+                    "actual_prompt": observation.actual_prompt,
+                    "model_name": observation.model_name,
+                    "model_version": observation.model_version,
+                    "web_search_enabled": observation.web_search_enabled,
+                    "answer_summary": observation.answer_summary,
+                    "mentioned": observation.mentioned,
+                    "recommendation": observation.recommendation,
+                    "accuracy": observation.accuracy,
+                    "citations": [
+                        GeoCitation(
+                            url=citation.url,
+                            source_type=citation.source_type,
+                            published_article_id=citation.published_article_id,
+                        )
+                        for citation in citations[observation.id]
+                    ],
+                    "published_article_ids": [
+                        publication.id for _, publication, _, _ in relations[observation.id]
+                    ],
+                }
+            )
+        )
+    return outputs
+
+
+def _boolean_list_indicator(values: list[bool | None]) -> GeoObservationListIndicator:
+    """把可空布尔事实压缩为正向、已评估与总数。"""
+    return GeoObservationListIndicator(
+        positive_count=sum(value is True for value in values),
+        assessed_count=sum(value is not None for value in values),
+        total_count=len(values),
+    )
+
+
+def _accuracy_list_indicator(values: list[str | None]) -> GeoObservationListIndicator:
+    """准确率的已评估分母排除未判断与 UNJUDGEABLE。"""
+    return GeoObservationListIndicator(
+        positive_count=sum(value == "ACCURATE" for value in values),
+        assessed_count=sum(value is not None and value != "UNJUDGEABLE" for value in values),
+        total_count=len(values),
+    )
+
+
+def geo_observation_list_items_out(
+    db: Session,
+    observations: list[GeoObservation],
+    *,
+    actor: User,
+) -> list[GeoObservationListItem]:
+    """批量投影 V2 列表需要的紧凑事实，不读取详情正文或文章元数据。"""
+    if not observations:
+        return []
+    observation_ids = [observation.id for observation in observations]
+    product_ids = {observation.product_id for observation in observations}
+    recorder_ids = {observation.tested_by for observation in observations}
+    topic_ids = {
+        observation.query_topic_id
+        for observation in observations
+        if observation.query_topic_id is not None
+    }
+    products = {
+        product.id: product
+        for product in db.scalars(select(Product).where(Product.id.in_(product_ids)))
+    }
+    recorders = {
+        recorder.id: recorder
+        for recorder in db.scalars(select(User).where(User.id.in_(recorder_ids)))
+    }
+    topics = {
+        topic.id: topic
+        for topic in db.scalars(select(QueryTopic).where(QueryTopic.id.in_(topic_ids)))
+    }
+    relations: dict[uuid.UUID, list[GeoObservationPublication]] = defaultdict(list)
+    for relation in db.scalars(
+        select(GeoObservationPublication)
+        .where(GeoObservationPublication.observation_id.in_(observation_ids))
+        .order_by(
+            GeoObservationPublication.observation_id,
+            GeoObservationPublication.published_article_id,
+        )
+    ):
+        relations[relation.observation_id].append(relation)
+    attachments = _geo_observation_attachment_ids(db, observations)
+
+    items: list[GeoObservationListItem] = []
+    for observation in observations:
+        product = products.get(observation.product_id)
+        recorder = recorders.get(observation.tested_by)
+        topic = (
+            topics.get(observation.query_topic_id)
+            if observation.query_topic_id is not None
+            else None
+        )
+        query_text = (
+            topic.canonical_question
+            if topic is not None
+            else observation.search_query or observation.actual_prompt
+        )
+        geo_platform = (
+            observation.search_platform
+            if observation.observation_kind == "MANUAL_ARTICLE_SEARCH"
+            else observation.model_name
+        )
+        if product is None or recorder is None or not query_text or not query_text.strip():
+            raise AppError(
+                "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+                "GEO 观测关联的产品、问题或记录人不存在",
+                409,
+            )
+        if not geo_platform or not geo_platform.strip():
+            raise AppError(
+                "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+                "GEO 观测缺少平台信息",
+                409,
+            )
+        observation_relations = relations[observation.id]
+        if observation.observation_kind == "MANUAL_ARTICLE_SEARCH":
+            if not observation_relations:
+                raise AppError(
+                    "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+                    "人工 GEO 观测缺少关联成果事实",
+                    409,
+                )
+            if any(
+                relation.discovered is None or relation.mentioned is None
+                for relation in observation_relations
+            ):
+                raise AppError(
+                    "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+                    "人工 GEO 观测缺少发现或提及事实",
+                    409,
+                )
+            outcomes = GeoObservationListOutcomes(
+                discovered=_boolean_list_indicator(
+                    [relation.discovered for relation in observation_relations]
+                ),
+                mentioned=_boolean_list_indicator(
+                    [relation.mentioned for relation in observation_relations]
+                ),
+                accuracy=_accuracy_list_indicator(
+                    [relation.accuracy for relation in observation_relations]
+                ),
+            )
+        else:
+            if observation.mentioned is None or observation.accuracy is None:
+                raise AppError(
+                    "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+                    "旧 GEO 观测缺少提及或准确性事实",
+                    409,
+                )
+            outcomes = GeoObservationListOutcomes(
+                discovered=None,
+                mentioned=_boolean_list_indicator([observation.mentioned]),
+                accuracy=_accuracy_list_indicator([observation.accuracy]),
+            )
+        items.append(
+            GeoObservationListItem(
+                id=observation.id,
+                observation_kind=observation.observation_kind,
+                query_text=query_text.strip(),
+                product=GeoObservationListProduct(
+                    id=product.id,
+                    label=f"{product.brand} {product.part_number}",
+                ),
+                geo_platform=geo_platform.strip(),
+                outcomes=outcomes,
+                related_achievement_count=len(observation_relations),
+                evidence_count=len(attachments[observation.id]),
+                recorder=ActorSummary(
+                    id=recorder.id,
+                    username=recorder.username,
+                    display_name=recorder.display_name,
+                ),
+                observed_at=observation.tested_at,
+                available_actions=_geo_observation_actions(
+                    observation,
+                    actor=actor,
+                    is_current=True,
+                ),
+            )
+        )
+    return items
+
+
+def list_geo_observation_items(
+    db: Session,
+    *,
+    filters: GeoObservationListFilters,
+    actor: User,
+    page: int,
+    page_size: GeoObservationPageSize,
+    sort: GeoObservationListSort,
+) -> GeoObservationListPage:
+    """返回 Frontend V2 唯一使用的链尾紧凑列表。"""
+    query = geo_observation_list_query(filters)
+    total = int(db.scalar(select(func.count()).select_from(query.subquery())) or 0)
+    tested_at_order = (
+        GeoObservation.tested_at.asc()
+        if sort == "OBSERVED_ASC"
+        else GeoObservation.tested_at.desc()
+    )
+    observations = list(
+        db.scalars(
+            query.order_by(tested_at_order, GeoObservation.id.asc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    )
+    return GeoObservationListPage(
+        items=geo_observation_list_items_out(db, observations, actor=actor),
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
+
+
+def list_geo_observations(
+    db: Session,
+    *,
+    filters: GeoObservationFilters,
+    actor: User,
+    page: int,
+    page_size: int,
+    sort_order: GeoObservationSortOrder,
+) -> GeoObservationList:
+    """按共享筛选分页返回 GEO 观测。"""
+    query = geo_observation_query(filters, actor_id=actor.id)
+    total = int(db.scalar(select(func.count()).select_from(query.subquery())) or 0)
+    tested_at_order = (
+        GeoObservation.tested_at.asc() if sort_order == "ASC" else GeoObservation.tested_at.desc()
+    )
+    observations = list(
+        db.scalars(
+            query.order_by(tested_at_order, GeoObservation.id.asc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    )
+    return GeoObservationList(
+        items=geo_observations_out(db, observations, actor=actor),
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
+
+
+def get_geo_observation(
+    db: Session, observation_id: uuid.UUID, *, actor: User
+) -> GeoObservationOut:
+    """返回一条可深链读取的 GEO 观测详情。"""
+    observation = db.get(GeoObservation, observation_id)
+    if observation is None:
+        raise not_found("GEO 观测")
+    return geo_observations_out(db, [observation], actor=actor)[0]
+
+
+def _manual_observation_chain(
+    db: Session,
+    target: GeoObservation,
+) -> list[GeoObservation]:
+    """用固定次数查询校验并返回人工更正链的 root→tail 顺序。"""
+    ancestor_chain = (
+        select(GeoObservation.id, GeoObservation.supersedes_id)
+        .where(GeoObservation.id == target.id)
+        .cte("geo_detail_ancestor_chain", recursive=True)
+    )
+    parent = aliased(GeoObservation)
+    ancestor_chain = ancestor_chain.union(
+        select(parent.id, parent.supersedes_id).join(
+            ancestor_chain,
+            parent.id == ancestor_chain.c.supersedes_id,
+        )
+    )
+    ancestor_rows = db.execute(select(ancestor_chain)).all()
+    root_ids = [node_id for node_id, supersedes_id in ancestor_rows if supersedes_id is None]
+    if len(root_ids) != 1 or target.id not in {node_id for node_id, _ in ancestor_rows}:
+        raise AppError("GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链不完整", 409)
+
+    descendant_chain = (
+        select(GeoObservation.id)
+        .where(GeoObservation.id == root_ids[0])
+        .cte("geo_detail_descendant_chain", recursive=True)
+    )
+    child = aliased(GeoObservation)
+    descendant_chain = descendant_chain.union(
+        select(child.id).join(
+            descendant_chain,
+            child.supersedes_id == descendant_chain.c.id,
+        )
+    )
+    nodes = list(
+        db.scalars(
+            select(GeoObservation).join(
+                descendant_chain,
+                descendant_chain.c.id == GeoObservation.id,
+            )
+        )
+    )
+    nodes_by_id = {node.id: node for node in nodes}
+    if target.id not in nodes_by_id or len(nodes_by_id) != len(nodes):
+        raise AppError("GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链不完整", 409)
+
+    successors: dict[uuid.UUID, list[GeoObservation]] = defaultdict(list)
+    for node in nodes:
+        if (
+            node.observation_kind != "MANUAL_ARTICLE_SEARCH"
+            or node.product_id != target.product_id
+            or node.search_platform != target.search_platform
+            or node.search_query != target.search_query
+        ):
+            raise AppError("GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链不完整", 409)
+        if node.supersedes_id is not None:
+            successors[node.supersedes_id].append(node)
+
+    ordered = [nodes_by_id[root_ids[0]]]
+    ordered_ids = {ordered[0].id}
+    while next_nodes := successors.get(ordered[-1].id, []):
+        if len(next_nodes) != 1 or next_nodes[0].id in ordered_ids:
+            raise AppError("GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链存在分支", 409)
+        ordered.append(next_nodes[0])
+        ordered_ids.add(next_nodes[0].id)
+    if len(ordered) != len(nodes):
+        raise AppError("GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链不完整", 409)
+    return ordered
+
+
+def _geo_observation_detail_evidence(
+    db: Session,
+    observations: list[GeoObservation],
+) -> dict[uuid.UUID, list[GeoObservationDetailEvidence]]:
+    """一次读取各节点直接拥有的已验证证据，并统一签发短期地址。"""
+    evidence: dict[uuid.UUID, list[GeoObservationDetailEvidence]] = defaultdict(list)
+    expires_at = datetime.now(UTC) + timedelta(seconds=settings.download_url_ttl_seconds)
+    storage = get_evidence_storage()
+    for observation_id, file in db.execute(
+        select(GeoObservationAttachment.observation_id, FileRecord)
+        .join(FileRecord, FileRecord.id == GeoObservationAttachment.file_id)
+        .where(GeoObservationAttachment.observation_id.in_([item.id for item in observations]))
+        .order_by(GeoObservationAttachment.observation_id, FileRecord.id)
+    ).all():
+        if file.status != "VERIFIED":
+            raise AppError(
+                "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+                "GEO 观测关联的证据文件不可读取",
+                409,
+            )
+        evidence[observation_id].append(
+            GeoObservationDetailEvidence(
+                file=FileRecordOut.model_validate(file),
+                download=SignedUrl(
+                    url=storage.download_url(file.object_key, expires_at),
+                    expires_at=expires_at,
+                ),
+            )
+        )
+    return evidence
+
+
+def get_geo_observation_detail(
+    db: Session,
+    observation_id: uuid.UUID,
+    *,
+    actor: User,
+) -> GeoObservationDetail:
+    """聚合返回 V2 页面可一次绘制的只读 GEO 详情。"""
+    target = db.get(GeoObservation, observation_id)
+    if target is None:
+        raise not_found("GEO 观测")
+    observations = (
+        _manual_observation_chain(db, target)
+        if target.observation_kind == "MANUAL_ARTICLE_SEARCH"
+        else [target]
+    )
+    outputs = geo_observations_out(db, observations, actor=actor)
+    outputs_by_id = {item.id: item for item in outputs}
+    product = GeoObservationListProduct(
+        id=outputs[0].product_id,
+        label=outputs[0].product_label,
+    )
+
+    topic_ids = {item.query_topic_id for item in observations if item.query_topic_id is not None}
+    topics = {
+        topic.id: GeoObservationDetailQueryTopic(
+            id=topic.id,
+            canonical_question=topic.canonical_question,
+        )
+        for topic in db.scalars(select(QueryTopic).where(QueryTopic.id.in_(topic_ids)))
+    }
+    if len(topics) != len(topic_ids):
+        raise AppError(
+            "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+            "GEO 观测关联的问题主题不存在",
+            409,
+        )
+    evidence = _geo_observation_detail_evidence(db, observations)
+
+    if target.observation_kind == "MANUAL_ARTICLE_SEARCH":
+        history: list[GeoObservationCorrectionHistoryItem] = []
+        for index, node in enumerate(observations):
+            output = outputs_by_id[node.id]
+            if not isinstance(output, ManualGeoObservationOut):
+                raise AppError(
+                    "GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链类型不一致", 409
+                )
+            if not output.article_results:
+                raise AppError(
+                    "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+                    "人工 GEO 观测缺少关联成果事实",
+                    409,
+                )
+            history.append(
+                GeoObservationCorrectionHistoryItem(
+                    observation=output,
+                    query_topic=(
+                        topics[node.query_topic_id] if node.query_topic_id is not None else None
+                    ),
+                    evidence=evidence[node.id],
+                    is_original=index == 0,
+                    is_selected=node.id == observation_id,
+                    is_chain_tail=index == len(observations) - 1,
+                )
+            )
+        return ManualGeoObservationDetail(
+            observation_kind="MANUAL_ARTICLE_SEARCH",
+            selected_observation_id=observation_id,
+            chain_root_id=observations[0].id,
+            chain_tail_id=observations[-1].id,
+            product=product,
+            correction_history=history,
+        )
+
+    output = outputs_by_id[target.id]
+    if not isinstance(output, LegacyGeoObservationOut) or target.query_topic_id is None:
+        raise AppError(
+            "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+            "旧模型 GEO 观测上下文不完整",
+            409,
+        )
+    publication_ids = output.published_article_ids
+    publications = [
+        GeoObservationDetailPublication(
+            id=publication.id,
+            title=publication.actual_title or content_title,
+            platform_name=publication.platform_profile_name_snapshot,
+            final_url=publication.final_url,
+        )
+        for publication, content_title in db.execute(
+            select(PublicationWork, ContentVersion.title)
+            .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
+            .where(PublicationWork.id.in_(publication_ids))
+            .order_by(PublicationWork.id)
+        ).all()
+        if publication.final_url is not None
+    ]
+    if len(publications) != len(publication_ids):
+        raise AppError(
+            "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+            "旧模型 GEO 观测关联的发布成果不存在",
+            409,
+        )
+    return LegacyGeoObservationDetail(
+        observation_kind="LEGACY_MODEL_RESULT",
+        observation=output,
+        query_topic=topics[target.query_topic_id],
+        product=product,
+        published_articles=publications,
+        evidence=evidence[target.id],
+    )
+
+
+def get_geo_observation_correction_context(
+    db: Session,
+    observation_id: uuid.UUID,
+    *,
+    actor: User,
+) -> GeoObservationCorrectionContext:
+    """返回服务端裁决的当前更正尾节点、历史与文章候选快照。"""
+    detail = get_geo_observation_detail(db, observation_id, actor=actor)
+    if not isinstance(detail, ManualGeoObservationDetail):
+        raise AppError("INVALID_STATE_TRANSITION", "旧模型 GEO 观测不能追加更正", 409)
+
+    tail = detail.correction_history[-1]
+    if "CORRECT" not in tail.observation.available_actions:
+        raise AppError("PERMISSION_DENIED", "当前账号没有执行此操作的权限", 403)
+
+    tail_results = {
+        result.published_article_id: result for result in tail.observation.article_results
+    }
+    correction_article_results = [
+        GeoArticleResultOut(
+            published_article_id=candidate.published_article_id,
+            discovered=(
+                tail_results[candidate.published_article_id].discovered
+                if candidate.published_article_id in tail_results
+                else None
+            ),
+            mentioned=(
+                tail_results[candidate.published_article_id].mentioned
+                if candidate.published_article_id in tail_results
+                else None
+            ),
+            accuracy=(
+                tail_results[candidate.published_article_id].accuracy
+                if candidate.published_article_id in tail_results
+                else None
+            ),
+            title=candidate.title,
+            platform_name=candidate.platform_name,
+            final_url=candidate.final_url,
+        )
+        for candidate in geo_publication_candidates(db, detail.product.id)
+    ]
+    query_topic_options = (
+        [
+            GeoObservationDetailQueryTopic(
+                id=topic.id,
+                canonical_question=topic.canonical_question,
+            )
+            for topic in db.scalars(
+                select(QueryTopic).order_by(QueryTopic.canonical_question, QueryTopic.id)
+            )
+        ]
+        if tail.query_topic is None
+        else []
+    )
+    return GeoObservationCorrectionContext(
+        detail=detail,
+        correction_article_results=correction_article_results,
+        query_topic_options=query_topic_options,
+    )
+
+
+def get_geo_metrics(db: Session, *, filters: GeoObservationFilters, actor: User) -> GeoMetrics:
+    """使用数据库条件聚合计算旧模型与人工逐篇两类明确指标。"""
+    filtered = geo_observation_query(filters, actor_id=actor.id).subquery()
+    cited = exists(
+        select(GeoObservationCitation.id).where(
+            GeoObservationCitation.observation_id == filtered.c.id
+        )
+    )
+    (
+        legacy_count,
+        mentioned_count,
+        recommended_legacy_count,
+        cited_count,
+        accurate_count,
+        judgeable_count,
+        manual_count,
+    ) = db.execute(
+        select(
+            func.count().filter(filtered.c.observation_kind == "LEGACY_MODEL_RESULT"),
+            func.count().filter(
+                filtered.c.observation_kind == "LEGACY_MODEL_RESULT",
+                filtered.c.mentioned.is_(True),
+            ),
+            func.count().filter(
+                filtered.c.observation_kind == "LEGACY_MODEL_RESULT",
+                filtered.c.recommendation == "RECOMMENDED",
+            ),
+            func.count().filter(filtered.c.observation_kind == "LEGACY_MODEL_RESULT", cited),
+            func.count().filter(
+                filtered.c.observation_kind == "LEGACY_MODEL_RESULT",
+                filtered.c.accuracy == "ACCURATE",
+            ),
+            func.count().filter(
+                filtered.c.observation_kind == "LEGACY_MODEL_RESULT",
+                filtered.c.accuracy.is_not(None),
+                filtered.c.accuracy != "UNJUDGEABLE",
+            ),
+            func.count().filter(filtered.c.observation_kind == "MANUAL_ARTICLE_SEARCH"),
+        ).select_from(filtered)
+    ).one()
+    (
+        article_count,
+        discovered_count,
+        mentioned_article_count,
+        accurate_article_count,
+        judgeable_article_count,
+    ) = db.execute(
+        select(
+            func.count(),
+            func.count().filter(GeoObservationPublication.discovered.is_(True)),
+            func.count().filter(GeoObservationPublication.mentioned.is_(True)),
+            func.count().filter(GeoObservationPublication.accuracy == "ACCURATE"),
+            func.count().filter(
+                GeoObservationPublication.accuracy.is_not(None),
+                GeoObservationPublication.accuracy != "UNJUDGEABLE",
+            ),
+        )
+        .select_from(GeoObservationPublication)
+        .join(filtered, filtered.c.id == GeoObservationPublication.observation_id)
+        .where(filtered.c.observation_kind == "MANUAL_ARTICLE_SEARCH")
+    ).one()
+    return GeoMetrics(
+        legacy_sample_count=legacy_count,
+        legacy_mention_rate=mentioned_count / legacy_count if legacy_count else None,
+        legacy_recommendation_rate=(
+            recommended_legacy_count / legacy_count if legacy_count else None
+        ),
+        legacy_citation_rate=cited_count / legacy_count if legacy_count else None,
+        legacy_accuracy_rate=accurate_count / judgeable_count if judgeable_count else None,
+        manual_observation_count=manual_count,
+        article_result_count=article_count,
+        discovered_article_count=discovered_count,
+        mentioned_article_count=mentioned_article_count,
+        article_discovery_rate=(discovered_count / article_count if article_count else None),
+        article_mention_rate=(
+            mentioned_article_count / article_count if article_count else None
+        ),
+        article_accuracy_rate=(
+            accurate_article_count / judgeable_article_count
+            if judgeable_article_count
+            else None
+        ),
+    )
+
+
+def _geo_insight_period(
+    filters: GeoInsightFilters,
+) -> tuple[date, date, date, date]:
+    """归一化当前周期，并计算紧邻的等长比较周期。"""
+    current_to = filters.date_to or datetime.now(UTC).date()
+    current_from = filters.date_from or current_to - timedelta(days=29)
+    if current_from > current_to:
+        raise AppError("VALIDATION_ERROR", "开始日期不能晚于结束日期", 422)
+    period_days = (current_to - current_from).days + 1
+    previous_to = current_from - timedelta(days=1)
+    previous_from = previous_to - timedelta(days=period_days - 1)
+    return current_from, current_to, previous_from, previous_to
+
+
+def _geo_insight_filter_options(db: Session) -> geo_schema.GeoInsightFilterOptions:
+    """从配置和真实发布成果投影稳定筛选选项。"""
+    publication_scope = (
+        select(
+            PublicationWork.id,
+            PublicationWork.actual_title,
+            ContentVersion.title,
+            PublicationWork.platform_profile_id_snapshot,
+            PublicationWork.platform_profile_name_snapshot,
+        )
+        .join(PublishedArticle, PublishedArticle.id == PublicationWork.id)
+        .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
+        .where(
+            PublicationWork.published_at.is_not(None),
+            PublicationWork.final_url.is_not(None),
+        )
+        .order_by(PublicationWork.platform_profile_name_snapshot, PublicationWork.id)
+    )
+    publication_rows = db.execute(publication_scope).all()
+    if any(platform_id is None for _, _, _, platform_id, _ in publication_rows):
+        raise AppError(
+            "GEO_INSIGHT_CONTEXT_INCOMPLETE",
+            "已发布成果缺少冻结的平台身份",
+            409,
+        )
+    platforms: dict[uuid.UUID, str] = {}
+    for _, _, _, platform_id, platform_name in publication_rows:
+        if platform_id is not None:
+            platforms.setdefault(platform_id, platform_name)
+    superseding = aliased(GeoObservation)
+    geo_platforms = [
+        platform
+        for platform in db.scalars(
+            select(GeoObservation.search_platform)
+            .where(
+                GeoObservation.observation_kind == "MANUAL_ARTICLE_SEARCH",
+                GeoObservation.search_platform.is_not(None),
+                ~exists(
+                    select(superseding.id).where(superseding.supersedes_id == GeoObservation.id)
+                ),
+            )
+            .distinct()
+            .order_by(GeoObservation.search_platform)
+        )
+        if platform is not None
+    ]
+    topics = list(
+        db.scalars(select(QueryTopic).order_by(QueryTopic.canonical_question, QueryTopic.id))
+    )
+    return geo_schema.GeoInsightFilterOptions(
+        products=[
+            geo_schema.GeoInsightOption(
+                id=product.id,
+                label=f"{product.brand} {product.part_number}",
+            )
+            for product in db.scalars(select(Product).order_by(Product.brand, Product.part_number))
+        ],
+        content_platforms=[
+            geo_schema.GeoInsightOption(id=platform_id, label=platforms[platform_id])
+            for platform_id in sorted(platforms, key=lambda item: (platforms[item], str(item)))
+        ],
+        geo_platforms=geo_platforms,
+        publications=[
+            geo_schema.GeoInsightPublicationOption(
+                id=publication_id,
+                label=actual_title or content_title,
+                platform_name=platform_name,
+            )
+            for publication_id, actual_title, content_title, _, platform_name in publication_rows
+        ],
+        query_topics=[
+            geo_schema.GeoInsightOption(id=topic.id, label=topic.canonical_question)
+            for topic in topics
+        ],
+    )
+
+
+def _validate_geo_insight_filters(
+    filters: GeoInsightFilters, options: geo_schema.GeoInsightFilterOptions
+) -> None:
+    """拒绝不属于权威选项集合的 ID 或精确字符串。"""
+    checks = (
+        (filters.product_id, {item.id for item in options.products}, "产品"),
+        (
+            filters.content_platform_id,
+            {item.id for item in options.content_platforms},
+            "内容平台",
+        ),
+        (
+            filters.published_article_id,
+            {item.id for item in options.publications},
+            "发布内容",
+        ),
+        (filters.query_topic_id, {item.id for item in options.query_topics}, "问题主题"),
+        (filters.geo_platform, set(options.geo_platforms), "GEO 平台"),
+    )
+    for value, allowed, label in checks:
+        if value is not None and value not in allowed:
+            raise not_found(label)
+
+
+def _geo_insight_rows(
+    db: Session,
+    filters: GeoInsightFilters,
+    *,
+    date_from: date | None,
+    date_to: date,
+) -> list[_GeoInsightRow]:
+    """一次联接读取筛选范围内的链尾人工观测关系。"""
+    superseding = aliased(GeoObservation)
+    query = (
+        select(
+            GeoObservation.id,
+            GeoObservation.tested_at,
+            GeoObservation.query_topic_id,
+            GeoObservation.product_id,
+            GeoObservation.search_platform,
+            GeoObservationPublication.published_article_id,
+            PublicationWork.actual_title,
+            ContentVersion.title,
+            PublicationWork.published_at,
+            PublicationWork.platform_profile_id_snapshot,
+            PublicationWork.platform_profile_name_snapshot,
+            GeoObservationPublication.discovered,
+            GeoObservationPublication.mentioned,
+            GeoObservationPublication.accuracy,
+        )
+        .join(
+            GeoObservationPublication,
+            GeoObservationPublication.observation_id == GeoObservation.id,
+        )
+        .join(
+            PublicationWork,
+            PublicationWork.id == GeoObservationPublication.published_article_id,
+        )
+        .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
+        .where(
+            GeoObservation.observation_kind == "MANUAL_ARTICLE_SEARCH",
+            GeoObservation.tested_at
+            < datetime.combine(date_to + timedelta(days=1), datetime.min.time(), tzinfo=UTC),
+            ~exists(select(superseding.id).where(superseding.supersedes_id == GeoObservation.id)),
+        )
+        .order_by(GeoObservation.tested_at, GeoObservation.id, PublicationWork.id)
+    )
+    if date_from is not None:
+        query = query.where(
+            GeoObservation.tested_at >= datetime.combine(date_from, datetime.min.time(), tzinfo=UTC)
+        )
+    if filters.geo_platform is not None:
+        query = query.where(GeoObservation.search_platform == filters.geo_platform)
+    if filters.product_id is not None:
+        query = query.where(GeoObservation.product_id == filters.product_id)
+    if filters.query_topic_id is not None:
+        query = query.where(GeoObservation.query_topic_id == filters.query_topic_id)
+    result_rows = db.execute(query).all()
+    if any(row[9] is None for row in result_rows):
+        raise AppError(
+            "GEO_INSIGHT_CONTEXT_INCOMPLETE",
+            "GEO 洞察关联的发布成果缺少冻结平台身份",
+            409,
+        )
+    return [
+        _GeoInsightRow(
+            observation_id=observation_id,
+            tested_at=tested_at,
+            query_topic_id=query_topic_id,
+            product_id=product_id,
+            geo_platform=geo_platform,
+            published_article_id=published_article_id,
+            title=actual_title or content_title,
+            published_at=published_at,
+            content_platform_id=content_platform_id,
+            content_platform=content_platform,
+            discovered=discovered,
+            mentioned=mentioned,
+            accuracy=accuracy,
+        )
+        for (
+            observation_id,
+            tested_at,
+            query_topic_id,
+            product_id,
+            geo_platform,
+            published_article_id,
+            actual_title,
+            content_title,
+            published_at,
+            content_platform_id,
+            content_platform,
+            discovered,
+            mentioned,
+            accuracy,
+        ) in result_rows
+        if content_platform_id is not None
+    ]
+
+
+def _complete_geo_insight_rows(
+    rows: Iterable[_GeoInsightRow],
+) -> tuple[list[_GeoInsightRow], int, int]:
+    """按观测整体排除历史缺失，避免部分候选进入同一次分析。"""
+    grouped: dict[uuid.UUID, list[_GeoInsightRow]] = defaultdict(list)
+    for row in rows:
+        grouped[row.observation_id].append(row)
+
+    eligible: list[_GeoInsightRow] = []
+    excluded_observations = 0
+    excluded_relations = 0
+    for observation_rows in grouped.values():
+        complete = all(
+            row.query_topic_id is not None
+            and row.discovered is not None
+            and row.mentioned is not None
+            for row in observation_rows
+        )
+        if complete:
+            eligible.extend(observation_rows)
+        else:
+            excluded_observations += 1
+            excluded_relations += len(observation_rows)
+    return eligible, excluded_observations, excluded_relations
+
+
+def _complete_geo_insight_scope(
+    rows: list[_GeoInsightRow],
+    filters: GeoInsightFilters,
+) -> tuple[list[_GeoInsightRow], int, int]:
+    """先校验整次观测，再应用内容维度筛选，避免隐藏同观测中的缺失关系。"""
+
+    def matches(row: _GeoInsightRow) -> bool:
+        return (
+            (
+                filters.content_platform_id is None
+                or row.content_platform_id == filters.content_platform_id
+            )
+            and (
+                filters.published_article_id is None
+                or row.published_article_id == filters.published_article_id
+            )
+        )
+
+    relevant_observation_ids = {row.observation_id for row in rows if matches(row)}
+    complete, excluded_observations, excluded_relations = _complete_geo_insight_rows(
+        row for row in rows if row.observation_id in relevant_observation_ids
+    )
+    return (
+        [row for row in complete if matches(row)],
+        excluded_observations,
+        excluded_relations,
+    )
+
+
+def _rate_value(
+    rows: Iterable[_GeoInsightRow],
+    predicate: Callable[[_GeoInsightRow], bool],
+    *,
+    eligible: Callable[[_GeoInsightRow], bool] = lambda _row: True,
+) -> geo_schema.GeoInsightRateValue:
+    items = [row for row in rows if eligible(row)]
+    numerator = sum(predicate(item) for item in items)
+    denominator = len(items)
+    return geo_schema.GeoInsightRateValue(
+        numerator=numerator,
+        denominator=denominator,
+        value=numerator / denominator if denominator else None,
+    )
+
+
+def _relative_change(current: float | int | None, previous: float | int | None) -> float | None:
+    if current is None or previous is None or previous == 0:
+        return None
+    return (current - previous) / previous
+
+
+def _utc_date(value: datetime) -> date:
+    """按 UTC 自然日归档带时区时间，避免数据库会话时区改变指标。"""
+    return value.astimezone(UTC).date()
+
+
+_RATE_PREDICATES: dict[str, Callable[[_GeoInsightRow], bool]] = {
+    "discovery_rate": lambda row: row.discovered is True,
+    "mention_rate": lambda row: row.mentioned is True,
+    "accuracy_rate": lambda row: row.accuracy == "ACCURATE",
+}
+_RATE_ELIGIBILITY: dict[str, Callable[[_GeoInsightRow], bool]] = {
+    "discovery_rate": lambda _row: True,
+    "mention_rate": lambda _row: True,
+    "accuracy_rate": lambda row: row.accuracy is not None and row.accuracy != "UNJUDGEABLE",
+}
+
+
+def _rate_trend(
+    current_rows: list[_GeoInsightRow],
+    previous_rows: list[_GeoInsightRow],
+    *,
+    current_from: date,
+    current_to: date,
+    predicate: Callable[[_GeoInsightRow], bool],
+    eligible: Callable[[_GeoInsightRow], bool],
+) -> geo_schema.GeoInsightRateTrend:
+    current = _rate_value(current_rows, predicate, eligible=eligible)
+    previous = _rate_value(previous_rows, predicate, eligible=eligible)
+    points: list[geo_schema.GeoInsightRatePoint] = []
+    point_date = current_from
+    while point_date <= current_to:
+        point = _rate_value(
+            (row for row in current_rows if _utc_date(row.tested_at) == point_date),
+            predicate,
+            eligible=eligible,
+        )
+        points.append(geo_schema.GeoInsightRatePoint(date=point_date, **point.model_dump()))
+        point_date += timedelta(days=1)
+    return geo_schema.GeoInsightRateTrend(
+        current=current,
+        previous=previous,
+        change=_relative_change(current.value, previous.value),
+        points=points,
+    )
+
+
+def _content_performance(
+    rows: list[_GeoInsightRow],
+) -> geo_schema.GeoInsightContentPerformance:
+    first = rows[0]
+    return geo_schema.GeoInsightContentPerformance(
+        published_article_id=first.published_article_id,
+        product_id=first.product_id,
+        content_platform_id=first.content_platform_id,
+        title=first.title,
+        content_platform=first.content_platform,
+        observation_count=len({row.observation_id for row in rows}),
+        discovery_rate=_rate_value(rows, _RATE_PREDICATES["discovery_rate"]),
+        mention_rate=_rate_value(rows, _RATE_PREDICATES["mention_rate"]),
+        accuracy_rate=_rate_value(
+            rows,
+            _RATE_PREDICATES["accuracy_rate"],
+            eligible=_RATE_ELIGIBILITY["accuracy_rate"],
+        ),
+        primary_task="VIEW_CONTENT_PERFORMANCE",
+        optimization_action=None,
+    )
+
+
+def _content_rankings(
+    current_rows: list[_GeoInsightRow],
+    previous_rows: list[_GeoInsightRow],
+    history_rows: list[_GeoInsightRow],
+    *,
+    current_from: date,
+    current_to: date,
+    can_optimize: bool,
+    unavailable: list[geo_schema.GeoInsightUnavailableSection],
+) -> geo_schema.GeoInsightContentRankings:
+    current_groups: dict[uuid.UUID, list[_GeoInsightRow]] = defaultdict(list)
+    previous_groups: dict[uuid.UUID, list[_GeoInsightRow]] = defaultdict(list)
+    for row in current_rows:
+        current_groups[row.published_article_id].append(row)
+    for row in previous_rows:
+        previous_groups[row.published_article_id].append(row)
+
+    best = [
+        _content_performance(rows)
+        for rows in current_groups.values()
+        if len({row.observation_id for row in rows}) >= 3
+    ]
+    best.sort(
+        key=lambda item: (
+            item.accuracy_rate.value is None,
+            -(item.accuracy_rate.value or 0),
+            -(item.mention_rate.value or 0),
+            -(item.discovery_rate.value or 0),
+            -item.observation_count,
+            str(item.published_article_id),
+        )
+    )
+
+    declining: list[geo_schema.GeoInsightDecliningContent] = []
+    decline_sort: dict[uuid.UUID, tuple[float, float, float, float]] = {}
+    for publication_id, rows in current_groups.items():
+        prior = previous_groups.get(publication_id, [])
+        if (
+            len({row.observation_id for row in rows}) < 3
+            or len({row.observation_id for row in prior}) < 3
+        ):
+            continue
+        current_performance = _content_performance(rows)
+        previous_performance = _content_performance(prior)
+        bases: list[geo_schema.GeoInsightDeclineBasis] = []
+        declines: dict[str, float] = {}
+        for metric in ("accuracy_rate", "mention_rate", "discovery_rate"):
+            current_value = getattr(current_performance, metric).value
+            previous_value = getattr(previous_performance, metric).value
+            if current_value is None or previous_value is None:
+                continue
+            decline = previous_value - current_value
+            declines[metric] = decline
+            if decline >= 0.1:
+                bases.append(
+                    geo_schema.GeoInsightDeclineBasis(
+                        metric=metric,
+                        current_value=current_value,
+                        previous_value=previous_value,
+                        decline=decline,
+                    )
+                )
+        if not bases:
+            continue
+        declining.append(
+            geo_schema.GeoInsightDecliningContent(
+                **current_performance.model_dump(
+                    exclude={"primary_task", "optimization_action"}
+                ),
+                primary_task=(
+                    "CREATE_OPTIMIZATION_TASK"
+                    if can_optimize
+                    else "VIEW_CONTENT_PERFORMANCE"
+                ),
+                optimization_action=(
+                    geo_schema.GeoInsightOptimizationAction(
+                        rule_code="CONTENT_DECLINE",
+                        date_from=current_from,
+                        date_to=current_to,
+                        published_article_id=publication_id,
+                        query_topic_id=None,
+                        geo_platform=None,
+                    )
+                    if can_optimize
+                    else None
+                ),
+                basis=bases,
+            )
+        )
+        decline_sort[publication_id] = (
+            max(declines.values()),
+            declines.get("accuracy_rate", -1),
+            declines.get("mention_rate", -1),
+            declines.get("discovery_rate", -1),
+        )
+    declining.sort(
+        key=lambda item: (
+            *(-value for value in decline_sort[item.published_article_id]),
+            -item.observation_count,
+            str(item.published_article_id),
+        )
+    )
+
+    long_unmentioned: list[geo_schema.GeoInsightLongUnmentionedContent] = []
+    if (current_to - current_from).days + 1 < 30:
+        unavailable.append(
+            geo_schema.GeoInsightUnavailableSection(
+                code="LONG_UNMENTIONED_PERIOD_TOO_SHORT",
+                message="筛选周期至少需要覆盖 30 个自然日才能计算长期未提及内容。",
+            )
+        )
+    else:
+        history_mentions: dict[uuid.UUID, datetime] = {}
+        for row in history_rows:
+            if _RATE_PREDICATES["mention_rate"](row):
+                history_mentions[row.published_article_id] = max(
+                    history_mentions.get(row.published_article_id, row.tested_at),
+                    row.tested_at,
+                )
+        for publication_id, rows in current_groups.items():
+            first = rows[0]
+            if (
+                len({row.observation_id for row in rows}) < 3
+                or any(_RATE_PREDICATES["mention_rate"](row) for row in rows)
+                or first.published_at is None
+                or (current_to - _utc_date(first.published_at)).days < 30
+            ):
+                continue
+            last_mentioned = history_mentions.get(publication_id)
+            since = last_mentioned or first.published_at
+            long_unmentioned.append(
+                geo_schema.GeoInsightLongUnmentionedContent(
+                    **_content_performance(rows).model_dump(
+                        exclude={"primary_task", "optimization_action"}
+                    ),
+                    primary_task=(
+                        "CREATE_OPTIMIZATION_TASK"
+                        if can_optimize
+                        else "VIEW_CONTENT_PERFORMANCE"
+                    ),
+                    optimization_action=(
+                        geo_schema.GeoInsightOptimizationAction(
+                            rule_code="LONG_UNMENTIONED",
+                            date_from=current_from,
+                            date_to=current_to,
+                            published_article_id=publication_id,
+                            query_topic_id=None,
+                            geo_platform=None,
+                        )
+                        if can_optimize
+                        else None
+                    ),
+                    unmentioned_days=(current_to - _utc_date(since)).days,
+                    last_mentioned_at=last_mentioned,
+                )
+            )
+        long_unmentioned.sort(
+            key=lambda item: (
+                -item.unmentioned_days,
+                -item.observation_count,
+                str(item.published_article_id),
+            )
+        )
+    return geo_schema.GeoInsightContentRankings(
+        best=best[:5], declining=declining[:5], long_unmentioned=long_unmentioned[:5]
+    )
+
+
+def _question_coverage(
+    current_rows: list[_GeoInsightRow],
+    *,
+    options: geo_schema.GeoInsightFilterOptions,
+    filters: GeoInsightFilters,
+    current_from: date,
+    current_to: date,
+    can_optimize: bool,
+) -> geo_schema.GeoInsightQuestionCoverage:
+    topics = [
+        item
+        for item in options.query_topics
+        if filters.query_topic_id is None or item.id == filters.query_topic_id
+    ]
+    platforms = (
+        [filters.geo_platform] if filters.geo_platform is not None else options.geo_platforms
+    )
+    observation_hits: dict[tuple[uuid.UUID, str, uuid.UUID], bool] = {}
+    for row in current_rows:
+        if row.query_topic_id is None:
+            continue
+        key = (row.query_topic_id, row.geo_platform, row.observation_id)
+        observation_hits[key] = observation_hits.get(key, False) or _RATE_PREDICATES[
+            "mention_rate"
+        ](row)
+    matrix: list[geo_schema.GeoInsightCoverageItem] = []
+    counts = {status: 0 for status in ("STABLE", "OCCASIONAL", "UNCOVERED", "INSUFFICIENT_DATA")}
+    for topic in topics:
+        for platform in platforms:
+            samples = [
+                hit
+                for (topic_id, geo_platform, _), hit in observation_hits.items()
+                if topic_id == topic.id and geo_platform == platform
+            ]
+            mentioned_count = sum(samples)
+            rate = geo_schema.GeoInsightRateValue(
+                numerator=mentioned_count,
+                denominator=len(samples),
+                value=mentioned_count / len(samples) if samples else None,
+            )
+            if len(samples) < 3:
+                status = "INSUFFICIENT_DATA"
+            elif rate.value is not None and rate.value >= 0.6:
+                status = "STABLE"
+            elif rate.value is not None and rate.value >= 0.3:
+                status = "OCCASIONAL"
+            else:
+                status = "UNCOVERED"
+            counts[status] += 1
+            optimizable = can_optimize and status in {"OCCASIONAL", "UNCOVERED"}
+            matrix.append(
+                geo_schema.GeoInsightCoverageItem(
+                    query_topic_id=topic.id,
+                    canonical_question=topic.label,
+                    geo_platform=platform,
+                    status=status,
+                    observation_count=len(samples),
+                    mentioned_observation_count=mentioned_count,
+                    coverage_rate=rate,
+                    primary_task=(
+                        "VIEW_OBSERVATION_DETAILS"
+                        if status == "STABLE"
+                        else (
+                            "ADD_OBSERVATION"
+                            if status == "INSUFFICIENT_DATA"
+                            else (
+                                "CREATE_OPTIMIZATION_TASK"
+                                if optimizable
+                                else "VIEW_OBSERVATION_DETAILS"
+                            )
+                        )
+                    ),
+                    optimization_action=(
+                        geo_schema.GeoInsightOptimizationAction(
+                            rule_code="QUESTION_COVERAGE_GAP",
+                            date_from=current_from,
+                            date_to=current_to,
+                            published_article_id=None,
+                            query_topic_id=topic.id,
+                            geo_platform=platform,
+                        )
+                        if optimizable
+                        else None
+                    ),
+                )
+            )
+    return geo_schema.GeoInsightQuestionCoverage(
+        by_status=geo_schema.GeoInsightCoverageCounts(
+            stable=counts["STABLE"],
+            occasional=counts["OCCASIONAL"],
+            uncovered=counts["UNCOVERED"],
+            insufficient_data=counts["INSUFFICIENT_DATA"],
+        ),
+        matrix=matrix,
+    )
+
+
+def _platform_performance(
+    rows: list[_GeoInsightRow],
+) -> list[geo_schema.GeoInsightPlatformPerformance]:
+    grouped: dict[str, list[_GeoInsightRow]] = defaultdict(list)
+    for row in rows:
+        grouped[row.geo_platform].append(row)
+    return [
+        geo_schema.GeoInsightPlatformPerformance(
+            geo_platform=platform,
+            observation_count=len({row.observation_id for row in platform_rows}),
+            discovery_rate=_rate_value(
+                platform_rows, _RATE_PREDICATES["discovery_rate"]
+            ),
+            mention_rate=_rate_value(platform_rows, _RATE_PREDICATES["mention_rate"]),
+            accuracy_rate=_rate_value(
+                platform_rows,
+                _RATE_PREDICATES["accuracy_rate"],
+                eligible=_RATE_ELIGIBILITY["accuracy_rate"],
+            ),
+            primary_task="VIEW_OBSERVATION_DETAILS",
+        )
+        for platform, platform_rows in sorted(grouped.items())
+    ]
+
+
+def _recommendations(
+    current_rows: list[_GeoInsightRow],
+    previous_rows: list[_GeoInsightRow],
+    rankings: geo_schema.GeoInsightContentRankings,
+    coverage: geo_schema.GeoInsightQuestionCoverage,
+) -> list[geo_schema.GeoInsightRecommendation]:
+    recommendations: list[geo_schema.GeoInsightRecommendation] = []
+    for long_item in rankings.long_unmentioned:
+        recommendations.append(
+            geo_schema.GeoInsightRecommendation(
+                rule_code="CONTENT_LONG_UNMENTIONED",
+                priority="HIGH",
+                title=f"优先更新长期未获提及的内容：{long_item.title}",
+                basis_text=f"已连续 {long_item.unmentioned_days} 天未获得提及。",
+                basis_values=[
+                    geo_schema.GeoInsightRecommendationBasis(
+                        metric="unmentioned_days",
+                        value=long_item.unmentioned_days,
+                        threshold=30,
+                        unit="DAY",
+                    )
+                ],
+                impact_relationship_count=long_item.observation_count,
+                published_article_ids=[long_item.published_article_id],
+                geo_platforms=[],
+                query_topic_ids=[],
+                detail_path=f"/publications/{long_item.published_article_id}",
+            )
+        )
+    for declining_item in rankings.declining:
+        maximum = max(basis.decline for basis in declining_item.basis)
+        recommendations.append(
+            geo_schema.GeoInsightRecommendation(
+                rule_code="CONTENT_PERFORMANCE_DECLINE",
+                priority="HIGH" if maximum >= 0.2 else "MEDIUM",
+                title=f"检查表现下降的内容：{declining_item.title}",
+                basis_text=f"最大单项下降 {maximum:.1%}。",
+                basis_values=[
+                    geo_schema.GeoInsightRecommendationBasis(
+                        metric=basis.metric,
+                        value=basis.decline,
+                        threshold=0.2 if maximum >= 0.2 else 0.1,
+                        unit="PERCENTAGE_POINT",
+                    )
+                    for basis in declining_item.basis
+                ],
+                impact_relationship_count=declining_item.observation_count,
+                published_article_ids=[declining_item.published_article_id],
+                geo_platforms=[],
+                query_topic_ids=[],
+                detail_path=f"/publications/{declining_item.published_article_id}",
+            )
+        )
+
+    current_by_platform = {
+        platform_item.geo_platform: platform_item
+        for platform_item in _platform_performance(current_rows)
+    }
+    previous_by_platform = {
+        platform_item.geo_platform: platform_item
+        for platform_item in _platform_performance(previous_rows)
+    }
+    for platform, current in current_by_platform.items():
+        previous = previous_by_platform.get(platform)
+        if previous is None:
+            continue
+        declines: list[tuple[str, float]] = []
+        for metric in ("accuracy_rate", "mention_rate", "discovery_rate"):
+            previous_value = getattr(previous, metric).value
+            current_value = getattr(current, metric).value
+            if previous_value is None or current_value is None:
+                continue
+            declines.append((metric, previous_value - current_value))
+        if not declines:
+            continue
+        maximum = max(value for _, value in declines)
+        if maximum < 0.1:
+            continue
+        recommendations.append(
+            geo_schema.GeoInsightRecommendation(
+                rule_code="GEO_PLATFORM_PERFORMANCE_DECLINE",
+                priority="HIGH" if maximum >= 0.2 else "MEDIUM",
+                title=f"检查 GEO 平台表现下降：{platform}",
+                basis_text=f"最大单项下降 {maximum:.1%}。",
+                basis_values=[
+                    geo_schema.GeoInsightRecommendationBasis(
+                        metric=metric,
+                        value=value,
+                        threshold=0.2 if maximum >= 0.2 else 0.1,
+                        unit="PERCENTAGE_POINT",
+                    )
+                    for metric, value in declines
+                    if value >= 0.1
+                ],
+                impact_relationship_count=current.mention_rate.denominator,
+                published_article_ids=[],
+                geo_platforms=[platform],
+                query_topic_ids=[],
+                detail_path=None,
+            )
+        )
+
+    by_publication: dict[uuid.UUID, list[_GeoInsightRow]] = defaultdict(list)
+    for row in current_rows:
+        by_publication[row.published_article_id].append(row)
+    for publication_id, rows in by_publication.items():
+        if len({row.observation_id for row in rows}) < 3 or any(
+            _RATE_PREDICATES["discovery_rate"](row) for row in rows
+        ):
+            continue
+        first = rows[0]
+        recommendations.append(
+            geo_schema.GeoInsightRecommendation(
+                rule_code="CONTENT_NEVER_DISCOVERED",
+                priority="MEDIUM",
+                title=f"优化从未被发现的内容：{first.title}",
+                basis_text=f"{len(rows)} 次完整观测均未被发现。",
+                basis_values=[
+                    geo_schema.GeoInsightRecommendationBasis(
+                        metric="observation_count",
+                        value=len(rows),
+                        threshold=3,
+                        unit="COUNT",
+                    )
+                ],
+                impact_relationship_count=len(rows),
+                published_article_ids=[publication_id],
+                geo_platforms=[],
+                query_topic_ids=[],
+                detail_path=f"/publications/{publication_id}",
+            )
+        )
+    for coverage_item in coverage.matrix:
+        priority = "MEDIUM" if coverage_item.status == "UNCOVERED" else "LOW"
+        if coverage_item.status == "STABLE":
+            continue
+        rule_code = {
+            "UNCOVERED": "QUESTION_UNCOVERED",
+            "OCCASIONAL": "QUESTION_OCCASIONAL",
+            "INSUFFICIENT_DATA": "QUESTION_INSUFFICIENT_DATA",
+        }[coverage_item.status]
+        recommendations.append(
+            geo_schema.GeoInsightRecommendation(
+                rule_code=rule_code,
+                priority=priority,
+                title=(
+                    f"补强问题覆盖：{coverage_item.canonical_question}"
+                    if coverage_item.status != "INSUFFICIENT_DATA"
+                    else f"补充问题观测：{coverage_item.canonical_question}"
+                ),
+                basis_text=(
+                    f"{coverage_item.geo_platform} 覆盖率为 "
+                    f"{coverage_item.coverage_rate.value:.1%}。"
+                    if coverage_item.coverage_rate.value is not None
+                    else f"{coverage_item.geo_platform} 尚无完整观测。"
+                ),
+                basis_values=[
+                    geo_schema.GeoInsightRecommendationBasis(
+                        metric=(
+                            "observation_count"
+                            if coverage_item.status == "INSUFFICIENT_DATA"
+                            else "coverage_rate"
+                        ),
+                        value=(
+                            coverage_item.observation_count
+                            if coverage_item.status == "INSUFFICIENT_DATA"
+                            else coverage_item.coverage_rate.value
+                        ),
+                        threshold=(
+                            3
+                            if coverage_item.status == "INSUFFICIENT_DATA"
+                            else 0.3
+                            if coverage_item.status == "UNCOVERED"
+                            else 0.6
+                        ),
+                        unit=("COUNT" if coverage_item.status == "INSUFFICIENT_DATA" else "RATIO"),
+                    )
+                ],
+                impact_relationship_count=coverage_item.observation_count,
+                published_article_ids=[],
+                geo_platforms=[coverage_item.geo_platform],
+                query_topic_ids=[coverage_item.query_topic_id],
+                detail_path=None,
+            )
+        )
+    priority_order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+    recommendations.sort(
+        key=lambda item: (
+            priority_order[item.priority],
+            -item.impact_relationship_count,
+            item.rule_code,
+            str(item.published_article_ids[0]) if item.published_article_ids else "",
+            item.geo_platforms[0] if item.geo_platforms else "",
+            str(item.query_topic_ids[0]) if item.query_topic_ids else "",
+        )
+    )
+    return recommendations
+
+
+def get_geo_insights(
+    db: Session,
+    *,
+    filters: GeoInsightFilters,
+    actor: User,
+) -> geo_schema.GeoInsights:
+    """返回一个筛选范围内全部 GEO 洞察的权威服务端读模型。"""
+    current_from, current_to, previous_from, previous_to = _geo_insight_period(filters)
+    options = _geo_insight_filter_options(db)
+    _validate_geo_insight_filters(filters, options)
+    scoped_rows = _geo_insight_rows(db, filters, date_from=previous_from, date_to=current_to)
+    current_raw = [row for row in scoped_rows if _utc_date(row.tested_at) >= current_from]
+    previous_raw = [row for row in scoped_rows if _utc_date(row.tested_at) <= previous_to]
+    current_rows, excluded_observations, excluded_relations = _complete_geo_insight_scope(
+        current_raw,
+        filters,
+    )
+    previous_rows, _, _ = _complete_geo_insight_scope(previous_raw, filters)
+    history_rows, _, _ = _complete_geo_insight_scope(
+        _geo_insight_rows(db, filters, date_from=None, date_to=current_to),
+        filters,
+    )
+
+    unavailable: list[geo_schema.GeoInsightUnavailableSection] = []
+    if not current_rows:
+        unavailable.append(
+            geo_schema.GeoInsightUnavailableSection(
+                code="NO_COMPLETE_OBSERVATIONS",
+                message="当前筛选周期没有字段完整的链尾人工观测。",
+            )
+        )
+    if not previous_rows:
+        unavailable.append(
+            geo_schema.GeoInsightUnavailableSection(
+                code="NO_COMPLETE_PREVIOUS_OBSERVATIONS",
+                message="相邻比较周期没有字段完整的链尾人工观测，环比和下降分析不可用。",
+            )
+        )
+    if not options.geo_platforms:
+        unavailable.append(
+            geo_schema.GeoInsightUnavailableSection(
+                code="NO_GEO_PLATFORMS",
+                message="尚无可用于问题覆盖分析的人工 GEO 平台。",
+            )
+        )
+    can_optimize = actor.account_type in {"ADMIN", "ENGINEER"}
+    rankings = _content_rankings(
+        current_rows,
+        previous_rows,
+        history_rows,
+        current_from=current_from,
+        current_to=current_to,
+        can_optimize=can_optimize,
+        unavailable=unavailable,
+    )
+    coverage = _question_coverage(
+        current_rows,
+        options=options,
+        filters=filters,
+        current_from=current_from,
+        current_to=current_to,
+        can_optimize=can_optimize,
+    )
+    return geo_schema.GeoInsights(
+        generated_at=datetime.now(UTC),
+        analysis_unit="MANUAL_OBSERVATION_PUBLICATION_RELATION",
+        period=geo_schema.GeoInsightPeriod(
+            current=geo_schema.GeoInsightPeriodWindow(date_from=current_from, date_to=current_to),
+            previous=geo_schema.GeoInsightPeriodWindow(
+                date_from=previous_from, date_to=previous_to
+            ),
+        ),
+        filter_options=options,
+        trends=geo_schema.GeoInsightTrends(
+            discovery_rate=_rate_trend(
+                current_rows,
+                previous_rows,
+                current_from=current_from,
+                current_to=current_to,
+                predicate=_RATE_PREDICATES["discovery_rate"],
+                eligible=_RATE_ELIGIBILITY["discovery_rate"],
+            ),
+            mention_rate=_rate_trend(
+                current_rows,
+                previous_rows,
+                current_from=current_from,
+                current_to=current_to,
+                predicate=_RATE_PREDICATES["mention_rate"],
+                eligible=_RATE_ELIGIBILITY["mention_rate"],
+            ),
+            accuracy_rate=_rate_trend(
+                current_rows,
+                previous_rows,
+                current_from=current_from,
+                current_to=current_to,
+                predicate=_RATE_PREDICATES["accuracy_rate"],
+                eligible=_RATE_ELIGIBILITY["accuracy_rate"],
+            ),
+        ),
+        platform_performance=_platform_performance(current_rows),
+        content_rankings=rankings,
+        question_coverage=coverage,
+        recommendations=_recommendations(current_rows, previous_rows, rankings, coverage),
+        data_quality=geo_schema.GeoInsightDataQuality(
+            eligible_observation_count=len({row.observation_id for row in current_rows}),
+            excluded_incomplete_observation_count=excluded_observations,
+            excluded_incomplete_relation_count=excluded_relations,
+            unavailable_sections=unavailable,
+        ),
+    )
+
+
+def _is_geo_task_idempotency_integrity_error(error: IntegrityError) -> bool:
+    """只识别 GEO 创建命令拥有的精确 PostgreSQL 幂等约束。"""
+    return (
+        getattr(error.orig, "sqlstate", None) == "23505"
+        and getattr(getattr(error.orig, "diag", None), "constraint_name", None)
+        == "uq_content_tasks_idempotency_key"
+    )
+
+
+def _geo_task_has_same_identity(
+    task: ContentTask,
+    source: ContentTaskGeoSource | None,
+    payload: GeoOptimizationContentTaskCreate,
+) -> bool | None:
+    """精确竞态后先证明完整身份；历史解绑来源不能猜测为不同请求。"""
+    if (
+        task.product_id is None
+        or task.fact_version_id is None
+        or task.platform_profile_id is None
+    ):
+        return None
+    if source is None:
+        return False
+    if source.date_from is None or source.date_to is None:
+        return None
+    if source.rule_code in {"CONTENT_DECLINE", "LONG_UNMENTIONED"}:
+        if (
+            source.published_article_id is None
+            or source.query_topic_id is not None
+            or source.geo_platform is not None
+        ):
+            return None
+    elif source.rule_code == "QUESTION_COVERAGE_GAP":
+        if (
+            source.published_article_id is not None
+            or source.query_topic_id is None
+            or source.geo_platform is None
+        ):
+            return None
+    else:
+        return None
+    return (
+        task.product_id == payload.product_id
+        and task.fact_version_id == payload.fact_version_id
+        and task.platform_profile_id == payload.platform_profile_id
+        and source.rule_code == payload.rule_code
+        and source.date_from == payload.date_from
+        and source.date_to == payload.date_to
+        and source.published_article_id == payload.published_article_id
+        and source.query_topic_id == payload.query_topic_id
+        and source.geo_platform == payload.geo_platform
+    )
+
+
+def create_geo_optimization_content_task(
+    *,
+    db: Session,
+    payload: GeoOptimizationContentTaskCreate,
+    actor: User,
+    request_id: str,
+    idempotency_key: str,
+) -> ContentTask:
+    """复算仍成立的明确 GEO 异常，并原子保存内容任务与来源快照。"""
+    db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": f"content-task-create:{idempotency_key}"},
+    )
+    existing = db.scalar(
+        select(ContentTask).where(ContentTask.idempotency_key == idempotency_key)
+    )
+    if existing is not None:
+        source = db.get(ContentTaskGeoSource, existing.id)
+        if (
+            existing.product_id != payload.product_id
+            or existing.fact_version_id != payload.fact_version_id
+            or existing.platform_profile_id != payload.platform_profile_id
+            or source is None
+            or source.rule_code != payload.rule_code
+            or source.date_from != payload.date_from
+            or source.date_to != payload.date_to
+            or source.published_article_id != payload.published_article_id
+            or source.query_topic_id != payload.query_topic_id
+            or source.geo_platform != payload.geo_platform
+        ):
+            raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一内容任务创建请求", 409)
+        return existing
+
+    target = ContentTaskCreate(
+        product_id=payload.product_id,
+        fact_version_id=payload.fact_version_id,
+        platform_profile_id=payload.platform_profile_id,
+    )
+    try:
+        profile = lock_content_task_creation_resources(db, target)
+    except ContentTaskFactProductMismatch as error:
+        raise AppError(
+            "FACT_NOT_APPROVED",
+            "优化任务必须选择该产品的已批准事实版本",
+            409,
+        ) from error
+    filters = GeoInsightFilters(
+        date_from=payload.date_from,
+        date_to=payload.date_to,
+        product_id=payload.product_id,
+        content_platform_id=payload.platform_profile_id,
+        geo_platform=payload.geo_platform,
+        published_article_id=payload.published_article_id,
+        query_topic_id=payload.query_topic_id,
+    )
+    insights = get_geo_insights(db, filters=filters, actor=actor)
+    basis: GeoContentDeclineBasis | GeoLongUnmentionedBasis | GeoQuestionCoverageGapBasis
+    if payload.rule_code == "CONTENT_DECLINE":
+        declining_item = next(
+            (
+                candidate
+                for candidate in insights.content_rankings.declining
+                if candidate.published_article_id == payload.published_article_id
+            ),
+            None,
+        )
+        if declining_item is None:
+            raise AppError("GEO_INSIGHT_STALE", "指定内容表现下降异常已不再成立", 409)
+        basis = GeoContentDeclineBasis(rule_code="CONTENT_DECLINE", item=declining_item)
+    elif payload.rule_code == "LONG_UNMENTIONED":
+        unmentioned_item = next(
+            (
+                candidate
+                for candidate in insights.content_rankings.long_unmentioned
+                if candidate.published_article_id == payload.published_article_id
+            ),
+            None,
+        )
+        if unmentioned_item is None:
+            raise AppError("GEO_INSIGHT_STALE", "指定长期未提及异常已不再成立", 409)
+        basis = GeoLongUnmentionedBasis(rule_code="LONG_UNMENTIONED", item=unmentioned_item)
+    else:
+        coverage_item = next(
+            (
+                candidate
+                for candidate in insights.question_coverage.matrix
+                if candidate.query_topic_id == payload.query_topic_id
+                and candidate.geo_platform == payload.geo_platform
+                and candidate.status in {"OCCASIONAL", "UNCOVERED"}
+            ),
+            None,
+        )
+        if coverage_item is None:
+            raise AppError("GEO_INSIGHT_STALE", "指定问题覆盖异常已不再成立或样本不足", 409)
+        basis = GeoQuestionCoverageGapBasis(
+            rule_code="QUESTION_COVERAGE_GAP",
+            item=coverage_item,
+        )
+
+    if payload.published_article_id is not None:
+        article = db.get(PublishedArticle, payload.published_article_id)
+        work = db.get(PublicationWork, payload.published_article_id)
+        source_task = db.get(ContentTask, work.content_task_id) if work is not None else None
+        if article is None or source_task is None:
+            raise AppError("GEO_INSIGHT_STALE", "指定发布成果已不存在", 409)
+        if (
+            source_task.product_id != payload.product_id
+            or work is None
+            or work.platform_profile_id_snapshot != payload.platform_profile_id
+        ):
+            raise AppError("VALIDATION_ERROR", "优化任务的产品或内容平台与来源成果不一致", 422)
+
+    try:
+        task = add_locked_content_task(
+            db=db,
+            payload=target,
+            profile=profile,
+            actor=actor,
+            idempotency_key=idempotency_key,
+        )
+    except IntegrityError as error:
+        if not _is_geo_task_idempotency_integrity_error(error):
+            raise
+        db.rollback()
+        winner = db.scalar(
+            select(ContentTask).where(ContentTask.idempotency_key == idempotency_key)
+        )
+        if winner is None:
+            raise
+        same_identity = _geo_task_has_same_identity(
+            winner, db.get(ContentTaskGeoSource, winner.id), payload
+        )
+        if same_identity is None:
+            raise
+        if not same_identity:
+            raise AppError(
+                "IDEMPOTENCY_CONFLICT", "幂等键已用于另一内容任务创建请求", 409
+            ) from error
+        return winner
+    db.add(
+        ContentTaskGeoSource(
+            content_task_id=task.id,
+            rule_code=payload.rule_code,
+            date_from=payload.date_from,
+            date_to=payload.date_to,
+            published_article_id=payload.published_article_id,
+            query_topic_id=payload.query_topic_id,
+            geo_platform=payload.geo_platform,
+            basis_snapshot=basis.model_dump(mode="json"),
+            created_by=actor.id,
+        )
+    )
+    db.commit()
+    return task
+
+
+def geo_publication_candidates(
+    db: Session, product_id: uuid.UUID, *, lock: bool = False
+) -> list[GeoPublicationCandidate]:
+    """投影产品当前全部合格发布成果；写入时锁定完整文章集合。"""
+    query = (
+        select(PublishedArticle, PublicationWork, ContentVersion.title, PlatformProfile.name)
+        .join(PublicationWork, PublicationWork.id == PublishedArticle.id)
+        .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
+        .join(ContentTask, ContentTask.id == ContentVersion.task_id)
+        .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
+        .where(
+            ContentTask.product_id == product_id,
+            PublicationWork.status == "COMPLETED",
+            ~exists(
+                select(PublishedContentIssue.id).where(
+                    PublishedContentIssue.published_article_id == PublishedArticle.id,
+                    or_(
+                        PublishedContentIssue.status == "OPEN",
+                        PublishedContentIssue.resolution_outcome == "RETIRED",
+                    ),
+                )
+            ),
+        )
+        .order_by(PublicationWork.published_at, PublicationWork.id)
+    )
+    if lock:
+        query = query.with_for_update(of=PublishedArticle)
+    return [
+        GeoPublicationCandidate.model_validate(
+            {
+                "published_article_id": article.id,
+                "title": work.actual_title or content_title,
+                "platform_name": platform_name,
+                "final_url": work.final_url,
+                "status": "COMPLETED",
+            }
+        )
+        for article, work, content_title, platform_name in db.execute(query).all()
+    ]
+
+
+def _geo_observation_has_successor_error() -> AppError:
+    """返回一个 GEO 观测只能有一个直接后继的稳定冲突。"""
+    return AppError(
+        "GEO_OBSERVATION_HAS_SUCCESSOR",
+        "该 GEO 观测已被纠正",
+        409,
+    )
+
+
+def _is_geo_observation_successor_integrity_error(error: IntegrityError) -> bool:
+    """只识别 GEO 观测直接后继唯一索引的 PostgreSQL 最终约束。"""
+    original = error.orig
+    return (
+        getattr(original, "sqlstate", None) == "23505"
+        and getattr(getattr(original, "diag", None), "constraint_name", None)
+        == "uq_geo_observations_supersedes_once"
+    )
+
+
+def create_geo_observation(
+    *, db: Session, payload: GeoObservationCreate, actor: User, request_id: str
+) -> GeoObservation:
+    """锁定完整文章集合，并以可选证据追加人工 GEO 观测。"""
+    product = db.scalar(select(Product).where(Product.id == payload.product_id).with_for_update())
+    if product is None:
+        raise not_found("产品")
+    if db.get(QueryTopic, payload.query_topic_id) is None:
+        raise not_found("问题主题")
+    candidates = geo_publication_candidates(db, payload.product_id, lock=True)
+    if not candidates:
+        raise AppError("VALIDATION_ERROR", "该产品暂无可观测的已发布文章", 422)
+    submitted_ids = {item.published_article_id for item in payload.article_results}
+    candidate_ids = {item.published_article_id for item in candidates}
+    if submitted_ids != candidate_ids:
+        raise AppError(
+            "GEO_PUBLICATIONS_CHANGED",
+            "产品的已发布文章集合已变化，请刷新后重新登记",
+            409,
+        )
+    files = verified_files(db, payload.attachment_file_ids)
+    if any(file.category != "OPERATION_SCREENSHOT" for file in files):
+        raise AppError("VALIDATION_ERROR", "GEO 观测附件必须是搜索结果截图", 422)
+    if payload.supersedes_id:
+        previous = db.scalar(
+            select(GeoObservation)
+            .where(GeoObservation.id == payload.supersedes_id)
+            .with_for_update()
+        )
+        if previous is None:
+            raise not_found("被纠正的 GEO 观测")
+        if (
+            previous.product_id != payload.product_id
+            or previous.observation_kind != "MANUAL_ARTICLE_SEARCH"
+        ):
+            raise AppError("VALIDATION_ERROR", "只能更正同一产品的人工 GEO 观测", 422)
+        if (
+            previous.search_platform != payload.search_platform
+            or previous.search_query != payload.search_query
+            # 补采前历史没有问题主题；首次追加更正必须补全真实关联。
+            or (
+                previous.query_topic_id is not None
+                and previous.query_topic_id != payload.query_topic_id
+            )
+        ):
+            raise AppError("VALIDATION_ERROR", "更正时不能改变问题主题、搜索平台或搜索词", 422)
+        if (
+            db.scalar(select(GeoObservation.id).where(GeoObservation.supersedes_id == previous.id))
+            is not None
+        ):
+            raise _geo_observation_has_successor_error()
+        if files:
+            ancestor_ids = [previous.id]
+            ancestor = previous
+            while ancestor.supersedes_id is not None:
+                parent = db.get(GeoObservation, ancestor.supersedes_id)
+                if parent is None:
+                    raise AppError(
+                        "GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链不完整", 409
+                    )
+                ancestor = parent
+                ancestor_ids.append(ancestor.id)
+            reused_file_id = db.scalar(
+                select(GeoObservationAttachment.file_id)
+                .where(
+                    GeoObservationAttachment.observation_id.in_(ancestor_ids),
+                    GeoObservationAttachment.file_id.in_([file.id for file in files]),
+                )
+                .limit(1)
+            )
+            if reused_file_id is not None:
+                raise AppError("VALIDATION_ERROR", "新增证据不能重复关联更正链已有文件", 422)
+    observation = GeoObservation(
+        observation_kind="MANUAL_ARTICLE_SEARCH",
+        query_topic_id=payload.query_topic_id,
+        product_id=payload.product_id,
+        search_platform=payload.search_platform,
+        search_query=payload.search_query,
+        tested_at=payload.tested_at,
+        notes=payload.notes,
+        supersedes_id=payload.supersedes_id,
+        tested_by=actor.id,
+    )
+    db.add(observation)
+    try:
+        db.flush()
+    except IntegrityError as error:
+        if not _is_geo_observation_successor_integrity_error(error):
+            raise
+        db.rollback()
+        raise _geo_observation_has_successor_error() from error
+    db.add_all(
+        GeoObservationPublication(
+            observation_id=observation.id,
+            published_article_id=result.published_article_id,
+            discovered=result.discovered,
+            mentioned=result.mentioned,
+            accuracy=result.accuracy,
+        )
+        for result in payload.article_results
+    )
+    db.add_all(
+        GeoObservationAttachment(observation_id=observation.id, file_id=file.id) for file in files
+    )
+    db.commit()
+    return observation
+
+
+def _lock_manual_observation_chain(
+    db: Session,
+    observation_id: uuid.UUID,
+) -> tuple[Product, list[GeoObservation]]:
+    """按产品、根节点、其余节点的稳定顺序锁定完整人工更正链。"""
+    target = db.get(GeoObservation, observation_id)
+    if target is None:
+        raise not_found("GEO 观测")
+    product = db.scalar(select(Product).where(Product.id == target.product_id).with_for_update())
+    if product is None:
+        raise AppError(
+            "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+            "GEO 观测关联的产品不存在",
+            409,
+        )
+    target = db.get(GeoObservation, observation_id, populate_existing=True)
+    if target is None:
+        raise not_found("GEO 观测")
+    if target.observation_kind != "MANUAL_ARTICLE_SEARCH":
+        raise AppError("INVALID_STATE_TRANSITION", "旧模型 GEO 观测不能删除", 409)
+
+    root = target
+    ancestor_ids = {root.id}
+    while root.supersedes_id is not None:
+        parent = db.get(GeoObservation, root.supersedes_id)
+        if (
+            parent is None
+            or parent.id in ancestor_ids
+            or parent.product_id != product.id
+            or parent.observation_kind != "MANUAL_ARTICLE_SEARCH"
+        ):
+            raise AppError("GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链不完整", 409)
+        ancestor_ids.add(parent.id)
+        root = parent
+
+    locked_root = db.scalar(
+        select(GeoObservation).where(GeoObservation.id == root.id).with_for_update()
+    )
+    if locked_root is None:
+        raise not_found("GEO 观测")
+    chain_ids = [locked_root.id]
+    current_id = locked_root.id
+    while True:
+        successors = list(
+            db.scalars(
+                select(GeoObservation)
+                .where(GeoObservation.supersedes_id == current_id)
+                .order_by(GeoObservation.id)
+                .limit(2)
+            )
+        )
+        if not successors:
+            break
+        if len(successors) != 1:
+            raise AppError("GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链存在分支", 409)
+        successor = successors[0]
+        if (
+            successor.id in chain_ids
+            or successor.product_id != product.id
+            or successor.observation_kind != "MANUAL_ARTICLE_SEARCH"
+        ):
+            raise AppError("GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链不完整", 409)
+        chain_ids.append(successor.id)
+        current_id = successor.id
+
+    remaining = list(
+        db.scalars(
+            select(GeoObservation)
+            .where(GeoObservation.id.in_(chain_ids[1:]))
+            .order_by(GeoObservation.id)
+            .with_for_update()
+        )
+    )
+    nodes_by_id = {locked_root.id: locked_root, **{node.id: node for node in remaining}}
+    if len(nodes_by_id) != len(chain_ids) or observation_id not in nodes_by_id:
+        raise AppError("GEO_OBSERVATION_CHAIN_CHANGED", "GEO 观测更正链已变化", 409)
+    return product, [nodes_by_id[node_id] for node_id in chain_ids]
+
+
+def delete_geo_observation(
+    *,
+    db: Session,
+    observation_id: uuid.UUID,
+    actor: User,
+    request_id: str,
+) -> None:
+    """原子删除任一人工观测所属的完整更正链，并安排无引用证据清理。"""
+    chain, article_result_count, attachment_relation_count = (
+        _delete_manual_observation_chain(db, observation_id)
+    )
+    root_id = chain[0].id
+    append_audit(
+        db,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.GEO_OBSERVATION,
+            action="geo_observation.deleted",
+            target_type="GeoObservation",
+            target_id=root_id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="GEO 观测更正链已删除",
+            details={
+                "facts": {
+                    "root_observation_id": str(root_id),
+                    "observation_count": len(chain),
+                    "article_result_count": article_result_count,
+                    "attachment_count": attachment_relation_count,
+                }
+            },
+        ),
+    )
+    db.commit()
+
+
+def _delete_manual_observation_chain(
+    db: Session,
+    observation_id: uuid.UUID,
+) -> tuple[list[GeoObservation], int, int]:
+    """删除完整人工更正链但不提交、不写审计，供聚合删除复用。"""
+    _, chain = _lock_manual_observation_chain(db, observation_id)
+    chain_ids = [node.id for node in chain]
+    attachment_ids = list(
+        db.scalars(
+            select(GeoObservationAttachment.file_id)
+            .where(GeoObservationAttachment.observation_id.in_(chain_ids))
+            .distinct()
+            .order_by(GeoObservationAttachment.file_id)
+        )
+    )
+    article_result_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(GeoObservationPublication)
+            .where(GeoObservationPublication.observation_id.in_(chain_ids))
+        )
+        or 0
+    )
+    attachment_relation_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(GeoObservationAttachment)
+            .where(GeoObservationAttachment.observation_id.in_(chain_ids))
+        )
+        or 0
+    )
+
+    for node in reversed(chain):
+        db.scalar(
+            select(
+                func.set_config(
+                    "partsignal.geo_observation_delete_id",
+                    str(node.id),
+                    True,
+                )
+            )
+        )
+        for model in (
+            GeoObservationAttachment,
+            GeoObservationPublication,
+            GeoObservationCitation,
+        ):
+            db.execute(delete(model).where(model.observation_id == node.id))
+        db.delete(node)
+        db.flush()
+
+    cleanup_time = datetime.now(UTC)
+    for file_id in attachment_ids:
+        schedule_unreferenced_file(db, file_id, cleanup_after=cleanup_time)
+    return chain, article_result_count, attachment_relation_count

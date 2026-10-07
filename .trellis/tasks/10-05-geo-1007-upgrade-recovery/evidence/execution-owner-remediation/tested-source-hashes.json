@@ -1,0 +1,15 @@
+{
+  "deploy/scripts/prepare-production-data.py": "312236f2f2dbd144f795d72c8b1f04f30ed9c6b901681c2691984b97e746dec3",
+  "deploy/scripts/production_maintenance_execution.py": "3e7d0164ba78ea43a3d4b14fafed7a06f92eecf2ef2f65e45e309b2b78c0d239",
+  "deploy/scripts/production_deployment.py": "89999a546337c74d23be0ffca17ec24abacd8e8f4dbc389ed73d4416c0ef085e",
+  "deploy/scripts/create-release-manifest.py": "4a6cad459ea374a8e4a2a6ded78bb21e323a0700d19b3517e3c4d4ba17ae7442",
+  "deploy/scripts/deploy.sh": "0ad34e3d8a28285a74c23bc0fd261dc37ee2689665af7a719d13629ccf6e5120",
+  "deploy/scripts/test-upgrade-signal.py": "24ca89dbb0e13b4cc1900a07daadb4d9031664fe0b325d1072022e3f75b691e1",
+  "deploy/scripts/test-upgrade-registry-order.py": "b1463f70e6d638fc89175ba159c6dd5b94ca62b5029b948e2f3982c1ad87c635",
+  "deploy/scripts/test-upgrade-failure.py": "9cba6519cae3c8b3d2e35f3d1790ba62b6611b54bbf317caa3dc127ecfd5515e",
+  "deploy/scripts/test-upgrade-recovery-compose.py": "d28c30b88dc053172e3ec7b810bc8fc43817f147b3be51b258b7e848823bccec",
+  "deploy/scripts/test-deploy-production.sh": "56266d76e30edd3bd722ec3f5747d7562e33073d3b650f98ca760f5a277553fd",
+  "backend/app/cli.py": "13a5ce6e0df97afe4e5587a191e82582b3042fd3a086e6f420236d1f311dbeea",
+  "backend/app/services/integrity.py": "1b428ad0d05d94a5e629064c4f05ab512ea9661d7404ea5d0c4bbb7b773f9873",
+  "backend/tests/unit/test_integrity.py": "460e3a088fc057b77bda1b0e9eb659f276d3ad0963ec52011c734be9683b2b45"
+}

@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_opportunity_policy.py",
+    "backend/tests/unit/test_geo_opportunity_workbench.py",
+    "backend/tests/unit/test_contract.py"
+  ],
+  "exit_code": 1,
+  "seconds": 20.17
+}

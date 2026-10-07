@@ -1,0 +1,11 @@
+{
+  "policy": "仅遮蔽本地临时下载签名，保留失败位置、字段、到期时间及原始证据身份；不保留未脱敏副本。",
+  "files": [
+    {
+      "path": "e2e-loop-required-comment.log",
+      "masked_temporary_download_signatures": 10,
+      "original_sha256": "98c9582e8cabaec0539a21c7dceaf6061ae041abe9cad5abd20d8161e1629de7",
+      "redacted_sha256": "adcc1459a9a011b2e224be150b946e173cbb8c919e0871e4e24c1a0340212f17"
+    }
+  ]
+}

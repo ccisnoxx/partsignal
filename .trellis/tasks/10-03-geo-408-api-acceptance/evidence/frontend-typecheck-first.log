@@ -1,0 +1,5 @@
+
+> partsignal-frontend-v2@0.1.0 typecheck
+> tsc -b --pretty false
+
+src/domains/geo-runs/run-retry.tsx(23,57): error TS2345: Argument of type '"RETRY_COLLECTION"' is not assignable to parameter of type '"CANCEL" | "ENTER_MANUAL_OBSERVATION" | "RETRY"'.

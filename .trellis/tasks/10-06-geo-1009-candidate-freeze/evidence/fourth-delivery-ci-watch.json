@@ -1,0 +1,23 @@
+{
+  "name": "fourth-delivery-ci-watch",
+  "command": [
+    "gh",
+    "run",
+    "watch",
+    "37587914372",
+    "--repo",
+    "ccisnoxx/partsignal",
+    "--interval",
+    "30",
+    "--exit-status"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "135d801edc9b1e8dc72dc9892897dd233404a667",
+  "dirty": false,
+  "started_at": "2026-10-07T07:32:16.309179+00:00",
+  "ended_at": "2026-10-07T07:45:38.707207+00:00",
+  "exit_code": 1,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/fourth-delivery-ci-watch.log",
+  "log_sha256": "8802254d44703009fdb336b533259be12875f26b0c6015a17ac4e8d9010f4433"
+}

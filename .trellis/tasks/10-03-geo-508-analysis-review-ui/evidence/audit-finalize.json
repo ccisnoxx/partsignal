@@ -1,0 +1,277 @@
+{
+  "report_type": "MULTI_AGENT_AUDIT_BUNDLE_REPORT",
+  "report_version": 1,
+  "status": "passed",
+  "audit_id": "20261004T034920Z-geo-508-79651e93",
+  "audit_dir": "/Users/sc/.codex/audits/multi-agent/partsignal-2069b161/20261004T034920Z-geo-508-79651e93",
+  "bundle_status": "closed",
+  "artifact_count": 32,
+  "size_bytes": 59851,
+  "summary": {
+    "plan_count": 5,
+    "executed_attempt_count": 5,
+    "accepted_attempt_count": 4,
+    "independent_review_count": 2,
+    "attention_required": true,
+    "anomaly_count": 1
+  },
+  "artifacts": [
+    {
+      "path": "01-research.dispatches/r4-docs.json",
+      "kind": "dispatch_json",
+      "size_bytes": 151,
+      "sha256": "645778fea65a0fac95586e7e4689c3fae51a03eed74afe4ebcfb0b8e2601614a",
+      "task_name": "r4_docs",
+      "agent_type": "analyst"
+    },
+    {
+      "path": "01-research.draft.json",
+      "kind": "draft_plan_json",
+      "size_bytes": 1397,
+      "sha256": "b353beb80dac551819e21d9bd1137aad16316f96c3ac70a213637c3c3b9e47d8",
+      "schema_version": 5,
+      "plan_id": "geo508-research"
+    },
+    {
+      "path": "01-research.execution.json",
+      "kind": "execution_json",
+      "size_bytes": 1325,
+      "sha256": "0cd4e1f2874c5c61a10991b7dba46b3170fd45cf5cf8f44e8b48dbaf00aa2ba0",
+      "schema_version": 6,
+      "plan_id": "geo508-research"
+    },
+    {
+      "path": "01-research.plan.json",
+      "kind": "generated_plan_json",
+      "size_bytes": 2131,
+      "sha256": "38f1aedbb930b0ba3d1d2c7643722b3021ae6945161879706681d2fcd7e4c183",
+      "schema_version": 5,
+      "planner_version": "1.5.1",
+      "plan_id": "geo508-research"
+    },
+    {
+      "path": "01-research.summary.json",
+      "kind": "summary_json",
+      "size_bytes": 2605,
+      "sha256": "90e3a11c8d2652abdc631f1d671937e92d10b155bc82352d1fcbd639ef02cce7",
+      "schema_version": 3,
+      "plan_id": "geo508-research"
+    },
+    {
+      "path": "01-research.summary.txt",
+      "kind": "summary_text",
+      "size_bytes": 2092,
+      "sha256": "f888de1bf97b06c9fcc5366097ca66562cca8c7df0f0d49535b395e921ea03f1"
+    },
+    {
+      "path": "02-frontend.dispatches/r4-ui-impl.json",
+      "kind": "dispatch_json",
+      "size_bytes": 153,
+      "sha256": "5486cb5913340071be5eb50775f29ed75f013e87625c7036da03a402b08160f1",
+      "task_name": "r4_ui",
+      "agent_type": "implementer"
+    },
+    {
+      "path": "02-frontend.draft.json",
+      "kind": "draft_plan_json",
+      "size_bytes": 1221,
+      "sha256": "9f387066dcc64dd77c20316efc9ed432b3ef31e2812aefc19bad9ba9fbf22c21",
+      "schema_version": 5,
+      "plan_id": "geo508-frontend"
+    },
+    {
+      "path": "02-frontend.execution.json",
+      "kind": "execution_json",
+      "size_bytes": 1336,
+      "sha256": "2c0f7ad1d467b426f3296949d887f5a03812ebd67a51bae93dcd61502fceda63",
+      "schema_version": 6,
+      "plan_id": "geo508-frontend"
+    },
+    {
+      "path": "02-frontend.plan.json",
+      "kind": "generated_plan_json",
+      "size_bytes": 2213,
+      "sha256": "0130d214d97a9f61b3653da0c725d07d943c62355b191fef7fe8653948e7ff9e",
+      "schema_version": 5,
+      "planner_version": "1.5.1",
+      "plan_id": "geo508-frontend"
+    },
+    {
+      "path": "02-frontend.summary.json",
+      "kind": "summary_json",
+      "size_bytes": 2680,
+      "sha256": "3ca355c55cf723b9eb79a1a44bb95e6f0f9049b5143e8dfc75aafb8035f38736",
+      "schema_version": 3,
+      "plan_id": "geo508-frontend"
+    },
+    {
+      "path": "02-frontend.summary.txt",
+      "kind": "summary_text",
+      "size_bytes": 2151,
+      "sha256": "23a163acf9ec7b401e6049924e2feb5e5ea3227d17440e517e1f7c2d257993f5"
+    },
+    {
+      "path": "03-frontend-state.dispatches/r4-ui-state-a2.json",
+      "kind": "dispatch_json",
+      "size_bytes": 161,
+      "sha256": "f50c828ec5d16584bba9aad7fcb241dc65cead7135cc07426ea316698e2d800c",
+      "task_name": "r4_ui_state",
+      "agent_type": "deep_engineer"
+    },
+    {
+      "path": "03-frontend-state.draft.json",
+      "kind": "draft_plan_json",
+      "size_bytes": 2041,
+      "sha256": "a7dd75a5447f95431c9a6a44497711cf0ebe0d5f754b8a42e307b4e28918679e",
+      "schema_version": 5,
+      "plan_id": "geo508-frontend-state"
+    },
+    {
+      "path": "03-frontend-state.execution.json",
+      "kind": "execution_json",
+      "size_bytes": 2255,
+      "sha256": "64f4beb0cb59fbcc4e5296d2cfc943e9e039fdd5ca7dcc5ec32ee5cf0291ae3b",
+      "schema_version": 6,
+      "plan_id": "geo508-frontend-state"
+    },
+    {
+      "path": "03-frontend-state.plan.json",
+      "kind": "generated_plan_json",
+      "size_bytes": 3424,
+      "sha256": "b8c77df801f8f731478c88c009bc9d00920c8ee638e180095520b008ee6e4e9e",
+      "schema_version": 5,
+      "planner_version": "1.5.1",
+      "plan_id": "geo508-frontend-state"
+    },
+    {
+      "path": "03-frontend-state.summary.json",
+      "kind": "summary_json",
+      "size_bytes": 3645,
+      "sha256": "d4e0bb30c54d68e4a1f6d83a5995cae5c641791bbe14fd11a13d7c9055ad3384",
+      "schema_version": 3,
+      "plan_id": "geo508-frontend-state"
+    },
+    {
+      "path": "03-frontend-state.summary.txt",
+      "kind": "summary_text",
+      "size_bytes": 2980,
+      "sha256": "245a1abd442001c01144466566b1a2895faf359a85f646df49866501efa91573"
+    },
+    {
+      "path": "04-independent-review.dispatches/r4-review.json",
+      "kind": "dispatch_json",
+      "size_bytes": 164,
+      "sha256": "029309134d0ae593a9526ef7d69c91b9eb6f301ef09a0c72c3e515837f0cd345",
+      "task_name": "r4_review",
+      "agent_type": "critical_reviewer"
+    },
+    {
+      "path": "04-independent-review.draft.json",
+      "kind": "draft_plan_json",
+      "size_bytes": 1530,
+      "sha256": "49f475e3796db756043f7dcd8a231bd76cecf1a3cf45200059c6ae6ad4825fdb",
+      "schema_version": 5,
+      "plan_id": "geo508-independent-review"
+    },
+    {
+      "path": "04-independent-review.execution.json",
+      "kind": "execution_json",
+      "size_bytes": 1374,
+      "sha256": "2d3e9765438b26072da820df13e0479110e26ad9c00fa70176bf36f2478906c0",
+      "schema_version": 6,
+      "plan_id": "geo508-independent-review"
+    },
+    {
+      "path": "04-independent-review.plan.json",
+      "kind": "generated_plan_json",
+      "size_bytes": 2531,
+      "sha256": "5eafd3d03178d394461664576cd29d54940ee100087e3d69e8616a0b6cb252a0",
+      "schema_version": 5,
+      "planner_version": "1.5.1",
+      "plan_id": "geo508-independent-review"
+    },
+    {
+      "path": "04-independent-review.summary.json",
+      "kind": "summary_json",
+      "size_bytes": 2670,
+      "sha256": "ea57db6355ab5a5706d266aaae593b4164e3a068bb1cb9954af93cdd32d10b16",
+      "schema_version": 3,
+      "plan_id": "geo508-independent-review"
+    },
+    {
+      "path": "04-independent-review.summary.txt",
+      "kind": "summary_text",
+      "size_bytes": 2157,
+      "sha256": "3a0f108dece007065de39f5e6931b212b74412d97271f4906f8d29b5d4b65694"
+    },
+    {
+      "path": "05-review-recheck.dispatches/r4-review-recheck.json",
+      "kind": "dispatch_json",
+      "size_bytes": 165,
+      "sha256": "d866f7989bf27ed04c80ad11be992205d3e732ca05df471329aafed1e0c8ed2a",
+      "task_name": "r4_recheck",
+      "agent_type": "critical_reviewer"
+    },
+    {
+      "path": "05-review-recheck.draft.json",
+      "kind": "draft_plan_json",
+      "size_bytes": 1494,
+      "sha256": "728ab784871bf9e77249ce621e31e3b4f8cd7da654aa240d9831fa9f8fa37af3",
+      "schema_version": 5,
+      "plan_id": "geo508-review-recheck"
+    },
+    {
+      "path": "05-review-recheck.execution.json",
+      "kind": "execution_json",
+      "size_bytes": 1380,
+      "sha256": "595fb062cbe75ee190ab15295f35a74f2fbf22fe06e30c592d4e3fadec957a9b",
+      "schema_version": 6,
+      "plan_id": "geo508-review-recheck"
+    },
+    {
+      "path": "05-review-recheck.plan.json",
+      "kind": "generated_plan_json",
+      "size_bytes": 2511,
+      "sha256": "192ea28236dce170abae0b0e820df344a44085a67ac7aebb390ae63963e6ff0d",
+      "schema_version": 5,
+      "planner_version": "1.5.1",
+      "plan_id": "geo508-review-recheck"
+    },
+    {
+      "path": "05-review-recheck.summary.json",
+      "kind": "summary_json",
+      "size_bytes": 2701,
+      "sha256": "6880d5e8045db63ae14f27d4321b8920a47351fb2f9a1dc0337019cadb6da11e",
+      "schema_version": 3,
+      "plan_id": "geo508-review-recheck"
+    },
+    {
+      "path": "05-review-recheck.summary.txt",
+      "kind": "summary_text",
+      "size_bytes": 2188,
+      "sha256": "08bcea635d95fd4492c8494f08dcfb3e63ea07b262b8c3ca75f2a78fe443f00e"
+    },
+    {
+      "path": "SUBAGENT_EXECUTION_DIGEST.json",
+      "kind": "digest_json",
+      "size_bytes": 3921,
+      "sha256": "42919034e56ecf65392c10b36f89a2cbe7ba5d80b63809f16fcc243dca74f32e",
+      "schema_version": 3,
+      "plan_ids": [
+        "geo508-frontend",
+        "geo508-frontend-state",
+        "geo508-independent-review",
+        "geo508-research",
+        "geo508-review-recheck"
+      ]
+    },
+    {
+      "path": "SUBAGENT_EXECUTION_DIGEST.md",
+      "kind": "digest_markdown",
+      "size_bytes": 1104,
+      "sha256": "88674416fa226f4920710f1a27c78e96928f5c47f3c4125571b3d9e6342d9fad"
+    }
+  ],
+  "errors": [],
+  "warnings": []
+}

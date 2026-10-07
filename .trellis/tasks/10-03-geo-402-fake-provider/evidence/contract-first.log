@@ -1,0 +1,630 @@
+....................FFFFFFFFFFFFFFFFFFFFFFFFFFF....                      [100%]
+=================================== FAILURES ===================================
+__ test_common_suite_success_unknown_partial_and_original_text[True-success] ___
+
+mode = <FakeMode.SUCCESS: 'success'>, search = True
+capsys = <_pytest.capture.CaptureFixture object at 0x108c4d880>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x1089d3b00>
+tmp_path = PosixPath('/private/var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/pytest-of-sc/pytest-73/test_common_suite_success_unkn0')
+
+    @pytest.mark.parametrize("mode", [FakeMode.SUCCESS, FakeMode.CITATIONS])
+    @pytest.mark.parametrize("search", [True, False, None])
+    def test_common_suite_success_unknown_partial_and_original_text(mode, search, capsys, caplog, tmp_path):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:48: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+_ test_common_suite_success_unknown_partial_and_original_text[True-citations] __
+
+mode = <FakeMode.CITATIONS: 'citations'>, search = True
+capsys = <_pytest.capture.CaptureFixture object at 0x1089fa120>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x108cb9e80>
+tmp_path = PosixPath('/private/var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/pytest-of-sc/pytest-73/test_common_suite_success_unkn1')
+
+    @pytest.mark.parametrize("mode", [FakeMode.SUCCESS, FakeMode.CITATIONS])
+    @pytest.mark.parametrize("search", [True, False, None])
+    def test_common_suite_success_unknown_partial_and_original_text(mode, search, capsys, caplog, tmp_path):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:48: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+__ test_common_suite_success_unknown_partial_and_original_text[False-success] __
+
+mode = <FakeMode.SUCCESS: 'success'>, search = False
+capsys = <_pytest.capture.CaptureFixture object at 0x108cb90a0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x108cbb9b0>
+tmp_path = PosixPath('/private/var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/pytest-of-sc/pytest-73/test_common_suite_success_unkn2')
+
+    @pytest.mark.parametrize("mode", [FakeMode.SUCCESS, FakeMode.CITATIONS])
+    @pytest.mark.parametrize("search", [True, False, None])
+    def test_common_suite_success_unknown_partial_and_original_text(mode, search, capsys, caplog, tmp_path):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:48: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+_ test_common_suite_success_unknown_partial_and_original_text[False-citations] _
+
+mode = <FakeMode.CITATIONS: 'citations'>, search = False
+capsys = <_pytest.capture.CaptureFixture object at 0x108cbaf00>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x108cbb290>
+tmp_path = PosixPath('/private/var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/pytest-of-sc/pytest-73/test_common_suite_success_unkn3')
+
+    @pytest.mark.parametrize("mode", [FakeMode.SUCCESS, FakeMode.CITATIONS])
+    @pytest.mark.parametrize("search", [True, False, None])
+    def test_common_suite_success_unknown_partial_and_original_text(mode, search, capsys, caplog, tmp_path):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:48: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+__ test_common_suite_success_unknown_partial_and_original_text[None-success] ___
+
+mode = <FakeMode.SUCCESS: 'success'>, search = None
+capsys = <_pytest.capture.CaptureFixture object at 0x108cba1e0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x108cba930>
+tmp_path = PosixPath('/private/var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/pytest-of-sc/pytest-73/test_common_suite_success_unkn4')
+
+    @pytest.mark.parametrize("mode", [FakeMode.SUCCESS, FakeMode.CITATIONS])
+    @pytest.mark.parametrize("search", [True, False, None])
+    def test_common_suite_success_unknown_partial_and_original_text(mode, search, capsys, caplog, tmp_path):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:48: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+_ test_common_suite_success_unknown_partial_and_original_text[None-citations] __
+
+mode = <FakeMode.CITATIONS: 'citations'>, search = None
+capsys = <_pytest.capture.CaptureFixture object at 0x108cb9af0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x108cba120>
+tmp_path = PosixPath('/private/var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/pytest-of-sc/pytest-73/test_common_suite_success_unkn5')
+
+    @pytest.mark.parametrize("mode", [FakeMode.SUCCESS, FakeMode.CITATIONS])
+    @pytest.mark.parametrize("search", [True, False, None])
+    def test_common_suite_success_unknown_partial_and_original_text(mode, search, capsys, caplog, tmp_path):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:48: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+_______________________ test_unknown_usage_cost_not_zero _______________________
+
+    def test_unknown_usage_cost_not_zero():
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:66: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+____________ test_common_suite_failure_matrix_and_safe_errors[429] _____________
+
+case = FailureCase(mode=<FakeMode.RATE_LIMIT: '429'>, code=<GeoRunErrorCode.PROVIDER_RATE_LIMITED: 'PROVIDER_RATE_LIMITED'>, stage=<CollectorStage.RECEIVE: 'RECEIVE'>, state=<GeoExternalCallState.COMPLETED: 'COMPLETED'>, status=429)
+capsys = <_pytest.capture.CaptureFixture object at 0x108ce4650>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x108cb6d80>
+
+    @pytest.mark.parametrize("case", FAILURE_CASES, ids=lambda c: c.mode.value)
+    def test_common_suite_failure_matrix_and_safe_errors(case, capsys, caplog):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:78: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+__________ test_common_suite_failure_matrix_and_safe_errors[timeout] ___________
+
+case = FailureCase(mode=<FakeMode.TIMEOUT: 'timeout'>, code=<GeoRunErrorCode.COLLECTOR_UNKNOWN_OUTCOME: 'COLLECTOR_UNKNOWN_OUTCOME'>, stage=<CollectorStage.RECEIVE: 'RECEIVE'>, state=<GeoExternalCallState.UNKNOWN: 'UNKNOWN'>, status=None)
+capsys = <_pytest.capture.CaptureFixture object at 0x108cb79e0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x108cb7d70>
+
+    @pytest.mark.parametrize("case", FAILURE_CASES, ids=lambda c: c.mode.value)
+    def test_common_suite_failure_matrix_and_safe_errors(case, capsys, caplog):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:78: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+_________ test_common_suite_failure_matrix_and_safe_errors[slow_body] __________
+
+case = FailureCase(mode=<FakeMode.SLOW_BODY: 'slow_body'>, code=<GeoRunErrorCode.COLLECTOR_UNKNOWN_OUTCOME: 'COLLECTOR_UNKNOWN_OUTCOME'>, stage=<CollectorStage.RECEIVE: 'RECEIVE'>, state=<GeoExternalCallState.UNKNOWN: 'UNKNOWN'>, status=None)
+capsys = <_pytest.capture.CaptureFixture object at 0x108cb5a30>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x108cb5f10>
+
+    @pytest.mark.parametrize("case", FAILURE_CASES, ids=lambda c: c.mode.value)
+    def test_common_suite_failure_matrix_and_safe_errors(case, capsys, caplog):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:78: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+_________ test_common_suite_failure_matrix_and_safe_errors[disconnect] _________
+
+case = FailureCase(mode=<FakeMode.DISCONNECT: 'disconnect'>, code=<GeoRunErrorCode.COLLECTOR_UNKNOWN_OUTCOME: 'COLLECTOR_UNKNOWN_OUTCOME'>, stage=<CollectorStage.RECEIVE: 'RECEIVE'>, state=<GeoExternalCallState.UNKNOWN: 'UNKNOWN'>, status=None)
+capsys = <_pytest.capture.CaptureFixture object at 0x108d649b0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x108ce66c0>
+
+    @pytest.mark.parametrize("case", FAILURE_CASES, ids=lambda c: c.mode.value)
+    def test_common_suite_failure_matrix_and_safe_errors(case, capsys, caplog):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:78: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+__________ test_common_suite_failure_matrix_and_safe_errors[redirect] __________
+
+case = FailureCase(mode=<FakeMode.REDIRECT: 'redirect'>, code=<GeoRunErrorCode.PROVIDER_RESPONSE_INVALID: 'PROVIDER_RESPONSE_INVALID'>, stage=<CollectorStage.RECEIVE: 'RECEIVE'>, state=<GeoExternalCallState.COMPLETED: 'COMPLETED'>, status=307)
+capsys = <_pytest.capture.CaptureFixture object at 0x108cff260>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x108cfd070>
+
+    @pytest.mark.parametrize("case", FAILURE_CASES, ids=lambda c: c.mode.value)
+    def test_common_suite_failure_matrix_and_safe_errors(case, capsys, caplog):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:78: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+__________ test_common_suite_failure_matrix_and_safe_errors[oversize] __________
+
+case = FailureCase(mode=<FakeMode.OVERSIZE: 'oversize'>, code=<GeoRunErrorCode.PROVIDER_RESPONSE_TOO_LARGE: 'PROVIDER_RESPONSE_TOO_LARGE'>, stage=<CollectorStage.RECEIVE: 'RECEIVE'>, state=<GeoExternalCallState.SENT: 'SENT'>, status=None)
+capsys = <_pytest.capture.CaptureFixture object at 0x108cb7530>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x108cb7fe0>
+
+    @pytest.mark.parametrize("case", FAILURE_CASES, ids=lambda c: c.mode.value)
+    def test_common_suite_failure_matrix_and_safe_errors(case, capsys, caplog):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:78: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+______ test_common_suite_failure_matrix_and_safe_errors[oversize_chunked] ______
+
+case = FailureCase(mode=<FakeMode.OVERSIZE_CHUNKED: 'oversize_chunked'>, code=<GeoRunErrorCode.PROVIDER_RESPONSE_TOO_LARGE: '...ESPONSE_TOO_LARGE'>, stage=<CollectorStage.RECEIVE: 'RECEIVE'>, state=<GeoExternalCallState.SENT: 'SENT'>, status=None)
+capsys = <_pytest.capture.CaptureFixture object at 0x107c50980>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x107c50ce0>
+
+    @pytest.mark.parametrize("case", FAILURE_CASES, ids=lambda c: c.mode.value)
+    def test_common_suite_failure_matrix_and_safe_errors(case, capsys, caplog):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:78: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+______ test_common_suite_failure_matrix_and_safe_errors[invalid_response] ______
+
+case = FailureCase(mode=<FakeMode.INVALID_RESPONSE: 'invalid_response'>, code=<GeoRunErrorCode.PROVIDER_RESPONSE_INVALID: 'PR...NSE_INVALID'>, stage=<CollectorStage.PARSE: 'PARSE'>, state=<GeoExternalCallState.COMPLETED: 'COMPLETED'>, status=None)
+capsys = <_pytest.capture.CaptureFixture object at 0x107c513a0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x107c51be0>
+
+    @pytest.mark.parametrize("case", FAILURE_CASES, ids=lambda c: c.mode.value)
+    def test_common_suite_failure_matrix_and_safe_errors(case, capsys, caplog):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:78: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+________ test_common_suite_failure_matrix_and_safe_errors[invalid_json] ________
+
+case = FailureCase(mode=<FakeMode.INVALID_JSON: 'invalid_json'>, code=<GeoRunErrorCode.PROVIDER_RESPONSE_INVALID: 'PROVIDER_R...NSE_INVALID'>, stage=<CollectorStage.PARSE: 'PARSE'>, state=<GeoExternalCallState.COMPLETED: 'COMPLETED'>, status=None)
+capsys = <_pytest.capture.CaptureFixture object at 0x108cb45f0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x108cb6c00>
+
+    @pytest.mark.parametrize("case", FAILURE_CASES, ids=lambda c: c.mode.value)
+    def test_common_suite_failure_matrix_and_safe_errors(case, capsys, caplog):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:78: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+________ test_common_suite_failure_matrix_and_safe_errors[empty_answer] ________
+
+case = FailureCase(mode=<FakeMode.EMPTY_ANSWER: 'empty_answer'>, code=<GeoRunErrorCode.PROVIDER_RESPONSE_INVALID: 'PROVIDER_R...NSE_INVALID'>, stage=<CollectorStage.PARSE: 'PARSE'>, state=<GeoExternalCallState.COMPLETED: 'COMPLETED'>, status=None)
+capsys = <_pytest.capture.CaptureFixture object at 0x108c9fd10>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x108c9f800>
+
+    @pytest.mark.parametrize("case", FAILURE_CASES, ids=lambda c: c.mode.value)
+    def test_common_suite_failure_matrix_and_safe_errors(case, capsys, caplog):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:78: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+____________ test_common_suite_failure_matrix_and_safe_errors[401] _____________
+
+case = FailureCase(mode=<FakeMode.AUTH_401: '401'>, code=<GeoRunErrorCode.PROVIDER_AUTH_FAILED: 'PROVIDER_AUTH_FAILED'>, stage=<CollectorStage.RECEIVE: 'RECEIVE'>, state=<GeoExternalCallState.COMPLETED: 'COMPLETED'>, status=401)
+capsys = <_pytest.capture.CaptureFixture object at 0x108c7eae0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x108cb6660>
+
+    @pytest.mark.parametrize("case", FAILURE_CASES, ids=lambda c: c.mode.value)
+    def test_common_suite_failure_matrix_and_safe_errors(case, capsys, caplog):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:78: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+____________ test_common_suite_failure_matrix_and_safe_errors[403] _____________
+
+case = FailureCase(mode=<FakeMode.AUTH_403: '403'>, code=<GeoRunErrorCode.PROVIDER_AUTH_FAILED: 'PROVIDER_AUTH_FAILED'>, stage=<CollectorStage.RECEIVE: 'RECEIVE'>, state=<GeoExternalCallState.COMPLETED: 'COMPLETED'>, status=403)
+capsys = <_pytest.capture.CaptureFixture object at 0x108cffb60>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x108cfc050>
+
+    @pytest.mark.parametrize("case", FAILURE_CASES, ids=lambda c: c.mode.value)
+    def test_common_suite_failure_matrix_and_safe_errors(case, capsys, caplog):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:78: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+____________ test_common_suite_failure_matrix_and_safe_errors[503] _____________
+
+case = FailureCase(mode=<FakeMode.UNAVAILABLE: '503'>, code=<GeoRunErrorCode.PROVIDER_UNAVAILABLE: 'PROVIDER_UNAVAILABLE'>, stage=<CollectorStage.RECEIVE: 'RECEIVE'>, state=<GeoExternalCallState.COMPLETED: 'COMPLETED'>, status=503)
+capsys = <_pytest.capture.CaptureFixture object at 0x108cfc3b0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x108cfc260>
+
+    @pytest.mark.parametrize("case", FAILURE_CASES, ids=lambda c: c.mode.value)
+    def test_common_suite_failure_matrix_and_safe_errors(case, capsys, caplog):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:78: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+__________ test_send_authorization_rejection_and_explicit_new_attempt __________
+
+    def test_send_authorization_rejection_and_explicit_new_attempt():
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:88: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+__________ test_mismatched_registration_is_rejected_before_send[mode] __________
+
+patch = 'mode'
+
+    @pytest.mark.parametrize("patch", ["mode", "key", "version"])
+    def test_mismatched_registration_is_rejected_before_send(patch):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+__________ test_mismatched_registration_is_rejected_before_send[key] ___________
+
+patch = 'key'
+
+    @pytest.mark.parametrize("patch", ["mode", "key", "version"])
+    def test_mismatched_registration_is_rejected_before_send(patch):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+________ test_mismatched_registration_is_rejected_before_send[version] _________
+
+patch = 'version'
+
+    @pytest.mark.parametrize("patch", ["mode", "key", "version"])
+    def test_mismatched_registration_is_rejected_before_send(patch):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:101: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+_ test_suite_rejects_nonconforming_collectors_without_exposing_values[RetryingCollector-429-\u6388\u6743\u5fc5\u987b\u65e9\u4e8e\u8bf7\u6c42] _
+
+cls = <class 'test_geo_collector_suite.RetryingCollector'>
+mode = <FakeMode.RATE_LIMIT: '429'>, rule = '授权必须早于请求'
+
+    @pytest.mark.parametrize("cls,mode,rule", [
+        (RetryingCollector, FakeMode.RATE_LIMIT, "授权必须早于请求"),
+        (RedirectingCollector, FakeMode.REDIRECT, "禁止跟随重定向"),
+        (LeakingCollector, FakeMode.RATE_LIMIT, "敏感值外泄"),
+    ])
+    def test_suite_rejects_nonconforming_collectors_without_exposing_values(cls, mode, rule):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:152: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+_ test_suite_rejects_nonconforming_collectors_without_exposing_values[RedirectingCollector-redirect-\u7981\u6b62\u8ddf\u968f\u91cd\u5b9a\u5411] _
+
+cls = <class 'test_geo_collector_suite.RedirectingCollector'>
+mode = <FakeMode.REDIRECT: 'redirect'>, rule = '禁止跟随重定向'
+
+    @pytest.mark.parametrize("cls,mode,rule", [
+        (RetryingCollector, FakeMode.RATE_LIMIT, "授权必须早于请求"),
+        (RedirectingCollector, FakeMode.REDIRECT, "禁止跟随重定向"),
+        (LeakingCollector, FakeMode.RATE_LIMIT, "敏感值外泄"),
+    ])
+    def test_suite_rejects_nonconforming_collectors_without_exposing_values(cls, mode, rule):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:152: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+_ test_suite_rejects_nonconforming_collectors_without_exposing_values[LeakingCollector-429-\u654f\u611f\u503c\u5916\u6cc4] _
+
+cls = <class 'test_geo_collector_suite.LeakingCollector'>
+mode = <FakeMode.RATE_LIMIT: '429'>, rule = '敏感值外泄'
+
+    @pytest.mark.parametrize("cls,mode,rule", [
+        (RetryingCollector, FakeMode.RATE_LIMIT, "授权必须早于请求"),
+        (RedirectingCollector, FakeMode.REDIRECT, "禁止跟随重定向"),
+        (LeakingCollector, FakeMode.RATE_LIMIT, "敏感值外泄"),
+    ])
+    def test_suite_rejects_nonconforming_collectors_without_exposing_values(cls, mode, rule):
+>       request = make_request()
+                  ^^^^^^^^^^^^^^
+
+backend/tests/unit/test_geo_collector_suite.py:152: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def make_request():
+        bundle = load_geo_fixtures()["corpus"]
+        value = input_snapshot("API")
+>       value["prompt"]["prompt_text"] = bundle["questions"][0]["prompt_text"]
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'prompt_text'
+
+backend/tests/unit/test_geo_collector_suite.py:32: KeyError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_common_suite_success_unknown_partial_and_original_text[True-success]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_common_suite_success_unknown_partial_and_original_text[True-citations]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_common_suite_success_unknown_partial_and_original_text[False-success]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_common_suite_success_unknown_partial_and_original_text[False-citations]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_common_suite_success_unknown_partial_and_original_text[None-success]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_common_suite_success_unknown_partial_and_original_text[None-citations]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_unknown_usage_cost_not_zero
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_common_suite_failure_matrix_and_safe_errors[429]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_common_suite_failure_matrix_and_safe_errors[timeout]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_common_suite_failure_matrix_and_safe_errors[slow_body]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_common_suite_failure_matrix_and_safe_errors[disconnect]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_common_suite_failure_matrix_and_safe_errors[redirect]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_common_suite_failure_matrix_and_safe_errors[oversize]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_common_suite_failure_matrix_and_safe_errors[oversize_chunked]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_common_suite_failure_matrix_and_safe_errors[invalid_response]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_common_suite_failure_matrix_and_safe_errors[invalid_json]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_common_suite_failure_matrix_and_safe_errors[empty_answer]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_common_suite_failure_matrix_and_safe_errors[401]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_common_suite_failure_matrix_and_safe_errors[403]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_common_suite_failure_matrix_and_safe_errors[503]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_send_authorization_rejection_and_explicit_new_attempt
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_mismatched_registration_is_rejected_before_send[mode]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_mismatched_registration_is_rejected_before_send[key]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_mismatched_registration_is_rejected_before_send[version]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_suite_rejects_nonconforming_collectors_without_exposing_values[RetryingCollector-429-\u6388\u6743\u5fc5\u987b\u65e9\u4e8e\u8bf7\u6c42]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_suite_rejects_nonconforming_collectors_without_exposing_values[RedirectingCollector-redirect-\u7981\u6b62\u8ddf\u968f\u91cd\u5b9a\u5411]
+FAILED backend/tests/unit/test_geo_collector_suite.py::test_suite_rejects_nonconforming_collectors_without_exposing_values[LeakingCollector-429-\u654f\u611f\u503c\u5916\u6cc4]
+27 failed, 24 passed in 3.15s

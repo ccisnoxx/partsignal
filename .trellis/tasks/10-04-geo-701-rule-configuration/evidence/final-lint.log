@@ -1,0 +1,49 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/tests/integration/test_geo_rule_snapshots.py:3:1
+   |
+ 1 |   """旧v1非空历史前滚不变，新v2批次捕获实际current且幂等重放保持。"""
+ 2 |
+ 3 | / from copy import deepcopy
+ 4 | | from uuid import UUID, uuid4
+ 5 | |
+ 6 | | import psycopg
+ 7 | | import pytest
+ 8 | | from psycopg.types.json import Jsonb
+ 9 | | from alembic.autogenerate import compare_metadata
+10 | | from alembic.migration import MigrationContext
+11 | | from sqlalchemy import create_engine, select
+12 | |
+13 | | from app.db import Base
+14 | | from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
+15 | | from tests.integration.geo_plans_support import PlansAPI
+16 | | from tests.integration.geo_plans_support import plans_api as plans_api
+17 | | from tests.integration.geo_plans_support import questions_api as questions_api
+18 | | from tests.integration.geo_plans_support import questions_engine as questions_engine
+19 | | from tests.integration.geo_runs_support import RunDatabase, batch, run
+20 | | from tests.integration.geo_runs_support import plan_database as plan_database
+21 | | from tests.integration.geo_runs_support import run_database as run_database
+22 | | from tests.integration.test_geo_monitoring_plans import existing_rows
+23 | | from tests.integration.test_migrations import run_alembic
+24 | | from tests.unit.test_geo_surface_contract import contract as contract
+25 | | from tests.unit.test_geo_surface_contract import validate
+   | |_________________________________________________________^
+26 |
+27 |   pytestmark = pytest.mark.integration
+   |
+help: Organize imports
+
+E501 Line too long (140 > 100)
+   --> backend/tests/integration/test_geo_rules.py:229:101
+    |
+227 | …
+228 | …
+229 | …s(revision,configuration,created_by) VALUES (:revision,CAST(:config AS jsonb),:actor)"
+    |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+230 | …
+231 | …
+    |
+
+Found 2 errors.
+[*] 1 fixable with the `--fix` option.
+make: *** [lint] Error 1

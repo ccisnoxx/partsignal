@@ -1,0 +1,91 @@
+{
+  "version": 5,
+  "planner_version": "1.5.1",
+  "plan_id": "geo303-independent-review",
+  "max_concurrent_workers": 1,
+  "effective_capacity": 1,
+  "open_workers": 0,
+  "available_slots": 1,
+  "role_profiles": {
+    "critical_reviewer": {
+      "name": "critical_reviewer",
+      "model": "gpt-6.1-sol",
+      "model_reasoning_effort": "xhigh",
+      "sandbox_mode": "read-only",
+      "profile_source": "agent_toml",
+      "config_file": "critical_reviewer.toml",
+      "config_sha256": "30f4b4654e23415c7723b0d6ec7625b2020f13c51c5714a37c80feb53c7e4118"
+    }
+  },
+  "codex_config_evidence": {
+    "config_file": "config.toml",
+    "config_sha256": "ca260c2909754e4f01e81ae49a439f3804071d0b5b34f454117ea318694e0e3b",
+    "configured_max_concurrent_threads_per_session": 4,
+    "capacity_source": "codex_config"
+  },
+  "runtime_workers": [],
+  "prior_tasks": [
+    {
+      "task_id": "geo303-primary-candidate",
+      "attempt": 1,
+      "status": "accepted",
+      "worker_id": "primary-local"
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "geo303-review-a1",
+      "task_name": "geo303_creation_review",
+      "agent_type": "critical_reviewer",
+      "attempt": 1,
+      "replaces_task_id": null,
+      "depends_on": [],
+      "read_paths": [
+        "backend/app",
+        "backend/alembic",
+        "backend/tests",
+        "frontend/src/domains/geo-plans",
+        "frontend/src/shared/api/generated",
+        "contracts",
+        "docs/geo-monitoring",
+        ".trellis/tasks/10-02-geo-303-batch-factory",
+        "AGENTS.md",
+        "backend/AGENTS.md",
+        ".trellis/spec"
+      ],
+      "write_paths": [],
+      "independent_review": true,
+      "review_of_task_ids": [
+        "geo303-primary-candidate"
+      ],
+      "reuse_worker_id": null,
+      "accounting_scope": "not_available",
+      "dispatch_method": "spawn_agent",
+      "fork_turns": "none",
+      "delivery_mode": "complete_task",
+      "progress_policy": "blocker_or_final",
+      "deliverable": "中文独立只读批次创建复核报告，不修改文件",
+      "acceptance_criteria": [
+        "覆盖原子性/同键并发/调度身份/配置冻结/历史引用/精确错误映射与安全边界",
+        "发现给出file:line、触发条件、影响和具体修复；无发现报告证据缺口",
+        "严格只读、不实现后续任务"
+      ],
+      "assigned_wave": 1
+    }
+  ],
+  "waves": [
+    {
+      "wave": 1,
+      "task_ids": [
+        "geo303-review-a1"
+      ]
+    }
+  ],
+  "ready_task_ids": [
+    "geo303-review-a1"
+  ],
+  "deferred_task_ids": [],
+  "blocked_task_ids": [],
+  "blocked_reasons": {},
+  "superseded_worker_ids": []
+}

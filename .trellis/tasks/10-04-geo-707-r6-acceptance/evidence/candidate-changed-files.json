@@ -1,0 +1,162 @@
+[
+  {
+    "path": ".trellis/tasks/10-04-geo-707-r6-acceptance/check.jsonl",
+    "status": "modified",
+    "sha256": "acdf6764e744fdbc333dd5e30e8618d56a40611fc7e8ce71cb348436f7f76926"
+  },
+  {
+    "path": ".trellis/tasks/10-04-geo-707-r6-acceptance/debug.jsonl",
+    "status": "new",
+    "sha256": "c152cf3e2d3dbe55e00a94b0f0b142abca25018a7ccf61ab7d079ba57c0bbbec"
+  },
+  {
+    "path": ".trellis/tasks/10-04-geo-707-r6-acceptance/design.md",
+    "status": "new",
+    "sha256": "a42db05a9c1faa6a465d7051e635db0c8d3a9c82187ee84d755a0a0cde32c5e4"
+  },
+  {
+    "path": ".trellis/tasks/10-04-geo-707-r6-acceptance/implement.jsonl",
+    "status": "modified",
+    "sha256": "0b2edcc8b2a1a35b1e1882fdfa4f7230e8ea3987d4edfe7588d8d3b906ddcc57"
+  },
+  {
+    "path": ".trellis/tasks/10-04-geo-707-r6-acceptance/implement.md",
+    "status": "new",
+    "sha256": "5390eb7f6e92ce32a872db3102a25b6ae92051f62f0f06284979a464e39ea1ed"
+  },
+  {
+    "path": ".trellis/tasks/10-04-geo-707-r6-acceptance/prd.md",
+    "status": "modified",
+    "sha256": "11451755fa3b726236982ab523bc1eb716cda5194752cf4f3c1f3e516fd331fd"
+  },
+  {
+    "path": ".trellis/tasks/10-04-geo-707-r6-acceptance/task.json",
+    "status": "modified",
+    "sha256": "2c8163f400afcc06db87aa5268f16c565e1938cb14c1a472c44b1256876b1c62"
+  },
+  {
+    "path": "backend/app/audit_types.py",
+    "status": "modified",
+    "sha256": "8d5ca00ef353151bcfedf7a8ec126ecc5439b38260485f57d9c44cedae00ac37"
+  },
+  {
+    "path": "backend/app/services/geo_opportunities.py",
+    "status": "modified",
+    "sha256": "4ab7fb789b9ae074da116cd236d4a80e145a045dcbea986a446f7eb6ab00349e"
+  },
+  {
+    "path": "backend/tests/geo_loop_e2e_seed.py",
+    "status": "new",
+    "sha256": "c723caec3bbb8f69972d6b0b987e3e36f18828e84075ca86b5ae880ff0aac19e"
+  },
+  {
+    "path": "backend/tests/geo_opportunity_e2e_seed.py",
+    "status": "modified",
+    "sha256": "71e2b9ea9c5421ee6f579f968006846a3b1fac75053dfb4583b4666952206caa"
+  },
+  {
+    "path": "backend/tests/integration/geo_loop_support.py",
+    "status": "new",
+    "sha256": "7b9d476f3ace9bb5e0d19fd80d1a39bc9a6364fee4e862403c6af52784c34709"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_opportunities.py",
+    "status": "modified",
+    "sha256": "7593a79569cc4348e4fb1697a99d5dfa51e5e6d29510e5586ab183c72a865950"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_opportunity_loop.py",
+    "status": "new",
+    "sha256": "d352889cf33255ee63fe845970269aecec222165113b7a49b422ca97d3231d0e"
+  },
+  {
+    "path": "backend/tests/integration/test_geo_opportunity_workbench.py",
+    "status": "modified",
+    "sha256": "ac2454d40041979f834e562cf1ff421e8cdc0db54c6178821cf0668cea7470da"
+  },
+  {
+    "path": "contracts/database.md",
+    "status": "modified",
+    "sha256": "a099c6741cc1749f7c17f9c759ef40c8f5b3f0201ef46a5e06bb11f16e1d5d84"
+  },
+  {
+    "path": "deploy/scripts/e2e-local.sh",
+    "status": "modified",
+    "sha256": "951247736e02ee406f95362eb129c6a9a5abdad106fb98cad864b2dfaba9ed9e"
+  },
+  {
+    "path": "docs/geo-monitoring/02-business/01-business-architecture.md",
+    "status": "modified",
+    "sha256": "2fcb35ffffe8cefb59c28d860796eac93be7e32ef128eb320348ef91a044b1ab"
+  },
+  {
+    "path": "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+    "status": "modified",
+    "sha256": "e3cd97b554baca18dfd3cdde4b5576dcfbcff79babd330065ee0f93633245826"
+  },
+  {
+    "path": "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+    "status": "modified",
+    "sha256": "15ed858bbf2d48fc2801530b6e09a598e805905bbf21734f9b29f1d1b86401c8"
+  },
+  {
+    "path": "docs/geo-monitoring/04-delivery/10-r6-opportunity-acceptance.md",
+    "status": "new",
+    "sha256": "670f9d9e94e3a36b849691f8531a30433ea0253f234b855d08331b6d2b1905cd"
+  },
+  {
+    "path": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "status": "modified",
+    "sha256": "9c1692841b8f42a4a81d305d284b489a4c30307c8dd4294d0b544aac025a1e72"
+  },
+  {
+    "path": "docs/geo-monitoring/CHANGELOG.md",
+    "status": "modified",
+    "sha256": "23fe61fc45923d0b9c0e19dec3ab411635e2481db73124cb8d665437dc18a79f"
+  },
+  {
+    "path": "docs/geo-monitoring/README.md",
+    "status": "modified",
+    "sha256": "48a8fd5630e6936288bad8e0cfbd76820f904a45c70238bb20e940c7c22c50a3"
+  },
+  {
+    "path": "docs/geo-monitoring/SHA256SUMS",
+    "status": "modified",
+    "sha256": "163b45cb3c6329461ef2c75b71c85da6d91e08e98481dfe9e1e2326e94c4f901"
+  },
+  {
+    "path": "frontend/src/domains/audit/audit.model.test.ts",
+    "status": "modified",
+    "sha256": "1d2c64619cf58dcc7dd9c325c30717bb05cceb6b890387f171f1f4ac4d3fce9e"
+  },
+  {
+    "path": "frontend/src/domains/audit/audit.model.ts",
+    "status": "modified",
+    "sha256": "0b11675c63dfd105bd9e1508bd67be9b5623b57953d80f1f4494136aa65a3949"
+  },
+  {
+    "path": "frontend/tests/e2e/fact-workspace.spec.ts",
+    "status": "modified",
+    "sha256": "e262360f8599adee302e23eccdf78ae6cbbeefcf1fc618d1323ece1276cd6f51"
+  },
+  {
+    "path": "frontend/tests/e2e/geo-loop-real-stack.spec.ts",
+    "status": "new",
+    "sha256": "69cdb6fce5337872f5184742303bc326d3e2cbc453f139017e3c354d2f4e993e"
+  },
+  {
+    "path": "frontend/tests/e2e/geo-loop-support.ts",
+    "status": "new",
+    "sha256": "aa09f385e5786fac064ede934b0d987d72d00060b02ff8a02765e4e2d44303f6"
+  },
+  {
+    "path": "frontend/tests/e2e/opportunities-real-stack.spec.ts",
+    "status": "modified",
+    "sha256": "3125c817cda06b8106cd6378b8eb7bd7fb4445df61a5b0140e73023338e84d32"
+  },
+  {
+    "path": "frontend/tests/e2e/questions-real-stack.spec.ts",
+    "status": "modified",
+    "sha256": "b4a21217ead901aa30ae9f6c9df60107050fd284e3fc556ecc548158abd9ff3c"
+  }
+]

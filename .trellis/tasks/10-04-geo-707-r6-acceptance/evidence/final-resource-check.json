@@ -1,0 +1,15 @@
+{
+  "task_compose_containers_remaining": [],
+  "ports_released": {
+    "55477": true,
+    "56477": true,
+    "8000": true,
+    "9001": true,
+    "4174": true,
+    "19009": true,
+    "19012": true
+  },
+  "initial_maintained_files_removed": [],
+  "candidate_hashes_current": true,
+  "E2E_owned_databases_keys_storage": "各真实栈日志已确认owner限定清理，本轮基础PG/Redis与网络已down"
+}

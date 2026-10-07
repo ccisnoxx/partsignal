@@ -1,0 +1,14 @@
+{
+  "current_task": {
+    "dir": ".trellis/tasks/10-05-geo-902-observability",
+    "id": "geo-902-observability",
+    "title": "GEO-902：运行、成本、失败与积压可观察性",
+    "status": "review",
+    "parent": null,
+    "children": [],
+    "branch": "geo/GEO-902",
+    "base_branch": "main"
+  },
+  "source": "session:codex_01a10c9c-0791-7560-863e-e75709399ca9",
+  "stale": false
+}

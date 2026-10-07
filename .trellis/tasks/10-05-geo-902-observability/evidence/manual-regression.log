@@ -1,0 +1,248 @@
+.F............F.FFF.F                                                    [100%]
+=================================== FAILURES ===================================
+_____________ test_submit_freezes_all_once_replay_and_no_analysis ______________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_bf3bb770...fef1906be9f2'), surface=UUID('f1eb288b-0839-481b-8f6f-2522ec2fb0ee'), name='虚构计划-3f8c3fd1-54c8-431f-a0ba-63bea35abf72')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x112550530>
+
+    def test_submit_freezes_all_once_replay_and_no_analysis(plans_api, monkeypatch):
+        api = plans_api
+        run = batch_run(api)[0]
+        f, _ = evidence(api)
+        raw, _ = evidence(api, screenshot=False)
+        assert save(api, run, {"answer_text": "旧草稿"}).status_code == 200
+        value = payload(
+            run,
+            revision=1,
+            screenshot_file_id=str(f),
+            raw_payload_file_id=str(raw),
+            citations=[
+                {"original_url": "https://EXAMPLE.test/a#x", "position": 2, "title": "后出现"},
+                {"original_url": "https://example.test/a", "position": 1, "title": "首次"},
+            ],
+        )
+        result = submit(api, run, value)
+>       assert result.status_code == 201, result.text
+E       AssertionError: {"error":{"code":"VALIDATION_ERROR","message":"采集时间必须在运行创建与当前提交时间之间","details":{},"request_id":"8aa98b2c-15d4-42ef-b4e5-441129a89543"}}
+E       assert 422 == 201
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+
+backend/tests/integration/test_geo_manual_collection.py:188: AssertionError
+_ test_optional_screenshot_still_requires_evidence_and_submission_can_include_unsaved_edits _
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_bf3bb770...e0087d174916'), surface=UUID('b4b6db66-9019-41d1-9dd7-2cfd1453ad5e'), name='虚构计划-bf453789-ea1a-4eaf-852d-9132a5064335')
+
+    def test_optional_screenshot_still_requires_evidence_and_submission_can_include_unsaved_edits(
+        plans_api,
+    ):
+        api = plans_api
+        run = batch_run(api, screenshot=False)[0]
+        f, _ = evidence(api, screenshot=False)
+        assert save(api, run, {"answer_text": "未完成"}).status_code == 200
+        value = payload(run, revision=1, raw_payload_file_id=str(f))
+>       assert submit(api, run, value).status_code == 201
+E       AssertionError: assert 422 == 201
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+E        +    where <Response [422 Unprocessable Entity]> = submit(PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_bf3bb770...e0087d174916'), surface=UUID('b4b6db66-9019-41d1-9dd7-2cfd1453ad5e'), name='虚构计划-bf453789-ea1a-4eaf-852d-9132a5064335'), <app.models.geo_runs.GeoObservationRun object at 0x1128d8290>, {'answer_format': 'MARKDOWN', 'answer_text': '  虚构原始回答\n', 'collected_at': '2026-10-05T15:57:17.875518+00:00', 'expected_draft_revision': 1, ...})
+
+backend/tests/integration/test_geo_manual_collection.py:294: AssertionError
+___________ test_audit_failure_rolls_back_freeze_and_preserves_draft ___________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_bf3bb770...0b63a15124cf'), surface=UUID('4c05452f-4596-4ab1-a185-85f1f1eba8f1'), name='虚构计划-fb1e4d2a-b2cb-4068-b4fb-0ece86b2a7fe')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x1129f2d50>
+
+    def test_audit_failure_rolls_back_freeze_and_preserves_draft(plans_api, monkeypatch):
+        api = plans_api
+        run = batch_run(api)[0]
+        f, _ = evidence(api)
+        assert (
+            save(api, run, {"answer_text": "必须保留", "screenshot_file_id": str(f)}).status_code == 200
+        )
+    
+        def fail(*args, **kwargs):
+            raise RuntimeError("fixture failure")
+    
+        monkeypatch.setattr(service, "append_audit", fail)
+        with api.api.factory() as db, pytest.raises(RuntimeError, match="fixture failure"):
+>           service.submit_manual_observation(
+                db,
+                run_id=run.id,
+                actor=db.get(User, api.api.engineer_id),
+                payload=GeoManualObservationSubmit.model_validate(
+                    payload(run, revision=1, screenshot_file_id=str(f))
+                ),
+                idempotency_key="audit-failure",
+                request_id=str(uuid4()),
+            )
+
+backend/tests/integration/test_geo_manual_collection.py:329: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+db = <sqlalchemy.orm.session.Session object at 0x1128625d0>
+
+    def submit_manual_observation(
+        db: Session,
+        *,
+        run_id: UUID,
+        payload: GeoManualObservationSubmit,
+        actor: User,
+        idempotency_key: str,
+        request_id: str,
+    ) -> GeoManualObservationSubmitted:
+        identity = submission_identity(actor.id, idempotency_key)
+        digest = submission_hash(run_id, payload)
+        with command(db, actor) as current:
+            key = int.from_bytes(bytes.fromhex(identity)[:8], "big", signed=True)
+            db.execute(select(func.pg_advisory_xact_lock(key)))
+            previous = db.get(GeoManualSubmission, identity)
+            if previous is not None:
+                if previous.request_hash != digest:
+                    raise AppError("IDEMPOTENCY_CONFLICT", "同一幂等键不能用于不同提交内容或运行", 409)
+                result = _receipt(db, previous)
+                db.rollback()
+                return result
+            run, batch = _lock_entry(db, run_id)
+            draft = _draft(db, run_id, lock=True)
+            _check_revision(draft, payload.expected_draft_revision)
+            if not payload.answer_text.strip():
+                raise AppError("GEO_ANSWER_EMPTY", "正式提交必须包含非空回答", 422)
+            if payload.screenshot_file_id is None and payload.raw_payload_file_id is None:
+                raise AppError("GEO_EVIDENCE_REQUIRED", "正式提交必须包含截图或原始证据", 422)
+            if (
+                run.input_snapshot["profile"]["settings"].get("require_screenshot", True)
+                and payload.screenshot_file_id is None
+            ):
+                raise AppError("GEO_SCREENSHOT_REQUIRED", "冻结的采集配置要求截图证据", 422)
+            detached = _lock_files(db, draft, payload, current)
+            now = db.scalar(select(func.clock_timestamp()))
+            assert isinstance(now, datetime)
+            collected = payload.collected_at.astimezone(UTC)
+            if not run.created_at <= collected <= now:
+>               raise AppError("VALIDATION_ERROR", "采集时间必须在运行创建与当前提交时间之间", 422)
+E               app.errors.AppError: 采集时间必须在运行创建与当前提交时间之间
+
+backend/app/services/geo_manual_collection.py:363: AppError
+_________________ test_concurrent_submit_is_exactly_once[True] _________________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_bf3bb770...26acbe7d4658'), surface=UUID('28fc827f-1c9c-4b69-84a2-debe953403a5'), name='虚构计划-e6d7cfff-52c1-4e2a-902e-140109743f5c')
+same_key = True
+
+    @pytest.mark.parametrize("same_key", [True, False])
+    def test_concurrent_submit_is_exactly_once(plans_api, same_key):
+        api = plans_api
+        run = batch_run(api)[0]
+        f, _ = evidence(api)
+        value = GeoManualObservationSubmit.model_validate(payload(run, screenshot_file_id=str(f)))
+        gate = Barrier(2)
+    
+        def invoke(i):
+            with api.api.factory() as db:
+                actor = db.get(User, api.api.engineer_id)
+                gate.wait(timeout=10)
+                try:
+                    return service.submit_manual_observation(
+                        db,
+                        run_id=run.id,
+                        payload=value,
+                        actor=actor,
+                        idempotency_key="same" if same_key else f"key-{i}",
+                        request_id=str(uuid4()),
+                    ).model_dump(mode="json")
+                except AppError as e:
+                    return e.code
+    
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(invoke, range(2)))
+        if same_key:
+            assert results[0] == results[1]
+        else:
+            assert (
+                sum(isinstance(r, dict) for r in results) == 1 and "INVALID_STATE_TRANSITION" in results
+            )
+        with api.api.factory() as db:
+>           assert (
+                db.scalar(
+                    select(func.count())
+                    .select_from(GeoAnswerSnapshot)
+                    .where(GeoAnswerSnapshot.run_id == run.id)
+                )
+                == 1
+            )
+E           AssertionError: assert 0 == 1
+E            +  where 0 = scalar(<sqlalchemy.sql.selectable.Select object at 0x1129d7da0>)
+E            +    where scalar = <sqlalchemy.orm.session.Session object at 0x11299f800>.scalar
+E            +    and   <sqlalchemy.sql.selectable.Select object at 0x1129d7da0> = where(<sqlalchemy.orm.attributes.InstrumentedAttribute object at 0x10e3772e0> == UUID('cefca2f0-d442-487f-b2f7-7e5424a07716'))
+E            +      where where = <sqlalchemy.sql.selectable.Select object at 0x1129d4470>.where
+E            +        where <sqlalchemy.sql.selectable.Select object at 0x1129d4470> = select_from(GeoAnswerSnapshot)
+E            +          where select_from = <sqlalchemy.sql.selectable.Select object at 0x1129c7e30>.select_from
+E            +            where <sqlalchemy.sql.selectable.Select object at 0x1129c7e30> = select(<sqlalchemy.sql.functions.count at 0x1129c4320; count>)
+E            +              where <sqlalchemy.sql.functions.count at 0x1129c4320; count> = <sqlalchemy.sql.functions._FunctionGenerator object at 0x11299f950>()
+E            +                where <sqlalchemy.sql.functions._FunctionGenerator object at 0x11299f950> = func.count
+E            +      and   <sqlalchemy.orm.attributes.InstrumentedAttribute object at 0x10e3772e0> = GeoAnswerSnapshot.run_id
+E            +      and   UUID('cefca2f0-d442-487f-b2f7-7e5424a07716') = <app.models.geo_runs.GeoObservationRun object at 0x1129d4bc0>.id
+
+backend/tests/integration/test_geo_manual_collection.py:375: AssertionError
+________________ test_concurrent_submit_is_exactly_once[False] _________________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_bf3bb770...d64ea1bf602d'), surface=UUID('0a63d432-40ba-47e5-a36c-92a104637967'), name='虚构计划-04075c30-e367-4319-8189-928cf6ef1d73')
+same_key = False
+
+    @pytest.mark.parametrize("same_key", [True, False])
+    def test_concurrent_submit_is_exactly_once(plans_api, same_key):
+        api = plans_api
+        run = batch_run(api)[0]
+        f, _ = evidence(api)
+        value = GeoManualObservationSubmit.model_validate(payload(run, screenshot_file_id=str(f)))
+        gate = Barrier(2)
+    
+        def invoke(i):
+            with api.api.factory() as db:
+                actor = db.get(User, api.api.engineer_id)
+                gate.wait(timeout=10)
+                try:
+                    return service.submit_manual_observation(
+                        db,
+                        run_id=run.id,
+                        payload=value,
+                        actor=actor,
+                        idempotency_key="same" if same_key else f"key-{i}",
+                        request_id=str(uuid4()),
+                    ).model_dump(mode="json")
+                except AppError as e:
+                    return e.code
+    
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(invoke, range(2)))
+        if same_key:
+            assert results[0] == results[1]
+        else:
+>           assert (
+                sum(isinstance(r, dict) for r in results) == 1 and "INVALID_STATE_TRANSITION" in results
+            )
+E           assert (0 == 1)
+E            +  where 0 = sum(<generator object test_concurrent_submit_is_exactly_once.<locals>.<genexpr> at 0x1128c99a0>)
+
+backend/tests/integration/test_geo_manual_collection.py:371: AssertionError
+______________________ test_sql_final_facts_are_immutable ______________________
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55432/partsignal_geo208_bf3bb770...34ba82ac97f5'), surface=UUID('3c2554a5-3d2b-411a-9f05-d9bcbd388358'), name='虚构计划-b2d32b2e-6c2d-4e3e-b015-8f990b48dbb0')
+
+    def test_sql_final_facts_are_immutable(plans_api):
+        api = plans_api
+        run = batch_run(api)[0]
+        f, _ = evidence(api)
+        result = submit(api, run, payload(run, screenshot_file_id=str(f)))
+>       assert result.status_code == 201, result.text
+E       AssertionError: {"error":{"code":"VALIDATION_ERROR","message":"采集时间必须在运行创建与当前提交时间之间","details":{},"request_id":"dd99fb2a-d9c0-48cf-ad00-9d2c17b3afe5"}}
+E       assert 422 == 201
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+
+backend/tests/integration/test_geo_manual_collection.py:426: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_submit_freezes_all_once_replay_and_no_analysis
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_optional_screenshot_still_requires_evidence_and_submission_can_include_unsaved_edits
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_audit_failure_rolls_back_freeze_and_preserves_draft
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_concurrent_submit_is_exactly_once[True]
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_concurrent_submit_is_exactly_once[False]
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_sql_final_facts_are_immutable
+6 failed, 15 passed in 4.98s

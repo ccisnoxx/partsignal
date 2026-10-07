@@ -1,0 +1,14 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+E501 Line too long (101 > 100)
+   --> backend/tests/integration/test_geo_questions_transactions.py:253:101
+    |
+251 |             text(
+252 |                 "SELECT count(*) FROM audit_logs WHERE request_id IN "
+253 |                 "('geo202-same-actor-update','geo202-same-actor-delete','geo202-same-actor-create') "
+    |                                                                                                     ^
+254 |                 "AND actor_id=:actor"
+255 |             ),
+    |
+
+Found 1 error.
+make: *** [lint] Error 1

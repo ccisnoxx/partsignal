@@ -1,0 +1,13 @@
+backend/tests/integration/test_geo_analysis_migration.py:27:101: E501 Line too long (125 > 100)
+backend/tests/integration/test_geo_analysis_migration.py:28:101: E501 Line too long (110 > 100)
+backend/tests/integration/test_geo_analysis_migration.py:31:101: E501 Line too long (164 > 100)
+backend/tests/integration/test_geo_analysis_migration.py:32:101: E501 Line too long (142 > 100)
+backend/tests/integration/test_geo_analysis_migration.py:33:101: E501 Line too long (118 > 100)
+backend/tests/integration/test_geo_analysis_migration.py:36:101: E501 Line too long (183 > 100)
+backend/tests/integration/test_geo_analysis_migration.py:39:101: E501 Line too long (114 > 100)
+backend/tests/integration/test_geo_analysis_migration.py:40:101: E501 Line too long (144 > 100)
+backend/tests/integration/test_geo_analysis_migration.py:42:12: E701 Multiple statements on one line (colon)
+backend/tests/integration/test_geo_analysis_migration.py:43:101: E501 Line too long (175 > 100)
+backend/tests/integration/test_geo_analysis_migration.py:44:90: E501 Line too long (103 > 100)
+backend/tests/integration/test_geo_analysis_migration.py:46:101: E501 Line too long (116 > 100)
+Found 12 errors.

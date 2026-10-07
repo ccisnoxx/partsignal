@@ -1,0 +1,2411 @@
+--- baseline/contracts/openapi.yaml
++++ contracts/openapi.yaml
+@@ -16425,3 +16425,250 @@
+       - created_at
+       title: GeoBatchCreated
+       type: object
++
++    GeoRawPayloadSummary:
++      additionalProperties: false
++      description: 只允许结构事实；不接收 Header、正文、凭据或任意 provider 字符串。
++      properties:
++        schema_version:
++          const: 1
++          default: 1
++          title: Schema Version
++          type: integer
++        payload_format:
++          anyOf:
++          - enum:
++            - JSON
++            - TEXT
++            - DOM
++            type: string
++          - type: 'null'
++          default: null
++          title: Payload Format
++        payload_bytes:
++          anyOf:
++          - maximum: 52428800
++            minimum: 0
++            type: integer
++          - type: 'null'
++          default: null
++          title: Payload Bytes
++        finish_reason:
++          anyOf:
++          - enum:
++            - STOP
++            - LENGTH
++            - CONTENT_FILTER
++            - OTHER
++            type: string
++          - type: 'null'
++          default: null
++          title: Finish Reason
++      title: GeoRawPayloadSummary
++      type: object
++    GeoAnswerSnapshotOut:
++      additionalProperties: false
++      properties:
++        id:
++          format: uuid
++          title: Id
++          type: string
++        run_id:
++          format: uuid
++          title: Run Id
++          type: string
++        prompt_text:
++          maxLength: 1048576
++          minLength: 1
++          title: Prompt Text
++          type: string
++        answer_text:
++          maxLength: 1048576
++          minLength: 1
++          title: Answer Text
++          type: string
++        answer_sha256:
++          pattern: ^[0-9a-f]{64}$
++          title: Answer Sha256
++          type: string
++        answer_format:
++          enum:
++          - TEXT
++          - MARKDOWN
++          - HTML_TEXT
++          title: Answer Format
++          type: string
++        source_product:
++          anyOf:
++          - maxLength: 160
++            type: string
++          - type: 'null'
++          title: Source Product
++        source_model:
++          anyOf:
++          - maxLength: 200
++            type: string
++          - type: 'null'
++          title: Source Model
++        source_version:
++          anyOf:
++          - maxLength: 200
++            type: string
++          - type: 'null'
++          title: Source Version
++        web_search_observed:
++          anyOf:
++          - type: boolean
++          - type: 'null'
++          title: Web Search Observed
++        raw_payload_summary:
++          $ref: '#/components/schemas/GeoRawPayloadSummary'
++        raw_payload_file_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Raw Payload File Id
++        screenshot_file_id:
++          anyOf:
++          - format: uuid
++            type: string
++          - type: 'null'
++          title: Screenshot File Id
++        citation_count:
++          maximum: 1000
++          minimum: 0
++          title: Citation Count
++          type: integer
++        collected_at:
++          format: date-time
++          title: Collected At
++          type: string
++        created_at:
++          format: date-time
++          title: Created At
++          type: string
++      required:
++      - id
++      - run_id
++      - prompt_text
++      - answer_text
++      - answer_sha256
++      - answer_format
++      - source_product
++      - source_model
++      - source_version
++      - web_search_observed
++      - raw_payload_summary
++      - raw_payload_file_id
++      - screenshot_file_id
++      - citation_count
++      - collected_at
++      - created_at
++      title: GeoAnswerSnapshotOut
++      type: object
++    GeoAnswerCitationInput:
++      additionalProperties: false
++      properties:
++        original_url:
++          maxLength: 2083
++          minLength: 1
++          title: Original Url
++          type: string
++        position:
++          maximum: 1000
++          minimum: 1
++          title: Position
++          type: integer
++        title:
++          anyOf:
++          - maxLength: 2000
++            type: string
++          - type: 'null'
++          default: null
++          title: Title
++        extraction_source:
++          enum:
++          - STRUCTURED
++          - DOM
++          - TEXT
++          - MANUAL
++          title: Extraction Source
++          type: string
++      required:
++      - original_url
++      - position
++      - extraction_source
++      title: GeoAnswerCitationInput
++      type: object
++    GeoAnswerCitationOut:
++      additionalProperties: false
++      properties:
++        original_url:
++          maxLength: 2083
++          minLength: 1
++          title: Original Url
++          type: string
++        position:
++          maximum: 1000
++          minimum: 1
++          title: Position
++          type: integer
++        title:
++          anyOf:
++          - maxLength: 2000
++            type: string
++          - type: 'null'
++          default: null
++          title: Title
++        extraction_source:
++          enum:
++          - STRUCTURED
++          - DOM
++          - TEXT
++          - MANUAL
++          title: Extraction Source
++          type: string
++        id:
++          format: uuid
++          title: Id
++          type: string
++        answer_snapshot_id:
++          format: uuid
++          title: Answer Snapshot Id
++          type: string
++        normalized_url:
++          maxLength: 2083
++          minLength: 1
++          title: Normalized Url
++          type: string
++        hostname:
++          maxLength: 253
++          minLength: 1
++          title: Hostname
++          type: string
++        occurrences:
++          items:
++            maximum: 1000
++            minimum: 1
++            type: integer
++          maxItems: 1000
++          minItems: 1
++          title: Occurrences
++          type: array
++        created_at:
++          format: date-time
++          title: Created At
++          type: string
++      required:
++      - original_url
++      - position
++      - extraction_source
++      - id
++      - answer_snapshot_id
++      - normalized_url
++      - hostname
++      - occurrences
++      - created_at
++      title: GeoAnswerCitationOut
++      type: object
+--- baseline/contracts/database.md
++++ contracts/database.md
+@@ -745,7 +745,7 @@
+ - A concrete platform's `is_active` state is independent from configuration completeness. A disabled platform remains manageable but cannot be used to create a content task, repair task, platform account, or publication work; disabling never mutates existing accounts, configuration, or history.
+ - Platform completeness, account counts, and task-reference counts are real-time read projections. Completeness is true when the current platform Prompt exists; a task reference is counted once through `content_tasks.platform_profile_id`.
+ - A concrete platform stores at most one Logo source. New writes only accept a `VERIFIED`, `PUBLIC`, `PLATFORM_LOGO` file; `logo_external_url` remains a nullable read-only legacy field until a later migration, and `website_url` remains an explicit nullable URI.
+-- File cleanup uses the three actual current-head file foreign keys as its deletion authority. Unconfirmed files retain their configured grace period, detached previously used files retain seven days, and object deletion remains retryable through `DELETING` before a `DELETED` tombstone is recorded.
++- File cleanup uses all actual current-head file foreign keys, including AnswerSnapshot screenshot/raw payload references, as its deletion authority. Unconfirmed files retain their configured grace period, detached previously used files retain seven days, and object deletion remains retryable through `DELETING` before a `DELETED` tombstone is recorded.
+ - Product, fact version, platform profile, platform account, platform type, and user physical deletion is admin-only. Services lock targets and return structured `409` conflicts; the only configured cascades are the approved Prompt auto-unbind, platform-owned account cleanup, and task-aggregate deletion paths.
+ - A product can be physically deleted only when no `FactVersion`, `ContentTask`, or `GeoObservation` directly references it. A platform profile must first be disabled and requires no `OPEN` content task or nonterminal `PublicationWork`; deleting it never deletes a task. A platform account requires no nonterminal `PublicationWork`; a platform type requires no platform profiles.
+ - 未归档 `OPEN | CANCELLED` 内容任务可连同其任务聚合删除，但运行中的生成作业、成功文章或 GEO 文章关系阻断普通删除。`COMPLETED` 任务只能先归档；管理员随后可按固定确认文本永久删除整个内部任务聚合，共享 GEO 与文件保留。
+@@ -871,3 +871,33 @@
+ 手工幂等在当前用户鉴权后先查已提交记录：同请求返回首次batch_id/requested_run_count/created_at；异请求409 IDEMPOTENCY_CONFLICT；配置修订/停用/归档不影响重放，也不重复成功审计。首次计划请求必填expected_revision，ARCHIVED拒绝；DISABLED/PAUSED/ACTIVE均可在当前资格满足时手工创建，不改变计划状态/revision。调度内部服务只接受ACTIVE CRON计划的新窗口；身份SHA256(`geo-batch-schedule:` + plan UUID + `:` + UTC ISO微秒时间)，不含revision，同窗口重放不检查后续配置。HTTP不能伪造SCHEDULED或RETEST。
+ 
+ 主体真实run引用由Batch主体关系连接Runs统计；Profile、Plan、User的删除投影及命令接入真实历史。手工成功审计 geo_observation_batch.created 与业务同事务，只包含plan_id、requested_run_count、trigger_type。系统调度created_by=NULL，不伪造审计用户。无Redis/Collector/派发/分析。唯一冲突仅按精确23505+约束名映射，其他未知数据库失败不吞掉。0049禁止破坏性降级；保留历史并前向修复。
++
++## GEO AnswerSnapshot / Citation 合同（GEO-304 / R2）
++
++`0050_geo_answer_evidence` 紧跟 `0049_geo_batch_creation`，只新增回答证据，不迁移旧文章观测，不提供manual-submit/Collector/分析命令。Accepted ADR-003规定原始URL/位置/采集标题属于证据，分类/Subject/Article匹配属于未来AnalysisRevision，不在原始Citation复制派生事实。Accepted ADR-001要求引用接入文件资格/锁/GC，不采用草案SET NULL/CASCADE。
++
++### geo_answer_snapshots
++
++UUID `id` PK；`run_id` UNIQUE（uq_geo_answers_run）且FK→runs RESTRICT。`prompt_text`=冻结input_snapshot.prompt.prompt_text，`answer_text`保留原文，非空且最多1048576字符；`answer_sha256 varchar(64)` generated stored = geo_answer_sha256(answer_text)，固定UTF8原字节，不trim/Unicode规范化/渲染HTML。`answer_format` TEXT/MARKDOWN/HTML_TEXT（最后者只作为文本，不执行HTML）。source_product(160)/source_model(200)/source_version(200)可空；web_search_observed可空表示unknown。`collected_at`带时区且与Run相同，`created_at`数据库时间。
++
++`raw_payload_summary` JSONB闭合version1：schema_version=1，payload_format=JSON/TEXT/DOM/null，payload_bytes=0..52428800整数/null，finish_reason=STOP/LENGTH/CONTENT_FILTER/OTHER/null；完整四键，禁止扩展/秘密键、字符串数值、自由对象/正文/Header。`citation_count`=规范URL去重后的行数，0..1000，提交时校验精确集合。
++
++`raw_payload_file_id` / `screenshot_file_id` 可空，分别命名FK fk_geo_answers_raw_file / screenshot_file→FileRecord RESTRICT，两者不能相同。截图要求VERIFIED、OPERATION_SCREENSHOT、image/png/jpeg/webp、1..10MiB；raw要求VERIFIED、EVIDENCE、text/plain、1..50MiB（结构化JSON以安全文本存储）。均要求INTERNAL/RESTRICTED、verified_at非空、规范SHA256。实际对象HEAD的size/hash/type必须与FileRecord一致；内部关联函数还验证上传者稳定ID。功能仅提供既有受控文件引用，不新增上传/抓取/脱敏伪成功入口。raw bytes去secret及截图敏感裁剪由后续Collector/人工提交边界负责。
++
++索引ix_geo_answers_raw_file / screenshot_file；CHECK ck_geo_answers_text / format / sources / summary / citation_count / files。UPDATE/DELETE无条件23514 ck_geo_answers_immutable，包括同值UPDATE。文件引用长期保留；专用retention/墓碑由GEO-901定义，GC不能静默清空引用。
++
++### geo_answer_citations
++
++UUID id PK；answer_snapshot_id FK→snapshot RESTRICT；position首次实际引用位置1..1000；occurrences整数数组，非空、唯一升序、第一项=position、全部1..1000。保留首次original_url（text≤2083）、normalized_url（text≤2083）、hostname（varchar253）、title（nullable text≤2000）、extraction_source STRUCTURED/DOM/TEXT/MANUAL、created_at。uq_geo_citations_url(snapshot,normalized_url)、uq_geo_citations_position(snapshot,position)，同回答不同引用不得共享任一occurrence。
++
++URL在应用输入边界使用installed idna/标准库：HTTP(S)，scheme/host小写、IDNA UTS46/STD3、默认端口去除、空path=/、fragment去除；query顺序/值和path保留，没有批准追踪参数清单则不移除。拒绝userinfo、空白/控制字符/反斜线/无效百分号转义，不进行DNS/HTTP。SQL CHECK保护安全规范ASCII authority、scheme和hostname关联；完整URL规范化由唯一输入owner保证。数据库CHECK ck_geo_citations_url / occurrences / source / title；UPDATE/DELETE无条件23514 ck_geo_citations_immutable。
++
++### 原子提交、锁、清理和错误
++
++插入快照先锁Run，再按UUID升序FOR UPDATE锁文件，重新检查资格。允许MANUAL PENDING或自动RUNNING且external_call_state=COMPLETED，不接受终态迟到结果。引用插入锁同Run且只能处于该写入窗口；快照/全部引用/Run采集事实必须同事务。deferred geo_answer_complete / geo_run_answer_complete 检查采集状态存在唯一快照、prompt/时间一致、citation_count和全部occurrences一致；有快照不能回PENDING/RUNNING，采集后的FAILED保留原证据。提交后COLLECTED及后续阶段不允许新增引用。数据库仅验证事实，不替代GEO-302状态策略、lease/授权、GEO-305提交事务或幂等键。
++
++FileRecord被引用后不能修改identity/object_key/category/content_type/size/sha256/access_level/uploader/verified_at/上传创建时间或VERIFIED状态（ck_geo_evidence_file_immutable）；cleanup_after仍可由生命周期owner清空。file_is_referenced计入两项新外键；GC持文件锁检查引用，先提交DELETING再删对象。关联等待文件锁后重验；GC先声明则关联失败，关联先锁则GC跳过/看到引用。REPEATABLE READ旧快照关联通过写文件cleanup_after=NULL产生MVCC冲突，不允许陈旧资格跨过已删对象。无无界重试。
++
++资格/HEAD不符→内部AppError FILE_INTEGRITY_FAILED 422；非上传者→PERMISSION_DENIED 403；存储不可用→DEPENDENCY_UNAVAILABLE 503。数据库具名23514 ck_geo_answers_submission / ck_geo_answers_complete / ck_geo_answers_file_eligible / ck_geo_evidence_file_immutable / ck_geo_citations_submission / ck_geo_citations_complete，重复快照23505 uq_geo_answers_run。只供未来命令精确映射，本次无HTTP接线，未知错误不得吞掉。
++
++迁移先持Run表SHARE ROW EXCLUSIVE锁直至提交，等待旧写事务并阻止预检后新采集穿越；再预检既有collected_at或采集成功状态；无原始证据无法修复时55000原子拒绝，不补空回答。正常0049只含PENDING/失败采集，因此零回填。空库和非空0049前滚/metadata与旧行保留测试；downgrade55000拒绝删证据，恢复使用前向修复或一致备份。没有生产迁移。
+--- baseline/backend/app/models/__init__.py
++++ backend/app/models/__init__.py
+@@ -3,6 +3,7 @@
+ import app.models.ai_generation  # noqa: F401
+ import app.models.configuration  # noqa: F401
+ import app.models.content  # noqa: F401
++import app.models.geo_answers  # noqa: F401
+ import app.models.geo_batch_creation  # noqa: F401
+ import app.models.geo_catalog  # noqa: F401
+ import app.models.geo_files  # noqa: F401
+--- baseline/backend/app/services/storage.py
++++ backend/app/services/storage.py
+@@ -78,6 +78,21 @@
+     """对象存储发生可重试的网络、鉴权或服务端故障。"""
+ 
+ 
++class StorageIntegrityError(Exception):
++    """对象仍存在，但完整性元数据与已验证引用不一致。"""
++
++
++def verify_stored_object(
++    storage: EvidenceStorage,
++    object_key: str,
++    expected: ObjectMetadata,
++) -> None:
++    """关联历史证据前复核真实 HEAD；不签发公开 URL 或改变文件状态。"""
++    actual = storage.head(object_key, datetime.now(UTC) + timedelta(seconds=60))
++    if actual != expected:
++        raise StorageIntegrityError("对象大小、哈希或类型与已验证文件不一致")
++
++
+ class DevelopmentEvidenceStorage:
+     """通过独立开发服务保存后端已校验的字节并读取对象。"""
+ 
+--- baseline/backend/app/services/file_records.py
++++ backend/app/services/file_records.py
+@@ -17,6 +17,7 @@
+ from app.db import SessionLocal
+ from app.errors import AppError, not_found
+ from app.models.configuration import PlatformProfile
++from app.models.geo_answers import GeoAnswerSnapshot
+ from app.models.geo_files import FileRecord, GeoObservationAttachment
+ from app.models.identity import User
+ from app.models.publication import PublicationAttachment
+@@ -243,6 +244,8 @@
+             (PlatformProfile, PlatformProfile.logo_file_id),
+             (PublicationAttachment, PublicationAttachment.file_id),
+             (GeoObservationAttachment, GeoObservationAttachment.file_id),
++            (GeoAnswerSnapshot, GeoAnswerSnapshot.raw_payload_file_id),
++            (GeoAnswerSnapshot, GeoAnswerSnapshot.screenshot_file_id),
+         )
+     )
+ 
+--- baseline/backend/tests/integration/test_migrations.py
++++ backend/tests/integration/test_migrations.py
+@@ -326,7 +326,7 @@
+ 
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0049_geo_batch_creation",)
++            assert cursor.fetchone() == ("0050_geo_answer_evidence",)
+             cursor.execute(
+                 "SELECT tablename FROM pg_tables "
+                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
+@@ -484,10 +484,10 @@
+             text=True,
+         )
+         assert downgrade.returncode != 0
+-        assert "0049 创建身份与历史引用不可安全降级" in downgrade.stdout + downgrade.stderr
++        assert "0050 原始回答与证据不可安全降级" in downgrade.stdout + downgrade.stderr
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0049_geo_batch_creation",)
++            assert cursor.fetchone() == ("0050_geo_answer_evidence",)
+ 
+ 
+ @pytest.mark.integration
+--- baseline/frontend/src/shared/api/generated/schema.d.ts
++++ frontend/src/shared/api/generated/schema.d.ts
+@@ -8093,6 +8093,137 @@
+              */
+             created_at: string;
+         };
++        /**
++         * GeoRawPayloadSummary
++         * @description 只允许结构事实；不接收 Header、正文、凭据或任意 provider 字符串。
++         */
++        GeoRawPayloadSummary: {
++            /**
++             * Schema Version
++             * @default 1
++             * @constant
++             */
++            schema_version: 1;
++            /**
++             * Payload Format
++             * @default null
++             */
++            payload_format: ("JSON" | "TEXT" | "DOM") | null;
++            /**
++             * Payload Bytes
++             * @default null
++             */
++            payload_bytes: number | null;
++            /**
++             * Finish Reason
++             * @default null
++             */
++            finish_reason: ("STOP" | "LENGTH" | "CONTENT_FILTER" | "OTHER") | null;
++        };
++        /** GeoAnswerSnapshotOut */
++        GeoAnswerSnapshotOut: {
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            /**
++             * Run Id
++             * Format: uuid
++             */
++            run_id: string;
++            /** Prompt Text */
++            prompt_text: string;
++            /** Answer Text */
++            answer_text: string;
++            /** Answer Sha256 */
++            answer_sha256: string;
++            /**
++             * Answer Format
++             * @enum {string}
++             */
++            answer_format: "TEXT" | "MARKDOWN" | "HTML_TEXT";
++            /** Source Product */
++            source_product: string | null;
++            /** Source Model */
++            source_model: string | null;
++            /** Source Version */
++            source_version: string | null;
++            /** Web Search Observed */
++            web_search_observed: boolean | null;
++            raw_payload_summary: components["schemas"]["GeoRawPayloadSummary"];
++            /** Raw Payload File Id */
++            raw_payload_file_id: string | null;
++            /** Screenshot File Id */
++            screenshot_file_id: string | null;
++            /** Citation Count */
++            citation_count: number;
++            /**
++             * Collected At
++             * Format: date-time
++             */
++            collected_at: string;
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++        };
++        /** GeoAnswerCitationInput */
++        GeoAnswerCitationInput: {
++            /** Original Url */
++            original_url: string;
++            /** Position */
++            position: number;
++            /**
++             * Title
++             * @default null
++             */
++            title: string | null;
++            /**
++             * Extraction Source
++             * @enum {string}
++             */
++            extraction_source: "STRUCTURED" | "DOM" | "TEXT" | "MANUAL";
++        };
++        /** GeoAnswerCitationOut */
++        GeoAnswerCitationOut: {
++            /** Original Url */
++            original_url: string;
++            /** Position */
++            position: number;
++            /**
++             * Title
++             * @default null
++             */
++            title: string | null;
++            /**
++             * Extraction Source
++             * @enum {string}
++             */
++            extraction_source: "STRUCTURED" | "DOM" | "TEXT" | "MANUAL";
++            /**
++             * Id
++             * Format: uuid
++             */
++            id: string;
++            /**
++             * Answer Snapshot Id
++             * Format: uuid
++             */
++            answer_snapshot_id: string;
++            /** Normalized Url */
++            normalized_url: string;
++            /** Hostname */
++            hostname: string;
++            /** Occurrences */
++            occurrences: number[];
++            /**
++             * Created At
++             * Format: date-time
++             */
++            created_at: string;
++        };
+     };
+     responses: {
+         /** @description 业务或校验错误 */
+--- baseline/docs/geo-monitoring/README.md
++++ docs/geo-monitoring/README.md
+@@ -244,3 +244,5 @@
+ GEO-301 / R2 已建立独立回答级 Batch/Run 公共组件、两表 ORM 与 0048 加法迁移。快照/身份和 Run 终态冻结，初始 cell 数在提交时精确校验，attempt 追加继承且无分叉，Batch 状态保存为可重建缓存；旧 GeoObservation 不改不迁移。契约见 [OpenAPI](../../contracts/openapi.yaml) 和 [数据库合同](../../contracts/database.md#geo-batch--run-合同geo-301--r2)，范围与验证见 [Task Brief](../../.trellis/tasks/10-02-geo-301-batch-run/prd.md) 和 [实施证据](../../.trellis/tasks/10-02-geo-301-batch-run/implement.md)。已于2026-10-02人工接受，状态done；不代表创建/状态命令/答案/Collector 已实现。
+ 
+ GEO-302 / R2 已实现 Run 合法边、终态守卫、采集 retry/cancel 资格、每 cell 最新 attempt 的 Batch 状态和独立 typed workflow/actions；非法转换稳定409，缺失矩阵或遗漏已存在后继明确失败。公共组件与 generated 类型同步，无 HTTP/Worker 接线、数据库迁移或新页面。当前状态以 [任务清单](./04-delivery/task-manifest.yaml) 为准；范围和实际验证见 [Task Brief](../../.trellis/tasks/10-02-geo-302-state-policy/prd.md) 与 [实施证据](../../.trellis/tasks/10-02-geo-302-state-policy/implement.md)。
++
++GEO-304 / R2 已实现不可变原始回答、数据库生成 SHA-256、原始引用规范化/实际位置和受控截图/raw 文件关系。状态与验证见 [Task Brief](../../.trellis/tasks/10-02-geo-304-answer-evidence/prd.md) 和 [实施记录](../../.trellis/tasks/10-02-geo-304-answer-evidence/implement.md)，精确边界以根合同及 Accepted ADR 为准；提交命令/Collector/分析仍由后续任务交付。
+--- baseline/docs/geo-monitoring/01-product/02-geo-core-prd.md
++++ docs/geo-monitoring/01-product/02-geo-core-prd.md
+@@ -929,33 +929,13 @@
+ 
+ ### `GeoAnswerSnapshot`
+ 
+-```yaml
+-run_id: uuid
+-answer_text: text
+-answer_hash: string
+-raw_payload_location: string | null
+-screenshot_file_id: uuid | null
+-searched_web: boolean | null
+-provider_request_id: string | null
+-adapter_version: string
+-captured_at: datetime
+-```
+-
+-原始答案快照不可更新。需要补充证据时追加新的证据关系，不覆盖原始内容。
++GEO-304 / R2 当前公共数据组件 `GeoAnswerSnapshotOut` 与数据库合同统一命名：run_id、prompt_text、answer_text、answer_sha256、answer_format、source_product/model/version、web_search_observed、raw_payload_summary、raw_payload_file_id、screenshot_file_id、citation_count、collected_at、created_at。未知平台/模型/版本及搜索观测保留 null；adapter_version 已冻结在 Run 输入。原文哈希覆盖完整 UTF-8 文本，不修剪空格或换行。
++
++原始答案、原始引用与证据关系一次同事务提交后不可更新、删除或追加。大对象只能通过受控 FileRecord 引用保存；原始摘要是闭合非敏感结构。需要新的采集证据时由后续工作流建立新的运行尝试，不覆盖原记录。
+ 
+ ### `GeoCitation`
+ 
+-```yaml
+-id: uuid
+-run_id: uuid
+-url: string
+-normalized_url: string
+-domain: string
+-position: integer | null
+-source_category: OWNED | COMPETITOR | INDUSTRY_MEDIA | FORUM | DISTRIBUTOR | SOCIAL | SEARCH_PROVIDER | OTHER
+-subject_id: uuid | null
+-published_article_id: uuid | null
+-```
++GEO-304 当前原始组件 `GeoAnswerCitationOut`：id、answer_snapshot_id、original_url、normalized_url、hostname、position、occurrences、title、extraction_source、created_at。position 是首次实际位置，occurrences 保留全部实际位置，同规范 URL 去重。依据 Accepted ADR-003，source_category、subject_id 和 published_article_id 匹配归后续 AnalysisRevision，不能原地改写原始引用。
+ 
+ ### `GeoEntityMention`
+ 
+--- baseline/docs/geo-monitoring/02-business/02-domain-model.md
++++ docs/geo-monitoring/02-business/02-domain-model.md
+@@ -293,6 +293,8 @@
+ - `prompt_text`
+ - `answer_text`
+ - `answer_format`
++- `answer_sha256`（完整 UTF-8 原文的数据库生成 SHA-256）
++- `citation_count`（同事务完整原始引用集合）
+ - `source_product/model/version`
+ - `web_search_observed`
+ - `raw_payload_summary`
+@@ -307,11 +309,13 @@
+ ### 不变量
+ 
+ 1. 每个成功采集 run 最多一个 answer snapshot；
+-2. 提交后不可修改；
++2. 回答、原始引用和证据关系提交后不可 UPDATE/DELETE 或追加；
+ 3. 引用必须按回答实际顺序保存；
+ 4. MANUAL 提交必须满足模式配置的证据要求；
+ 5. 原始 payload 不保存 API Key、Cookie、Authorization 和敏感 Header；
+ 6. answer 为空时不能标记 `COLLECTED`。
++
++GEO-304 已实现该不可变存储边界（0050），不提供 manual-submit。Citation 保存规范 URL、首次实际位置和全部 occurrences；分类/Subject/Article 匹配归后续 AnalysisRevision，依据 Accepted ADR-003。文件引用 RESTRICT 且接入现有 FileRecord 资格、真实 HEAD 和 GC；raw summary v1 是仅四个字段的闭合结构，不接收供应商任意正文或凭据。
+ 
+ ## 3.8 GeoAnalysisRevision 聚合
+ 
+--- baseline/docs/geo-monitoring/03-technical/02-data-architecture.md
++++ docs/geo-monitoring/03-technical/02-data-architecture.md
+@@ -195,43 +195,39 @@
+ 
+ ## 5.3 `geo_answer_snapshots`
+ 
+-| 字段 | 类型 | 约束 |
+-|---|---|---|
+-| id | UUID | PK |
+-| run_id | UUID | FK runs, UNIQUE |
+-| prompt_text | text | 非空 |
+-| answer_text | text | 非空 |
+-| answer_sha256 | varchar(64) | 非空 |
++GEO-304 / R2 由 `0050_geo_answer_evidence` 实现；精确 schema、约束、锁与错误以 [数据库合同](../../../contracts/database.md#geo-answersnapshot--citation-合同geo-304--r2) 为权威。每个 Run 唯一一份原始回答；保留正文空格/换行，`answer_sha256` 由数据库对完整 UTF-8 正文生成。`prompt_text` 必须等于冻结输入；未知 source_product/model/version 和 web_search_observed 保留 NULL。
++
++| 字段 | 类型 | 约束 |
++|---|---|---|
++| id / run_id | UUID | PK / UNIQUE，FK Run RESTRICT |
++| prompt_text / answer_text | text | 非空；回答最多 1,048,576 字符 |
++| answer_sha256 | varchar(64) | GENERATED ALWAYS，UTF-8 SHA-256 |
+ | answer_format | varchar(16) | TEXT/MARKDOWN/HTML_TEXT |
+-| source_product | varchar(160) nullable | |
+-| source_model | varchar(200) nullable | |
+-| source_version | varchar(200) nullable | |
+-| web_search_observed | boolean nullable | unknown 允许 null |
+-| raw_payload_summary | JSONB | 受控非敏感 |
+-| raw_payload_file_id | UUID nullable | FK file_records SET NULL |
+-| screenshot_file_id | UUID nullable | FK file_records SET NULL |
+-| collected_at | timestamptz | 非空 |
+-| created_at | timestamptz | |
+-
+-数据库触发器禁止 UPDATE；删除只能随明确 run 聚合删除策略。
++| source_product / source_model / source_version | nullable varchar | 160 / 200 / 200 字符 |
++| web_search_observed | nullable boolean | unknown 为 NULL |
++| raw_payload_summary | JSONB | 闭合 v1：schema_version、payload_format、payload_bytes、finish_reason |
++| raw_payload_file_id / screenshot_file_id | nullable UUID | FK file_records RESTRICT，不允许同一文件 |
++| citation_count | integer | 0..1000，完整集合计数 |
++| collected_at / created_at | timestamptz | 非空 |
++
++回答、引用及其关系禁止 UPDATE/DELETE；同一事务完整提交回答、引用与 Run 采集事实，不能事后追加原始证据。大载荷使用已验证的 INTERNAL/RESTRICTED FileRecord：raw 为 EVIDENCE/text/plain ≤50MiB，截图为 OPERATION_SCREENSHOT/image/png、jpeg、webp ≤10MiB。应用边界重验上传者与真实 HEAD；数据库重验资格并锁文件，GC 识别两类引用。该任务不提供提交命令，不增加 draft，也不执行外部采集。
+ 
+ ## 5.4 `geo_answer_citations`
+ 
+ | 字段 | 类型 | 约束 |
+ |---|---|---|
+-| id | UUID | PK |
+-| answer_snapshot_id | UUID | FK snapshot CASCADE |
+-| position | integer | >=1 |
+-| original_url | text | 非空 |
+-| normalized_url | text | 非空 |
+-| hostname | varchar(253) | 非空 |
+-| title | text nullable | |
+-| source_category | varchar(40) | |
+-| matched_subject_id | UUID nullable | FK subjects SET NULL |
++| id / answer_snapshot_id | UUID | PK / FK AnswerSnapshot RESTRICT |
++| position | integer | 1..1000，首次实际位置 |
++| occurrences | integer[] | 非空、严格递增、首项等于 position |
++| original_url / normalized_url | text | 1..2083，安全 HTTP(S) |
++| hostname | varchar(253) | 小写规范 host；IDNA 或 IP |
++| title | nullable text | 最多 2000 字符 |
+ | extraction_source | varchar(24) | STRUCTURED/DOM/TEXT/MANUAL |
+-| created_at | timestamptz | |
+-
+-唯一：`(answer_snapshot_id, normalized_url)`；保存第一次位置，其他位置可进入 `occurrences` 受控 JSON 或后续子表。核心版优先保持简单。
++| created_at | timestamptz | 非空 |
++
++唯一：`(answer_snapshot_id, normalized_url)` 和 `(answer_snapshot_id, position)`。按原回答位置排序后去重；保留第一条原 URL/标题/来源以及全部实际位置。规范化去 fragment、默认端口、host 大小写并处理 IDNA；没有获批追踪参数清单时保留全部 query，禁止 URL 凭据、反斜线、空白/控制字符，且不访问引用目标。
++
++依据 Accepted ADR-003，source_category、Subject 和 Article 匹配是后续 AnalysisRevision 的派生事实，不写入原始 Citation。原始摘要只保存限定结构事实，未知字段、任意字符串、Header/Cookie/Authorization 均拒绝；raw 文件内容与截图清理由后续提交/采集信任边界负责。
+ 
+ ## 6. Analysis 表
+ 
+--- baseline/docs/geo-monitoring/03-technical/03-api-contract-design.md
++++ docs/geo-monitoring/03-technical/03-api-contract-design.md
+@@ -241,6 +241,8 @@
+ 
+ ## 7. 批次 API
+ 
++GEO-304 / R2 已新增 GeoRawPayloadSummary、GeoAnswerSnapshotOut、GeoAnswerCitationInput、GeoAnswerCitationOut 四个闭合公共数据组件，无新 HTTP 端点；当前提交/详情仍由后续任务接线。原始 URL/位置/采集标题保持证据语义，分类/Subject/Article 归 AnalysisRevision。
++
+ GEO-301 / R2 已建立根OpenAPI基础数据和闭合快照组件；GEO-302已建立状态与动作策略；GEO-303开放两个批次创建入口。以下列表/详情/取消/运行操作仍是后续任务设计，尚未开放。公共Run隐藏lease_token；费用未知为null，不返回异常或供应商原始正文。
+ 
+ | 方法 | 路径 | operationId |
+--- baseline/docs/geo-monitoring/03-technical/07-testing-and-quality.md
++++ docs/geo-monitoring/03-technical/07-testing-and-quality.md
+@@ -445,3 +445,7 @@
+ ### GEO-303：批次创建验收边界
+ 
+ 使用真实PostgreSQL验证计划/临时配置冻结、同键并发/异载荷、调度同窗口跨revision与时区、1000 roots、分块写入/审计/数量完整性失败全回滚、历史引用删除保护及0048非空前滚/metadata对齐。普通验证不访问真实AI；创建没有派发或浏览器旅程。指定完整门禁、定向验证与测量证据见 [实施记录](../../../.trellis/tasks/10-02-geo-303-batch-factory/implement.md)。
++
++### GEO-304：原始证据验收边界
++
++真实 PostgreSQL 验证 0050 空库及非空前滚、历史原样保留、旧采集事实缺原始证据时原子拒绝和降级安全停止；验证 AnswerSnapshot/Citation 的 UPDATE/no-op/DELETE/提交后追加反例、闭合摘要 secret 拒绝、引用位置完整性与文件资格。文件边界通过本地 fake-OSS 实际 PUT/HEAD 重验字节元数据，并覆盖缺失/更换对象/不可用、上传者、GC 先后顺序及 REPEATABLE READ 陈旧快照冲突。此存储任务无新增浏览器旅程，相关门禁和证据见 [实施记录](../../../.trellis/tasks/10-02-geo-304-answer-evidence/implement.md)。
+--- baseline/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -528,7 +528,7 @@
+   phase: R2
+   release: R2
+   title: 定义并实现 AnswerSnapshot、Citation 与证据关联
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-301
+   areas:
+@@ -546,6 +546,7 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  review_note: 2026-10-02原始回答/生成UTF-8 SHA256/原始引用实际位置/受控文件引用与不可变防线已实现。0050增量前滚、完整同事务提交、闭合secret摘要、URL规范化及HEAD/GC并发均有实际证据；后端2686与前端1067单元、713 PostgreSQL集成及合同/lint/typecheck通过。独立只读复核三项已修复，审计已关闭校验。精确命令、首轮失败修正、迁移锁与边界见GEO-304 Task Brief/implement.md；仅review，待人工验收，不实施后续任务。
+ - id: GEO-305
+   phase: R2
+   release: R2
+--- baseline/docs/geo-monitoring/CHANGELOG.md
++++ docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,12 @@
+ # 文档包变更记录
++
++## GEO-304 原始回答、引用与证据防线 — 2026-10-02
++
++- 新增闭合回答/引用组件和 0050 两张不可变证据表，原文 UTF-8 SHA-256 由数据库生成。
++- 引用按规范 URL 去重并保留全部实际位置；原始引用不保存分析分类/匹配事实。
++- 文件引用使用 RESTRICT、真实 HEAD 资格复核和 GC 防线；raw summary 不接受任意正文、Header 或 secret。
++- 提交完整性、UPDATE/DELETE/追加反例及前滚/安全停止证据见 GEO-304 Task Brief；状态进入 review 后等待人工接受，不标记 done。
++
+ 
+ ## GEO-303 批次工厂、计划快照和创建幂等 — 2026-10-02
+ 
+--- baseline/docs/geo-monitoring/SHA256SUMS
++++ docs/geo-monitoring/SHA256SUMS
+@@ -1,19 +1,19 @@
+ 0ec5e67515fa5c383612130415bfc70185a607ac65006fcc932dd750c137bbde  ./00-governance/01-document-governance.md
+ b5906690eb04c8d27911a09722761e7cf4c244ecab2fbe39a55d94c794ee8728  ./00-governance/02-glossary.md
+ 670367ab19f32e811ec651a5be24a9ca062699f1fec60571c97b055ac7f1fb15  ./01-product/01-product-vision-and-scope.md
+-1860f35b8139ec0103632508a8f97992b17d1814d81f1caa26f7b1611d523676  ./01-product/02-geo-core-prd.md
++2c1262eb7b6e69d6f0e57712944797cf3481090f9fc83bfda831b18e61888cae  ./01-product/02-geo-core-prd.md
+ 7ea6985cdc63749a10c73b801f69349dc2f0ac797b9aa87622723f26b988bcbe  ./01-product/03-information-architecture-and-page-spec.md
+ 3892c8f83318ee460de04960a5162b4d777db06eb731a5999cdee946cd8042e3  ./02-business/01-business-architecture.md
+-b83d66bbfd444de8b78d5bd5dcbab7f44ef69d85d562806ac118ac50448c5bd7  ./02-business/02-domain-model.md
++01f7d5793e6c5f475786ce99ff937a6de5f1b18690e7cd6a846e9194a816e150  ./02-business/02-domain-model.md
+ 13a32973b91c40621afcfda35ecdccf6c8ef5b8e6709607aaa0db30c9d2f7d1b  ./02-business/03-workflows-and-state-machines.md
+ 30e1976c61c18150724cf4b89ead9e2d960b0cea729ba377b06c7c384c264899  ./02-business/04-monitoring-methodology-and-metrics.md
+ 2ce491f8dbf89639aabbf59b5afb7a3fd43520e40e7848e4e9e3049c85436689  ./03-technical/01-technical-architecture.md
+-2f714b11f00cbf8963ac70bc948f85625110cb661cee2ac194b29b0dfe49e4c6  ./03-technical/02-data-architecture.md
+-a2b3a9a4aa2fd3539792cc278f6ab619a6c8c8cf30bd47aeb115b04b1c3c8281  ./03-technical/03-api-contract-design.md
++c5e45133a5a7468cb98e34ce2e3a0e983bf3de5b4696aeb59eb59e9365f1d3ae  ./03-technical/02-data-architecture.md
++9970b4ffe4e068bfc25a7fa189de70baa60c1aafec49dca99988e7a962e79cec  ./03-technical/03-api-contract-design.md
+ 0652e70d9ce21aa7af1025db76e6f70153170f7eb196dded86342299743852e4  ./03-technical/04-frontend-architecture.md
+ 504aa595621dad9a7dee12cc697911977aa9e6092a907672455281525fa9571a  ./03-technical/05-worker-and-collector-architecture.md
+ 2698d3095cfaeb5857d6bafd3efd633d9d50b813257054e7568d779be35d7dd7  ./03-technical/06-security-and-compliance.md
+-c9961526b5607ed1612133244d275d9bacccf9ee58d67cc09e5a2e0c4fe78117  ./03-technical/07-testing-and-quality.md
++05a284294f3ce4ae48c02e1b03144d9a6dfaab3e5782f62f2e24fcc6ed85cc31  ./03-technical/07-testing-and-quality.md
+ 61a4dd642c6f74b581e95eb2269453be79d71a75fa240269eb001e56f45e2b83  ./03-technical/08-deployment-and-operations.md
+ f8c643e46c1159c51bd2e271e87de1d0e5a0448e2845af01f33bef5e4e1d411b  ./04-delivery/01-implementation-roadmap.md
+ acf0bde87ddfc34ebbc09543c1f2c2c1f496d48f330727b5e943807267eed41c  ./04-delivery/02-work-breakdown-structure.md
+@@ -102,13 +102,13 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-04067038af47bdbfdef7c60e42c56ea0f7485d27f77862afbd53988fbeaf2e8b  ./04-delivery/task-manifest.yaml
++18b6c51ee4b61e268864c296cf80318c10fcd08cd39b663ff3a0a621be4e1cdb  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 09d2ba6a3d8f07ca61309d0a9d4a557c30a1d16853d73139e15b43ca6f1303bb  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-8578b39aefbaecc1d6e8a0082ff94320429158b580374059401d69ca70333b25  ./CHANGELOG.md
+-3cb84c0acb997ad152f53a779264c0f091d5c7117dd004aea68ea1bbf2d66929  ./README.md
++74a683853246d1231446692369ededd86a119729cdfad578f8ae1915cb9b901c  ./CHANGELOG.md
++489a1933eca0bed2330bbf3ba612ddc021dfb51bfc17f9c367bd895d66156387  ./README.md
+ 36be92c676c3150e5953f01498418900d3e2bcc1f37a0bda31b9892e57b8a2d0  ./01-product/04-catalog-user-guide.md
+--- baseline/backend/tests/integration/test_geo_batch_creation_migration.py
++++ backend/tests/integration/test_geo_batch_creation_migration.py
+@@ -38,7 +38,7 @@
+         input_before = conn.execute(
+             "SELECT input_snapshot FROM geo_observation_runs WHERE id=%s", (run_id,)
+         ).fetchone()[0]
+-    forward = run_alembic(db.plan.env, db.plan.backend_dir, "head")
++    forward = run_alembic(db.plan.env, db.plan.backend_dir, "0049_geo_batch_creation")
+     assert forward.returncode == 0
+     with psycopg.connect(db.url) as conn:
+         assert (
+--- baseline/backend/app/geo_citation_urls.py
++++ backend/app/geo_citation_urls.py
+@@ -0,0 +1,52 @@
++"""原始引用的确定性 URL 身份；不请求页面或判断来源归属。"""
++
++import ipaddress
++import re
++from dataclasses import dataclass
++from urllib.parse import urlsplit, urlunsplit
++
++import idna
++
++
++@dataclass(frozen=True)
++class CitationUrl:
++    original_url: str
++    normalized_url: str
++    hostname: str
++
++
++def normalize_citation_url(value: str) -> CitationUrl:
++    """保留 query 顺序/值；没有批准的追踪参数清单就不删除参数。"""
++    if not 1 <= len(value) <= 2083 or any(
++        c.isspace() or ord(c) < 32 or ord(c) == 127 for c in value
++    ):
++        raise ValueError("引用 URL 长度或空白无效")
++    if "\\" in value or re.search(r"%(?![0-9a-fA-F]{2})|%[01][0-9a-f]|%7f", value, re.I):
++        raise ValueError("引用 URL 不允许反斜线、控制字符或无效转义")
++    try:
++        parts = urlsplit(value)
++        if parts.scheme.lower() not in {"http", "https"} or not parts.hostname:
++            raise ValueError("引用必须使用 HTTP(S) 和有效主机名")
++        if parts.username is not None or parts.password is not None:
++            raise ValueError("引用 URL 不允许认证信息")
++        host = parts.hostname.removesuffix(".")
++        try:
++            hostname = ipaddress.ip_address(host).compressed
++        except ValueError:
++            hostname = idna.encode(host, uts46=True, std3_rules=True).decode("ascii").lower()
++        if "%" in hostname or len(hostname) > 253:
++            raise ValueError("引用主机名无效")
++        port = parts.port
++        if port is not None and not 1 <= port <= 65535:
++            raise ValueError("引用端口无效")
++        authority = f"[{hostname}]" if ":" in hostname else hostname
++        if port is not None and (parts.scheme.lower(), port) not in {("http", 80), ("https", 443)}:
++            authority += f":{port}"
++        normalized = urlunsplit(
++            (parts.scheme.lower(), authority, parts.path or "/", parts.query, "")
++        )
++        if len(normalized) > 2083:
++            raise ValueError("规范引用 URL 过长")
++        return CitationUrl(value, normalized, hostname)
++    except (ValueError, idna.IDNAError, UnicodeError) as error:
++        raise ValueError("引用 URL 无效或包含不允许的信息") from error
+--- baseline/backend/app/models/geo_answers.py
++++ backend/app/models/geo_answers.py
+@@ -0,0 +1,131 @@
++"""原始回答与引用；0050 保护完整提交和不可变文件引用。"""
++
++import uuid
++from datetime import datetime
++from typing import Any
++
++from sqlalchemy import (
++    Boolean,
++    CheckConstraint,
++    Computed,
++    DateTime,
++    ForeignKey,
++    Index,
++    Integer,
++    String,
++    Text,
++    UniqueConstraint,
++    func,
++)
++from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
++from sqlalchemy.orm import Mapped, mapped_column
++from sqlalchemy.schema import conv
++
++from app.db import Base
++from app.models.base import new_uuid
++
++
++class GeoAnswerSnapshot(Base):
++    __tablename__ = "geo_answer_snapshots"
++    __table_args__ = (
++        UniqueConstraint("run_id", name="uq_geo_answers_run"),
++        CheckConstraint(
++            "prompt_text ~ '[^[:space:]]' AND answer_text ~ '[^[:space:]]' "
++            "AND length(answer_text) <= 1048576",
++            name=conv("ck_geo_answers_text"),
++        ),
++        CheckConstraint(
++            "answer_format IN ('TEXT','MARKDOWN','HTML_TEXT')",
++            name=conv("ck_geo_answers_format"),
++        ),
++        CheckConstraint(
++            "(source_product IS NULL OR length(btrim(source_product)) > 0) AND "
++            "(source_model IS NULL OR length(btrim(source_model)) > 0) AND "
++            "(source_version IS NULL OR length(btrim(source_version)) > 0)",
++            name=conv("ck_geo_answers_sources"),
++        ),
++        CheckConstraint(
++            "geo_raw_summary_valid(raw_payload_summary)", name=conv("ck_geo_answers_summary")
++        ),
++        CheckConstraint(
++            "citation_count BETWEEN 0 AND 1000", name=conv("ck_geo_answers_citation_count")
++        ),
++        CheckConstraint(
++            "raw_payload_file_id IS NULL OR screenshot_file_id IS NULL OR "
++            "raw_payload_file_id <> screenshot_file_id",
++            name=conv("ck_geo_answers_files"),
++        ),
++        Index("ix_geo_answers_raw_file", "raw_payload_file_id"),
++        Index("ix_geo_answers_screenshot_file", "screenshot_file_id"),
++    )
++    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
++    run_id: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("geo_observation_runs.id", name="fk_geo_answers_run", ondelete="RESTRICT"),
++        nullable=False,
++    )
++    prompt_text: Mapped[str] = mapped_column(Text, nullable=False)
++    answer_text: Mapped[str] = mapped_column(Text, nullable=False)
++    answer_sha256: Mapped[str] = mapped_column(
++        String(64),
++        Computed("geo_answer_sha256(answer_text)", persisted=True),
++        nullable=False,
++    )
++    answer_format: Mapped[str] = mapped_column(String(16), nullable=False)
++    source_product: Mapped[str | None] = mapped_column(String(160))
++    source_model: Mapped[str | None] = mapped_column(String(200))
++    source_version: Mapped[str | None] = mapped_column(String(200))
++    web_search_observed: Mapped[bool | None] = mapped_column(Boolean)
++    raw_payload_summary: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
++    raw_payload_file_id: Mapped[uuid.UUID | None] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("file_records.id", name="fk_geo_answers_raw_file", ondelete="RESTRICT"),
++    )
++    screenshot_file_id: Mapped[uuid.UUID | None] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("file_records.id", name="fk_geo_answers_screenshot_file", ondelete="RESTRICT"),
++    )
++    citation_count: Mapped[int] = mapped_column(Integer, nullable=False)
++    collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
++    created_at: Mapped[datetime] = mapped_column(
++        DateTime(timezone=True), nullable=False, server_default=func.now()
++    )
++
++
++class GeoAnswerCitation(Base):
++    __tablename__ = "geo_answer_citations"
++    __table_args__ = (
++        UniqueConstraint("answer_snapshot_id", "normalized_url", name="uq_geo_citations_url"),
++        UniqueConstraint("answer_snapshot_id", "position", name="uq_geo_citations_position"),
++        CheckConstraint(
++            "geo_citation_url_valid(original_url, normalized_url, hostname)",
++            name=conv("ck_geo_citations_url"),
++        ),
++        CheckConstraint(
++            "geo_citation_occurrences_valid(position, occurrences)",
++            name=conv("ck_geo_citations_occurrences"),
++        ),
++        CheckConstraint(
++            "extraction_source IN ('STRUCTURED','DOM','TEXT','MANUAL')",
++            name=conv("ck_geo_citations_source"),
++        ),
++        CheckConstraint(
++            "title IS NULL OR length(title) <= 2000", name=conv("ck_geo_citations_title")
++        ),
++    )
++    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
++    answer_snapshot_id: Mapped[uuid.UUID] = mapped_column(
++        UUID(as_uuid=True),
++        ForeignKey("geo_answer_snapshots.id", name="fk_geo_citations_answer", ondelete="RESTRICT"),
++        nullable=False,
++    )
++    position: Mapped[int] = mapped_column(Integer, nullable=False)
++    occurrences: Mapped[list[int]] = mapped_column(ARRAY(Integer), nullable=False)
++    original_url: Mapped[str] = mapped_column(Text, nullable=False)
++    normalized_url: Mapped[str] = mapped_column(Text, nullable=False)
++    hostname: Mapped[str] = mapped_column(String(253), nullable=False)
++    title: Mapped[str | None] = mapped_column(Text)
++    extraction_source: Mapped[str] = mapped_column(String(24), nullable=False)
++    created_at: Mapped[datetime] = mapped_column(
++        DateTime(timezone=True), nullable=False, server_default=func.now()
++    )
+--- baseline/backend/app/schemas/geo_answers.py
++++ backend/app/schemas/geo_answers.py
+@@ -0,0 +1,99 @@
++"""不可变回答证据组件；不包含提交命令或分析分类。"""
++
++from __future__ import annotations
++
++import hashlib
++from datetime import datetime
++from typing import Annotated, Literal
++from uuid import UUID
++
++from pydantic import AfterValidator, Field, StringConstraints, field_validator, model_validator
++
++from app.geo_citation_urls import normalize_citation_url
++from app.schemas.base import ContractModel
++
++
++def _nonblank(value: str) -> str:
++    if not value.strip() or "\x00" in value:
++        raise ValueError("原始文本必须非空且不能包含 NUL")
++    return value
++
++
++OriginalText = Annotated[
++    str, StringConstraints(min_length=1, max_length=1048576), AfterValidator(_nonblank)
++]
++Position = Annotated[int, Field(strict=True, ge=1, le=1000)]
++
++
++class GeoRawPayloadSummary(ContractModel):
++    """只允许结构事实；不接收 Header、正文、凭据或任意 provider 字符串。"""
++
++    schema_version: Literal[1] = 1
++    payload_format: Literal["JSON", "TEXT", "DOM"] | None = None
++    payload_bytes: int | None = Field(default=None, strict=True, ge=0, le=52428800)
++    finish_reason: Literal["STOP", "LENGTH", "CONTENT_FILTER", "OTHER"] | None = None
++
++    @field_validator("schema_version", mode="before")
++    @classmethod
++    def reject_boolean_version(cls, value: object) -> object:
++        if isinstance(value, bool):
++            raise ValueError("摘要版本必须是整数，不能使用布尔值")
++        return value
++
++
++class GeoAnswerCitationInput(ContractModel):
++    original_url: str = Field(min_length=1, max_length=2083)
++    position: Position
++    title: str | None = Field(default=None, max_length=2000)
++    extraction_source: Literal["STRUCTURED", "DOM", "TEXT", "MANUAL"]
++
++    @field_validator("original_url")
++    @classmethod
++    def valid_url(cls, value: str) -> str:
++        return normalize_citation_url(value).original_url
++
++
++class GeoAnswerCitationOut(GeoAnswerCitationInput):
++    id: UUID
++    answer_snapshot_id: UUID
++    normalized_url: str = Field(min_length=1, max_length=2083)
++    hostname: str = Field(min_length=1, max_length=253)
++    occurrences: list[Position] = Field(min_length=1, max_length=1000)
++    created_at: datetime
++
++    @model_validator(mode="after")
++    def canonical_identity(self) -> GeoAnswerCitationOut:
++        normalized = normalize_citation_url(self.original_url)
++        if (normalized.normalized_url, normalized.hostname) != (self.normalized_url, self.hostname):
++            raise ValueError("引用规范身份必须与原 URL 一致")
++        if (
++            self.occurrences != sorted(set(self.occurrences))
++            or self.position != self.occurrences[0]
++        ):
++            raise ValueError("引用位置必须唯一递增并保留首次位置")
++        return self
++
++
++class GeoAnswerSnapshotOut(ContractModel):
++    id: UUID
++    run_id: UUID
++    prompt_text: OriginalText
++    answer_text: OriginalText
++    answer_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
++    answer_format: Literal["TEXT", "MARKDOWN", "HTML_TEXT"]
++    source_product: str | None = Field(max_length=160)
++    source_model: str | None = Field(max_length=200)
++    source_version: str | None = Field(max_length=200)
++    web_search_observed: bool | None
++    raw_payload_summary: GeoRawPayloadSummary
++    raw_payload_file_id: UUID | None
++    screenshot_file_id: UUID | None
++    citation_count: int = Field(ge=0, le=1000)
++    collected_at: datetime
++    created_at: datetime
++
++    @model_validator(mode="after")
++    def original_digest(self) -> GeoAnswerSnapshotOut:
++        if self.answer_sha256 != hashlib.sha256(self.answer_text.encode("utf-8")).hexdigest():
++            raise ValueError("回答哈希与原始 UTF-8 正文不一致")
++        return self
+--- baseline/backend/app/services/geo_answer_citations.py
++++ backend/app/services/geo_answer_citations.py
+@@ -0,0 +1,42 @@
++"""引用采集事实的去重和位置保留；归属判定留分析 revision。"""
++
++from dataclasses import dataclass
++
++from app.geo_citation_urls import normalize_citation_url
++from app.schemas.geo_answers import GeoAnswerCitationInput
++
++
++@dataclass(frozen=True)
++class AnswerCitation:
++    original_url: str
++    normalized_url: str
++    hostname: str
++    position: int
++    occurrences: tuple[int, ...]
++    title: str | None
++    extraction_source: str
++
++
++def prepare_answer_citations(values: list[GeoAnswerCitationInput]) -> tuple[AnswerCitation, ...]:
++    """按实际位置排序；同规范 URL 只保留首次采集元数据及全部位置。"""
++    if len(values) > 1000 or len({v.position for v in values}) != len(values):
++        raise ValueError("引用最多 1000 项且实际位置不能重复")
++    groups: dict[str, list[GeoAnswerCitationInput]] = {}
++    for value in sorted(values, key=lambda v: v.position):
++        key = normalize_citation_url(value.original_url).normalized_url
++        groups.setdefault(key, []).append(value)
++    result = []
++    for key, group in groups.items():
++        first = group[0]
++        result.append(
++            AnswerCitation(
++                original_url=first.original_url,
++                normalized_url=key,
++                hostname=normalize_citation_url(first.original_url).hostname,
++                position=first.position,
++                occurrences=tuple(v.position for v in group),
++                title=first.title,
++                extraction_source=first.extraction_source,
++            )
++        )
++    return tuple(result)
+--- baseline/backend/app/services/geo_answer_files.py
++++ backend/app/services/geo_answer_files.py
+@@ -0,0 +1,82 @@
++"""回答证据关联资格；调用方持 Run 锁并拥有整个提交事务。"""
++
++from uuid import UUID
++
++from sqlalchemy import select
++from sqlalchemy.orm import Session
++
++from app.errors import AppError
++from app.models.geo_files import FileRecord
++from app.services.storage import (
++    EvidenceStorage,
++    ObjectMetadata,
++    StorageIntegrityError,
++    StorageObjectMissing,
++    StorageUnavailable,
++    get_evidence_storage,
++    verify_stored_object,
++)
++
++
++def lock_answer_evidence_files(
++    db: Session,
++    *,
++    uploader_id: UUID,
++    screenshot_file_id: UUID | None,
++    raw_payload_file_id: UUID | None,
++    storage: EvidenceStorage | None = None,
++) -> None:
++    """稳定排序锁文件并重验归属/HEAD；无 commit、状态推进或对象写入。"""
++    ids = [v for v in (screenshot_file_id, raw_payload_file_id) if v is not None]
++    if len(ids) != len(set(ids)):
++        raise AppError("FILE_INTEGRITY_FAILED", "截图与原始载荷不能使用同一文件", 422)
++    if not ids:
++        return
++    files = list(
++        db.scalars(
++            select(FileRecord)
++            .where(FileRecord.id.in_(ids))
++            .order_by(FileRecord.id)
++            .with_for_update()
++            .execution_options(populate_existing=True)
++        )
++    )
++    if len(files) != len(ids):
++        raise AppError("FILE_INTEGRITY_FAILED", "原始证据文件不存在", 422)
++    for file in files:
++        if file.uploader_id != uploader_id:
++            raise AppError("PERMISSION_DENIED", "只能关联当前提交者上传的证据文件", 403)
++        screenshot = file.id == screenshot_file_id
++        types = {"image/png", "image/jpeg", "image/webp"} if screenshot else {"text/plain"}
++        category = "OPERATION_SCREENSHOT" if screenshot else "EVIDENCE"
++        limit = 10485760 if screenshot else 52428800
++        if (
++            file.status != "VERIFIED"
++            or file.verified_at is None
++            or file.access_level not in {"INTERNAL", "RESTRICTED"}
++            or file.category != category
++            or file.content_type not in types
++            or not 1 <= file.size <= limit
++        ):
++            raise AppError(
++                "FILE_INTEGRITY_FAILED", "证据必须是已验证的内部文件且类别和类型正确", 422
++            )
++        try:
++            verify_stored_object(
++                storage or get_evidence_storage(),
++                file.object_key,
++                ObjectMetadata(
++                    size=file.size,
++                    sha256=file.sha256,
++                    content_type=file.content_type,
++                ),
++            )
++        except (StorageObjectMissing, StorageIntegrityError) as error:
++            raise AppError(
++                "FILE_INTEGRITY_FAILED", "原始证据对象缺失或完整性校验失败", 422
++            ) from error
++        except StorageUnavailable as error:
++            raise AppError(
++                "DEPENDENCY_UNAVAILABLE", "对象存储暂时不可用，请稍后重试", 503
++            ) from error
++        file.cleanup_after = None
+--- baseline/backend/alembic/versions/0050_geo_answer_evidence.py
++++ backend/alembic/versions/0050_geo_answer_evidence.py
+@@ -0,0 +1,93 @@
++"""新增不可变原始回答、引用和受控文件关系；不实现采集命令。"""
++
++from pathlib import Path
++
++from alembic import op
++
++revision = "0050_geo_answer_evidence"
++down_revision = "0049_geo_batch_creation"
++branch_labels = None
++depends_on = None
++
++
++def upgrade() -> None:
++    # 先阻止旧版写事务跨过预检，再安装完整性触发器；锁随迁移事务释放。
++    op.execute("LOCK TABLE geo_observation_runs IN SHARE ROW EXCLUSIVE MODE")
++    op.execute("""DO $$ BEGIN
++        IF EXISTS (SELECT 1 FROM geo_observation_runs WHERE collected_at IS NOT NULL
++            OR status IN ('COLLECTED','ANALYZING','NEEDS_REVIEW','COMPLETED')) THEN
++            RAISE EXCEPTION '0050 发现无原始证据的采集历史；需明确证据迁移，禁止补空回答'
++                USING ERRCODE='55000';
++        END IF;
++    END $$;""")
++    sql_dir = Path(__file__).resolve().parents[1] / "sql"
++    op.execute((sql_dir / "0050_geo_answer_functions.sql").read_text())
++    # 冻结 DDL，不导入运行时 ORM。
++    op.execute("""
++
++CREATE TABLE geo_answer_snapshots (
++	id UUID NOT NULL,
++	run_id UUID NOT NULL,
++	prompt_text TEXT NOT NULL,
++	answer_text TEXT NOT NULL,
++	answer_sha256 VARCHAR(64) GENERATED ALWAYS AS (geo_answer_sha256(answer_text)) STORED NOT NULL,
++	answer_format VARCHAR(16) NOT NULL,
++	source_product VARCHAR(160),
++	source_model VARCHAR(200),
++	source_version VARCHAR(200),
++	web_search_observed BOOLEAN,
++	raw_payload_summary JSONB NOT NULL,
++	raw_payload_file_id UUID,
++	screenshot_file_id UUID,
++	citation_count INTEGER NOT NULL,
++	collected_at TIMESTAMP WITH TIME ZONE NOT NULL,
++	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
++	CONSTRAINT pk_geo_answer_snapshots PRIMARY KEY (id),
++	CONSTRAINT uq_geo_answers_run UNIQUE (run_id),
++    CONSTRAINT ck_geo_answers_text CHECK (prompt_text ~ '[^[:space:]]' AND answer_text ~ '[^[:space:]]' AND length(answer_text) <= 1048576),
++	CONSTRAINT ck_geo_answers_format CHECK (answer_format IN ('TEXT','MARKDOWN','HTML_TEXT')),
++	CONSTRAINT ck_geo_answers_sources CHECK ((source_product IS NULL OR length(btrim(source_product)) > 0) AND (source_model IS NULL OR length(btrim(source_model)) > 0) AND (source_version IS NULL OR length(btrim(source_version)) > 0)),
++	CONSTRAINT ck_geo_answers_summary CHECK (geo_raw_summary_valid(raw_payload_summary)),
++	CONSTRAINT ck_geo_answers_citation_count CHECK (citation_count BETWEEN 0 AND 1000),
++	CONSTRAINT ck_geo_answers_files CHECK (raw_payload_file_id IS NULL OR screenshot_file_id IS NULL OR raw_payload_file_id <> screenshot_file_id),
++	CONSTRAINT fk_geo_answers_run FOREIGN KEY(run_id) REFERENCES geo_observation_runs (id) ON DELETE RESTRICT,
++	CONSTRAINT fk_geo_answers_raw_file FOREIGN KEY(raw_payload_file_id) REFERENCES file_records (id) ON DELETE RESTRICT,
++	CONSTRAINT fk_geo_answers_screenshot_file FOREIGN KEY(screenshot_file_id) REFERENCES file_records (id) ON DELETE RESTRICT
++)
++
++;
++CREATE INDEX ix_geo_answers_raw_file ON geo_answer_snapshots (raw_payload_file_id);
++CREATE INDEX ix_geo_answers_screenshot_file ON geo_answer_snapshots (screenshot_file_id);
++
++CREATE TABLE geo_answer_citations (
++	id UUID NOT NULL,
++	answer_snapshot_id UUID NOT NULL,
++	position INTEGER NOT NULL,
++	occurrences INTEGER[] NOT NULL,
++	original_url TEXT NOT NULL,
++	normalized_url TEXT NOT NULL,
++	hostname VARCHAR(253) NOT NULL,
++	title TEXT,
++	extraction_source VARCHAR(24) NOT NULL,
++	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
++	CONSTRAINT pk_geo_answer_citations PRIMARY KEY (id),
++	CONSTRAINT uq_geo_citations_url UNIQUE (answer_snapshot_id, normalized_url),
++	CONSTRAINT uq_geo_citations_position UNIQUE (answer_snapshot_id, position),
++	CONSTRAINT ck_geo_citations_url CHECK (geo_citation_url_valid(original_url, normalized_url, hostname)),
++	CONSTRAINT ck_geo_citations_occurrences CHECK (geo_citation_occurrences_valid(position, occurrences)),
++	CONSTRAINT ck_geo_citations_source CHECK (extraction_source IN ('STRUCTURED','DOM','TEXT','MANUAL')),
++	CONSTRAINT ck_geo_citations_title CHECK (title IS NULL OR length(title) <= 2000),
++	CONSTRAINT fk_geo_citations_answer FOREIGN KEY(answer_snapshot_id) REFERENCES geo_answer_snapshots (id) ON DELETE RESTRICT
++)
++
++;
++
++    """)
++    op.execute((sql_dir / "0050_geo_answer_guards.sql").read_text())
++
++
++def downgrade() -> None:
++    op.execute("""DO $$ BEGIN
++        RAISE EXCEPTION '0050 原始回答与证据不可安全降级；保留历史并前向修复'
++            USING ERRCODE='55000';
++    END $$;""")
+--- baseline/backend/alembic/sql/0050_geo_answer_functions.sql
++++ backend/alembic/sql/0050_geo_answer_functions.sql
+@@ -0,0 +1,42 @@
++-- 固定 UTF8 编码不会随数据库 locale/session 改变；保留正文的全部原始字节。
++CREATE FUNCTION geo_answer_sha256(value text) RETURNS text
++LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS $$
++    SELECT encode(sha256(convert_to(value, 'UTF8')), 'hex')
++$$;
++CREATE FUNCTION geo_raw_summary_valid(value jsonb) RETURNS boolean
++LANGUAGE plpgsql IMMUTABLE AS $$
++BEGIN
++    IF jsonb_typeof(value) IS DISTINCT FROM 'object'
++        OR NOT value ?& ARRAY['schema_version','payload_format','payload_bytes','finish_reason']
++        OR value - ARRAY['schema_version','payload_format','payload_bytes','finish_reason'] <> '{}'::jsonb
++        OR value->'schema_version' IS DISTINCT FROM '1'::jsonb THEN RETURN false; END IF;
++    RETURN (value->'payload_format' = 'null'::jsonb OR value->>'payload_format' IN ('JSON','TEXT','DOM'))
++        AND (value->'finish_reason' = 'null'::jsonb OR value->>'finish_reason' IN ('STOP','LENGTH','CONTENT_FILTER','OTHER'))
++        AND (value->'payload_bytes' = 'null'::jsonb OR (
++            jsonb_typeof(value->'payload_bytes') = 'number'
++            AND value->>'payload_bytes' ~ '^(0|[1-9][0-9]{0,7})$'
++            AND (value->>'payload_bytes')::numeric <= 52428800));
++END $$;
++CREATE FUNCTION geo_citation_occurrences_valid(first_position integer, positions integer[])
++RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
++    SELECT COALESCE(array_ndims(positions)=1 AND array_lower(positions,1)=1
++        AND cardinality(positions) BETWEEN 1 AND 1000 AND positions[1]=first_position
++        AND NOT EXISTS (SELECT 1 FROM generate_subscripts(positions,1) i
++            WHERE positions[i] IS NULL OR positions[i] NOT BETWEEN 1 AND 1000
++                OR (i > 1 AND positions[i] <= positions[i-1])), false)
++$$;
++CREATE FUNCTION geo_citation_url_valid(original text, normalized text, host text)
++RETURNS boolean LANGUAGE sql IMMUTABLE AS $$
++    SELECT COALESCE(length(original) BETWEEN 1 AND 2083 AND length(normalized) BETWEEN 1 AND 2083
++        AND length(host) BETWEEN 1 AND 253 AND host=lower(host)
++        AND host ~ '^([a-z0-9]([a-z0-9.-]*[a-z0-9])?|[0-9a-f:]*:[0-9a-f:]*)$'
++        AND original ~* '^https?://[^/?#]+'
++        AND substring(original FROM '(?i)^https?://([^/?#]+)') NOT LIKE '%@%'
++        AND original !~ '[[:space:][:cntrl:]\\]' AND normalized !~ '[[:space:][:cntrl:]\\#]'
++        AND original !~* '%([01][0-9a-f]|7f)'
++        AND normalized ~ '^https?://[^/?#]+/'
++        AND substring(normalized FROM '^https?://([^/?#]+)') =
++            CASE WHEN host LIKE '%:%' THEN '['||host||']' ELSE host END
++            || COALESCE(substring(normalized FROM '^https?://[^/?#]+(:[0-9]+)/'), '')
++        AND normalized !~ '^http://[^/?#]+[:]80/' AND normalized !~ '^https://[^/?#]+[:]443/', false)
++$$;
+--- baseline/backend/alembic/sql/0050_geo_answer_guards.sql
++++ backend/alembic/sql/0050_geo_answer_guards.sql
+@@ -0,0 +1,120 @@
++CREATE FUNCTION geo_guard_answer_snapshot() RETURNS trigger LANGUAGE plpgsql AS $$
++DECLARE r geo_observation_runs%ROWTYPE; f file_records%ROWTYPE; file_count integer := 0;
++BEGIN
++    IF TG_OP <> 'INSERT' THEN
++        RAISE EXCEPTION '原始回答和证据不可修改或删除'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_answers_immutable';
++    END IF;
++    SELECT * INTO r FROM geo_observation_runs WHERE id=NEW.run_id FOR UPDATE;
++    IF NOT FOUND OR NEW.prompt_text IS DISTINCT FROM r.input_snapshot->'prompt'->>'prompt_text'
++        OR NOT ((r.status='PENDING' AND r.input_snapshot->'profile'->>'collection_mode'='MANUAL'
++            AND r.external_call_state='NOT_STARTED') OR (r.status='RUNNING'
++            AND r.input_snapshot->'profile'->>'collection_mode' IN ('API','BROWSER')
++            AND r.external_call_state='COMPLETED')) THEN
++        RAISE EXCEPTION '原始回答必须属于当前可提交的运行和冻结问题'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_answers_submission';
++    END IF;
++    FOR f IN SELECT * FROM file_records
++        WHERE id=ANY(ARRAY[NEW.raw_payload_file_id,NEW.screenshot_file_id]) ORDER BY id FOR UPDATE
++    LOOP
++        file_count := file_count+1;
++        IF f.status <> 'VERIFIED' OR f.verified_at IS NULL OR f.access_level NOT IN ('INTERNAL','RESTRICTED')
++            OR f.sha256 !~ '^[0-9a-f]{64}$' OR f.size < 1
++            OR (f.id=NEW.screenshot_file_id AND (f.category <> 'OPERATION_SCREENSHOT'
++                OR f.content_type NOT IN ('image/png','image/jpeg','image/webp') OR f.size > 10485760))
++            OR (f.id=NEW.raw_payload_file_id AND (f.category <> 'EVIDENCE'
++                OR f.content_type <> 'text/plain' OR f.size > 52428800)) THEN
++            RAISE EXCEPTION '原始证据文件资格无效'
++                USING ERRCODE='23514', CONSTRAINT='ck_geo_answers_file_eligible';
++        END IF;
++        -- 写文件建立 MVCC 冲突，RR 陈旧快照也不能引用已被清理的对象。
++        UPDATE file_records SET cleanup_after=NULL WHERE id=f.id;
++    END LOOP;
++    IF file_count <> (NEW.raw_payload_file_id IS NOT NULL)::integer
++        + (NEW.screenshot_file_id IS NOT NULL)::integer THEN
++        RAISE EXCEPTION '原始证据文件不存在或重复'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_answers_file_eligible';
++    END IF;
++    RETURN NEW;
++END $$;
++CREATE TRIGGER geo_answer_guard BEFORE INSERT OR UPDATE OR DELETE ON geo_answer_snapshots
++    FOR EACH ROW EXECUTE FUNCTION geo_guard_answer_snapshot();
++
++CREATE FUNCTION geo_guard_answer_citation() RETURNS trigger LANGUAGE plpgsql AS $$
++DECLARE r geo_observation_runs%ROWTYPE;
++BEGIN
++    IF TG_OP <> 'INSERT' THEN
++        RAISE EXCEPTION '原始引用不可修改或删除'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_citations_immutable';
++    END IF;
++    SELECT r0.* INTO r FROM geo_observation_runs r0 JOIN geo_answer_snapshots s ON s.run_id=r0.id
++        WHERE s.id=NEW.answer_snapshot_id FOR UPDATE OF r0;
++    IF NOT FOUND OR r.status NOT IN ('PENDING','RUNNING') THEN
++        RAISE EXCEPTION '引用只能与原始回答一次性提交'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_citations_submission';
++    END IF;
++    RETURN NEW;
++END $$;
++CREATE TRIGGER geo_answer_citation_guard BEFORE INSERT OR UPDATE OR DELETE ON geo_answer_citations
++    FOR EACH ROW EXECUTE FUNCTION geo_guard_answer_citation();
++
++CREATE FUNCTION geo_check_answer_complete() RETURNS trigger LANGUAGE plpgsql AS $$
++DECLARE r geo_observation_runs%ROWTYPE; s geo_answer_snapshots%ROWTYPE; target uuid;
++    actual bigint; positions bigint; unique_positions bigint;
++BEGIN
++    IF TG_TABLE_NAME='geo_observation_runs' THEN target:=NEW.id; ELSE target:=NEW.run_id; END IF;
++    SELECT * INTO r FROM geo_observation_runs WHERE id=target;
++    SELECT * INTO s FROM geo_answer_snapshots WHERE run_id=target;
++    IF NOT FOUND THEN
++        IF r.collected_at IS NOT NULL OR r.status IN ('COLLECTED','ANALYZING','NEEDS_REVIEW','COMPLETED') THEN
++            RAISE EXCEPTION '采集事实必须有原始回答'
++                USING ERRCODE='23514', CONSTRAINT='ck_geo_answers_complete';
++        END IF;
++        RETURN NULL;
++    END IF;
++    IF r.status NOT IN ('COLLECTED','ANALYZING','NEEDS_REVIEW','COMPLETED','FAILED')
++        OR r.collected_at IS DISTINCT FROM s.collected_at
++        OR r.input_snapshot->'prompt'->>'prompt_text' IS DISTINCT FROM s.prompt_text
++        OR (r.status='FAILED' AND r.error_stage='COLLECTION')
++        OR (r.input_snapshot->'profile'->>'collection_mode'='MANUAL' AND r.external_call_state <> 'NOT_STARTED')
++        OR (r.input_snapshot->'profile'->>'collection_mode'<>'MANUAL' AND r.external_call_state <> 'COMPLETED') THEN
++        RAISE EXCEPTION '原始回答与运行采集事实必须同事务一致提交'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_answers_complete';
++    END IF;
++    SELECT count(*) INTO actual FROM geo_answer_citations WHERE answer_snapshot_id=s.id;
++    SELECT count(*),count(DISTINCT p) INTO positions,unique_positions FROM geo_answer_citations c,
++        LATERAL unnest(c.occurrences) p WHERE c.answer_snapshot_id=s.id;
++    IF actual <> s.citation_count OR positions <> unique_positions THEN
++        RAISE EXCEPTION '原始引用集合必须完整且实际位置不冲突'
++            USING ERRCODE='23514', CONSTRAINT='ck_geo_citations_complete';
++    END IF;
++    RETURN NULL;
++END $$;
++CREATE CONSTRAINT TRIGGER geo_answer_complete AFTER INSERT ON geo_answer_snapshots
++    DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION geo_check_answer_complete();
++CREATE CONSTRAINT TRIGGER geo_run_answer_complete AFTER INSERT OR UPDATE ON geo_observation_runs
++    DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION geo_check_answer_complete();
++
++CREATE FUNCTION geo_guard_evidence_file() RETURNS trigger LANGUAGE plpgsql AS $$
++BEGIN
++    IF EXISTS (SELECT 1 FROM geo_answer_snapshots
++        WHERE raw_payload_file_id=OLD.id OR screenshot_file_id=OLD.id) THEN
++        IF TG_OP='DELETE' THEN
++            RAISE EXCEPTION '原始证据文件必须保留'
++                USING ERRCODE='23514', CONSTRAINT='ck_geo_evidence_file_immutable';
++        END IF;
++        IF ROW(NEW.id,NEW.category,NEW.original_filename,NEW.object_key,NEW.content_type,
++            NEW.size,NEW.sha256,NEW.access_level,NEW.status,NEW.uploader_id,
++            NEW.upload_expires_at,NEW.created_at,NEW.verified_at,NEW.deleted_at)
++            IS DISTINCT FROM ROW(OLD.id,OLD.category,OLD.original_filename,OLD.object_key,OLD.content_type,
++            OLD.size,OLD.sha256,OLD.access_level,OLD.status,OLD.uploader_id,
++            OLD.upload_expires_at,OLD.created_at,OLD.verified_at,OLD.deleted_at) THEN
++            RAISE EXCEPTION '被原始证据引用的文件身份与完整性不可变'
++                USING ERRCODE='23514', CONSTRAINT='ck_geo_evidence_file_immutable';
++        END IF;
++    END IF;
++    IF TG_OP='DELETE' THEN RETURN OLD; END IF;
++    RETURN NEW;
++END $$;
++CREATE TRIGGER geo_evidence_file_guard BEFORE UPDATE OR DELETE ON file_records
++    FOR EACH ROW EXECUTE FUNCTION geo_guard_evidence_file();
+--- baseline/backend/tests/integration/geo_answers_support.py
++++ backend/tests/integration/geo_answers_support.py
+@@ -0,0 +1,122 @@
++"""0050 证据测试的真实 PostgreSQL、前滚和最小数据。"""
++
++import hashlib
++from collections.abc import Iterator
++from dataclasses import dataclass
++from datetime import timedelta
++from typing import Any
++from uuid import UUID, uuid4
++
++import psycopg
++import pytest
++from psycopg.types.json import Jsonb
++
++from app.schemas.geo_answers import GeoRawPayloadSummary
++from tests.integration.geo_runs_support import RunDatabase, batch, plan_database, run, run_database
++from tests.integration.test_geo_catalog import insert_row
++from tests.integration.test_migrations import run_alembic
++
++__all__ = ["run_database", "plan_database", "answer_database", "answer_connection"]
++
++
++@dataclass
++class AnswerDatabase:
++    runs: RunDatabase
++    legacy_run: UUID
++
++    @property
++    def url(self) -> str:
++        return self.runs.url
++
++
++@pytest.fixture(scope="module")
++def answer_database(run_database: RunDatabase) -> Iterator[AnswerDatabase]:
++    db = run_database
++    with psycopg.connect(db.url) as conn:
++        legacy = run(conn, db, batch(conn, db))
++    run_alembic(db.plan.env, db.plan.backend_dir, "0049_geo_batch_creation")
++    run_alembic(db.plan.env, db.plan.backend_dir, "head")
++    yield AnswerDatabase(db, legacy)
++
++
++@pytest.fixture
++def answer_connection(answer_database: AnswerDatabase) -> Iterator[psycopg.Connection[Any]]:
++    with psycopg.connect(answer_database.url) as conn:
++        yield conn
++        conn.rollback()
++
++
++def new_run(conn: psycopg.Connection[Any], db: AnswerDatabase) -> UUID:
++    root = batch(conn, db.runs)
++    insert_row(
++        conn,
++        "geo_batch_subjects",
++        {"batch_id": root, "subject_id": db.runs.plan.subjects[0], "role": "PRIMARY"},
++    )
++    return run(conn, db.runs, root)
++
++
++def snapshot(conn: psycopg.Connection[Any], db: AnswerDatabase, run_id: UUID, **patch: Any) -> UUID:
++    value = {
++        "id": uuid4(),
++        "run_id": run_id,
++        "prompt_text": db.runs.input["prompt"]["prompt_text"],
++        "answer_text": "  原始回答\r\nA-1\n",
++        "answer_format": "TEXT",
++        "citation_count": 0,
++        "raw_payload_summary": Jsonb(GeoRawPayloadSummary().model_dump()),
++        "collected_at": conn.execute("SELECT now()").fetchone()[0],
++        **patch,
++    }
++    insert_row(conn, "geo_answer_snapshots", value)
++    return value["id"]
++
++
++def collect(conn: psycopg.Connection[Any], run_id: UUID) -> None:
++    conn.execute(
++        "UPDATE geo_observation_runs SET status='COLLECTED', started_at=now(), "
++        "collected_at=now(), revision=revision+1 WHERE id=%s",
++        (run_id,),
++    )
++
++
++def citation(conn: psycopg.Connection[Any], answer: UUID, **patch: Any) -> UUID:
++    value = {
++        "id": uuid4(),
++        "answer_snapshot_id": answer,
++        "position": 1,
++        "occurrences": [1],
++        "original_url": "HTTPS://Example.com:443/a#section",
++        "normalized_url": "https://example.com/a",
++        "hostname": "example.com",
++        "extraction_source": "MANUAL",
++        **patch,
++    }
++    insert_row(conn, "geo_answer_citations", value)
++    return value["id"]
++
++
++def file_record(conn: psycopg.Connection[Any], db: AnswerDatabase, **patch: Any) -> UUID:
++    now = conn.execute("SELECT now()").fetchone()[0]
++    identity = uuid4()
++    insert_row(
++        conn,
++        "file_records",
++        {
++            "id": identity,
++            "category": "OPERATION_SCREENSHOT",
++            "original_filename": "fixture.png",
++            "object_key": f"geo304/{identity}.png",
++            "content_type": "image/png",
++            "size": 7,
++            "sha256": hashlib.sha256(b"fixture").hexdigest(),
++            "access_level": "INTERNAL",
++            "status": "VERIFIED",
++            "uploader_id": db.runs.plan.actor,
++            "upload_expires_at": now + timedelta(hours=1),
++            "verified_at": now,
++            "cleanup_after": now,
++            **patch,
++        },
++    )
++    return identity
+--- baseline/backend/tests/integration/test_geo_answers.py
++++ backend/tests/integration/test_geo_answers.py
+@@ -0,0 +1,262 @@
++"""原始证据和文件生命周期的 PostgreSQL 最终防线。"""
++
++import hashlib
++from typing import Any
++
++import psycopg
++import pytest
++from psycopg import sql
++from psycopg.types.json import Jsonb
++
++from app.geo_citation_urls import normalize_citation_url
++from app.schemas.geo_answers import GeoRawPayloadSummary
++from tests.integration.geo_answers_support import (
++    AnswerDatabase,
++    answer_connection,
++    answer_database,
++    citation,
++    collect,
++    file_record,
++    new_run,
++    plan_database,
++    run_database,
++    snapshot,
++)
++
++pytestmark = pytest.mark.integration
++__all__ = ["answer_connection", "answer_database", "plan_database", "run_database"]
++
++
++def finalize(conn: psycopg.Connection[Any]) -> None:
++    conn.execute("SET CONSTRAINTS ALL IMMEDIATE")
++
++
++@pytest.mark.parametrize("url", ["https://a/", "https://[2001:db8::]/a"])
++def test_canonical_single_label_and_ipv6_round_trip(answer_connection, answer_database, url):
++    normalized = normalize_citation_url(url)
++    conn, db = answer_connection, answer_database
++    r = new_run(conn, db)
++    a = snapshot(conn, db, r, citation_count=1)
++    citation(
++        conn,
++        a,
++        original_url=url,
++        normalized_url=normalized.normalized_url,
++        hostname=normalized.hostname,
++    )
++    collect(conn, r)
++    finalize(conn)
++
++
++def test_original_answer_hash_and_complete_citations(
++    answer_connection: psycopg.Connection[Any], answer_database: AnswerDatabase
++) -> None:
++    conn, db = answer_connection, answer_database
++    r = new_run(conn, db)
++    a = snapshot(conn, db, r, citation_count=2)
++    citation(conn, a, occurrences=[1, 3])
++    citation(
++        conn,
++        a,
++        position=2,
++        occurrences=[2],
++        original_url="https://other.test/b",
++        normalized_url="https://other.test/b",
++        hostname="other.test",
++    )
++    collect(conn, r)
++    finalize(conn)
++    original, digest = conn.execute(
++        "SELECT answer_text,answer_sha256 FROM geo_answer_snapshots WHERE id=%s", (a,)
++    ).fetchone()
++    assert original == "  原始回答\r\nA-1\n"
++    assert digest == hashlib.sha256(original.encode()).hexdigest()
++
++
++@pytest.mark.parametrize(
++    ("table", "field", "value", "constraint"),
++    [
++        ("geo_answer_snapshots", "answer_text", "改写", "ck_geo_answers_immutable"),
++        ("geo_answer_snapshots", "prompt_text", "改写", "ck_geo_answers_immutable"),
++        ("geo_answer_snapshots", "raw_payload_summary", Jsonb({}), "ck_geo_answers_immutable"),
++        ("geo_answer_snapshots", "screenshot_file_id", None, "ck_geo_answers_immutable"),
++        ("geo_answer_citations", "title", "改写", "ck_geo_citations_immutable"),
++        ("geo_answer_citations", "position", 2, "ck_geo_citations_immutable"),
++        ("geo_answer_citations", "original_url", "https://evil.test", "ck_geo_citations_immutable"),
++    ],
++)
++def test_update_rejected(
++    answer_connection: psycopg.Connection[Any],
++    answer_database: AnswerDatabase,
++    table: str,
++    field: str,
++    value: Any,
++    constraint: str,
++) -> None:
++    conn, db = answer_connection, answer_database
++    r = new_run(conn, db)
++    a = snapshot(conn, db, r, citation_count=1)
++    c = citation(conn, a)
++    collect(conn, r)
++    finalize(conn)
++    with pytest.raises(psycopg.errors.CheckViolation) as raised:
++        conn.execute(
++            sql.SQL("UPDATE {} SET {}=%s WHERE id=%s").format(
++                sql.Identifier(table), sql.Identifier(field)
++            ),
++            (value, a if table.endswith("snapshots") else c),
++        )
++    assert raised.value.diag.constraint_name == constraint
++
++
++@pytest.mark.parametrize("table", ["geo_answer_snapshots", "geo_answer_citations"])
++@pytest.mark.parametrize("operation", ["UPDATE", "DELETE"])
++def test_even_noop_and_delete_rejected(
++    answer_connection: psycopg.Connection[Any],
++    answer_database: AnswerDatabase,
++    table: str,
++    operation: str,
++) -> None:
++    conn, db = answer_connection, answer_database
++    r = new_run(conn, db)
++    a = snapshot(conn, db, r, citation_count=1)
++    c = citation(conn, a)
++    collect(conn, r)
++    finalize(conn)
++    query = (
++        f"UPDATE {table} SET id=id WHERE id=%s"
++        if operation == "UPDATE"
++        else f"DELETE FROM {table} WHERE id=%s"
++    )
++    with pytest.raises(psycopg.errors.CheckViolation):
++        conn.execute(query, (a if table.endswith("snapshots") else c,))
++
++
++def test_citation_cannot_append_after_commit(answer_database: AnswerDatabase) -> None:
++    db = answer_database
++    with psycopg.connect(db.url) as conn:
++        r = new_run(conn, db)
++        a = snapshot(conn, db, r)
++        collect(conn, r)
++    with psycopg.connect(db.url) as conn:
++        with pytest.raises(psycopg.errors.CheckViolation) as raised:
++            citation(conn, a)
++        assert raised.value.diag.constraint_name == "ck_geo_citations_submission"
++
++
++@pytest.mark.parametrize(
++    "case", ["no-answer", "no-collection", "missing-citation", "overlap", "wrong-prompt"]
++)
++def test_incomplete_submission_rejected(
++    answer_connection: psycopg.Connection[Any], answer_database: AnswerDatabase, case: str
++) -> None:
++    conn, db = answer_connection, answer_database
++    r = new_run(conn, db)
++    with pytest.raises(psycopg.errors.CheckViolation):
++        if case != "no-answer":
++            a = snapshot(
++                conn,
++                db,
++                r,
++                citation_count=2 if case == "overlap" else (1 if case == "missing-citation" else 0),
++                **({"prompt_text": "另一问题"} if case == "wrong-prompt" else {}),
++            )
++            if case == "overlap":
++                citation(conn, a, occurrences=[1, 3])
++                citation(
++                    conn,
++                    a,
++                    position=2,
++                    occurrences=[2, 3],
++                    original_url="https://other.test/b",
++                    normalized_url="https://other.test/b",
++                    hostname="other.test",
++                )
++        if case != "no-collection":
++            collect(conn, r)
++        finalize(conn)
++
++
++@pytest.mark.parametrize(
++    "patch",
++    [
++        {"api_key": "fixture-secret"},
++        {"payload_format": "fixture-secret"},
++        {"payload_bytes": "fixture-secret"},
++        {"payload_bytes": {"headers": "fixture"}},
++        {"payload_bytes": True},
++        {"payload_bytes": -1},
++        {"payload_bytes": 52428801},
++    ],
++)
++def test_summary_secret_and_bad_leaves_rejected(
++    answer_connection: psycopg.Connection[Any],
++    answer_database: AnswerDatabase,
++    patch: dict[str, Any],
++) -> None:
++    conn, db = answer_connection, answer_database
++    r = new_run(conn, db)
++    with pytest.raises(psycopg.errors.CheckViolation) as raised:
++        snapshot(
++            conn, db, r, raw_payload_summary=Jsonb(GeoRawPayloadSummary().model_dump() | patch)
++        )
++    assert raised.value.diag.constraint_name == "ck_geo_answers_summary"
++
++
++@pytest.mark.parametrize(
++    "patch",
++    [
++        {"status": "PENDING", "verified_at": None},
++        {"status": "DELETING"},
++        {"access_level": "PUBLIC"},
++        {"category": "PLATFORM_LOGO"},
++        {"content_type": "text/plain"},
++        {"sha256": "x"},
++        {"size": 10485761},
++    ],
++)
++def test_file_qualification_direct_sql(
++    answer_connection: psycopg.Connection[Any],
++    answer_database: AnswerDatabase,
++    patch: dict[str, Any],
++) -> None:
++    conn, db = answer_connection, answer_database
++    f = file_record(conn, db, **patch)
++    r = new_run(conn, db)
++    with pytest.raises(psycopg.errors.CheckViolation) as raised:
++        snapshot(conn, db, r, screenshot_file_id=f)
++    assert raised.value.diag.constraint_name == "ck_geo_answers_file_eligible"
++
++
++@pytest.mark.parametrize(
++    ("field", "value"),
++    [
++        ("sha256", "0" * 64),
++        ("status", "DELETING"),
++        ("access_level", "PUBLIC"),
++        ("object_key", "changed"),
++    ],
++)
++def test_referenced_file_is_immutable(
++    answer_connection: psycopg.Connection[Any],
++    answer_database: AnswerDatabase,
++    field: str,
++    value: str,
++) -> None:
++    conn, db = answer_connection, answer_database
++    f = file_record(conn, db)
++    r = new_run(conn, db)
++    snapshot(conn, db, r, screenshot_file_id=f)
++    collect(conn, r)
++    finalize(conn)
++    with pytest.raises(psycopg.Error) as raised:
++        conn.execute(
++            sql.SQL("UPDATE file_records SET {}=%s WHERE id=%s").format(sql.Identifier(field)),
++            (value, f),
++        )
++    if field == "status":
++        assert raised.value.sqlstate == "23514"
++        assert raised.value.diag.constraint_name == "ck_geo_evidence_file_immutable"
++    else:
++        # 既有 file_records_guard 更早拒绝元数据变更，继续保留其 55000 防线。
++        assert raised.value.sqlstate == "55000"
+--- baseline/backend/tests/integration/test_geo_answer_files.py
++++ backend/tests/integration/test_geo_answer_files.py
+@@ -0,0 +1,192 @@
++"""真实对象 HEAD、文件资格和清理/提交交错。"""
++
++import hashlib
++import os
++from datetime import UTC, datetime
++from typing import Any
++from uuid import uuid4
++
++import psycopg
++import pytest
++from sqlalchemy import create_engine
++from sqlalchemy.orm import Session
++
++from app.config import settings
++from app.errors import AppError
++from app.services.file_records import _claim_file_cleanup, file_is_referenced
++from app.services.geo_answer_files import lock_answer_evidence_files
++from app.services.storage import DevelopmentEvidenceStorage
++from tests.integration.geo_answers_support import (
++    AnswerDatabase,
++    answer_connection,
++    answer_database,
++    collect,
++    file_record,
++    new_run,
++    plan_database,
++    run_database,
++    snapshot,
++)
++
++pytestmark = pytest.mark.integration
++__all__ = ["answer_connection", "answer_database", "plan_database", "run_database"]
++
++
++@pytest.fixture
++def engine(answer_database: AnswerDatabase):
++    value = create_engine(answer_database.url.replace("postgresql://", "postgresql+psycopg://"))
++    yield value
++    value.dispose()
++
++
++@pytest.fixture
++def storage(monkeypatch: pytest.MonkeyPatch):
++    # Compose 内使用既有 fake-oss；宿主定向测试通过显式测试端口。
++    monkeypatch.setattr(
++        settings,
++        "development_storage_internal_url",
++        os.environ.get("GEO304_TEST_STORAGE_URL", "http://fake-oss:9000"),
++    )
++    return DevelopmentEvidenceStorage()
++
++
++def evidence(
++    conn: psycopg.Connection[Any], db: AnswerDatabase, storage: DevelopmentEvidenceStorage
++):
++    raw = b'{"answer":"fixture"}'
++    key = f"geo304/{uuid4()}.txt"
++    digest = hashlib.sha256(raw).hexdigest()
++    storage.put(key, raw, content_type="text/plain", sha256=digest)
++    identity = file_record(
++        conn,
++        db,
++        category="EVIDENCE",
++        original_filename="fixture.txt",
++        object_key=key,
++        content_type="text/plain",
++        size=len(raw),
++        sha256=digest,
++    )
++    return identity, key
++
++
++def test_head_verified_association_and_gc_retains_both_refs(answer_database, engine, storage):
++    db = answer_database
++    with psycopg.connect(db.url) as conn:
++        raw, key = evidence(conn, db, storage)
++        screen = file_record(conn, db)
++        r = new_run(conn, db)
++    try:
++        with Session(engine) as session:
++            lock_answer_evidence_files(
++                session,
++                uploader_id=db.runs.plan.actor,
++                screenshot_file_id=None,
++                raw_payload_file_id=raw,
++                storage=storage,
++            )
++            assert file_is_referenced(session, raw) is False
++            session.rollback()
++        with psycopg.connect(db.url) as conn:
++            snapshot(conn, db, r, raw_payload_file_id=raw, screenshot_file_id=screen)
++            collect(conn, r)
++        with Session(engine) as session:
++            assert file_is_referenced(session, raw) and file_is_referenced(session, screen)
++            # 旧调度时间也不能让新引用进入 DELETING。
++            session.connection().exec_driver_sql(
++                "UPDATE file_records SET cleanup_after=now() WHERE id IN (%s,%s)", (raw, screen)
++            )
++            claimed = _claim_file_cleanup(session, now=datetime.now(UTC), batch_size=1000)
++            assert {raw, screen}.isdisjoint(identity for identity, _ in claimed)
++            session.rollback()
++    finally:
++        storage.delete(key)
++
++
++@pytest.mark.parametrize(
++    "case,code,status",
++    [
++        ("owner", "PERMISSION_DENIED", 403),
++        ("missing", "FILE_INTEGRITY_FAILED", 422),
++        ("changed", "FILE_INTEGRITY_FAILED", 422),
++        ("duplicate", "FILE_INTEGRITY_FAILED", 422),
++        ("unavailable", "DEPENDENCY_UNAVAILABLE", 503),
++    ],
++)
++def test_recheck_does_not_accept_changed_or_missing_object(
++    answer_database, engine, storage, monkeypatch, case, code, status
++):
++    db = answer_database
++    with psycopg.connect(db.url) as conn:
++        identity, key = evidence(conn, db, storage)
++    try:
++        if case == "missing":
++            storage.delete(key)
++        elif case == "changed":
++            data = b"changed object"
++            storage.put(
++                key, data, content_type="text/plain", sha256=hashlib.sha256(data).hexdigest()
++            )
++        elif case == "unavailable":
++            monkeypatch.setattr(settings, "development_storage_internal_url", "http://127.0.0.1:1")
++        with Session(engine) as session, pytest.raises(AppError) as caught:
++            lock_answer_evidence_files(
++                session,
++                uploader_id=uuid4() if case == "owner" else db.runs.plan.actor,
++                screenshot_file_id=identity if case == "duplicate" else None,
++                raw_payload_file_id=identity,
++                storage=storage,
++            )
++        assert caught.value.code == code and caught.value.status_code == status
++    finally:
++        if case == "unavailable":
++            monkeypatch.setattr(settings, "development_storage_internal_url",
++                                os.environ.get("GEO304_TEST_STORAGE_URL", "http://fake-oss:9000"))
++        storage.delete(key)
++
++
++def test_association_lock_makes_gc_skip_and_gc_claim_blocks_association(answer_database, engine):
++    db = answer_database
++    with psycopg.connect(db.url) as conn:
++        f = file_record(conn, db)
++        r = new_run(conn, db)
++    with psycopg.connect(db.url) as owner:
++        snapshot(owner, db, r, screenshot_file_id=f)
++        with Session(engine) as gc:
++            assert f not in {
++                identity
++                for identity, _ in _claim_file_cleanup(gc, now=datetime.now(UTC), batch_size=1000)
++            }
++            gc.rollback()
++        collect(owner, r)
++    with psycopg.connect(db.url) as conn:
++        deleting = file_record(conn, db)
++        second = new_run(conn, db)
++    with Session(engine) as gc:
++        assert deleting in {
++            identity
++            for identity, _ in _claim_file_cleanup(gc, now=datetime.now(UTC), batch_size=1000)
++        }
++        gc.commit()
++    with psycopg.connect(db.url) as conn, pytest.raises(psycopg.errors.CheckViolation) as caught:
++        snapshot(conn, db, second, screenshot_file_id=deleting)
++    assert caught.value.diag.constraint_name == "ck_geo_answers_file_eligible"
++
++
++def test_repeatable_read_stale_file_cannot_revive_gc_claim(answer_database, engine):
++    db = answer_database
++    with psycopg.connect(db.url) as conn:
++        f = file_record(conn, db)
++        r = new_run(conn, db)
++    with psycopg.connect(db.url) as stale:
++        stale.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
++        stale.execute("SELECT status FROM file_records WHERE id=%s", (f,)).fetchone()
++        with Session(engine) as gc:
++            assert f in {
++                identity
++                for identity, _ in _claim_file_cleanup(gc, now=datetime.now(UTC), batch_size=1000)
++            }
++            gc.commit()
++        with pytest.raises(psycopg.errors.SerializationFailure):
++            snapshot(stale, db, r, screenshot_file_id=f)
++        stale.rollback()
+--- baseline/backend/tests/integration/test_geo_answer_migration.py
++++ backend/tests/integration/test_geo_answer_migration.py
+@@ -0,0 +1,72 @@
++"""0050 加法前滚、ORM 一致与有意不可逆降级。"""
++
++import subprocess
++import sys
++
++import psycopg
++import pytest
++from alembic.autogenerate import compare_metadata
++from alembic.migration import MigrationContext
++from sqlalchemy import create_engine
++
++from app.db import Base
++from tests.integration.geo_answers_support import (
++    AnswerDatabase,
++    answer_database,
++    plan_database,
++    run_database,
++)
++from tests.integration.test_geo_monitoring_plans import existing_rows
++
++pytestmark = pytest.mark.integration
++__all__ = ["answer_database", "plan_database", "run_database"]
++
++
++def test_forward_keeps_nonempty_history_and_matches_models(answer_database: AnswerDatabase):
++    db = answer_database
++    with psycopg.connect(db.url) as conn:
++        assert (
++            conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
++            == "0050_geo_answer_evidence"
++        )
++        assert existing_rows(conn) == db.runs.before
++        assert (
++            conn.execute(
++                "SELECT input_snapshot FROM geo_observation_runs WHERE id=%s", (db.legacy_run,)
++            ).fetchone()[0]
++            == db.runs.input
++        )
++        assert conn.execute("SELECT count(*) FROM geo_answer_snapshots").fetchone()[0] == 0
++    engine = create_engine(db.url.replace("postgresql://", "postgresql+psycopg://"))
++    tables = {"geo_answer_snapshots", "geo_answer_citations"}
++    try:
++        with engine.connect() as conn:
++            context = MigrationContext.configure(
++                conn,
++                opts={
++                    "compare_type": True,
++                    "compare_server_default": True,
++                    "include_object": lambda obj, name, kind, reflected, compared: (
++                        obj.name in tables if kind == "table" else obj.table.name in tables
++                    ),
++                },
++            )
++            assert compare_metadata(context, Base.metadata) == []
++    finally:
++        engine.dispose()
++    stopped = subprocess.run(
++        [sys.executable, "-m", "alembic", "downgrade", "0049_geo_batch_creation"],
++        cwd=db.runs.plan.backend_dir,
++        env=db.runs.plan.env,
++        capture_output=True,
++        text=True,
++    )
++    assert (
++        stopped.returncode != 0
++        and "0050 原始回答与证据不可安全降级" in stopped.stdout + stopped.stderr
++    )
++    with psycopg.connect(db.url) as conn:
++        assert (
++            conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
++            == "0050_geo_answer_evidence"
++        )
+--- baseline/backend/tests/integration/test_geo_answer_migration_precheck.py
++++ backend/tests/integration/test_geo_answer_migration_precheck.py
+@@ -0,0 +1,62 @@
++"""无法补造的旧采集事实应让前滚原子停止。"""
++
++from concurrent.futures import ThreadPoolExecutor
++from time import monotonic, sleep
++
++import psycopg
++import pytest
++
++from tests.integration.geo_runs_support import RunDatabase, batch, plan_database, run, run_database
++from tests.integration.test_migrations import run_alembic
++
++pytestmark = pytest.mark.integration
++__all__ = ["plan_database", "run_database"]
++
++
++def test_collected_history_without_original_evidence_stops_migration(run_database: RunDatabase):
++    db = run_database
++    with psycopg.connect(db.url) as conn:
++        identity = run(conn, db, batch(conn, db))
++    run_alembic(db.plan.env, db.plan.backend_dir, "0049_geo_batch_creation")
++    env = db.plan.env | {
++        "DATABASE_URL": db.plan.env["DATABASE_URL"] + "?application_name=geo304_lock_test"
++    }
++    with psycopg.connect(db.url) as writer, ThreadPoolExecutor(max_workers=1) as workers:
++        writer.execute(
++            "UPDATE geo_observation_runs SET status='COLLECTED',started_at=now(),"
++            "collected_at=now(),revision=revision+1 WHERE id=%s",
++            (identity,),
++        )
++        future = workers.submit(run_alembic, env, db.plan.backend_dir, "head", check=False)
++        try:
++            deadline = monotonic() + 10
++            blocked = False
++            with psycopg.connect(db.url, autocommit=True) as observer:
++                while monotonic() < deadline and not future.done():
++                    blocked = observer.execute(
++                        "SELECT EXISTS (SELECT 1 FROM pg_stat_activity "
++                        "WHERE datname=current_database() "
++                        "AND application_name='geo304_lock_test' AND wait_event_type='Lock')"
++                    ).fetchone()[0]
++                    if blocked:
++                        break
++                    sleep(0.02)
++            assert blocked, "迁移必须等待旧写事务，不能跨过预检窗口"
++        finally:
++            writer.commit()
++        failed = future.result(timeout=20)
++    assert (
++        failed.returncode != 0 and "0050 发现无原始证据的采集历史" in failed.stdout + failed.stderr
++    )
++    with psycopg.connect(db.url) as conn:
++        assert (
++            conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
++            == "0049_geo_batch_creation"
++        )
++        assert conn.execute("SELECT to_regclass('geo_answer_snapshots')").fetchone()[0] is None
++        assert (
++            conn.execute(
++                "SELECT status FROM geo_observation_runs WHERE id=%s", (identity,)
++            ).fetchone()[0]
++            == "COLLECTED"
++        )
+--- baseline/backend/tests/unit/test_geo_answer_contract.py
++++ backend/tests/unit/test_geo_answer_contract.py
+@@ -0,0 +1,169 @@
++"""原始回答组件、URL 身份与安全摘要的外部可观察合同。"""
++
++import hashlib
++from datetime import UTC, datetime
++from typing import Any
++from uuid import uuid4
++
++import pytest
++from pydantic import TypeAdapter, ValidationError
++
++from app.geo_citation_urls import normalize_citation_url
++from app.schemas.geo_answers import (
++    GeoAnswerCitationInput,
++    GeoAnswerCitationOut,
++    GeoAnswerSnapshotOut,
++    GeoRawPayloadSummary,
++)
++from app.services.geo_answer_citations import prepare_answer_citations
++from tests.unit.test_geo_run_contract import contract, validate
++
++__all__ = ["contract"]
++
++
++def answer_payload() -> dict[str, Any]:
++    return {
++        "id": str(uuid4()),
++        "run_id": str(uuid4()),
++        "prompt_text": "冻结问题",
++        "answer_text": "  原始回答\r\n型号 A-1\n",
++        "answer_format": "TEXT",
++        "source_product": None,
++        "source_model": None,
++        "source_version": None,
++        "web_search_observed": None,
++        "raw_payload_summary": GeoRawPayloadSummary().model_dump(),
++        "raw_payload_file_id": None,
++        "screenshot_file_id": None,
++        "citation_count": 0,
++        "collected_at": datetime.now(UTC).isoformat(),
++        "created_at": datetime.now(UTC).isoformat(),
++        "answer_sha256": hashlib.sha256("  原始回答\r\n型号 A-1\n".encode()).hexdigest(),
++    }
++
++
++@pytest.mark.parametrize(
++    "model",
++    [GeoAnswerSnapshotOut, GeoAnswerCitationInput, GeoAnswerCitationOut, GeoRawPayloadSummary],
++)
++def test_components_match(contract: dict[str, Any], model: type) -> None:
++    schema = TypeAdapter(model).json_schema(ref_template="#/components/schemas/{model}")
++    definitions = schema.pop("$defs", {})
++    assert contract["components"]["schemas"][model.__name__] == schema
++    for name, value in definitions.items():
++        assert contract["components"]["schemas"][name] == value
++
++
++def test_original_bytes_and_unknown_signal_round_trip(contract: dict[str, Any]) -> None:
++    payload = answer_payload()
++    parsed = GeoAnswerSnapshotOut.model_validate(payload)
++    assert parsed.answer_text == payload["answer_text"]
++    assert parsed.web_search_observed is None
++    validate(contract, "GeoAnswerSnapshotOut", parsed.model_dump(mode="json"))
++    with pytest.raises(ValidationError):
++        GeoAnswerSnapshotOut.model_validate(payload | {"answer_sha256": "0" * 64})
++
++
++@pytest.mark.parametrize("text", ["", "\n\t ", "value\x00", "a" * 1048577])
++def test_empty_or_invalid_answer_rejected(text: str) -> None:
++    with pytest.raises(ValidationError):
++        GeoAnswerSnapshotOut.model_validate(answer_payload() | {"answer_text": text})
++
++
++@pytest.mark.parametrize("key", ["api_key", "Authorization", "Cookie", "headers", "body", "token"])
++def test_summary_secret_keys_rejected(key: str, contract: dict[str, Any]) -> None:
++    from jsonschema.exceptions import ValidationError as JsonError
++
++    value = GeoRawPayloadSummary().model_dump() | {key: "fixture-secret"}
++    with pytest.raises(ValidationError):
++        GeoRawPayloadSummary.model_validate(value)
++    with pytest.raises(JsonError):
++        validate(contract, "GeoRawPayloadSummary", value)
++
++
++@pytest.mark.parametrize(
++    "patch",
++    [
++        {"payload_format": "fixture-secret"},
++        {"finish_reason": "Bearer fixture"},
++        {"payload_bytes": "fixture-secret"},
++        {"payload_bytes": {"api_key": "fixture"}},
++        {"payload_bytes": True},
++        {"payload_bytes": -1},
++        {"payload_bytes": 52428801},
++        {"schema_version": 2},
++        {"schema_version": True},
++    ],
++)
++def test_summary_string_objects_and_bounds_rejected(patch: dict[str, Any]) -> None:
++    with pytest.raises(ValidationError):
++        GeoRawPayloadSummary.model_validate(GeoRawPayloadSummary().model_dump() | patch)
++
++
++@pytest.mark.parametrize(
++    ("url", "normalized", "host"),
++    [
++        ("HTTPS://Example.COM:443#section", "https://example.com/", "example.com"),
++        (
++            "http://例子.测试:80/a?id=2&id=1#x",
++            "http://xn--fsqu00a.xn--0zwm56d/a?id=2&id=1",
++            "xn--fsqu00a.xn--0zwm56d",
++        ),
++        (
++            "https://EXAMPLE.com:8443/A?q=2&b=1&utm_source=a",
++            "https://example.com:8443/A?q=2&b=1&utm_source=a",
++            "example.com",
++        ),
++        ("https://[2001:db8::1]:443/a", "https://[2001:db8::1]/a", "2001:db8::1"),
++        ("http://127.0.0.1/a", "http://127.0.0.1/a", "127.0.0.1"),
++        ("https://a/", "https://a/", "a"),
++        ("https://[2001:db8::]/a", "https://[2001:db8::]/a", "2001:db8::"),
++    ],
++)
++def test_url_normalization(url: str, normalized: str, host: str) -> None:
++    result = normalize_citation_url(url)
++    assert result.original_url == url
++    assert result.normalized_url == normalized
++    assert result.hostname == host
++
++
++@pytest.mark.parametrize(
++    "url",
++    [
++        "javascript:alert(1)",
++        "data:text/html,a",
++        "file:///etc/passwd",
++        "https://user:pass@example.com/a",
++        "https://example.com\\@evil.test",
++        " https://example.com",
++        "https://example.com/%0a",
++        "https://example.com/%1f",
++        "https://example.com/%GG",
++        "https://example.com\n/",
++        "https://example.com:99999/a",
++        "https:///a",
++    ],
++)
++def test_unsafe_urls_rejected(url: str) -> None:
++    with pytest.raises(ValueError):
++        normalize_citation_url(url)
++
++
++def test_duplicates_preserve_first_source_and_all_original_positions() -> None:
++    values = [
++        GeoAnswerCitationInput(
++            original_url=url, position=pos, title=title, extraction_source="MANUAL"
++        )
++        for url, pos, title in [
++            ("https://example.com/a#second", 3, "第二次"),
++            ("https://other.test/b", 2, "其他"),
++            ("HTTPS://EXAMPLE.COM:443/a#first", 1, "首次"),
++        ]
++    ]
++    result = prepare_answer_citations(values)
++    assert [v.position for v in result] == [1, 2]
++    assert result[0].occurrences == (1, 3)
++    assert result[0].original_url == values[2].original_url
++    assert result[0].title == "首次"
++    with pytest.raises(ValueError):
++        prepare_answer_citations([values[0], values[0]])
+--- baseline/backend/tests/unit/test_platform_logo_cleanup.py
++++ backend/tests/unit/test_platform_logo_cleanup.py
+@@ -47,7 +47,7 @@
+     now = datetime.now(UTC)
+     file = file_record()
+     db = Mock(spec=Session)
+-    db.scalar.side_effect = [file, 0, 0, 0]
++    db.scalar.side_effect = [file, 0, 0, 0, 0, 0]
+     schedule_detached_platform_logo(db, file.id, now=now)
+     assert file.cleanup_after == now + timedelta(days=7)
+ 
+@@ -65,15 +65,17 @@
+ 
+ 
+ def test_cleanup_reference_authority_uses_all_current_file_foreign_keys() -> None:
+-    """删除权威只查询当前 head 的三类真实文件外键。"""
++    """删除权威只查询当前 head 的真实文件外键，包括原始回答两项引用。"""
+     db = Mock(spec=Session)
+     db.scalar.return_value = 0
+     assert not file_is_referenced(db, uuid.uuid4())
+     queries = [str(call.args[0]) for call in db.scalar.call_args_list]
+-    assert len(queries) == 3
++    assert len(queries) == 5
+     assert "platform_profiles" in queries[0]
+     assert "publication_attachments" in queries[1]
+     assert "geo_observation_attachments" in queries[2]
++    assert "geo_answer_snapshots.raw_payload_file_id" in queries[3]
++    assert "geo_answer_snapshots.screenshot_file_id" in queries[4]
+     assert all("evidences" not in query for query in queries)
+ 
+ 
+@@ -83,7 +85,7 @@
+     file = file_record(cleanup_after=now - timedelta(minutes=1))
+     db = Mock(spec=Session)
+     db.scalars.return_value = [file]
+-    db.scalar.side_effect = [0, 0, 0]
++    db.scalar.return_value = 0
+     assert _claim_file_cleanup(db, now=now, batch_size=10) == [
+         (file.id, file.object_key)
+     ]
+@@ -102,7 +104,7 @@
+     file = file_record(status="DELETING")
+     claim_db = Mock(spec=Session)
+     claim_db.scalars.return_value = [file]
+-    claim_db.scalar.side_effect = [0, 0, 0]
++    claim_db.scalar.return_value = 0
+     finish_db = Mock(spec=Session)
+     finish_db.scalar.return_value = file
+     sessions = iter([claim_db, finish_db])
+@@ -128,7 +130,7 @@
+     file = file_record(status="DELETING")
+     claim_db = Mock(spec=Session)
+     claim_db.scalars.return_value = [file]
+-    claim_db.scalar.side_effect = [0, 0, 0]
++    claim_db.scalar.return_value = 0
+ 
+     class FakeSessionLocal:
+         @staticmethod

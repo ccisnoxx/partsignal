@@ -1,0 +1,10 @@
+{
+  "command": [
+    "make",
+    "test-geo-performance",
+    "COMPOSE=docker compose -p geo607-validation -f .trellis/tasks/10-04-geo-607-insight-performance/evidence/validation-compose.yaml"
+  ],
+  "started_at": "2026-10-04T12:24:37.518281+00:00",
+  "duration_seconds": 662.1499380840105,
+  "exit_code": 2
+}

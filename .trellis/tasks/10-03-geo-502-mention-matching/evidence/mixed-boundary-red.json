@@ -1,0 +1,15 @@
+{
+  "command": [
+    "env",
+    "UV_CACHE_DIR=.cache/uv",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_analysis.py",
+    "-k",
+    "reference-part-number-boundaries or shared-alias-mixed-types"
+  ],
+  "exit_code": 1
+}

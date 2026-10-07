@@ -1,0 +1,16 @@
+{
+  "name": "staging-owned-env-fixed",
+  "command": [
+    "sh",
+    "deploy/scripts/test-deploy-staging.sh"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "c6b310f568798a6f068869870c648189ff7d604d",
+  "dirty": true,
+  "started_at": "2026-10-07T06:34:52.010020+00:00",
+  "ended_at": "2026-10-07T06:34:53.735370+00:00",
+  "exit_code": 0,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/staging-owned-env-fixed.log",
+  "log_sha256": "2863be1a45105e7a9d99df261b03b66ab54879ff90995c7c5c257c4d7ecd5f97"
+}

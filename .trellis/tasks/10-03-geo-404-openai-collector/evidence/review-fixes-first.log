@@ -1,0 +1,51 @@
+........................................................................ [ 33%]
+.....................................................F.F................ [ 66%]
+........................................................................ [ 99%]
+..                                                                       [100%]
+=================================== FAILURES ===================================
+____ test_sensitive_header_reflections_are_rejected_in_retained_text[plain] ____
+
+encoding = 'plain'
+
+    @pytest.mark.parametrize("encoding", ["plain", "url", "json", "base64"])
+    def test_sensitive_header_reflections_are_rejected_in_retained_text(encoding):
+        request = make_request()
+        secret = test_secret("header") + '/quoted"é'
+        values = {
+            "plain": secret,
+            "url": quote(secret, safe=""),
+            "json": json.dumps(secret, ensure_ascii=True)[1:-1],
+            "base64": b64encode(secret.encode()).decode(),
+        }
+        body = json.dumps({"choices": [{"message": {"content": values[encoding]}}]}).encode()
+        fake = FakeSocket(peer_ip="93.184.216.34", response=ok_response(body))
+>       with pytest.raises(CollectorError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'app.collectors.errors.CollectorError'>
+
+backend/tests/unit/test_geo_openai_network.py:309: Failed
+____ test_sensitive_header_reflections_are_rejected_in_retained_text[json] _____
+
+encoding = 'json'
+
+    @pytest.mark.parametrize("encoding", ["plain", "url", "json", "base64"])
+    def test_sensitive_header_reflections_are_rejected_in_retained_text(encoding):
+        request = make_request()
+        secret = test_secret("header") + '/quoted"é'
+        values = {
+            "plain": secret,
+            "url": quote(secret, safe=""),
+            "json": json.dumps(secret, ensure_ascii=True)[1:-1],
+            "base64": b64encode(secret.encode()).decode(),
+        }
+        body = json.dumps({"choices": [{"message": {"content": values[encoding]}}]}).encode()
+        fake = FakeSocket(peer_ip="93.184.216.34", response=ok_response(body))
+>       with pytest.raises(CollectorError):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'app.collectors.errors.CollectorError'>
+
+backend/tests/unit/test_geo_openai_network.py:309: Failed
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_openai_network.py::test_sensitive_header_reflections_are_rejected_in_retained_text[plain]
+FAILED backend/tests/unit/test_geo_openai_network.py::test_sensitive_header_reflections_are_rejected_in_retained_text[json]
+2 failed, 216 passed in 4.55s

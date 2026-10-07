@@ -1,0 +1,9 @@
+{
+  "command": [
+    "make",
+    "lint"
+  ],
+  "exit_code": 0,
+  "seconds": 7.305,
+  "log": "lint.log"
+}

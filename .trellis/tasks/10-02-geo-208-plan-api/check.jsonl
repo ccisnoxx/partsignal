@@ -1,0 +1,5 @@
+{"file": "contracts/openapi.yaml", "reason": "实际与runtime和generated一致"}
+{"file": "contracts/database.md", "reason": "事务/版本/锁/审计语义"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "适用门禁与风险验证"}
+{"file": ".trellis/tasks/10-02-geo-208-plan-api/prd.md", "reason": "范围和验收"}
+{"file": ".trellis/tasks/10-02-geo-208-plan-api/design.md", "reason": "锁内资格/占位/不可变"}

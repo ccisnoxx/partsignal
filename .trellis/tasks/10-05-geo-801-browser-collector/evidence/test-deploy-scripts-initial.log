@@ -1,0 +1,329 @@
+docker build -f frontend/Dockerfile -t partsignal-frontend-v2:test frontend
+#0 building with "colima" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 339B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:22-alpine
+#2 ...
+
+#3 [internal] load metadata for docker.io/library/nginx:1.27-alpine
+#3 DONE 1.6s
+
+#2 [internal] load metadata for docker.io/library/node:22-alpine
+#2 DONE 1.7s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 137B done
+#4 DONE 0.0s
+
+#5 [development 1/5] FROM docker.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+#5 resolve docker.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 0.0s done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 48.45kB 0.0s done
+#6 DONE 0.0s
+
+#7 [stage-2 1/3] FROM docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+#7 resolve docker.io/library/nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10 0.0s done
+#7 DONE 0.0s
+
+#8 [development 2/5] WORKDIR /app
+#8 CACHED
+
+#9 [development 3/5] COPY package.json package-lock.json ./
+#9 CACHED
+
+#10 [development 4/5] RUN npm ci
+#10 CACHED
+
+#11 [development 5/5] COPY . .
+#11 DONE 0.2s
+
+#12 [build 1/1] RUN npm run build
+#12 0.714 
+#12 0.714 > partsignal-frontend-v2@0.1.0 build
+#12 0.714 > tsc -b && vite build --config vite.config.ts
+#12 0.714 
+#12 19.14 vite v8.2.1 building client environment for production...
+#12 19.15 [2Ktransforming...✓ 3005 modules transformed.
+#12 20.01 rendering chunks...
+#12 20.10 computing gzip size...
+#12 20.12 dist/index.html                                                    0.57 kB │ gzip:   0.34 kB
+#12 20.12 dist/assets/index-Btqa2CjT.css                                    83.46 kB │ gzip:  14.39 kB
+#12 20.12 dist/assets/queryOptions-Dfvzj6n2.js                               0.03 kB │ gzip:   0.05 kB
+#12 20.12 dist/assets/route-5zGdn2Pu.js                                      0.07 kB │ gzip:   0.08 kB
+#12 20.12 dist/assets/route-AFUjE5vR.js                                      0.07 kB │ gzip:   0.08 kB
+#12 20.12 dist/assets/route-Bdkyf40J.js                                      0.07 kB │ gzip:   0.08 kB
+#12 20.12 dist/assets/route-BnOgN25L.js                                      0.07 kB │ gzip:   0.08 kB
+#12 20.12 dist/assets/route-CACU0Ncw.js                                      0.07 kB │ gzip:   0.08 kB
+#12 20.12 dist/assets/route-CAUin8c-.js                                      0.07 kB │ gzip:   0.08 kB
+#12 20.12 dist/assets/route-CtPZVZSG.js                                      0.07 kB │ gzip:   0.08 kB
+#12 20.12 dist/assets/route-DM9PFocW.js                                      0.07 kB │ gzip:   0.08 kB
+#12 20.12 dist/assets/route-DZLPx2O5.js                                      0.07 kB │ gzip:   0.08 kB
+#12 20.12 dist/assets/route-Dfp-b3_F.js                                      0.07 kB │ gzip:   0.08 kB
+#12 20.12 dist/assets/route-DrhND8Ss.js                                      0.07 kB │ gzip:   0.08 kB
+#12 20.12 dist/assets/route-DwBi_ZMu.js                                      0.07 kB │ gzip:   0.08 kB
+#12 20.12 dist/assets/route-SgbaIUWS.js                                      0.07 kB │ gzip:   0.08 kB
+#12 20.12 dist/assets/route-Tim3UNye.js                                      0.07 kB │ gzip:   0.08 kB
+#12 20.12 dist/assets/coerce-B9YZO7zq.js                                     0.08 kB │ gzip:   0.10 kB
+#12 20.12 dist/assets/isElementDisabled-KSuuBj8D.js                          0.11 kB │ gzip:   0.11 kB
+#12 20.12 dist/assets/not-found-i5RsCZif.js                                  0.11 kB │ gzip:   0.11 kB
+#12 20.12 dist/assets/chevron-right-DzQx1ajS.js                              0.13 kB │ gzip:   0.14 kB
+#12 20.12 dist/assets/canonical-uuid-sTOW0IN6.js                             0.13 kB │ gzip:   0.13 kB
+#12 20.12 dist/assets/matchContext-B0YTMpvO.js                               0.16 kB │ gzip:   0.14 kB
+#12 20.12 dist/assets/settings.ai-CipVaq6G.js                                0.21 kB │ gzip:   0.20 kB
+#12 20.12 dist/assets/geo-rules-BWrkKy45.js                                  0.21 kB │ gzip:   0.20 kB
+#12 20.12 dist/assets/_taskId_.editor-_qjLAkbp.js                            0.22 kB │ gzip:   0.20 kB
+#12 20.12 dist/assets/_taskId_.review-zeX8OAEE.js                            0.22 kB │ gzip:   0.20 kB
+#12 20.12 dist/assets/route-DFljbmbX.js                                      0.22 kB │ gzip:   0.20 kB
+#12 20.12 dist/assets/system.audit-qBeF2bb1.js                               0.22 kB │ gzip:   0.20 kB
+#12 20.12 dist/assets/system.users-0TM8kiXu.js                               0.22 kB │ gzip:   0.20 kB
+#12 20.12 dist/assets/settings.prompts-9jQdIs2s.js                           0.22 kB │ gzip:   0.20 kB
+#12 20.12 dist/assets/print-BVB7NKa9.js                                      0.22 kB │ gzip:   0.18 kB
+#12 20.12 dist/assets/_taskId-Vsd3-0WC.js                                    0.22 kB │ gzip:   0.21 kB
+#12 20.12 dist/assets/settings.platforms.types-C4NjYBws.js                   0.22 kB │ gzip:   0.21 kB
+#12 20.12 dist/assets/versions_._versionId-BW6wP3pa.js                       0.22 kB │ gzip:   0.21 kB
+#12 20.12 dist/assets/_platformId-BeKfjBVf.js                                0.22 kB │ gzip:   0.20 kB
+#12 20.12 dist/assets/settings.ai_._channelId-Z_MUrH5D.js                    0.22 kB │ gzip:   0.20 kB
+#12 20.12 dist/assets/_observationId-B3QjNhkV.js                             0.23 kB │ gzip:   0.21 kB
+#12 20.12 dist/assets/useControlled-DMK4Pb-8.js                              0.24 kB │ gzip:   0.21 kB
+#12 20.12 dist/assets/skeleton-Ged3Zc9T.js                                   0.24 kB │ gzip:   0.20 kB
+#12 20.12 dist/assets/table-shell-BGuXgMNH.js                                0.33 kB │ gzip:   0.24 kB
+#12 20.12 dist/assets/usePopupHandleStore-BirVG9ro.js                        0.35 kB │ gzip:   0.25 kB
+#12 20.12 dist/assets/reports-Ral8MhyK.js                                    0.42 kB │ gzip:   0.29 kB
+#12 20.12 dist/assets/table-toolbar-JNNhOzlg.js                              0.42 kB │ gzip:   0.27 kB
+#12 20.12 dist/assets/table-skeleton-G-FjuOli.js                             0.45 kB │ gzip:   0.35 kB
+#12 20.12 dist/assets/route-error-Bl0menBv.js                                0.46 kB │ gzip:   0.31 kB
+#12 20.12 dist/assets/_productId-Cu3oT6KN.js                                 0.49 kB │ gzip:   0.35 kB
+#12 20.12 dist/assets/_productId_.facts-C-S7KVKf.js                          0.50 kB │ gzip:   0.36 kB
+#12 20.12 dist/assets/_productId_.facts_.versions_._versionId-996oc21h.js    0.50 kB │ gzip:   0.36 kB
+#12 20.12 dist/assets/_productId_.facts_.review-CtF33cCX.js                  0.50 kB │ gzip:   0.37 kB
+#12 20.12 dist/assets/_observationId_.correct-codqVWp-.js                    0.51 kB │ gzip:   0.37 kB
+#12 20.12 dist/assets/useCompositeItem-BGClVRCY.js                           0.54 kB │ gzip:   0.37 kB
+#12 20.12 dist/assets/empty-table-DARB4g0g.js                                0.55 kB │ gzip:   0.33 kB
+#12 20.12 dist/assets/_observationId_.correct-BE5sfTgb.js                    0.58 kB │ gzip:   0.31 kB
+#12 20.12 dist/assets/content-version.model-BVKgM5xI.js                      0.61 kB │ gzip:   0.43 kB
+#12 20.12 dist/assets/detail-section-Dm8gVxQG.js                             0.63 kB │ gzip:   0.34 kB
+#12 20.12 dist/assets/return-to-BzbJXkRi.js                                  0.63 kB │ gzip:   0.39 kB
+#12 20.12 dist/assets/workbench.api-BODcO5uB.js                              0.71 kB │ gzip:   0.46 kB
+#12 20.12 dist/assets/route-Do6Dxmmm.js                                      0.72 kB │ gzip:   0.50 kB
+#12 20.12 dist/assets/geo-rules-Bz391gk5.js                                  0.83 kB │ gzip:   0.56 kB
+#12 20.12 dist/assets/textarea-CPcbKIlY.js                                   0.83 kB │ gzip:   0.43 kB
+#12 20.12 dist/assets/timeline-BSjJ8olh.js                                   0.94 kB │ gzip:   0.49 kB
+#12 20.12 dist/assets/form-field-B911B1W8.js                                 0.98 kB │ gzip:   0.54 kB
+#12 20.12 dist/assets/rowSortingFeature-DkOWDcFE.js                          1.02 kB │ gzip:   0.49 kB
+#12 20.12 dist/assets/geo-observation-actions-C2i_qn8N.js                    1.09 kB │ gzip:   0.67 kB
+#12 20.12 dist/assets/print-C9Nlp6wc.js                                      1.20 kB │ gzip:   0.67 kB
+#12 20.12 dist/assets/product-deletion-dialog-Q4TjVTIn.js                    1.20 kB │ gzip:   0.76 kB
+#12 20.12 dist/assets/security-CP5fM82-.js                                   1.22 kB │ gzip:   0.65 kB
+#12 20.12 dist/assets/filter-bar-1oMngjYU.js                                 1.23 kB │ gzip:   0.72 kB
+#12 20.12 dist/assets/new-CJY_-qpD.js                                        1.26 kB │ gzip:   0.73 kB
+#12 20.12 dist/assets/form-layout-B0Bgsdpq.js                                1.29 kB │ gzip:   0.69 kB
+#12 20.12 dist/assets/print-B8260apm.js                                      1.31 kB │ gzip:   0.75 kB
+#12 20.12 dist/assets/login-VG_V81-g.js                                      1.31 kB │ gzip:   0.71 kB
+#12 20.12 dist/assets/reports.api-4fySvcqX.js                                1.39 kB │ gzip:   0.85 kB
+#12 20.12 dist/assets/file-transfer-CkO3-a8I.js                              1.41 kB │ gzip:   0.83 kB
+#12 20.12 dist/assets/useBaseUiId-C9V7pCeo.js                                1.42 kB │ gzip:   0.80 kB
+#12 20.12 dist/assets/table-pagination-CGok6p0q.js                           1.48 kB │ gzip:   0.81 kB
+#12 20.12 dist/assets/auth-page-frame-DoVKxoBO.js                            1.49 kB │ gzip:   0.74 kB
+#12 20.12 dist/assets/badge-DofVsWMx.js                                      1.57 kB │ gzip:   0.70 kB
+#12 20.12 dist/assets/audit.api-Dr6E6y1V.js                                  1.62 kB │ gzip:   0.76 kB
+#12 20.12 dist/assets/sticky-action-bar-Ckm0a8f-.js                          1.62 kB │ gzip:   0.86 kB
+#12 20.12 dist/assets/versions_._versionId-YQqYdcLO.js                       1.72 kB │ gzip:   0.89 kB
+#12 20.12 dist/assets/_productId_.facts_.versions_._versionId-CE-j0yOp.js    1.77 kB │ gzip:   0.89 kB
+#12 20.12 dist/assets/workspace-shell-C-vX9QJE.js                            1.77 kB │ gzip:   0.83 kB
+#12 20.12 dist/assets/reports-BH2GPIr4.js                                    1.77 kB │ gzip:   0.97 kB
+#12 20.12 dist/assets/insights-S-xV9wY1.js                                   1.82 kB │ gzip:   0.98 kB
+#12 20.12 dist/assets/articles-DUMI450I.js                                   1.83 kB │ gzip:   0.96 kB
+#12 20.12 dist/assets/_articleId-Be6Eaylq.js                                 1.96 kB │ gzip:   1.09 kB
+#12 20.12 dist/assets/_productId_.facts_.versions-DG0gTXwL.js                1.97 kB │ gzip:   1.06 kB
+#12 20.12 dist/assets/new-Cbp2nW36.js                                        1.97 kB │ gzip:   1.07 kB
+#12 20.12 dist/assets/catalog-controls-CksHkY2j.js                           1.98 kB │ gzip:   0.89 kB
+#12 20.12 dist/assets/overview-Dcv2M0V0.js                                   1.99 kB │ gzip:   1.08 kB
+#12 20.12 dist/assets/_taskId-ZtGsVqev.js                                    2.00 kB │ gzip:   1.06 kB
+#12 20.12 dist/assets/issues-BxOjZRxp.js                                     2.00 kB │ gzip:   1.04 kB
+#12 20.12 dist/assets/answers-DZEk6vzJ.js                                    2.02 kB │ gzip:   1.09 kB
+#12 20.12 dist/assets/settings.platforms.types-D_ecwfpN.js                   2.05 kB │ gzip:   1.03 kB
+#12 20.12 dist/assets/_observationId-CCYdZXQ4.js                             2.09 kB │ gzip:   1.08 kB
+#12 20.12 dist/assets/work-D6h6fh_b.js                                       2.11 kB │ gzip:   1.10 kB
+#12 20.12 dist/assets/new-btC0E0Xu.js                                        2.12 kB │ gzip:   1.19 kB
+#12 20.12 dist/assets/useStore-G3HF39DP.js                                   2.17 kB │ gzip:   0.93 kB
+#12 20.12 dist/assets/_productId-BYfRH72Z.js                                 2.18 kB │ gzip:   1.12 kB
+#12 20.12 dist/assets/platforms-DHP1YjNI.js                                  2.19 kB │ gzip:   1.14 kB
+#12 20.12 dist/assets/_taskId_.review-Dg_xPpd_.js                            2.20 kB │ gzip:   1.14 kB
+#12 20.12 dist/assets/_productId_.facts_.review-ClFPnFd7.js                  2.21 kB │ gzip:   1.13 kB
+#12 20.12 dist/assets/useRegisterFieldControl-BcstcGLC.js                    2.25 kB │ gzip:   1.07 kB
+#12 20.12 dist/assets/tasks-CEChzEiK.js                                      2.25 kB │ gzip:   1.17 kB
+#12 20.12 dist/assets/_productId_.facts-Chkxg9Ak.js                          2.25 kB │ gzip:   1.17 kB
+#12 20.12 dist/assets/_issueId-BSgMr0iL.js                                   2.26 kB │ gzip:   1.24 kB
+#12 20.12 dist/assets/observations-CLcbJvES.js                               2.28 kB │ gzip:   1.17 kB
+#12 20.12 dist/assets/_taskId_.editor-B89TsE-u.js                            2.29 kB │ gzip:   1.19 kB
+#12 20.12 dist/assets/dialog-D8rnNXqG.js                                     2.33 kB │ gzip:   0.91 kB
+#12 20.12 dist/assets/plans-D2aj_n1U.js                                      2.34 kB │ gzip:   1.25 kB
+#12 20.12 dist/assets/system.audit-BgnZmc-2.js                               2.35 kB │ gzip:   1.18 kB
+#12 20.12 dist/assets/topics-CRNCvUqI.js                                     2.38 kB │ gzip:   1.23 kB
+#12 20.12 dist/assets/input-BctqO2IH.js                                      2.47 kB │ gzip:   1.25 kB
+#12 20.12 dist/assets/dirty-guard-CQjzJbGs.js                                2.58 kB │ gzip:   1.23 kB
+#12 20.12 dist/assets/settings.ai-DZ39OJ5L.js                                2.64 kB │ gzip:   1.34 kB
+#12 20.12 dist/assets/prompt.api-ClmNqhO5.js                                 2.65 kB │ gzip:   1.01 kB
+#12 20.12 dist/assets/products-BBHl8O4y.js                                   2.74 kB │ gzip:   1.41 kB
+#12 20.12 dist/assets/useCompositeListItem-u8lPl9Q5.js                       3.11 kB │ gzip:   1.41 kB
+#12 20.12 dist/assets/security-CQpX9S1E.js                                   3.12 kB │ gzip:   1.52 kB
+#12 20.12 dist/assets/settings.ai_._channelId-BCU6ck0F.js                    3.13 kB │ gzip:   1.56 kB
+#12 20.12 dist/assets/login-CMJ7b1UQ.js                                      3.14 kB │ gzip:   1.52 kB
+#12 20.12 dist/assets/zod-C1u0HXxU.js                                        3.31 kB │ gzip:   1.24 kB
+#12 20.12 dist/assets/sheet-Dodxq94r.js                                      3.73 kB │ gzip:   1.45 kB
+#12 20.12 dist/assets/audit-detail-content-BvlAGqWd.js                       3.90 kB │ gzip:   1.61 kB
+#12 20.12 dist/assets/print-CWB-AvEv.js                                      4.13 kB │ gzip:   1.66 kB
+#12 20.12 dist/assets/Match-CkwEZkRF.js                                      4.38 kB │ gzip:   1.72 kB
+#12 20.12 dist/assets/product.model-qD7dlDsz.js                              4.40 kB │ gzip:   2.01 kB
+#12 20.12 dist/assets/new-DQjf1bhJ.js                                        4.49 kB │ gzip:   1.96 kB
+#12 20.12 dist/assets/overview-phXehixA.js                                   4.75 kB │ gzip:   1.92 kB
+#12 20.12 dist/assets/_workId-SQj6ATYG.js                                    4.75 kB │ gzip:   2.43 kB
+#12 20.12 dist/assets/insights.model-BcoUu8xH.js                             4.77 kB │ gzip:   2.51 kB
+#12 20.12 dist/assets/insight-filters-CyrFl58l.js                            4.84 kB │ gzip:   2.40 kB
+#12 20.12 dist/assets/lazyRouteComponent-Bn0Wo6kM.js                         4.88 kB │ gzip:   1.75 kB
+#12 20.12 dist/assets/settings.prompts-DeBfaxru.js                           4.92 kB │ gzip:   2.42 kB
+#12 20.12 dist/assets/issues-DgGakda5.js                                     5.10 kB │ gzip:   2.13 kB
+#12 20.12 dist/assets/_productId_.facts_.versions-BtS5aM5t.js                5.26 kB │ gzip:   2.36 kB
+#12 20.12 dist/assets/composite-B4phzyJg.js                                  5.88 kB │ gzip:   2.28 kB
+#12 20.12 dist/assets/articles-BQUcG9zD.js                                   5.96 kB │ gzip:   2.41 kB
+#12 20.12 dist/assets/geo-evidence-upload-DE-H0KnK.js                        6.15 kB │ gzip:   2.67 kB
+#12 20.12 dist/assets/client-_ADlmVAQ.js                                     6.60 kB │ gzip:   2.57 kB
+#12 20.12 dist/assets/principal-epoch-1sT-YUbO.js                            6.87 kB │ gzip:   2.33 kB
+#12 20.12 dist/assets/globalFilteringFeature-NXjS5Igf.js                     6.95 kB │ gzip:   1.98 kB
+#12 20.12 dist/assets/plans.api-Cdn63yi0.js                                  7.47 kB │ gzip:   3.16 kB
+#12 20.12 dist/assets/_app-Ds4aqZfw.js                                       7.72 kB │ gzip:   2.58 kB
+#12 20.12 dist/assets/_platformId-2x3Rcxyv.js                                7.74 kB │ gzip:   3.47 kB
+#12 20.12 dist/assets/insights.api-CR4m0yzd.js                               7.79 kB │ gzip:   2.67 kB
+#12 20.12 dist/assets/QueryClientProvider-Bi8hvFQP.js                        7.81 kB │ gzip:   3.04 kB
+#12 20.12 dist/assets/product.api-D0RTVfAz.js                                7.94 kB │ gzip:   2.60 kB
+#12 20.12 dist/assets/_productId_.facts_.versions_._versionId-BFiXsrwf.js    8.18 kB │ gzip:   2.62 kB
+#12 20.12 dist/assets/geo-rules-DbduRmU3.js                                  8.38 kB │ gzip:   3.62 kB
+#12 20.12 dist/assets/jsx-runtime-B-hcVAMW.js                                8.55 kB │ gzip:   3.26 kB
+#12 20.12 dist/assets/x-BvDR95je.js                                          8.72 kB │ gzip:   3.14 kB
+#12 20.12 dist/assets/questions-DrD6Ikat.js                                  8.80 kB │ gzip:   3.89 kB
+#12 20.12 dist/assets/new-DLVjzQGj.js                                        8.99 kB │ gzip:   3.80 kB
+#12 20.12 dist/assets/geo-entities-D2DhHn-9.js                               9.09 kB │ gzip:   3.63 kB
+#12 20.12 dist/assets/products-DzdjuBmm.js                                   9.24 kB │ gzip:   3.71 kB
+#12 20.12 dist/assets/tasks-BmH1B7Fi.js                                      9.26 kB │ gzip:   3.57 kB
+#12 20.12 dist/assets/platform.api-CuEJufEy.js                               9.71 kB │ gzip:   3.25 kB
+#12 20.12 dist/assets/geo-insights-report-DFBRBKes.js                       10.34 kB │ gzip:   2.88 kB
+#12 20.12 dist/assets/opportunities-kojElBEA.js                             10.66 kB │ gzip:   4.34 kB
+#12 20.12 dist/assets/versions_._versionId-GfGX4B-r.js                      12.02 kB │ gzip:   3.81 kB
+#12 20.12 dist/assets/tabs-vaypG_9s.js                                      12.50 kB │ gzip:   4.72 kB
+#12 20.12 dist/assets/system.audit-DKgI9BrZ.js                              12.54 kB │ gzip:   4.38 kB
+#12 20.12 dist/assets/observations-CQ02Vgvr.js                              12.54 kB │ gzip:   4.87 kB
+#12 20.12 dist/assets/content-task-lifecycle-89fQledf.js                    12.58 kB │ gzip:   4.70 kB
+#12 20.12 dist/assets/system.users-NcvvOzAT.js                              12.93 kB │ gzip:   5.51 kB
+#12 20.12 dist/assets/insights-DvBTzzOB.js                                  13.42 kB │ gzip:   4.92 kB
+#12 20.12 dist/assets/runs-DIo1eyCs.js                                      13.62 kB │ gzip:   5.10 kB
+#12 20.12 dist/assets/route-auk63WBY.js                                     14.07 kB │ gzip:   5.29 kB
+#12 20.12 dist/assets/report-page-FTIt6isP.js                               14.11 kB │ gzip:   4.41 kB
+#12 20.12 dist/assets/geo-rules-DMHGG96b.js                                 14.20 kB │ gzip:   5.36 kB
+#12 20.12 dist/assets/_taskId-C3DYM5jb.js                                   14.87 kB │ gzip:   4.62 kB
+#12 20.12 dist/assets/content.api-BGHiDDkr.js                               14.90 kB │ gzip:   4.32 kB
+#12 20.12 dist/assets/_productId_.facts_.review-Ddh302I4.js                 15.87 kB │ gzip:   5.65 kB
+#12 20.12 dist/assets/work-Bfce10PJ.js                                      15.92 kB │ gzip:   5.20 kB
+#12 20.12 dist/assets/publication.api-sh3tbw09.js                           16.20 kB │ gzip:   4.80 kB
+#12 20.12 dist/assets/_articleId-BD4X2ot1.js                                16.27 kB │ gzip:   5.43 kB
+#12 20.12 dist/assets/useQuery-C44PsoTH.js                                  16.32 kB │ gzip:   5.47 kB
+#12 20.12 dist/assets/insight-page-frame-B-AfcAyE.js                        16.34 kB │ gzip:   5.28 kB
+#12 20.12 dist/assets/settings.platforms.types-D8IUGiYs.js                  16.45 kB │ gzip:   5.93 kB
+#12 20.12 dist/assets/new-CpO3xnY-.js                                       16.97 kB │ gzip:   6.06 kB
+#12 20.12 dist/assets/platforms-DOZKJZUR.js                                 17.07 kB │ gzip:   6.18 kB
+#12 20.12 dist/assets/auth-provider-CNeVepFu.js                             17.09 kB │ gzip:   6.21 kB
+#12 20.12 dist/assets/_productId_.facts-Dt-gY6TK.js                         17.36 kB │ gzip:   5.84 kB
+#12 20.12 dist/assets/_taskId_.review-DTn-3au7.js                           17.51 kB │ gzip:   6.08 kB
+#12 20.12 dist/assets/settings.ai-CSIXX32H.js                               17.54 kB │ gzip:   6.33 kB
+#12 20.12 dist/assets/_productId-Dbyh52h5.js                                17.59 kB │ gzip:   5.90 kB
+#12 20.12 dist/assets/row-actions-CtDv_Jzk.js                               17.90 kB │ gzip:   6.59 kB
+#12 20.12 dist/assets/_observationId-C_Ls3x79.js                            18.05 kB │ gzip:   5.76 kB
+#12 20.12 dist/assets/geo.api-J5MXiHLa.js                                   18.53 kB │ gzip:   5.93 kB
+#12 20.12 dist/assets/geo-surfaces-luDuZZgJ.js                              18.81 kB │ gzip:   6.98 kB
+#12 20.12 dist/assets/link-fIRZfHzN.js                                      19.54 kB │ gzip:   7.58 kB
+#12 20.12 dist/assets/_issueId-CeArhxQx.js                                  19.62 kB │ gzip:   6.52 kB
+#12 20.12 dist/assets/topics-DmPIKj_Q.js                                    20.02 kB │ gzip:   7.06 kB
+#12 20.12 dist/assets/audit.model-m-L31Pqy.js                               20.06 kB │ gzip:   6.30 kB
+#12 20.12 dist/assets/ai-channel-workspace.model-B10ttWwq.js                20.72 kB │ gzip:   6.32 kB
+#12 20.12 dist/assets/_observationId_.correct-CzaC_vYc.js                   24.46 kB │ gzip:   8.26 kB
+#12 20.12 dist/assets/answers-BBaRCPkJ.js                                   28.41 kB │ gzip:   7.96 kB
+#12 20.12 dist/assets/_workId-BXrjkdpt.js                                   28.55 kB │ gzip:   8.91 kB
+#12 20.12 dist/assets/questions-Ch7wuSeX.js                                 28.85 kB │ gzip:   9.24 kB
+#12 20.12 dist/assets/select-DsSUi9Gq.js                                    30.10 kB │ gzip:  10.91 kB
+#12 20.12 dist/assets/settings.prompts-DZfVKCLz.js                          30.84 kB │ gzip:   9.99 kB
+#12 20.12 dist/assets/system.users-Ccgk9Wq4.js                              31.04 kB │ gzip:   9.76 kB
+#12 20.12 dist/assets/geo-entities-oL2RDGMJ.js                              35.34 kB │ gzip:  10.94 kB
+#12 20.12 dist/assets/icon-button-Bxa6UtYP.js                               36.26 kB │ gzip:  12.08 kB
+#12 20.12 dist/assets/providers-CYDlDb8L.js                                 36.34 kB │ gzip:  10.82 kB
+#12 20.12 dist/assets/column-header-c_YlEOmS.js                             36.45 kB │ gzip:  11.43 kB
+#12 20.12 dist/assets/ToolbarRootContext-CN-irB6A.js                        36.62 kB │ gzip:  14.02 kB
+#12 20.12 dist/assets/geo-surfaces-CoxsFplb.js                              37.44 kB │ gzip:  11.53 kB
+#12 20.12 dist/assets/index.esm-CDk9jdcJ.js                                 37.59 kB │ gzip:  13.14 kB
+#12 20.12 dist/assets/_taskId_.editor-U1Asqio-.js                           37.93 kB │ gzip:  11.55 kB
+#12 20.12 dist/assets/_platformId-BSUG4AV7.js                               38.94 kB │ gzip:  11.59 kB
+#12 20.12 dist/assets/createLucideIcon-pPx8KOBR.js                          39.80 kB │ gzip:  14.03 kB
+#12 20.12 dist/assets/button-BZhX1_Og.js                                    40.12 kB │ gzip:  13.54 kB
+#12 20.12 dist/assets/route-CSXiPWtF.js                                     43.48 kB │ gzip:  15.61 kB
+#12 20.12 dist/assets/settings.ai_._channelId-DWuBiyck.js                   49.69 kB │ gzip:  13.69 kB
+#12 20.12 dist/assets/plans-1p-tcN5q.js                                     50.94 kB │ gzip:  15.79 kB
+#12 20.12 dist/assets/opportunities-CPPM60Nk.js                             61.09 kB │ gzip:  16.46 kB
+#12 20.12 dist/assets/schemas-ClPIUbR7.js                                   69.76 kB │ gzip:  18.62 kB
+#12 20.12 dist/assets/runs-DTFcdEtk.js                                      95.05 kB │ gzip:  27.29 kB
+#12 20.12 dist/assets/index-BCax8Rgr.js                                    189.11 kB │ gzip:  60.52 kB
+#12 20.12 dist/assets/markdown-editor-xnAd9S_d.js                          729.88 kB │ gzip: 245.01 kB
+#12 20.12 
+#12 20.12 [plugin builtin:vite-reporter] 
+#12 20.12 (!) Some chunks are larger than 500 kB after minification. Consider:
+#12 20.12 - Using dynamic import() to code-split the application
+#12 20.12 - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+#12 20.12 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+#12 20.12 ✓ built in 973ms
+#12 20.15 npm notice
+#12 20.15 npm notice New major version of npm available! 10.9.9 -> 12.2.0
+#12 20.15 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+#12 20.15 npm notice To update run: npm install -g npm@12.2.0
+#12 20.15 npm notice
+#12 DONE 20.2s
+
+#13 [stage-2 2/3] COPY --from=build /app/dist /usr/share/nginx/html
+#13 CACHED
+
+#14 [stage-2 3/3] COPY nginx.conf /etc/nginx/conf.d/default.conf
+#14 CACHED
+
+#15 exporting to image
+#15 exporting layers done
+#15 exporting manifest sha256:db863c94276cd2840169c2c20229f2e302f0b6ac37f6c502796327adc64b6d30 done
+#15 exporting config sha256:717c63027bf0783886eb34e87b559cf4a603252cf257514dd7496b2dd7ac7714 done
+#15 exporting attestation manifest sha256:e7e22a47cc716c5996382539a2a1b79d3108061fb4689bc45732f6e6bf15bcc5 done
+#15 exporting manifest list sha256:4324546a21e57a2c95b4a9697ab45d9ff97671fcca328df47685c8437bf5e852 done
+#15 naming to docker.io/library/partsignal-frontend-v2:test done
+#15 unpacking to docker.io/library/partsignal-frontend-v2:test done
+#15 DONE 0.0s
+deploy/scripts/test-frontend-container.sh
+canonical Frontend 容器 fallback、缓存和 source map 自检通过
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/test-geo-browser.py
+Compose dev/staging/prod：默认无Browser；profile/资源/网络/凭据隔离通过
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/test-geo-collector-contract.py
+........................................................................ [ 37%]
+........................................................................ [ 74%]
+..................................................                       [100%]
+194 passed in 10.37s
+GEO_CONTRACT_RESULT tests=0 secret_scan=0 external_network=blocked
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/check-geo-fixtures.py
+GEO fixture v1 校验通过：{'products': 2, 'questions': 4, 'answers': 13, 'citations': 4}；金标=13；外部调用=0
+GEO-502 提及金标 v1 校验通过：场景=28；外部调用=0
+GEO-503 推荐金标 v1 校验通过：场景=63；外部调用=0
+GEO-505 声明金标 v1 校验通过：场景=47；外部调用=0
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/test-geo-configuration.py
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-geo-configuration.py", line 130, in <module>
+    main()
+  File "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-geo-configuration.py", line 108, in main
+    raise AssertionError(f"Compose config 失败：{environment}/{scenario}")
+AssertionError: Compose config 失败：dev/omitted
+make: *** [test-deploy-scripts] Error 1

@@ -1,0 +1,18 @@
+[
+  "backend/app/services/geo_claims.py",
+  "backend/app/services/geo_claim_rules.py",
+  "backend/app/services/geo_fact_versions.py",
+  "backend/tests/unit/test_geo_claims.py",
+  "backend/tests/integration/test_geo_claims.py",
+  "backend/tests/fixtures/geo_analysis/claims-v1.json",
+  "backend/tests/fixtures/geo_analysis/claims-v1.schema.json",
+  "contracts/database.md",
+  "deploy/scripts/check-geo-fixtures.py",
+  "backend/tests/geo_fixtures.py",
+  "backend/tests/fixtures/geo_analysis/README.md",
+  "docs/geo-monitoring/CHANGELOG.md",
+  "docs/geo-monitoring/README.md",
+  "docs/geo-monitoring/SHA256SUMS",
+  "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+  "docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md"
+]

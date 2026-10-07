@@ -1,0 +1,11 @@
+{
+  "argv": [
+    "env",
+    "DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55476/partsignal",
+    "REDIS_URL=redis://127.0.0.1:56476/14",
+    "PARTSIGNAL_E2E_SPEC=tests/e2e/geo-comparison-real-stack.spec.ts",
+    "deploy/scripts/e2e-local.sh"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 75.926
+}

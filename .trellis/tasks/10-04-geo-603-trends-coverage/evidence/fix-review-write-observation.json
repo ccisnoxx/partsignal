@@ -1,0 +1,7 @@
+{
+  "observed_worker_writes": [],
+  "parent_post_review_changes": [
+    "docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md"
+  ],
+  "evidence": "read-path hashes unchanged except parent citation correction after final notification"
+}

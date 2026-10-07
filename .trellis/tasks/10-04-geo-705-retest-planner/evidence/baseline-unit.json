@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "env",
+    "UV_CACHE_DIR=.cache/uv",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_opportunity_baseline.py",
+    "backend/tests/unit/test_geo_batch_creation_contract.py",
+    "backend/tests/unit/test_geo_run_matrix.py",
+    "backend/tests/unit/test_geo_opportunity_actions.py"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 1.651
+}

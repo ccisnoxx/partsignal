@@ -1,0 +1,5 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+backend/app/services/geo_runs.py:73: error: Item "GeoManualSettings" of "GeoManualSettings | GeoApiSettings | GeoBrowserSettings" has no attribute "answer_timeout_seconds"  [union-attr]
+backend/app/services/geo_runs.py:73: error: Item "GeoApiSettings" of "GeoManualSettings | GeoApiSettings | GeoBrowserSettings" has no attribute "answer_timeout_seconds"  [union-attr]
+Found 2 errors in 1 file (checked 153 source files)
+make: *** [typecheck] Error 1

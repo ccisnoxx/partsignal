@@ -1,0 +1,86 @@
+....................F...                                                 [100%]
+=================================== FAILURES ===================================
+____________ test_replace_membership_then_archive_and_delete_rules _____________
+
+connection = <psycopg.Connection [INERROR] (host=127.0.0.1 port=55446 user=partsignal database=partsignal_geo206_31a0a23327) at 0x110e44260>
+plan_database = PlanDatabase(url='postgresql://partsignal:partsignal_dev@127.0.0.1:55446/partsignal_geo206_31a0a23327', env={'APP_ENV'...tus': 'UNTESTED', 'engine_surface_id': 'acae8860-2b61-41fe-b84d-efeebb792a3e', 'web_search_policy': 'UNKNOWN'},)], []])
+
+    def test_replace_membership_then_archive_and_delete_rules(
+        connection: psycopg.Connection[Any], plan_database: PlanDatabase
+    ) -> None:
+        identity = insert_plan(connection, plan_database)
+        connection.execute("DELETE FROM geo_monitoring_plan_subjects WHERE plan_id=%s", (identity,))
+        insert_row(
+            connection,
+            "geo_monitoring_plan_subjects",
+            {"plan_id": identity, "subject_id": plan_database.subjects[1], "role": "PRIMARY"},
+        )
+        connection.execute("SET CONSTRAINTS ALL IMMEDIATE")
+        connection.execute(
+            "UPDATE geo_monitoring_plans SET status='ARCHIVED', revision=revision+1 WHERE id=%s",
+            (identity,),
+        )
+        for statement in [
+            "UPDATE geo_monitoring_plans SET name='新名称' WHERE id=%s",
+            "DELETE FROM geo_monitoring_plans WHERE id=%s",
+            "DELETE FROM geo_monitoring_plan_subjects WHERE plan_id=%s",
+        ]:
+            with pytest.raises(psycopg.errors.CheckViolation) as error, connection.transaction():
+                connection.execute(statement, (identity,))
+            assert error.value.diag.constraint_name == "ck_geo_monitoring_plans_archived"
+>       unused = insert_plan(connection, plan_database)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/integration/test_geo_monitoring_plans.py:386: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/tests/integration/test_geo_monitoring_plans.py:172: in insert_plan
+    insert_row(
+backend/tests/integration/test_geo_catalog.py:32: in insert_row
+    connection.execute(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Connection [INERROR] (host=127.0.0.1 port=55446 user=partsignal database=partsignal_geo206_31a0a23327) at 0x110e44260>
+query = Composed([SQL('INSERT INTO '), Identifier('geo_monitoring_plans'), SQL(' ('), Composed([Identifier('id'), SQL(', '), I...'), Composed([Placeholder(), SQL(', '), Placeholder(), SQL(', '), Placeholder(), SQL(', '), Placeholder()]), SQL(')')])
+params = (UUID('d657349a-8204-4f5d-a528-53a25854f791'), '虚构计划', UUID('5c2df5f0-6c17-482d-99ea-14945121d990'), UUID('5c2df5f0-6c17-482d-99ea-14945121d990'))
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool = False,
+    ) -> Cursor[Row]:
+        """Execute a query and return a cursor to read its results."""
+        try:
+            cur = self.cursor()
+            if binary:
+                cur.format = BINARY
+    
+            if isinstance(query, Template):
+                if params is not None:
+                    raise TypeError(
+                        "'execute()' with string template query doesn't support parameters"
+                    )
+                return cur.execute(query, prepare=prepare)
+            else:
+                return cur.execute(query, params, prepare=prepare)
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           psycopg.errors.CheckViolation: 计划至少需要一个 PRIMARY
+E           CONTEXT:  PL/pgSQL function geo_check_plan_complete() line 14 at RAISE
+
+backend/.venv/lib/python3.12/site-packages/psycopg/connection.py:300: CheckViolation
+=============================== warnings summary ===============================
+tests/integration/test_geo_monitoring_plans.py::test_forward_preserves_existing_data_and_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_monitoring_plans.py:232: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_monitoring_plans.py::test_forward_preserves_existing_data_and_metadata
+  /Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_monitoring_plans.py:232: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/integration/test_geo_monitoring_plans.py::test_replace_membership_then_archive_and_delete_rules
+1 failed, 23 passed, 2 warnings in 3.74s

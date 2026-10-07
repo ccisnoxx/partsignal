@@ -1,0 +1,5 @@
+{
+  "command": "check added lines in candidate-task-only.diff for trailing whitespace",
+  "exit_code": 0,
+  "issues": []
+}

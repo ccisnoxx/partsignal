@@ -1,0 +1,2 @@
+{"file": "backend/app/services/geo_opportunities.py", "reason": "实际规则与审计事务 owner"}
+{"file": "backend/app/services/geo_analysis_runs.py", "reason": "实际分析生命周期"}

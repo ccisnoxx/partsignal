@@ -1,0 +1,26 @@
+[
+  {
+    "command": "make contract-check",
+    "chunk_id": "4bf96a",
+    "wall_time_seconds": 5.292e-06,
+    "exit_code": 0,
+    "original_token_count": 93,
+    "output": "FastAPI 运行时操作与 OpenAPI 完整契约一致。\nnpm --prefix frontend run api:check\n\n> partsignal-frontend-v2@0.1.0 api:check\n> node scripts/check-openapi.mjs\n\n✨ openapi-typescript 7.13.0\n🚀 ../contracts/openapi.yaml → /var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/partsignal-v2-openapi-Wr2dGv/schema.d.ts [141.8ms]\nOpenAPI 类型与根合同一致。\n"
+  },
+  {
+    "command": "make lint",
+    "chunk_id": "ece550",
+    "wall_time_seconds": 1.4458e-05,
+    "exit_code": 0,
+    "original_token_count": 0,
+    "output": ""
+  },
+  {
+    "command": "make typecheck",
+    "chunk_id": "924b06",
+    "wall_time_seconds": 5.541e-06,
+    "exit_code": 0,
+    "original_token_count": 0,
+    "output": ""
+  }
+]

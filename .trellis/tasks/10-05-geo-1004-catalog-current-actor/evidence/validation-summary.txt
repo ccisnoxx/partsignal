@@ -1,0 +1,8 @@
+Catalog + Identity unit: 151 passed in 6.31s
+Catalog PostgreSQL integration: 75 passed in 13.86s
+Identity targeted PostgreSQL regression: 5 passed, 9 deselected in 7.14s
+make contract-check: backend runtime/OpenAPI + frontend generated types PASS
+ruff targeted candidate files: PASS
+mypy current_actor.py, geo_catalog.py, deps.py: PASS (3 source files)
+Scoped diff-check: PASS; no-index exit 1 means compared files differ with no whitespace diagnostics
+Global git diff --check: exit 2, pre-existing GEO-1001-release-readiness-audit.md trailing whitespace

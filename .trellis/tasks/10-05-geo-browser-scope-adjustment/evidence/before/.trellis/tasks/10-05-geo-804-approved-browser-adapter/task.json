@@ -1,0 +1,41 @@
+{
+  "id": "geo-804-approved-browser-adapter",
+  "name": "geo-804-approved-browser-adapter",
+  "title": "GEO-804 第一个合规批准的真实界面 Adapter",
+  "description": "核对首个批准真实界面Adapter门禁、现有实现差异与本地基线；等待平台批准范围与受控staging授权",
+  "status": "blocked",
+  "dev_type": "infra",
+  "scope": "GEO-804",
+  "package": "browser-collector",
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-05",
+  "completedAt": null,
+  "branch": "geo/GEO-804",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "browser-collector/src",
+    "browser-collector/tests",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml"
+  ],
+  "notes": "2026-10-05：依赖done，必读/preflight/本地基线完成；缺唯一BROWSER平台合规批准范围与受控staging smoke人工授权/入口，按用户指定停止条件blocked。未开始Adapter实施。",
+  "meta": {
+    "geo_task_id": "GEO-804",
+    "release": "R7",
+    "manifest_status": "blocked",
+    "delivery_status": "blocked",
+    "delegated": false,
+    "validation_record": ".trellis/tasks/10-05-geo-804-approved-browser-adapter/implement.md",
+    "blocked_reason": "required_external_input_or_human_authorization_missing",
+    "blocked_at": "2026-10-05",
+    "implementation_started": false,
+    "completed": false
+  }
+}

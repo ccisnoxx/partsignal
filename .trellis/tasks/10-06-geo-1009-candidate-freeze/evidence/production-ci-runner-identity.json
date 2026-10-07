@@ -1,0 +1,11 @@
+{
+  "ci_run_id": 37584298170,
+  "source_commit": "d0f61aaa78522be330207ed335869dafcd50017e",
+  "runner_image_version": "20260927.320.1",
+  "official_software_manifest": "https://github.com/actions/runner-images/blob/ubuntu24/20260927.320/images/ubuntu/Ubuntu2404-Readme.md",
+  "compose_version": "2.38.2",
+  "verified_by": "fresh independent production_env_fixed_review against raw CI log and fixed official software manifest",
+  "linux_counterexample_architecture": "ARM64",
+  "runner_architecture_match_claimed": false,
+  "prior_runner_identity_not_reused": true
+}

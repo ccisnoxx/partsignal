@@ -1,0 +1,62 @@
+{
+  "diff-check": {
+    "command": "git diff --check",
+    "exit_code": 0,
+    "duration_seconds": 0.02,
+    "log": "diff-check.log"
+  },
+  "lint-candidate": {
+    "command": "make lint",
+    "exit_code": 0,
+    "duration_seconds": 6.22,
+    "log": "lint-candidate.log"
+  },
+  "typecheck": {
+    "command": "make typecheck",
+    "exit_code": 0,
+    "duration_seconds": 6.51,
+    "log": "typecheck.log"
+  },
+  "test-unit": {
+    "command": "make test-unit",
+    "exit_code": 0,
+    "duration_seconds": 38.93,
+    "log": "test-unit.log"
+  },
+  "test-integration": {
+    "command": "make test-integration 'COMPOSE=docker compose --env-file .env.example -p partsignal-geo102-validation -f deploy/compose.dev.yaml -f .trellis/tasks/10-01-geo-102-catalog-orm/evidence/compose-validation.yaml'",
+    "exit_code": 0,
+    "duration_seconds": 307.97,
+    "log": "test-integration.log"
+  },
+  "alembic-upgrade": {
+    "command": "env DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@localhost:55439/geo102_validation UV_CACHE_DIR=.cache/uv uv run --project backend alembic -c backend/alembic.ini upgrade head",
+    "exit_code": 0,
+    "duration_seconds": 0.68,
+    "log": "alembic-upgrade.log"
+  },
+  "catalog-targeted-candidate": {
+    "command": "env PARTSIGNAL_TEST_DATABASE_URL=postgresql://partsignal:partsignal_dev@localhost:55439/geo102_validation UV_CACHE_DIR=.cache/uv uv run --project backend pytest -x backend/tests/unit/test_geo_catalog_metadata.py backend/tests/integration/test_geo_catalog.py backend/tests/integration/test_geo_catalog_constraints.py backend/tests/integration/test_migrations.py::test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent",
+    "exit_code": 0,
+    "duration_seconds": 5.84,
+    "log": "catalog-targeted-candidate.log"
+  },
+  "catalog-contract-final": {
+    "command": "env UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_catalog_contract.py",
+    "exit_code": 0,
+    "duration_seconds": 0.55,
+    "log": "catalog-contract-final.log"
+  },
+  "contract-check": {
+    "command": "make contract-check",
+    "exit_code": 0,
+    "duration_seconds": 2.55,
+    "log": "contract-check.log"
+  },
+  "docs-check": {
+    "command": "sh -c 'cd docs/geo-monitoring && shasum -a 256 -c SHA256SUMS'",
+    "exit_code": 0,
+    "duration_seconds": 0.03,
+    "log": "docs-check.log"
+  }
+}

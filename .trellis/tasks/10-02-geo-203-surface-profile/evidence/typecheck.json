@@ -1,0 +1,6 @@
+{
+  "command": "make typecheck",
+  "exit_code": 0,
+  "seconds": 7.68,
+  "log": "typecheck.log"
+}

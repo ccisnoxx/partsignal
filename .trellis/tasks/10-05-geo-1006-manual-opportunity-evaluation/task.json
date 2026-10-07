@@ -1,0 +1,32 @@
+{
+  "id": "geo-1006-manual-opportunity-evaluation",
+  "name": "geo-1006-manual-opportunity-evaluation",
+  "title": "GEO-1006：管理员手动触发机会评估",
+  "description": "ADMIN 手动机会评估 API、请求幂等、低敏审计及 PostgreSQL/权限验证",
+  "status": "completed",
+  "dev_type": null,
+  "scope": "backend-contract",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-05",
+  "completedAt": "2026-10-07",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": "8d2e528cce0f804b224bf9b78e02bb2651f6ac62",
+  "pr_url": "https://github.com/ccisnoxx/partsignal/pull/1",
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "本地实现/定向验证与两轮fresh只读复核完成；只置review，待人工接受。审计20261006T051325Z-geo-1006-14f7608a完整性通过，首轮写入证据unknown保留；生产候选与现场未执行。 2026-10-07：依据用户条件授权、组合CI成功与独立审查，接受实现/本地验证并completed；生产及同main候选门禁不自动继承，接受记录见docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md。",
+  "meta": {
+    "manifest_id": "GEO-1006",
+    "delivery_status": "done",
+    "accepted_commit": "8d2e528cce0f804b224bf9b78e02bb2651f6ac62",
+    "accepted_at": "2026-10-07T09:41:01.437699+00:00",
+    "acceptance_record": "docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md"
+  }
+}

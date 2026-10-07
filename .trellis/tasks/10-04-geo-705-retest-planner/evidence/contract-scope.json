@@ -1,0 +1,16 @@
+{
+  "new_paths": [
+    "/api/v1/geo/opportunities/{opportunity_id}/retest",
+    "/api/v1/geo/opportunities/{opportunity_id}/retest-preview"
+  ],
+  "new_components": [
+    "GeoRetestBaselineSnapshot",
+    "GeoRetestCell",
+    "GeoRetestCreated",
+    "GeoRetestDifference",
+    "GeoRetestDifferenceCode",
+    "GeoRetestPreview",
+    "GeoRetestRequest"
+  ],
+  "unchanged_existing_contracts": true
+}

@@ -1,0 +1,13 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "frontend",
+    "run",
+    "test",
+    "--",
+    "src/domains/geo-runs/runs.api.test.ts",
+    "src/domains/geo-runs/run-review.test.tsx"
+  ],
+  "exit_code": 0
+}

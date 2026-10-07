@@ -1,0 +1,10 @@
+{
+  "tracked_missing_from_initial_fingerprint": [
+    "docs/GEO多平台内容运营系统方案设计.md",
+    "docs/GEO系统前后端技术与部署方案.md",
+    "docs/GEO项目会话归档.md",
+    "docs/Hostdzire部署上线流程.md",
+    "docs/Hostdzire部署附录.md"
+  ],
+  "note": "这些文件未进入起始指纹，不视为本任务新增文件；主代理未操作它们，并以Git diff补查。"
+}

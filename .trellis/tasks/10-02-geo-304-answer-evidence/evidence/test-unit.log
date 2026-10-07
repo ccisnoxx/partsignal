@@ -1,0 +1,420 @@
+UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit
+........................................................................ [  2%]
+........................................................................ [  5%]
+........................................................................ [  8%]
+........................................................................ [ 10%]
+........................................................................ [ 13%]
+........................................................................ [ 16%]
+........................................................................ [ 18%]
+........................................................................ [ 21%]
+........................................................................ [ 24%]
+........................................................................ [ 26%]
+........................................................................ [ 29%]
+........................................................................ [ 32%]
+........................................................................ [ 34%]
+........................................................................ [ 37%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+........................................................................ [ 45%]
+........................................................................ [ 48%]
+........................................................................ [ 50%]
+........................................................................ [ 53%]
+........................................................................ [ 56%]
+........................................................................ [ 59%]
+........................................................................ [ 61%]
+........................................................................ [ 64%]
+........................................................................ [ 67%]
+........................................................................ [ 69%]
+........................................................................ [ 72%]
+........................................................................ [ 75%]
+........................................................................ [ 77%]
+........................................................................ [ 80%]
+........................................................................ [ 83%]
+................................F.FFFF.................................. [ 85%]
+........................................................................ [ 88%]
+........................................................................ [ 91%]
+........................................................................ [ 93%]
+........................................................................ [ 96%]
+........................................................................ [ 99%]
+...................                                                      [100%]
+=================================== FAILURES ===================================
+_______ test_detached_logo_gets_seven_day_retention_after_last_reference _______
+
+.0 = <tuple_iterator object at 0x111c0a440>
+
+    return any(
+>       db.scalar(select(func.count()).select_from(model).where(column == file_id))
+        for model, column in (
+            (PlatformProfile, PlatformProfile.logo_file_id),
+            (PublicationAttachment, PublicationAttachment.file_id),
+            (GeoObservationAttachment, GeoObservationAttachment.file_id),
+            (GeoAnswerSnapshot, GeoAnswerSnapshot.raw_payload_file_id),
+            (GeoAnswerSnapshot, GeoAnswerSnapshot.screenshot_file_id),
+        )
+    )
+
+backend/app/services/file_records.py:242: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/unittest/mock.py:1139: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/unittest/mock.py:1143: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Mock name='mock.scalar' id='4600576912'>
+args = (<sqlalchemy.sql.selectable.Select object at 0x1122e0470>,), kwargs = {}
+effect = <list_iterator object at 0x11226aa70>
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+    
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+                raise effect
+            elif not _callable(effect):
+>               result = next(effect)
+                         ^^^^^^^^^^^^
+E               StopIteration
+
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/unittest/mock.py:1200: StopIteration
+
+The above exception was the direct cause of the following exception:
+
+    def test_detached_logo_gets_seven_day_retention_after_last_reference() -> None:
+        """只有全部实际外键都解除后才开始七天保留期。"""
+        now = datetime.now(UTC)
+        file = file_record()
+        db = Mock(spec=Session)
+        db.scalar.side_effect = [file, 0, 0, 0]
+>       schedule_detached_platform_logo(db, file.id, now=now)
+
+backend/tests/unit/test_platform_logo_cleanup.py:51: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/app/services/platform_logo_files.py:274: in schedule_detached_platform_logo
+    schedule_unreferenced_file(
+backend/app/services/file_records.py:263: in schedule_unreferenced_file
+    if file is not None and file.status == "VERIFIED" and not file_is_referenced(db, file_id):
+                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+db = <Mock spec='Session' id='4600563856'>
+file_id = UUID('b242855b-0a0c-47b7-ab07-e675cc219ebc')
+
+    def file_is_referenced(db: Session, file_id: uuid.UUID) -> bool:
+        """实时检查当前 Schema 中全部 FileRecord 外键。"""
+>       return any(
+            db.scalar(select(func.count()).select_from(model).where(column == file_id))
+            for model, column in (
+                (PlatformProfile, PlatformProfile.logo_file_id),
+                (PublicationAttachment, PublicationAttachment.file_id),
+                (GeoObservationAttachment, GeoObservationAttachment.file_id),
+                (GeoAnswerSnapshot, GeoAnswerSnapshot.raw_payload_file_id),
+                (GeoAnswerSnapshot, GeoAnswerSnapshot.screenshot_file_id),
+            )
+        )
+E       RuntimeError: generator raised StopIteration
+
+backend/app/services/file_records.py:241: RuntimeError
+_____ test_cleanup_reference_authority_uses_all_current_file_foreign_keys ______
+
+    def test_cleanup_reference_authority_uses_all_current_file_foreign_keys() -> None:
+        """删除权威只查询当前 head 的三类真实文件外键。"""
+        db = Mock(spec=Session)
+        db.scalar.return_value = 0
+        assert not file_is_referenced(db, uuid.uuid4())
+        queries = [str(call.args[0]) for call in db.scalar.call_args_list]
+>       assert len(queries) == 3
+E       AssertionError: assert 5 == 3
+E        +  where 5 = len(['SELECT count(*) AS count_1 \nFROM platform_profiles \nWHERE platform_profiles.logo_file_id = :logo_file_id_1', 'SELE...unt(*) AS count_1 \nFROM geo_answer_snapshots \nWHERE geo_answer_snapshots.screenshot_file_id = :screenshot_file_id_1'])
+
+backend/tests/unit/test_platform_logo_cleanup.py:73: AssertionError
+____ test_cleanup_marks_unreferenced_due_logo_deleting_before_object_delete ____
+
+.0 = <tuple_iterator object at 0x113674850>
+
+    return any(
+>       db.scalar(select(func.count()).select_from(model).where(column == file_id))
+        for model, column in (
+            (PlatformProfile, PlatformProfile.logo_file_id),
+            (PublicationAttachment, PublicationAttachment.file_id),
+            (GeoObservationAttachment, GeoObservationAttachment.file_id),
+            (GeoAnswerSnapshot, GeoAnswerSnapshot.raw_payload_file_id),
+            (GeoAnswerSnapshot, GeoAnswerSnapshot.screenshot_file_id),
+        )
+    )
+
+backend/app/services/file_records.py:242: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/unittest/mock.py:1139: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/unittest/mock.py:1143: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Mock name='mock.scalar' id='4620514944'>
+args = (<sqlalchemy.sql.selectable.Select object at 0x113677b90>,), kwargs = {}
+effect = <list_iterator object at 0x113677f10>
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+    
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+                raise effect
+            elif not _callable(effect):
+>               result = next(effect)
+                         ^^^^^^^^^^^^
+E               StopIteration
+
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/unittest/mock.py:1200: StopIteration
+
+The above exception was the direct cause of the following exception:
+
+    def test_cleanup_marks_unreferenced_due_logo_deleting_before_object_delete() -> None:
+        """无引用到期文件先持久化 DELETING，避免并发重新绑定。"""
+        now = datetime.now(UTC)
+        file = file_record(cleanup_after=now - timedelta(minutes=1))
+        db = Mock(spec=Session)
+        db.scalars.return_value = [file]
+        db.scalar.side_effect = [0, 0, 0]
+>       assert _claim_file_cleanup(db, now=now, batch_size=10) == [
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            (file.id, file.object_key)
+        ]
+
+backend/tests/unit/test_platform_logo_cleanup.py:87: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/app/services/file_records.py:306: in _claim_file_cleanup
+    if file_is_referenced(db, file.id):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+db = <Mock spec='Session' id='4620506208'>
+file_id = UUID('bcdc8983-f29d-4af5-ba6c-6732f5605c44')
+
+    def file_is_referenced(db: Session, file_id: uuid.UUID) -> bool:
+        """实时检查当前 Schema 中全部 FileRecord 外键。"""
+>       return any(
+            db.scalar(select(func.count()).select_from(model).where(column == file_id))
+            for model, column in (
+                (PlatformProfile, PlatformProfile.logo_file_id),
+                (PublicationAttachment, PublicationAttachment.file_id),
+                (GeoObservationAttachment, GeoObservationAttachment.file_id),
+                (GeoAnswerSnapshot, GeoAnswerSnapshot.raw_payload_file_id),
+                (GeoAnswerSnapshot, GeoAnswerSnapshot.screenshot_file_id),
+            )
+        )
+E       RuntimeError: generator raised StopIteration
+
+backend/app/services/file_records.py:241: RuntimeError
+______ test_cleanup_deletes_object_then_keeps_deleted_database_tombstone _______
+
+.0 = <tuple_iterator object at 0x1121bf580>
+
+    return any(
+>       db.scalar(select(func.count()).select_from(model).where(column == file_id))
+        for model, column in (
+            (PlatformProfile, PlatformProfile.logo_file_id),
+            (PublicationAttachment, PublicationAttachment.file_id),
+            (GeoObservationAttachment, GeoObservationAttachment.file_id),
+            (GeoAnswerSnapshot, GeoAnswerSnapshot.raw_payload_file_id),
+            (GeoAnswerSnapshot, GeoAnswerSnapshot.screenshot_file_id),
+        )
+    )
+
+backend/app/services/file_records.py:242: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/unittest/mock.py:1139: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/unittest/mock.py:1143: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Mock name='mock.scalar' id='4592797312'>
+args = (<sqlalchemy.sql.selectable.Select object at 0x113675490>,), kwargs = {}
+effect = <list_iterator object at 0x111c09f00>
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+    
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+                raise effect
+            elif not _callable(effect):
+>               result = next(effect)
+                         ^^^^^^^^^^^^
+E               StopIteration
+
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/unittest/mock.py:1200: StopIteration
+
+The above exception was the direct cause of the following exception:
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x111bb3800>
+
+    def test_cleanup_deletes_object_then_keeps_deleted_database_tombstone(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """DELETING 重试成功后写入 DELETED 墓碑，不物理删除 FileRecord。"""
+        now = datetime.now(UTC)
+        file = file_record(status="DELETING")
+        claim_db = Mock(spec=Session)
+        claim_db.scalars.return_value = [file]
+        claim_db.scalar.side_effect = [0, 0, 0]
+        finish_db = Mock(spec=Session)
+        finish_db.scalar.return_value = file
+        sessions = iter([claim_db, finish_db])
+    
+        class FakeSessionLocal:
+            @staticmethod
+            def begin():
+                return nullcontext(next(sessions))
+    
+        monkeypatch.setattr(file_records, "SessionLocal", FakeSessionLocal)
+        storage = Mock(spec=EvidenceStorage)
+>       result = cleanup_file_records(now=now, storage=storage, batch_size=10)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/unit/test_platform_logo_cleanup.py:117: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/app/services/file_records.py:325: in cleanup_file_records
+    claimed = _claim_file_cleanup(db, now=scan_time, batch_size=batch_size)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/app/services/file_records.py:306: in _claim_file_cleanup
+    if file_is_referenced(db, file.id):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+db = <Mock spec='Session' id='4592448864'>
+file_id = UUID('2413b15a-9f2d-4d16-a878-6a6e842dd10b')
+
+    def file_is_referenced(db: Session, file_id: uuid.UUID) -> bool:
+        """实时检查当前 Schema 中全部 FileRecord 外键。"""
+>       return any(
+            db.scalar(select(func.count()).select_from(model).where(column == file_id))
+            for model, column in (
+                (PlatformProfile, PlatformProfile.logo_file_id),
+                (PublicationAttachment, PublicationAttachment.file_id),
+                (GeoObservationAttachment, GeoObservationAttachment.file_id),
+                (GeoAnswerSnapshot, GeoAnswerSnapshot.raw_payload_file_id),
+                (GeoAnswerSnapshot, GeoAnswerSnapshot.screenshot_file_id),
+            )
+        )
+E       RuntimeError: generator raised StopIteration
+
+backend/app/services/file_records.py:241: RuntimeError
+__________ test_cleanup_storage_failure_keeps_deleting_for_next_scan ___________
+
+.0 = <tuple_iterator object at 0x1118bbb80>
+
+    return any(
+>       db.scalar(select(func.count()).select_from(model).where(column == file_id))
+        for model, column in (
+            (PlatformProfile, PlatformProfile.logo_file_id),
+            (PublicationAttachment, PublicationAttachment.file_id),
+            (GeoObservationAttachment, GeoObservationAttachment.file_id),
+            (GeoAnswerSnapshot, GeoAnswerSnapshot.raw_payload_file_id),
+            (GeoAnswerSnapshot, GeoAnswerSnapshot.screenshot_file_id),
+        )
+    )
+
+backend/app/services/file_records.py:242: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/unittest/mock.py:1139: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/unittest/mock.py:1143: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Mock name='mock.scalar' id='4620516720'>
+args = (<sqlalchemy.sql.selectable.Select object at 0x1118bb350>,), kwargs = {}
+effect = <list_iterator object at 0x113677700>
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+    
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+                raise effect
+            elif not _callable(effect):
+>               result = next(effect)
+                         ^^^^^^^^^^^^
+E               StopIteration
+
+../../.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/unittest/mock.py:1200: StopIteration
+
+The above exception was the direct cause of the following exception:
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x113674c50>
+
+    def test_cleanup_storage_failure_keeps_deleting_for_next_scan(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """对象存储暂时失败时保留 DELETING，由下一小时扫描重试。"""
+        file = file_record(status="DELETING")
+        claim_db = Mock(spec=Session)
+        claim_db.scalars.return_value = [file]
+        claim_db.scalar.side_effect = [0, 0, 0]
+    
+        class FakeSessionLocal:
+            @staticmethod
+            def begin():
+                return nullcontext(claim_db)
+    
+        monkeypatch.setattr(file_records, "SessionLocal", FakeSessionLocal)
+        storage = Mock(spec=EvidenceStorage)
+        storage.delete.side_effect = StorageUnavailable("test")
+>       result = cleanup_file_records(storage=storage, batch_size=10)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+backend/tests/unit/test_platform_logo_cleanup.py:141: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/app/services/file_records.py:325: in cleanup_file_records
+    claimed = _claim_file_cleanup(db, now=scan_time, batch_size=batch_size)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/app/services/file_records.py:306: in _claim_file_cleanup
+    if file_is_referenced(db, file.id):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+db = <Mock spec='Session' id='4620502800'>
+file_id = UUID('bf1b135a-33a0-435a-8ba5-022f72857db8')
+
+    def file_is_referenced(db: Session, file_id: uuid.UUID) -> bool:
+        """实时检查当前 Schema 中全部 FileRecord 外键。"""
+>       return any(
+            db.scalar(select(func.count()).select_from(model).where(column == file_id))
+            for model, column in (
+                (PlatformProfile, PlatformProfile.logo_file_id),
+                (PublicationAttachment, PublicationAttachment.file_id),
+                (GeoObservationAttachment, GeoObservationAttachment.file_id),
+                (GeoAnswerSnapshot, GeoAnswerSnapshot.raw_payload_file_id),
+                (GeoAnswerSnapshot, GeoAnswerSnapshot.screenshot_file_id),
+            )
+        )
+E       RuntimeError: generator raised StopIteration
+
+backend/app/services/file_records.py:241: RuntimeError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_platform_logo_cleanup.py::test_detached_logo_gets_seven_day_retention_after_last_reference
+FAILED backend/tests/unit/test_platform_logo_cleanup.py::test_cleanup_reference_authority_uses_all_current_file_foreign_keys
+FAILED backend/tests/unit/test_platform_logo_cleanup.py::test_cleanup_marks_unreferenced_due_logo_deleting_before_object_delete
+FAILED backend/tests/unit/test_platform_logo_cleanup.py::test_cleanup_deletes_object_then_keeps_deleted_database_tombstone
+FAILED backend/tests/unit/test_platform_logo_cleanup.py::test_cleanup_storage_failure_keeps_deleting_for_next_scan
+5 failed, 2678 passed in 30.10s
+make: *** [test-unit] Error 1

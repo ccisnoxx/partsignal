@@ -1,0 +1,504 @@
+E2E_SECRET_REGISTRATION status=ready
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_identity_audit, 创建身份、会话和审计表。
+INFO  [alembic.runtime.migration] Running upgrade 0001_identity_audit -> 0002_product_facts, 创建规范化产品事实和不可变事实版本。
+INFO  [alembic.runtime.migration] Running upgrade 0002_product_facts -> 0003_content_planning, 创建目标问题、平台规则版本和内容任务。
+INFO  [alembic.runtime.migration] Running upgrade 0003_content_planning -> 0004_content_production, 创建 PostgreSQL 权威生成作业和不可变 Markdown 内容版本。
+INFO  [alembic.runtime.migration] Running upgrade 0004_content_production -> 0005_content_review, 创建追加式内容审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0005_content_review -> 0006_publication, 创建平台账号、人工发布记录和状态事件。
+INFO  [alembic.runtime.migration] Running upgrade 0006_publication -> 0007_geo_observation, 创建追加式 GEO 观测及引用关联。
+INFO  [alembic.runtime.migration] Running upgrade 0007_geo_observation -> 0008_files, 创建文件生命周期、附件关联并补加证据文件外键。
+INFO  [alembic.runtime.migration] Running upgrade 0008_files -> 0009_config_center, 迁移账号类型、配置中心与真实 AI 生成字段。
+INFO  [alembic.runtime.migration] Running upgrade 0009_config_center -> 0010_user_cleanup, 清理旧版职责账号并强制既有内容工程师改密。
+INFO  [alembic.runtime.migration] Running upgrade 0010_user_cleanup -> 0011_generation_reliability, 增加生成作业补投递诊断字段与到期扫描索引。
+INFO  [alembic.runtime.migration] Running upgrade 0011_generation_reliability -> 0012_ai_data_classification, 为生成输入增加显式数据分级与责任人记录。
+INFO  [alembic.runtime.migration] Running upgrade 0012_ai_data_classification -> 0013_publication_closure, 增加发布异常待办、修复任务来源和发布平台一致性门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0013_publication_closure -> 0014_platform_prompt_ownership, 将当前 Prompt 所有权从平台类型迁移到具体平台。
+INFO  [alembic.runtime.migration] Running upgrade 0014_platform_prompt_ownership -> 0015_platform_rule_draft_editing, 允许按修订号编辑平台规则草稿，并继续冻结已激活或退役正文。
+INFO  [alembic.runtime.migration] Running upgrade 0015_platform_rule_draft_editing -> 0016_fact_review_cleanup, 允许受约束删除事实版本时清理其从属审核记录。
+INFO  [alembic.runtime.migration] Running upgrade 0016_fact_review_cleanup -> 0017_content_humanization, 增加全局自然化 Prompt，并让现有 AI 作业承载自然化修订。
+INFO  [alembic.runtime.migration] Running upgrade 0017_content_humanization -> 0018_manual_geo_observation, 增加产品级人工 GEO 观测，并保留旧模型观测历史。
+INFO  [alembic.runtime.migration] Running upgrade 0018_manual_geo_observation -> 0019_product_driven_tasks, 允许新内容任务直接围绕产品创建，同时保留历史目标问题关联。
+INFO  [alembic.runtime.migration] Running upgrade 0019_product_driven_tasks -> 0020_platform_branding_task_list, 为具体平台增加官网与单一来源 Logo。
+INFO  [alembic.runtime.migration] Running upgrade 0020_platform_branding_task_list -> 0021_ai_channel_model_management, 补齐 AI 渠道身份字段与使用统计索引。
+INFO  [alembic.runtime.migration] Running upgrade 0021_ai_channel_model_management -> 0022_geo_observation_insights, 补充人工 GEO 逐篇阶段事实与问题主题约束。
+INFO  [alembic.runtime.migration] Running upgrade 0022_geo_observation_insights -> 0023_platform_management, 增加具体平台启停状态与管理聚合索引。
+INFO  [alembic.runtime.migration] Running upgrade 0023_platform_management -> 0024_audit_outcome, 补齐审计模块、命令结果和安全结果说明。
+INFO  [alembic.runtime.migration] Running upgrade 0024_audit_outcome -> 0025_markdown_facts, 将结构化产品事实收敛为 Markdown，并让内容任务直接绑定平台。
+INFO  [alembic.runtime.migration] Running upgrade 0025_markdown_facts -> 0026_publication_account_dedup, 补齐发布账号修订约束，并阻止同平台规范化账号标识重复。
+INFO  [alembic.runtime.migration] Running upgrade 0026_publication_account_dedup -> 0027_audit_user_delete_guard, 只允许受约束用户删除把匹配审计操作者置空。
+INFO  [alembic.runtime.migration] Running upgrade 0027_audit_user_delete_guard -> 0028_platform_logo_lifecycle, 增加平台 Logo 的未引用保留、幂等删除状态与数据库门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0028_platform_logo_lifecycle -> 0029_geo_evidence_management, 收敛人工 GEO 独立事实，并为完整更正链删除增加事务门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0029_geo_evidence_management -> 0030_publication_record_delete, 为从未公开的发布聚合增加事务级受控删除门禁。
+INFO  [alembic.runtime.migration] Running upgrade 0030_publication_record_delete -> 0031_reusable_platform_prompts, 把平台私有 Prompt 收敛为可复用模板和平台当前绑定。
+INFO  [alembic.runtime.migration] Running upgrade 0031_reusable_platform_prompts -> 0032_content_task_idempotency, 为普通内容任务创建增加持久化请求键幂等约束。
+INFO  [alembic.runtime.migration] Running upgrade 0032_content_task_idempotency -> 0033_task_owned_history_delete, 允许受控删除已取消任务自有的未批准生产历史。
+INFO  [alembic.runtime.migration] Running upgrade 0033_task_owned_history_delete -> 0034_publication_redesign, 以发布工作、首次核验成果和发布后内容问题替换旧发布记录。
+INFO  [alembic.runtime.migration] Running upgrade 0034_publication_redesign -> 0035_business_workflow, 建立事实提交、内容单主线、发布版本快照与 GEO 来源合同。
+INFO  [alembic.runtime.migration] Running upgrade 0035_business_workflow -> 0036_remove_section_url, 删除没有稳定业务含义的发布栏目地址。
+INFO  [alembic.runtime.migration] Running upgrade 0036_remove_section_url -> 0037_simplify_deletion_lifecycle, 收缩任务、配置与审计的删除生命周期。
+INFO  [alembic.runtime.migration] Running upgrade 0037_simplify_deletion_lifecycle -> 0038_published_article_delete, 允许受控删除无 GEO 引用的发布成果聚合。
+INFO  [alembic.runtime.migration] Running upgrade 0038_published_article_delete -> 0039_article_delete_platform, 允许归档任务在删除失效平台的发布成果后转为已取消。
+INFO  [alembic.runtime.migration] Running upgrade 0039_article_delete_platform -> 0040_content_draft_management, 允许当前人工未审核草稿受控保存和彻底删除。
+INFO  [alembic.runtime.migration] Running upgrade 0040_content_draft_management -> 0041_content_task_list, 补齐内容任务列表的稳定更新时间与排序索引。
+INFO  [alembic.runtime.migration] Running upgrade 0041_content_task_list -> 0042_content_version_detail, 记录内容版本自身的真实更新时间。
+INFO  [alembic.runtime.migration] Running upgrade 0042_content_version_detail -> 0043_geo_platform_identity, 冻结发布工作的平台 UUID，避免配置删除后 GEO 历史失去身份。
+INFO  [alembic.runtime.migration] Running upgrade 0043_geo_platform_identity -> 0044_geo_catalog, 新增 GEO Catalog 三表；冻结本 revision，不读取运行时 ORM。
+INFO  [alembic.runtime.migration] Running upgrade 0044_geo_catalog -> 0045_geo_prompt_variants, 仅新增问题变体，冻结规范化及历史锁存，不回填旧问题数组。
+INFO  [alembic.runtime.migration] Running upgrade 0045_geo_prompt_variants -> 0046_geo_surfaces_profiles, 新增观测配置与闭合JSON合同；不回填旧GEO或实现运行资格。
+INFO  [alembic.runtime.migration] Running upgrade 0046_geo_surfaces_profiles -> 0047_geo_monitoring_plans, 仅增加计划配置聚合；不创建批次、运行或改写历史观测。
+INFO  [alembic.runtime.migration] Running upgrade 0047_geo_monitoring_plans -> 0048_geo_batches_runs, 新增独立回答级 Batch/Run，冻结 DDL 与快照/写入守卫，不迁移旧 GEO。
+INFO  [alembic.runtime.migration] Running upgrade 0048_geo_batches_runs -> 0049_geo_batch_creation, 创建幂等与批次主体引用；不修改已冻结的 Batch/Run 输入。
+INFO  [alembic.runtime.migration] Running upgrade 0049_geo_batch_creation -> 0050_geo_answer_evidence, 新增不可变原始回答、引用和受控文件关系；不实现采集命令。
+INFO  [alembic.runtime.migration] Running upgrade 0050_geo_answer_evidence -> 0051_geo_manual_collection, 人工草稿和不可变提交身份；不回填或修改已提交证据。
+INFO  [alembic.runtime.migration] Running upgrade 0051_geo_manual_collection -> 0052_geo_profile_tests, API Profile 当前诊断资格与依赖失效；不修改业务历史。
+INFO  [alembic.runtime.migration] Running upgrade 0052_geo_profile_tests -> 0053_geo_collection_admission, 加法保存预算预留与发送限速事实，历史 Run 和原始证据保持不变。
+INFO  [alembic.runtime.migration] Running upgrade 0053_geo_collection_admission -> 0054_geo_analysis_contract, 分析输入/结果、追加复核与限定 current pointer；不回填历史证据。
+INFO  [alembic.runtime.migration] Running upgrade 0054_geo_analysis_contract -> 0055_geo_analysis_worker, 分析执行租约与引用结果；不回填或重写已有 revision。
+INFO  [alembic.runtime.migration] Running upgrade 0055_geo_analysis_worker -> 0056_geo_run_review, 受控人工复核发布；历史机器结果与Review不回填、不改写。
+
+> partsignal-frontend-v2@0.1.0 build
+> tsc -b && vite build --config vite.config.ts
+
+vite v8.2.1 building client environment for production...
+[2Ktransforming...✓ 2974 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                    0.57 kB │ gzip:   0.34 kB
+dist/assets/index-B94mngvM.css                                    82.42 kB │ gzip:  14.27 kB
+dist/assets/queryOptions-Dfvzj6n2.js                               0.03 kB │ gzip:   0.05 kB
+dist/assets/route-3YAM3tuL.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-B2aZ3QBi.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-B41ZhOLB.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-BQmWoCus.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-C5cBrTK3.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-COvhN9v6.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-CW62_yWg.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-DEzmN659.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-DQwB-ZOv.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-DYSd7FA3.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-DoTyqfYj.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-DrPtIM3S.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-DsXtGSAg.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/route-TEQwWL7Y.js                                      0.07 kB │ gzip:   0.08 kB
+dist/assets/coerce-D1rhQmrP.js                                     0.08 kB │ gzip:   0.10 kB
+dist/assets/isElementDisabled-KSuuBj8D.js                          0.11 kB │ gzip:   0.11 kB
+dist/assets/chevron-right-C5XZeel3.js                              0.13 kB │ gzip:   0.14 kB
+dist/assets/canonical-uuid-BkEfW0wA.js                             0.13 kB │ gzip:   0.13 kB
+dist/assets/settings.ai-CipVaq6G.js                                0.21 kB │ gzip:   0.20 kB
+dist/assets/_taskId_.editor-_qjLAkbp.js                            0.22 kB │ gzip:   0.20 kB
+dist/assets/_taskId_.review-zeX8OAEE.js                            0.22 kB │ gzip:   0.20 kB
+dist/assets/route-DFljbmbX.js                                      0.22 kB │ gzip:   0.20 kB
+dist/assets/system.audit-qBeF2bb1.js                               0.22 kB │ gzip:   0.20 kB
+dist/assets/system.users-0TM8kiXu.js                               0.22 kB │ gzip:   0.20 kB
+dist/assets/settings.prompts-9jQdIs2s.js                           0.22 kB │ gzip:   0.20 kB
+dist/assets/_taskId-Vsd3-0WC.js                                    0.22 kB │ gzip:   0.21 kB
+dist/assets/settings.platforms.types-C4NjYBws.js                   0.22 kB │ gzip:   0.21 kB
+dist/assets/versions_._versionId-BW6wP3pa.js                       0.22 kB │ gzip:   0.21 kB
+dist/assets/_platformId-BeKfjBVf.js                                0.22 kB │ gzip:   0.20 kB
+dist/assets/settings.ai_._channelId-Z_MUrH5D.js                    0.22 kB │ gzip:   0.20 kB
+dist/assets/_observationId-B3QjNhkV.js                             0.23 kB │ gzip:   0.21 kB
+dist/assets/useControlled-DMK4Pb-8.js                              0.24 kB │ gzip:   0.21 kB
+dist/assets/skeleton-Ged3Zc9T.js                                   0.24 kB │ gzip:   0.20 kB
+dist/assets/table-shell-BGuXgMNH.js                                0.33 kB │ gzip:   0.24 kB
+dist/assets/usePopupHandleStore-D9Ys5NRI.js                        0.35 kB │ gzip:   0.25 kB
+dist/assets/table-toolbar-JNNhOzlg.js                              0.42 kB │ gzip:   0.27 kB
+dist/assets/table-skeleton-G-FjuOli.js                             0.45 kB │ gzip:   0.35 kB
+dist/assets/route-error-Bl0menBv.js                                0.46 kB │ gzip:   0.31 kB
+dist/assets/_productId-Cu3oT6KN.js                                 0.49 kB │ gzip:   0.35 kB
+dist/assets/_productId_.facts-C-S7KVKf.js                          0.50 kB │ gzip:   0.36 kB
+dist/assets/_productId_.facts_.versions_._versionId-996oc21h.js    0.50 kB │ gzip:   0.36 kB
+dist/assets/_productId_.facts_.review-CtF33cCX.js                  0.50 kB │ gzip:   0.37 kB
+dist/assets/_observationId_.correct-YfLtxR1s.js                    0.51 kB │ gzip:   0.37 kB
+dist/assets/useCompositeItem-BGClVRCY.js                           0.54 kB │ gzip:   0.37 kB
+dist/assets/empty-table-DARB4g0g.js                                0.55 kB │ gzip:   0.33 kB
+dist/assets/_observationId_.correct-zmn-d-1H.js                    0.58 kB │ gzip:   0.32 kB
+dist/assets/content-version.model-BVKgM5xI.js                      0.61 kB │ gzip:   0.43 kB
+dist/assets/detail-section-Dm8gVxQG.js                             0.63 kB │ gzip:   0.34 kB
+dist/assets/return-to-BzbJXkRi.js                                  0.63 kB │ gzip:   0.39 kB
+dist/assets/workbench.api-Cm9VqJUK.js                              0.71 kB │ gzip:   0.46 kB
+dist/assets/route-Do6Dxmmm.js                                      0.72 kB │ gzip:   0.50 kB
+dist/assets/textarea-CPcbKIlY.js                                   0.83 kB │ gzip:   0.43 kB
+dist/assets/timeline-BSjJ8olh.js                                   0.94 kB │ gzip:   0.49 kB
+dist/assets/form-field-B911B1W8.js                                 0.98 kB │ gzip:   0.54 kB
+dist/assets/rowSortingFeature-BzaRa4_s.js                          1.02 kB │ gzip:   0.49 kB
+dist/assets/geo-observation-actions-C2i_qn8N.js                    1.09 kB │ gzip:   0.67 kB
+dist/assets/security-BhmYxXky.js                                   1.11 kB │ gzip:   0.60 kB
+dist/assets/print-Dzhifc0z.js                                      1.20 kB │ gzip:   0.67 kB
+dist/assets/product-deletion-dialog-lBiO79oA.js                    1.20 kB │ gzip:   0.76 kB
+dist/assets/login-DVYbkUM3.js                                      1.20 kB │ gzip:   0.66 kB
+dist/assets/filter-bar-CWM_2Erm.js                                 1.23 kB │ gzip:   0.72 kB
+dist/assets/new-Bvu0krCd.js                                        1.26 kB │ gzip:   0.73 kB
+dist/assets/form-layout-B0Bgsdpq.js                                1.29 kB │ gzip:   0.69 kB
+dist/assets/file-transfer-bcVkqTxX.js                              1.41 kB │ gzip:   0.83 kB
+dist/assets/useBaseUiId-C9V7pCeo.js                                1.42 kB │ gzip:   0.80 kB
+dist/assets/table-pagination-CGQdM4R9.js                           1.48 kB │ gzip:   0.80 kB
+dist/assets/badge-DofVsWMx.js                                      1.57 kB │ gzip:   0.70 kB
+dist/assets/audit.api-CnqWdE-1.js                                  1.62 kB │ gzip:   0.76 kB
+dist/assets/sticky-action-bar-CocdU5I0.js                          1.62 kB │ gzip:   0.86 kB
+dist/assets/versions_._versionId-Cng83erV.js                       1.72 kB │ gzip:   0.89 kB
+dist/assets/_productId_.facts_.versions_._versionId-DomqXdGJ.js    1.77 kB │ gzip:   0.89 kB
+dist/assets/workspace-shell-BDrttTfq.js                            1.77 kB │ gzip:   0.83 kB
+dist/assets/insights-Cdp0Xm4Y.js                                   1.82 kB │ gzip:   0.97 kB
+dist/assets/articles-BimKTMom.js                                   1.82 kB │ gzip:   0.96 kB
+dist/assets/overview--gwbq3Hs.js                                   1.92 kB │ gzip:   1.04 kB
+dist/assets/answers-u0kALwMo.js                                    1.95 kB │ gzip:   1.05 kB
+dist/assets/_articleId-Dysrh1Im.js                                 1.96 kB │ gzip:   1.09 kB
+dist/assets/_productId_.facts_.versions-CdwWPjcu.js                1.96 kB │ gzip:   1.06 kB
+dist/assets/new-v86QV4Ao.js                                        1.97 kB │ gzip:   1.07 kB
+dist/assets/catalog-controls-DLVTEYRG.js                           1.98 kB │ gzip:   0.89 kB
+dist/assets/issues-OvGBmsEr.js                                     2.00 kB │ gzip:   1.05 kB
+dist/assets/_taskId-LHLLrExq.js                                    2.00 kB │ gzip:   1.06 kB
+dist/assets/settings.platforms.types-BCTVcnhP.js                   2.05 kB │ gzip:   1.03 kB
+dist/assets/_observationId-h0ZJ55c-.js                             2.09 kB │ gzip:   1.08 kB
+dist/assets/work-Diq3v8I0.js                                       2.11 kB │ gzip:   1.10 kB
+dist/assets/new-D8kMr3EC.js                                        2.12 kB │ gzip:   1.18 kB
+dist/assets/_productId-BVZfyI-l.js                                 2.18 kB │ gzip:   1.12 kB
+dist/assets/platforms-BjA9Kp30.js                                  2.18 kB │ gzip:   1.13 kB
+dist/assets/_taskId_.review-DzIhmpvK.js                            2.20 kB │ gzip:   1.14 kB
+dist/assets/_productId_.facts_.review-DhdrMsKi.js                  2.21 kB │ gzip:   1.13 kB
+dist/assets/useRegisterFieldControl-BcstcGLC.js                    2.25 kB │ gzip:   1.07 kB
+dist/assets/_productId_.facts--EXz4_t2.js                          2.25 kB │ gzip:   1.16 kB
+dist/assets/tasks-Dc8k1Rtb.js                                      2.26 kB │ gzip:   1.17 kB
+dist/assets/_issueId-kyht37fj.js                                   2.27 kB │ gzip:   1.25 kB
+dist/assets/useStore-VZN0-5bO.js                                   2.27 kB │ gzip:   0.97 kB
+dist/assets/observations-DiEWIUVO.js                               2.28 kB │ gzip:   1.17 kB
+dist/assets/_taskId_.editor-D25_UEgG.js                            2.31 kB │ gzip:   1.18 kB
+dist/assets/dialog-DihagMyF.js                                     2.33 kB │ gzip:   0.91 kB
+dist/assets/system.audit-Cb4w71jE.js                               2.35 kB │ gzip:   1.17 kB
+dist/assets/plans-CXmxIREU.js                                      2.35 kB │ gzip:   1.23 kB
+dist/assets/topics-BCTCDzJq.js                                     2.37 kB │ gzip:   1.23 kB
+dist/assets/input-BctqO2IH.js                                      2.47 kB │ gzip:   1.25 kB
+dist/assets/dirty-guard-DrU1_Hzf.js                                2.58 kB │ gzip:   1.23 kB
+dist/assets/settings.ai-DIWit10F.js                                2.64 kB │ gzip:   1.34 kB
+dist/assets/prompt.api-DzGm0lBb.js                                 2.65 kB │ gzip:   1.01 kB
+dist/assets/products-CjwKXIdg.js                                   2.73 kB │ gzip:   1.40 kB
+dist/assets/security-BqaxJ7oh.js                                   3.07 kB │ gzip:   1.49 kB
+dist/assets/login-MTCHBjTr.js                                      3.08 kB │ gzip:   1.49 kB
+dist/assets/useCompositeListItem-u8lPl9Q5.js                       3.11 kB │ gzip:   1.41 kB
+dist/assets/settings.ai_._channelId-BCfVlJlA.js                    3.15 kB │ gzip:   1.55 kB
+dist/assets/zod-C1u0HXxU.js                                        3.31 kB │ gzip:   1.24 kB
+dist/assets/sheet-Kd4R4hKK.js                                      3.73 kB │ gzip:   1.45 kB
+dist/assets/audit-detail-content-BuO2R5WC.js                       3.90 kB │ gzip:   1.61 kB
+dist/assets/print-DsBletUz.js                                      4.13 kB │ gzip:   1.66 kB
+dist/assets/product.model-Dm-7V1bS.js                              4.40 kB │ gzip:   2.01 kB
+dist/assets/Match-CvdDQUn7.js                                      4.41 kB │ gzip:   1.72 kB
+dist/assets/new-QQ07jb2D.js                                        4.49 kB │ gzip:   1.96 kB
+dist/assets/overview-CZNJHUgX.js                                   4.71 kB │ gzip:   1.91 kB
+dist/assets/_workId-BrjphUyx.js                                    4.76 kB │ gzip:   2.43 kB
+dist/assets/settings.prompts-BAyA5DTn.js                           4.92 kB │ gzip:   2.41 kB
+dist/assets/issues-CIFtRLJe.js                                     5.10 kB │ gzip:   2.13 kB
+dist/assets/_productId_.facts_.versions-asdoAFio.js                5.26 kB │ gzip:   2.36 kB
+dist/assets/composite-vrgVPoC8.js                                  5.88 kB │ gzip:   2.28 kB
+dist/assets/articles-BpVI3lRH.js                                   5.96 kB │ gzip:   2.41 kB
+dist/assets/geo-evidence-upload-UM20Af2s.js                        6.15 kB │ gzip:   2.67 kB
+dist/assets/client-C6dNGmfD.js                                     6.59 kB │ gzip:   2.58 kB
+dist/assets/principal-epoch-1sT-YUbO.js                            6.87 kB │ gzip:   2.33 kB
+dist/assets/globalFilteringFeature--M94PoEp.js                     6.95 kB │ gzip:   1.98 kB
+dist/assets/plans.api-XadBJqRU.js                                  7.47 kB │ gzip:   3.16 kB
+dist/assets/_app-Dy44loO9.js                                       7.72 kB │ gzip:   2.58 kB
+dist/assets/_platformId-DbJnDCdU.js                                7.74 kB │ gzip:   3.46 kB
+dist/assets/QueryClientProvider-Bi8hvFQP.js                        7.81 kB │ gzip:   3.04 kB
+dist/assets/product.api-CZLPcGqN.js                                7.94 kB │ gzip:   2.59 kB
+dist/assets/_productId_.facts_.versions_._versionId-Dq_f6yIN.js    8.18 kB │ gzip:   2.62 kB
+dist/assets/jsx-runtime-B-hcVAMW.js                                8.55 kB │ gzip:   3.26 kB
+dist/assets/x-DFZLmajO.js                                          8.72 kB │ gzip:   3.14 kB
+dist/assets/questions-BVfKcVZZ.js                                  8.80 kB │ gzip:   3.89 kB
+dist/assets/new-D_4OjOiv.js                                        8.99 kB │ gzip:   3.80 kB
+dist/assets/geo-entities-DWygWkqp.js                               9.11 kB │ gzip:   3.62 kB
+dist/assets/products-DgS7j9Je.js                                   9.25 kB │ gzip:   3.71 kB
+dist/assets/tasks-CIeQt14r.js                                      9.27 kB │ gzip:   3.57 kB
+dist/assets/platform.api-Dv25UlX8.js                               9.71 kB │ gzip:   3.25 kB
+dist/assets/geo-insights-report-DaVjpmZg.js                       10.34 kB │ gzip:   2.88 kB
+dist/assets/versions_._versionId-_WgNvWtK.js                      12.02 kB │ gzip:   3.82 kB
+dist/assets/insights.api-BUCBtNNb.js                              12.37 kB │ gzip:   4.66 kB
+dist/assets/tabs-D4Y39EUS.js                                      12.50 kB │ gzip:   4.72 kB
+dist/assets/content-task-lifecycle-Cxyir4dO.js                    12.54 kB │ gzip:   4.67 kB
+dist/assets/system.audit-CInkP1hw.js                              12.54 kB │ gzip:   4.38 kB
+dist/assets/observations-DLGjeIjS.js                              12.54 kB │ gzip:   4.87 kB
+dist/assets/system.users-DnhZB28n.js                              12.90 kB │ gzip:   5.50 kB
+dist/assets/insights-Bjp7FNY9.js                                  13.42 kB │ gzip:   4.92 kB
+dist/assets/runs-DwBa2Mcz.js                                      13.62 kB │ gzip:   5.10 kB
+dist/assets/route-D5H3yd8t.js                                     13.68 kB │ gzip:   5.17 kB
+dist/assets/_taskId-BHO5byFI.js                                   14.87 kB │ gzip:   4.63 kB
+dist/assets/content.api-BYZbXA5b.js                               14.90 kB │ gzip:   4.32 kB
+dist/assets/_productId_.facts_.review-fb2ZwzW0.js                 15.87 kB │ gzip:   5.65 kB
+dist/assets/work-Ckux5A9O.js                                      15.92 kB │ gzip:   5.20 kB
+dist/assets/publication.api-DSHuQVKI.js                           16.20 kB │ gzip:   4.80 kB
+dist/assets/_articleId-DuB5fpYq.js                                16.27 kB │ gzip:   5.43 kB
+dist/assets/useQuery-C44PsoTH.js                                  16.32 kB │ gzip:   5.47 kB
+dist/assets/settings.platforms.types-DYHLESOr.js                  16.45 kB │ gzip:   5.93 kB
+dist/assets/new-D6hyDRZ1.js                                       16.97 kB │ gzip:   6.06 kB
+dist/assets/platforms-Ch4cNuU7.js                                 17.07 kB │ gzip:   6.19 kB
+dist/assets/_productId_.facts-D8DFOc68.js                         17.36 kB │ gzip:   5.84 kB
+dist/assets/_taskId_.review-D7uoOlOV.js                           17.51 kB │ gzip:   6.08 kB
+dist/assets/settings.ai-GhVoyb9q.js                               17.54 kB │ gzip:   6.33 kB
+dist/assets/_productId-C-tV0hsk.js                                17.59 kB │ gzip:   5.90 kB
+dist/assets/audit.model-BVFTZILe.js                               17.82 kB │ gzip:   5.59 kB
+dist/assets/row-actions--JqHwuoJ.js                               17.90 kB │ gzip:   6.59 kB
+dist/assets/_observationId-BRV8PYwg.js                            18.05 kB │ gzip:   5.76 kB
+dist/assets/auth-provider-BYsw3p0Z.js                             18.52 kB │ gzip:   6.79 kB
+dist/assets/geo.api-c6449xHi.js                                   18.53 kB │ gzip:   5.93 kB
+dist/assets/geo-surfaces-DxPousi1.js                              18.83 kB │ gzip:   6.97 kB
+dist/assets/_issueId-B_7uyo07.js                                  19.62 kB │ gzip:   6.52 kB
+dist/assets/topics-D7G5Aogh.js                                    20.02 kB │ gzip:   7.06 kB
+dist/assets/ai-channel-workspace.model-BE7CtQhY.js                20.72 kB │ gzip:   6.32 kB
+dist/assets/insight-page-frame-BABAABx3.js                        20.76 kB │ gzip:   6.95 kB
+dist/assets/lazyRouteComponent-BReyklrE.js                        24.20 kB │ gzip:   8.98 kB
+dist/assets/_observationId_.correct-DB60FpIJ.js                   24.46 kB │ gzip:   8.25 kB
+dist/assets/answers-C9EVsyw8.js                                   28.37 kB │ gzip:   7.95 kB
+dist/assets/_workId-CU8PMAB_.js                                   28.55 kB │ gzip:   8.91 kB
+dist/assets/questions-B70CBpdN.js                                 28.85 kB │ gzip:   9.24 kB
+dist/assets/select-Buvr1VcL.js                                    30.10 kB │ gzip:  10.91 kB
+dist/assets/settings.prompts-DBcH9V0-.js                          30.84 kB │ gzip:   9.99 kB
+dist/assets/system.users-D6r0syA_.js                              31.04 kB │ gzip:   9.77 kB
+dist/assets/geo-entities-nexys19Z.js                              35.35 kB │ gzip:  10.96 kB
+dist/assets/providers-BXNnYdrJ.js                                 35.46 kB │ gzip:  10.59 kB
+dist/assets/icon-button-Dh5ar8ip.js                               36.26 kB │ gzip:  12.08 kB
+dist/assets/column-header-DsIldV3s.js                             36.45 kB │ gzip:  11.43 kB
+dist/assets/ToolbarRootContext-BrxBUF0T.js                        36.62 kB │ gzip:  14.02 kB
+dist/assets/geo-surfaces-D2quiyY9.js                              37.46 kB │ gzip:  11.54 kB
+dist/assets/index.esm-CDk9jdcJ.js                                 37.59 kB │ gzip:  13.14 kB
+dist/assets/_taskId_.editor-BIE79d-t.js                           37.95 kB │ gzip:  11.56 kB
+dist/assets/_platformId-CWnGxRpO.js                               38.94 kB │ gzip:  11.60 kB
+dist/assets/createLucideIcon-DQwSeGuf.js                          39.80 kB │ gzip:  14.03 kB
+dist/assets/button-BZhX1_Og.js                                    40.12 kB │ gzip:  13.54 kB
+dist/assets/route-fLDvDtwf.js                                     43.50 kB │ gzip:  15.66 kB
+dist/assets/settings.ai_._channelId-BCUzCvUU.js                   49.70 kB │ gzip:  13.71 kB
+dist/assets/plans-DpYxkPP1.js                                     50.96 kB │ gzip:  15.80 kB
+dist/assets/schemas-C4msZSiB.js                                   69.76 kB │ gzip:  18.62 kB
+dist/assets/runs-DCKzFF1G.js                                      95.05 kB │ gzip:  27.29 kB
+dist/assets/index-CpOu5Bjl.js                                    188.75 kB │ gzip:  60.35 kB
+dist/assets/markdown-editor-CPj6E3R9.js                          729.88 kB │ gzip: 245.01 kB
+
+✓ built in 476ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+已创建或确认管理员和内容工程师账号。
+INFO:     Started server process [17669]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:9001 (Press CTRL+C to quit)
+INFO:     Started server process [17668]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:19009 (Press CTRL+C to quit)
+  ➜  Local:   http://127.0.0.1:4174/
+INFO:     Started server process [17667]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:56213 - "GET /api/health/ready HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56216 - "GET /v1/models HTTP/1.1" 200 OK
+
+> partsignal-frontend-v2@0.1.0 e2e:raw
+> playwright test tests/e2e/insights-real-stack.spec.ts tests/e2e/plans-real-stack.spec.ts --project=foundation-desktop
+
+
+Running 2 tests using 1 worker
+
+(node:17696) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+INFO:     127.0.0.1:56223 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "POST /api/v1/products HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56223 - "GET /api/v1/products/9cb6d112-3d56-4d9e-a4bf-c7b21042711e/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "PUT /api/v1/products/9cb6d112-3d56-4d9e-a4bf-c7b21042711e/facts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "POST /api/v1/products/9cb6d112-3d56-4d9e-a4bf-c7b21042711e/fact-review-submissions HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56223 - "POST /api/v1/fact-versions/2165b680-84c4-45b7-8e02-745d12b05240/approve HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "POST /api/v1/geo/subjects HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56223 - "POST /api/v1/geo/engine-surfaces HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56223 - "POST /api/v1/geo/engine-surfaces/e7106529-740d-4f76-95ed-123dd7e1c322/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "POST /api/v1/geo/collection-profiles HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56223 - "POST /api/v1/geo/collection-profiles/f144f815-8f11-4e74-b920-94d911293f64/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "POST /api/v1/query-topics HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56223 - "POST /api/v1/geo/query-topics/599f1087-1fd4-4030-9979-ef9c9c2ced9f/prompt-variants HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56223 - "POST /api/v1/geo/monitoring-plans HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56223 - "POST /api/v1/geo/monitoring-plans/f29359e5-b429-49af-8a7a-20ee6de4e025/run HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs?batch_id=66d1cee1-392c-4fc9-868d-242f76fc8b2c HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8/manual-entry HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "POST /api/v1/files/upload-intents HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56223 - "PUT /api/v1/files/98b1ae34-c7af-4584-8701-faa6550592ca/content HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:56223 - "POST /api/v1/files/98b1ae34-c7af-4584-8701-faa6550592ca/complete HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "POST /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8/manual-submit HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "GET /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "POST /api/v1/geo/observation-runs/51a52f27-6fa6-4b6e-954f-85794e9f15c8/review HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56250 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56250 - "GET /api/v1/geo/overview?date_from=2026-10-03T09%3A34%3A35.395Z&date_to=2026-10-04T09%3A35%3A35.393Z&subject_ids=97a6abc0-a99f-4145-9cbb-be8420b7a003&product_ids=9cb6d112-3d56-4d9e-a4bf-c7b21042711e&query_topic_ids=599f1087-1fd4-4030-9979-ef9c9c2ced9f&prompt_variant_ids=f16db630-3c9d-4145-86ef-4dbacae7760d&engine_surface_ids=e7106529-740d-4f76-95ed-123dd7e1c322&collection_profile_ids=f144f815-8f11-4e74-b920-94d911293f64&collection_modes=MANUAL&login_states=ANONYMOUS&intent_types=PRODUCT&language_codes=zh-cn&region_codes=CN&mention_mode=BRANDED&review_policy=REVIEWED_ONLY HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56250 - "GET /api/v1/geo/insights?date_from=2026-10-03T09%3A34%3A35.395Z&date_to=2026-10-04T09%3A35%3A35.393Z&subject_ids=97a6abc0-a99f-4145-9cbb-be8420b7a003&product_ids=9cb6d112-3d56-4d9e-a4bf-c7b21042711e&query_topic_ids=599f1087-1fd4-4030-9979-ef9c9c2ced9f&prompt_variant_ids=f16db630-3c9d-4145-86ef-4dbacae7760d&engine_surface_ids=e7106529-740d-4f76-95ed-123dd7e1c322&collection_profile_ids=f144f815-8f11-4e74-b920-94d911293f64&collection_modes=MANUAL&login_states=ANONYMOUS&intent_types=PRODUCT&language_codes=zh-cn&region_codes=CN&mention_mode=BRANDED&review_policy=REVIEWED_ONLY HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56250 - "GET /api/v1/geo/insights/runs?date_from=2026-10-03T09%3A34%3A35.395Z&date_to=2026-10-04T09%3A35%3A35.393Z&subject_ids=97a6abc0-a99f-4145-9cbb-be8420b7a003&product_ids=9cb6d112-3d56-4d9e-a4bf-c7b21042711e&query_topic_ids=599f1087-1fd4-4030-9979-ef9c9c2ced9f&prompt_variant_ids=f16db630-3c9d-4145-86ef-4dbacae7760d&engine_surface_ids=e7106529-740d-4f76-95ed-123dd7e1c322&collection_profile_ids=f144f815-8f11-4e74-b920-94d911293f64&collection_modes=MANUAL&login_states=ANONYMOUS&intent_types=PRODUCT&language_codes=zh-cn&region_codes=CN&mention_mode=BRANDED&review_policy=REVIEWED_ONLY&page=1&page_size=20&metric_code=accurate_claim_rate&cell_key=459d90228c67e1c6982f97ea2e53b77f6eae57b96063bfe75403f5438d24e2ca&cohort=DENOMINATOR&period=CURRENT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56250 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56250 - "GET /api/v1/geo/insights?date_from=2026-10-03T09%3A34%3A35.395Z&date_to=2026-10-04T09%3A35%3A35.393Z&subject_ids=97a6abc0-a99f-4145-9cbb-be8420b7a003&product_ids=9cb6d112-3d56-4d9e-a4bf-c7b21042711e&query_topic_ids=599f1087-1fd4-4030-9979-ef9c9c2ced9f&prompt_variant_ids=f16db630-3c9d-4145-86ef-4dbacae7760d&engine_surface_ids=e7106529-740d-4f76-95ed-123dd7e1c322&collection_profile_ids=f144f815-8f11-4e74-b920-94d911293f64&collection_modes=MANUAL&login_states=ANONYMOUS&intent_types=PRODUCT&language_codes=zh-cn&region_codes=CN&mention_mode=BRANDED&review_policy=REVIEWED_ONLY HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56251 - "GET /api/v1/geo/insights/runs?date_from=2026-10-03T09%3A34%3A35.395Z&date_to=2026-10-04T09%3A35%3A35.393Z&subject_ids=97a6abc0-a99f-4145-9cbb-be8420b7a003&product_ids=9cb6d112-3d56-4d9e-a4bf-c7b21042711e&query_topic_ids=599f1087-1fd4-4030-9979-ef9c9c2ced9f&prompt_variant_ids=f16db630-3c9d-4145-86ef-4dbacae7760d&engine_surface_ids=e7106529-740d-4f76-95ed-123dd7e1c322&collection_profile_ids=f144f815-8f11-4e74-b920-94d911293f64&collection_modes=MANUAL&login_states=ANONYMOUS&intent_types=PRODUCT&language_codes=zh-cn&region_codes=CN&mention_mode=BRANDED&review_policy=REVIEWED_ONLY&page=1&page_size=20&metric_code=accurate_claim_rate&cell_key=459d90228c67e1c6982f97ea2e53b77f6eae57b96063bfe75403f5438d24e2ca&cohort=DENOMINATOR&period=CURRENT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56251 - "GET /api/v1/geo/insights/runs?date_from=2026-10-03T09%3A34%3A35.395Z&date_to=2026-10-04T09%3A35%3A35.393Z&subject_ids=97a6abc0-a99f-4145-9cbb-be8420b7a003&product_ids=9cb6d112-3d56-4d9e-a4bf-c7b21042711e&query_topic_ids=599f1087-1fd4-4030-9979-ef9c9c2ced9f&prompt_variant_ids=f16db630-3c9d-4145-86ef-4dbacae7760d&engine_surface_ids=e7106529-740d-4f76-95ed-123dd7e1c322&collection_profile_ids=f144f815-8f11-4e74-b920-94d911293f64&collection_modes=MANUAL&login_states=ANONYMOUS&intent_types=PRODUCT&language_codes=zh-cn&region_codes=CN&mention_mode=BRANDED&review_policy=REVIEWED_ONLY&page=1&page_size=20&metric_code=accurate_claim_rate&cell_key=459d90228c67e1c6982f97ea2e53b77f6eae57b96063bfe75403f5438d24e2ca&cohort=DENOMINATOR&period=CURRENT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56251 - "GET /api/v1/geo/insights/runs?date_from=2026-10-03T09%3A34%3A35.395Z&date_to=2026-10-04T09%3A35%3A35.393Z&subject_ids=97a6abc0-a99f-4145-9cbb-be8420b7a003&product_ids=9cb6d112-3d56-4d9e-a4bf-c7b21042711e&query_topic_ids=599f1087-1fd4-4030-9979-ef9c9c2ced9f&prompt_variant_ids=f16db630-3c9d-4145-86ef-4dbacae7760d&engine_surface_ids=e7106529-740d-4f76-95ed-123dd7e1c322&collection_profile_ids=f144f815-8f11-4e74-b920-94d911293f64&collection_modes=MANUAL&login_states=ANONYMOUS&intent_types=PRODUCT&language_codes=zh-cn&region_codes=CN&mention_mode=BRANDED&review_policy=REVIEWED_ONLY&page=1&page_size=20&metric_code=accurate_claim_rate&cell_key=459d90228c67e1c6982f97ea2e53b77f6eae57b96063bfe75403f5438d24e2ca&cohort=DENOMINATOR&period=CURRENT HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56251 - "GET /api/v1/geo/insights/claims?date_from=2026-10-03T09%3A34%3A35.395Z&date_to=2026-10-04T09%3A35%3A35.393Z&subject_ids=97a6abc0-a99f-4145-9cbb-be8420b7a003&product_ids=9cb6d112-3d56-4d9e-a4bf-c7b21042711e&query_topic_ids=599f1087-1fd4-4030-9979-ef9c9c2ced9f&prompt_variant_ids=f16db630-3c9d-4145-86ef-4dbacae7760d&engine_surface_ids=e7106529-740d-4f76-95ed-123dd7e1c322&collection_profile_ids=f144f815-8f11-4e74-b920-94d911293f64&collection_modes=MANUAL&login_states=ANONYMOUS&intent_types=PRODUCT&language_codes=zh-cn&region_codes=CN&mention_mode=BRANDED&review_policy=REVIEWED_ONLY&page=1&page_size=20&cell_key=459d90228c67e1c6982f97ea2e53b77f6eae57b96063bfe75403f5438d24e2ca HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56251 - "GET /api/v1/geo/insights/citations?date_from=2026-10-03T09%3A34%3A35.395Z&date_to=2026-10-04T09%3A35%3A35.393Z&subject_ids=97a6abc0-a99f-4145-9cbb-be8420b7a003&product_ids=9cb6d112-3d56-4d9e-a4bf-c7b21042711e&query_topic_ids=599f1087-1fd4-4030-9979-ef9c9c2ced9f&prompt_variant_ids=f16db630-3c9d-4145-86ef-4dbacae7760d&engine_surface_ids=e7106529-740d-4f76-95ed-123dd7e1c322&collection_profile_ids=f144f815-8f11-4e74-b920-94d911293f64&collection_modes=MANUAL&login_states=ANONYMOUS&intent_types=PRODUCT&language_codes=zh-cn&region_codes=CN&mention_mode=BRANDED&review_policy=REVIEWED_ONLY&page=1&page_size=20&cell_key=459d90228c67e1c6982f97ea2e53b77f6eae57b96063bfe75403f5438d24e2ca HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56251 - "GET /api/v1/geo/insights?date_from=2026-10-03T09%3A34%3A35.395Z&date_to=2026-10-04T09%3A35%3A35.393Z&subject_ids=f6b80c25-d508-4325-a77a-d16369407097&product_ids=9cb6d112-3d56-4d9e-a4bf-c7b21042711e&query_topic_ids=599f1087-1fd4-4030-9979-ef9c9c2ced9f&prompt_variant_ids=f16db630-3c9d-4145-86ef-4dbacae7760d&engine_surface_ids=e7106529-740d-4f76-95ed-123dd7e1c322&collection_profile_ids=f144f815-8f11-4e74-b920-94d911293f64&collection_modes=MANUAL&login_states=ANONYMOUS&intent_types=PRODUCT&language_codes=zh-cn&region_codes=CN&mention_mode=BRANDED&review_policy=REVIEWED_ONLY HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56251 - "GET /api/v1/geo-insights?date_from=2026-09-05&date_to=2026-10-04 HTTP/1.1" 200 OK
+  ✓  1 [foundation-desktop] › tests/e2e/insights-real-stack.spec.ts:16:1 › 全筛选、真实汇总与明细、URL恢复、表格替代和键盘焦点 (1.0m)
+INFO:     127.0.0.1:56223 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56260 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56260 - "GET /api/v1/geo/subjects?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56261 - "GET /api/v1/geo/subjects?page=1&page_size=10&sort=NAME_ASC&subject_type=OWN_BRAND HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56260 - "GET /api/v1/products?search=&page=1&page_size=10&sort=MODEL_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56262 - "OPTIONS /api/v1/geo/subjects HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56260 - "POST /api/v1/geo/subjects HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56260 - "GET /api/v1/geo/subjects?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56261 - "GET /api/v1/geo/subjects/d59d0f65-1d9f-490d-a225-f09d1a9370aa HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56261 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56261 - "GET /api/v1/geo/engine-surfaces?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56262 - "OPTIONS /api/v1/geo/engine-surfaces HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56261 - "POST /api/v1/geo/engine-surfaces HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56261 - "GET /api/v1/geo/engine-surfaces?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56260 - "GET /api/v1/geo/engine-surfaces/2fdb2f2e-e694-4bb4-a40d-411e5aa74411 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56262 - "OPTIONS /api/v1/geo/engine-surfaces/2fdb2f2e-e694-4bb4-a40d-411e5aa74411/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56260 - "POST /api/v1/geo/engine-surfaces/2fdb2f2e-e694-4bb4-a40d-411e5aa74411/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56260 - "GET /api/v1/geo/engine-surfaces?page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56260 - "GET /api/v1/geo/collection-profiles?page=1&page_size=20&sort=NAME_ASC&engine_surface_id=2fdb2f2e-e694-4bb4-a40d-411e5aa74411 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56262 - "OPTIONS /api/v1/geo/collection-profiles HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56260 - "POST /api/v1/geo/collection-profiles HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56260 - "GET /api/v1/geo/collection-profiles?page=1&page_size=20&sort=NAME_ASC&engine_surface_id=2fdb2f2e-e694-4bb4-a40d-411e5aa74411 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56261 - "GET /api/v1/geo/collection-profiles/bcb9791a-caa9-409d-b1af-fe16f0921db1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56262 - "OPTIONS /api/v1/geo/collection-profiles/bcb9791a-caa9-409d-b1af-fe16f0921db1/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56261 - "POST /api/v1/geo/collection-profiles/bcb9791a-caa9-409d-b1af-fe16f0921db1/enable HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56261 - "GET /api/v1/geo/collection-profiles?page=1&page_size=20&sort=NAME_ASC&engine_surface_id=2fdb2f2e-e694-4bb4-a40d-411e5aa74411 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "POST /api/v1/users HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56223 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56223 - "POST /api/v1/auth/change-password HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:56270 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56270 - "GET /api/v1/query-topics/list-items?sort=QUESTION_ASC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56271 - "OPTIONS /api/v1/query-topics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56270 - "POST /api/v1/query-topics HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56270 - "GET /api/v1/query-topics/list-items?sort=QUESTION_ASC&page=1&page_size=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56270 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56270 - "GET /api/v1/geo/prompt-variants?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56270 - "GET /api/v1/query-topics HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56271 - "OPTIONS /api/v1/geo/query-topics/8e632fef-25dd-42ff-9588-31d54bb6eab8/prompt-variants HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56270 - "POST /api/v1/geo/query-topics/8e632fef-25dd-42ff-9588-31d54bb6eab8/prompt-variants HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56270 - "GET /api/v1/geo/prompt-variants?page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56270 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56270 - "GET /api/v1/geo/monitoring-plans?q=72325934&page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56270 - "GET /api/v1/geo/subjects?page=1&page_size=10&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56270 - "GET /api/v1/geo/subjects?q=72325934&page=1&page_size=10&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56270 - "GET /api/v1/geo/prompt-variants?q=72325934&page=1&page_size=10&sort=TEXT_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56270 - "GET /api/v1/geo/collection-profiles?q=72325934&page=1&page_size=10&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56271 - "OPTIONS /api/v1/geo/monitoring-plans/preview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56270 - "POST /api/v1/geo/monitoring-plans/preview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56271 - "OPTIONS /api/v1/geo/monitoring-plans HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56270 - "POST /api/v1/geo/monitoring-plans HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56270 - "GET /api/v1/geo/monitoring-plans?q=72325934&page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56271 - "OPTIONS /api/v1/geo/monitoring-plans/efd88de2-f2b7-4434-b6f8-51acb3b89771/activate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56270 - "POST /api/v1/geo/monitoring-plans/efd88de2-f2b7-4434-b6f8-51acb3b89771/activate HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56270 - "GET /api/v1/geo/monitoring-plans?q=72325934&page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56271 - "OPTIONS /api/v1/geo/monitoring-plans/efd88de2-f2b7-4434-b6f8-51acb3b89771/pause HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56270 - "POST /api/v1/geo/monitoring-plans/efd88de2-f2b7-4434-b6f8-51acb3b89771/pause HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56270 - "GET /api/v1/geo/monitoring-plans?q=72325934&page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56271 - "OPTIONS /api/v1/geo/monitoring-plans/efd88de2-f2b7-4434-b6f8-51acb3b89771/resume HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56270 - "POST /api/v1/geo/monitoring-plans/efd88de2-f2b7-4434-b6f8-51acb3b89771/resume HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56272 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56273 - "GET /api/v1/geo/monitoring-plans/efd88de2-f2b7-4434-b6f8-51acb3b89771 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56272 - "GET /api/v1/geo/monitoring-plans?q=72325934&page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56272 - "POST /api/v1/geo/monitoring-plans/preview HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56271 - "OPTIONS /api/v1/geo/monitoring-plans/efd88de2-f2b7-4434-b6f8-51acb3b89771 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56272 - "PATCH /api/v1/geo/monitoring-plans/efd88de2-f2b7-4434-b6f8-51acb3b89771 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56272 - "GET /api/v1/geo/monitoring-plans?q=72325934&page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56271 - "OPTIONS /api/v1/geo/monitoring-plans/efd88de2-f2b7-4434-b6f8-51acb3b89771/copy HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56272 - "POST /api/v1/geo/monitoring-plans/efd88de2-f2b7-4434-b6f8-51acb3b89771/copy HTTP/1.1" 201 Created
+INFO:     127.0.0.1:56272 - "GET /api/v1/geo/monitoring-plans?q=72325934&page=1&page_size=20&sort=UPDATED_DESC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56271 - "OPTIONS /api/v1/geo/monitoring-plans/70036d05-223b-4199-b27f-656b288e0fa8?expected_revision=0 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56272 - "DELETE /api/v1/geo/monitoring-plans/70036d05-223b-4199-b27f-656b288e0fa8?expected_revision=0 HTTP/1.1" 204 No Content
+INFO:     127.0.0.1:56273 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56274 - "GET /api/v1/geo/monitoring-plans/efd88de2-f2b7-4434-b6f8-51acb3b89771 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56273 - "GET /api/v1/geo/monitoring-plans?q=72325934&schedule_kind=CRON&page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56271 - "OPTIONS /api/v1/geo/monitoring-plans/efd88de2-f2b7-4434-b6f8-51acb3b89771/archive HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56273 - "POST /api/v1/geo/monitoring-plans/efd88de2-f2b7-4434-b6f8-51acb3b89771/archive HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56275 - "GET /api/v1/geo/monitoring-plans/efd88de2-f2b7-4434-b6f8-51acb3b89771 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56274 - "GET /api/v1/auth/session HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56276 - "GET /api/v1/geo/monitoring-plans/efd88de2-f2b7-4434-b6f8-51acb3b89771 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56274 - "GET /api/v1/geo/monitoring-plans?q=72325934&schedule_kind=CRON&page=1&page_size=20&sort=NAME_ASC HTTP/1.1" 200 OK
+  ✓  2 [foundation-desktop] › tests/e2e/plans-real-stack.spec.ts:40:1 › 工程师八步创建、服务端预览、dirty、URL、启停修订复制归档与删除持久化 (10.6s)
+
+  2 passed (1.2m)
+E2E_SECRET_SCAN status=clean
+E2E_RESULT playwright=0 secret_scan=0
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [17669]
+
+worker: Warm shutdown (MainProcess)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [17668]
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [17667]
+E2E_CLEANUP redis_db=14 keys=1 status=deleted
+E2E_CLEANUP ports=8000,9001,4174,19009 status=released
+E2E_CLEANUP database=partsignal_e2e_20261004_1ac95faa7156d01e3f79b4fe54d4d92c status=dropped
+E2E_CLEANUP storage=/var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T//partsignal-e2e-storage.1m0Ffb status=removed

@@ -1,0 +1,55 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________ test_generated_catalog_schemas_match_accepted_contract ____________
+
+document = {'components': {'headers': {'RequestIdResponseHeader': {'required': True, 'schema': {'maxLength': 100, 'minLength': 1,.../components/responses/ErrorResponse'}, '403': {'$ref': '#/components/responses/ErrorResponse'}, ...}, ...}}, ...}, ...}
+
+    def test_generated_catalog_schemas_match_accepted_contract(document: dict[str, Any]) -> None:
+        from app.tools.contract_check import compare_response_contracts
+    
+        names = [
+            "GeoSubjectCreate",
+            "GeoSubjectUpdate",
+            "GeoSubjectRevisionRequest",
+            "GeoSubjectAliasCreate",
+            "GeoSubjectAliasUpdate",
+            "GeoSubjectDomainCreate",
+            "GeoSubjectOut",
+            "GeoSubjectListPage",
+            "GeoSubjectInUseDetails",
+        ]
+        contract = {"paths": {}, "components": document["components"]}
+        runtime: dict[str, Any] = {"paths": {}, "components": {"schemas": {}}}
+        for name in names:
+            schema = TypeAdapter(getattr(geo_catalog, name)).json_schema(
+                ref_template="#/components/schemas/{model}"
+            )
+            runtime["components"]["schemas"].update(schema.pop("$defs", {}))
+            runtime["components"]["schemas"][name] = schema
+            # 只构造内存合同对照，不注册 Router 或增加真实操作。
+            operation = {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "Catalog Schema 对照",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": f"#/components/schemas/{name}"}
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+            contract["paths"][f"/{name}"] = deepcopy(operation)
+            runtime["paths"][f"/{name}"] = deepcopy(operation)
+>       assert compare_response_contracts(contract, runtime) == []
+E       AssertionError: assert [{'contract':..._drift', ...}] == []
+E         
+E         Left contains 6 more items, first extra item: {'contract': {'additionalProperties': False, 'properties': (('alias', {'maxLength': 240, 'minLength': 1, 'pattern': '\...'contract_target': '#/components/schemas/GeoSubjectAliasCreate', 'direction': 'different', 'kind': 'schema_drift', ...}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_catalog_schema.py:266: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_catalog_schema.py::test_generated_catalog_schemas_match_accepted_contract
+1 failed in 0.32s

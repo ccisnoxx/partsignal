@@ -1,0 +1,13 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/geo-rules src/domains/geo-runs src/app/navigation.test.ts
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+
+ Test Files  15 passed (15)
+      Tests  126 passed (126)
+   Start at  10:42:59
+   Duration  4.92s (transform 3.95s, setup 1.37s, import 8.43s, tests 10.69s, environment 6.54s)
+

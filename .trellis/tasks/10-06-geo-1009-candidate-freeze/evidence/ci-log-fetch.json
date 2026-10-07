@@ -1,0 +1,16 @@
+{
+  "command": [
+    "gh",
+    "run",
+    "view",
+    "37572374117",
+    "--log-failed"
+  ],
+  "started_at": "2026-10-07T05:23:18.726310+00:00",
+  "ended_at": "2026-10-07T05:23:22.372292+00:00",
+  "exit_code": 0,
+  "ci_run_id": 37572374117,
+  "ci_head_sha": "0b232f2ce268c7e78836a2f2ce811c9eaa45944c",
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/ci-failed.log",
+  "log_sha256": "6e14163f8db14c8a16e37b19e5870ec58c4ada865e686bfb91b4c3b76dedda12"
+}

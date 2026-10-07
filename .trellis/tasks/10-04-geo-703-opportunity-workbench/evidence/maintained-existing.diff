@@ -1,0 +1,661 @@
+--- before/backend/app/audit_types.py
++++ after/backend/app/audit_types.py
+@@ -109,6 +109,8 @@
+         "geo_collection_profile.deleted",
+         "geo_collection_profile.tested",
+         "geo_rule_set.updated",
++        "geo_opportunity.acknowledged",
++        "geo_opportunity.dismissed",
+         "geo_subject.created",
+         "geo_subject.updated",
+         "geo_subject.enabled",
+@@ -180,6 +182,8 @@
+     ),
+     AuditModule.GEO_OBSERVATION: frozenset(
+         {
++            "revision",
++            "status",
+             "export_type",
+             "as_of",
+             "filter_sha256",
+--- before/backend/app/main.py
++++ after/backend/app/main.py
+@@ -31,6 +31,7 @@
+ from app.routers.geo_catalog import router as geo_catalog_router
+ from app.routers.geo_manual_collection import router as geo_manual_collection_router
+ from app.routers.geo_monitoring_plans import router as geo_monitoring_plans_router
++from app.routers.geo_opportunities import router as geo_opportunities_router
+ from app.routers.geo_overview import router as geo_overview_router
+ from app.routers.geo_questions import router as geo_questions_router
+ from app.routers.geo_reads import router as geo_reads_router
+@@ -348,6 +349,7 @@
+ app.include_router(geo_reviews_router)
+ app.include_router(geo_reports_router)
+ app.include_router(geo_rules_router)
++app.include_router(geo_opportunities_router)
+ app.include_router(geo_manual_collection_router)
+ app.include_router(geo_surface_management_router)
+ app.include_router(configuration_router)
+--- before/backend/app/services/audit_logs.py
++++ after/backend/app/services/audit_logs.py
+@@ -24,6 +24,7 @@
+ from app.models.geo_catalog import GeoSubject
+ from app.models.geo_files import GeoObservation
+ from app.models.geo_monitoring_plans import GeoMonitoringPlan
++from app.models.geo_opportunities import GeoOpportunity
+ from app.models.geo_prompt_variants import GeoPromptVariant
+ from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
+ from app.models.identity import AuditLog, User
+@@ -292,6 +293,9 @@
+     if target_type == "GeoObservation":
+         observation = db.get(GeoObservation, target_id) if target_id is not None else None
+         return _availability(target_type, observation)
++    if target_type == "GeoOpportunity":
++        opportunity = db.get(GeoOpportunity, target_id) if target_id is not None else None
++        return _availability(target_type, opportunity)
+     if target_type == "GeoMonitoringPlan":
+         plan = db.get(GeoMonitoringPlan, target_id) if target_id is not None else None
+         return _availability(target_type, plan)
+--- before/backend/app/services/geo_analysis_queries.py
++++ after/backend/app/services/geo_analysis_queries.py
+@@ -58,53 +58,7 @@
+             .execution_options(populate_existing=True)
+         )
+     )
+-    results = {
+-        row.id: GeoAnalysisResult(
+-            analysis=GeoAnalysisRevisionOut.model_validate(row),
+-            mentions=[],
+-            recommendations=[],
+-            claims=[],
+-            citations=[],
+-            citation_classification_complete=False,
+-        )
+-        for row in revisions
+-    }
+-    # 四种子结果按完整revision集合各一次加载，没有逐版本查询。
+-    models: tuple[
+-        tuple[
+-            type[GeoEntityMention]
+-            | type[GeoRecommendation]
+-            | type[GeoClaimAssessment]
+-            | type[GeoCitationClassification],
+-            type[ContractModel],
+-            str,
+-        ],
+-        ...,
+-    ] = (
+-        (GeoEntityMention, GeoEntityMentionOut, "mentions"),
+-        (GeoRecommendation, GeoRecommendationOut, "recommendations"),
+-        (GeoClaimAssessment, GeoClaimAssessmentOut, "claims"),
+-        (GeoCitationClassification, GeoCitationClassificationOut, "citations"),
+-    )
+-    for model, schema, field in models:
+-        rows = db.scalars(select(model).where(model.analysis_revision_id.in_(results)))
+-        for raw in rows:
+-            row = cast(
+-                GeoEntityMention
+-                | GeoRecommendation
+-                | GeoClaimAssessment
+-                | GeoCitationClassification,
+-                raw,
+-            )
+-            getattr(results[row.analysis_revision_id], field).append(schema.model_validate(row))
+-    for result in results.values():
+-        result.mentions.sort(key=lambda row: str(row.subject_id))
+-        result.recommendations.sort(key=lambda row: str(row.subject_id))
+-        result.claims.sort(key=lambda row: str(row.id))
+-        result.citations.sort(key=lambda row: str(row.citation_id))
+-        result.citation_classification_complete = (
+-            result.analysis.status == "COMPLETED" and len(result.citations) == citation_count
+-        )
++    results = analysis_results(db, revisions, {run_id: citation_count})
+     reviews = [
+         GeoRunReviewOut.model_validate(row)
+         for row in db.scalars(
+@@ -156,6 +110,61 @@
+     )
+ 
+ 
++def analysis_results(
++    db: Session, revisions: list[GeoAnalysisRevision], citation_counts: dict[UUID, int]
++) -> dict[UUID, GeoAnalysisResult]:
++    """按明确历史revision集合加载；调用者拥有一致快照及答案引用数。"""
++    results = {
++        row.id: GeoAnalysisResult(
++            analysis=GeoAnalysisRevisionOut.model_validate(row),
++            mentions=[],
++            recommendations=[],
++            claims=[],
++            citations=[],
++            citation_classification_complete=False,
++        )
++        for row in revisions
++    }
++    # 四种子结果按完整revision集合各一次加载，没有逐版本查询。
++    models: tuple[
++        tuple[
++            type[GeoEntityMention]
++            | type[GeoRecommendation]
++            | type[GeoClaimAssessment]
++            | type[GeoCitationClassification],
++            type[ContractModel],
++            str,
++        ],
++        ...,
++    ] = (
++        (GeoEntityMention, GeoEntityMentionOut, "mentions"),
++        (GeoRecommendation, GeoRecommendationOut, "recommendations"),
++        (GeoClaimAssessment, GeoClaimAssessmentOut, "claims"),
++        (GeoCitationClassification, GeoCitationClassificationOut, "citations"),
++    )
++    for model, schema, field in models:
++        rows = db.scalars(select(model).where(model.analysis_revision_id.in_(results)))
++        for raw in rows:
++            row = cast(
++                GeoEntityMention
++                | GeoRecommendation
++                | GeoClaimAssessment
++                | GeoCitationClassification,
++                raw,
++            )
++            getattr(results[row.analysis_revision_id], field).append(schema.model_validate(row))
++    for result in results.values():
++        result.mentions.sort(key=lambda row: str(row.subject_id))
++        result.recommendations.sort(key=lambda row: str(row.subject_id))
++        result.claims.sort(key=lambda row: str(row.id))
++        result.citations.sort(key=lambda row: str(row.citation_id))
++        result.citation_classification_complete = (
++            result.analysis.status == "COMPLETED"
++            and len(result.citations) == citation_counts[result.analysis.run_id]
++        )
++    return results
++
++
+ def review_required_expression() -> ColumnElement[bool]:
+     """列表与筛选共用当前pointer内的人工门禁，不从采集终态反推。"""
+     return (
+--- before/backend/app/services/geo_opportunity_policy.py
++++ after/backend/app/services/geo_opportunity_policy.py
+@@ -6,7 +6,13 @@
+ from hashlib import sha256
+ 
+ from app.errors import AppError
++from app.models.identity import User
+ from app.schemas.geo_opportunities import GeoOpportunityStatus as Status
++from app.schemas.geo_opportunity_workbench import (
++    GeoOpportunityAction,
++    GeoOpportunityWorkflow,
++    GeoOpportunityWorkflowStage,
++)
+ from app.schemas.geo_rules import GeoRuleCode
+ from app.services.geo_opportunity_types import OpportunityScope
+ 
+@@ -40,3 +46,51 @@
+         raise AppError("INVALID_STATE_TRANSITION", "机会状态不允许此转换", 409)
+     if after in {Status.RESOLVED, Status.DISMISSED} and not (reason and reason.strip()):
+         raise AppError("VALIDATION_ERROR", "关闭机会必须填写非空原因", 422)
++
++
++RULE_PRESENTATION = {
++    GeoRuleCode.VISIBILITY_DROP: (
++        "可见率下降",
++        "对比同环境的前后窗口，主体提及比例下降达到规则阈值。",
++    ),
++    GeoRuleCode.RECOMMENDATION_DROP: (
++        "推荐率下降",
++        "对比同环境的前后窗口，主体推荐比例下降达到规则阈值。",
++    ),
++    GeoRuleCode.COMPETITOR_SURGE: ("竞品曝光增长", "竞品在同环境可见率增加达到规则阈值。"),
++    GeoRuleCode.TOPIC_COVERAGE_GAP: ("主题覆盖缺口", "核心主题在有效样本中未覆盖主体。"),
++    GeoRuleCode.OWN_CITATION_LOST: ("自有引用丢失", "同环境基线存在的自有来源引用在当前窗口丢失。"),
++    GeoRuleCode.CRITICAL_FACT_ERROR: ("严重事实错误", "证据分析发现达到规则严重性门槛的错误声明。"),
++    GeoRuleCode.REPEATED_FACT_ERROR: (
++        "重复事实错误",
++        "相同声明错误在规则要求的不同运行中重复出现。",
++    ),
++    GeoRuleCode.UNSTABLE_RESULT: ("结果不稳定", "同环境重复运行的观测结果差异达到规则阈值。"),
++    GeoRuleCode.DATA_QUALITY_PROBLEM: (
++        "数据质量问题",
++        "有效分析或复核资格不足，触发数据质量规则。",
++    ),
++    GeoRuleCode.RUN_FAILURE: ("运行失败", "观测运行的失败比例达到规则阈值。"),
++}
++
++
++def workflow(status: Status, actor: User) -> GeoOpportunityWorkflow:
++    """只公开703已实现的动作；完整状态转换仍由TRANSITIONS拥有。"""
++    eligible = (
++        actor.is_active
++        and not actor.must_change_password
++        and actor.account_type in {"ADMIN", "ENGINEER"}
++    )
++    actions = []
++    if eligible:
++        if Status.ACKNOWLEDGED in TRANSITIONS[status]:
++            actions.append(GeoOpportunityAction.ACKNOWLEDGE)
++        if Status.DISMISSED in TRANSITIONS[status]:
++            actions.append(GeoOpportunityAction.DISMISS)
++    return GeoOpportunityWorkflow(
++        workflow_stage=GeoOpportunityWorkflowStage(status if status in OPEN_STATUSES else "CLOSED"),
++        primary_task="ACKNOWLEDGE"
++        if GeoOpportunityAction.ACKNOWLEDGE in actions
++        else "VIEW_EVIDENCE",
++        available_actions=actions,
++    )
+--- before/backend/app/services/geo_read_queries.py
++++ after/backend/app/services/geo_read_queries.py
+@@ -2,22 +2,19 @@
+ 
+ from collections import defaultdict
+ from collections.abc import Mapping, Sequence
+-from datetime import datetime, timedelta
++from datetime import datetime
+ from typing import Any
+ from uuid import UUID
+ 
+ from sqlalchemy import Select, case, func, select
+ from sqlalchemy.orm import Session, aliased
+ 
+-from app.config import settings
+-from app.errors import AppError, not_found
++from app.errors import not_found
+ from app.models.geo_answers import GeoAnswerCitation, GeoAnswerSnapshot
+ from app.models.geo_batch_creation import GeoBatchSubject
+-from app.models.geo_files import FileRecord
+ from app.models.geo_runs import GeoObservationBatch as Batch
+ from app.models.geo_runs import GeoObservationRun as Run
+ from app.models.identity import User
+-from app.schemas.common import SignedUrl
+ from app.schemas.geo_answers import GeoAnswerCitationOut, GeoAnswerSnapshotOut
+ from app.schemas.geo_read_filters import (
+     GeoBatchFilters,
+@@ -31,16 +28,15 @@
+     GeoRunAttemptSummary,
+     GeoRunDataQuality,
+     GeoRunDetail,
+-    GeoRunEvidenceFile,
+     GeoRunListPage,
+     GeoRunTimelineEvent,
+ )
+ from app.schemas.geo_runs import GeoObservationBatchOut, GeoObservationRunOut
+ from app.services import geo_read_projections as projection
+ from app.services.geo_analysis_queries import analysis_detail, review_required_expression
++from app.services.geo_answer_evidence import answer_evidence_files
+ from app.services.geo_batch_policy import BATCH_STATUS_RULES
+ from app.services.geo_collection_profiles import ProfileFacts, load_profile_facts
+-from app.services.storage import StorageUnavailable, get_evidence_storage
+ 
+ _FACT_FIELDS = (
+     "id",
+@@ -289,60 +285,6 @@
+     )
+ 
+ 
+-def _evidence_files(
+-    db: Session, answer: GeoAnswerSnapshot | None, as_of: datetime
+-) -> list[GeoRunEvidenceFile]:
+-    identities = (
+-        {}
+-        if answer is None
+-        else {
+-            identity: kind
+-            for identity, kind in (
+-                (answer.screenshot_file_id, "SCREENSHOT"),
+-                (answer.raw_payload_file_id, "RAW_PAYLOAD"),
+-            )
+-            if identity is not None
+-        }
+-    )
+-    files = db.scalars(
+-        select(FileRecord)
+-        .where(FileRecord.id.in_(identities))
+-        .execution_options(populate_existing=True)
+-    ).all()
+-    if len(files) != len(identities):
+-        raise projection.incomplete()
+-    expires_at = as_of + timedelta(seconds=settings.download_url_ttl_seconds)
+-    result: list[GeoRunEvidenceFile] = []
+-    if not files:
+-        return result
+-    storage = get_evidence_storage()
+-    for file in sorted(files, key=lambda f: identities[f.id]):
+-        if (
+-            file.status != "VERIFIED"
+-            or file.verified_at is None
+-            or file.access_level not in {"INTERNAL", "RESTRICTED"}
+-        ):
+-            raise AppError("FILE_INTEGRITY_FAILED", "原始证据文件当前不可安全访问", 409)
+-        try:
+-            download = SignedUrl(
+-                url=storage.download_url(file.object_key, expires_at), expires_at=expires_at
+-            )
+-        except StorageUnavailable as error:
+-            raise AppError("DEPENDENCY_UNAVAILABLE", "证据签名暂时不可用", 503) from error
+-        result.append(
+-            GeoRunEvidenceFile(
+-                id=file.id,
+-                kind=identities[file.id],
+-                content_type=file.content_type,
+-                size=file.size,
+-                sha256=file.sha256,
+-                access_level=file.access_level,
+-                download=download,
+-            )
+-        )
+-    return result
+-
+-
+ def _attempts_and_timeline(
+     rows: Sequence[Mapping[str, Any]], cell: str
+ ) -> tuple[list[GeoRunAttemptSummary], list[GeoRunTimelineEvent]]:
+@@ -408,12 +350,13 @@
+         citation_count=answer.citation_count if answer else 0,
+         actor=actor,
+     )
++    evidence = answer_evidence_files(db, [answer] if answer else [], as_of)
+     return GeoRunDetail(
+         run=projection.run_item(dict(row), profiles, actor),
+         batch=batch_value,
+         answer=GeoAnswerSnapshotOut.model_validate(answer) if answer else None,
+         citations=[GeoAnswerCitationOut.model_validate(c) for c in citations],
+-        evidence_files=_evidence_files(db, answer, as_of),
++        evidence_files=evidence[answer.id] if answer else [],
+         attempts=attempts,
+         timeline=timeline,
+         analysis=analysis,
+--- before/backend/tests/unit/test_contract.py
++++ after/backend/tests/unit/test_contract.py
+@@ -53,9 +53,9 @@
+     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+     document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+     operations = operation_map(document)
+-    assert len(operations) == 237
+-    assert len({operation["operationId"] for operation in operations.values()}) == 237
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1528
++    assert len(operations) == 241
++    assert len({operation["operationId"] for operation in operations.values()}) == 241
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1555
+ 
+     expected_parameter = {
+         "name": "X-Request-ID",
+@@ -151,6 +151,7 @@
+             "listGeoEngineSurfaces",
+             "listGeoCollectionProfiles",
+             "listGeoMonitoringPlans",
++            "listGeoOpportunities",
+             "previewGeoMonitoringPlan",
+         ),
+         ("201", "401", "403", "422"): (
+@@ -216,6 +217,8 @@
+             "createGeoMonitoringPlan",
+         ),
+         ("200", "401", "403", "404", "409", "422"): (
++            "acknowledgeGeoOpportunity",
++            "dismissGeoOpportunity",
+             "listGeoOverviewRuns",
+             "listGeoAnswerInsightRuns",
+             "listGeoInsightCitations",
+@@ -372,6 +375,7 @@
+             "saveGeoManualDraft",
+             "completeFileUpload",
+             "getGeoObservationRun",
++            "getGeoOpportunity",
+         ),
+         ("200", "401", "403", "404", "409", "422", "502", "504"): (
+             "discoverAIChannelModels",
+@@ -390,7 +394,7 @@
+         if isinstance(operation, dict) and "operationId" in operation
+     }
+ 
+-    assert len(expected) == 237
++    assert len(expected) == 241
+     assert set(operations) == set(expected)
+     for operation_id, operation in operations.items():
+         responses = operation["responses"]
+@@ -419,7 +423,7 @@
+         "getWorkbench",
+     }
+     assert len(validation_free) == 15
+-    assert sum("422" in statuses for statuses in expected.values()) == 222
++    assert sum("422" in statuses for statuses in expected.values()) == 226
+     assert {
+         operation_id for operation_id, statuses in expected.items() if "422" not in statuses
+     } == validation_free
+--- before/backend/tests/unit/test_geo_opportunity_policy.py
++++ after/backend/tests/unit/test_geo_opportunity_policy.py
+@@ -90,7 +90,9 @@
+     value = GeoOpportunityTriggerSnapshot.model_validate(snapshot())
+     contract = yaml.safe_load(Path("contracts/openapi.yaml").read_text())
+     validate(contract, "GeoOpportunityTriggerSnapshot", value.model_dump(mode="json"))
+-    assert "/api/v1/geo/opportunities" not in contract["paths"]
++    assert "/api/v1/geo/opportunities" in contract["paths"]
++    for operation in ("actions", "retest", "resolve"):
++        assert f"/api/v1/geo/opportunities/{{opportunity_id}}/{operation}" not in contract["paths"]
+     for patch in (
+         {"unavailable_reasons": ["INSUFFICIENT_SAMPLE"]},
+         {"value": None},
+--- before/backend/tests/unit/test_runtime_response_metadata.py
++++ after/backend/tests/unit/test_runtime_response_metadata.py
+@@ -643,9 +643,9 @@
+     runtime = app.openapi()
+     operations = _operation_map(runtime)
+ 
+-    assert len(operations) == 237
+-    assert len(set(operations)) == 237
+-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1528
++    assert len(operations) == 241
++    assert len(set(operations)) == 241
++    assert sum(len(operation["responses"]) for operation in operations.values()) == 1555
+     parameter_ref = {"$ref": "#/components/parameters/RequestIdHeader"}
+     header_ref = {"$ref": "#/components/headers/RequestIdResponseHeader"}
+     parameter_schema = {
+@@ -684,9 +684,9 @@
+     augmented = app.openapi()
+     stripped = _strip_request_context_metadata(augmented)
+ 
+-    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1291
++    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1314
+     assert (
+-        sum(len(operation["responses"]) for operation in _operation_map(stripped).values()) == 1291
++        sum(len(operation["responses"]) for operation in _operation_map(stripped).values()) == 1314
+     )
+     # 安装版本的 FastAPI 省略 None 默认；这里只移除已声明且显式恢复的 nullable annotation。
+     raw_settings = raw["components"]["schemas"]["GeoApiSettings"]["properties"]
+--- before/contracts/database.md
++++ after/contracts/database.md
+@@ -1237,3 +1237,11 @@
+ `geo_observation_batches.source_opportunity_id`追加真实FK RESTRICT。若旧非空值没有机会实体，迁移显式失败，不删除/置空/补造历史；未提供RETEST创建服务。资源/User删除计数接入真实新引用；已引用证据/分析/Review不能删除。downgrade拒绝销毁机会历史，安全停止为事务回滚，恢复为迁移前备份或前向修复。lock_timeout=5s、statement_timeout=120s；本次只在独占测试数据库前滚，未启用生产。
+ 
+ 批次质量按选中批次的当前窗口完整latest候选计算；失败序列按选中profile的当前窗口完整latest尝试计算。业务subject/product/topic/prompt/环境筛选只选择目标，不删除治理分母或成功打断项；所有读取仍在同一RR。连续失败按created_at/id升序的末尾FAILED后缀，非FAILED或采集环境切换打断，允许跨Batch。初始未配置阈值显式THRESHOLD_NOT_CONFIGURED。actions的多态target仅保存追加关系结构，704须由目标领域验证/接入删除所有者；702没有行动写入服务。
++
++### GEO-703：Opportunity工作台与处理命令（R6）
++
++复用0059四表、状态guard与不可变证据；不新增DDL/Alembic、历史回填或自动评估入口。列表、详情及来源页在认证前建立禁止autoflush的REPEATABLE READ，一次请求的total、元数据、状态、动作及证据共享as_of。来源按created_at/id稳定分页，Run/Answer/Citation及明确绑定的analysis/review按页批量读取；历史Review有效投影不跟随Run当前pointer。最新关联评估仅按opportunity_id，不能把同identity其他代或无关联NO_TRIGGER结果归入当前机会。当前维度显示名与冻结Run输入分别标明语义。
++
++acknowledge/dismiss由应用服务拥有READ COMMITTED事务，User非键更新锁→Opportunity FOR UPDATE；刷新ORM identity map后重验账号资格和expected_revision。状态政策拥有允许边：703仅公开OPEN→ACKNOWLEDGED以及OPEN/ACKNOWLEDGED/IN_PROGRESS→DISMISSED。revision每次加1，last_seen_at保持规则评估时间，ack历史/首次trigger及sources不变；关闭保存服务器actor/time、trim非空resolution_code（1..40）/resolution_comment（1..2000）。终态不再转换，过期/重复命令409 REVISION_CONFLICT，非法动作409 INVALID_STATE_TRANSITION，无自动重放或幂等key。任何业务/审计/flush/commit失败整体回滚。
++
++成功审计geo_opportunity.acknowledged/dismissed与状态同事务追加，只包含revision/status，不记录人工原因、答案、凭据或签名URL。受控文件完整性与签名由Run/机会共用同一所有者；详情no-store，无外部HEAD或AI请求。权限ADMIN/ENGINEER、session、强制改密和CSRF保持。关闭保留全部历史证据；行动创建/resolve/复测仍属704–706，既有行动关系仅只读。
+--- before/docs/geo-monitoring/01-product/02-geo-core-prd.md
++++ after/docs/geo-monitoring/01-product/02-geo-core-prd.md
+@@ -792,7 +792,7 @@
+ 2. **内容任务**：预填产品、问题主题和机会来源，由用户选择已批准事实和内容发布平台；
+ 3. **发布修复**：关联已有 `PublishedArticle` 或开放 `PublishedContentIssue`；
+ 4. **补充观测**：基于相同条件创建新的监测批次；
+-5. **仅确认/忽略**：必须填写原因。
++5. **仅确认/忽略**：确认保留开放机会；忽略（驳回）必须填写非空原因。关闭/解决同样必须保留原因和证据。
+ 
+ 任务完成不得自动关闭机会。机会只有在以下条件之一满足后才能进入 `RESOLVED`：
+ 
+--- before/docs/geo-monitoring/03-technical/03-api-contract-design.md
++++ after/docs/geo-monitoring/03-technical/03-api-contract-design.md
+@@ -669,3 +669,11 @@
+ ## 当前 R6：GEO-702 数据组件边界
+ 
+ 根OpenAPI仅新增Opportunity状态/优先级/来源角色/行动类型及闭合scope/source/trigger snapshot组件。触发快照含实际701配置revision、UTC周期、值、阈值、分子/分母、来源Run/analysis/review及不可用原因；未增加HTTP operation。702评估器是内部应用服务，开关默认关闭并重验ADMIN/ENGINEER账号资格。列表、详情、ack/dismiss工作台属于703；actions写入与复测/resolve属于704–706。既有Overview机会占位、opportunities CSV的501和前端路由保持其当前交付边界。
++
++## 当前 R6：GEO-703 Opportunity API
++
++根OpenAPI新增listGeoOpportunities、getGeoOpportunity、acknowledgeGeoOpportunity和dismissGeoOpportunity，均沿/api/v1/geo/opportunities；命令后缀为/acknowledge和/dismiss。分页、全部query字段、闭合枚举、请求响应和精确错误签名以[根合同](../../../contracts/openapi.yaml)为权威。列表包含首次触发值/阈值/分子分母、scope、时间、当前关联名称、source/action计数及服务端workflow_stage/primary_task/available_actions；筛选选项来自机会实际引用集合。详情包含首次完整规则快照、该机会最新已关联评估、来源分页和已有行动只读记录。
++
++来源证据按已保存run/analysis/review身份读取，原始答案/引用、历史机器声明/批准事实摘录、人工修正及受控文件可追溯；不使用当前pointer替换历史。RUN_FAILURE允许没有答案和分析，缺必要关联409 GEO_READ_MODEL_INCOMPLETE；文件完整性错误409，签名依赖不可用503。详情no-store。所有GET共享一次禁autoflush的RR快照，不重新算规则，不外部访问或改状态。
++
++ADMIN/ENGINEER可读取与处理。确认仅expected_revision；驳回额外要求trim非空resolution_code（1..40）和resolution_comment（1..2000）。这是业务状态机与已接受702合同的关闭原因要求；确认不关闭机会。状态/动作只在服务端投影，命令锁后CAS、账号资格/CSRF重验、原子审计及409语义见根数据库合同。没有新增DDL、actions/retest/resolve HTTP、总览或CSV占位接线、生产开关/Browser实现。
+--- before/docs/geo-monitoring/03-technical/04-frontend-architecture.md
++++ after/docs/geo-monitoring/03-technical/04-frontend-architecture.md
+@@ -403,3 +403,9 @@
+ 分析待处理和执行中持续轮询，终态及待复核按既有server workflow调度读取。机器首次位置为Unicode字符位置，浏览器按code points定位。原文按文本、引用只允许既有安全http(s)链接展示，复核草稿不保存到URL或浏览器storage。
+ 
+ R4质量和实际门禁结果见 [R4验收报告](../04-delivery/09-r4-analysis-acceptance.md) 与 [GEO-508实施证据](../../../.trellis/tasks/10-03-geo-508-analysis-review-ui/implement.md)。GEO-601完整指标、Opportunity、Browser及公共重分析入口仍在本任务范围外。
++
++## 当前 R6：GEO-703工作台
++
++/geo/opportunities消费generated OpenAPI唯一协议。URL沿列表query保存搜索、状态/优先级/规则、主体/产品/主题/变体/Profile/Surface/冻结采集模式、日期、排序及分页；opportunity_id选择Drawer，source_page/source_page_size恢复来源分页。原因草稿和签名URL不进入URL或浏览器持久存储。列表和详情query key涵盖全部条件，传递AbortSignal；服务器拥有total、状态、workflow_stage/primary_task/available_actions，前端只作展示映射。
++
++Drawer分开首次trigger、最新关联评估、绑定历史analysis/review证据和处理记录。确认/驳回只在服务端动作可用时出现，关闭状态仍可读证据。命令成功消费canonical返回并失效列表/详情；409保留原因草稿，显式刷新后再提交，不自动重放。权限/不存在/证据不完整/签名暂不可用、首载/空页/后台失败均明确呈现；关闭归还焦点，刷新与浏览器历史恢复选中和筛选。703不提供行动创建、复测或解决按钮。
+--- before/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ after/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -1207,7 +1207,7 @@
+   phase: R6
+   release: R6
+   title: 实现 Opportunity API、读模型和工作台
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-702
+   areas:
+--- before/docs/geo-monitoring/README.md
++++ after/docs/geo-monitoring/README.md
+@@ -365,3 +365,6 @@
+ GEO-605 / R5 新增 `/geo/overview` 总览和 `/geo/insights/answers` 回答洞察，保留旧文章关系 `/geo/insights` 及打印。统一 URL 筛选作用于全部卡片、双窗口趋势、产品矩阵、问题/平台表现、SOV、引用、风险、质量与分页明细。只格式化服务端结果，不重算公式、资格或样本级别；null 不补零，图形始终附可访问表格，引用和声明只读。当前 URL/query key/异步与安全合同见[前端架构§0.4](./03-technical/04-frontend-architecture.md)，逐项验证、独立审查及已知缺口见[Task Brief](../../.trellis/tasks/10-04-geo-605-insights-ui/prd.md)与[实施证据](../../.trellis/tasks/10-04-geo-605-insights-ui/implement.md)。无 OpenAPI/DB/Alembic 变化；filter-options、平均排名、机会/报告/导出、干预比较及生产启用不在本次交付。任务状态以 manifest 为准，仅进入 review，等待人工接受。
+ 
+ GEO-702 / R6 已建立Opportunity、来源、行动与追加评估记录，确定性开放identity与十条初始规则；批量评估复用601/603/604有效事实及701完整规则快照。低样本、无分母、不可比或阈值未配置保留原因，不生成机会。0059为加法前滚，不回填或改写历史；关闭机会与来源保留，Batch来源使用真实RESTRICT FK。当前内部合同见[数据库合同](../../contracts/database.md#geo-702-opportunity来源行动与评估r6)与[数据架构§7](./03-technical/02-data-architecture.md#71-geo_opportunities)，逐项证据见[Task Brief](../../.trellis/tasks/10-04-geo-702-opportunity-evaluation/prd.md)、[设计](../../.trellis/tasks/10-04-geo-702-opportunity-evaluation/design.md)和[实施记录](../../.trellis/tasks/10-04-geo-702-opportunity-evaluation/implement.md)。无新HTTP operation或前端页面；703API/工作台、704行动、705/706复测与解决、Browser及生产启用仍由后续任务交付。仅review等待人工接受，状态以manifest为准。
++
++
++GEO-703 / R6 新增机会列表/详情与acknowledge/dismiss API、历史证据读模型和 `/geo/opportunities` URL工作台/Drawer。服务端拥有状态和动作，关闭必须原因；历史analysis/review绑定不随当前Run pointer漂移。无新DDL/Alembic或生产启用，行动创建/复测/resolve仍由704–706交付。设计与实际验证见[Task Brief](../../.trellis/tasks/10-04-geo-703-opportunity-workbench/prd.md)、[设计](../../.trellis/tasks/10-04-geo-703-opportunity-workbench/design.md)和[实施证据](../../.trellis/tasks/10-04-geo-703-opportunity-workbench/implement.md)；状态以manifest为准。
+--- before/frontend/src/app/navigation.test.ts
++++ after/frontend/src/app/navigation.test.ts
+@@ -49,6 +49,7 @@
+         'geo-questions',
+         'geo-plans',
+         'geo-runs',
++        'geo-opportunities',
+         'geo-observations',
+         'platforms',
+       ]);
+@@ -68,6 +69,7 @@
+         'geo-questions',
+         'geo-plans',
+         'geo-runs',
++        'geo-opportunities',
+         'geo-observations',
+         'platforms',
+         'geo-surfaces',
+--- before/frontend/src/app/navigation.ts
++++ after/frontend/src/app/navigation.ts
+@@ -17,13 +17,13 @@
+   type LucideIcon,
+ } from 'lucide-react';
+ 
+-type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-overview' | 'geo-reports' | 'geo-answer-insights' | 'geo-insights' | 'geo-topics' | 'geo-questions' | 'geo-plans' | 'geo-runs' | 'geo-observations' | 'geo-entities' | 'geo-surfaces' | 'geo-rules' | 'platforms' | 'prompts' | 'ai-channels' | 'users' | 'audit';
++type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-overview' | 'geo-reports' | 'geo-answer-insights' | 'geo-insights' | 'geo-topics' | 'geo-questions' | 'geo-plans' | 'geo-runs' | 'geo-opportunities' | 'geo-observations' | 'geo-entities' | 'geo-surfaces' | 'geo-rules' | 'platforms' | 'prompts' | 'ai-channels' | 'users' | 'audit';
+ type AppLayout = 'app' | 'print';
+ 
+ type NavigationItem = {
+   id: NavId;
+   label: string;
+-  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/overview' | '/geo/reports' | '/geo/insights/answers' | '/geo/insights' | '/geo/topics' | '/geo/questions' | '/geo/plans' | '/geo/runs' | '/geo/observations' | '/configuration/geo-entities' | '/configuration/geo-surfaces' | '/configuration/geo-rules' | '/settings/platforms' | '/settings/prompts' | '/settings/ai' | '/system/users' | '/system/audit';
++  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/overview' | '/geo/reports' | '/geo/insights/answers' | '/geo/insights' | '/geo/topics' | '/geo/questions' | '/geo/plans' | '/geo/runs' | '/geo/opportunities' | '/geo/observations' | '/configuration/geo-entities' | '/configuration/geo-surfaces' | '/configuration/geo-rules' | '/settings/platforms' | '/settings/prompts' | '/settings/ai' | '/system/users' | '/system/audit';
+   icon: LucideIcon;
+   adminOnly?: boolean;
+ };
+@@ -79,6 +79,7 @@
+       { id: 'geo-questions', label: '问题库', to: '/geo/questions', icon: MessagesSquareIcon },
+       { id: 'geo-plans', label: '监测计划', to: '/geo/plans', icon: ClipboardListIcon },
+       { id: 'geo-runs', label: '运行中心', to: '/geo/runs', icon: ClipboardListIcon },
++      { id: 'geo-opportunities', label: '机会工作台', to: '/geo/opportunities', icon: ListTodoIcon },
+       { id: 'geo-observations', label: '观测记录', to: '/geo/observations', icon: EyeIcon },
+     ],
+   },
+--- before/frontend/src/domains/audit/audit.model.test.ts
++++ after/frontend/src/domains/audit/audit.model.test.ts
+@@ -323,7 +323,7 @@
+   it('related_entry 严格遵循后端 target registry、status 与 parent 矩阵', () => {
+     const parentId = '50000000-0000-4000-8000-000000000001';
+     const parentlessKinds = [
+-      'Product', 'ContentTask', 'PublicationWork', 'PublishedContentIssue', 'GeoObservation',
++      'Product', 'ContentTask', 'PublicationWork', 'PublishedContentIssue', 'GeoObservation', 'GeoOpportunity',
+       'PlatformProfile', 'AIChannel', 'GeoPromptVariant',
+     ] as const;
+     const parentKinds = ['FactVersion', 'ContentVersion', 'PlatformAccount', 'AIModel'] as const;
+@@ -430,4 +430,18 @@
+     }
+     expectRuntimeProjectionFailure({ ...update, changes: [{ field: 'revision', before: 2, after: 3 }] });
+   });
++  it.each([
++    ['geo_opportunity.acknowledged', 'ACKNOWLEDGED', '确认 GEO 机会'],
++    ['geo_opportunity.dismissed', 'DISMISSED', '忽略 GEO 机会'],
++  ])('机会审计 %s 仅允许低敏状态与修订号，并链接到机会 Drawer', (action, status, label) => {
++    const raw = runtimeDetail({ action, business_module: 'GEO_OBSERVATION', target_type: 'GeoOpportunity',
++      changes: [], facts: { revision: 3, status }, related_entry: { status: 'AVAILABLE', kind: 'GeoOpportunity', parent_id: null } });
++    const parsed = parseAuditLogDetailResponse(raw, runtimeLog.id);
++    expect(auditActionLabel(action)).toBe(label);
++    expect(projectAuditFacts(parsed.facts)).toEqual([{ field: 'revision', label: '修订号', value: '3' }, { field: 'status', label: '状态', value: status }]);
++    expect(resolveAuditRelatedLink(parsed)).toEqual({ href: `/geo/opportunities?opportunity_id=${runtimeLog.target_id}`, label: '查看 GEO 机会' });
++    for (const facts of [{ revision: 3, status, resolution_comment: 'hidden' }, { revision: 3, status, answer_text: 'hidden' }, { revision: 3, status, download_url: 'hidden' }, { revision: 0, status }, { revision: 3, status: 'OPEN' }]) expectRuntimeProjectionFailure({ ...raw, facts });
++    expectRuntimeProjectionFailure({ ...raw, business_module: 'CONFIGURATION' });
++    expectRuntimeProjectionFailure({ ...raw, changes: [{ field: 'status', after: status }] });
++  });
+ });
+--- before/frontend/src/domains/audit/audit.model.ts
++++ after/frontend/src/domains/audit/audit.model.ts
+@@ -37,6 +37,7 @@
+   ['PublicationWork', 'NONE'],
+   ['PublishedContentIssue', 'NONE'],
+   ['GeoObservation', 'NONE'],
++  ['GeoOpportunity', 'NONE'],
+   ['GeoSubject', 'NONE'],
+   ['GeoPromptVariant', 'NONE'],
+   ['GeoEngineSurface', 'NONE'],
+@@ -69,7 +70,7 @@
+   GEO_OBSERVATION: new Set([
+     'article_count', 'article_result_count', 'attachment_count', 'observation_count', 'product_id',
+     'publication_count', 'query_topic_id', 'root_observation_id', 'supersedes_id',
+-    'export_type', 'as_of', 'filter_sha256',
++    'export_type', 'as_of', 'filter_sha256', 'revision', 'status',
+   ]),
+   CONFIGURATION: new Set([
+     'account_count', 'allowed_domain_count', 'bound_platform_count', 'bound_platform_ids', 'channel_id',
+@@ -377,6 +378,15 @@
+       exactOwnKeys(facts, ['revision']);
+       runtimePositiveInteger(facts, 'revision');
+       if (base.business_module !== 'CONFIGURATION' || base.target_type !== 'GeoRuleSet'
++        || runtimeArray(ownValue(response, 'changes')).length !== 0) throw auditRuntimeProjectionFailed();
++    }
++    if (base.action === 'geo_opportunity.acknowledged' || base.action === 'geo_opportunity.dismissed') {
++      const facts = runtimeRecord(ownValue(response, 'facts'));
++      exactOwnKeys(facts, ['revision', 'status']);
++      runtimePositiveInteger(facts, 'revision');
++      const status = runtimeString(facts, 'status');
++      if (base.business_module !== 'GEO_OBSERVATION' || base.target_type !== 'GeoOpportunity'
++        || status !== (base.action === 'geo_opportunity.acknowledged' ? 'ACKNOWLEDGED' : 'DISMISSED')
+         || runtimeArray(ownValue(response, 'changes')).length !== 0) throw auditRuntimeProjectionFailed();
+     }
+     return {
+@@ -556,6 +566,8 @@
+   'geo_report.print_prepared': '准备 GEO 打印报告',
+   'geo_observation.deleted': '删除 GEO 观测',
+   'geo_rule_set.updated': '更新 GEO 规则集',
++  'geo_opportunity.acknowledged': '确认 GEO 机会',
++  'geo_opportunity.dismissed': '忽略 GEO 机会',
+   'geo_prompt_variant.created': '创建 GEO 问题变体',
+   'geo_prompt_variant.updated': '更新 GEO 问题变体',
+   'geo_prompt_variant.enabled': '启用 GEO 问题变体',
+@@ -668,6 +680,7 @@
+     case 'GeoCollectionProfile': return targetId && related.parent_id ? { href: `/configuration/geo-surfaces?tab=profiles&surface_id=${related.parent_id}&profile_id=${targetId}`, label: '查看采集配置' } : undefined;
+     case 'GeoPromptVariant': return targetId ? { href: `/geo/questions?selected=${targetId}`, label: '查看问题变体' } : undefined;
+     case 'GeoObservation': return targetId ? { href: `/geo/observations/${targetId}`, label: '查看 GEO 观测' } : undefined;
++    case 'GeoOpportunity': return targetId ? { href: `/geo/opportunities?opportunity_id=${targetId}`, label: '查看 GEO 机会' } : undefined;
+     case 'PlatformProfile': return targetId ? { href: `/settings/platforms/${targetId}`, label: '查看平台' } : undefined;
+     case 'PlatformAccount': return related.parent_id ? { href: `/settings/platforms/${related.parent_id}?tab=accounts`, label: '查看平台账号' } : undefined;
+     case 'AIChannel': return targetId ? { href: `/settings/ai/${targetId}?tab=basic`, label: '查看 AI 渠道' } : undefined;

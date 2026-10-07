@@ -1,0 +1,27 @@
+{
+  "changed_sha_entries": [
+    "./02-business/04-monitoring-methodology-and-metrics.md",
+    "./03-technical/02-data-architecture.md",
+    "./03-technical/03-api-contract-design.md",
+    "./04-delivery/task-manifest.yaml",
+    "./CHANGELOG.md",
+    "./README.md"
+  ],
+  "remaining_mismatches": [
+    {
+      "path": "./01-product/02-geo-core-prd.md",
+      "expected": "44d54c96622be90ace3165fad8cd99208c3e56be8b38ae954196518ab3b47131",
+      "actual": "cbcbdb4bf180d2669cac61a3b5160fb2baff743a1360492bf42fde00f0571e2f",
+      "entry_changed_in_task": false
+    }
+  ],
+  "task_document_matches": [
+    "./02-business/04-monitoring-methodology-and-metrics.md",
+    "./03-technical/02-data-architecture.md",
+    "./03-technical/03-api-contract-design.md",
+    "./04-delivery/task-manifest.yaml",
+    "./CHANGELOG.md",
+    "./README.md"
+  ],
+  "full_bundle_matches": 116
+}

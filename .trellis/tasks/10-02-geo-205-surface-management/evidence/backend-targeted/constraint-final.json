@@ -1,0 +1,13 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/integration/test_geo_surface_management_constraint_mapping.py",
+    "--tb=short"
+  ],
+  "exit_code": 0,
+  "seconds": 2.1768211250018794
+}

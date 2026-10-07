@@ -1,0 +1,7 @@
+{
+  "command": [
+    "make",
+    "test-unit"
+  ],
+  "exit_code": 0
+}

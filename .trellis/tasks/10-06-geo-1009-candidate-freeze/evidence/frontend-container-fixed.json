@@ -1,0 +1,15 @@
+{
+  "name": "frontend-container-fixed",
+  "command": [
+    "deploy/scripts/test-frontend-container.sh"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "14dd7594452e4080826b15f64683eb3990450704",
+  "dirty": true,
+  "started_at": "2026-10-07T05:27:40.346263+00:00",
+  "ended_at": "2026-10-07T05:27:40.658351+00:00",
+  "exit_code": 0,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/frontend-container-fixed.log",
+  "log_sha256": "4b756dd79e74832766246c8453f84be367038334164ac42e3b8f0fe2820aab95"
+}

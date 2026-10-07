@@ -1,0 +1,742 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://geo-fixture-schema.test/analysis/v1",
+  "title": "GEO-005 测试文件格式 v1；不是公共 API",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "corpus",
+    "gold"
+  ],
+  "properties": {
+    "corpus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixture_version",
+        "dataset_id",
+        "synthetic",
+        "products",
+        "subjects",
+        "fact_versions",
+        "questions",
+        "answers",
+        "citations"
+      ],
+      "properties": {
+        "fixture_version": {
+          "const": "1.0.0"
+        },
+        "dataset_id": {
+          "const": "geo-005-v1"
+        },
+        "synthetic": {
+          "const": true
+        },
+        "products": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/product"
+          },
+          "minItems": 1
+        },
+        "subjects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/subject"
+          },
+          "minItems": 1
+        },
+        "fact_versions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fact"
+          },
+          "minItems": 1
+        },
+        "questions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/question"
+          },
+          "minItems": 1
+        },
+        "answers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/answer"
+          },
+          "minItems": 1
+        },
+        "citations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/citation"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "gold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixture_version",
+        "dataset_id",
+        "synthetic",
+        "gold_version",
+        "cases"
+      ],
+      "properties": {
+        "fixture_version": {
+          "const": "1.0.0"
+        },
+        "dataset_id": {
+          "const": "geo-005-v1"
+        },
+        "synthetic": {
+          "const": true
+        },
+        "gold_version": {
+          "const": "1.0.0"
+        },
+        "cases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/case"
+          },
+          "minItems": 1
+        }
+      }
+    }
+  },
+  "$defs": {
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "brand",
+        "part_number"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+        },
+        "brand": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "part_number": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "subject_type",
+        "name",
+        "product_id",
+        "parent_subject_id",
+        "aliases",
+        "domains"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+        },
+        "subject_type": {
+          "type": "string",
+          "enum": [
+            "OWN_BRAND",
+            "OWN_PRODUCT",
+            "COMPETITOR_BRAND",
+            "COMPETITOR_PRODUCT",
+            "REFERENCE_PART"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "product_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parent_subject_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "domains": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      }
+    },
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "product_id",
+        "version",
+        "status",
+        "classification",
+        "markdown"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+        },
+        "product_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "const": "APPROVED"
+        },
+        "classification": {
+          "const": "PUBLIC"
+        },
+        "markdown": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "text",
+        "intent",
+        "mention_mode",
+        "language_code",
+        "region_code",
+        "subject_ids"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "intent": {
+          "type": "string",
+          "enum": [
+            "BRAND",
+            "PRODUCT",
+            "REPLACEMENT",
+            "COMPARISON",
+            "APPLICATION",
+            "TROUBLESHOOTING",
+            "PURCHASE"
+          ]
+        },
+        "mention_mode": {
+          "type": "string",
+          "enum": [
+            "BRANDED",
+            "UNBRANDED"
+          ]
+        },
+        "language_code": {
+          "type": "string",
+          "enum": [
+            "zh-CN",
+            "en"
+          ]
+        },
+        "region_code": {
+          "const": "CN"
+        },
+        "subject_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "answer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "question_id",
+        "text",
+        "captured_at",
+        "collection_mode",
+        "surface_label",
+        "model_version",
+        "web_search_observed"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+        },
+        "question_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "Z$"
+        },
+        "collection_mode": {
+          "type": "string",
+          "enum": [
+            "MANUAL",
+            "API",
+            "BROWSER"
+          ]
+        },
+        "surface_label": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "model_version": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "web_search_observed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "citation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "answer_id",
+        "url",
+        "title",
+        "position"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+        },
+        "answer_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "mention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_ids",
+        "mentioned",
+        "excerpt"
+      ],
+      "properties": {
+        "subject_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "mentioned": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "excerpt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mentioned": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "excerpt": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "excerpt": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_id",
+        "label",
+        "rank",
+        "excerpt"
+      ],
+      "properties": {
+        "subject_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+        },
+        "label": {
+          "type": "string",
+          "enum": [
+            "RECOMMENDED",
+            "CONSIDERED",
+            "NOT_RECOMMENDED",
+            "UNKNOWN"
+          ]
+        },
+        "rank": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "excerpt": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "label": {
+                "not": {
+                  "const": "RECOMMENDED"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "rank": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_id",
+        "claim_type",
+        "excerpt",
+        "fact_version_id",
+        "verdict",
+        "severity",
+        "reason"
+      ],
+      "properties": {
+        "subject_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+        },
+        "claim_type": {
+          "type": "string",
+          "enum": [
+            "PARAMETER",
+            "REPLACEMENT",
+            "PACKAGE",
+            "TEMPERATURE",
+            "CERTIFICATION",
+            "APPLICATION",
+            "OTHER"
+          ]
+        },
+        "excerpt": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "fact_version_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "ACCURATE",
+            "PARTIAL",
+            "INCORRECT",
+            "UNJUDGEABLE"
+          ]
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "CRITICAL",
+            "HIGH",
+            "MEDIUM",
+            "LOW"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "citation_gold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "citation_id",
+        "normalized_url",
+        "source_category",
+        "subject_ids"
+      ],
+      "properties": {
+        "citation_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+        },
+        "normalized_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "source_category": {
+          "type": "string",
+          "enum": [
+            "OWNED",
+            "COMPETITOR",
+            "INDUSTRY_MEDIA",
+            "FORUM",
+            "DISTRIBUTOR",
+            "SOCIAL",
+            "SEARCH_PROVIDER",
+            "OTHER"
+          ]
+        },
+        "subject_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mentions",
+        "recommendations",
+        "claims",
+        "citations",
+        "review_required_reasons"
+      ],
+      "properties": {
+        "mentions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mention"
+          },
+          "minItems": 0
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/recommendation"
+          },
+          "minItems": 0
+        },
+        "claims": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/claim"
+          },
+          "minItems": 0
+        },
+        "citations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/citation_gold"
+          },
+          "minItems": 0
+        },
+        "review_required_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "ambiguous_alias",
+              "unreliable_rank",
+              "high_severity_incorrect",
+              "insufficient_facts",
+              "untrusted_instructions"
+            ]
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "answer_id",
+        "category",
+        "expected"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+        },
+        "answer_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*-[a-z0-9-]+$"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "exact_model",
+            "model_suffix",
+            "case_and_hyphen",
+            "ambiguous_alias",
+            "negated_mention",
+            "listed_without_recommendation",
+            "ordered_recommendation",
+            "unordered_recommendation",
+            "conditional_replacement",
+            "parameter_conflict",
+            "insufficient_facts",
+            "prompt_injection",
+            "mixed_language"
+          ]
+        },
+        "expected": {
+          "$ref": "#/$defs/expected"
+        }
+      }
+    }
+  }
+}

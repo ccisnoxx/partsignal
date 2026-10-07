@@ -1,0 +1,31 @@
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -999,7 +999,7 @@
+   phase: R5
+   release: R5
+   title: 实现 MetricEligibility、样本等级和公式库
+-  status: planned
++  status: blocked
+   dependencies:
+   - GEO-507
+   areas:
+@@ -1014,6 +1014,8 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  trellis_task: .trellis/tasks/10-03-geo-601-metric-formulas
++  blocked_note: "2026-10-03：GEO-507已done且人工接受记录已核对。编码前发现PRD与指标方法对首位推荐率、严重错误运行率分母仍冲突，Accepted ADR-004/GEO-002 F09要求产品裁决；后续记录未找到裁决。依本任务明确停止条件blocked，未修改公式、公共合同、数据库或运行时行为。两项具体裁决请求及基线验证见Task Brief/implement.md；不实施后续任务。"
+ - id: GEO-602
+   phase: R5
+   release: R5
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -105,7 +105,7 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-1a1319df825ca08144156aaef7e108827e77cc61eb7937d1b1882b15f7afe5f6  ./04-delivery/task-manifest.yaml
++b7de3001edfb595d435d1fb643d046e57ad5bbe43cbcfaa988995cee295c4de6  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md

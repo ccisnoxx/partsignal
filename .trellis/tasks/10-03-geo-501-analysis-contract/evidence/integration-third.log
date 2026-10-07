@@ -1,0 +1,141 @@
+ Container partsignal-geo501-validation-postgres-1 Running 
+ Container partsignal-geo501-validation-redis-1 Running 
+ Container partsignal-geo501-validation-fake-oss-1 Running 
+ Container partsignal-geo501-validation-postgres-1 Waiting 
+ Container partsignal-geo501-validation-postgres-1 Healthy 
+ Container partsignal-geo501-validation-backend-test-run-5b82b2685278 Creating 
+ Container partsignal-geo501-validation-backend-test-run-5b82b2685278 Created 
+......F...                                                               [100%]
+=================================== FAILURES ===================================
+_________ test_fact_manifest_qualification_claim_binding_and_deletion __________
+
+answer_connection = <psycopg.Connection [INERROR] (host=postgres user=partsignal database=partsignal_geo206_3b21a30931) at 0xf168f13d34d0>
+answer_database = AnswerDatabase(runs=RunDatabase(plan=PlanDatabase(url='postgresql://partsignal:partsignal_dev@postgres:5432/partsignal...ind': 'LEGACY_MODEL_RESULT', 'web_search_enabled': True},)]]), legacy_run=UUID('bb33171c-d462-46cc-ae86-9886a11072f5'))
+
+    def test_fact_manifest_qualification_claim_binding_and_deletion(answer_connection, answer_database):
+        conn = answer_connection
+        db = answer_database
+        case = collected_case(conn, db, products=2)
+        analysis = pending(conn, case)
+        with pytest.raises(psycopg.errors.CheckViolation) as error, conn.transaction():
+            conn.execute("SET CONSTRAINTS ALL IMMEDIATE")
+        assert error.value.diag.constraint_name == "ck_geo_analysis_fact_manifest"
+        one, two = case.input["fact_versions"]
+        with pytest.raises(psycopg.errors.CheckViolation), conn.transaction():
+            insert_row(
+                conn,
+                "geo_analysis_fact_versions",
+                {
+                    "analysis_revision_id": analysis,
+                    "subject_id": UUID(one["subject_id"]),
+                    "fact_version_id": UUID(two["fact_version_id"]),
+                },
+            )
+        bind(conn, case, analysis)
+        with pytest.raises(psycopg.errors.ForeignKeyViolation), conn.transaction():
+            insert_row(
+                conn,
+                "geo_claim_assessments",
+                {
+                    "id": uuid4(),
+                    "analysis_revision_id": analysis,
+                    "subject_id": UUID(one["subject_id"]),
+                    "fact_version_id": case.facts[1],
+                    "claim_kind": "PARAMETER",
+                    "claim_text": "虚构声明",
+                    "verdict": "ACCURATE",
+                    "severity": "HIGH",
+                    "explanation": "虚构依据",
+                },
+            )
+        with pytest.raises(psycopg.errors.CheckViolation), conn.transaction():
+            insert_row(
+                conn,
+                "geo_claim_assessments",
+                {
+                    "id": uuid4(),
+                    "analysis_revision_id": analysis,
+                    "subject_id": UUID(one["subject_id"]),
+                    "claim_kind": "PARAMETER",
+                    "claim_text": "虚构声明",
+                    "verdict": "ACCURATE",
+                    "severity": "HIGH",
+                    "explanation": "无依据",
+                },
+            )
+        finish(conn, analysis)
+        conn.execute("SET CONSTRAINTS ALL IMMEDIATE")
+        with pytest.raises(psycopg.errors.ForeignKeyViolation), conn.transaction():
+            conn.execute("DELETE FROM fact_versions WHERE id=%s", (case.facts[0],))
+        conn.execute(
+            "UPDATE fact_versions SET status='RETIRED',revision=revision+1 WHERE id=%s",
+            (case.facts[0],),
+        )
+        assert (
+            conn.execute(
+                "SELECT count(*) FROM geo_analysis_fact_versions WHERE analysis_revision_id=%s",
+                (analysis,),
+            ).fetchone()[0]
+            == 2
+        )
+>       next_analysis = pending(conn, case, analyzer_version="fixture-v2")
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/integration/test_geo_analysis.py:377: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/integration/geo_analysis_support.py:128: in pending
+    insert_row(conn, "geo_analysis_revisions", values)
+/Users/sc/PycharmProjects/partsignal/backend/tests/integration/test_geo_catalog.py:32: in insert_row
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Connection [INERROR] (host=postgres user=partsignal database=partsignal_geo206_3b21a30931) at 0xf168f13d34d0>
+query = Composed([SQL('INSERT INTO '), Identifier('geo_analysis_revisions'), SQL(' ('), Composed([Identifier('id'), SQL(', '),...), SQL(', '), Placeholder(), SQL(', '), Placeholder(), SQL(', '), Placeholder(), SQL(', '), Placeholder()]), SQL(')')])
+params = (UUID('5f8f0858-bdcd-4369-ad86-93c3a751858e'), UUID('99fb993b-498e-41d5-a69b-8b97f4672016'), UUID('e332d78a-8a50-4d87-b50f-90377d8a2fa7'), 2, 'DETERMINISTIC', 'fixture-v2', ...)
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool = False,
+    ) -> Cursor[Row]:
+        """Execute a query and return a cursor to read its results."""
+        try:
+            cur = self.cursor()
+            if binary:
+                cur.format = BINARY
+    
+            if isinstance(query, Template):
+                if params is not None:
+                    raise TypeError(
+                        "'execute()' with string template query doesn't support parameters"
+                    )
+                return cur.execute(query, prepare=prepare)
+            else:
+                return cur.execute(query, params, prepare=prepare)
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           psycopg.errors.CheckViolation: 输入事实 manifest 与强引用必须原子一致
+E           CONTEXT:  PL/pgSQL function geo_check_analysis_assembly() line 13 at RAISE
+
+/opt/venv/lib/python3.12/site-packages/psycopg/connection.py:300: CheckViolation
+=============================== warnings summary ===============================
+tests/integration/test_geo_analysis_migration.py::test_nonempty_0053_forward_preserves_evidence_and_matches_models
+  /app/tests/integration/test_geo_analysis_migration.py:77: SAWarning: Cannot correctly sort tables; there are unresolvable cycles between tables "content_tasks, content_versions, generation_jobs, publication_verifications, publication_works, published_articles, published_content_issues", which is usually caused by mutually dependent foreign key constraints.  Foreign key constraints involving these tables will not be considered; this warning may raise an error in a future release.
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_analysis_migration.py::test_nonempty_0053_forward_preserves_evidence_and_matches_models
+  /app/tests/integration/test_geo_analysis_migration.py:77: SAWarning: Can't validate argument 'dialect_options'; can't locate any SQLAlchemy dialect named 'dialect'
+    assert compare_metadata(context, Base.metadata) == []
+
+tests/integration/test_geo_analysis_migration.py::test_nonempty_0053_forward_preserves_evidence_and_matches_models
+  /opt/venv/lib/python3.12/site-packages/alembic/autogenerate/compare/server_defaults.py:120: UserWarning: Computed default on geo_analysis_revisions.input_sha256 cannot be modified
+    util.warn("Computed default on %s.%s cannot be modified" % (tname, cname))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_analysis.py::test_fact_manifest_qualification_claim_binding_and_deletion
+1 failed, 9 passed, 3 warnings in 6.80s
+

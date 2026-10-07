@@ -1,0 +1,114 @@
+ Image geo607-validation-backend-test Building 
+#1 [internal] load local bake definitions
+#1 reading from stdin 608B done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 30B
+#2 transferring dockerfile: 594B done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 ...
+
+#4 [auth] astral-sh/uv:pull token for ghcr.io
+#4 DONE 0.0s
+
+#5 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#5 ...
+
+#3 [internal] load metadata for docker.io/library/python:3.12-slim
+#3 DONE 1.7s
+
+#5 [internal] load metadata for ghcr.io/astral-sh/uv:0.7.13
+#5 DONE 2.1s
+
+#6 [internal] load .dockerignore
+#6 transferring context: 152B done
+#6 DONE 0.0s
+
+#7 FROM ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043
+#7 resolve ghcr.io/astral-sh/uv:0.7.13@sha256:6c1e19020ec221986a210027040044a5df8de762eb36d5240e382bc41d7a9043 0.0s done
+#7 DONE 0.0s
+
+#8 [runtime 1/7] FROM docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016
+#8 resolve docker.io/library/python:3.12-slim@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016 0.0s done
+#8 DONE 0.0s
+
+#9 [internal] load build context
+#9 transferring context: 823.11kB 0.0s done
+#9 DONE 0.0s
+
+#10 [runtime 3/7] COPY --from=ghcr.io/astral-sh/uv:0.7.13 /uv /uvx /bin/
+#10 CACHED
+
+#11 [runtime 2/7] WORKDIR /app
+#11 CACHED
+
+#12 [runtime 4/7] COPY pyproject.toml uv.lock* ./
+#12 CACHED
+
+#13 [runtime 5/7] RUN uv sync --no-dev --no-install-project
+#13 CACHED
+
+#14 [runtime 6/7] COPY . .
+#14 DONE 0.1s
+
+#15 [runtime 7/7] RUN uv sync --no-dev
+#15 0.139 Resolved 88 packages in 0.68ms
+#15 0.140    Building partsignal-backend @ file:///app
+#15 3.440       Built partsignal-backend @ file:///app
+#15 3.440 Prepared 1 package in 3.30s
+#15 3.442 Installed 1 package in 1ms
+#15 3.639 Bytecode compiled 2466 files in 196ms
+#15 3.639  + partsignal-backend==0.1.0 (from file:///app)
+#15 DONE 3.7s
+
+#16 [test 1/1] RUN uv sync --all-extras
+#16 0.065 Resolved 88 packages in 0.32ms
+#16 0.989 Downloading mypy (13.1MiB)
+#16 1.027 Downloading ruff (10.5MiB)
+#16 1.076 Downloading pygments (1.2MiB)
+#16 1.630  Downloading pygments
+#16 2.459  Downloading ruff
+#16 2.763  Downloading mypy
+#16 2.763 Prepared 20 packages in 2.69s
+#16 2.826 Installed 20 packages in 62ms
+#16 3.362 Bytecode compiled 3437 files in 536ms
+#16 3.362  + attrs==26.1.0
+#16 3.362  + coverage==7.15.0
+#16 3.362  + httpcore2==2.9.1
+#16 3.362  + httpx2==2.9.1
+#16 3.362  + iniconfig==2.3.0
+#16 3.362  + jsonschema==4.26.0
+#16 3.362  + jsonschema-specifications==2025.9.1
+#16 3.362  + librt==0.13.0
+#16 3.362  + mypy==1.20.2
+#16 3.362  + mypy-extensions==1.1.0
+#16 3.362  + pathspec==1.1.1
+#16 3.362  + pluggy==1.6.0
+#16 3.362  + pygments==2.20.0
+#16 3.362  + pytest==8.4.2
+#16 3.362  + pytest-cov==6.3.0
+#16 3.362  + referencing==0.37.0
+#16 3.362  + rpds-py==2026.6.3
+#16 3.362  + ruff==0.15.21
+#16 3.363  + truststore==0.10.4
+#16 3.363  + types-pyyaml==6.0.12.20260518
+#16 DONE 3.6s
+
+#17 exporting to image
+#17 exporting layers
+#17 exporting layers 2.9s done
+#17 exporting manifest sha256:551010ac53eb2c46b62b9310fd712199c3ba02d64a049181bae25d49777a840e done
+#17 exporting config sha256:91971f9c945396c59e559996ae37307aafbe1657d413493a25f486b9499a76f8 done
+#17 exporting attestation manifest sha256:971c842aa9dd15bc1cb94d4315c870dd18335d2fe0ba1de7a21dc98ee8d91843 done
+#17 exporting manifest list sha256:e7695aaa1ae04d5362e6fc768b9922b9506d1eb189cdd0328711841fa77b59e8 done
+#17 naming to docker.io/library/geo607-validation-backend-test:latest done
+#17 unpacking to docker.io/library/geo607-validation-backend-test:latest
+#17 unpacking to docker.io/library/geo607-validation-backend-test:latest 0.7s done
+#17 DONE 3.6s
+
+#18 resolving provenance for metadata file
+#18 DONE 0.0s
+ Image geo607-validation-backend-test Built 

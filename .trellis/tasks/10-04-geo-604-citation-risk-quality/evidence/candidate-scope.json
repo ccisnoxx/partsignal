@@ -1,0 +1,28 @@
+{
+  "changed": [
+    "backend/app/routers/geo_answer_insights.py",
+    "backend/app/schemas/geo_answer_insights.py",
+    "backend/app/services/geo_answer_insights.py",
+    "backend/app/services/geo_overview_queries.py",
+    "backend/tests/unit/test_contract.py",
+    "backend/tests/unit/test_runtime_response_metadata.py",
+    "contracts/database.md",
+    "contracts/openapi.yaml",
+    "docs/geo-monitoring/01-product/02-geo-core-prd.md",
+    "docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md",
+    "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+    "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/README.md",
+    "frontend/src/shared/api/generated/schema.d.ts"
+  ],
+  "added": [
+    "backend/app/schemas/geo_insight_details.py",
+    "backend/app/services/geo_insight_details.py",
+    "backend/app/services/geo_insight_evidence.py",
+    "backend/app/services/geo_insight_quality.py",
+    "backend/tests/integration/test_geo_insight_details.py",
+    "backend/tests/unit/test_geo_insight_details.py"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "status": "resolved_by_document_precedence",
+  "dependency": "GEO-601 done/completed人工接受",
+  "conflicts": [
+    {
+      "rule": "VISIBILITY_DROP / RECOMMENDATION_DROP",
+      "prd": "§9.7默认规则：两窗口各至少3",
+      "methodology": "§15：两窗口均STABLE，§4默认至少5"
+    },
+    {
+      "rule": "TOPIC_COVERAGE_GAP",
+      "prd": "§9.7：至少3个非点名有效运行且零提及",
+      "methodology": "§15：STABLE，默认至少5"
+    },
+    {
+      "rule": "REPEATED_FACT_ERROR",
+      "prd": "§9.7：30天内同一规范化错误声明至少2次",
+      "methodology": "§15：跨至少3个运行"
+    }
+  ],
+  "current_contract": "SamplePolicy(reportable_minimum=3,stable_minimum=5)",
+  "existing_decisions": "ADR-004/GEO-601/GEO-602裁决仅覆盖指标分母、操作质量，不覆盖上述规则默认样本",
+  "resolution": "README §4：业务不变量与指标口径高于PRD；采用指标方法§15。"
+}

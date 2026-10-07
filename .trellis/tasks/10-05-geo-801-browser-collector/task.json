@@ -1,0 +1,39 @@
+{
+  "id": "geo-801-browser-collector",
+  "name": "geo-801-browser-collector",
+  "title": "GEO-801 独立 Browser Collector 服务骨架",
+  "description": "",
+  "status": "completed",
+  "dev_type": "fullstack",
+  "scope": "GEO-801",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-05",
+  "completedAt": "2026-10-05",
+  "branch": "geo/GEO-801",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "browser-collector",
+    "deploy/compose.geo-browser.yaml",
+    "backend/app/services/geo_runs.py"
+  ],
+  "notes": "仅GEO801；不提交/推送/上线，完成后review等待人工接受。 2026-10-05 本会话用户已人工审查并接受GEO-801的实现与测试证据；本次仅记录验收，manifest=done、Trellis=completed，不修改其他任务状态、不实施后续任务，不提交、推送或归档。",
+  "meta": {
+    "audit_id": "20261005T074127Z-geo-801-baa4e4e9",
+    "manifest_status": "done",
+    "delivery_status": "done",
+    "accepted_at": "2026-10-05",
+    "accepted_by": "本会话用户",
+    "accepted_scope": "GEO-801独立Browser Collector服务骨架及Compose profile的实现与已记录测试证据；不包含后续任务。",
+    "acceptance_basis": "用户明确表示：我已经人工审查并接受 GEO-801 的实现与测试证据。",
+    "validation_record": ".trellis/tasks/10-05-geo-801-browser-collector/implement.md"
+  }
+}

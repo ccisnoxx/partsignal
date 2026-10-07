@@ -1,0 +1,4 @@
+Production upgrade 数据所有权与候选绑定校验通过。
+升级失败事实已记录：upf_72ba47eae11a4e759de9d756c62a831d；候选与阶段保持。
+真实 recover-upgrade：阻塞 docker ps 时向父 PID 发 SIGTERM；子孙结束后才释放锁，原子状态字节不变
+SIGTERM ignored：10秒期限内结束整组；退出前锁占用、退出后释放、phase/data未推进

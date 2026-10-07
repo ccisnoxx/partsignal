@@ -1,0 +1,3 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/test-geo-browser.py --runtime
+Compose dev/staging/prod：默认无Browser；profile/资源/网络/凭据隔离通过
+真实容器：sandbox离线DOM健康、默认up零容器、非root/资源/网络、热kill、显式拒绝、正常停止通过

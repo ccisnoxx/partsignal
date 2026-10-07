@@ -1,0 +1,66 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+B009 [*] Do not call `getattr` with a constant attribute value. It is not any safer than normal property access.
+  --> backend/app/services/geo_analysis_queries.py:77:47
+   |
+75 |         (GeoCitationClassification, GeoCitationClassificationOut, "citations"),
+76 |     ):
+77 |         rows = db.scalars(select(model).where(getattr(model, "analysis_revision_id").in_(results)))
+   |                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+78 |         for row in rows:
+79 |             getattr(results[getattr(row, "analysis_revision_id")], field).append(
+   |
+help: Replace `getattr` with attribute access
+
+B009 [*] Do not call `getattr` with a constant attribute value. It is not any safer than normal property access.
+  --> backend/app/services/geo_analysis_queries.py:79:29
+   |
+77 |         rows = db.scalars(select(model).where(getattr(model, "analysis_revision_id").in_(results)))
+78 |         for row in rows:
+79 |             getattr(results[getattr(row, "analysis_revision_id")], field).append(
+   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+80 |                 schema.model_validate(row)
+81 |             )
+   |
+help: Replace `getattr` with attribute access
+
+E501 Line too long (111 > 100)
+  --> backend/tests/integration/test_geo_reviews.py:54:101
+   |
+52 |                         "run_id=:id"
+53 |                         if name in {"geo_answer_snapshots", "geo_analysis_revisions"}
+54 |                         else "analysis_revision_id IN (SELECT id FROM geo_analysis_revisions WHERE run_id=:id)"
+   |                                                                                                     ^^^^^^^^^^^
+55 |                     )
+56 |                 ),
+   |
+
+I001 [*] Import block is un-sorted or un-formatted
+  --> backend/tests/unit/test_geo_review_contract.py:3:1
+   |
+ 1 |   """复核命令复用闭合correction，拒绝自由JSON和伪造追溯字段。"""
+ 2 |
+ 3 | / from uuid import uuid4
+ 4 | |
+ 5 | | import pytest
+ 6 | | from pydantic import TypeAdapter, ValidationError
+ 7 | |
+ 8 | | from app.schemas.geo_reviews import GeoRunReviewCreated, GeoRunReviewRequest
+ 9 | | from tests.unit.test_geo_analysis_contract import corrections
+10 | | from tests.unit.test_geo_run_contract import contract as contract
+11 | | from tests.unit.test_geo_run_contract import annotations_removed, validate
+   | |__________________________________________________________________________^
+   |
+help: Organize imports
+
+E501 Line too long (110 > 100)
+  --> backend/tests/unit/test_geo_review_contract.py:20:101
+   |
+18 |     assert contract["components"]["schemas"][model.__name__] == schema
+19 |     for name, definition in definitions.items():
+20 |         assert annotations_removed(contract["components"]["schemas"][name]) == annotations_removed(definition)
+   |                                                                                                     ^^^^^^^^^^
+   |
+
+Found 5 errors.
+[*] 3 fixable with the `--fix` option.
+make: *** [lint] Error 1

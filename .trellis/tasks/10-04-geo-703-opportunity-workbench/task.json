@@ -1,0 +1,43 @@
+{
+  "id": "geo-703-opportunity-workbench",
+  "name": "geo-703-opportunity-workbench",
+  "title": "GEO-703：Opportunity API、读模型和工作台",
+  "description": "",
+  "status": "completed",
+  "dev_type": "fullstack",
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-04",
+  "completedAt": "2026-10-04",
+  "branch": "geo/GEO-703",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "contracts/openapi.yaml",
+    "contracts/database.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml"
+  ],
+  "notes": "2026-10-04 本会话用户已人工审查并接受GEO-703实现与测试证据；本次仅记录验收，manifest=done、Trellis=completed，不修改其他任务状态、不实施后续任务，不提交或归档。",
+  "meta": {
+    "geo_task_id": "GEO-703",
+    "release": "R6",
+    "manifest_status": "done",
+    "dependencies_verified": {
+      "GEO-702": "done"
+    },
+    "delivery_status": "done",
+    "accepted_at": "2026-10-04",
+    "accepted_by": "本会话用户",
+    "accepted_scope": "GEO-703列表、详情、ack/dismiss、历史证据、服务端状态与动作、URL筛选及Drawer和已记录的实现与测试证据；不包含后续任务。",
+    "acceptance_basis": "用户明确表示：我已经人工审查并接受 GEO-703 的实现与测试证据。",
+    "validation_record": ".trellis/tasks/10-04-geo-703-opportunity-workbench/implement.md"
+  }
+}

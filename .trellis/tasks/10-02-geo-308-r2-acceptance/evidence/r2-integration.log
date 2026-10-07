@@ -1,0 +1,253 @@
+..................F.                                                     [100%]
+=================================== FAILURES ===================================
+_____ test_committed_cancelled_run_cannot_accept_late_result[late_answer] ______
+
+self = <sqlalchemy.engine.base.Connection object at 0x11696c740>
+dialect = <sqlalchemy.dialects.postgresql.psycopg.PGDialect_psycopg object at 0x111313560>
+context = <sqlalchemy.dialects.postgresql.psycopg.PGExecutionContext_psycopg object at 0x11696de50>
+statement = <sqlalchemy.dialects.postgresql.psycopg.PGCompiler_psycopg object at 0x11696fb90>
+parameters = [{'id': UUID('83ae25d5-8738-4a42-bdf5-86fb07b46cf5'), 'run': UUID('65fefe88-3a84-4acd-a9da-4396de31a9a6'), 'source': UUID('11b90204-abcb-49e6-b353-a24a986912eb')}]
+
+    def _exec_single_context(
+        self,
+        dialect: Dialect,
+        context: ExecutionContext,
+        statement: Union[str, Compiled],
+        parameters: Optional[_AnyMultiExecuteParams],
+    ) -> CursorResult[Any]:
+        """continue the _execute_context() method for a single DBAPI
+        cursor.execute() or cursor.executemany() call.
+    
+        """
+        if dialect.bind_typing is BindTyping.SETINPUTSIZES:
+            generic_setinputsizes = context._prepare_set_input_sizes()
+    
+            if generic_setinputsizes:
+                try:
+                    dialect.do_set_input_sizes(
+                        context.cursor, generic_setinputsizes, context
+                    )
+                except BaseException as e:
+                    self._handle_dbapi_exception(
+                        e, str(statement), parameters, None, context
+                    )
+    
+        cursor, str_statement, parameters = (
+            context.cursor,
+            context.statement,
+            context.parameters,
+        )
+    
+        effective_parameters: Optional[_AnyExecuteParams]
+    
+        if not context.executemany:
+            effective_parameters = parameters[0]
+        else:
+            effective_parameters = parameters
+    
+        if self._has_events or self.engine._has_events:
+            for fn in self.dispatch.before_cursor_execute:
+                str_statement, effective_parameters = fn(
+                    self,
+                    cursor,
+                    str_statement,
+                    effective_parameters,
+                    context,
+                    context.executemany,
+                )
+    
+        if self._echo:
+            self._log_info(str_statement)
+    
+            stats = context._get_cache_stats()
+    
+            if not self.engine.hide_parameters:
+                self._log_info(
+                    "[%s] %r",
+                    stats,
+                    sql_util._repr_params(
+                        effective_parameters,
+                        batches=10,
+                        ismulti=context.executemany,
+                    ),
+                )
+            else:
+                self._log_info(
+                    "[%s] [SQL parameters hidden due to hide_parameters=True]",
+                    stats,
+                )
+    
+        evt_handled: bool = False
+        try:
+            if context.execute_style is ExecuteStyle.EXECUTEMANY:
+                effective_parameters = cast(
+                    "_CoreMultiExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_executemany:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_executemany(
+                        cursor,
+                        str_statement,
+                        effective_parameters,
+                        context,
+                    )
+            elif not effective_parameters and context.no_parameters:
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute_no_params:
+                        if fn(cursor, str_statement, context):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+                    self.dialect.do_execute_no_params(
+                        cursor, str_statement, context
+                    )
+            else:
+                effective_parameters = cast(
+                    "_CoreSingleExecuteParams", effective_parameters
+                )
+                if self.dialect._has_events:
+                    for fn in self.dialect.dispatch.do_execute:
+                        if fn(
+                            cursor,
+                            str_statement,
+                            effective_parameters,
+                            context,
+                        ):
+                            evt_handled = True
+                            break
+                if not evt_handled:
+>                   self.dialect.do_execute(
+                        cursor, str_statement, effective_parameters, context
+                    )
+
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Cursor [closed] [IDLE] (host=127.0.0.1 port=55458 user=partsignal database=partsignal_geo208_8663e876c7) at 0x11174a090>
+query = "INSERT INTO geo_answer_snapshots SELECT (jsonb_populate_record(NULL::geo_answer_snapshots, to_jsonb(a) || jsonb_build_object('id',CAST(%(id)s AS text),'run_id',CAST(%(run)s AS text)))).* FROM geo_answer_snapshots a WHERE run_id=%(source)s"
+params = {'id': UUID('83ae25d5-8738-4a42-bdf5-86fb07b46cf5'), 'run': UUID('65fefe88-3a84-4acd-a9da-4396de31a9a6'), 'source': UUID('11b90204-abcb-49e6-b353-a24a986912eb')}
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool | None = None,
+    ) -> Self:
+        """
+        Execute a query or command to the database.
+        """
+        try:
+            with self._conn.lock:
+                self._conn.wait(
+                    self._execute_gen(query, params, prepare=prepare, binary=binary)
+                )
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           psycopg.errors.GeneratedAlways: cannot insert a non-DEFAULT value into column "answer_sha256"
+E           DETAIL:  Column "answer_sha256" is a generated column.
+
+backend/.venv/lib/python3.12/site-packages/psycopg/cursor.py:117: GeneratedAlways
+
+The above exception was the direct cause of the following exception:
+
+plans_api = PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@127.0.0.1:55458/partsignal_geo208_8663e876...8c860accf8a9'), surface=UUID('a8341fb9-07ca-4efc-a8bc-7a1f01e85bfc'), name='虚构计划-c02a0992-ebd1-4b99-b9bc-e0ec326957a3')
+attack = 'late_answer'
+
+    @pytest.mark.parametrize("attack", ["late_answer", "reopen"])
+    def test_committed_cancelled_run_cannot_accept_late_result(plans_api, attack):
+        api = plans_api
+        source, cancelled = batch_run(api, repeats=2)
+        file_id, _ = evidence(api)
+        assert submit(api, source, payload(source, screenshot_file_id=str(file_id))).status_code == 201
+        with api.api.factory() as db:
+            cancel_storage_writer(db, cancelled)
+        before = committed_facts(api, cancelled, file_id)
+        with api.api.factory() as db:
+            # PostgreSQL 行锁的合法同值更新不改历史，真实修改仍必须被拒绝。
+            db.execute(
+                text("UPDATE geo_observation_runs SET revision=revision WHERE id=:id"),
+                {"id": cancelled.id},
+            )
+            db.commit()
+            with pytest.raises(IntegrityError) as raised:
+                if attack == "late_answer":
+>                   db.execute(
+                        text(
+                            "INSERT INTO geo_answer_snapshots SELECT "
+                            "(jsonb_populate_record(NULL::geo_answer_snapshots, to_jsonb(a) || "
+                            "jsonb_build_object('id',CAST(:id AS text),'run_id',CAST(:run AS text)))).* "
+                            "FROM geo_answer_snapshots a WHERE run_id=:source"
+                        ),
+                        {"id": uuid4(), "run": cancelled.id, "source": source.id},
+                    )
+
+backend/tests/integration/test_geo_r2_immutability.py:184: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2373: in execute
+    return self._execute_internal(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/orm/session.py:2280: in _execute_internal
+    result = conn.execute(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1421: in execute
+    return meth(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py:526: in _execute_on_connection
+    return connection._execute_clauseelement(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1643: in _execute_clauseelement
+    ret = self._execute_context(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1848: in _execute_context
+    return self._exec_single_context(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1988: in _exec_single_context
+    self._handle_dbapi_exception(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:2365: in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py:1969: in _exec_single_context
+    self.dialect.do_execute(
+backend/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+    cursor.execute(statement, parameters)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <psycopg.Cursor [closed] [IDLE] (host=127.0.0.1 port=55458 user=partsignal database=partsignal_geo208_8663e876c7) at 0x11174a090>
+query = "INSERT INTO geo_answer_snapshots SELECT (jsonb_populate_record(NULL::geo_answer_snapshots, to_jsonb(a) || jsonb_build_object('id',CAST(%(id)s AS text),'run_id',CAST(%(run)s AS text)))).* FROM geo_answer_snapshots a WHERE run_id=%(source)s"
+params = {'id': UUID('83ae25d5-8738-4a42-bdf5-86fb07b46cf5'), 'run': UUID('65fefe88-3a84-4acd-a9da-4396de31a9a6'), 'source': UUID('11b90204-abcb-49e6-b353-a24a986912eb')}
+
+    def execute(
+        self,
+        query: Query,
+        params: Params | None = None,
+        *,
+        prepare: bool | None = None,
+        binary: bool | None = None,
+    ) -> Self:
+        """
+        Execute a query or command to the database.
+        """
+        try:
+            with self._conn.lock:
+                self._conn.wait(
+                    self._execute_gen(query, params, prepare=prepare, binary=binary)
+                )
+        except e._NO_TRACEBACK as ex:
+>           raise ex.with_traceback(None)
+E           sqlalchemy.exc.ProgrammingError: (psycopg.errors.GeneratedAlways) cannot insert a non-DEFAULT value into column "answer_sha256"
+E           DETAIL:  Column "answer_sha256" is a generated column.
+E           [SQL: INSERT INTO geo_answer_snapshots SELECT (jsonb_populate_record(NULL::geo_answer_snapshots, to_jsonb(a) || jsonb_build_object('id',CAST(%(id)s AS text),'run_id',CAST(%(run)s AS text)))).* FROM geo_answer_snapshots a WHERE run_id=%(source)s]
+E           [parameters: {'id': UUID('83ae25d5-8738-4a42-bdf5-86fb07b46cf5'), 'run': UUID('65fefe88-3a84-4acd-a9da-4396de31a9a6'), 'source': UUID('11b90204-abcb-49e6-b353-a24a986912eb')}]
+E           (Background on this error at: https://sqlalche.me/e/20/f405)
+
+backend/.venv/lib/python3.12/site-packages/psycopg/cursor.py:117: ProgrammingError
+=========================== short test summary info ============================
+FAILED backend/tests/integration/test_geo_r2_immutability.py::test_committed_cancelled_run_cannot_accept_late_result[late_answer]
+1 failed, 19 passed in 3.99s

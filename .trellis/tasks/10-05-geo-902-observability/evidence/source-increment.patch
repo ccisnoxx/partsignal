@@ -1,0 +1,4233 @@
+--- /dev/null
++++ b/backend/alembic/versions/0065_geo_observability.py
+@@ -0,0 +1,43 @@
++"""GEO有限运行健康元数据；加法迁移，不回填或修改业务历史。"""
++
++from alembic import op
++
++revision = "0065_geo_observability"
++down_revision = "0064_geo_retention"
++branch_labels = None
++depends_on = None
++
++
++def upgrade() -> None:
++    op.execute("SET LOCAL lock_timeout = '5s'")
++    op.execute("SET LOCAL statement_timeout = '120s'")
++    # 冻结本revision的枚举，不导入未来运行时模型。
++    op.execute("""CREATE TABLE geo_operation_health (
++        operation varchar(32) CONSTRAINT pk_geo_operation_health PRIMARY KEY,
++        last_attempt_at timestamptz NOT NULL,
++        last_success_at timestamptz,
++        last_failure_at timestamptz,
++        success_count bigint NOT NULL DEFAULT 0,
++        failure_count bigint NOT NULL DEFAULT 0,
++        duration_ms bigint NOT NULL DEFAULT 0,
++        duration_total_ms bigint NOT NULL DEFAULT 0,
++        CONSTRAINT ck_geo_operation_health_operation CHECK (operation IN (
++            'scheduler_tick','scheduler_publish','worker_heartbeat','collect_task','analyze_task',
++            'collection_dispatch','collection_recovery','analysis_dispatch','analysis_recovery',
++            'retention','batch_build','opportunity_evaluate','storage_write')),
++        CONSTRAINT ck_geo_operation_health_counts CHECK (
++            success_count >= 0 AND failure_count >= 0 AND duration_ms >= 0
++            AND duration_total_ms >= duration_ms),
++        CONSTRAINT ck_geo_operation_health_time CHECK (
++            (last_success_at IS NULL) = (success_count = 0) AND
++            (last_failure_at IS NULL) = (failure_count = 0) AND
++            (last_success_at IS NULL OR last_success_at <= last_attempt_at) AND
++            (last_failure_at IS NULL OR last_failure_at <= last_attempt_at))
++    )""")
++
++
++def downgrade() -> None:
++    op.execute("""DO $$ BEGIN
++        RAISE EXCEPTION '0065 运维故障事实须保留；停止采集并采用前向修复'
++            USING ERRCODE='55000';
++    END $$;""")
+--- /dev/null
++++ b/backend/app/geo_observability.py
+@@ -0,0 +1,50 @@
++"""受保护运维CLI；无公开HTTP路由，无网络provider或对象写探针。"""
++
++import argparse
++import json
++import sys
++
++from sqlalchemy.orm import Session
++
++from app.geo_ops_health import component_health
++from app.services.geo_ops_metrics import render_metrics
++from app.services.geo_ops_queries import read_snapshot
++from app.services.geo_ops_runtime import observability_engine
++
++
++def main() -> None:
++    parser = argparse.ArgumentParser(description="GEO低敏运维指标与本机健康")
++    commands = parser.add_subparsers(dest="command", required=True)
++    commands.add_parser("snapshot", help="只读JSON诊断（包含有限稳定ID，仅限运维）")
++    commands.add_parser("metrics", help="Prometheus textfile，无业务资源ID标签")
++    health = commands.add_parser("health", help="本机循环/PG/Redis/Celery健康")
++    health.add_argument("component", choices=["worker", "scheduler"])
++    args = parser.parse_args()
++    try:
++        if args.command == "health":
++            result = component_health(args.component)
++            print(json.dumps(result, ensure_ascii=False, sort_keys=True))
++            raise SystemExit(0 if result["status"] == "ok" else 1)
++        engine = observability_engine()
++        try:
++            with Session(bind=engine) as db:
++                snapshot = read_snapshot(db)
++        finally:
++            engine.dispose()
++        print(
++            render_metrics(snapshot)
++            if args.command == "metrics"
++            else json.dumps(snapshot, ensure_ascii=False, sort_keys=True)
++        )
++    except Exception:
++        # metrics失败必须撤销成功信号，采集方即使exit1也应原子替换textfile。
++        if args.command == "metrics":
++            print("# TYPE geo_observability_up gauge\ngeo_observability_up 0")
++        else:
++            print('{"status":"unavailable","error_code":"OBSERVABILITY_UNAVAILABLE"}')
++        print("GEO运维观测不可用；检查数据库/schema与固定健康字段。", file=sys.stderr)
++        raise SystemExit(1) from None
++
++
++if __name__ == "__main__":
++    main()
+--- /dev/null
++++ b/backend/app/geo_ops_health.py
+@@ -0,0 +1,198 @@
++"""本机进程健康：活跃循环、PG、Broker与注册目录，不用业务低表现裁决健康。"""
++
++import json
++import os
++import socket
++from datetime import datetime
++from pathlib import Path
++from time import monotonic
++from typing import Any, Literal
++
++from celery import signals
++from celery.beat import PersistentScheduler
++from redis import Redis
++from sqlalchemy import func, select, text
++from sqlalchemy.orm import Session
++
++from app.collectors.registry import collector_registry
++from app.config import settings
++from app.models.geo_observability import GeoOperationHealth
++from app.services.geo_ops_logging import OpsError, geo_event
++from app.services.geo_ops_runtime import observability_engine, record_operation
++
++HEARTBEAT_SECONDS = 30
++HEALTH_MAX_AGE_SECONDS = 90
++type Component = Literal["worker", "scheduler"]
++
++
++def heartbeat_file(component: Component) -> Path:
++    return Path(f"/tmp/partsignal-{component}-heartbeat.json")
++
++
++def _local_heartbeat(component: Component) -> None:
++    path = heartbeat_file(component)
++    temporary = path.with_suffix(f".{os.getpid()}.tmp")
++    try:
++        # monotonic仅用于同机存活检测；PG UTC时间用于跨进程指标。
++        temporary.write_text(json.dumps({"pid": os.getpid(), "monotonic": monotonic()}))
++        temporary.chmod(0o600)
++        temporary.replace(path)
++    finally:
++        temporary.unlink(missing_ok=True)
++
++
++@signals.heartbeat_sent.connect(weak=False)  # type: ignore[untyped-decorator]
++def worker_heartbeat(sender: Any = None, **kwargs: Any) -> None:
++    if sender is None:
++        return
++    now = monotonic()
++    if now - getattr(sender, "_geo_last_observed", float("-inf")) < HEARTBEAT_SECONDS:
++        return
++    sender._geo_last_observed = now
++    if record_operation("worker_heartbeat", succeeded=True):
++        try:
++            _local_heartbeat("worker")
++        except OSError:
++            geo_event(
++                event="observation_write_failed",
++                stage="OBSERVABILITY",
++                status="FAILED",
++                error_code=OpsError.OBSERVABILITY_WRITE_FAILED,
++            )
++
++
++class GeoHealthScheduler(PersistentScheduler):  # type: ignore[misc]
++    """实际tick与publish分别观测；不新增计划扫描或机会评估任务。"""
++
++    _last_observed = float("-inf")
++
++    def _ensure_connected(self) -> Any:
++        def fixed_error(_error: Any, _interval: Any) -> None:
++            geo_event(
++                event="scheduler_publish",
++                stage="SCHEDULER",
++                status="FAILED",
++                error_code=OpsError.BROKER_UNAVAILABLE,
++            )
++
++        # 保留Celery的retry目录/次数；回调不打印Broker异常正文。
++        return self.connection.ensure_connection(
++            fixed_error, self.app.conf.broker_connection_max_retries
++        )
++
++    def tick(self, *args: Any, **kwargs: Any) -> float:
++        try:
++            delay: float = super().tick(*args, **kwargs)
++        except Exception:
++            # producer在进入apply_entry之前建立连接；该路径也必须去掉原始异常链。
++            record_operation("scheduler_tick", succeeded=False)
++            geo_event(
++                event="scheduler_publish",
++                stage="SCHEDULER",
++                status="FAILED",
++                error_code=OpsError.BROKER_UNAVAILABLE,
++            )
++            raise RuntimeError("GEO Scheduler循环失败，按稳定运维事件排障") from None
++        now = monotonic()
++        if now - self._last_observed >= HEARTBEAT_SECONDS:
++            self._last_observed = now
++            if record_operation("scheduler_tick", succeeded=True):
++                try:
++                    _local_heartbeat("scheduler")
++                except OSError:
++                    geo_event(
++                        event="observation_write_failed",
++                        stage="OBSERVABILITY",
++                        status="FAILED",
++                        error_code=OpsError.OBSERVABILITY_WRITE_FAILED,
++                    )
++        return min(delay, float(HEARTBEAT_SECONDS))
++
++    def apply_entry(self, entry: Any, producer: Any = None) -> None:
++        started = monotonic()
++        succeeded = False
++        try:
++            self.apply_async(entry, producer=producer, advance=False)
++            succeeded = True
++        except Exception:
++            # Celery默认apply_entry会打印SchedulingError正文和链；可能含Broker凭据。
++            # 保持它的捕获语义与schedule推进，只改变安全日志。
++            geo_event(
++                event="scheduler_publish",
++                stage="SCHEDULER",
++                status="FAILED",
++                error_code=OpsError.BROKER_UNAVAILABLE,
++            )
++        finally:
++            record_operation(
++                "scheduler_publish",
++                succeeded=succeeded,
++                duration_ms=max(0, int((monotonic() - started) * 1000)),
++            )
++
++
++def component_health(component: Component) -> dict[str, object]:
++    """每项失败固定代码；绝不输出连接URL、异常或配置值。"""
++    checks: dict[str, bool] = {}
++    try:
++        local = json.loads(heartbeat_file(component).read_text())
++        pid = int(
++            Path(
++                f"/tmp/partsignal-{'beat' if component == 'scheduler' else 'worker'}.pid"
++            ).read_text()
++        )
++        os.kill(pid, 0)
++        age = monotonic() - local["monotonic"]
++        checks["local_heartbeat"] = local["pid"] == pid and 0 <= age <= HEALTH_MAX_AGE_SECONDS
++    except (OSError, ValueError, KeyError, TypeError):
++        checks["local_heartbeat"] = False
++    engine = None
++    try:
++        engine = observability_engine()
++        with Session(bind=engine) as db:
++            db.execute(text("SET LOCAL statement_timeout = '2s'"))
++            db.execute(text("SELECT 1"))
++            row = db.get(
++                GeoOperationHealth,
++                "scheduler_tick" if component == "scheduler" else "worker_heartbeat",
++            )
++            clock = db.scalar(select(func.clock_timestamp()))
++            assert isinstance(clock, datetime)
++            checks["postgres"] = True
++            checks["observed_heartbeat"] = (
++                row is not None
++                and row.last_success_at is not None
++                and 0 <= (clock - row.last_success_at).total_seconds() <= HEALTH_MAX_AGE_SECONDS
++            )
++    except Exception:
++        checks["postgres"] = checks["observed_heartbeat"] = False
++    finally:
++        if engine is not None:
++            engine.dispose()
++    try:
++        with Redis.from_url(
++            settings.redis_url, socket_connect_timeout=2, socket_timeout=2
++        ) as redis:
++            checks["redis"] = bool(redis.ping())
++    except Exception:
++        checks["redis"] = False
++    try:
++        collector_registry.resolve("manual")
++        collector_registry.resolve("openai-compatible-chat")
++        checks["collector_registry"] = True
++    except LookupError:
++        checks["collector_registry"] = False
++    if component == "worker":
++        try:
++            from app.worker import celery_app
++
++            name = f"celery@{socket.gethostname()}"
++            reply = celery_app.control.inspect(destination=[name], timeout=2).ping()
++            checks["celery_ping"] = bool(reply and reply.get(name, {}).get("ok") == "pong")
++        except Exception:
++            checks["celery_ping"] = False
++    return {
++        "component": component,
++        "status": "ok" if all(checks.values()) else "unhealthy",
++        "checks": checks,
++    }
+--- a/backend/app/models/__init__.py
++++ b/backend/app/models/__init__.py
+@@ -13,6 +13,7 @@
+ import app.models.geo_files  # noqa: F401
+ import app.models.geo_manual_collection  # noqa: F401
+ import app.models.geo_monitoring_plans  # noqa: F401
++import app.models.geo_observability  # noqa: F401
+ import app.models.geo_opportunities  # noqa: F401
+ import app.models.geo_opportunity_decisions  # noqa: F401
+ import app.models.geo_prompt_variants  # noqa: F401
+--- /dev/null
++++ b/backend/app/models/geo_observability.py
+@@ -0,0 +1,56 @@
++"""有界运维执行事实；不拥有业务状态或业务审计。"""
++
++from datetime import datetime
++
++from sqlalchemy import BigInteger, CheckConstraint, DateTime, String
++from sqlalchemy.orm import Mapped, mapped_column
++from sqlalchemy.schema import conv
++
++from app.db import Base
++
++OPERATIONS = (
++    "scheduler_tick",
++    "scheduler_publish",
++    "worker_heartbeat",
++    "collect_task",
++    "analyze_task",
++    "collection_dispatch",
++    "collection_recovery",
++    "analysis_dispatch",
++    "analysis_recovery",
++    "retention",
++    "batch_build",
++    "opportunity_evaluate",
++    "storage_write",
++)
++
++
++class GeoOperationHealth(Base):
++    __tablename__ = "geo_operation_health"
++    __table_args__ = (
++        CheckConstraint(
++            "operation IN (" + ",".join(f"'{value}'" for value in OPERATIONS) + ")",
++            name=conv("ck_geo_operation_health_operation"),
++        ),
++        CheckConstraint(
++            "success_count >= 0 AND failure_count >= 0 AND duration_ms >= 0 "
++            "AND duration_total_ms >= duration_ms",
++            name=conv("ck_geo_operation_health_counts"),
++        ),
++        CheckConstraint(
++            "(last_success_at IS NULL) = (success_count = 0) AND "
++            "(last_failure_at IS NULL) = (failure_count = 0) AND "
++            "(last_success_at IS NULL OR last_success_at <= last_attempt_at) AND "
++            "(last_failure_at IS NULL OR last_failure_at <= last_attempt_at)",
++            name=conv("ck_geo_operation_health_time"),
++        ),
++    )
++
++    operation: Mapped[str] = mapped_column(String(32), primary_key=True)
++    last_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
++    last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
++    last_failure_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
++    success_count: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="0")
++    failure_count: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="0")
++    duration_ms: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="0")
++    duration_total_ms: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="0")
+--- a/backend/app/services/file_records.py
++++ b/backend/app/services/file_records.py
+@@ -24,6 +24,7 @@
+ from app.models.publication import PublicationAttachment
+ from app.schemas.geo_files import UploadInstruction, UploadIntent, UploadIntentCreate
+ from app.schemas.publication import FileRecordOut
++from app.services.geo_ops_runtime import observe
+ from app.services.storage import (
+     EvidenceStorage,
+     StorageObjectMissing,
+@@ -143,6 +144,7 @@
+     return size_limit
+ 
+ 
++@observe("storage_write", "STORAGE")
+ def upload_file_content(
+     *, db: Session, file_id: uuid.UUID, actor: User, data: bytes
+ ) -> None:
+--- a/backend/app/services/geo_analysis_dispatch.py
++++ b/backend/app/services/geo_analysis_dispatch.py
+@@ -1,6 +1,5 @@
+ """数据库驱动的分析派发与过期失败；Broker 只保存稳定 UUID。"""
+ 
+-import logging
+ from collections.abc import Callable
+ from datetime import datetime, timedelta
+ from enum import StrEnum
+@@ -15,9 +14,9 @@
+ from app.models.geo_analysis_worker import GeoAnalysisJob
+ from app.models.geo_runs import GeoObservationRun
+ from app.services.geo_analysis_runs import finish_failure, lock_analysis, prepare_collected_run
++from app.services.geo_ops_logging import OpsError, geo_event
+ from app.services.geo_run_lifecycle import database_now
+ 
+-logger = logging.getLogger("partsignal.worker")
+ type AnalysisSender = Callable[[str], object]
+ 
+ 
+@@ -31,8 +30,9 @@
+     try:
+         sender(str(identity))
+         return True
+-    except Exception as error:
+-        logger.warning("GEO 分析投递失败 id=%s error_type=%s", identity, type(error).__name__)
++    except Exception:
++        geo_event(event="dispatch_failed", stage="ANALYSIS", status="FAILED",
++                  analysis_id=identity, error_code=OpsError.BROKER_UNAVAILABLE)
+         return False
+ 
+ 
+@@ -68,8 +68,9 @@
+             status = db.scalar(
+                 select(GeoObservationRun.status).where(GeoObservationRun.id == run_id)
+             )
+-    except DBAPIError as error:
+-        logger.error("GEO 分析投递读取失败 run_id=%s error_type=%s", run_id, type(error).__name__)
++    except DBAPIError:
++        geo_event(event="dispatch_failed", stage="ANALYSIS", status="FAILED",
++                  run_id=run_id, error_code=OpsError.DATABASE_UNAVAILABLE)
+         return False
+     return status == "COLLECTED" and publish(run_id, sender)
+ 
+@@ -94,10 +95,9 @@
+     for run_id in collected:
+         try:
+             prepare_collected_run(run_id)
+-        except Exception as error:
+-            logger.error(
+-                "GEO 分析装配扫描失败 run_id=%s error_type=%s", run_id, type(error).__name__
+-            )
++        except Exception:
++            geo_event(event="dispatch_failed", stage="ANALYSIS", status="FAILED",
++                      run_id=run_id, error_code=OpsError.OPERATION_FAILED)
+     a, j = GeoAnalysisRevision, GeoAnalysisJob
+     with SessionLocal() as db:
+         ids = list(
+--- a/backend/app/services/geo_analysis_runs.py
++++ b/backend/app/services/geo_analysis_runs.py
+@@ -1,6 +1,5 @@
+ """分析生命周期事务 owner；输入冻结、claim 与结果提交均以数据库事实仲裁。"""
+ 
+-import logging
+ from dataclasses import dataclass
+ from datetime import datetime, timedelta
+ from uuid import UUID, uuid4
+@@ -17,10 +16,10 @@
+ from app.schemas.geo_runs import GeoRunStatus
+ from app.services import geo_analysis_execution as execution
+ from app.services.geo_analysis_inputs import prepare_revision
++from app.services.geo_ops_logging import OpsError, geo_event
+ from app.services.geo_run_lifecycle import database_now, lock_run, refresh_batch, run_state
+ from app.services.geo_run_policy import run_transition
+ 
+-logger = logging.getLogger("partsignal.worker")
+ # 有限本地计算的租约；不是外部 provider 超时或新的配置能力。
+ ANALYSIS_LEASE_SECONDS = 300
+ FAILURE_SUMMARY = "分析执行或提交失败，原始回答已保留，可显式重新分析"
+@@ -198,29 +197,30 @@
+             assert analysis is not None
+             value = execution.load_analysis_input(db, analysis)
+         result = execution.analyze(value)
+-        submit_analysis_result(lease, result)
+-    except Exception as error:
++        accepted = submit_analysis_result(lease, result)
++        geo_event(event="analysis_finished", stage="ANALYSIS",
++                  status="SUCCEEDED" if accepted else "SKIPPED", run_id=lease.run_id,
++                  analysis_id=analysis_id)
++    except Exception:
+         # 插入/提交异常已经回滚；安全失败摘要不包含答案/事实/SQL/原始异常。
+         try:
+             submit_analysis_failure(lease)
+-        except DBAPIError as recording_error:
+-            logger.error(
+-                "GEO 分析失败记录未提交 analysis_id=%s error_type=%s recording_error_type=%s",
+-                analysis_id,
+-                type(error).__name__,
+-                type(recording_error).__name__,
+-            )
++        except DBAPIError:
++            geo_event(event="analysis_finished", stage="ANALYSIS", status="FAILED",
++                      analysis_id=analysis_id, error_code=OpsError.DATABASE_UNAVAILABLE)
+             # 明确失败且保留原 lease，数据库恢复后的过期扫描负责终结；不泄露异常链中的正文。
+             raise RuntimeError("分析失败记录未提交，等待数据库恢复后过期扫描终结") from None
+-        logger.error("GEO 分析失败 analysis_id=%s error_type=%s", analysis_id, type(error).__name__)
++        geo_event(event="analysis_finished", stage="ANALYSIS", status="FAILED",
++                  analysis_id=analysis_id, error_code=OpsError.OPERATION_FAILED)
+ 
+ 
+ def process_analysis_run(run_id: UUID) -> None:
+     try:
+         identity = prepare_collected_run(run_id)
+-    except DBAPIError as error:
++    except DBAPIError:
+         # RR 竞争和数据库故障由下次扫描读取新事实；不能伪造已创建 revision。
+-        logger.error("GEO 分析输入装配失败 run_id=%s error_type=%s", run_id, type(error).__name__)
++        geo_event(event="analysis_finished", stage="ANALYSIS", status="FAILED",
++                  run_id=run_id, error_code=OpsError.DATABASE_UNAVAILABLE)
+         return
+     if identity is not None:
+         process_analysis_revision(identity)
+--- a/backend/app/services/geo_batches.py
++++ b/backend/app/services/geo_batches.py
+@@ -33,6 +33,7 @@
+ from app.services.geo_batch_snapshots import freeze_inputs
+ from app.services.geo_collector_eligibility import GeoRuntimeSwitches
+ from app.services.geo_dispatch import dispatch_created_batch
++from app.services.geo_ops_runtime import observe
+ from app.services.geo_plan_configuration import canonical_configuration
+ from app.services.geo_plan_locks import command, lock_plan, lock_resources
+ from app.services.geo_plan_policy import require_eligible, require_mutable, require_references
+@@ -213,6 +214,7 @@
+     return batch
+ 
+ 
++@observe("batch_build", "BATCH")
+ def create_manual_batch(
+     *,
+     db: Session,
+@@ -261,6 +263,7 @@
+         return result
+ 
+ 
++@observe("batch_build", "BATCH")
+ def create_scheduled_batch(
+     *,
+     db: Session,
+--- a/backend/app/services/geo_dispatch.py
++++ b/backend/app/services/geo_dispatch.py
+@@ -1,6 +1,5 @@
+ """提交后投递与数据库补投递；只有未发送的 PENDING 可入队。"""
+ 
+-import logging
+ from collections.abc import Callable
+ from datetime import datetime, timedelta
+ from uuid import UUID
+@@ -12,6 +11,7 @@
+ from app.db import SessionLocal
+ from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
+ from app.services import geo_collection_admission as admission
++from app.services.geo_ops_logging import OpsError, geo_event
+ from app.services.geo_run_lifecycle import (
+     database_now,
+     fail_run,
+@@ -20,7 +20,6 @@
+     refresh_batch,
+ )
+ 
+-logger = logging.getLogger("partsignal.worker")
+ type RunSender = Callable[[str], object]
+ 
+ 
+@@ -43,8 +42,9 @@
+     try:
+         sender(str(run_id))
+         return True
+-    except Exception as error:
+-        logger.warning("GEO 投递失败 run_id=%s error_type=%s", run_id, type(error).__name__)
++    except Exception:
++        geo_event(event="dispatch_failed", stage="COLLECTION", status="FAILED",
++                  run_id=run_id, error_code=OpsError.BROKER_UNAVAILABLE)
+         return False
+ 
+ 
+@@ -78,11 +78,10 @@
+                 _reserve(run, now)
+         db.commit()
+ 
+-    except Exception as error:
++    except Exception:
+         db.rollback()
+-        logger.error(
+-            "GEO 首次投递事务失败 batch_id=%s error_type=%s", batch_id, type(error).__name__
+-        )
++        geo_event(event="dispatch_failed", stage="COLLECTION", status="FAILED",
++                  batch_id=batch_id, error_code=OpsError.DATABASE_UNAVAILABLE)
+         return 0
+ 
+     dispatched = 0
+@@ -112,9 +111,10 @@
+             from app.worker import collect_geo_run
+ 
+             dispatch_batch(db, batch_id, collect_geo_run.delay)
+-    except Exception as error:
++    except Exception:
+         db.rollback()
+-        logger.error("GEO 创建后投递失败 batch_id=%s error_type=%s", batch_id, type(error).__name__)
++        geo_event(event="dispatch_failed", stage="COLLECTION", status="FAILED",
++                  batch_id=batch_id, error_code=OpsError.OPERATION_FAILED)
+ 
+ 
+ def _scan_candidates(*, expired: bool, now: datetime) -> list[UUID]:
+--- a/backend/app/services/geo_opportunities.py
++++ b/backend/app/services/geo_opportunities.py
+@@ -30,6 +30,7 @@
+ from app.services.geo_opportunity_policy import OPEN_STATUSES, identity_key
+ from app.services.geo_opportunity_rules import evaluate_rules
+ from app.services.geo_opportunity_types import RuleEvaluation
++from app.services.geo_ops_runtime import observe
+ from app.services.geo_overview_queries import load_inputs
+ from app.services.geo_plan_locks import command
+ from app.services.geo_rule_policy import FrozenRuleSet
+@@ -288,6 +289,7 @@
+     return EvaluationResult(evaluation.id, opportunity_id, disposition, False)
+ 
+ 
++@observe("opportunity_evaluate", "OPPORTUNITY")
+ def evaluate_opportunities(
+     db: Session, filters: GeoOverviewFilters, *, actor: User, request_id: str
+ ) -> list[EvaluationResult]:
+--- /dev/null
++++ b/backend/app/services/geo_ops_logging.py
+@@ -0,0 +1,144 @@
++"""GEO低敏结构日志的唯一字段边界；不接收任意上下文或异常正文。"""
++
++import json
++import logging
++import sys
++from contextlib import suppress
++from decimal import Decimal
++from enum import StrEnum
++from typing import Literal, get_args
++from uuid import UUID
++
++from app.schemas.geo_runs import GeoRunErrorCode
++
++
++class OpsError(StrEnum):
++    OPERATION_FAILED = "OPERATION_FAILED"
++    OPERATION_REJECTED = "OPERATION_REJECTED"
++    BROKER_UNAVAILABLE = "BROKER_UNAVAILABLE"
++    DATABASE_UNAVAILABLE = "DATABASE_UNAVAILABLE"
++    OBSERVABILITY_WRITE_FAILED = "OBSERVABILITY_WRITE_FAILED"
++    STORAGE_UNAVAILABLE = "STORAGE_UNAVAILABLE"
++    LEASE_LOST = "LEASE_LOST"
++    LOGGING_UNAVAILABLE = "LOGGING_UNAVAILABLE"
++
++
++type Stage = Literal[
++    "COLLECTION",
++    "ANALYSIS",
++    "SCHEDULER",
++    "WORKER",
++    "BATCH",
++    "OPPORTUNITY",
++    "STORAGE",
++    "RETENTION",
++    "OBSERVABILITY",
++]
++type Status = Literal["SUCCEEDED", "FAILED", "SKIPPED", "REJECTED", "HEARTBEAT"]
++type Event = Literal[
++    "operation_finished",
++    "dispatch_failed",
++    "collection_finished",
++    "analysis_finished",
++    "lease_lost",
++    "observation_write_failed",
++    "scheduler_publish",
++    "heartbeat",
++    "retention_finished", "logging_sink_failed",
++]
++
++
++def geo_event(
++    *,
++    event: Event,
++    stage: Stage,
++    status: Status,
++    error_code: OpsError | GeoRunErrorCode | None = None,
++    run_id: UUID | None = None,
++    batch_id: UUID | None = None,
++    profile_id: UUID | None = None,
++    analysis_id: UUID | None = None,
++    file_id: UUID | None = None,
++    duration_ms: int | None = None,
++    byte_count: int | None = None,
++    citation_count: int | None = None,
++    prompt_tokens: int | None = None,
++    completion_tokens: int | None = None,
++    total_tokens: int | None = None,
++    cost_amount: Decimal | None = None,
++    cost_currency: str | None = None,
++    selected_count: int | None = None,
++    purged_count: int | None = None,
++    retry_count: int | None = None,
++) -> None:
++    """固定字段和值类型；自由文本、request/provider ID及异常对象不属于日志合同。"""
++    if error_code is not None and not isinstance(error_code, OpsError | GeoRunErrorCode):
++        raise ValueError("GEO日志错误码必须来自固定目录")
++    if (
++        event not in get_args(Event.__value__)
++        or stage not in get_args(Stage.__value__)
++        or status not in get_args(Status.__value__)
++    ):
++        raise ValueError("GEO日志事件、阶段与状态必须来自固定目录")
++    payload: dict[str, object] = {
++        "schema_version": 1,
++        "component": f"partsignal.geo.{stage.lower()}",
++        "event": event,
++        "stage": stage,
++        "status": status,
++        "error_code": error_code,
++    }
++    for name, identity in (
++        ("run_id", run_id),
++        ("batch_id", batch_id),
++        ("profile_id", profile_id),
++        ("analysis_id", analysis_id),
++        ("file_id", file_id),
++    ):
++        if identity is not None:
++            if not isinstance(identity, UUID):
++                raise ValueError("GEO日志资源标识必须是UUID")
++            payload[name] = str(identity)
++    for name, value in (
++        ("duration_ms", duration_ms),
++        ("byte_count", byte_count),
++        ("citation_count", citation_count),
++        ("prompt_tokens", prompt_tokens),
++        ("completion_tokens", completion_tokens),
++        ("total_tokens", total_tokens),
++        ("selected_count", selected_count),
++        ("purged_count", purged_count),
++        ("retry_count", retry_count),
++    ):
++        if value is not None:
++            if type(value) is not int or value < 0:
++                raise ValueError("GEO日志数量必须是非负整数")
++            payload[name] = value
++    if cost_amount is not None or cost_currency is not None:
++        if (
++            not isinstance(cost_amount, Decimal)
++            or not cost_amount.is_finite()
++            or cost_amount < 0
++            or cost_currency is None
++            or len(cost_currency) != 3
++            or not cost_currency.isascii()
++            or not cost_currency.isalpha()
++            or not cost_currency.isupper()
++        ):
++            raise ValueError("GEO日志费用必须是明确的有限金额与三位币种")
++        payload.update(cost_amount=str(cost_amount), cost_currency=cost_currency)
++    logger = logging.getLogger(str(payload["component"]))
++    try:
++        logger.log(
++            logging.WARNING if status == "FAILED" else logging.INFO,
++            json.dumps(payload, ensure_ascii=False, sort_keys=True),
++        )
++    except Exception:
++        # 参数校验仍是开发合同；sink故障不得撤销已接受回执，也不递归调用logger。
++        # 两个诊断通道均失效时保留业务结果；由进程日志基础设施排障。
++        with suppress(Exception):
++            sys.stderr.write(
++                '{"schema_version":1,"component":"partsignal.geo.observability",'
++                '"event":"logging_sink_failed","stage":"OBSERVABILITY",'
++                '"status":"FAILED","error_code":"LOGGING_UNAVAILABLE"}\n'
++            )
+--- /dev/null
++++ b/backend/app/services/geo_ops_metrics.py
+@@ -0,0 +1,131 @@
++"""有限低敏标签的 Prometheus text format；定位身份只留在受保护 JSON。"""
++
++import re
++from datetime import datetime
++from decimal import Decimal, InvalidOperation
++from typing import Any
++
++from app.models.geo_observability import OPERATIONS
++from app.schemas.geo_runs import GeoBatchStatus, GeoRunErrorCode, GeoRunErrorStage, GeoRunStatus
++from app.services.geo_ops_queries import MODES
++
++_LABELS = {
++    "mode": set(MODES),
++    "stage": {"MANUAL_ENTRY", *(value.value for value in GeoRunErrorStage)},
++    "status": {*(value.value for value in GeoRunStatus),
++               *(value.value for value in GeoBatchStatus),
++               "AVAILABLE", "EXPIRED", "REVOKED", "MISSING", "UNREADABLE"},
++    "error_code": {value.value for value in GeoRunErrorCode},
++    "operation": set(OPERATIONS),
++}
++
++
++def _number(value: Any) -> str:
++    if value is None:
++        return "NaN"
++    if isinstance(value, bool):
++        return str(int(value))
++    try:
++        number = Decimal(str(value))
++    except (InvalidOperation, ValueError) as error:
++        raise ValueError("GEO 运维指标必须为低敏数值") from error
++    if not number.is_finite():
++        raise ValueError("GEO 运维指标必须为有限数值或明确空值")
++    return str(number)
++
++
++def _timestamp(value: str | None) -> float | None:
++    if value is None:
++        return None
++    return datetime.fromisoformat(value).timestamp()
++
++
++def _labels(values: dict[str, Any]) -> str:
++    for key, value in values.items():
++        valid = (isinstance(value, str) and re.fullmatch(r"[A-Z]{3}", value) is not None
++                 if key == "currency" else key in _LABELS and value in _LABELS[key])
++        if not valid:
++            raise ValueError("GEO 运维指标标签不在固定白名单中")
++    return "{" + ",".join(f'{key}="{value}"' for key, value in values.items()) + "}" \
++        if values else ""
++
++
++def render_metrics(snapshot: dict[str, Any]) -> str:
++    """成功快照输出 up=1；读取失败由 CLI 以固定 up=0 文本明确报告。"""
++    if snapshot["schema_version"] != 1:
++        raise ValueError("GEO 运维快照版本不受支持")
++    lines: list[str] = []
++    declared: set[str] = set()
++
++    def emit(name: str, value: Any, *, kind: str = "gauge", **labels: Any) -> None:
++        if name not in declared:
++            lines.extend((f"# HELP {name} GEO operational observation.",
++                          f"# TYPE {name} {kind}"))
++            declared.add(name)
++        lines.append(f"{name}{_labels(labels)} {_number(value)}")
++
++    emit("geo_observability_up", 1)
++    emit("geo_observability_snapshot_timestamp_seconds", _timestamp(snapshot["as_of"]))
++    for name in ("geo_monitoring_enabled", "geo_api_collection_enabled",
++                 "geo_browser_collection_enabled", "geo_opportunity_evaluation_enabled"):
++        emit(name, snapshot["flags"][name])
++    for row in snapshot["run_status"]:
++        emit("geo_run_status_count", row["count"], mode=row["mode"], status=row["status"])
++    for row in snapshot["batch_status"]:
++        emit("geo_batch_status_count", row["count"], status=row["status"])
++    for field, prefix in (("pending", "geo_pending"), ("dispatch_due", "geo_dispatch_due")):
++        for row in snapshot[field]:
++            labels = {"mode": row["mode"], "stage": row["stage"]}
++            emit(f"{prefix}_count", row["count"], **labels)
++            emit(f"{prefix}_oldest_seconds", row["oldest_age_seconds"], **labels)
++    for row in snapshot["expired"]:
++        emit("geo_running_expired_count", row["count"], stage=row["stage"])
++        emit("geo_running_expired_oldest_seconds", row["oldest_age_seconds"], stage=row["stage"])
++    for row in snapshot["run_failures_24h"]:
++        emit("geo_run_failure_count_24h", row["count"], mode=row["mode"],
++             stage=row["stage"], error_code=row["error_code"])
++    for row in snapshot["analysis_failures_24h"]:
++        emit("geo_analysis_failure_count_24h", row["count"], mode=row["mode"],
++             error_code=row["error_code"])
++    for row in snapshot["collection_24h"]:
++        emit("geo_collection_success_count_24h", row["success_count"], mode=row["mode"])
++        for aggregate in ("avg", "min", "max"):
++            emit(f"geo_collection_duration_{aggregate}_ms_24h", row[f"duration_{aggregate}_ms"],
++                 mode=row["mode"])
++        emit("geo_collection_duration_known_count_24h", row["duration_known_count"],
++             mode=row["mode"])
++        for usage in ("prompt_tokens", "completion_tokens", "total_tokens"):
++            emit(f"geo_collection_{usage}_24h", row[usage], mode=row["mode"])
++            emit(f"geo_collection_{usage}_known_count_24h", row[f"{usage}_known_count"],
++                 mode=row["mode"])
++    emit("geo_review_backlog", snapshot["review_backlog"]["count"])
++    daily = snapshot["api_daily"]
++    emit("geo_api_calls_daily", daily["calls"])
++    emit("geo_cost_reported_calls_daily", daily["reported_calls"])
++    emit("geo_cost_coverage_rate", daily["coverage_rate"])
++    emit("geo_cost_unknown_daily", daily["unknown_cost_count"])
++    emit("geo_api_unknown_outcome_daily", daily["unknown_outcome_count"])
++    emit("geo_cost_underestimated_daily", daily["underestimated_count"])
++    for row in daily["currencies"]:
++        emit("geo_reported_cost_daily", row["reported_amount"], currency=row["currency"])
++    budget = snapshot["daily_budget"]
++    emit("geo_daily_budget_utilization", budget["utilization"], currency=budget["currency"])
++    emit("geo_daily_budget_exceeded", budget["exceeded"], currency=budget["currency"])
++    emit("geo_daily_budget_unknown_count", budget["unknown_count"], currency=budget["currency"])
++    emit("geo_daily_budget_currency_mismatch_count", budget["currency_mismatch_count"],
++         currency=budget["currency"])
++    emit("geo_batch_budget_anomaly_count", snapshot["batch_budget_anomalies"]["count"])
++    for row in snapshot["browser_sessions"]["statuses"]:
++        emit("geo_browser_session_count", row["count"], status=row["status"])
++    emit("geo_browser_session_unhealthy", snapshot["browser_sessions"]["current_unhealthy_count"])
++    for row in snapshot["operations"]:
++        labels = {"operation": row["operation"]}
++        emit("geo_operation_observed", row["observed"], **labels)
++        for outcome in ("attempt", "success", "failure"):
++            emit(f"geo_operation_last_{outcome}_timestamp_seconds",
++                 _timestamp(row[f"last_{outcome}_at"]), **labels)
++        emit("geo_operation_success_total", row["success_count"], kind="counter", **labels)
++        emit("geo_operation_failure_total", row["failure_count"], kind="counter", **labels)
++        emit("geo_operation_duration_ms", row["duration_ms"], **labels)
++        emit("geo_operation_duration_total_ms", row["duration_total_ms"], kind="counter", **labels)
++    return "\n".join(lines) + "\n"
+--- /dev/null
++++ b/backend/app/services/geo_ops_queries.py
+@@ -0,0 +1,288 @@
++"""受保护运维快照：固定聚合查询、单一只读事务，不加载正文或业务快照。"""
++
++from datetime import UTC, date, datetime, timedelta
++from decimal import Decimal
++from typing import Any, cast
++from uuid import UUID
++
++from sqlalchemy import text
++from sqlalchemy.orm import Session
++
++from app.config import settings
++from app.models.geo_observability import OPERATIONS
++from app.schemas.geo_runs import GeoBatchStatus, GeoRunStatus
++
++MODES = ("MANUAL", "API", "BROWSER")
++SNAPSHOT_SELECT_COUNT = 15
++_MODE = "r.input_snapshot->'profile'->>'collection_mode'"
++_PENDING = f"""
++    SELECT r.id, r.id AS run_id, {_MODE} AS mode,
++        CASE WHEN {_MODE}='MANUAL' THEN 'MANUAL_ENTRY' ELSE 'COLLECTION' END AS stage,
++        r.created_at, COALESCE(r.last_dispatch_attempt_at,r.created_at) AS dispatch_at
++    FROM geo_observation_runs r WHERE r.status='PENDING'
++    UNION ALL
++    SELECT r.id, r.id, {_MODE}, 'ANALYSIS', r.collected_at, r.collected_at
++    FROM geo_observation_runs r WHERE r.status='COLLECTED'
++        AND NOT EXISTS (SELECT 1 FROM geo_analysis_revisions a WHERE a.run_id=r.id)
++    UNION ALL
++    SELECT a.id, r.id, {_MODE}, 'ANALYSIS', a.created_at,
++        COALESCE(j.last_dispatch_attempt_at,a.created_at)
++    FROM geo_analysis_revisions a JOIN geo_observation_runs r ON r.id=a.run_id
++        LEFT JOIN geo_analysis_jobs j ON j.analysis_revision_id=a.id
++    WHERE a.status='PENDING' AND j.claimed_at IS NULL
++"""
++_ACCOUNTED = """
++    SELECT r.id AS run_id, r.batch_id, s.budget_day, s.state,
++        CASE WHEN s.state='SETTLED' THEN r.cost_amount ELSE s.estimated_amount END AS amount,
++        CASE WHEN s.state='SETTLED' THEN r.cost_currency ELSE s.estimated_currency END AS currency
++    FROM geo_collection_reservations s JOIN geo_observation_runs r ON r.id=s.run_id
++    WHERE s.state<>'RELEASED' AND r.input_snapshot->'profile'->>'collection_mode'='API'
++"""
++
++
++def _json(value: Any) -> Any:
++    if isinstance(value, (datetime, date)):
++        return value.isoformat()
++    if isinstance(value, (Decimal, UUID)):
++        return str(value)
++    if isinstance(value, dict):
++        return {key: _json(item) for key, item in value.items()}
++    if isinstance(value, list):
++        return [_json(item) for item in value]
++    return value
++
++
++def _rows(db: Session, statement: str, values: dict[str, Any]) -> list[dict[str, Any]]:
++    return [dict(row) for row in db.execute(text(statement), values).mappings()]
++
++
++def _backlog(db: Session, values: dict[str, Any], *, dispatch: bool) -> list[dict[str, Any]]:
++    clock = "dispatch_at" if dispatch else "created_at"
++    where = "WHERE dispatch_at <= :dispatch_cutoff AND stage<>'MANUAL_ENTRY'" if dispatch else ""
++    result = _rows(db, f"""
++        WITH candidates AS ({_PENDING}), ranked AS (
++            SELECT *, count(*) OVER (PARTITION BY mode,stage) AS count,
++                row_number() OVER (PARTITION BY mode,stage ORDER BY {clock},id) AS ordinal
++            FROM candidates {where}
++        ) SELECT mode,stage,count,id AS oldest_id,run_id AS oldest_run_id,
++            {clock} AS oldest_at,EXTRACT(EPOCH FROM (:as_of-{clock})) AS oldest_age_seconds
++        FROM ranked WHERE ordinal=1 ORDER BY mode,stage
++    """, values)
++    by_key = {(row["mode"], row["stage"]): row for row in result}
++    return [
++        by_key.get((mode, stage), {
++            "mode": mode, "stage": stage, "count": 0, "oldest_id": None,
++            "oldest_run_id": None, "oldest_at": None, "oldest_age_seconds": None,
++        })
++        for mode in MODES
++        for stage in (("MANUAL_ENTRY", "ANALYSIS") if mode == "MANUAL"
++                      else ("COLLECTION", "ANALYSIS"))
++        if not dispatch or stage != "MANUAL_ENTRY"
++    ]
++
++
++def _daily_budget(db: Session, values: dict[str, Any]) -> dict[str, Any]:
++    row = _rows(db, f"""
++        WITH accounted AS ({_ACCOUNTED}) SELECT count(*) AS count,
++            count(*) FILTER (WHERE state='UNKNOWN' OR amount IS NULL) AS unknown_count,
++            count(*) FILTER (WHERE currency IS NOT NULL AND currency<>:budget_currency)
++                AS currency_mismatch_count,
++            sum(amount) FILTER (WHERE currency=:budget_currency AND state<>'UNKNOWN')
++                AS reported_or_reserved_amount,
++            ARRAY(SELECT run_id FROM accounted WHERE budget_day=:day
++                AND (state='UNKNOWN' OR amount IS NULL OR currency<>:budget_currency OR
++                    (SELECT sum(amount) FROM accounted WHERE budget_day=:day
++                        AND currency=:budget_currency AND state<>'UNKNOWN')>:budget_limit)
++                ORDER BY run_id LIMIT 20) AS anomalous_run_ids
++        FROM accounted WHERE budget_day=:day
++    """, values)[0]
++    limit = settings.geo_daily_budget_limit
++    known = row["unknown_count"] == 0 and row["currency_mismatch_count"] == 0
++    amount = row["reported_or_reserved_amount"] if known else None
++    return {
++        **row, "currency": settings.geo_daily_budget_currency, "limit": limit,
++        "accounted_amount": amount,
++        "utilization": amount / limit if amount is not None and limit is not None
++        and limit > 0 else None,
++        "exceeded": amount > limit if amount is not None and limit is not None else None,
++        "blocked_by_unknown": bool(limit is not None and not known),
++    }
++
++
++def _batch_budgets(db: Session, values: dict[str, Any]) -> dict[str, Any]:
++    # Batch 限额跨全部历史 attempt；结果只携带前 20 个异常身份，数量仍是完整聚合。
++    return _rows(db, f"""
++        WITH accounted AS ({_ACCOUNTED}), budgets AS (
++            SELECT a.batch_id,(b.plan_snapshot->>'budget_limit')::numeric AS budget_limit,
++                count(*) FILTER (WHERE a.state='UNKNOWN' OR a.amount IS NULL) AS unknown_count,
++                count(DISTINCT a.currency) AS currency_count,min(a.currency) AS currency,
++                sum(a.amount) FILTER (WHERE a.state<>'UNKNOWN') AS amount
++            FROM accounted a JOIN geo_observation_batches b ON b.id=a.batch_id
++            WHERE b.plan_snapshot->>'budget_limit' IS NOT NULL
++            GROUP BY a.batch_id,b.plan_snapshot->>'budget_limit'
++        ), anomalies AS (
++            SELECT batch_id,budget_limit::text AS budget_limit,unknown_count,currency_count,
++                CASE WHEN currency_count=1 THEN currency END AS currency,
++                CASE WHEN currency_count=1 AND unknown_count=0 THEN amount::text END AS amount,
++                CASE WHEN currency_count=1 AND unknown_count=0 THEN amount>budget_limit
++                    END AS exceeded
++            FROM budgets WHERE unknown_count>0 OR currency_count<>1 OR amount>budget_limit
++        ) SELECT (SELECT count(*) FROM anomalies) AS count,
++            COALESCE((SELECT jsonb_agg(to_jsonb(limited)) FROM
++                (SELECT * FROM anomalies ORDER BY batch_id LIMIT 20) limited),'[]'::jsonb) AS items
++    """, values)[0]
++
++
++def read_snapshot(db: Session) -> dict[str, Any]:
++    """调用者必须提供全新 Session；本函数拥有短只读 RR 事务与超时。"""
++    if db.in_transaction() or db.new or db.dirty or db.deleted:
++        raise ValueError("GEO 运维快照需要没有事务或待写入对象的全新 Session")
++    with db.begin(), db.no_autoflush:
++        db.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"))
++        db.execute(text("SET LOCAL statement_timeout='5s'"))
++        db.execute(text("SET LOCAL lock_timeout='1s'"))
++        as_of = db.scalar(text("SELECT CURRENT_TIMESTAMP"))
++        assert isinstance(as_of, datetime)
++        values = {
++            "as_of": as_of, "since": as_of-timedelta(hours=24),
++            "day": as_of.astimezone(UTC).date(),
++            "dispatch_cutoff": as_of-timedelta(seconds=settings.geo_pending_redispatch_seconds),
++            "budget_currency": settings.geo_daily_budget_currency,
++            "budget_limit": settings.geo_daily_budget_limit,
++        }
++        run_rows = _rows(db, f"""
++            SELECT {_MODE} AS mode,r.status,count(*) AS count
++            FROM geo_observation_runs r GROUP BY mode,r.status ORDER BY mode,r.status
++        """, values)
++        run_counts = {(row["mode"], row["status"]): row["count"] for row in run_rows}
++        batch_rows = _rows(db, """
++            SELECT status,count(*) AS count FROM geo_observation_batches GROUP BY status
++        """, values)
++        batch_counts = {row["status"]: row["count"] for row in batch_rows}
++        pending = _backlog(db, values, dispatch=False)
++        dispatch = _backlog(db, values, dispatch=True)
++        expired = _rows(db, """
++            WITH candidates AS (
++                SELECT 'COLLECTION' AS stage,r.id,r.id AS run_id,r.lease_expires_at AS expired_at
++                FROM geo_observation_runs r WHERE r.status='RUNNING'
++                    AND r.lease_expires_at<=:as_of
++                UNION ALL
++                SELECT 'ANALYSIS',a.id,a.run_id,j.lease_expires_at
++                FROM geo_analysis_revisions a JOIN geo_analysis_jobs j
++                    ON j.analysis_revision_id=a.id
++                WHERE a.status='PENDING' AND j.lease_expires_at<=:as_of
++            ), ranked AS (
++                SELECT *,count(*) OVER (PARTITION BY stage) AS count,
++                    row_number() OVER (PARTITION BY stage ORDER BY expired_at,id) AS ordinal
++                FROM candidates
++            ) SELECT stage,count,id AS oldest_id,run_id AS oldest_run_id,
++                expired_at AS oldest_at,EXTRACT(EPOCH FROM (:as_of-expired_at))
++                    AS oldest_age_seconds FROM ranked WHERE ordinal=1 ORDER BY stage
++        """, values)
++        expired_counts = {row["stage"]: row for row in expired}
++        run_failures = _rows(db, f"""
++            SELECT {_MODE} AS mode,r.error_stage AS stage,r.error_code,count(*) AS count
++            FROM geo_observation_runs r WHERE r.status IN ('FAILED','BUDGET_BLOCKED')
++                AND r.finished_at>=:since AND r.finished_at<=:as_of
++            GROUP BY mode,stage,r.error_code ORDER BY mode,stage,r.error_code
++        """, values)
++        analysis_failures = _rows(db, f"""
++            SELECT {_MODE} AS mode,a.error_code,count(*) AS count
++            FROM geo_analysis_revisions a JOIN geo_observation_runs r ON r.id=a.run_id
++            WHERE a.status='FAILED' AND a.finished_at>=:since AND a.finished_at<=:as_of
++            GROUP BY mode,a.error_code ORDER BY mode,a.error_code
++        """, values)
++        collection = _rows(db, f"""
++            SELECT {_MODE} AS mode,
++                count(a.id) FILTER (WHERE a.collected_at>=:since AND a.collected_at<=:as_of)
++                    AS success_count,
++                count(r.duration_ms) AS duration_known_count,avg(r.duration_ms) AS duration_avg_ms,
++                min(r.duration_ms) AS duration_min_ms,max(r.duration_ms) AS duration_max_ms,
++                count(r.prompt_tokens) AS prompt_tokens_known_count,
++                sum(r.prompt_tokens) AS prompt_tokens,
++                count(r.completion_tokens) AS completion_tokens_known_count,
++                sum(r.completion_tokens) AS completion_tokens,
++                count(r.total_tokens) AS total_tokens_known_count,
++                sum(r.total_tokens) AS total_tokens
++            FROM geo_observation_runs r LEFT JOIN geo_answer_snapshots a ON a.run_id=r.id
++            WHERE COALESCE(a.collected_at,r.finished_at,r.started_at)>=:since
++                AND COALESCE(a.collected_at,r.finished_at,r.started_at)<=:as_of
++            GROUP BY mode ORDER BY mode
++        """, values)
++        review = _rows(db, """
++            WITH candidates AS (
++                SELECT r.id,a.created_at FROM geo_observation_runs r
++                JOIN geo_analysis_revisions a ON a.id=r.current_analysis_revision_id
++                WHERE a.status='COMPLETED' AND jsonb_array_length(a.review_required_reasons)>0
++                    AND NOT EXISTS (SELECT 1 FROM geo_run_reviews v
++                        WHERE v.run_id=r.id AND v.analysis_revision_id=a.id)
++            ) SELECT count(*) AS count,min(created_at) AS oldest_at,
++                (SELECT id FROM candidates ORDER BY created_at,id LIMIT 1) AS oldest_run_id
++                FROM candidates
++        """, values)[0]
++        cost_rows = _rows(db, """
++            SELECT r.cost_currency AS currency,count(*) AS calls,
++                count(r.cost_amount) AS reported_calls,sum(r.cost_amount) AS reported_amount,
++                count(*) FILTER (WHERE r.external_call_state='UNKNOWN') AS unknown_outcome_count,
++                count(*) FILTER (WHERE r.cost_amount>s.estimated_amount
++                    AND r.cost_currency=s.estimated_currency) AS underestimated_count
++            FROM geo_collection_reservations s JOIN geo_observation_runs r ON r.id=s.run_id
++            WHERE s.budget_day=:day AND s.sent_at IS NOT NULL
++                AND r.input_snapshot->'profile'->>'collection_mode'='API'
++            GROUP BY r.cost_currency ORDER BY r.cost_currency NULLS LAST
++        """, values)
++        calls = sum(row["calls"] for row in cost_rows)
++        reported = sum(row["reported_calls"] for row in cost_rows)
++        operation_rows = _rows(db, """
++            SELECT operation,last_attempt_at,last_success_at,last_failure_at,success_count,
++                failure_count,duration_ms,duration_total_ms FROM geo_operation_health
++                ORDER BY operation
++        """, values)
++        operations = {row["operation"]: row for row in operation_rows}
++        browser_rows = _rows(db, """
++            WITH sessions AS (
++                SELECT CASE WHEN revoked_at IS NULL AND expires_at<=:as_of THEN 'EXPIRED'
++                    ELSE health END AS status,revoked_at,purged_at
++                FROM geo_browser_sessions
++            ) SELECT status,count(*) AS count,
++                count(*) FILTER (WHERE revoked_at IS NULL) AS current_count,
++                count(*) FILTER (WHERE revoked_at IS NOT NULL AND purged_at IS NULL)
++                    AS cleanup_pending_count
++            FROM sessions GROUP BY status ORDER BY status
++        """, values)
++        return cast(dict[str, Any], _json({
++            "schema_version": 1, "as_of": as_of, "budget_day": values["day"],
++            "flags": {name: bool(getattr(settings, name)) for name in (
++                "geo_monitoring_enabled", "geo_api_collection_enabled",
++                "geo_browser_collection_enabled", "geo_opportunity_evaluation_enabled",
++            )},
++            "run_status": [{"mode": mode, "status": status.value,
++                            "count": run_counts.get((mode, status.value), 0)}
++                           for mode in MODES for status in GeoRunStatus],
++            "batch_status": [{"status": status.value, "count": batch_counts.get(status.value, 0)}
++                             for status in GeoBatchStatus],
++            "pending": pending, "dispatch_due": dispatch,
++            "expired": [expired_counts.get(stage, {"stage": stage, "count": 0,
++                        "oldest_id": None, "oldest_run_id": None, "oldest_at": None,
++                        "oldest_age_seconds": None}) for stage in ("COLLECTION", "ANALYSIS")],
++            "run_failures_24h": run_failures, "analysis_failures_24h": analysis_failures,
++            "collection_24h": collection, "review_backlog": review,
++            "api_daily": {"calls": calls, "reported_calls": reported,
++                "coverage_rate": Decimal(reported)/calls if calls else None,
++                "unknown_cost_count": calls-reported,
++                "unknown_outcome_count": sum(row["unknown_outcome_count"] for row in cost_rows),
++                "underestimated_count": sum(row["underestimated_count"] for row in cost_rows),
++                "currencies": [row for row in cost_rows if row["currency"] is not None]},
++            "daily_budget": _daily_budget(db, values),
++            "batch_budget_anomalies": _batch_budgets(db, values),
++            "browser_sessions": {"statuses": browser_rows,
++                "current_unhealthy_count": sum(row["current_count"] for row in browser_rows
++                                               if row["status"] != "AVAILABLE"),
++                "cleanup_pending_count": sum(row["cleanup_pending_count"] for row in browser_rows),
++                "login_probe": "NOT_IMPLEMENTED"},
++            "operations": [{**operations[operation], "observed": True} if operation in operations
++                else {"operation": operation, "observed": False, "last_attempt_at": None,
++                    "last_success_at": None, "last_failure_at": None, "success_count": None,
++                    "failure_count": None, "duration_ms": None, "duration_total_ms": None}
++                for operation in OPERATIONS],
++        }))
+--- /dev/null
++++ b/backend/app/services/geo_ops_runtime.py
+@@ -0,0 +1,139 @@
++"""独立短事务记录有界运维事实；不提交或更改调用者业务事务。"""
++
++from collections.abc import Callable
++from functools import wraps
++from time import monotonic
++from typing import ParamSpec, TypeVar
++
++from sqlalchemy import Engine, create_engine, text
++from sqlalchemy.orm import Session
++from sqlalchemy.pool import NullPool
++
++from app.config import settings
++from app.errors import AppError
++from app.models.geo_observability import OPERATIONS
++from app.services.geo_ops_logging import OpsError, Stage, geo_event
++
++P = ParamSpec("P")
++T = TypeVar("T")
++
++
++def observability_engine(bind: Engine | None = None) -> Engine:
++    # 独立连接池边界使观测不能耗尽业务pool；连接/SQL均有短超时。
++    return create_engine(
++        bind.url if bind is not None else settings.database_url,
++        poolclass=NullPool,
++        connect_args={
++            "connect_timeout": 2,
++            "options": "-c statement_timeout=2000 -c lock_timeout=1000",
++        },
++    )
++
++
++def record_operation(
++    operation: str, *, succeeded: bool, duration_ms: int = 0, bind: Engine | None = None
++) -> bool:
++    """单行原子累计；故障显式记录但不把已提交业务回执改成失败。"""
++    if operation not in OPERATIONS or type(duration_ms) is not int or duration_ms < 0:
++        raise ValueError("运维记录的operation或耗时无效")
++    engine = None
++    try:
++        engine = observability_engine(bind)
++        with Session(bind=engine) as db, db.begin():
++            db.execute(text("SET LOCAL lock_timeout = '1s'"))
++            db.execute(text("SET LOCAL statement_timeout = '2s'"))
++            db.execute(
++                text("""INSERT INTO geo_operation_health AS h
++                    (operation,last_attempt_at,last_success_at,last_failure_at,
++                     success_count,failure_count,duration_ms,duration_total_ms)
++                    SELECT :operation,observed_at,
++                        CASE WHEN :succeeded THEN observed_at END,
++                        CASE WHEN NOT :succeeded THEN observed_at END,
++                        :success,:failure,:duration,:duration
++                    FROM (SELECT clock_timestamp() AS observed_at) AS clock
++                    ON CONFLICT (operation) DO UPDATE SET
++                        last_attempt_at=greatest(h.last_attempt_at,excluded.last_attempt_at),
++                        last_success_at=greatest(h.last_success_at,excluded.last_success_at),
++                        last_failure_at=greatest(h.last_failure_at,excluded.last_failure_at),
++                        success_count=h.success_count+excluded.success_count,
++                        failure_count=h.failure_count+excluded.failure_count,
++                        duration_ms=CASE WHEN excluded.last_attempt_at >= h.last_attempt_at
++                            THEN excluded.duration_ms ELSE h.duration_ms END,
++                        duration_total_ms=h.duration_total_ms+excluded.duration_total_ms
++                """),
++                dict(
++                    operation=operation,
++                    succeeded=succeeded,
++                    success=int(succeeded),
++                    failure=int(not succeeded),
++                    duration=duration_ms,
++                ),
++            )
++        return True
++    except Exception:
++        # SQL/连接异常可能携带凭据或业务值，不打印异常对象或traceback。
++        geo_event(
++            event="observation_write_failed",
++            stage="OBSERVABILITY",
++            status="FAILED",
++            error_code=OpsError.OBSERVABILITY_WRITE_FAILED,
++        )
++        return False
++    finally:
++        if engine is not None:
++            try:
++                engine.dispose()
++            except Exception:
++                geo_event(event="observation_write_failed", stage="OBSERVABILITY",
++                          status="FAILED", error_code=OpsError.OBSERVABILITY_WRITE_FAILED)
++
++
++def observe(
++    operation: str, stage: Stage, *, scrub_worker_error: bool = False
++) -> Callable[[Callable[P, T]], Callable[P, T]]:
++    """运维边界计时；业务拒绝独立记录，不当成系统故障告警。"""
++    if operation not in OPERATIONS:
++        raise ValueError("未登记的GEO运维边界")
++
++    def decorate(function: Callable[P, T]) -> Callable[P, T]:
++        @wraps(function)
++        def wrapped(*args: P.args, **kwargs: P.kwargs) -> T:
++            started = monotonic()
++            succeeded = False
++            rejected = False
++            session = kwargs.get("db")
++            if session is None and args and isinstance(args[0], Session):
++                session = args[0]
++            bind = session.get_bind() if isinstance(session, Session) else None
++            engine = bind if isinstance(bind, Engine) else bind.engine if bind is not None else None
++            try:
++                result = function(*args, **kwargs)
++                succeeded = True
++                return result
++            except Exception as error:
++                rejected = isinstance(error, AppError) and error.status_code < 500
++                if scrub_worker_error:
++                    # Celery异常边界不得序列化原始SQL/provider错误与链；失败仍失败。
++                    raise RuntimeError("GEO任务执行失败，按稳定运维事件和数据库状态排障") from None
++                raise
++            finally:
++                elapsed = max(0, int((monotonic() - started) * 1000))
++                if not rejected:
++                    record_operation(
++                        operation, succeeded=succeeded, duration_ms=elapsed, bind=engine
++                    )
++                geo_event(
++                    event="operation_finished",
++                    stage=stage,
++                    status="REJECTED" if rejected else "SUCCEEDED" if succeeded else "FAILED",
++                    duration_ms=elapsed,
++                    error_code=OpsError.OPERATION_REJECTED
++                    if rejected
++                    else None
++                    if succeeded
++                    else OpsError.OPERATION_FAILED,
++                )
++
++        return wrapped
++
++    return decorate
+--- a/backend/app/services/geo_reanalysis.py
++++ b/backend/app/services/geo_reanalysis.py
+@@ -11,8 +11,9 @@
+ from app.db import SessionLocal
+ from app.errors import AppError, not_found
+ from app.models.identity import User
+-from app.services.geo_analysis_dispatch import AnalysisSender, dispatch_revision, logger
++from app.services.geo_analysis_dispatch import AnalysisSender, dispatch_revision
+ from app.services.geo_analysis_inputs import prepare_revision
++from app.services.geo_ops_logging import OpsError, geo_event
+ from app.services.geo_run_lifecycle import lock_run
+ from app.services.geo_surface_locks import command
+ 
+@@ -86,11 +87,8 @@
+         sender = analyze_geo_revision.delay
+     try:
+         dispatch_revision(analysis_id, sender)
+-    except DBAPIError as error:
++    except DBAPIError:
+         # 创建/审计已经接受，派发元数据的暂时故障由 pending 扫描恢复。
+-        logger.error(
+-            "GEO 重分析提交后投递失败 analysis_id=%s error_type=%s",
+-            analysis_id,
+-            type(error).__name__,
+-        )
++        geo_event(event="dispatch_failed", stage="ANALYSIS", status="FAILED",
++                  analysis_id=analysis_id, error_code=OpsError.DATABASE_UNAVAILABLE)
+     return analysis_id
+--- a/backend/app/services/geo_retention.py
++++ b/backend/app/services/geo_retention.py
+@@ -1,6 +1,6 @@
+ """GEO 临时材料保留；业务历史和仍被引用的文件不进入删除范围。"""
+ 
+-from dataclasses import asdict, dataclass
++from dataclasses import dataclass
+ from datetime import datetime, timedelta
+ 
+ from sqlalchemy import exists, func, select
+@@ -16,9 +16,9 @@
+     DETACHED_RETENTION,
+     FileCleanupResult,
+     cleanup_file_records,
+-    logger,
+     schedule_unreferenced_file,
+ )
++from app.services.geo_ops_logging import geo_event
+ from app.services.storage import EvidenceStorage
+ 
+ 
+@@ -126,5 +126,7 @@
+         unreferenced_before=now - timedelta(days=orphan_days) if orphan_days is not None else None,
+     )
+     result = GeoRetentionResult(dry_run, drafts, files)
+-    logger.info("GEO 材料清理完成 result=%s", asdict(result))
++    geo_event(event="retention_finished", stage="RETENTION", status="SUCCEEDED",
++              selected_count=drafts.selected + files.selected, purged_count=drafts.purged,
++              retry_count=files.retry)
+     return result
+--- a/backend/app/services/geo_runs.py
++++ b/backend/app/services/geo_runs.py
+@@ -1,6 +1,5 @@
+ """采集 Worker 的事务 owner；每次执行一个冻结 Run，不自动重试外部调用。"""
+ 
+-import logging
+ from dataclasses import dataclass, replace
+ from datetime import datetime, timedelta
+ from uuid import UUID, uuid4
+@@ -25,6 +24,7 @@
+     lock_configuration,
+     qualify,
+ )
++from app.services.geo_ops_logging import OpsError, geo_event
+ from app.services.geo_run_lifecycle import (
+     database_now,
+     fail_run,
+@@ -33,8 +33,6 @@
+     run_state,
+ )
+ from app.services.geo_run_policy import run_transition
+-
+-logger = logging.getLogger("partsignal.worker")
+ 
+ 
+ class LeaseLost(Exception):
+@@ -277,17 +275,34 @@
+     try:
+         result = lease.collector.collect(lease.request, before_send=lambda: authorize_send(lease))
+         result_received = True
+-        submit_collection_result(lease, result)
++        accepted = submit_collection_result(lease, result)
++        geo_event(event="collection_finished", stage="COLLECTION",
++                  status="SUCCEEDED" if accepted else "SKIPPED", run_id=run_id,
++                  profile_id=lease.request.profile.id, duration_ms=result.duration_ms,
++                  byte_count=len(result.raw_payload_bytes) if result.raw_payload_bytes else None,
++                  citation_count=len(result.citations),
++                  prompt_tokens=result.usage.prompt_tokens if result.usage else None,
++                  completion_tokens=result.usage.completion_tokens if result.usage else None,
++                  total_tokens=result.usage.total_tokens if result.usage else None,
++                  cost_amount=result.cost.amount if result.cost else None,
++                  cost_currency=result.cost.currency if result.cost else None)
+     except LeaseLost:
+-        logger.info("GEO 采集租约失效 run_id=%s", run_id)
++        geo_event(event="lease_lost", stage="COLLECTION", status="SKIPPED",
++                  run_id=run_id, error_code=OpsError.LEASE_LOST)
+     except admission.BudgetExceeded:
+         submit_collection_failure(lease, None, budget_denied=True)
++        geo_event(event="collection_finished", stage="COLLECTION", status="REJECTED",
++                  run_id=run_id, error_code=GeoRunErrorCode.BUDGET_EXCEEDED)
+     except admission.ProfileThrottled:
+         submit_collection_failure(lease, configuration_error(GeoRunErrorCode.PROVIDER_RATE_LIMITED))
++        geo_event(event="collection_finished", stage="COLLECTION", status="REJECTED",
++                  run_id=run_id, error_code=GeoRunErrorCode.PROVIDER_RATE_LIMITED)
+     except CollectorError as error:
+         submit_collection_failure(lease, error)
+-        logger.warning("GEO 采集失败 run_id=%s code=%s", run_id, error.failure.code.value)
+-    except Exception as error:
++        geo_event(event="collection_finished", stage="COLLECTION", status="FAILED",
++                  run_id=run_id, error_code=error.failure.code)
++    except Exception:
+         # 不打印异常正文或 traceback，供应商内容和凭据不能进入 Celery 日志。
+         submit_collection_failure(lease, None, result_received=result_received)
+-        logger.error("GEO 采集执行失败 run_id=%s error_type=%s", run_id, type(error).__name__)
++        geo_event(event="collection_finished", stage="COLLECTION", status="FAILED",
++                  run_id=run_id, error_code=OpsError.OPERATION_FAILED)
+--- a/backend/app/worker.py
++++ b/backend/app/worker.py
+@@ -7,6 +7,7 @@
+ from celery import Celery
+ 
+ from app.config import settings
++from app.geo_ops_health import worker_heartbeat  # noqa: F401
+ from app.services.file_records import cleanup_file_records
+ from app.services.generation import process_generation_job
+ from app.services.generation_dispatch import (
+@@ -23,6 +24,7 @@
+     recover_expired_collection_runs,
+     redispatch_pending_collection_runs,
+ )
++from app.services.geo_ops_runtime import observe
+ from app.services.geo_retention import cleanup_geo_artifacts
+ from app.services.geo_runs import process_collection_run
+ 
+@@ -34,6 +36,8 @@
+     worker_prefetch_multiplier=1,
+     broker_connection_retry_on_startup=True,
+     broker_transport_options={"socket_connect_timeout": 5, "socket_timeout": 5},
++    beat_scheduler="app.geo_ops_health:GeoHealthScheduler",
++    beat_max_loop_interval=30,
+     beat_schedule={
+         "redispatch-pending-geo-analyses": {
+             "task": "partsignal.redispatch_pending_geo_analyses",
+@@ -96,6 +100,7 @@
+ 
+ 
+ @celery_app.task(name="partsignal.collect_geo_run")  # type: ignore[untyped-decorator]
++@observe("collect_task", "COLLECTION", scrub_worker_error=True)
+ def collect_geo_run(run_id: str) -> None:
+     """消息只有 Run UUID；数据库重新裁决执行资格和 lease。"""
+     process_collection_run(uuid.UUID(run_id))
+@@ -103,36 +108,43 @@
+ 
+ 
+ @celery_app.task(name="partsignal.analyze_geo_run")  # type: ignore[untyped-decorator]
++@observe("analyze_task", "ANALYSIS", scrub_worker_error=True)
+ def analyze_geo_run(run_id: str) -> None:
+     process_analysis_run(uuid.UUID(run_id))
+ 
+ 
+ @celery_app.task(name="partsignal.analyze_geo_revision")  # type: ignore[untyped-decorator]
++@observe("analyze_task", "ANALYSIS", scrub_worker_error=True)
+ def analyze_geo_revision(analysis_id: str) -> None:
+     process_analysis_revision(uuid.UUID(analysis_id))
+ 
+ 
+ @celery_app.task(name="partsignal.redispatch_pending_geo_analyses")  # type: ignore[untyped-decorator]
++@observe("analysis_dispatch", "ANALYSIS", scrub_worker_error=True)
+ def redispatch_pending_geo_analyses() -> None:
+     redispatch_pending_analysis_revisions(analyze_geo_revision.delay)
+ 
+ 
+ @celery_app.task(name="partsignal.recover_expired_geo_analyses")  # type: ignore[untyped-decorator]
++@observe("analysis_recovery", "ANALYSIS", scrub_worker_error=True)
+ def recover_expired_geo_analyses() -> None:
+     recover_expired_analysis_revisions()
+ 
+ 
+ @celery_app.task(name="partsignal.redispatch_pending_geo_runs")  # type: ignore[untyped-decorator]
++@observe("collection_dispatch", "COLLECTION", scrub_worker_error=True)
+ def redispatch_pending_geo_runs() -> None:
+     redispatch_pending_collection_runs(collect_geo_run.delay)
+ 
+ 
+ @celery_app.task(name="partsignal.recover_expired_geo_runs")  # type: ignore[untyped-decorator]
++@observe("collection_recovery", "COLLECTION", scrub_worker_error=True)
+ def recover_expired_geo_runs() -> None:
+     recover_expired_collection_runs()
+ 
+ 
+ @celery_app.task(name="partsignal.geo_cleanup_artifacts")  # type: ignore[untyped-decorator]
++@observe("retention", "RETENTION", scrub_worker_error=True)
+ def cleanup_geo_materials() -> None:
+     """只触发限批 PG 扫描，Redis 不携带正文、文件路径或策略参数。"""
+     cleanup_geo_artifacts()
+--- a/backend/tests/integration/test_geo_admission_migration.py
++++ b/backend/tests/integration/test_geo_admission_migration.py
+@@ -156,9 +156,9 @@
+         text=True,
+     )
+     assert stopped.returncode != 0
+-    assert "0064 清理墓碑不可安全降级" in stopped.stdout + stopped.stderr
++    assert "0065 运维故障事实须保留" in stopped.stdout + stopped.stderr
+     with psycopg.connect(db.url) as conn:
+         assert (
+             conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+-            == "0064_geo_retention"
++            == "0065_geo_observability"
+         )
+--- a/backend/tests/integration/test_geo_answer_migration.py
++++ b/backend/tests/integration/test_geo_answer_migration.py
+@@ -27,7 +27,7 @@
+     with psycopg.connect(db.url) as conn:
+         assert (
+             conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+-            == "0064_geo_retention"
++            == "0065_geo_observability"
+         )
+         assert existing_rows(conn) == db.runs.before
+         assert (
+@@ -63,10 +63,10 @@
+     )
+     assert (
+         stopped.returncode != 0
+-        and "0064 清理墓碑不可安全降级" in stopped.stdout + stopped.stderr
++        and "0065 运维故障事实须保留" in stopped.stdout + stopped.stderr
+     )
+     with psycopg.connect(db.url) as conn:
+         assert (
+             conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+-            == "0064_geo_retention"
++            == "0065_geo_observability"
+         )
+--- a/backend/tests/integration/test_geo_browser_session_migration.py
++++ b/backend/tests/integration/test_geo_browser_session_migration.py
+@@ -43,7 +43,7 @@
+         run_alembic(env, backend_dir, "head")
+         with psycopg.connect(url) as conn:
+             assert conn.execute("SELECT version_num FROM alembic_version").fetchone() == (
+-                "0064_geo_retention",
++                "0065_geo_observability",
+             )
+             assert conn.execute("SELECT count(*) FROM geo_browser_sessions").fetchone() == (0,)
+         compare_schema(url)
+@@ -74,8 +74,8 @@
+         capture_output=True,
+         text=True,
+     )
+-    assert stopped.returncode != 0 and "0064 清理墓碑不可安全降级" in stopped.stderr
++    assert stopped.returncode != 0 and "0065 运维故障事实须保留" in stopped.stderr
+     with psycopg.connect(db.url) as conn:
+         assert conn.execute("SELECT version_num FROM alembic_version").fetchone() == (
+-            "0064_geo_retention",
++            "0065_geo_observability",
+         )
+--- a/backend/tests/integration/test_geo_decision_migration.py
++++ b/backend/tests/integration/test_geo_decision_migration.py
+@@ -24,7 +24,7 @@
+         run_alembic(env, backend_dir, "head")
+         with psycopg.connect(url) as conn:
+             assert conn.execute("SELECT version_num FROM alembic_version").fetchone() == (
+-                "0064_geo_retention",
++                "0065_geo_observability",
+             )
+             assert conn.execute("SELECT count(*) FROM geo_opportunity_decisions").fetchone() == (0,)
+             assert conn.execute(
+@@ -81,10 +81,10 @@
+         capture_output=True,
+         text=True,
+     )
+-    assert stopped.returncode != 0 and "0064 清理墓碑不可安全降级" in stopped.stderr
++    assert stopped.returncode != 0 and "0065 运维故障事实须保留" in stopped.stderr
+     with psycopg.connect(db.url) as conn:
+         assert conn.execute("SELECT version_num FROM alembic_version").fetchone() == (
+-            "0064_geo_retention",
++            "0065_geo_observability",
+         )
+         assert conn.execute(
+             "SELECT id FROM geo_retest_baselines WHERE id=%s", (baseline_id,)
+--- a/backend/tests/integration/test_geo_manual_migration.py
++++ b/backend/tests/integration/test_geo_manual_migration.py
+@@ -82,12 +82,12 @@
+     )
+     assert (
+         stopped.returncode != 0
+-        and "0064 清理墓碑不可安全降级" in stopped.stdout + stopped.stderr
++        and "0065 运维故障事实须保留" in stopped.stdout + stopped.stderr
+     )
+     with psycopg.connect(db.url) as conn:
+         assert (
+             conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+-            == "0064_geo_retention"
++            == "0065_geo_observability"
+         )
+         assert (
+             conn.execute(
+--- /dev/null
++++ b/backend/tests/integration/test_geo_ops_queries.py
+@@ -0,0 +1,436 @@
++"""隔离 PostgreSQL 运维快照；合法历史、低敏字段和一致只读事务。"""
++
++import json
++from collections.abc import Iterator
++from copy import deepcopy
++from datetime import UTC, datetime, timedelta
++from decimal import Decimal
++from typing import Any
++from uuid import UUID, uuid4
++
++import psycopg
++import pytest
++from psycopg.types.json import Jsonb
++from sqlalchemy import Engine, create_engine, event, text
++from sqlalchemy.exc import DBAPIError
++from sqlalchemy.orm import Session
++
++from app.config import settings
++from app.services.geo_ops_metrics import render_metrics
++from app.services.geo_ops_queries import SNAPSHOT_SELECT_COUNT, read_snapshot
++from tests.integration.geo_analysis_support import collected_case, finish, pending, publish, review
++from tests.integration.geo_answers_support import (
++    AnswerDatabase,
++    answer_database,
++    collect,
++    plan_database,
++    run_database,
++    snapshot,
++)
++from tests.integration.geo_runs_support import batch, run, update
++from tests.integration.test_geo_catalog import insert_row
++from tests.integration.test_migrations import run_alembic, temporary_database
++from tests.unit.test_geo_run_contract import input_snapshot, plan_snapshot
++
++__all__ = ["answer_database", "plan_database", "run_database"]
++pytestmark = pytest.mark.integration
++CANARY = "geo902-secret-canary-do-not-export"
++
++
++@pytest.fixture(scope="module")
++def ops_engine(answer_database: AnswerDatabase) -> Iterator[Engine]:
++    engine = create_engine(answer_database.url.replace("postgresql://", "postgresql+psycopg://"))
++    yield engine
++    engine.dispose()
++
++
++def read(engine: Engine) -> dict[str, Any]:
++    with Session(engine) as db:
++        result = read_snapshot(db)
++        assert not db.in_transaction()
++        assert not db.identity_map
++        return result
++
++
++def count(rows: list[dict[str, Any]], **labels: str) -> int:
++    return sum(row["count"] for row in rows if all(row.get(k) == v for k, v in labels.items()))
++
++
++def root(
++    conn: psycopg.Connection[Any], db: AnswerDatabase, mode: str = "MANUAL", *,
++    created: datetime | None = None, budget: str | None = None,
++) -> tuple[UUID, UUID]:
++    value = input_snapshot(mode)
++    value["prompt"] = deepcopy(db.runs.input["prompt"])
++    value["prompt"]["prompt_text"] = CANARY
++    value["subjects"] = deepcopy(db.runs.input["subjects"])
++    value["profile"]["id"] = db.runs.input["profile"]["id"]
++    value["profile"]["surface"]["id"] = db.runs.input["profile"]["surface"]["id"]
++    value["profile"]["name"] = CANARY
++    created = created or datetime.now(UTC)-timedelta(minutes=2)
++    batch_id = batch(conn, db.runs, created_at=created,
++                     plan_snapshot=Jsonb(plan_snapshot(value, budget_limit=budget)))
++    insert_row(conn, "geo_batch_subjects", {
++        "batch_id": batch_id, "subject_id": db.runs.plan.subjects[0], "role": "PRIMARY",
++    })
++    identity = run(conn, db.runs, batch_id, input_snapshot=Jsonb(value), created_at=created)
++    return identity, batch_id
++
++
++def sent(
++    conn: psycopg.Connection[Any], identity: UUID, *, estimated: str | None = "1",
++    currency: str = "USD", at: datetime | None = None,
++) -> datetime:
++    at = at or datetime.now(UTC)-timedelta(seconds=30)
++    update(conn, identity, status="RUNNING", started_at=at, lease_token=uuid4(),
++           lease_expires_at=at+timedelta(minutes=5))
++    insert_row(conn, "geo_collection_reservations", {
++        "run_id": identity, "state": "RESERVED", "budget_day": at.date(), "reserved_at": at,
++        "estimated_amount": Decimal(estimated) if estimated is not None else None,
++        "estimated_currency": currency if estimated is not None else None,
++    })
++    update(conn, identity, external_call_state="SENT")
++    conn.execute("UPDATE geo_collection_reservations SET state='SENT',sent_at=%s WHERE run_id=%s",
++                 (at, identity))
++    return at
++
++
++def settle(
++    conn: psycopg.Connection[Any], identity: UUID, at: datetime, *,
++    amount: str | None = None, currency: str = "USD", unknown: bool = False,
++) -> None:
++    update(conn, identity, status="FAILED", finished_at=at+timedelta(seconds=1),
++           lease_token=None, lease_expires_at=None, error_stage="COLLECTION",
++           error_code="COLLECTOR_UNKNOWN_OUTCOME" if unknown else "PROVIDER_TIMEOUT",
++           error_summary=CANARY, provider_request_id=CANARY, duration_ms=120,
++           external_call_state="UNKNOWN" if unknown else "COMPLETED",
++           cost_amount=Decimal(amount) if amount is not None else None,
++           cost_currency=currency if amount is not None else None)
++    conn.execute("UPDATE geo_collection_reservations SET state=%s,settled_at=%s WHERE run_id=%s",
++                 ("SETTLED" if amount is not None else "UNKNOWN",
++                  at+timedelta(seconds=1), identity))
++
++
++def test_empty_snapshot_keeps_unknown_and_never_observed() -> None:
++    with temporary_database("geo902_empty_ops") as (url, env, backend):
++        run_alembic(env, backend, "head")
++        engine = create_engine(url.replace("postgresql://", "postgresql+psycopg://"))
++        try:
++            value = read(engine)
++            assert value["api_daily"]["calls"] == 0
++            assert value["api_daily"]["coverage_rate"] is None
++            assert value["api_daily"]["currencies"] == []
++            assert value["daily_budget"]["accounted_amount"] is None
++            assert all(row["count"] == 0 and row["oldest_at"] is None for row in value["pending"])
++            assert all(row["observed"] is False for row in value["operations"])
++            assert "geo_cost_coverage_rate NaN" in render_metrics(value)
++        finally:
++            engine.dispose()
++
++
++def test_repeatable_read_readonly_timeouts_and_fixed_query_count(
++    ops_engine: Engine, answer_database: AnswerDatabase,
++) -> None:
++    statements: list[str] = []
++    checked = False
++
++    def observe(conn: Any, _cursor: Any, statement: str, _parameters: Any,
++                _context: Any, _many: bool) -> None:
++        nonlocal checked
++        statements.append(statement)
++        if checked or statement != "SELECT CURRENT_TIMESTAMP":
++            return
++        checked = True
++        assert conn.exec_driver_sql("SHOW transaction_isolation").scalar() == "repeatable read"
++        assert conn.exec_driver_sql("SHOW transaction_read_only").scalar() == "on"
++        assert conn.exec_driver_sql("SHOW statement_timeout").scalar() == "5s"
++        assert conn.exec_driver_sql("SHOW lock_timeout").scalar() == "1s"
++
++    event.listen(ops_engine, "before_cursor_execute", observe)
++    try:
++        read(ops_engine)
++    finally:
++        event.remove(ops_engine, "before_cursor_execute", observe)
++    assert checked
++    assert sum(value.lstrip().startswith(("SELECT", "WITH")) for value in statements) \
++        == SNAPSHOT_SELECT_COUNT
++    assert not any("FOR UPDATE" in value or "FOR SHARE" in value for value in statements)
++    with Session(ops_engine) as db:
++        db.execute(text("SELECT 1"))
++        with pytest.raises(ValueError, match="全新 Session"):
++            read_snapshot(db)
++    # PG 本身拒绝写入，证明只读是数据库合同，不只是 Python 约定。
++    with Session(ops_engine) as db, pytest.raises(DBAPIError) as error:
++        db.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"))
++        db.execute(text("UPDATE geo_operation_health SET success_count=success_count"))
++    assert getattr(error.value.orig, "sqlstate", None) == "25006"
++
++
++def test_concurrent_commit_cannot_mix_operation_facts_into_snapshot(
++    ops_engine: Engine, answer_database: AnswerDatabase,
++) -> None:
++    inserted = False
++
++    def concurrent(_conn: Any, _cursor: Any, statement: str, _parameters: Any,
++                   _context: Any, _many: bool) -> None:
++        nonlocal inserted
++        if inserted or statement != "SELECT CURRENT_TIMESTAMP":
++            return
++        inserted = True
++        with psycopg.connect(answer_database.url) as writer:
++            writer.execute("INSERT INTO geo_operation_health("
++                           "operation,last_attempt_at,last_success_at,"
++                           "success_count,duration_ms,duration_total_ms) VALUES "
++                           "('scheduler_tick',now(),now(),1,7,7)")
++
++    event.listen(ops_engine, "after_cursor_execute", concurrent)
++    try:
++        before = read(ops_engine)
++    finally:
++        event.remove(ops_engine, "after_cursor_execute", concurrent)
++    assert inserted
++    assert next(row for row in before["operations"] if row["operation"] == "scheduler_tick") \
++        ["observed"] is False
++    current = next(row for row in read(ops_engine)["operations"]
++                   if row["operation"] == "scheduler_tick")
++    assert current["success_count"] == 1 and current["duration_ms"] == 7
++
++
++def test_pending_age_dispatch_due_and_manual_entry_are_separate(
++    ops_engine: Engine, answer_database: AnswerDatabase,
++) -> None:
++    before = read(ops_engine)
++    now = datetime.now(UTC)
++    with psycopg.connect(answer_database.url) as conn:
++        api, _ = root(conn, answer_database, "API", created=now-timedelta(hours=2))
++        update(conn, api, dispatch_attempt_count=1, last_dispatch_attempt_at=now)
++        root(conn, answer_database, "MANUAL", created=now-timedelta(hours=3))
++        browser, _ = root(conn, answer_database, "BROWSER", created=now-timedelta(hours=1))
++        unassembled = collected_case(conn, answer_database)
++        waiting = collected_case(conn, answer_database)
++        analysis = pending(conn, waiting)
++        insert_row(conn, "geo_analysis_jobs", {"analysis_revision_id": analysis})
++    after = read(ops_engine)
++    api_pending = next(row for row in after["pending"]
++                       if row["mode"] == "API" and row["stage"] == "COLLECTION")
++    assert api_pending["oldest_id"] == str(api)
++    elapsed = (datetime.fromisoformat(after["as_of"])
++               - datetime.fromisoformat(api_pending["oldest_at"]))
++    assert abs(Decimal(api_pending["oldest_age_seconds"])-Decimal(str(elapsed.total_seconds()))) \
++        < Decimal("0.000001")
++    assert 7199 < Decimal(api_pending["oldest_age_seconds"]) < 7201
++    assert count(after["dispatch_due"], mode="API", stage="COLLECTION") \
++        == count(before["dispatch_due"], mode="API", stage="COLLECTION")
++    assert next(row for row in after["dispatch_due"] if row["mode"] == "BROWSER"
++                and row["stage"] == "COLLECTION")["oldest_id"] == str(browser)
++    assert count(after["pending"], mode="MANUAL", stage="MANUAL_ENTRY") \
++        == count(before["pending"], mode="MANUAL", stage="MANUAL_ENTRY")+1
++    assert not any(row["stage"] == "MANUAL_ENTRY" for row in after["dispatch_due"])
++    assert count(after["pending"], mode="MANUAL", stage="ANALYSIS") \
++        == count(before["pending"], mode="MANUAL", stage="ANALYSIS")+2
++    assert unassembled.run_id != waiting.run_id
++    assert CANARY not in json.dumps(after)
++    assert CANARY not in render_metrics(after)
++
++
++def test_new_manual_answer_does_not_inherit_days_waiting_for_manual_entry(
++    ops_engine: Engine, answer_database: AnswerDatabase,
++) -> None:
++    before = read(ops_engine)
++    with psycopg.connect(answer_database.url) as conn:
++        now = conn.execute("SELECT now()").fetchone()[0]
++        identity, _ = root(conn, answer_database, "MANUAL", created=now-timedelta(days=3))
++        snapshot(conn, answer_database, identity, prompt_text=CANARY, collected_at=now)
++        collect(conn, identity)
++    after = read(ops_engine)
++    analysis = next(row for row in after["pending"]
++                    if row["mode"] == "MANUAL" and row["stage"] == "ANALYSIS")
++    assert Decimal(analysis["oldest_age_seconds"]) < 600
++    assert count(after["dispatch_due"], mode="MANUAL", stage="ANALYSIS") \
++        == count(before["dispatch_due"], mode="MANUAL", stage="ANALYSIS")
++
++
++def test_daily_costs_use_all_sent_attempts_utc_day_and_separate_currencies(
++    ops_engine: Engine, answer_database: AnswerDatabase, monkeypatch: pytest.MonkeyPatch,
++) -> None:
++    monkeypatch.setattr(settings, "geo_daily_budget_limit", Decimal("3"))
++    monkeypatch.setattr(settings, "geo_daily_budget_currency", "USD")
++    before = read(ops_engine)
++    with psycopg.connect(answer_database.url) as conn:
++        first, batch_id = root(conn, answer_database, "API", budget="1")
++        at = sent(conn, first)
++        settle(conn, first, at, amount="2")
++    monkeypatch.setattr(settings, "geo_daily_budget_limit", Decimal("1"))
++    known = read(ops_engine)
++    assert known["daily_budget"]["utilization"] == "2.000000"
++    assert known["daily_budget"]["exceeded"] is True
++    assert str(first) in known["daily_budget"]["anomalous_run_ids"]
++    single = next(row for row in known["batch_budget_anomalies"]["items"]
++                  if row["batch_id"] == str(batch_id))
++    assert single["amount"] == "2.000000" and single["exceeded"] is True
++    monkeypatch.setattr(settings, "geo_daily_budget_limit", Decimal("3"))
++    with psycopg.connect(answer_database.url) as conn:
++        stored = conn.execute("SELECT input_snapshot FROM geo_observation_runs WHERE id=%s",
++                              (first,)).fetchone()
++        assert stored is not None
++        value = stored[0]
++        second = run(conn, answer_database.runs, batch_id, input_snapshot=Jsonb(value),
++                     attempt_no=2, previous_attempt_id=first, created_at=at+timedelta(seconds=1))
++        second_at = sent(conn, second, estimated="2", currency="EUR", at=at+timedelta(seconds=2))
++        settle(conn, second, second_at, amount="1", currency="EUR")
++        unknown, _ = root(conn, answer_database, "API")
++        settle(conn, unknown, sent(conn, unknown), unknown=True)
++        yesterday, _ = root(conn, answer_database, "API",
++                            created=datetime.now(UTC)-timedelta(days=2))
++        older_at = datetime.now(UTC)-timedelta(days=1, hours=1)
++        settle(conn, yesterday, sent(conn, yesterday, at=older_at), amount="99")
++    after = read(ops_engine)
++    daily = after["api_daily"]
++    assert daily["calls"] == before["api_daily"]["calls"]+3
++    assert daily["reported_calls"] == before["api_daily"]["reported_calls"]+2
++    assert daily["coverage_rate"] == str(Decimal(2)/3)
++    assert daily["unknown_cost_count"] == 1
++    assert daily["unknown_outcome_count"] == 1
++    assert daily["underestimated_count"] == 1
++    amounts = {row["currency"]: Decimal(row["reported_amount"]) for row in daily["currencies"]}
++    assert amounts == {"USD": Decimal(2), "EUR": Decimal(1)}
++    assert after["daily_budget"]["utilization"] is None
++    assert after["daily_budget"]["currency_mismatch_count"] == 1
++    assert str(unknown) in after["daily_budget"]["anomalous_run_ids"]
++    anomaly = next(row for row in after["batch_budget_anomalies"]["items"]
++                   if row["batch_id"] == str(batch_id))
++    assert anomaly["currency_count"] == 2 and anomaly["amount"] is None
++    assert count(after["run_status"], mode="API", status="FAILED") \
++        == count(before["run_status"], mode="API", status="FAILED")+4
++    assert count(after["run_failures_24h"], mode="API", stage="COLLECTION") \
++        == count(before["run_failures_24h"], mode="API", stage="COLLECTION")+3
++    assert CANARY not in json.dumps(after) and CANARY not in render_metrics(after)
++    non_utc = create_engine(
++        answer_database.url.replace("postgresql://", "postgresql+psycopg://"),
++        connect_args={"options": "-c timezone=Pacific/Honolulu"},
++    )
++    try:
++        local_clock = read(non_utc)
++        assert local_clock["budget_day"] == datetime.now(UTC).date().isoformat()
++        assert local_clock["api_daily"] == after["api_daily"]
++    finally:
++        non_utc.dispose()
++
++
++def test_current_review_and_expired_terminal_reanalysis_keep_collection_success(
++    ops_engine: Engine, answer_database: AnswerDatabase,
++) -> None:
++    before = read(ops_engine)
++    with psycopg.connect(answer_database.url) as conn:
++        case = collected_case(conn, answer_database, answer_text=CANARY)
++        first = pending(conn, case)
++        finish(conn, first, failed=True)
++        update(conn, case.run_id, status="FAILED", finished_at=datetime.now(UTC),
++               error_stage="ANALYSIS", error_code="ANALYSIS_FAILED", error_summary=CANARY)
++        successful = pending(conn, case, analyzer_version="geo902-new-success")
++        conn.execute("UPDATE geo_analysis_revisions SET status='COMPLETED',finished_at=now(),"
++                     "review_required_reasons='[\"LOW_CONFIDENCE\"]' WHERE id=%s", (successful,))
++        publish(conn, case, successful)
++        review(conn, case, successful, answer_database.runs.plan.actor)
++    covered = read(ops_engine)
++    assert covered["review_backlog"]["count"] == before["review_backlog"]["count"]
++    with psycopg.connect(answer_database.url) as conn:
++        current = pending(conn, case, analyzer_version="geo902-current-success")
++        conn.execute("UPDATE geo_analysis_revisions SET status='COMPLETED',finished_at=now(),"
++                     "review_required_reasons='[\"LOW_CONFIDENCE\"]' WHERE id=%s", (current,))
++        publish(conn, case, current)
++        at = datetime.now(UTC)-timedelta(minutes=15)
++        unfinished = pending(conn, case, analyzer_version="geo902-expired", created_at=at)
++        insert_row(conn, "geo_analysis_jobs", {"analysis_revision_id": unfinished})
++        conn.execute("UPDATE geo_analysis_jobs SET claimed_at=%s,lease_token=%s,lease_expires_at=%s"
++                     " WHERE analysis_revision_id=%s",
++                     (at, uuid4(), at+timedelta(minutes=5), unfinished))
++    after = read(ops_engine)
++    assert after["review_backlog"]["count"] == before["review_backlog"]["count"]+1
++    assert after["review_backlog"]["oldest_run_id"] == str(case.run_id)
++    assert count(after["expired"], stage="ANALYSIS") == count(before["expired"], stage="ANALYSIS")+1
++    expired = next(row for row in after["expired"] if row["stage"] == "ANALYSIS")
++    assert expired["oldest_id"] == str(unfinished)
++    assert expired["oldest_run_id"] == str(case.run_id)
++    assert count(after["analysis_failures_24h"], mode="MANUAL") \
++        == count(before["analysis_failures_24h"], mode="MANUAL")+1
++    successes_before = sum(row["success_count"] for row in before["collection_24h"])
++    assert sum(row["success_count"] for row in after["collection_24h"]) == successes_before+1
++    assert not after["flags"]["geo_monitoring_enabled"]
++    assert CANARY not in json.dumps(after) and CANARY not in render_metrics(after)
++
++
++def test_expired_collection_remains_visible_when_collection_is_disabled(
++    ops_engine: Engine, answer_database: AnswerDatabase,
++) -> None:
++    before = read(ops_engine)
++    with psycopg.connect(answer_database.url) as conn:
++        identity, _ = root(conn, answer_database, "API",
++                           created=datetime.now(UTC)-timedelta(hours=1))
++        sent(conn, identity, at=datetime.now(UTC)-timedelta(minutes=15))
++    after = read(ops_engine)
++    assert not after["flags"]["geo_api_collection_enabled"]
++    assert count(after["expired"], stage="COLLECTION") \
++        == count(before["expired"], stage="COLLECTION")+1
++    row = next(row for row in after["expired"] if row["stage"] == "COLLECTION")
++    assert row["oldest_run_id"] == str(identity)
++
++
++def test_successful_collection_with_unknown_cost_keeps_outcome_separate(
++    ops_engine: Engine, answer_database: AnswerDatabase,
++) -> None:
++    before = read(ops_engine)
++    with psycopg.connect(answer_database.url) as conn:
++        identity, _ = root(conn, answer_database, "API")
++        at = sent(conn, identity)
++        collected_at = at+timedelta(seconds=1)
++        update(conn, identity, external_call_state="COMPLETED")
++        snapshot(conn, answer_database, identity, prompt_text=CANARY,
++                 answer_text=CANARY, collected_at=collected_at)
++        update(conn, identity, status="COLLECTED", collected_at=collected_at,
++               lease_token=None, lease_expires_at=None, external_call_state="COMPLETED",
++               prompt_tokens=13, completion_tokens=None, total_tokens=None)
++        conn.execute("UPDATE geo_collection_reservations SET state='UNKNOWN',settled_at=%s "
++                     "WHERE run_id=%s", (collected_at, identity))
++    after = read(ops_engine)
++    assert after["api_daily"]["unknown_cost_count"] == before["api_daily"]["unknown_cost_count"]+1
++    assert after["api_daily"]["unknown_outcome_count"] \
++        == before["api_daily"]["unknown_outcome_count"]
++    collection = next(row for row in after["collection_24h"] if row["mode"] == "API")
++    assert collection["prompt_tokens"] == 13
++    assert collection["completion_tokens"] is None and collection["total_tokens"] is None
++    assert 'geo_collection_total_tokens_24h{mode="API"} NaN' in render_metrics(after)
++
++
++def test_browser_health_is_existing_metadata_and_expiry_never_login_probe(
++    ops_engine: Engine, answer_database: AnswerDatabase,
++) -> None:
++    before = read(ops_engine)
++    now = datetime.now(UTC)
++    with psycopg.connect(answer_database.url) as conn:
++        for expired in (False, True):
++            profile, reference = uuid4(), uuid4()
++            insert_row(conn, "geo_collection_profiles", {
++                "id": profile,
++                "engine_surface_id": UUID(answer_database.runs.input["profile"]["surface"]["id"]),
++                "name": CANARY+str(profile), "collection_mode": "BROWSER",
++                "adapter_key": "browser-session", "language_code": "zh-hans", "region_code": "CN",
++                "login_state": "AUTHENTICATED", "web_search_policy": "UNKNOWN",
++                "created_by": answer_database.runs.plan.actor,
++            })
++            insert_row(conn, "geo_browser_sessions", {
++                "id": reference, "profile_id": profile, "cipher_sha256": "f"*64,
++                "expires_at": now+timedelta(hours=-1 if expired else 1), "health": "AVAILABLE",
++                "last_checked_at": now-timedelta(hours=2), "created_at": now-timedelta(hours=2),
++                "created_by": answer_database.runs.plan.actor,
++            })
++    after = read(ops_engine)
++    metadata = after["browser_sessions"]
++    assert metadata["login_probe"] == "NOT_IMPLEMENTED"
++    assert metadata["current_unhealthy_count"] \
++        == before["browser_sessions"]["current_unhealthy_count"]+1
++    assert count(metadata["statuses"], status="EXPIRED") == 1
++    assert count(metadata["statuses"], status="AVAILABLE") == 1
++    assert CANARY not in json.dumps(after)
++    assert "f"*64 not in json.dumps(after)
++    assert "geo_browser_session_unhealthy 1" in render_metrics(after)
+--- /dev/null
++++ b/backend/tests/integration/test_geo_ops_runtime.py
+@@ -0,0 +1,78 @@
++"""GEO-902：加法前滚、原子累计与独立观测事务，不影响业务回滚。"""
++
++from concurrent.futures import ThreadPoolExecutor
++
++import psycopg
++import pytest
++from alembic.autogenerate import compare_metadata
++from alembic.migration import MigrationContext
++from sqlalchemy import create_engine, text
++from sqlalchemy.orm import Session
++
++from app.db import Base
++from app.services.geo_ops_runtime import record_operation
++from tests.integration.test_migrations import run_alembic, temporary_database
++
++pytestmark = pytest.mark.integration
++
++
++def test_additive_migration_and_concurrent_health_do_not_commit_business():
++    with temporary_database("partsignal_geo902_health") as (url, env, backend_dir):
++        run_alembic(env, backend_dir, "0064_geo_retention")
++        with psycopg.connect(url) as connection:
++            before = connection.execute("SELECT count(*) FROM geo_observation_runs").fetchone()
++        run_alembic(env, backend_dir, "0065_geo_observability")
++        engine = create_engine(url.replace("postgresql://", "postgresql+psycopg://", 1))
++        try:
++            with engine.connect() as db:
++                context = MigrationContext.configure(
++                    db,
++                    opts={
++                        "compare_type": True,
++                        "compare_server_default": True,
++                        "include_object": lambda obj, name, kind, reflected, compared: (
++                            obj.name == "geo_operation_health"
++                            if kind == "table"
++                            else obj.table.name == "geo_operation_health"
++                        ),
++                    },
++                )
++                assert compare_metadata(context, Base.metadata) == []
++            with engine.begin() as db:
++                assert db.scalar(text("SELECT count(*) FROM geo_observation_runs")) == before[0]
++                assert db.scalar(text("SELECT count(*) FROM geo_operation_health")) == 0
++                db.execute(text("CREATE TABLE geo902_transaction_probe (value integer)"))
++            with Session(engine) as business:
++                business.execute(text("INSERT INTO geo902_transaction_probe VALUES (1)"))
++                assert record_operation("batch_build", succeeded=True, duration_ms=5, bind=engine)
++                business.rollback()
++
++            def record(index):
++                return record_operation(
++                    "collect_task", succeeded=index % 2 == 0, duration_ms=3, bind=engine
++                )
++
++            with ThreadPoolExecutor(max_workers=4) as pool:
++                assert all(pool.map(record, range(12)))
++            with engine.connect() as db:
++                assert db.scalar(text("SELECT count(*) FROM geo902_transaction_probe")) == 0
++                assert tuple(
++                    db.execute(
++                        text(
++                            "SELECT success_count,failure_count,duration_ms,"
++                            "duration_total_ms FROM geo_operation_health "
++                            "WHERE operation='collect_task'"
++                        )
++                    ).one()
++                ) == (6, 6, 3, 36)
++                assert (
++                    db.scalar(
++                        text(
++                            "SELECT success_count FROM geo_operation_health "
++                            "WHERE operation='batch_build'"
++                        )
++                    )
++                    == 1
++                )
++        finally:
++            engine.dispose()
+--- a/backend/tests/integration/test_geo_retention.py
++++ b/backend/tests/integration/test_geo_retention.py
+@@ -50,7 +50,7 @@
+         after = conn.execute("SELECT * FROM geo_answer_snapshots WHERE id=%s", (answer,)).fetchone()
+         assert after == before
+         assert conn.execute("SELECT version_num FROM alembic_version").fetchone() == (
+-            "0064_geo_retention",
++            "0065_geo_observability",
+         )
+     yield value
+ 
+--- a/backend/tests/integration/test_migrations.py
++++ b/backend/tests/integration/test_migrations.py
+@@ -326,7 +326,7 @@
+ 
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0064_geo_retention",)
++            assert cursor.fetchone() == ("0065_geo_observability",)
+             cursor.execute(
+                 "SELECT tablename FROM pg_tables "
+                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
+@@ -484,10 +484,10 @@
+             text=True,
+         )
+         assert downgrade.returncode != 0
+-        assert "0064 清理墓碑不可安全降级" in downgrade.stdout + downgrade.stderr
++        assert "0065 运维故障事实须保留" in downgrade.stdout + downgrade.stderr
+         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+             cursor.execute("SELECT version_num FROM alembic_version")
+-            assert cursor.fetchone() == ("0064_geo_retention",)
++            assert cursor.fetchone() == ("0065_geo_observability",)
+ 
+ 
+ @pytest.mark.integration
+--- /dev/null
++++ b/backend/tests/unit/test_geo_ops_export.py
+@@ -0,0 +1,39 @@
++"""textfile实际失败回路：撤销旧up=1，隐藏部分输出和stderr，保留权限。"""
++
++import importlib.util
++import stat
++import sys
++from pathlib import Path
++
++import pytest
++
++SCRIPT = Path(__file__).resolve().parents[3] / "deploy/scripts/export-geo-metrics.py"
++spec = importlib.util.spec_from_file_location("geo_export", SCRIPT)
++assert spec and spec.loader
++exporter = importlib.util.module_from_spec(spec)
++spec.loader.exec_module(exporter)
++
++
++def test_atomic_export_success_then_failure_does_not_leave_stale_success(tmp_path):
++    output = tmp_path / "geo.prom"
++    assert (
++        exporter.export([sys.executable, "-c", "print('geo_observability_up 1')"], output, 2) == 0
++    )
++    assert "geo_observability_up 1" in output.read_text()
++    failed = (
++        "print('GEO902-secret-body'); import sys; sys.stderr.write('GEO902-secret-cookie'); exit(1)"
++    )
++    assert exporter.export([sys.executable, "-c", failed], output, 2) == 1
++    assert output.read_text() == exporter.FAILURE
++    assert stat.S_IMODE(output.stat().st_mode) == 0o600
++    assert list(tmp_path.iterdir()) == [output]
++
++
++@pytest.mark.parametrize(
++    "command",
++    [["/geo902-command-does-not-exist"], [sys.executable, "-c", "import time; time.sleep(5)"]],
++)
++def test_export_unavailable_or_timeout_is_explicit_not_empty(command, tmp_path):
++    output = tmp_path / "geo.prom"
++    assert exporter.export(command, output, 1) == 1
++    assert "geo_observability_up 0" in output.read_text()
+--- /dev/null
++++ b/backend/tests/unit/test_geo_ops_health.py
+@@ -0,0 +1,104 @@
++"""真实健康边界的故障模拟：进程存在不能掩盖失联、PG或Broker故障。"""
++
++import json
++from datetime import UTC, datetime
++from pathlib import Path
++from types import SimpleNamespace
++from unittest.mock import Mock
++
++import pytest
++
++from app import geo_ops_health as health
++from app.worker import celery_app
++
++
++@pytest.fixture
++def healthy_component(monkeypatch, tmp_path):
++    now = datetime.now(UTC)
++    engine = Mock()
++    db = Mock()
++    db.__enter__ = Mock(return_value=db)
++    db.__exit__ = Mock(return_value=False)
++    db.get.return_value = SimpleNamespace(last_success_at=now)
++    db.scalar.return_value = now
++    monkeypatch.setattr(health, "observability_engine", lambda: engine)
++    monkeypatch.setattr(health, "Session", lambda **kwargs: db)
++    redis = Mock()
++    redis.__enter__ = Mock(return_value=redis)
++    redis.__exit__ = Mock(return_value=False)
++    redis.ping.return_value = True
++    monkeypatch.setattr(health.Redis, "from_url", lambda *a, **k: redis)
++    monkeypatch.setattr(health.os, "kill", lambda *a: None)
++    monkeypatch.setattr(health, "Path", lambda name: tmp_path / Path(name).name)
++    monkeypatch.setattr(health, "monotonic", lambda: 100.0)
++    inspector = Mock()
++    inspector.ping.return_value = {f"celery@{health.socket.gethostname()}": {"ok": "pong"}}
++    monkeypatch.setattr(celery_app.control, "inspect", lambda **kwargs: inspector)
++    for component, pidfile in (("worker", "worker"), ("scheduler", "beat")):
++        (tmp_path / f"partsignal-{pidfile}.pid").write_text("4321")
++        health.heartbeat_file(component).write_text(json.dumps({"pid": 4321, "monotonic": 100.0}))
++    return db, redis, inspector
++
++
++@pytest.mark.parametrize("component", ["worker", "scheduler"])
++def test_live_component_requires_recent_local_and_database_heartbeat(healthy_component, component):
++    assert health.component_health(component)["status"] == "ok"
++    health.heartbeat_file(component).write_text(json.dumps({"pid": 4321, "monotonic": 9.0}))
++    result = health.component_health(component)
++    assert result["status"] == "unhealthy"
++    assert result["checks"]["observed_heartbeat"] is True
++    assert result["checks"]["local_heartbeat"] is False
++
++
++@pytest.mark.parametrize("failed", ["postgres", "redis", "celery_ping"])
++def test_dependency_failure_is_unhealthy_and_does_not_expose_exception(healthy_component, failed):
++    db, redis, inspector = healthy_component
++    target = {"postgres": db.execute, "redis": redis.ping, "celery_ping": inspector.ping}[failed]
++    target.side_effect = RuntimeError("GEO902-secret-token-cookie-private-query")
++    result = health.component_health("worker")
++    assert result["status"] == "unhealthy" and result["checks"][failed] is False
++    assert "secret" not in json.dumps(result)
++
++
++def test_publish_failure_is_counted_without_exception_body(monkeypatch, caplog):
++    outcomes = []
++    monkeypatch.setattr(health, "record_operation", lambda *a, **k: outcomes.append(k))
++    scheduler = object.__new__(health.GeoHealthScheduler)
++    scheduler.apply_async = Mock(side_effect=RuntimeError("GEO902-secret-broker-url"))
++    scheduler.apply_entry(SimpleNamespace(name="existing-task"))
++    assert outcomes[0]["succeeded"] is False
++    assert "GEO902-secret" not in caplog.text
++    assert json.loads(caplog.records[-1].message)["error_code"] == "BROKER_UNAVAILABLE"
++
++
++def test_tick_records_actual_loop_and_preserves_existing_celery_dispatch(monkeypatch):
++    calls = []
++    monkeypatch.setattr(health.PersistentScheduler, "tick", lambda *a, **k: 300.0)
++    monkeypatch.setattr(health, "record_operation", lambda *a, **k: calls.append(a[0]) or True)
++    monkeypatch.setattr(health, "_local_heartbeat", lambda component: calls.append(component))
++    scheduler = object.__new__(health.GeoHealthScheduler)
++    assert scheduler.tick() == 30.0
++    assert scheduler.tick() == 30.0
++    assert calls == ["scheduler_tick", "scheduler"]
++
++
++def test_connection_retry_and_tick_producer_failure_scrub_real_celery_boundary(monkeypatch, caplog):
++    secret = "GEO902-secret-broker-connection-canary"
++    scheduler = object.__new__(health.GeoHealthScheduler)
++    scheduler.app = SimpleNamespace(conf=SimpleNamespace(broker_connection_max_retries=3))
++    retries = []
++
++    class Connection:
++        def ensure_connection(self, handler, maximum):
++            retries.append(maximum)
++            handler(ConnectionError(secret), 1)
++            raise ConnectionError(secret)
++
++    scheduler.__dict__["connection"] = Connection()
++    monkeypatch.setattr(health.PersistentScheduler, "tick", lambda self: self._ensure_connected())
++    monkeypatch.setattr(health, "record_operation", lambda *a, **k: retries.append(k["succeeded"]))
++    with pytest.raises(RuntimeError) as error:
++        scheduler.tick()
++    assert retries == [3, False]
++    assert secret not in caplog.text and secret not in str(error.value)
++    assert error.value.__suppress_context__
+--- /dev/null
++++ b/backend/tests/unit/test_geo_ops_metrics.py
+@@ -0,0 +1,94 @@
++"""运维文本边界：未知值、固定标签、时间与低敏投影。"""
++
++from copy import deepcopy
++from typing import Any
++
++import pytest
++
++from app.models.geo_observability import OPERATIONS
++from app.services.geo_ops_metrics import render_metrics
++
++
++@pytest.fixture
++def snapshot() -> dict[str, Any]:
++    return {
++        "schema_version": 1, "as_of": "2026-10-05T00:00:00+00:00",
++        "flags": {name: False for name in (
++            "geo_monitoring_enabled", "geo_api_collection_enabled",
++            "geo_browser_collection_enabled", "geo_opportunity_evaluation_enabled",
++        )},
++        "run_status": [], "batch_status": [], "pending": [], "dispatch_due": [],
++        "expired": [], "run_failures_24h": [], "analysis_failures_24h": [],
++        "collection_24h": [], "review_backlog": {"count": 0},
++        "api_daily": {"calls": 0, "reported_calls": 0, "coverage_rate": None,
++                      "unknown_cost_count": 0, "unknown_outcome_count": 0,
++                      "underestimated_count": 0, "currencies": []},
++        "daily_budget": {"currency": "USD", "utilization": None, "exceeded": None,
++                         "unknown_count": 0, "currency_mismatch_count": 0},
++        "batch_budget_anomalies": {"count": 0, "items": []},
++        "browser_sessions": {"statuses": [], "current_unhealthy_count": 0,
++                             "cleanup_pending_count": 0, "login_probe": "NOT_IMPLEMENTED"},
++        "operations": [{"operation": operation, "observed": False, "last_attempt_at": None,
++                        "last_success_at": None, "last_failure_at": None,
++                        "success_count": None, "failure_count": None, "duration_ms": None,
++                        "duration_total_ms": None} for operation in OPERATIONS],
++    }
++
++
++def test_unknown_cost_and_never_observed_are_not_zero(snapshot: dict[str, Any]) -> None:
++    value = render_metrics(snapshot)
++    assert "geo_cost_coverage_rate NaN\n" in value
++    assert 'geo_daily_budget_utilization{currency="USD"} NaN\n' in value
++    assert 'geo_operation_observed{operation="scheduler_publish"} 0\n' in value
++    assert 'geo_operation_last_success_timestamp_seconds' \
++        '{operation="scheduler_publish"} NaN' in value
++    assert 'geo_operation_failure_total{operation="scheduler_publish"} NaN' in value
++    assert "geo_reported_cost_daily" not in value
++    assert "geo_observability_snapshot_timestamp_seconds 1791158400.0\n" in value
++
++
++def test_costs_remain_per_currency_and_identifiers_never_become_labels(
++    snapshot: dict[str, Any],
++) -> None:
++    snapshot["api_daily"]["currencies"] = [
++        {"currency": "USD", "reported_amount": "0.000001"},
++        {"currency": "EUR", "reported_amount": "2.500000"},
++    ]
++    snapshot["pending"] = [{
++        "mode": "API", "stage": "COLLECTION", "count": 1, "oldest_age_seconds": "300",
++        "oldest_id": "secret-canary-UUID", "oldest_run_id": "secret-canary-provider-id",
++        "prompt": "secret-canary-prompt", "error_summary": "secret-canary-error",
++    }]
++    value = render_metrics(snapshot)
++    assert 'geo_reported_cost_daily{currency="USD"} 0.000001\n' in value
++    assert 'geo_reported_cost_daily{currency="EUR"} 2.500000\n' in value
++    assert value.count("# TYPE geo_reported_cost_daily gauge") == 1
++    assert "secret-canary" not in value
++    assert 'geo_pending_oldest_seconds{mode="API",stage="COLLECTION"} 300\n' in value
++
++
++@pytest.mark.parametrize("field,row", [
++    ("pending", {"mode": 'secret-canary"}\ninjected', "stage": "COLLECTION",
++                 "count": 1, "oldest_age_seconds": 1}),
++    ("run_status", {"mode": "API", "status": "secret-canary-model", "count": 1}),
++    ("run_failures_24h", {"mode": "API", "stage": "COLLECTION",
++                         "error_code": "secret-canary-error", "count": 1}),
++    ("operations", {"operation": "secret-canary-operation", "observed": True}),
++])
++def test_untrusted_label_values_are_rejected_before_text_is_returned(
++    snapshot: dict[str, Any], field: str, row: dict[str, Any],
++) -> None:
++    snapshot[field] = [row]
++    with pytest.raises(ValueError, match="固定白名单") as error:
++        render_metrics(snapshot)
++    assert "secret-canary" not in str(error.value)
++
++
++def test_currency_and_nonfinite_number_are_explicit_failures(snapshot: dict[str, Any]) -> None:
++    invalid = deepcopy(snapshot)
++    invalid["api_daily"]["currencies"] = [{"currency": "USD\n", "reported_amount": 1}]
++    with pytest.raises(ValueError, match="固定白名单"):
++        render_metrics(invalid)
++    snapshot["api_daily"]["coverage_rate"] = "Infinity"
++    with pytest.raises(ValueError, match="有限数值"):
++        render_metrics(snapshot)
+--- /dev/null
++++ b/backend/tests/unit/test_geo_ops_runtime.py
+@@ -0,0 +1,154 @@
++"""GEO-902：观测失败不改业务结果，日志严格排除自由文本与异常链。"""
++
++import json
++import logging
++from decimal import Decimal
++from unittest.mock import MagicMock
++from uuid import uuid4
++
++import pytest
++
++from app.errors import AppError
++from app.services import geo_ops_runtime as runtime
++from app.services.geo_ops_logging import OpsError, geo_event
++
++
++def test_safe_event_and_worker_exception_exclude_secret_canaries(monkeypatch, caplog):
++    secret = "GEO902-secret-cookie-authorization-provider-payload"
++    recorded = []
++    monkeypatch.setattr(runtime, "record_operation", lambda *a, **k: recorded.append(k) or False)
++
++    @runtime.observe("collect_task", "COLLECTION", scrub_worker_error=True)
++    def failed():
++        raise ConnectionError(secret)
++
++    with caplog.at_level(logging.INFO), pytest.raises(RuntimeError) as error:
++        failed()
++    assert secret not in str(error.value)
++    assert error.value.__suppress_context__
++    assert recorded[0]["succeeded"] is False
++    assert secret not in caplog.text
++    payload = json.loads(caplog.records[-1].message)
++    assert payload["error_code"] == "OPERATION_FAILED"
++    assert set(payload) == {
++        "schema_version",
++        "component",
++        "event",
++        "stage",
++        "status",
++        "error_code",
++        "duration_ms",
++    }
++
++
++def test_observation_failure_preserves_success_and_business_rejection(monkeypatch, caplog):
++    recorded = []
++    monkeypatch.setattr(runtime, "record_operation", lambda *a, **k: recorded.append(k) or False)
++
++    @runtime.observe("batch_build", "BATCH")
++    def accepted():
++        return "business-receipt"
++
++    @runtime.observe("batch_build", "BATCH")
++    def rejected():
++        raise AppError("INVALID_STATE_TRANSITION", "业务拒绝", 409)
++
++    with caplog.at_level(logging.INFO):
++        assert accepted() == "business-receipt"
++        with pytest.raises(AppError) as error:
++            rejected()
++    assert error.value.status_code == 409
++    assert len(recorded) == 1 and recorded[0]["succeeded"] is True
++    assert json.loads(caplog.records[-1].message)["status"] == "REJECTED"
++
++
++def test_connection_creation_failure_is_explicit_and_scrubbed(monkeypatch, caplog):
++    def unavailable(*args):
++        raise RuntimeError("postgresql://secret-password@private-host/private-data")
++
++    monkeypatch.setattr(runtime, "observability_engine", unavailable)
++    assert runtime.record_operation("storage_write", succeeded=False) is False
++    assert "secret-password" not in caplog.text
++    assert json.loads(caplog.records[-1].message)["error_code"] == "OBSERVABILITY_WRITE_FAILED"
++
++
++def test_connection_release_failure_preserves_recorded_result(monkeypatch, caplog):
++    engine = MagicMock()
++    engine.dispose.side_effect = OSError("GEO902-secret-release-error")
++    monkeypatch.setattr(runtime, "observability_engine", lambda *a: engine)
++    monkeypatch.setattr(runtime, "Session", MagicMock())
++    assert runtime.record_operation("batch_build", succeeded=True) is True
++    assert "GEO902-secret" not in caplog.text
++    assert json.loads(caplog.records[-1].message)["error_code"] == "OBSERVABILITY_WRITE_FAILED"
++
++
++def test_log_contract_allows_only_stable_fields_and_explicit_money(caplog):
++    identity = uuid4()
++    with caplog.at_level(logging.INFO):
++        geo_event(
++            event="collection_finished",
++            stage="COLLECTION",
++            status="SUCCEEDED",
++            run_id=identity,
++            cost_amount=Decimal("0.01"),
++            cost_currency="USD",
++        )
++    payload = json.loads(caplog.records[-1].message)
++    assert payload["run_id"] == str(identity)
++    assert payload["cost_amount"] == "0.01" and payload["cost_currency"] == "USD"
++    for values in (
++        {"error_code": "secret"},
++        {"run_id": "secret"},
++        {"duration_ms": -1},
++        {"cost_amount": Decimal("NaN"), "cost_currency": "USD"},
++        {"cost_amount": Decimal("1"), "cost_currency": "secret"},
++        {"event": "secret"},
++    ):
++        with pytest.raises(ValueError):
++            geo_event(
++                **dict(event="collection_finished", stage="COLLECTION", status="FAILED", **values)
++                if "event" not in values
++                else dict(stage="COLLECTION", status="FAILED", **values)
++            )
++    with pytest.raises(TypeError):
++        geo_event(
++            event="dispatch_failed",
++            stage="COLLECTION",
++            status="FAILED",
++            error_code=OpsError.BROKER_UNAVAILABLE,
++            request_id="secret",
++        )
++
++
++def test_log_sink_failure_cannot_override_committed_receipt_or_business_error(monkeypatch, capsys):
++    monkeypatch.setattr(runtime, "record_operation", lambda *a, **k: True)
++
++    class FailedSink(logging.Handler):
++        def emit(self, _record):
++            raise OSError("GEO902-secret-sink-error")
++
++    logger = logging.getLogger("partsignal.geo.batch")
++    handler = FailedSink()
++    logger.addHandler(handler)
++    old_level = logger.level
++    logger.setLevel(logging.INFO)
++    try:
++
++        @runtime.observe("batch_build", "BATCH")
++        def accepted():
++            return "committed-receipt"
++
++        @runtime.observe("batch_build", "BATCH")
++        def rejected():
++            raise AppError("REVISION_CONFLICT", "原业务拒绝", 409)
++
++        assert accepted() == "committed-receipt"
++        with pytest.raises(AppError) as error:
++            rejected()
++        assert error.value.code == "REVISION_CONFLICT"
++    finally:
++        logger.removeHandler(handler)
++        logger.setLevel(old_level)
++    output = capsys.readouterr().err
++    assert output.count('"error_code":"LOGGING_UNAVAILABLE"') == 2
++    assert "secret" not in output
+--- a/contracts/database.md
++++ b/contracts/database.md
+@@ -1350,3 +1350,21 @@
+ 先前滚0064再部署Worker；本轮仅隔离PG前滚，无生产操作、数据删除回填或业务能力开启。downgrade以55000拒绝销毁墓碑；停止新retention任务或恢复dry-run并保留schema/历史，采用前向修复。已清理临时字节不能靠downgrade恢复，备份/恢复验证由GEO-903交付。
+ 
+ ADR-006的Browser条件单独适用：本轮本机开关false、无服务/配置/会话表，临时Browser材料清理N/A；不是生产事实。实际部署或材料存在时必须继续802保护/撤销/清理并重新验收，不能用R7 deferred跳过。GEO-904/906须在目标环境核实false及无生产会话。无OpenAPI/前端/指标变化。
++
++## GEO-902 运维观测合同（R8）
++
++`0065_geo_observability` 在0064后只新增 `geo_operation_health`，不回填或改写Run、答案、分析、账本、机会和业务审计。运维CLI不是公共HTTP API；内部单租户系统运维权限通过既有容器/数据库访问控制，不新增身份系统。
++
++| 列 | 类型/默认 | 语义 |
++|---|---|---|
++| operation | varchar(32) PK | 有限运行边界：scheduler_tick、scheduler_publish、worker_heartbeat、collect_task、analyze_task、collection_dispatch、collection_recovery、analysis_dispatch、analysis_recovery、retention、batch_build、opportunity_evaluate、storage_write |
++| last_attempt_at | timestamptz NOT NULL | PG时钟记录的最近一次执行结束/心跳时刻 |
++| last_success_at / last_failure_at | timestamptz NULL | 尚未观察到该结果为NULL，不补造成功 |
++| success_count / failure_count | bigint 0 | 原子累加的运维执行结果，不是业务样本数或成功率 |
++| duration_ms / duration_total_ms | bigint 0 | 最近一次和累积耗时（毫秒），非负 |
++
++`ck_geo_operation_health_operation/counts/time` 限制有限键、非负计数/耗时、时间和空值一致性。无业务FK、任意JSON、正文、secret、lease token、Profile/Run UUID标签、公共revision或CAS；该表是有限运维事实，不是业务指标缓存，也不是audit_logs的替代品。独立短事务ON CONFLICT原子累计，时间单调合并；不持业务行锁，不提交调用者事务。观测写失败有固定低敏错误；不撤销已完成业务或自动重发外部请求。查询只读RR，计数/积压/费用从当前业务事实重建。
++
++运行状态计数为各模式所有attempt；API日调用和费用从Reservation UTC budget_day及sent_at读取全部发送attempt，币种分开、未知保留，不改变601–604 latest attempt业务分母。Analysis过期包括终态Run重分析，复核积压根据current必要复核和当前revision有效review确定。MANUAL待录入不触发自动积压故障；运维告警不评估提及/推荐/准确性低表现。
++
++先迁移再统一部署API/Worker/Beat；无历史数据回填。downgrade以55000拒绝删除运行故障事实；停止观测、保留该表并前向修复，备份恢复留GEO-903。
+--- a/deploy/compose.dev.yaml
++++ b/deploy/compose.dev.yaml
+@@ -69,19 +69,21 @@
+     <<: *backend
+     command: [uv, run, celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --concurrency=1, --pidfile=/tmp/partsignal-worker.pid]
+     healthcheck:
+-      test: [CMD, python, -c, "import os, pathlib; os.kill(int(pathlib.Path('/tmp/partsignal-worker.pid').read_text()), 0)"]
+-      interval: 10s
+-      timeout: 3s
+-      retries: 12
++      test: [CMD, python, -m, app.geo_observability, health, worker]
++      interval: 30s
++      timeout: 15s
++      retries: 3
++      start_period: 90s
+ 
+   scheduler:
+     <<: *backend
+     command: [uv, run, celery, -A, 'app.worker:celery_app', beat, --loglevel=INFO, --schedule, /tmp/partsignal-celerybeat, --pidfile=/tmp/partsignal-beat.pid]
+     healthcheck:
+-      test: [CMD, python, -c, "import os, pathlib; os.kill(int(pathlib.Path('/tmp/partsignal-beat.pid').read_text()), 0)"]
+-      interval: 10s
+-      timeout: 3s
+-      retries: 12
++      test: [CMD, python, -m, app.geo_observability, health, scheduler]
++      interval: 30s
++      timeout: 15s
++      retries: 3
++      start_period: 90s
+ 
+   fake-oss:
+     <<: *backend
+--- a/deploy/compose.prod.yaml
++++ b/deploy/compose.prod.yaml
+@@ -51,10 +51,11 @@
+     mem_limit: 1g
+     cpus: 1.5
+     healthcheck:
+-      test: [CMD, python, -c, "import os, pathlib; os.kill(int(pathlib.Path('/tmp/partsignal-worker.pid').read_text()), 0)"]
+-      interval: 10s
+-      timeout: 3s
+-      retries: 12
++      test: [CMD, python, -m, app.geo_observability, health, worker]
++      interval: 30s
++      timeout: 15s
++      retries: 3
++      start_period: 90s
+ 
+   scheduler:
+     <<: *backend
+@@ -64,10 +65,11 @@
+     mem_limit: 192m
+     cpus: 0.25
+     healthcheck:
+-      test: [CMD, python, -c, "import os, pathlib; os.kill(int(pathlib.Path('/tmp/partsignal-beat.pid').read_text()), 0)"]
+-      interval: 10s
+-      timeout: 3s
+-      retries: 12
++      test: [CMD, python, -m, app.geo_observability, health, scheduler]
++      interval: 30s
++      timeout: 15s
++      retries: 3
++      start_period: 90s
+ 
+   frontend:
+     image: ${PARTSIGNAL_FRONTEND_IMAGE:?必须指定 PARTSIGNAL_FRONTEND_IMAGE}:${PARTSIGNAL_FRONTEND_VERSION:-${PARTSIGNAL_VERSION}}
+--- a/deploy/compose.staging.yaml
++++ b/deploy/compose.staging.yaml
+@@ -109,10 +109,11 @@
+     mem_limit: 512m
+     cpus: 0.75
+     healthcheck:
+-      test: [CMD, python, -c, "import os, pathlib; os.kill(int(pathlib.Path('/tmp/partsignal-worker.pid').read_text()), 0)"]
+-      interval: 10s
+-      timeout: 3s
+-      retries: 12
++      test: [CMD, python, -m, app.geo_observability, health, worker]
++      interval: 30s
++      timeout: 15s
++      retries: 3
++      start_period: 90s
+ 
+   scheduler:
+     <<: *backend
+@@ -121,10 +122,11 @@
+     mem_limit: 128m
+     cpus: 0.25
+     healthcheck:
+-      test: [CMD, python, -c, "import os, pathlib; os.kill(int(pathlib.Path('/tmp/partsignal-beat.pid').read_text()), 0)"]
+-      interval: 10s
+-      timeout: 3s
+-      retries: 12
++      test: [CMD, python, -m, app.geo_observability, health, scheduler]
++      interval: 30s
++      timeout: 15s
++      retries: 3
++      start_period: 90s
+ 
+   frontend:
+     image: ${PARTSIGNAL_FRONTEND_IMAGE:-partsignal-frontend}:${PARTSIGNAL_VERSION}
+--- /dev/null
++++ b/deploy/observability/geo/README.md
+@@ -0,0 +1,104 @@
++# GEO-902 运维观测
++
++本目录提供受保护 CLI 的采集方式、Grafana 导入文件、Prometheus 告警和阈值模拟。业务低表现由 Opportunity/Insights 裁决，系统告警不读取品牌提及率、推荐率或统一 GEO 分数。
++
++## 入口与发布
++
++先将数据库从 `0064_geo_retention` 前滚到 `0065_geo_observability`，再统一部署 API、Worker、Beat。迁移只新增有限 `geo_operation_health` 表，无历史回填、业务行更新或新功能开关。表保留故障事实，故障时停止采集、修复并前滚，不降级删除记录。这里只交付资产和本地验证，没有部署生产监控。
++
++在已授权运行容器内执行：
++
++```bash
++python -m app.geo_observability snapshot
++python -m app.geo_observability metrics
++python -m app.geo_observability health worker
++python -m app.geo_observability health scheduler
++```
++
++`snapshot` 是包含有限 Run/Analysis/Batch UUID 的 JSON 诊断，仅限具有容器/数据库运维权限的人；不新增公开 HTTP 端点或放宽 `/api/health/*`。`metrics` 无业务 UUID 标签。快照使用全新 Session 的只读 REPEATABLE READ，固定 15 个聚合 SELECT 与 3 个 SET，SQL 最多等待 5 秒、锁最多 1 秒。连接有 2 秒超时；读取失败 exit 1，固定错误码，不输出 SQL、URL 或异常正文。
++
++运维写入独立短事务，使用独立 NullPool、2 秒连接/SQL和1秒锁超时，只锁有限 operation 的自身行，不提交调用方事务。写入失败产生 `OBSERVABILITY_WRITE_FAILED`，不撤销已提交业务、重试外部调用或改变原有错误映射。
++
++## 采集与资产导入
++
++复用已有 Node Exporter 的 textfile collector，每个数据库/环境只配置一个权威采集源。目录由运维与 exporter 共享权限，文件为 `0600`；不要把 JSON 定位信息写入 textfile，也不要通过公网发布该目录。
++
++每 30 秒由已有主机调度设施执行下列命令，路径和 Compose 参数按环境设置：
++
++```bash
++python deploy/scripts/export-geo-metrics.py \
++  --output /protected/textfile/geo.prom --timeout 30 -- \
++  docker compose --env-file /protected/runtime.env \
++  -f deploy/compose.prod.yaml --profile production-async \
++  exec -T api python -m app.geo_observability metrics
++```
++
++脚本捕获 CLI 输出，成功时原子替换 `.prom`；失败、超时、缺少成功信号时也原子替换为 `geo_observability_up 0`，不会继续展示旧成功。脚本不输出命令、stderr 或环境值。目录不可写时 exit 1，旧文件的新鲜度告警仍能发现问题。文件中的快照时间保证“采集程序没有执行”也能被发现。
++
++在已有 Prometheus 中将该 Node Exporter 的采集 job 设为 `partsignal-geo`，加载 [alerts.yaml](./alerts.yaml)。规则按 `job,instance` 保留环境归属，不把多个数据库相加。导入 [dashboard.json](./dashboard.json)，选择受保护 Prometheus datasource。运维访问控制由现有监控设施拥有。
++
++规则使用 [Prometheus alerting rules](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/) 与 [promtool rule tests](https://prometheus.io/docs/prometheus/latest/configuration/unit_testing_rules/)，dashboard 使用 [Grafana JSON model](https://grafana.com/docs/grafana/latest/visualizations/dashboards/build-dashboards/view-dashboard-json-model/)。验证工具为 Prometheus 3.5.0；这不是新增应用运行依赖。
++
++## 统计口径与未知值
++
++| 观察边界 | 实际口径 |
++|---|---|
++| Run / Batch | 所有 attempt 的当前状态，MANUAL/API/BROWSER 分开 |
++| oldest pending | 当前阶段开始时间（采集为Run.created_at、未装配分析为Run.collected_at、已装配分析为revision.created_at）；MANUAL 待录入独立 `MANUAL_ENTRY`，不触发自动采集积压告警 |
++| dispatch due | 自动采集或分析，`coalesce(last_dispatch_attempt_at, created_at)` 超过现有补投递间隔 |
++| 分析积压 / expired lease | 未装配的 COLLECTED、未 claim 的 PENDING revision；过期包含终态 Run 的重分析 |
++| 复核积压 | current 成功 analysis 有 review_required_reasons 且没有同 revision 有效 review；不只看 Run.status |
++| 技术失败 | 24 小时 PG 固定 mode/stage/error_code 分布；与 Opportunity 低表现分开 |
++| API 日调用 / 成本 | Reservation UTC budget_day 的所有 sent attempt；重试独立计数，reported amount 分币种 |
++| 成本覆盖率 | 已报告费用的 sent attempt / 全部 sent attempt；本运维日调用比例不替代 Insights 的已验收业务公式 |
++| 日/批预算 | 沿既有 admission：RESERVED/SENT 用估价，SETTLED 用实际费用；UNKNOWN 不补零，不跨币种相加 |
++| 会话 | 现有 PG 材料健康与 expires_at；AVAILABLE 不证明真实登录，login_probe 为 NOT_IMPLEMENTED |
++| operation | 实际函数/循环执行边界完成与异常；正常返回不证明 Run 采集成功或业务计划已调度 |
++
++未观察 operation、没有费用覆盖率分母、无法计算预算利用率时，JSON 是 `null`、指标是 `NaN`；`observed=0` 明确区别于成功计数零。没有费用币种时没有对应金额 series。已报告为 0 的费用仍是明确报告，不能和 UNKNOWN 混淆。
++
++币种标签仅三位大写字母，其他标签来自固定枚举。Run/Profile UUID、provider/model 名、问题、回答、引用 URL、文件路径和 request/provider ID 均不进入标签。快照只选择必要标量或聚合，不加载完整业务 snapshot、正文和密文。
++
++## 健康与日志
++
++Worker 每 30 秒观察 Celery 主进程真实 Heart，Beat 每 30 秒观察实际 tick；调度发布成功/失败另计。每个容器原子写本机 PID/monotonic 心跳，PG 时间用于跨进程展示。Compose 采用 CLI 健康命令：30 秒周期、15 秒超时、90 秒启动余量、3 次失败重试。
++
++健康同时要求本机 PID 与小于等于 90 秒本机心跳、PG 最近成功心跳、PG query、Redis ping、Collector registry；Worker 还要求目标 `celery@hostname` control ping。其他副本的 PG 心跳不能掩盖本机失联。当前 Compose 使用默认 Celery 节点名；自定义 nodename 时需同步调整健康目标。
++
++`scheduler_tick` 是 Beat 活跃循环，`scheduler_publish` 是任务消息发布。四种 collection/analysis dispatch/recovery operation 是实际扫描执行。`batch_build` 和 `opportunity_evaluate` 是现有应用服务调用。当前生产计划 cron 扫描和自动 evaluator 未接线，无对应执行时应保持未观察，不能以 tick/ping 冒充完成。Browser 真实登录探针也未实现。
++
++GEO 日志统一 JSON：`schema_version,component,event,stage,status,error_code`，以及明确 UUID、非负数值 `duration_ms,byte_count,citation_count,prompt_tokens,completion_tokens,total_tokens,selected_count,purged_count,retry_count` 和明确报告的 `cost_amount,cost_currency`。错误码只来自固定目录，不接受任意额外 context。
++
++不记录客户端 request_id、provider_request_id、任意异常类名/正文/traceback、SQL 参数、URL、prompt、answer、凭据或会话内容。Celery GEO task 异常对外保留失败，以固定 RuntimeError 去掉原始异常链；已验收应用服务的业务错误映射保持原状。普通 4xx 拒绝独立标记 REJECTED，不计为系统异常。日志sink失败发出固定stderr LOGGING_UNAVAILABLE；两个诊断通道同时不可用时仍保留业务回执，由现有进程日志设施排障。日志轮转沿用现有 json-file 限制。
++
++## 起始阈值与排障
++
++下列是可测试的运维起点，适用于默认 60 秒 recovery 扫描；生产采用不同扫描间隔时应按实际周期调整扫描阈值。没有修改业务公式或引入新的产品 SLO。
++
++| 告警 | 条件 / 持续时间 | 首个检查 |
++|---|---|---|
++| ObservabilityUnavailable | up=0/缺失/快照超过180秒，3分钟 | exporter任务、PG/schema、目录权限 |
++| ProcessHeartbeatStale | Worker/Beat未观察、从未成功或成功心跳超过90秒，3分钟 | 对应本机health、PG、Broker |
++| RecoverySweepStale | 4种扫描未观察、从未成功或成功时间超过180秒，5分钟 | Beat发布与Worker任务；tick不能代替扫描 |
++| AutomaticPendingOld | COLLECTION/ANALYSIS 最老年龄>600秒，5分钟 | snapshot的pending与dispatch_due，核对对应开关 |
++| ExpiredLease | 任一采集/分析过期lease>0，5分钟 | snapshot.expired的stage/oldest_id/oldest_run_id |
++| TechnicalRunFailures / AnalysisFailures | 同分布24小时失败>5次，10分钟 | error_code、具体Run；预算拒绝不计技术故障 |
++| ReportedCostUnknown | UTC日未知费用>0，15分钟 | 发送事实、未知金额；不重发调用、不按零清账 |
++| BudgetAnomaly | 超限/未知/币种不匹配/低估>0，1分钟 | 分币金额与有限异常Run/Batch UUID |
++| OperationFailures | 15分钟累计异常增长>0，5分钟 | scheduler publish、storage或扫描稳定事件 |
++| BrowserSessionMetadataUnhealthy | Browser开关开启且现有材料异常>0，5分钟 | PG材料健康；不能把它解释为真实登录结果 |
++
++MANUAL 待录入不告警。相关采集开关关闭时不以未运行自动采集或会话探针告警。品牌低推荐率或低提及率不影响容器健康。复核 backlog 展示供业务负责人处理，不默认把人工工作量分页给系统值班。
++
++排障先读取受保护 snapshot，再用稳定 UUID 查询已有 Run/Analysis/Batch 详情。遵守现有权限和不可变历史，不用 SQL 改终态、清发送账本、撤旧错误或重发 SENT/UNKNOWN attempt。恢复/重试只沿已验收应用命令。
++
++## 本地验证
++
++```bash
++docker run --rm -v "$PWD/deploy/observability/geo:/work:ro" -w /work \
++  --entrypoint /bin/promtool prom/prometheus:v3.5.0 check rules alerts.yaml
++docker run --rm -v "$PWD/deploy/observability/geo:/work:ro" -w /work \
++  --entrypoint /bin/promtool prom/prometheus:v3.5.0 test rules alerts.test.yaml
++```
++
++指标、PG、日志 canary、health故障和原子textfile测试见 `backend/tests/*/test_geo_ops_*.py`。真实 provider、真实 Browser 登录、生产监控接入/阈值校准、备份恢复和容量调优分别由既有批准流程或 GEO-903/905 等任务负责。
+--- /dev/null
++++ b/deploy/observability/geo/alerts.test.yaml
+@@ -0,0 +1,335 @@
++rule_files:
++- alerts.yaml
++evaluation_interval: 1m
++tests:
++- name: GEOObservabilityUnavailable
++  interval: 1m
++  input_series:
++  - series: geo_observability_up{job="partsignal-geo",instance="test"}
++    values: '0x20'
++  alert_rule_test:
++  - eval_time: 0m
++    alertname: GEOObservabilityUnavailable
++    exp_alerts: []
++  - eval_time: 4m
++    alertname: GEOObservabilityUnavailable
++    exp_alerts:
++    - exp_labels:
++        job: partsignal-geo
++        instance: test
++        severity: critical
++        category: system
++        service: partsignal-geo
++      exp_annotations:
++        summary: GEO观测采集失败、缺失或快照过期
++- name: GEOProcessHeartbeatStale
++  interval: 1m
++  input_series:
++  - series: geo_operation_observed{job="partsignal-geo",instance="test",operation="worker_heartbeat"}
++    values: '0x20'
++  alert_rule_test:
++  - eval_time: 0m
++    alertname: GEOProcessHeartbeatStale
++    exp_alerts: []
++  - eval_time: 4m
++    alertname: GEOProcessHeartbeatStale
++    exp_alerts:
++    - exp_labels:
++        job: partsignal-geo
++        instance: test
++        operation: worker_heartbeat
++        severity: critical
++        category: system
++        service: partsignal-geo
++      exp_annotations:
++        summary: Worker或Scheduler真实心跳过期；检查本机health和依赖
++- name: GEORecoverySweepStale
++  interval: 1m
++  input_series:
++  - series: geo_operation_observed{job="partsignal-geo",instance="test",operation="analysis_recovery"}
++    values: '0x20'
++  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
++    values: 1x20
++  alert_rule_test:
++  - eval_time: 0m
++    alertname: GEORecoverySweepStale
++    exp_alerts: []
++  - eval_time: 6m
++    alertname: GEORecoverySweepStale
++    exp_alerts:
++    - exp_labels:
++        job: partsignal-geo
++        instance: test
++        operation: analysis_recovery
++        severity: warning
++        category: system
++        service: partsignal-geo
++      exp_annotations:
++        summary: 补投递或租约恢复扫描未成功；tick不能代替扫描
++- name: GEOAutomaticPendingOld
++  interval: 1m
++  input_series:
++  - series: geo_pending_oldest_seconds{job="partsignal-geo",instance="test",mode="API",stage="COLLECTION"}
++    values: 601x20
++  - series: geo_api_collection_enabled{job="partsignal-geo",instance="test"}
++    values: 1x20
++  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
++    values: 1x20
++  alert_rule_test:
++  - eval_time: 0m
++    alertname: GEOAutomaticPendingOld
++    exp_alerts: []
++  - eval_time: 6m
++    alertname: GEOAutomaticPendingOld
++    exp_alerts:
++    - exp_labels:
++        job: partsignal-geo
++        instance: test
++        mode: API
++        stage: COLLECTION
++        severity: warning
++        category: system
++        service: partsignal-geo
++      exp_annotations:
++        summary: 自动采集或分析积压超过10分钟；受保护snapshot定位最老ID
++- name: GEOExpiredLease
++  interval: 1m
++  input_series:
++  - series: geo_running_expired_count{job="partsignal-geo",instance="test",stage="ANALYSIS"}
++    values: 1x20
++  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
++    values: 1x20
++  alert_rule_test:
++  - eval_time: 0m
++    alertname: GEOExpiredLease
++    exp_alerts: []
++  - eval_time: 6m
++    alertname: GEOExpiredLease
++    exp_alerts:
++    - exp_labels:
++        job: partsignal-geo
++        instance: test
++        stage: ANALYSIS
++        severity: critical
++        category: system
++        service: partsignal-geo
++      exp_annotations:
++        summary: 存在过期采集或分析lease；按snapshot稳定ID排障
++- name: GEOTechnicalRunFailures
++  interval: 1m
++  input_series:
++  - series: geo_run_failure_count_24h{job="partsignal-geo",instance="test",mode="API",stage="COLLECTION",error_code="WORKER_LOST"}
++    values: 6x20
++  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
++    values: 1x20
++  alert_rule_test:
++  - eval_time: 0m
++    alertname: GEOTechnicalRunFailures
++    exp_alerts: []
++  - eval_time: 11m
++    alertname: GEOTechnicalRunFailures
++    exp_alerts:
++    - exp_labels:
++        job: partsignal-geo
++        instance: test
++        mode: API
++        stage: COLLECTION
++        error_code: WORKER_LOST
++        severity: warning
++        category: system
++        service: partsignal-geo
++      exp_annotations:
++        summary: 24小时技术失败超过5次；按mode/stage/error_code查看分布
++- name: GEOAnalysisFailures
++  interval: 1m
++  input_series:
++  - series: geo_analysis_failure_count_24h{job="partsignal-geo",instance="test",mode="MANUAL",error_code="ANALYSIS_FAILED"}
++    values: 6x20
++  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
++    values: 1x20
++  alert_rule_test:
++  - eval_time: 0m
++    alertname: GEOAnalysisFailures
++    exp_alerts: []
++  - eval_time: 11m
++    alertname: GEOAnalysisFailures
++    exp_alerts:
++    - exp_labels:
++        job: partsignal-geo
++        instance: test
++        mode: MANUAL
++        error_code: ANALYSIS_FAILED
++        severity: warning
++        category: system
++        service: partsignal-geo
++      exp_annotations:
++        summary: 24小时分析任务失败超过5次；不使用品牌低表现触发
++- name: GEOReportedCostUnknown
++  interval: 1m
++  input_series:
++  - series: geo_cost_unknown_daily{job="partsignal-geo",instance="test"}
++    values: 1x20
++  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
++    values: 1x20
++  alert_rule_test:
++  - eval_time: 0m
++    alertname: GEOReportedCostUnknown
++    exp_alerts: []
++  - eval_time: 16m
++    alertname: GEOReportedCostUnknown
++    exp_alerts:
++    - exp_labels:
++        job: partsignal-geo
++        instance: test
++        severity: warning
++        category: system
++        service: partsignal-geo
++      exp_annotations:
++        summary: UTC日存在已发送费用未知调用；禁止按零计费
++- name: GEOBudgetAnomaly
++  interval: 1m
++  input_series:
++  - series: geo_daily_budget_exceeded{job="partsignal-geo",instance="test",currency="USD"}
++    values: 1x20
++  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
++    values: 1x20
++  alert_rule_test:
++  - eval_time: 0m
++    alertname: GEOBudgetAnomaly
++    exp_alerts: []
++  - eval_time: 2m
++    alertname: GEOBudgetAnomaly
++    exp_alerts:
++    - exp_labels:
++        job: partsignal-geo
++        instance: test
++        currency: USD
++        severity: warning
++        category: system
++        service: partsignal-geo
++      exp_annotations:
++        summary: 预算超限、未知、币种不匹配或报告金额高于预估
++- name: GEOOperationFailures
++  interval: 1m
++  input_series:
++  - series: geo_operation_failure_total{job="partsignal-geo",instance="test",operation="storage_write"}
++    values: 0+1x20
++  alert_rule_test:
++  - eval_time: 0m
++    alertname: GEOOperationFailures
++    exp_alerts: []
++  - eval_time: 6m
++    alertname: GEOOperationFailures
++    exp_alerts:
++    - exp_labels:
++        job: partsignal-geo
++        instance: test
++        operation: storage_write
++        severity: warning
++        category: system
++        service: partsignal-geo
++      exp_annotations:
++        summary: 运行边界出现失败；业务4xx拒绝已排除
++- name: GEOBrowserSessionMetadataUnhealthy
++  interval: 1m
++  input_series:
++  - series: geo_browser_session_unhealthy{job="partsignal-geo",instance="test"}
++    values: 1x20
++  - series: geo_browser_collection_enabled{job="partsignal-geo",instance="test"}
++    values: 1x20
++  alert_rule_test:
++  - eval_time: 0m
++    alertname: GEOBrowserSessionMetadataUnhealthy
++    exp_alerts: []
++  - eval_time: 6m
++    alertname: GEOBrowserSessionMetadataUnhealthy
++    exp_alerts:
++    - exp_labels:
++        job: partsignal-geo
++        instance: test
++        severity: warning
++        category: system
++        service: partsignal-geo
++      exp_annotations:
++        summary: 现有会话材料元数据异常；不代表已实现真实登录探针
++- name: 业务低表现、人工待录入、关闭能力和预算拒绝不产生系统故障
++  interval: 1m
++  input_series:
++  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
++    values: 1x20
++  - series: geo_api_collection_enabled{job="partsignal-geo",instance="test"}
++    values: '0x20'
++  - series: geo_browser_collection_enabled{job="partsignal-geo",instance="test"}
++    values: '0x20'
++  - series: geo_pending_oldest_seconds{job="partsignal-geo",instance="test",mode="MANUAL",stage="MANUAL_ENTRY"}
++    values: 99999x20
++  - series: geo_pending_oldest_seconds{job="partsignal-geo",instance="test",mode="API",stage="COLLECTION"}
++    values: 99999x20
++  - series: geo_browser_session_unhealthy{job="partsignal-geo",instance="test"}
++    values: 99x20
++  - series: geo_run_failure_count_24h{job="partsignal-geo",instance="test",mode="API",stage="COLLECTION",error_code="BUDGET_EXCEEDED"}
++    values: 99x20
++  - series: geo_brand_mention_rate{job="partsignal-geo",instance="test"}
++    values: '0x20'
++  - series: geo_pending_oldest_seconds{job="partsignal-geo",instance="test",mode="MANUAL",stage="ANALYSIS"}
++    values: 600x20
++  alert_rule_test:
++  - eval_time: 20m
++    alertname: GEOAutomaticPendingOld
++    exp_alerts: []
++  - eval_time: 20m
++    alertname: GEOBrowserSessionMetadataUnhealthy
++    exp_alerts: []
++  - eval_time: 20m
++    alertname: GEOTechnicalRunFailures
++    exp_alerts: []
++- name: GEOProcessHeartbeatStale首次失败但从未成功
++  interval: 1m
++  input_series:
++  - series: geo_operation_observed{job="partsignal-geo",instance="test",operation="worker_heartbeat"}
++    values: 1x20
++  - series: geo_operation_success_total{job="partsignal-geo",instance="test",operation="worker_heartbeat"}
++    values: '0x20'
++  - series: geo_operation_last_success_timestamp_seconds{job="partsignal-geo",instance="test",operation="worker_heartbeat"}
++    values: NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN
++      NaN NaN NaN
++  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
++    values: 1x20
++  alert_rule_test:
++  - eval_time: 4m
++    alertname: GEOProcessHeartbeatStale
++    exp_alerts:
++    - exp_labels:
++        job: partsignal-geo
++        instance: test
++        operation: worker_heartbeat
++        severity: critical
++        category: system
++        service: partsignal-geo
++      exp_annotations:
++        summary: Worker或Scheduler真实心跳过期；检查本机health和依赖
++- name: GEORecoverySweepStale首次失败但从未成功
++  interval: 1m
++  input_series:
++  - series: geo_operation_observed{job="partsignal-geo",instance="test",operation="analysis_recovery"}
++    values: 1x20
++  - series: geo_operation_success_total{job="partsignal-geo",instance="test",operation="analysis_recovery"}
++    values: '0x20'
++  - series: geo_operation_last_success_timestamp_seconds{job="partsignal-geo",instance="test",operation="analysis_recovery"}
++    values: NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN NaN
++      NaN NaN NaN
++  - series: geo_monitoring_enabled{job="partsignal-geo",instance="test"}
++    values: 1x20
++  alert_rule_test:
++  - eval_time: 6m
++    alertname: GEORecoverySweepStale
++    exp_alerts:
++    - exp_labels:
++        job: partsignal-geo
++        instance: test
++        operation: analysis_recovery
++        severity: warning
++        category: system
++        service: partsignal-geo
++      exp_annotations:
++        summary: 补投递或租约恢复扫描未成功；tick不能代替扫描
+--- /dev/null
++++ b/deploy/observability/geo/alerts.yaml
+@@ -0,0 +1,130 @@
++# GEO-902 系统告警起始阈值；不改变业务指标或状态机。
++groups:
++- name: partsignal-geo-system
++  interval: 1m
++  rules:
++  - alert: GEOObservabilityUnavailable
++    expr: absent(geo_observability_up{job="partsignal-geo"}) or geo_observability_up{job="partsignal-geo"}
++      == 0 or (time() - geo_observability_snapshot_timestamp_seconds{job="partsignal-geo"}
++      > 180)
++    for: 3m
++    labels:
++      severity: critical
++      category: system
++      service: partsignal-geo
++    annotations:
++      summary: GEO观测采集失败、缺失或快照过期
++  - alert: GEOProcessHeartbeatStale
++    expr: geo_operation_success_total{job="partsignal-geo",operation=~"worker_heartbeat|scheduler_tick"}
++      == 0 or geo_operation_observed{job="partsignal-geo",operation=~"worker_heartbeat|scheduler_tick"}
++      == 0 or (time() - geo_operation_last_success_timestamp_seconds{job="partsignal-geo",operation=~"worker_heartbeat|scheduler_tick"}
++      > 90)
++    for: 3m
++    labels:
++      severity: critical
++      category: system
++      service: partsignal-geo
++    annotations:
++      summary: Worker或Scheduler真实心跳过期；检查本机health和依赖
++  - alert: GEORecoverySweepStale
++    expr: (geo_operation_success_total{job="partsignal-geo",operation=~"collection_dispatch|collection_recovery|analysis_dispatch|analysis_recovery"}
++      == 0 or (geo_operation_observed{job="partsignal-geo",operation=~"collection_dispatch|collection_recovery|analysis_dispatch|analysis_recovery"}
++      == 0 or (time() - geo_operation_last_success_timestamp_seconds{job="partsignal-geo",operation=~"collection_dispatch|collection_recovery|analysis_dispatch|analysis_recovery"}
++      > 180))) and on(job,instance) (geo_monitoring_enabled{job="partsignal-geo"}
++      == 1)
++    for: 5m
++    labels:
++      severity: warning
++      category: system
++      service: partsignal-geo
++    annotations:
++      summary: 补投递或租约恢复扫描未成功；tick不能代替扫描
++  - alert: GEOAutomaticPendingOld
++    expr: (geo_pending_oldest_seconds{job="partsignal-geo",stage="ANALYSIS"} > 600)
++      and on(job,instance) (geo_monitoring_enabled{job="partsignal-geo"} == 1) or
++      (geo_pending_oldest_seconds{job="partsignal-geo",mode="API",stage="COLLECTION"}
++      > 600) and on(job,instance) (geo_api_collection_enabled{job="partsignal-geo"}
++      == 1) and on(job,instance) (geo_monitoring_enabled{job="partsignal-geo"} ==
++      1) or (geo_pending_oldest_seconds{job="partsignal-geo",mode="BROWSER",stage="COLLECTION"}
++      > 600) and on(job,instance) (geo_browser_collection_enabled{job="partsignal-geo"}
++      == 1) and on(job,instance) (geo_monitoring_enabled{job="partsignal-geo"} ==
++      1)
++    for: 5m
++    labels:
++      severity: warning
++      category: system
++      service: partsignal-geo
++    annotations:
++      summary: 自动采集或分析积压超过10分钟；受保护snapshot定位最老ID
++  - alert: GEOExpiredLease
++    expr: (geo_running_expired_count{job="partsignal-geo"} > 0) and on(job,instance)
++      (geo_monitoring_enabled{job="partsignal-geo"} == 1)
++    for: 5m
++    labels:
++      severity: critical
++      category: system
++      service: partsignal-geo
++    annotations:
++      summary: 存在过期采集或分析lease；按snapshot稳定ID排障
++  - alert: GEOTechnicalRunFailures
++    expr: (sum by(job,instance,mode,stage,error_code) (geo_run_failure_count_24h{job="partsignal-geo",error_code!~"BUDGET_EXCEEDED|CANCELLED"})
++      > 5) and on(job,instance) (geo_monitoring_enabled{job="partsignal-geo"} == 1)
++    for: 10m
++    labels:
++      severity: warning
++      category: system
++      service: partsignal-geo
++    annotations:
++      summary: 24小时技术失败超过5次；按mode/stage/error_code查看分布
++  - alert: GEOAnalysisFailures
++    expr: (geo_analysis_failure_count_24h{job="partsignal-geo"} > 5) and on(job,instance)
++      (geo_monitoring_enabled{job="partsignal-geo"} == 1)
++    for: 10m
++    labels:
++      severity: warning
++      category: system
++      service: partsignal-geo
++    annotations:
++      summary: 24小时分析任务失败超过5次；不使用品牌低表现触发
++  - alert: GEOReportedCostUnknown
++    expr: (geo_cost_unknown_daily{job="partsignal-geo"} > 0) and on(job,instance)
++      (geo_monitoring_enabled{job="partsignal-geo"} == 1)
++    for: 15m
++    labels:
++      severity: warning
++      category: system
++      service: partsignal-geo
++    annotations:
++      summary: UTC日存在已发送费用未知调用；禁止按零计费
++  - alert: GEOBudgetAnomaly
++    expr: (geo_daily_budget_exceeded{job="partsignal-geo"} > 0 or geo_daily_budget_unknown_count{job="partsignal-geo"}
++      > 0 or geo_daily_budget_currency_mismatch_count{job="partsignal-geo"} > 0 or
++      geo_batch_budget_anomaly_count{job="partsignal-geo"} > 0 or geo_cost_underestimated_daily{job="partsignal-geo"}
++      > 0) and on(job,instance) (geo_monitoring_enabled{job="partsignal-geo"} == 1)
++    for: 1m
++    labels:
++      severity: warning
++      category: system
++      service: partsignal-geo
++    annotations:
++      summary: 预算超限、未知、币种不匹配或报告金额高于预估
++  - alert: GEOOperationFailures
++    expr: increase(geo_operation_failure_total{job="partsignal-geo",operation=~"scheduler_publish|storage_write|collection_dispatch|collection_recovery|analysis_dispatch|analysis_recovery|retention|batch_build|opportunity_evaluate"}[15m])
++      > 0
++    for: 5m
++    labels:
++      severity: warning
++      category: system
++      service: partsignal-geo
++    annotations:
++      summary: 运行边界出现失败；业务4xx拒绝已排除
++  - alert: GEOBrowserSessionMetadataUnhealthy
++    expr: (geo_browser_session_unhealthy{job="partsignal-geo"} > 0) and on(job,instance)
++      (geo_browser_collection_enabled{job="partsignal-geo"} == 1)
++    for: 5m
++    labels:
++      severity: warning
++      category: system
++      service: partsignal-geo
++    annotations:
++      summary: 现有会话材料元数据异常；不代表已实现真实登录探针
+--- /dev/null
++++ b/deploy/observability/geo/dashboard.json
+@@ -0,0 +1,740 @@
++{
++  "__inputs": [
++    {
++      "name": "DS_PROMETHEUS",
++      "label": "Prometheus",
++      "description": "受保护partsignal-geo采集任务",
++      "type": "datasource",
++      "pluginId": "prometheus",
++      "pluginName": "Prometheus"
++    }
++  ],
++  "id": null,
++  "uid": "partsignal-geo-902",
++  "title": "PartSignal GEO 系统运行与成本",
++  "tags": [
++    "partsignal",
++    "geo",
++    "operations"
++  ],
++  "timezone": "utc",
++  "schemaVersion": 39,
++  "version": 1,
++  "editable": true,
++  "refresh": "30s",
++  "time": {
++    "from": "now-24h",
++    "to": "now"
++  },
++  "templating": {
++    "list": []
++  },
++  "annotations": {
++    "list": []
++  },
++  "panels": [
++    {
++      "id": 1,
++      "title": "快照状态",
++      "type": "timeseries",
++      "description": "缺失、0或超过180秒快照告警。",
++      "datasource": {
++        "type": "prometheus",
++        "uid": "${DS_PROMETHEUS}"
++      },
++      "gridPos": {
++        "x": 0,
++        "y": 0,
++        "w": 12,
++        "h": 8
++      },
++      "fieldConfig": {
++        "defaults": {
++          "unit": "short",
++          "noValue": "N/A"
++        },
++        "overrides": []
++      },
++      "options": {
++        "legend": {
++          "displayMode": "table",
++          "placement": "bottom"
++        }
++      },
++      "targets": [
++        {
++          "refId": "A",
++          "expr": "geo_observability_up{job=\"partsignal-geo\"}",
++          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
++          "range": true
++        }
++      ]
++    },
++    {
++      "id": 2,
++      "title": "Worker/Scheduler心跳年龄",
++      "type": "timeseries",
++      "description": "记录实际循环；不能证明业务计划扫描已接线。",
++      "datasource": {
++        "type": "prometheus",
++        "uid": "${DS_PROMETHEUS}"
++      },
++      "gridPos": {
++        "x": 12,
++        "y": 0,
++        "w": 12,
++        "h": 8
++      },
++      "fieldConfig": {
++        "defaults": {
++          "unit": "s",
++          "noValue": "N/A"
++        },
++        "overrides": []
++      },
++      "options": {
++        "legend": {
++          "displayMode": "table",
++          "placement": "bottom"
++        }
++      },
++      "targets": [
++        {
++          "refId": "A",
++          "expr": "time() - geo_operation_last_success_timestamp_seconds{job=\"partsignal-geo\",operation=~\"worker_heartbeat|scheduler_tick\"}",
++          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
++          "range": true
++        }
++      ]
++    },
++    {
++      "id": 3,
++      "title": "运行状态（采集模式独立）",
++      "type": "timeseries",
++      "description": "",
++      "datasource": {
++        "type": "prometheus",
++        "uid": "${DS_PROMETHEUS}"
++      },
++      "gridPos": {
++        "x": 0,
++        "y": 8,
++        "w": 12,
++        "h": 8
++      },
++      "fieldConfig": {
++        "defaults": {
++          "unit": "short",
++          "noValue": "N/A"
++        },
++        "overrides": []
++      },
++      "options": {
++        "legend": {
++          "displayMode": "table",
++          "placement": "bottom"
++        }
++      },
++      "targets": [
++        {
++          "refId": "A",
++          "expr": "geo_run_status_count{job=\"partsignal-geo\"}",
++          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
++          "range": true
++        }
++      ]
++    },
++    {
++      "id": 4,
++      "title": "批次状态",
++      "type": "timeseries",
++      "description": "",
++      "datasource": {
++        "type": "prometheus",
++        "uid": "${DS_PROMETHEUS}"
++      },
++      "gridPos": {
++        "x": 12,
++        "y": 8,
++        "w": 12,
++        "h": 8
++      },
++      "fieldConfig": {
++        "defaults": {
++          "unit": "short",
++          "noValue": "N/A"
++        },
++        "overrides": []
++      },
++      "options": {
++        "legend": {
++          "displayMode": "table",
++          "placement": "bottom"
++        }
++      },
++      "targets": [
++        {
++          "refId": "A",
++          "expr": "geo_batch_status_count{job=\"partsignal-geo\"}",
++          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
++          "range": true
++        }
++      ]
++    },
++    {
++      "id": 5,
++      "title": "Pending数量",
++      "type": "timeseries",
++      "description": "MANUAL_ENTRY是待人工录入；不触发自动采集告警。",
++      "datasource": {
++        "type": "prometheus",
++        "uid": "${DS_PROMETHEUS}"
++      },
++      "gridPos": {
++        "x": 0,
++        "y": 16,
++        "w": 12,
++        "h": 8
++      },
++      "fieldConfig": {
++        "defaults": {
++          "unit": "short",
++          "noValue": "N/A"
++        },
++        "overrides": []
++      },
++      "options": {
++        "legend": {
++          "displayMode": "table",
++          "placement": "bottom"
++        }
++      },
++      "targets": [
++        {
++          "refId": "A",
++          "expr": "geo_pending_count{job=\"partsignal-geo\"}",
++          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
++          "range": true
++        }
++      ]
++    },
++    {
++      "id": 6,
++      "title": "最老Pending年龄",
++      "type": "timeseries",
++      "description": "来自当前阶段开始时间；分析不继承此前人工待录入年龄。snapshot定位稳定ID。",
++      "datasource": {
++        "type": "prometheus",
++        "uid": "${DS_PROMETHEUS}"
++      },
++      "gridPos": {
++        "x": 12,
++        "y": 16,
++        "w": 12,
++        "h": 8
++      },
++      "fieldConfig": {
++        "defaults": {
++          "unit": "s",
++          "noValue": "N/A"
++        },
++        "overrides": []
++      },
++      "options": {
++        "legend": {
++          "displayMode": "table",
++          "placement": "bottom"
++        }
++      },
++      "targets": [
++        {
++          "refId": "A",
++          "expr": "geo_pending_oldest_seconds{job=\"partsignal-geo\"}",
++          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
++          "range": true
++        }
++      ]
++    },
++    {
++      "id": 7,
++      "title": "最老补投递Due年龄",
++      "type": "timeseries",
++      "description": "根据last_dispatch_attempt_at，不替代最老Pending年龄。",
++      "datasource": {
++        "type": "prometheus",
++        "uid": "${DS_PROMETHEUS}"
++      },
++      "gridPos": {
++        "x": 0,
++        "y": 24,
++        "w": 12,
++        "h": 8
++      },
++      "fieldConfig": {
++        "defaults": {
++          "unit": "s",
++          "noValue": "N/A"
++        },
++        "overrides": []
++      },
++      "options": {
++        "legend": {
++          "displayMode": "table",
++          "placement": "bottom"
++        }
++      },
++      "targets": [
++        {
++          "refId": "A",
++          "expr": "geo_dispatch_due_oldest_seconds{job=\"partsignal-geo\"}",
++          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
++          "range": true
++        }
++      ]
++    },
++    {
++      "id": 8,
++      "title": "过期lease",
++      "type": "timeseries",
++      "description": "采集/分析分开；包括终态Run的重分析。",
++      "datasource": {
++        "type": "prometheus",
++        "uid": "${DS_PROMETHEUS}"
++      },
++      "gridPos": {
++        "x": 12,
++        "y": 24,
++        "w": 12,
++        "h": 8
++      },
++      "fieldConfig": {
++        "defaults": {
++          "unit": "short",
++          "noValue": "N/A"
++        },
++        "overrides": []
++      },
++      "options": {
++        "legend": {
++          "displayMode": "table",
++          "placement": "bottom"
++        }
++      },
++      "targets": [
++        {
++          "refId": "A",
++          "expr": "geo_running_expired_count{job=\"partsignal-geo\"}",
++          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
++          "range": true
++        }
++      ]
++    },
++    {
++      "id": 9,
++      "title": "24小时运行技术失败",
++      "type": "timeseries",
++      "description": "Opportunity业务低表现不参与系统告警。",
++      "datasource": {
++        "type": "prometheus",
++        "uid": "${DS_PROMETHEUS}"
++      },
++      "gridPos": {
++        "x": 0,
++        "y": 32,
++        "w": 12,
++        "h": 8
++      },
++      "fieldConfig": {
++        "defaults": {
++          "unit": "short",
++          "noValue": "N/A"
++        },
++        "overrides": []
++      },
++      "options": {
++        "legend": {
++          "displayMode": "table",
++          "placement": "bottom"
++        }
++      },
++      "targets": [
++        {
++          "refId": "A",
++          "expr": "geo_run_failure_count_24h{job=\"partsignal-geo\"}",
++          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
++          "range": true
++        }
++      ]
++    },
++    {
++      "id": 10,
++      "title": "24小时分析任务失败",
++      "type": "timeseries",
++      "description": "",
++      "datasource": {
++        "type": "prometheus",
++        "uid": "${DS_PROMETHEUS}"
++      },
++      "gridPos": {
++        "x": 12,
++        "y": 32,
++        "w": 12,
++        "h": 8
++      },
++      "fieldConfig": {
++        "defaults": {
++          "unit": "short",
++          "noValue": "N/A"
++        },
++        "overrides": []
++      },
++      "options": {
++        "legend": {
++          "displayMode": "table",
++          "placement": "bottom"
++        }
++      },
++      "targets": [
++        {
++          "refId": "A",
++          "expr": "geo_analysis_failure_count_24h{job=\"partsignal-geo\"}",
++          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
++          "range": true
++        }
++      ]
++    },
++    {
++      "id": 11,
++      "title": "当前分析有效复核积压",
++      "type": "timeseries",
++      "description": "按当前revision与同revision有效复核判断。",
++      "datasource": {
++        "type": "prometheus",
++        "uid": "${DS_PROMETHEUS}"
++      },
++      "gridPos": {
++        "x": 0,
++        "y": 40,
++        "w": 12,
++        "h": 8
++      },
++      "fieldConfig": {
++        "defaults": {
++          "unit": "short",
++          "noValue": "N/A"
++        },
++        "overrides": []
++      },
++      "options": {
++        "legend": {
++          "displayMode": "table",
++          "placement": "bottom"
++        }
++      },
++      "targets": [
++        {
++          "refId": "A",
++          "expr": "geo_review_backlog{job=\"partsignal-geo\"}",
++          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
++          "range": true
++        }
++      ]
++    },
++    {
++      "id": 12,
++      "title": "UTC日API发送尝试数",
++      "type": "timeseries",
++      "description": "所有sent attempt；不是Run唯一数。",
++      "datasource": {
++        "type": "prometheus",
++        "uid": "${DS_PROMETHEUS}"
++      },
++      "gridPos": {
++        "x": 12,
++        "y": 40,
++        "w": 12,
++        "h": 8
++      },
++      "fieldConfig": {
++        "defaults": {
++          "unit": "short",
++          "noValue": "N/A"
++        },
++        "overrides": []
++      },
++      "options": {
++        "legend": {
++          "displayMode": "table",
++          "placement": "bottom"
++        }
++      },
++      "targets": [
++        {
++          "refId": "A",
++          "expr": "geo_api_calls_daily{job=\"partsignal-geo\"}",
++          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
++          "range": true
++        }
++      ]
++    },
++    {
++      "id": 13,
++      "title": "报告费用（币种独立）",
++      "type": "timeseries",
++      "description": "不能跨币种求和；UNKNOWN不按零合并。",
++      "datasource": {
++        "type": "prometheus",
++        "uid": "${DS_PROMETHEUS}"
++      },
++      "gridPos": {
++        "x": 0,
++        "y": 48,
++        "w": 12,
++        "h": 8
++      },
++      "fieldConfig": {
++        "defaults": {
++          "unit": "short",
++          "noValue": "N/A"
++        },
++        "overrides": []
++      },
++      "options": {
++        "legend": {
++          "displayMode": "table",
++          "placement": "bottom"
++        }
++      },
++      "targets": [
++        {
++          "refId": "A",
++          "expr": "geo_reported_cost_daily{job=\"partsignal-geo\"}",
++          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
++          "range": true
++        }
++      ]
++    },
++    {
++      "id": 14,
++      "title": "费用覆盖率",
++      "type": "timeseries",
++      "description": "API日发送attempt报告覆盖；无分母N/A；不是Insights业务公式。",
++      "datasource": {
++        "type": "prometheus",
++        "uid": "${DS_PROMETHEUS}"
++      },
++      "gridPos": {
++        "x": 12,
++        "y": 48,
++        "w": 12,
++        "h": 8
++      },
++      "fieldConfig": {
++        "defaults": {
++          "unit": "percentunit",
++          "noValue": "N/A"
++        },
++        "overrides": []
++      },
++      "options": {
++        "legend": {
++          "displayMode": "table",
++          "placement": "bottom"
++        }
++      },
++      "targets": [
++        {
++          "refId": "A",
++          "expr": "geo_cost_coverage_rate{job=\"partsignal-geo\"}",
++          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
++          "range": true
++        }
++      ]
++    },
++    {
++      "id": 15,
++      "title": "费用未知数量",
++      "type": "timeseries",
++      "description": "",
++      "datasource": {
++        "type": "prometheus",
++        "uid": "${DS_PROMETHEUS}"
++      },
++      "gridPos": {
++        "x": 0,
++        "y": 56,
++        "w": 12,
++        "h": 8
++      },
++      "fieldConfig": {
++        "defaults": {
++          "unit": "short",
++          "noValue": "N/A"
++        },
++        "overrides": []
++      },
++      "options": {
++        "legend": {
++          "displayMode": "table",
++          "placement": "bottom"
++        }
++      },
++      "targets": [
++        {
++          "refId": "A",
++          "expr": "geo_cost_unknown_daily{job=\"partsignal-geo\"}",
++          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
++          "range": true
++        }
++      ]
++    },
++    {
++      "id": 16,
++      "title": "日预算利用率",
++      "type": "timeseries",
++      "description": "按币种；未配置、未知或不匹配为N/A。",
++      "datasource": {
++        "type": "prometheus",
++        "uid": "${DS_PROMETHEUS}"
++      },
++      "gridPos": {
++        "x": 12,
++        "y": 56,
++        "w": 12,
++        "h": 8
++      },
++      "fieldConfig": {
++        "defaults": {
++          "unit": "percentunit",
++          "noValue": "N/A"
++        },
++        "overrides": []
++      },
++      "options": {
++        "legend": {
++          "displayMode": "table",
++          "placement": "bottom"
++        }
++      },
++      "targets": [
++        {
++          "refId": "A",
++          "expr": "geo_daily_budget_utilization{job=\"partsignal-geo\"}",
++          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
++          "range": true
++        }
++      ]
++    },
++    {
++      "id": 17,
++      "title": "边界累计失败",
++      "type": "timeseries",
++      "description": "无记录N/A；历史累计非零不证明当前失联。",
++      "datasource": {
++        "type": "prometheus",
++        "uid": "${DS_PROMETHEUS}"
++      },
++      "gridPos": {
++        "x": 0,
++        "y": 64,
++        "w": 12,
++        "h": 8
++      },
++      "fieldConfig": {
++        "defaults": {
++          "unit": "short",
++          "noValue": "N/A"
++        },
++        "overrides": []
++      },
++      "options": {
++        "legend": {
++          "displayMode": "table",
++          "placement": "bottom"
++        }
++      },
++      "targets": [
++        {
++          "refId": "A",
++          "expr": "geo_operation_failure_total{job=\"partsignal-geo\"}",
++          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
++          "range": true
++        }
++      ]
++    },
++    {
++      "id": 18,
++      "title": "边界最近耗时",
++      "type": "timeseries",
++      "description": "",
++      "datasource": {
++        "type": "prometheus",
++        "uid": "${DS_PROMETHEUS}"
++      },
++      "gridPos": {
++        "x": 12,
++        "y": 64,
++        "w": 12,
++        "h": 8
++      },
++      "fieldConfig": {
++        "defaults": {
++          "unit": "ms",
++          "noValue": "N/A"
++        },
++        "overrides": []
++      },
++      "options": {
++        "legend": {
++          "displayMode": "table",
++          "placement": "bottom"
++        }
++      },
++      "targets": [
++        {
++          "refId": "A",
++          "expr": "geo_operation_duration_ms{job=\"partsignal-geo\"}",
++          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
++          "range": true
++        }
++      ]
++    },
++    {
++      "id": 19,
++      "title": "会话材料元数据",
++      "type": "timeseries",
++      "description": "AVAILABLE不证明真实登录；login probe NOT_IMPLEMENTED。",
++      "datasource": {
++        "type": "prometheus",
++        "uid": "${DS_PROMETHEUS}"
++      },
++      "gridPos": {
++        "x": 0,
++        "y": 72,
++        "w": 12,
++        "h": 8
++      },
++      "fieldConfig": {
++        "defaults": {
++          "unit": "short",
++          "noValue": "N/A"
++        },
++        "overrides": []
++      },
++      "options": {
++        "legend": {
++          "displayMode": "table",
++          "placement": "bottom"
++        }
++      },
++      "targets": [
++        {
++          "refId": "A",
++          "expr": "geo_browser_session_count{job=\"partsignal-geo\"}",
++          "legendFormat": "{{mode}} {{stage}} {{status}} {{operation}} {{currency}} {{error_code}}",
++          "range": true
++        }
++      ]
++    }
++  ]
++}
+--- /dev/null
++++ b/deploy/scripts/export-geo-metrics.py
+@@ -0,0 +1,48 @@
++"""原子更新受保护textfile；超时/失败撤销旧成功指标，不输出命令或异常。"""
++
++import argparse
++import os
++import subprocess
++import tempfile
++from pathlib import Path
++
++FAILURE = "# TYPE geo_observability_up gauge\ngeo_observability_up 0\n"
++
++
++def export(command: list[str], output: Path, timeout: int) -> int:
++    body = FAILURE
++    status = 1
++    try:
++        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=False)
++        if result.returncode == 0 and "\ngeo_observability_up 1\n" in "\n" + result.stdout:
++            body = result.stdout
++            status = 0
++    except (OSError, subprocess.TimeoutExpired, UnicodeError):
++        pass  # 下面写入显式up=0；原始stderr/命令/环境不进入监控输出。
++    descriptor, name = tempfile.mkstemp(prefix=".geo-metrics-", dir=output.parent)
++    try:
++        with os.fdopen(descriptor, "w") as temporary:
++            temporary.write(body)
++        os.replace(name, output)
++    finally:
++        Path(name).unlink(missing_ok=True)
++    return status
++
++
++def main() -> None:
++    parser = argparse.ArgumentParser(description="GEO metrics原子textfile导出")
++    parser.add_argument("--output", required=True, type=Path)
++    parser.add_argument("--timeout", type=int, default=30)
++    parser.add_argument("command", nargs=argparse.REMAINDER)
++    args = parser.parse_args()
++    command = args.command[1:] if args.command[:1] == ["--"] else args.command
++    if not command or args.timeout < 1:
++        parser.error("需要导出命令与正整数timeout")
++    try:
++        raise SystemExit(export(command, args.output, args.timeout))
++    except OSError:
++        parser.exit(1, "GEO textfile不可写；检查受保护目录权限。\n")
++
++
++if __name__ == "__main__":
++    main()
+--- a/docs/geo-monitoring/03-technical/07-testing-and-quality.md
++++ b/docs/geo-monitoring/03-technical/07-testing-and-quality.md
+@@ -573,3 +573,14 @@
+ ## GEO-901 / R8 保留清理验证边界
+ 
+ `backend/tests/integration/test_geo_retention.py`使用真实PG16前滚0063→0064和本地真实字节存储替身，验证raw精确到期、dry-run零DML/存储I/O、引用保护、终态/新鲜/PENDING草稿、不可变墓碑及单独墓碑提交拒绝、共享文件/最后引用7天、限批SKIP LOCKED、存储失败及对象已删/数据库完成失败重试。旧answer-files/manual-collection测试继续验证引用/GC提交交错和MANUAL协议。新单元测试覆盖默认配置/非法期限/批量和无消息payload小时调度。指定六项检查的实际结果与限制见[GEO-901实施记录](../../../.trellis/tasks/10-05-geo-901-retention/implement.md)，不以未运行浏览器/生产/903恢复演练作通过证据。
++
++
++## GEO-902 运维验证边界
++
++- 指标模拟采用隔离真实PG：只读RR并发一致性、最老积压/due、终态重分析lease、current review、UTC全sent attempt费用、未知和多币。
++- 稳定JSON/Prometheus标签白名单与secret canary；Worker/Beat故障用本地进程、PG与独立Redis，不访问真实provider或Browser。
++- 观测短事务并发累计不丢更新、不提交业务事务；0064→0065加法前滚和空库head初始化，零回填。
++- Prometheus实际promtool检查与阈值/持续时间模拟；低表现、人工待录入、关闭能力和预算拒绝不触发技术故障。
++- 原子textfile在失败/超时时撤销旧成功，指标未知值不补零。指定仓库门禁与实际状态见[任务实施证据](../../../../.trellis/tasks/10-05-geo-902-observability/implement.md)。
++
++不将离线规则测试写成生产告警演练；不以Grafana JSON可解析证明实际服务器导入/渲染。
+--- a/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
++++ b/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
+@@ -366,7 +366,7 @@
+ 采集任务 `partsignal.collect_geo_run` 只接收 run ID。重复消费者/扫描器由 PG 行锁与 token 仲裁。
+ 
+ 安全停止：停 Worker/Beat 或关闭采集开关阻止新发送；已发送请求不重发，过期 lease 保留历史失败。
+-诊断只记录 Run/Batch ID、固定 code 与异常类型，禁止记录原 prompt/回答/凭据或异常正文。
++诊断只记录 Run/Batch ID、固定 code（GEO-902起不记录任意异常类型），禁止记录原 prompt/回答/凭据或异常正文。
+ 当前 API 仍未生产批准、INTERNAL 工厂输入仍禁止外发、预算执行按下述 GEO-407 合同裁决，不能据此认定 R3 发布完成。
+ 
+ ### GEO-406 恢复与人工 retry
+@@ -401,7 +401,7 @@
+ 生产 adapter 没有批准报价时受限预算明确阻断，不能为了运行而注入猜测单价或放宽外发门禁。
+ 实际报告可能超过估价，预算预留保证准入时已知金额不超额度；后续按真实报告止损，
+ 不能宣称 provider 最终账单硬上限。429/未知发送不自动重发，不人工批量清账本解除预算。
+-现有安全日志保持固定错误码/ID/类型，不输出 prompt、回答、凭据或供应商错误正文。
++现有安全日志保持固定错误码/ID（GEO-902起不记录任意异常类型），不输出 prompt、回答、凭据或供应商错误正文。
+ 
+ ### GEO-408 运行中心与 R3 验收
+ 
+@@ -499,3 +499,23 @@
+ 停止：恢复新任务dry-run或停Beat/Worker；保留0064表和墓碑、前向修复，不执行破坏性downgrade。已清理临时数据恢复/备份演练属于GEO-903，本任务不实施。
+ 
+ 本轮开发环境检查：Browser=false、无Browser运行服务、无会话root/公钥/能力配置、开发库没有会话表，因此Browser临时数据清理N/A；依据见[GEO-901证据](../../../.trellis/tasks/10-05-geo-901-retention/evidence/browser-materials.json)。不代表生产或其他环境；有部署/材料时仍按802保护、撤销和PURGE处理并重新检查，不从默认值推断安全。904/906必须实际核实生产false和无会话，903会话恢复条件验收保留。
++
++
++## 当前 R8：GEO-902 可观察性（本地验证后交付 review）
++
++受保护 `python -m app.geo_observability snapshot|metrics|health worker|health scheduler`
++输出有限聚合/定位信息，无公共端点、产品页面或业务公式变化。0065只新增有限
++`geo_operation_health`；独立短事务原子累计，不提交业务事务、不回填历史。
++固定15个只读RR聚合SELECT覆盖全部attempt、UTC日发送费用、未知/分币、最老pending、
++补投递due、collection及终态Run重分析的过期lease、当前revision有效复核和失败分布。
++
++Worker本机心跳、目标Celery ping，Scheduler真实tick/publish、PG/Redis/registry联合检查；
++三环境Compose替换PID-only检查。四种恢复扫描执行时间与tick分开；尚未接线的生产计划
++cron和自动机会评估不伪造成功，不由902补功能。Browser仅现有PG会话材料元数据，
++真实登录探针仍NOT_IMPLEMENTED，ADR-006延期不变。
++
++稳定GEO JSON字段、有限指标标签、NULL/NaN、原子textfile采集、dashboard/rules导入、
++告警起始阈值与排障步骤以[运维资产说明](../../../../deploy/observability/geo/README.md)为当前实现入口。
++监控与业务低表现分开；生产监控接入和阈值校准尚未执行。Task Brief与实际证据见
++[902任务](../../../../.trellis/tasks/10-05-geo-902-observability/prd.md)及
++[实施记录](../../../../.trellis/tasks/10-05-geo-902-observability/implement.md)。
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -1525,7 +1525,7 @@
+   phase: R8
+   release: R8
+   title: 完善运行、成本、失败和积压可观察性
+-  status: planned
++  status: review
+   dependencies:
+   - GEO-408
+   - GEO-607
+@@ -1543,6 +1543,8 @@
+   - 02-business/03-workflows-and-state-machines.md
+   - 03-technical/01-technical-architecture.md
+   - 04-delivery/04-codex-execution-guide.md
++  trellis_task: .trellis/tasks/10-05-geo-902-observability
++  execution_note: "2026-10-05：低敏PG指标/定位、稳定日志、真实Worker/Beat health、dashboard与11项告警已实现；隔离PG/进程、规则/secret scan及指定门禁证据见Trellis implement，保留test-deploy-scripts旧断言失败。仅review，未生产部署或实施903/905。"
+ - id: GEO-903
+   phase: R8
+   release: R8
+--- a/docs/geo-monitoring/CHANGELOG.md
++++ b/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,13 @@
+ # 文档包变更记录
++
++## GEO-902 / R8 运行、成本、失败与积压观测 — 2026-10-05（review）
++
++- PG只读RR快照/Prometheus低敏聚合，所有attempt按模式统计、UTCsent日账、未知费用与币种独立、有限稳定ID定位积压/lease/预算异常。
++- 0065新增有限operation健康表，短独立事务原子计数不提交业务；Worker本机Heart与targeted ping、Beat tick/publish分开，三环境Compose联合检查PG/Redis/registry。
++- GEO固定JSON字段和错误目录，去掉任意异常正文/类型及Celery原始异常链；业务拒绝与系统异常分开。
++- 原子textfile、Grafana dashboard、Prometheus告警与持续时间模拟；不将业务低表现、人工待录入或关闭能力当系统故障。
++- 无OpenAPI/产品前端/公式/状态机变化、零历史回填；实际命令及未验证生产边界见[实施记录](../../.trellis/tasks/10-05-geo-902-observability/implement.md)。只review，不done、不生产部署、不实施903/905。
++
+ 
+ ## GEO-901 / R8 保留与清理 — 2026-10-05（review）
+ 
+--- a/docs/geo-monitoring/README.md
++++ b/docs/geo-monitoring/README.md
+@@ -407,3 +407,11 @@
+ 
+ 
+ GEO-901 / R8 已交付限批材料清理、dry-run、引用保护和低敏不可变墓碑，状态为review等待人工接受。0064加法前滚、默认保留策略不启用且新任务只预览；所有指标/Answer历史与引用raw保持。实际验证、Browser开发环境N/A与覆盖边界见[Task Brief](../../.trellis/tasks/10-05-geo-901-retention/prd.md)、[实施证据](../../.trellis/tasks/10-05-geo-901-retention/implement.md)及[运维](./03-technical/08-deployment-and-operations.md)。生产Browser false/无会话由904/906另行实测，903恢复未实施。
++
++
++GEO-902 / R8 增加受保护运维CLI、PG低敏指标、稳定JSON日志、Worker/Beat真实健康与
++Grafana/Prometheus资产。最老pending、过期lease、费用异常和失败分布可定位；
++业务低表现不影响容器健康。无公共API/前端行为变化，0065为加法迁移、无历史回填。
++实际验证和限制见[Task Brief](../../.trellis/tasks/10-05-geo-902-observability/prd.md)、
++[实施记录](../../.trellis/tasks/10-05-geo-902-observability/implement.md)和
++[运维资产](../../deploy/observability/geo/README.md)。只交付review，未部署生产或实施903/905。
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -14,8 +14,8 @@
+ a0291d4a77609a1db741e3adc84d19ab712ac3ffff8c49f8572ac09b1c5327eb  ./03-technical/04-frontend-architecture.md
+ daf8f8cec2dfb8996c316ca259ae6eea161d944337f340ce9c6180bc9c87c0f5  ./03-technical/05-worker-and-collector-architecture.md
+ 596532a0304d246a9051872ebed910156983b9fd2cd146ef234fd6700e07c1eb  ./03-technical/06-security-and-compliance.md
+-a03c013f0327ca3396c79f5e0583b9ebeccd9a30c1738fc7b4e307bbba072ba9  ./03-technical/07-testing-and-quality.md
+-a3ae47849289436a13dc6fbf00d345507f53d3fc9d37e159418d6e19f4ae9aea  ./03-technical/08-deployment-and-operations.md
++41cd9ee65de0b8e0eef2b32d0da38e5937f1793e7f69f0ea3ba68ccbe4a0d79e  ./03-technical/07-testing-and-quality.md
++040a09c481139faef4330c7a6e4d1a09d5353db4caf3fc67c6ceffb975307df6  ./03-technical/08-deployment-and-operations.md
+ 46f6d9585856b518af06b01863b0e25b3b00906ffde987d7453fcf810a85db93  ./04-delivery/01-implementation-roadmap.md
+ eee6ed49f55846ab63c464b2696112b270572e050b43195bdb2a9fddb8122613  ./04-delivery/02-work-breakdown-structure.md
+ fe8eb7c838c0616c6330ba9c9cc0b4c2c1d51a07d682e325764a74bff3283afd  ./04-delivery/03-requirement-traceability-matrix.md
+@@ -106,15 +106,15 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-a4db145f96061b8ce1b381748778d0e22de6f5478717befa35a784f990301002  ./04-delivery/task-manifest.yaml
++f4a65dff716e92ee59c797d2f5c5cd5e489139f30e592cc9bbaaad1585d042c0  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+ 8f4f24331d4ea91574e5a4a56c3eacd9d89e193011c48f8d9f5e413198793909  ./05-decisions/ADR-004-no-unified-geo-score.md
+ 6197eb3379ad5c5f99c499ab8b74eac5cf18e6df26a3f5c34c4e9bf83845593b  ./05-decisions/ADR-005-staged-collector-rollout.md
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  ./05-decisions/GEO-002-architecture-review.md
+-d6f40f0fb19e4ae4cae16bd76add5f25951bf8ef6f817389a62307de61e24785  ./CHANGELOG.md
+-b8015fa0910bc5c92504f65290c87c6c368ca565b2d26b4977c577c1d03436be  ./README.md
++2fd5f0692a0a3ea148618df22e3c71a156095df210300f750016b9b1d21b549d  ./CHANGELOG.md
++6754129c314f59339a87352cf75fe7b0c1451a9bbcda40a524ad58a61495098a  ./README.md
+ 670f9d9e94e3a36b849691f8531a30433ea0253f234b855d08331b6d2b1905cd  ./04-delivery/10-r6-opportunity-acceptance.md
+ 2ecb8425899de5f1ae4f6a1f0b130f93aba201fbc9c084856d6893835d0484e9  ./02-business/05-manual-geo-observation-sop.md
+ 063efdbae17e86fc90ff7e6cff80ecdfdb6eee1e37416e5e3179531c7260a7cd  ./04-delivery/09-r4-analysis-acceptance.md

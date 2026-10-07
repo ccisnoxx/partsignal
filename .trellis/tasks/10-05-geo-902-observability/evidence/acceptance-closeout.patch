@@ -1,0 +1,84 @@
+--- a/docs/geo-monitoring/04-delivery/task-manifest.yaml
++++ b/docs/geo-monitoring/04-delivery/task-manifest.yaml
+@@ -1525,7 +1525,7 @@
+   phase: R8
+   release: R8
+   title: 完善运行、成本、失败和积压可观察性
+-  status: review
++  status: done
+   dependencies:
+   - GEO-408
+   - GEO-607
+@@ -1545,6 +1545,7 @@
+   - 04-delivery/04-codex-execution-guide.md
+   trellis_task: .trellis/tasks/10-05-geo-902-observability
+   execution_note: "2026-10-05：低敏PG指标/定位、稳定日志、真实Worker/Beat health、dashboard与11项告警已实现；隔离PG/进程、规则/secret scan及指定门禁证据见Trellis implement，保留test-deploy-scripts旧断言失败。仅review，未生产部署或实施903/905。"
++  review_note: "2026-10-05 本会话用户已人工审查并接受GEO-902的实现与测试证据；本次仅记录验收，manifest=done、Trellis=completed，保留原验证结果与已知限制，不修改其他任务状态、不实施后续任务，不提交、推送或归档。"
+ - id: GEO-903
+   phase: R8
+   release: R8
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -106,7 +106,7 @@
+ 7106b3f1df66de6ba41a4d7ca85e291b8b181f78e2b7c0ef91f4fa696d1f9e8b  ./04-delivery/geo-003-baseline/sources.json
+ 316ab24c5f645e18d39c529c7fcbca2260b14a5375cc5ebd799a5b7c6cfc8f40  ./04-delivery/geo-003-baseline/tests.json
+ 9dae298eb77cc0063394bfacea27b02ece69bf2a7dceba637ef1320565810ec7  ./04-delivery/geo-003-baseline/validation.md
+-f4a65dff716e92ee59c797d2f5c5cd5e489139f30e592cc9bbaaad1585d042c0  ./04-delivery/task-manifest.yaml
++d0c142117adf1504cf3c95071f0b6edee72593792e87989c147f10dfde4dd862  ./04-delivery/task-manifest.yaml
+ 2c0f8d8ba314039b44e48614481c28e615e996c2e4ed444c8f07362b5cd75de9  ./05-decisions/ADR-001-extend-modular-monolith.md
+ 4e0ec1be59e33c2f3e83ee50abc55ffe35d2d0bf471c19cc2c713b391fc12cee  ./05-decisions/ADR-002-unified-observation-run-model.md
+ 00baab5f8fe68fbaf75e3aa7b07a0cfbd7c510e39b6a70ea462d9ab941330dc7  ./05-decisions/ADR-003-separate-collection-analysis-review.md
+--- a/.trellis/tasks/10-05-geo-902-observability/task.json
++++ b/.trellis/tasks/10-05-geo-902-observability/task.json
+@@ -3,7 +3,7 @@
+   "name": "geo-902-observability",
+   "title": "GEO-902：运行、成本、失败与积压可观察性",
+   "description": "低敏感运行/费用/失败/积压指标、告警与日志、Worker/Beat health",
+-  "status": "review",
++  "status": "completed",
+   "dev_type": "backend",
+   "scope": "GEO R8 observability",
+   "package": null,
+@@ -11,7 +11,7 @@
+   "creator": "777",
+   "assignee": "777",
+   "createdAt": "2026-10-05",
+-  "completedAt": null,
++  "completedAt": "2026-10-05",
+   "branch": "geo/GEO-902",
+   "base_branch": "main",
+   "worktree_path": null,
+@@ -72,11 +72,17 @@
+     ".trellis/tasks/10-05-geo-902-observability/design.md",
+     ".trellis/tasks/10-05-geo-902-observability/implement.md"
+   ],
+-  "notes": "本地实现/定向验证完成；指定deploy gate旧断言失败保留，待人工审查接受，不自行done。",
++  "notes": "本地实现/定向验证完成；指定deploy gate旧断言失败保留，待人工审查接受，不自行done。 2026-10-05 本会话用户已人工审查并接受GEO-902的实现与测试证据；本次仅记录验收，manifest=done、Trellis=completed，保留原验证结果与已知限制，不修改其他任务状态、不实施后续任务，不提交、推送或归档。",
+   "meta": {
+     "geo_task_id": "GEO-902",
+     "release": "R8",
+-    "manifest_status": "review",
+-    "audit_id": "20261005T151007Z-geo-902-7d2c097d"
++    "manifest_status": "done",
++    "audit_id": "20261005T151007Z-geo-902-7d2c097d",
++    "delivery_status": "done",
++    "accepted_at": "2026-10-05",
++    "accepted_by": "本会话用户",
++    "accepted_scope": "GEO-902运行、成本、失败和积压可观察性的实现与已记录测试证据；不包含后续任务。",
++    "acceptance_basis": "用户明确表示：我已经人工审查并接受 GEO-902 的实现与测试证据。",
++    "validation_record": ".trellis/tasks/10-05-geo-902-observability/implement.md"
+   }
+ }
+--- a/.trellis/tasks/10-05-geo-902-observability/implement.md
++++ b/.trellis/tasks/10-05-geo-902-observability/implement.md
+@@ -132,3 +132,10 @@
+ ## 13. 状态与后续
+ 
+ task-manifest 和 Trellis 均为 review，等待人工审查接受；completedAt为空。GEO-903、905仍planned，其他任务状态保持原状；不实施直接后续任务，不提交、推送或生产启用。指定部署 gate 的既有失败和实际验证缺口已明确记录；没有用户定义的 blocked 条件。
++
++
++## 人工验收完成 — 2026-10-05
++
++本会话用户明确表示：“我已经人工审查并接受 GEO-902 的实现与测试证据。”据此记录manifest=done、Trellis=completed，完成日期为2026-10-05。既有review阶段实现、测试结果、首次失败和覆盖限制保留为验收前历史；make test-deploy-scripts的既有断言失败不改写为通过，不重复运行功能门禁。
++
++本次只收尾GEO-902，不修改其他任务状态、不实施后续任务，不提交、推送或归档。SHA256SUMS仅同步manifest条目。验收前状态保存于evidence/acceptance-before.json；收尾git diff --check精确命令与结果保存于evidence/acceptance-diff-check.json/log。

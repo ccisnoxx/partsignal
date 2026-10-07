@@ -1,0 +1,43 @@
+{
+  "global": {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 2,
+    "stdout": "docs/geo-monitoring/06-reviews/GEO-1001-release-readiness-audit.md:11: trailing whitespace.\n+- **[P1] 生产配置仍接受 `GEO_BROWSER_COLLECTION_ENABLED=true`。**  \ndocs/geo-monitoring/06-reviews/GEO-1001-release-readiness-audit.md:12: trailing whitespace.\n+  [config.py:193](/Users/sc/PycharmProjects/partsignal/backend/app/config.py:193) 只验证子开关依赖总开关，生产校验没有禁止 Browser；[check-production-inputs.py:92](/Users/sc/PycharmProjects/partsignal/deploy/scripts/check-production-inputs.py:92) 的生产固定字段也没有它。生产 Compose 还包含可显式启用的 Browser profile。[compose.prod.yaml:5](/Users/sc/PycharmProjects/partsignal/deploy/compose.prod.yaml:5)  \ndocs/geo-monitoring/06-reviews/GEO-1001-release-readiness-audit.md:15: trailing whitespace.\n+- **[P1] Catalog 写命令使用旧 ADMIN 身份，缺少锁内当前用户重验。**  \ndocs/geo-monitoring/06-reviews/GEO-1001-release-readiness-audit.md:16: trailing whitespace.\n+  [geo_catalog.py:126](/Users/sc/PycharmProjects/partsignal/backend/app/services/geo_catalog.py:126) 检查已加载的 actor，随后等待资源锁并提交；没有锁后重新读取 User。另一个管理员可以将该用户降级为活跃 ENGINEER，而角色变化不会触发仅停用时执行的会话撤销。[identity.py:589](/Users/sc/PycharmProjects/partsignal/backend/app/services/identity.py:589)  \ndocs/geo-monitoring/06-reviews/GEO-1001-release-readiness-audit.md:19: trailing whitespace.\n+- **[P1／核心能力缺口] CRON 到期建批次和自动机会评估未接线。**  \ndocs/geo-monitoring/06-reviews/GEO-1001-release-readiness-audit.md:20: trailing whitespace.\n+  `create_scheduled_batch` 和 `evaluate_opportunities` 的实现存在，但当前应用中的调用者没有生产调度入口；调用主要来自测试和 seed。Beat 调度的是已有 Run/Analysis 的恢复、补投递与清理。[worker.py:42](/Users/sc/PycharmProjects/partsignal/backend/app/worker.py:42)、[geo_opportunities.py:293](/Users/sc/PycharmProjects/partsignal/backend/app/services/geo_opportunities.py:293)  \ndocs/geo-monitoring/06-reviews/GEO-1001-release-readiness-audit.md:21: trailing whitespace.\n+  因此，ACTIVE CRON Plan 不会因到期自动创建批次，人工提交后也不会自动产生机会。GEO-707 的机会起点由测试 seed 调用真实 evaluator，后续行动和复测使用公共 API。当前 runbook 明确将这两项保留为 `NOT_MET`，ADR-006 只延期 Browser。[10-core-rollout-runbook.md:97](/Users/sc/PycharmProjects/partsignal/docs/geo-monitoring/03-technical/10-core-rollout-runbook.md:97)  \ndocs/geo-monitoring/06-reviews/GEO-1001-release-readiness-audit.md:24: trailing whitespace.\n+- **[P1] 尚未初始化的升级阶段缺少 artifact 失败后的恢复路径。**  \ndocs/geo-monitoring/06-reviews/GEO-1001-release-readiness-audit.md:25: trailing whitespace.\n+  部署先进入 `UPGRADE_DEPLOYING`，然后执行迁移、启动和 readiness 检查。[deploy.sh:87](/Users/sc/PycharmProjects/partsignal/deploy/scripts/deploy.sh:87) 该阶段只允许同一不可变候选重入，新 artifact 被拒绝；现有 frontend rollback 又要求 `PRODUCTION_INITIALIZED`。[prepare-production-data.py:1017](/Users/sc/PycharmProjects/partsignal/deploy/scripts/prepare-production-data.py:1017)、[prepare-production-data.py:327](/Users/sc/PycharmProjects/partsignal/deploy/scripts/prepare-production-data.py:327)  \ndocs/geo-monitoring/06-reviews/GEO-1001-release-readiness-audit.md:28: trailing whitespace.\n+- **发布准入阻断：候选尚未冻结，生产验收仍未取得。**  \ndocs/geo-monitoring/06-reviews/GEO-1001-release-readiness-audit.md:29: trailing whitespace.\n+  当前分支为 `geo/GEO-906`，有 **71 个 tracked 修改、521 个 untracked 条目**；HEAD 仍为 `cd88fbf6`。候选生成器要求 clean main、HEAD 与 origin/main 一致。[create-release-manifest.py:104](/Users/sc/PycharmProjects/partsignal/deploy/scripts/create-release-manifest.py:104)  \ndocs/geo-monitoring/06-reviews/GEO-1001-release-readiness-audit.md:30: trailing whitespace.\n+  现有发布证据中的 release、commit、archive、image 身份为空，生产各阶段为 `NOT_STARTED`；Browser 三进程实际 false、零服务/profile/会话材料、正式 MANUAL 验收、监控观察期、目标容量和恢复/停止证据仍未知。[production-readiness.yaml:5](/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-906-rollout/evidence/production-readiness.yaml:5)  \n",
+    "stderr": "",
+    "classification": "pre-existing unchanged audit Markdown hard line breaks",
+    "preexisting_whitespace_lines": 12,
+    "evidence_reused": "全局命令已运行；原 12 处审计尾空格字节与任务前态相同，保护范围未变；最终本次范围重检见下。"
+  },
+  "scoped_tracked": {
+    "command": [
+      "git",
+      "diff",
+      "--check",
+      "--",
+      "docs/geo-monitoring",
+      ":!docs/geo-monitoring/06-reviews/GEO-1001-release-readiness-audit.md"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": "",
+    "whitespace_errors": 0
+  },
+  "candidate_including_untracked": {
+    "command": [
+      "git",
+      "diff",
+      "--no-index",
+      "--check",
+      "/Users/sc/PycharmProjects/partsignal/.trellis/tasks/10-05-geo-1002-v1-release-scope/evidence/before/docs/geo-monitoring",
+      "docs/geo-monitoring"
+    ],
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "",
+    "whitespace_errors": 0
+  }
+}

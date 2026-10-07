@@ -1,0 +1,6 @@
+{
+  "command": "APP_ENV=test DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55443/partsignal UV_CACHE_DIR=.cache/uv uv run --project backend alembic -c backend/alembic.ini upgrade head",
+  "exit_code": 0,
+  "seconds": 0.79,
+  "log": "alembic-upgrade-head.log"
+}

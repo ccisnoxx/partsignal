@@ -1,0 +1,56 @@
+...................F..                                                   [100%]
+=================================== FAILURES ===================================
+_________ test_real_local_tls_checks_ca_sni_host_before_send[trusted] __________
+
+case = 'trusted'
+tmp_path = PosixPath('/private/var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/pytest-of-sc/pytest-88/test_real_local_tls_checks_ca_0')
+
+    @pytest.mark.parametrize("case", ["trusted", "untrusted", "wrong-hostname"])
+    def test_real_local_tls_checks_ca_sni_host_before_send(case, tmp_path):
+        hostname = "provider.test"
+        certificate_name = "wrong.test" if case == "wrong-hostname" else hostname
+        ca, certificate, key = write_local_ca(tmp_path, certificate_name)
+        server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        server_context.load_cert_chain(certificate, key)
+        sni_names = []
+        server_context.set_servername_callback(
+            lambda _socket, name, _context: sni_names.append(name)
+        )
+        client_context = ssl.create_default_context(cafile=None if case == "untrusted" else str(ca))
+        request = make_request()
+        with running_geo_fake() as provider:
+            provider.socket = server_context.wrap_socket(provider.socket, server_side=True)
+    
+            def connect(_address, timeout):
+                connection = socket.create_connection(provider.server_address, timeout=timeout)
+                return cast(socket.socket, PeerOverrideSocket(connection, "93.184.216.34"))
+    
+            transport = PinnedHTTPTransport(
+                allow_local_http=False, resolver=resolver_for("93.184.216.34"), connector=connect,
+                tls_wrapper=lambda connection, name: client_context.wrap_socket(
+                    connection, server_hostname=name
+                ),
+            )
+            collector = OpenAICompatibleGeoCollector(**configuration(
+                request, transport=transport, headers={"X-GEO-Attempt-ID": str(request.run_id)},
+            ))
+            callbacks = []
+    
+            def authorize():
+                assert sni_names == [hostname]
+                assert provider.state.snapshot(request.run_id)["count"] == 0
+                callbacks.append("authorized")
+    
+            if case == "trusted":
+                collector.collect(request, before_send=authorize)
+                assert callbacks == ["authorized"]
+                stats = provider.state.snapshot(request.run_id)
+                assert stats["count"] == 1
+>               assert stats["requests"][0]["host"] == hostname
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               KeyError: 'host'
+
+backend/tests/unit/test_geo_openai_network.py:218: KeyError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_openai_network.py::test_real_local_tls_checks_ca_sni_host_before_send[trusted]
+1 failed, 21 passed in 0.81s

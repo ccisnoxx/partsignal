@@ -1,0 +1,6 @@
+{
+  "command": "docker compose -p partsignal-geo203-validation -f /tmp/geo203-compose.yaml up --build -d postgres redis fake-oss",
+  "exit_code": 0,
+  "seconds": 13.42,
+  "log": "infra-up.log"
+}

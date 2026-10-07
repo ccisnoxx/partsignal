@@ -1,0 +1,30 @@
+ Container geo705-validation-backend-test-run-6a6036e26255 Creating 
+ Container geo705-validation-backend-test-run-6a6036e26255 Created 
+............F
+=================================== FAILURES ===================================
+_____ test_fresh_request_reuses_frozen_baseline_after_current_plan_changes _____
+
+retest_case = (PlansAPI(api=QuestionsAPI(engine=Engine(postgresql+psycopg://partsignal:***@postgres:5432/partsignal_geo208_ad781a669...d-0c77-408b-9636-7bb0683957bc'), {'baseline_batch_id': '9129341d-0c77-408b-9636-7bb0683957bc', 'expected_revision': 3})
+
+    def test_fresh_request_reuses_frozen_baseline_after_current_plan_changes(retest_case):
+        case = retest_case
+        original = preview(case).json()["snapshot"]
+        first = post(case)
+        assert first.status_code == 201, first.text
+        # 当前计划可继续演进；严格复测始终由原批次决定矩阵。
+        plan_path = f"/api/v1/geo/monitoring-plans/{original['plan_snapshot']['plan_id']}"
+        current = case[0].api.engineer.get(plan_path)
+        assert current.status_code == 200, current.text
+        result = case[0].api.engineer.patch(
+            plan_path,
+>           json=case[0].payload(expected_revision=current.json()["plan"]["revision"], repeat_count=3),
+                                                   ^^^^^^^^^^^^^^^^^^^^^^
+        )
+E       KeyError: 'plan'
+
+tests/integration/test_geo_retests.py:318: KeyError
+=========================== short test summary info ============================
+FAILED tests/integration/test_geo_retests.py::test_fresh_request_reuses_frozen_baseline_after_current_plan_changes
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 12 passed in 3.52s
+

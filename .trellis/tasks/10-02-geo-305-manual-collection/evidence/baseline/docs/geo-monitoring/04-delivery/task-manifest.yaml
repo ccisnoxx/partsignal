@@ -1,0 +1,1507 @@
+version: '1.0'
+generated_at: '2026-10-01'
+repository: ccisnoxx/partsignal
+recommended_docs_root: docs/geo-monitoring
+status_values:
+- planned
+- ready
+- in_progress
+- review
+- done
+- blocked
+tasks:
+- id: GEO-001
+  phase: R0
+  release: R0
+  title: 将 GEO 文档包纳入仓库并建立导航
+  status: done
+  dependencies: []
+  areas:
+  - docs
+  - README
+  - AGENTS
+  deliverables: 把文档放入 docs/geo-monitoring，补充仓库导航、阅读顺序和文档状态。
+  tests: Markdown 链接检查；不运行代码变更。
+  acceptance: 所有文档可从单一入口访问，现有文档不被覆盖。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-002
+  phase: R0
+  release: R0
+  title: 评审并接受初始 GEO ADR
+  status: done
+  dependencies:
+  - GEO-001
+  areas:
+  - docs/geo-monitoring/05-decisions
+  deliverables: 确认模块化单体、统一运行模型、采集/分析/复核分离、无统一总分、分阶段采集五项决策。
+  tests: 架构评审记录。
+  review_record: 05-decisions/GEO-002-architecture-review.md
+  review_note: 2026-10-01 用户明确接受五份 ADR 及本轮评审修订；GEO-002 完成，后续合同与实施任务按已接受约束推进，本轮不启动后续任务。
+  accepted_at: '2026-10-01'
+  accepted_scope: 五份初始 ADR 的架构决策及 GEO-002 评审修订；不扩大为业务代码、具体合同实施或平台合规启用。
+  trellis_task: .trellis/tasks/10-01-geo-002-adr-review
+  acceptance: ADR 状态为 Accepted，冲突方案有明确结论。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-003
+  phase: R0
+  release: R0
+  title: 冻结当前 GEO 实现与契约基线
+  status: done
+  dependencies:
+  - GEO-001
+  - GEO-002
+  areas:
+  - contracts
+  - backend
+  - frontend
+  - tests
+  deliverables: 盘点现有 GeoObservation、GeoInsights、路由、表、E2E、查询和迁移，生成基线清单。
+  tests: 运行 make verify 或记录无法运行项；保存 schema/route/test 基线。
+  acceptance: 后续任务能明确区分现有文章关系观测和新回答级观测。
+  baseline_record: 04-delivery/06-current-geo-baseline.md
+  validation_record: 04-delivery/geo-003-baseline/validation.md
+  trellis_task: .trellis/tasks/10-01-geo-003-current-baseline
+  review_note: 只读基线盘点与可执行本地验证完成；make verify 因 Docker socket 缺失未完成，PostgreSQL/真实栈缺口已有精确证据，等待人工验收。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-004
+  phase: R0
+  release: R0
+  title: 增加 GEO 渐进启用配置和安全默认值
+  status: done
+  dependencies:
+  - GEO-003
+  areas:
+  - backend/app/config.py
+  - .env.example
+  - .env.production.example
+  - deploy
+  deliverables: 增加 GEO_MONITORING/API/BROWSER/OPPORTUNITY 功能开关及配置校验，默认关闭新自动能力。
+  tests: Settings 单元测试、生产边界测试、Compose config。
+  acceptance: API/Worker/Scheduler 读取一致配置；关闭时无外部调用。
+  trellis_task: .trellis/tasks/10-01-geo-004-safe-configuration
+  validation_record: .trellis/tasks/10-01-geo-004-safe-configuration/implement.md
+  review_note: 四项默认关闭配置与校验已实现，Settings/生产边界/18组Compose及入口检查通过，独立只读复核无阻断问题；make test-deploy-scripts 因缺少 Docker socket 在前置镜像构建失败，真实容器与 Worker/Beat 进程未验证，等待人工验收。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-005
+  phase: R0
+  release: R0
+  title: 建立 GEO 测试夹具和金标目录
+  status: done
+  dependencies:
+  - GEO-003
+  areas:
+  - backend/tests
+  - frontend/src/test
+  - deploy/scripts
+  deliverables: 创建虚构产品、问题、回答、引用和分析金标目录，定义 fixture 格式和敏感数据规则。
+  tests: Fixture schema 校验；最小加载测试。
+  acceptance: 后续分析和指标任务可复用稳定夹具，不含真实公司或凭据。
+  fixture_record: backend/tests/fixtures/geo_analysis/README.md
+  trellis_task: .trellis/tasks/10-01-geo-005-fixtures-gold
+  validation_record: .trellis/tasks/10-01-geo-005-fixtures-gold/implement.md
+  review_note: 版本化虚构语料与13份独立金标已实现，Schema/关系/隐私及最小加载检查通过，后端821和前端863项测试及frontend-only隔离构建通过；make test-deploy-scripts在前置镜像构建因Docker socket缺失失败，后续recipe未运行，等待人工验收。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-101
+  phase: R1
+  release: R1
+  title: 定义 GEO Catalog 公共契约与数据库合同
+  status: done
+  dependencies:
+  - GEO-003
+  - GEO-002
+  areas:
+  - contracts/openapi.yaml
+  - contracts/database.md
+  deliverables: 定义 GeoSubject、Alias、Domain 的请求/响应、枚举、错误码、约束和删除语义。
+  tests: Contract schema tests。
+  acceptance: 契约包含 revision、actions、blockers，OWN_PRODUCT 不复制 Product 事实。
+  trellis_task: .trellis/tasks/10-01-geo-101-catalog-contract
+  validation_record: .trellis/tasks/10-01-geo-101-catalog-contract/implement.md
+  review_note: Catalog公共Schema及数据库合同已定义，runtime仍未接线；Contract schema tests 158项、本地静态检查及后端850/前端863项单元测试通过，独立只读复核及审计通过，等待人工验收。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-102
+  phase: R1
+  release: R1
+  title: 实现 GEO Catalog ORM 与 Alembic
+  status: done
+  dependencies:
+  - GEO-101
+  areas:
+  - backend/app/models
+  - backend/alembic
+  deliverables: 新增 geo_subjects/aliases/domains、约束、索引和模型注册。
+  tests: 迁移、metadata、约束、直接 SQL 反例。
+  acceptance: 当前 head 可前滚，OWN_PRODUCT 唯一和父子约束生效。
+  trellis_task: .trellis/tasks/10-01-geo-102-catalog-orm
+  validation_record: .trellis/tasks/10-01-geo-102-catalog-orm/implement.md
+  review_note: 三表ORM与0044前滚已实现；PostgreSQL迁移、metadata、SQL反例及唯一并发77项，后端855/前端863项单元与427项完整集成通过；独立只读复核及执行审计通过，等待人工验收。Schema/Service/API/UI仍未实施。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-103
+  phase: R1
+  release: R1
+  title: 实现 GEO Catalog Schema 与领域策略
+  status: done
+  dependencies:
+  - GEO-101
+  - GEO-102
+  areas:
+  - backend/app/schemas
+  - backend/app/services
+  deliverables: 实现规范化、父子类型、域名、stage/actions/deletion projection。
+  tests: 单元测试覆盖别名歧义、IDNA、动作。
+  acceptance: 未知类型和非法父子关系明确失败，无前端推断。
+  trellis_task: .trellis/tasks/10-01-geo-103-catalog-policy
+  validation_record: .trellis/tasks/10-01-geo-103-catalog-policy/implement.md
+  review_note: Schema/规范化/真实父子/别名歧义与stage/actions/deletion投影已实现；98项定向、后端953/前端863项单元、427项完整集成及静态/合同检查通过。首次Schema机器形状P2已修正并经独立只读复核解除，等待人工验收；CRUD/API/UI仍未实施。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-104
+  phase: R1
+  release: R1
+  title: 实现 GEO Catalog 应用服务和 API
+  status: done
+  dependencies:
+  - GEO-103
+  areas:
+  - backend/app/services
+  - backend/app/routers
+  - backend/app/main.py
+  deliverables: CRUD、启停、删除、列表/详情、引用计数和审计。
+  tests: PostgreSQL 集成、并发唯一冲突、权限/CSRF。
+  acceptance: 有历史引用只能停用；错误映射只认精确约束。
+  trellis_task: .trellis/tasks/10-02-geo-104-catalog-api
+  validation_record: .trellis/tasks/10-02-geo-104-catalog-api/implement.md
+  review_note: 2026-10-02 本会话用户人工审查并接受GEO-104实现与测试证据；本地最低门禁、466项PostgreSQL集成及3轮独立只读复核完成。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-105
+  phase: R1
+  release: R1
+  title: 实现监测对象、竞品、别名和域名管理页面
+  status: done
+  dependencies:
+  - GEO-104
+  areas:
+  - frontend/src/domains
+  - frontend/src/routes
+  - frontend/src/shared/api
+  deliverables: 管理员工作台、搜索筛选、详情、别名/域名、启停和阻断展示。
+  tests: Vitest 组件测试、generated types、路由测试。
+  acceptance: ENGINEER 只读；409 保留表单；不暴露敏感数据。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-106
+  phase: R1
+  release: R1
+  title: 完成 Catalog 纵向验收和产品引导
+  status: done
+  dependencies:
+  - GEO-105
+  areas:
+  - backend/tests/integration
+  - frontend/tests/e2e
+  - docs
+  deliverables: E2E 创建 OWN_PRODUCT/竞品/alias/domain，补充使用说明和测试证据。
+  tests: Playwright real API；make verify 相关集合。
+  acceptance: 可从现有 Product 建立唯一监测身份且不改变产品事实。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-201
+  phase: R1
+  release: R1
+  title: 定义并实现 PromptVariant 契约与数据模型
+  status: done
+  dependencies:
+  - GEO-003
+  - GEO-101
+  areas:
+  - contracts
+  - backend/app/models
+  - backend/alembic
+  - backend/app/schemas
+  deliverables: 新增 geo_prompt_variants、branded/unbranded、语言、地区、优先级、revision。
+  tests: 迁移、唯一性、规范化、历史引用测试。
+  acceptance: 复用 QueryTopic；变体被运行引用后只能停用。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-202
+  phase: R1
+  release: R1
+  title: 实现问题变体服务、API 和前端工作区
+  status: done
+  dependencies:
+  - GEO-201
+  areas:
+  - backend/app/services
+  - backend/app/routers
+  - frontend/src/domains/geo-questions
+  deliverables: 变体 CRUD/启停、列表过滤、详情和运行入口占位。
+  tests: 集成、权限、组件和 E2E。
+  acceptance: 点名属性显式；页面不从文本猜测；历史语义稳定。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+  trellis_task: .trellis/tasks/10-02-geo-202-question-workspace
+  review_note: 变体服务、七个API和工作区已完成；987项后端单元、940项前端、495项PG集成及问题库真实E2E通过。完整真实栈和fixture套件分别保留一项GEO-106已记录的未修改上传断言/编辑器焦点失败；独立只读复核发现的两个锁环已修复并回归，等待人工验收。
+- id: GEO-203
+  phase: R1
+  release: R1
+  title: 定义并实现 EngineSurface 与 CollectionProfile 数据契约
+  status: done
+  dependencies:
+  - GEO-004
+  - GEO-101
+  areas:
+  - contracts
+  - backend/app/models
+  - backend/alembic
+  - backend/app/schemas
+  deliverables: 新增观测面/profile、能力、模式、合规状态、AI model 引用和非敏感 settings。
+  tests: 模式组合、FK、敏感字段缺失、迁移测试。
+  acceptance: MANUAL/API/BROWSER 约束明确，profile 响应不含 secret。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+  trellis_task: .trellis/tasks/10-02-geo-203-surface-profile
+  validation_record: .trellis/tasks/10-02-geo-203-surface-profile/implement.md
+  review_note: 数据组件、ORM、Schema与0046迁移已实现；模式/FK/秘密/迁移定向通过，1042项后端单元、940项前端、541项PG集成及指定门禁通过。独立只读复核两项Schema差异已修正并反例验证；无Registry、管理接口、采集或生产迁移，2026-10-02 本会话用户人工审查并接受实现与测试证据。
+- id: GEO-204
+  phase: R1
+  release: R1
+  title: 建立 Collector Registry 和 Profile 资格策略
+  status: done
+  dependencies:
+  - GEO-203
+  areas:
+  - backend/app/collectors
+  - backend/app/services
+  deliverables: adapter registry、capabilities、validate_profile、未知 adapter 和开关门禁。
+  tests: 单元 contract tests。
+  acceptance: Plan preview 与 Worker 可复用同一资格策略；未知 adapter 不回退。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+  trellis_task: .trellis/tasks/10-02-geo-204-collector-registry
+  validation_record: .trellis/tasks/10-02-geo-204-collector-registry/implement.md
+  review_note: Registry/能力/闭合validate_profile及共享资格已实现；未知adapter无回退，自动父子开关/合规/测试与当前模型门禁，单查询无写无敏感正文。新增54项单元、5项PG；1096项后端单元、940项前端、546项PG集成及指定门禁通过，独立只读复核无阻断。无OpenAPI/数据库/迁移/前端变化，无provider请求；2026-10-02 本会话用户人工审查并接受实现与测试证据。
+- id: GEO-205
+  phase: R1
+  release: R1
+  title: 实现观测面/Profile 管理 API 和页面
+  status: done
+  dependencies:
+  - GEO-204
+  areas:
+  - backend/app/services
+  - backend/app/routers
+  - frontend/src/domains/geo-catalog
+  deliverables: CRUD、启停、非敏感列表/详情、UNTESTED 状态和管理员工作台。
+  tests: 权限、CSRF、敏感回显、组件测试。
+  acceptance: BROWSER 未批准时不可启用；ENGINEER 仅看摘要。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+  trellis_task: .trellis/tasks/10-02-geo-205-surface-management
+  validation_record: .trellis/tasks/10-02-geo-205-surface-management/implement.md
+  review_note: 观测面/Profile 管理API与页面及已记录测试证据已完成人工验收；2026-10-02 本会话用户明确接受GEO-205实现与测试证据。本次仅记录验收，不实施后续任务。
+- id: GEO-206
+  phase: R1
+  release: R1
+  title: 定义并实现 MonitoringPlan 数据契约
+  status: done
+  dependencies:
+  - GEO-202
+  - GEO-205
+  areas:
+  - contracts
+  - backend/app/models
+  - backend/alembic
+  - backend/app/schemas
+  deliverables: 计划及 subject/prompt/profile 关系、状态、repeat、cron、budget、revision。
+  tests: 迁移、CHECK、关系唯一、删除阻断。
+  acceptance: 至少一个 PRIMARY、prompt、profile；计划配置不保存运行状态。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+  trellis_task: .trellis/tasks/10-02-geo-206-monitoring-plan
+  validation_record: .trellis/tasks/10-02-geo-206-monitoring-plan/implement.md
+  review_note: 配置契约、四表0047、提交完整性、真实关系删除阻断及本地门禁已完成人工验收；2026-10-02 本会话用户明确接受GEO-206实现与测试证据。本次仅记录验收，不实施后续任务。
+- id: GEO-207
+  phase: R1
+  release: R1
+  title: 实现服务端运行矩阵预览和费用覆盖
+  status: done
+  dependencies:
+  - GEO-206
+  - GEO-204
+  areas:
+  - backend/app/services/geo_plans.py
+  - backend/tests
+  deliverables: RunMatrixBuilder、资格 blocker/warning、manual/api/browser 数量、known/unknown cost。
+  tests: 矩阵组合、停用资源、预算、能力缺失、边界。
+  acceptance: 10×3×3 准确返回 90；未知费用不补零。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+  trellis_task: .trellis/tasks/10-02-geo-207-run-matrix
+  validation_record: .trellis/tasks/10-02-geo-207-run-matrix/implement.md
+  review_note: 服务端矩阵、共享资格与费用覆盖及已记录的实现与测试证据已完成人工验收；2026-10-02 本会话用户明确接受GEO-207实现与测试证据。本次仅记录验收，不实施后续任务。
+- id: GEO-208
+  phase: R1
+  release: R1
+  title: 实现 Plan 命令、查询、状态机和 API
+  status: done
+  dependencies:
+  - GEO-207
+  areas:
+  - backend/app/services
+  - backend/app/routers
+  deliverables: CRUD、preview、activate/pause/resume/archive/copy/run-now 占位、读模型、审计。
+  tests: 状态机、revision、并发、权限、审计。
+  acceptance: ACTIVE 修改不改变未来已创建快照；ARCHIVED 只读。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+  trellis_task: .trellis/tasks/10-02-geo-208-plan-api
+  validation_record: .trellis/tasks/10-02-geo-208-plan-api/implement.md
+  review_note: 12个Plan操作、状态机/revision/原子审计及已记录的实现与测试证据已完成人工验收；2026-10-02 本会话用户明确接受GEO-208实现与测试证据。本次仅记录验收，不实施后续任务；run-now仅501占位，无Batch/Run或真实快照冻结。
+- id: GEO-209
+  phase: R1
+  release: R1
+  title: 实现监测计划列表和向导
+  status: done
+  dependencies:
+  - GEO-208
+  areas:
+  - frontend/src/domains/geo-plans
+  - frontend/src/routes/geo
+  deliverables: 分步向导、服务端预览、URL 列表、状态动作、dirty 保护。
+  tests: Vitest、路由、409、E2E 创建/启停计划。
+  acceptance: 前端不计算最终 run_count；所有 blocker 可定位修正。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-301
+  phase: R2
+  release: R2
+  title: 定义 Batch/Run 公共契约与数据库模型
+  status: done
+  dependencies:
+  - GEO-208
+  - GEO-002
+  areas:
+  - contracts
+  - backend/app/models
+  - backend/alembic
+  - backend/app/schemas
+  deliverables: 批次、运行、快照、attempt、lease、状态、索引和错误字段。
+  tests: 迁移、CHECK、唯一单元、终态反例。
+  acceptance: Run 输入不可变；Batch 可从 runs 重建；旧 GeoObservation 不迁移。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+  review_note: 2026-10-02实现与本地验证完成；21个公共组件、两表与0048加法迁移；65定向、1281后端单元、1067前端单元、656集成通过，全部指定门禁通过。输入/终态/attempt/数量与敏感快照最终防线及独立只读复核证据见GEO-301 Task Brief与implement.md；没有运行命令、答案、Collector或旧观测迁移。2026-10-02 本会话用户已人工审查并接受GEO-301的实现与测试证据；本次仅记录验收，不实施后续任务。
+- id: GEO-302
+  phase: R2
+  release: R2
+  title: 实现 Batch/Run 状态策略与动作投影
+  status: done
+  dependencies:
+  - GEO-301
+  areas:
+  - backend/app/services
+  - backend/tests/unit
+  deliverables: 合法转换、batch 状态投影、retry/cancel 资格、workflow stage/actions。
+  tests: 完整状态机表驱动测试。
+  acceptance: 前端无需从 status 推断动作；终态不能回退。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+  review_note: 2026-10-02实现与本地验证完成；Run合法边/四终态/恢复证据、Batch最新attempt投影及typed actions已实现，8个公共组件与generated同步，无HTTP/Worker或新迁移。1355定向、2636后端单元、1067前端单元、656集成及全部指定门禁通过；独立复核遗漏后继P2已修复并先红后绿。精确命令、0048既有前滚、环境清理和限制见GEO-302 Task Brief与implement.md；2026-10-02 本会话用户已人工审查并接受GEO-302的实现与测试证据；本次仅记录验收，不修改其他任务状态，不实施后续任务。
+- id: GEO-303
+  phase: R2
+  release: R2
+  title: 实现批次工厂、计划快照和创建幂等
+  status: done
+  dependencies:
+  - GEO-302
+  - GEO-207
+  areas:
+  - backend/app/services/geo_batches.py
+  - backend/app/routers
+  deliverables: 从 plan/临时请求冻结矩阵、原子创建 batch+runs、schedule/manual identity。
+  tests: PostgreSQL 事务、并发同键、1000 runs、无部分提交。
+  acceptance: requested_run_count 与实际 runs 一致；提交后配置变化无影响。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+  review_note: 2026-10-02实现与本地验证完成；计划/临时安全快照、原子Batch与根Runs、用户作用域手工幂等和UTC调度窗口身份已实现。0049增量身份与主体历史关系，1000 runs创建0.729秒，后端2642/前端1067单元及667 PostgreSQL集成通过；合同、lint、typecheck、diff检查与独立只读复核通过。精确命令、首轮断言修正、前滚和限制见GEO-303 Task Brief与implement.md；仅进入review，待人工验收，不实施后续任务。 2026-10-02 本会话用户已人工审查并接受GEO-303的实现与测试证据；本次仅记录验收，不修改其他任务状态，不实施后续任务。
+- id: GEO-304
+  phase: R2
+  release: R2
+  title: 定义并实现 AnswerSnapshot、Citation 与证据关联
+  status: done
+  dependencies:
+  - GEO-301
+  areas:
+  - contracts
+  - backend/app/models
+  - backend/alembic
+  - backend/app/schemas
+  - backend/app/services/storage.py
+  deliverables: 原始回答、哈希、引用、截图/raw payload 文件引用和不可变防线。
+  tests: 迁移、URL 规范化、文件资格、UPDATE 反例。
+  acceptance: 原始证据提交后不可修改；secret 不进入 raw summary。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+  review_note: 2026-10-02原始回答/生成UTF-8 SHA256/原始引用实际位置/受控文件引用与不可变防线已实现。0050增量前滚、完整同事务提交、闭合secret摘要、URL规范化及HEAD/GC并发均有实际证据；后端2686与前端1067单元、713 PostgreSQL集成及合同/lint/typecheck通过。独立只读复核三项已修复，审计已关闭校验。精确命令、首轮失败修正、迁移锁与边界见GEO-304 Task Brief/implement.md；仅review，待人工验收，不实施后续任务。 2026-10-02 本会话用户已人工审查并接受GEO-304的实现与测试证据；本次仅记录验收，不修改其他任务状态，不实施后续任务。
+- id: GEO-305
+  phase: R2
+  release: R2
+  title: 实现 MANUAL 草稿和正式提交
+  status: planned
+  dependencies:
+  - GEO-303
+  - GEO-304
+  areas:
+  - backend/app/services/geo_manual_collection.py
+  - backend/app/routers
+  deliverables: manual entry context、draft revision、submit、幂等、状态推进和分析投递占位。
+  tests: 并发提交、草稿冲突、证据要求、非 MANUAL 拒绝。
+  acceptance: 正式提交一次冻结 answer/citations/files；失败不伪装成功。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-306
+  phase: R2
+  release: R2
+  title: 实现 Batch/Run 列表与详情读模型
+  status: planned
+  dependencies:
+  - GEO-303
+  - GEO-305
+  areas:
+  - backend/app/services
+  - backend/app/schemas
+  - backend/app/routers
+  deliverables: 批次 summary、run 分页、GeoRunDetail、时间线、data quality 占位。
+  tests: REPEATABLE READ、固定查询数、筛选分页。
+  acceptance: 详情单请求返回输入、证据、状态和 attempts；大文件只返回签名访问。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-307
+  phase: R2
+  release: R2
+  title: 实现运行中心、人工录入和详情页面
+  status: planned
+  dependencies:
+  - GEO-306
+  areas:
+  - frontend/src/domains/geo-runs
+  - frontend/src/routes/geo
+  deliverables: 批次/运行双层视图、manual editor、截图上传、引用编辑、详情证据。
+  tests: 组件、dirty、轮询、错误、Playwright。
+  acceptance: 人工批次完整纵向通过；刷新不丢筛选或草稿。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-308
+  phase: R2
+  release: R2
+  title: 完成 R2 并发、不可变和兼容性验收
+  status: planned
+  dependencies:
+  - GEO-307
+  areas:
+  - backend/tests/integration
+  - frontend/tests/e2e
+  - docs
+  deliverables: 补齐取消/提交竞态、不可变触发器、旧文章观测导航兼容和 R2 验收证据。
+  tests: make verify + GEO E2E。
+  acceptance: 现有 GEO 流程不回归，新人工回答级观测可业务试用。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-401
+  phase: R3
+  release: R3
+  title: 定义 GeoCollector 协议和稳定错误模型
+  status: planned
+  dependencies:
+  - GEO-204
+  - GEO-301
+  areas:
+  - backend/app/collectors
+  - backend/app/schemas
+  - docs
+  deliverables: CollectionRequest/CollectedAnswer/CollectorError、capability 和 adapter contract。
+  tests: 抽象 contract unit tests。
+  acceptance: Collector 不依赖 ORM，不提交事务，错误含 send state。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-402
+  phase: R3
+  release: R3
+  title: 实现 GEO fake provider 和 Collector 合同套件
+  status: planned
+  dependencies:
+  - GEO-401
+  - GEO-005
+  areas:
+  - backend/app/geo_fake_server.py
+  - backend/tests
+  - deploy/scripts
+  deliverables: 成功、引用、429、timeout、disconnect、redirect、oversize、invalid response 模式和调用计数。
+  tests: 合同套件自身测试。
+  acceptance: CI 可证明每 attempt 调用次数和 secret 脱敏。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-403
+  phase: R3
+  release: R3
+  title: 实现 API Profile 连接测试和能力验证
+  status: planned
+  dependencies:
+  - GEO-402
+  - GEO-205
+  areas:
+  - backend/app/services
+  - backend/app/routers
+  - frontend/src/domains/geo-catalog
+  deliverables: 管理员 test 命令、状态、错误摘要、模型/profile 资格失效规则。
+  tests: 真实 pinned transport fake HTTPS、前端状态。
+  acceptance: 测试不创建业务 run；成功不自动启用 profile。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-404
+  phase: R3
+  release: R3
+  title: 实现 OpenAI-compatible GEO Collector
+  status: planned
+  dependencies:
+  - GEO-401
+  - GEO-403
+  areas:
+  - backend/app/collectors/openai_compatible.py
+  deliverables: 无品牌污染的 user prompt 请求、回答/引用/usage/cost 解析、严格大小和错误。
+  tests: Collector contract、SSRF/TLS/响应金标。
+  acceptance: 不复用 GeneratedDraft 解析；未知搜索/费用为 null。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-405
+  phase: R3
+  release: R3
+  title: 实现采集 Worker、lease、dispatch 和补投递
+  status: planned
+  dependencies:
+  - GEO-303
+  - GEO-404
+  - GEO-004
+  areas:
+  - backend/app/worker.py
+  - backend/app/services/geo_runs.py
+  - backend/app/services/geo_dispatch.py
+  deliverables: claim、RUNNING、调用、结果提交、PENDING redispatch、expired lease 扫描。
+  tests: 真实 Redis/Celery 集成。
+  acceptance: 消息仅携带 run ID；重复消息不重复调用。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-406
+  phase: R3
+  release: R3
+  title: 实现 external_call_state 与 at-most-once 恢复
+  status: planned
+  dependencies:
+  - GEO-405
+  areas:
+  - backend/app/services
+  - backend/tests/integration
+  deliverables: NOT_STARTED/SENT/UNKNOWN/COMPLETED 持久化、崩溃恢复、迟到结果和显式 retry attempt。
+  tests: 发送前/后崩溃、UNKNOWN、success late result、并发 retry。
+  acceptance: 发送后任何失败不自动重发；原 attempt 终态保留。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-407
+  phase: R3
+  release: R3
+  title: 实现引用、usage、cost、预算和 profile rate limit
+  status: planned
+  dependencies:
+  - GEO-405
+  - GEO-406
+  areas:
+  - backend/app/services
+  - backend/app/models
+  - backend/tests
+  deliverables: 保存采集元数据、费用覆盖、batch/day budget、并发预留和 rate limit。
+  tests: 预算并发、未知费用、429、限速。
+  acceptance: 未知费用不当 0；预算判断不是前端独有。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-408
+  phase: R3
+  release: R3
+  title: 完成 API 自动观测 UI 和纵向验收
+  status: planned
+  dependencies:
+  - GEO-407
+  - GEO-307
+  areas:
+  - frontend/src/domains/geo-runs
+  - frontend/tests/e2e
+  - docs
+  deliverables: 自动 run 状态轮询、费用/usage/错误/重试展示、API E2E 和运维说明。
+  tests: Playwright real stack + fake provider。
+  acceptance: R3 业务演示全部通过，功能开关关闭时无外部调用。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-501
+  phase: R4
+  release: R4
+  title: 定义 AnalysisRevision、Mention、Recommendation、Claim、Review 契约和表
+  status: planned
+  dependencies:
+  - GEO-304
+  - GEO-005
+  areas:
+  - contracts
+  - backend/app/models
+  - backend/alembic
+  - backend/app/schemas
+  deliverables: 分析 revision、子结果、review、current pointer/选择规则和不可变约束。
+  tests: 迁移、unique、UPDATE/DELETE 反例。
+  acceptance: 原始证据与分析分离；revision 可追溯。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-502
+  phase: R4
+  release: R4
+  title: 实现监测对象别名快照和确定性提及识别
+  status: planned
+  dependencies:
+  - GEO-501
+  - GEO-106
+  areas:
+  - backend/app/services/geo_analysis.py
+  - backend/tests/fixtures/geo_analysis
+  deliverables: 中英文、型号边界、大小写/连字符、否定上下文和歧义原因。
+  tests: 金标单元测试。
+  acceptance: 同别名歧义触发复核，不任意选择 subject。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-503
+  phase: R4
+  release: R4
+  title: 实现推荐分类和可靠位置识别
+  status: planned
+  dependencies:
+  - GEO-501
+  - GEO-502
+  areas:
+  - backend/app/services/geo_analysis.py
+  deliverables: RECOMMENDED/CONSIDERED/NOT_RECOMMENDED/UNKNOWN、rank 和依据。
+  tests: 列举、否定、有序/无序、多竞品金标。
+  acceptance: 名称出现不自动等于推荐；无可靠顺序 rank 为 null。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-504
+  phase: R4
+  release: R4
+  title: 实现引用归属和来源类别分析
+  status: planned
+  dependencies:
+  - GEO-501
+  - GEO-106
+  - GEO-304
+  areas:
+  - backend/app/services/geo_analysis.py
+  deliverables: 自有/竞品域名、来源类别、歧义、规则版本。
+  tests: hostname 边界、子域名、IDNA、共享域名、人工修正。
+  acceptance: 不使用字符串 contains 误判；引用仍以原始记录为权威。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-505
+  phase: R4
+  release: R4
+  title: 实现声明提取、事实版本装配和准确性评估
+  status: planned
+  dependencies:
+  - GEO-501
+  - GEO-502
+  areas:
+  - backend/app/services/geo_claims.py
+  - backend/tests/fixtures
+  deliverables: claim types、FactVersion 资格、verdict、severity、UNJUDGEABLE 和关键替代关系门禁。
+  tests: 参数、封装、认证、条件替代、事实不足金标。
+  acceptance: 只用 APPROVED FactVersion；受限事实不被外发。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-506
+  phase: R4
+  release: R4
+  title: 实现 Analysis Worker 和 revision 生命周期
+  status: planned
+  dependencies:
+  - GEO-502
+  - GEO-503
+  - GEO-504
+  - GEO-505
+  - GEO-405
+  areas:
+  - backend/app/worker.py
+  - backend/app/services/geo_analysis.py
+  deliverables: COLLECTED claim、revision、结果原子写入、review reasons、run 状态推进、reanalyze。
+  tests: Worker 集成、失败、重复任务、迟到结果。
+  acceptance: 分析失败不丢 AnswerSnapshot；相同 input hash 幂等。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-507
+  phase: R4
+  release: R4
+  title: 实现人工复核策略、API 和当前结果选择
+  status: planned
+  dependencies:
+  - GEO-506
+  areas:
+  - backend/app/services/geo_reviews.py
+  - backend/app/routers
+  deliverables: confirm/correct、stale revision、追加式 review、current reviewed projection。
+  tests: 权限、并发、旧 review supersede、correction schema。
+  acceptance: NEEDS_REVIEW 未复核不进入业务指标；原机器结果保留。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-508
+  phase: R4
+  release: R4
+  title: 实现分析/复核前端并完成 R4 金标验收
+  status: planned
+  dependencies:
+  - GEO-507
+  areas:
+  - frontend/src/domains/geo-runs
+  - backend/tests
+  - frontend/tests/e2e
+  deliverables: 详情分析区、声明表、修正表单、历史、E2E 和分析器质量报告。
+  tests: Vitest、Playwright、全部金标。
+  acceptance: 用户可追溯原文→分析→复核，严重错误必须人工处理。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-601
+  phase: R5
+  release: R5
+  title: 实现 MetricEligibility、样本等级和公式库
+  status: planned
+  dependencies:
+  - GEO-507
+  areas:
+  - backend/app/services/geo_metrics.py
+  - backend/tests/unit
+  deliverables: 通用资格、可比维度、比率结构、visibility/recommendation/SOV/citation/accuracy/stability。
+  tests: 完整金标公式测试。
+  acceptance: 无分母 null；失败不算未提及；人工/模式默认分离。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-602
+  phase: R5
+  release: R5
+  title: 实现 GEO Overview 读模型和 API
+  status: planned
+  dependencies:
+  - GEO-601
+  areas:
+  - backend/app/services/geo_overview.py
+  - backend/app/schemas/geo_insights.py
+  - backend/app/routers
+  deliverables: 卡片、重点产品、风险、最近批次、开放机会占位和数据质量。
+  tests: REPEATABLE READ、固定查询数、筛选一致。
+  acceptance: 所有卡片含分子/分母和下钻筛选。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-603
+  phase: R5
+  release: R5
+  title: 实现趋势、竞品 SOV 和问题/平台覆盖
+  status: planned
+  dependencies:
+  - GEO-601
+  areas:
+  - backend/app/services/geo_metrics.py
+  deliverables: 前周期、产品矩阵、问题覆盖、平台表现、Mention/Recommendation SOV。
+  tests: competitor set 变化、样本不足、点名排除。
+  acceptance: 不可比窗口明确不可用，不静默聚合。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-604
+  phase: R5
+  release: R5
+  title: 实现引用、事实风险和数据质量洞察
+  status: planned
+  dependencies:
+  - GEO-601
+  - GEO-504
+  - GEO-505
+  areas:
+  - backend/app/services/geo_metrics.py
+  - backend/app/schemas
+  deliverables: 域名/URL、source categories、claims、severity、排除计数、费用/版本覆盖。
+  tests: 引用去重、共享域名、UNJUDGEABLE、review backlog。
+  acceptance: 摘要和明细下钻结果一致。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-605
+  phase: R5
+  release: R5
+  title: 实现总览和分析洞察前端
+  status: planned
+  dependencies:
+  - GEO-602
+  - GEO-603
+  - GEO-604
+  areas:
+  - frontend/src/domains/geo-insights
+  - frontend/src/routes/geo
+  deliverables: URL 筛选、指标卡、趋势、矩阵、SOV、引用、风险、数据质量和表格替代。
+  tests: 组件、路由、null/sample level、E2E。
+  acceptance: 前端不计算公式；图表可访问；筛选作用于全部区块。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-606
+  phase: R5
+  release: R5
+  title: 实现打印报告和安全 CSV 导出
+  status: planned
+  dependencies:
+  - GEO-605
+  areas:
+  - backend/app/services/geo_reports.py
+  - backend/app/routers
+  - frontend/src/domains/geo-reports
+  deliverables: 报告预览、打印路由、runs/citations/claims/opportunities CSV、审计。
+  tests: CSV 注入、字段白名单、流式、大数据、打印 E2E。
+  acceptance: 报告显示筛选、as_of、公式和数据质量；空数据不伪装成功。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-607
+  phase: R5
+  release: R5
+  title: 完成洞察性能、索引和 R5 验收
+  status: planned
+  dependencies:
+  - GEO-606
+  areas:
+  - backend/alembic
+  - backend/tests/performance
+  - docs
+  deliverables: 查询计划、必要索引、100k run fixture、性能证据和门禁。
+  tests: P95 基准、N+1 检查、make verify。
+  acceptance: 常用 30 天洞察达到目标，无不可重建的指标缓存。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-701
+  phase: R6
+  release: R6
+  title: 定义 GEO 规则集契约和配置
+  status: planned
+  dependencies:
+  - GEO-601
+  areas:
+  - contracts
+  - backend/app/models or config
+  - backend/app/schemas
+  - frontend
+  deliverables: 最低样本、阈值、去重窗口、复测恢复条件和规则 revision/preview。
+  tests: Schema、权限、revision、规则 preview。
+  acceptance: 规则更新影响未来评估，历史 opportunity 保存快照。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-702
+  phase: R6
+  release: R6
+  title: 实现 Opportunity 数据模型、identity 和评估器
+  status: planned
+  dependencies:
+  - GEO-701
+  - GEO-603
+  - GEO-604
+  areas:
+  - backend/app/models
+  - backend/alembic
+  - backend/app/services/geo_opportunities.py
+  deliverables: opportunities/sources/actions、确定性 identity、初始规则、批量评估。
+  tests: 并发去重、样本不足、周期更新、状态机。
+  acceptance: 每个机会含规则、值、阈值、来源运行和不可用原因。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-703
+  phase: R6
+  release: R6
+  title: 实现 Opportunity API、读模型和工作台
+  status: planned
+  dependencies:
+  - GEO-702
+  areas:
+  - backend/app/routers
+  - backend/app/schemas
+  - frontend/src/domains/geo-opportunities
+  deliverables: 列表、详情、ack/dismiss、证据、状态、URL 筛选和 Drawer。
+  tests: 权限、revision、组件、E2E。
+  acceptance: 状态和动作服务端拥有；驳回/解决需非空原因。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-704
+  phase: R6
+  release: R6
+  title: 集成事实修订、内容任务和发布修复行动
+  status: planned
+  dependencies:
+  - GEO-703
+  areas:
+  - backend/app/services/geo_opportunities.py
+  - existing domain services
+  deliverables: 通过现有服务创建/导航行动、保存 action link 和来源快照。
+  tests: 跨域集成、失败回滚/可恢复、权限、审计。
+  acceptance: 不直接修改其他域 ORM；任务完成不自动解决机会。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-705
+  phase: R6
+  release: R6
+  title: 实现 RetestPlanner、基线冻结和可比性门禁
+  status: planned
+  dependencies:
+  - GEO-704
+  - GEO-303
+  areas:
+  - backend/app/services/geo_retests.py
+  - backend/app/routers
+  deliverables: 基线 snapshot、严格矩阵复现、差异列表、RETEST batch、幂等。
+  tests: profile/variant 不可用、模型版本变化、并发、重复复测。
+  acceptance: 不可比时阻断或要求新基线，不静默替换。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-706
+  phase: R6
+  release: R6
+  title: 实现干预前后比较和机会解决流程
+  status: planned
+  dependencies:
+  - GEO-705
+  - GEO-605
+  areas:
+  - backend/app/services
+  - frontend/src/domains/geo-opportunities
+  deliverables: baseline/retest metrics、样本说明、恢复规则、显式 resolve/continue。
+  tests: 前后窗口、样本不足、未恢复、人工解决。
+  acceptance: 页面不宣称因果；结果含环境/模型差异。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-707
+  phase: R6
+  release: R6
+  title: 完成机会闭环 E2E、审计和 R6 验收
+  status: planned
+  dependencies:
+  - GEO-706
+  areas:
+  - backend/tests/integration
+  - frontend/tests/e2e
+  - docs
+  deliverables: TOPIC_COVERAGE_GAP→ContentTask→RETEST→resolve 纵向流，补齐审计。
+  tests: Playwright、make verify、审计脱敏。
+  acceptance: 核心版“监测→行动→复测”闭环可用。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-801
+  phase: R7
+  release: R7
+  title: 建立独立 Browser Collector 服务骨架和 Compose profile
+  status: planned
+  dependencies:
+  - GEO-408
+  - GEO-002
+  areas:
+  - deploy
+  - browser collector package
+  - backend
+  deliverables: 独立镜像/服务、任务领取边界、资源/网络限制、默认关闭。
+  tests: Compose config、健康、无 profile 时不启动。
+  acceptance: 普通 API/Worker 不包含浏览器依赖，kill switch 可用。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-802
+  phase: R7
+  release: R7
+  title: 实现浏览器会话加密引用和撤销流程
+  status: planned
+  dependencies:
+  - GEO-801
+  areas:
+  - backend/app/services
+  - object storage/secure volume
+  - admin UI
+  deliverables: session reference、health、人工登录导入/撤销、访问控制和审计。
+  tests: 越权、secret redaction、撤销、恢复。
+  acceptance: Cookie 不进数据库明文、日志、普通 OSS 或截图。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-803
+  phase: R7
+  release: R7
+  title: 建设本地模拟 AI 产品和 Browser Adapter 合同套件
+  status: planned
+  dependencies:
+  - GEO-801
+  - GEO-402
+  areas:
+  - tests/browser-fixture
+  - browser collector tests
+  deliverables: streaming DOM、引用卡片、登录态、selector 变化、挑战页和敏感 UI。
+  tests: 完全本地 Playwright adapter contract。
+  acceptance: CI 不访问真实第三方，适配器失败语义可重复。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-804
+  phase: R7
+  release: R7
+  title: 实现第一个合规批准的真实界面 Adapter
+  status: planned
+  dependencies:
+  - GEO-802
+  - GEO-803
+  areas:
+  - browser collector adapters
+  deliverables: temporary chat、submit、stable wait、answer/citation extraction、version metadata。
+  tests: local contract + 受控 staging smoke。
+  acceptance: DOM 不确定时失败，不保存空成功；频率限制生效。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-805
+  phase: R7
+  release: R7
+  title: 实现浏览器证据捕获、敏感裁剪和对象存储提交
+  status: planned
+  dependencies:
+  - GEO-804
+  - GEO-304
+  areas:
+  - browser collector
+  - backend file services
+  deliverables: 截图、可选安全 DOM 摘要、哈希、敏感区域规则和 AnswerSnapshot 提交。
+  tests: 账号菜单/登录页/失败截图、哈希、存储故障。
+  acceptance: 业务证据不包含账号、Cookie、支付或调试敏感信息。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-806
+  phase: R7
+  release: R7
+  title: 实现 Browser Profile 健康、频率、kill switch 和管理 UI
+  status: planned
+  dependencies:
+  - GEO-805
+  - GEO-205
+  areas:
+  - backend/app/services
+  - frontend configuration
+  - ops
+  deliverables: session health、reauth、max concurrency、rate limit、开关、运维状态。
+  tests: 会话过期、停用、并发、UI 权限。
+  acceptance: 管理员可立即停止新浏览器运行并识别需重新登录 profile。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-807
+  phase: R7
+  release: R7
+  title: 执行真实平台小规模试点和人工交叉验收
+  status: planned
+  dependencies:
+  - GEO-806
+  areas:
+  - staging runbook
+  - docs
+  - acceptance evidence
+  deliverables: 批准账号、低频计划、人工/API/浏览器结果对比、停止和撤销演练。
+  tests: 受控人工验收，不作为普通 CI。
+  acceptance: 合规清单、数据质量、账号安全和试点报告均批准后才可生产启用。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-901
+  phase: R8
+  release: R8
+  title: 实现 GEO 数据保留、归档和清理任务
+  status: planned
+  dependencies:
+  - GEO-707
+  areas:
+  - backend/app/services
+  - backend/app/worker.py
+  - contracts/database.md
+  deliverables: raw payload、临时草稿、无引用文件、浏览器临时数据的限批清理和墓碑。
+  tests: 保留边界、引用保护、存储故障重试、dry-run。
+  acceptance: 不删除指标所需元数据和已引用证据，清理可观察。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-902
+  phase: R8
+  release: R8
+  title: 完善运行、成本、失败和积压可观察性
+  status: planned
+  dependencies:
+  - GEO-408
+  - GEO-607
+  - GEO-707
+  areas:
+  - logging
+  - metrics
+  - ops docs
+  deliverables: 低敏感指标、dashboard/alerts、稳定日志字段、Scheduler/Worker health。
+  tests: 指标模拟、告警阈值、日志 secret scan。
+  acceptance: 可区分业务低表现与系统故障；可定位 oldest pending/expired lease。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-903
+  phase: R8
+  release: R8
+  title: 完成数据库、OSS、密钥和会话备份恢复演练
+  status: planned
+  dependencies:
+  - GEO-901
+  - GEO-902
+  areas:
+  - deploy/scripts
+  - operations docs
+  - test environment
+  deliverables: 备份清单、恢复脚本/步骤、一致性扫描、隔离恢复证据。
+  tests: 真实隔离恢复、哈希、凭据解密、调度去重。
+  acceptance: 任意 Run Detail 和指标可恢复；缺失对象明确报告。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-904
+  phase: R8
+  release: R8
+  title: 执行 GEO 安全与合规专项复核
+  status: planned
+  dependencies:
+  - GEO-903
+  areas:
+  - security tests
+  - docs
+  - configuration
+  deliverables: 权限、CSRF、SSRF、secret、XSS、CSV、prompt injection、browser 会话和外部平台批准检查。
+  tests: 全部 TEST-GEO-SEC。
+  acceptance: 无未接受的高风险项；例外有责任人和到期日。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-905
+  phase: R8
+  release: R8
+  title: 完成大数据量性能和容量硬化
+  status: planned
+  dependencies:
+  - GEO-607
+  - GEO-902
+  areas:
+  - indexes
+  - query services
+  - worker configs
+  - performance tests
+  deliverables: 100k+ runs、1000 run batch、流式导出、并发 Worker、必要索引/物化策略。
+  tests: 性能门禁和查询计划。
+  acceptance: 达到目标环境阈值，缓存可重建且不成为权威。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md
+- id: GEO-906
+  phase: R8
+  release: R8
+  title: 执行生产渐进上线、最终验收和文档状态更新
+  status: planned
+  dependencies:
+  - GEO-903
+  - GEO-904
+  - GEO-905
+  areas:
+  - deploy
+  - docs
+  - release manifest
+  - acceptance
+  deliverables: expand/deploy/enable、内部试用、监控窗口、回滚演练、文档已实现标记。
+  tests: make verify、生产 smoke、恢复/停止演练。
+  acceptance: 核心版正式可用；未批准 Browser profile 保持关闭；所有任务证据归档。
+  required_docs:
+  - 01-product/02-geo-core-prd.md
+  - 02-business/02-domain-model.md
+  - 02-business/03-workflows-and-state-machines.md
+  - 03-technical/01-technical-architecture.md
+  - 04-delivery/04-codex-execution-guide.md

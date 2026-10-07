@@ -1,0 +1,1 @@
+Docker context=default；colima is not running；docker info 无 /var/run/docker.sock。已启动 Colima，完成后恢复停止/default。

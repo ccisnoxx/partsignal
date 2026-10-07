@@ -1,0 +1,104 @@
+#0 building with "colima" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 316B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for mcr.microsoft.com/playwright:v1.61.1-noble
+#2 DONE 1.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 58B done
+#3 DONE 0.0s
+
+#4 [internal] load build context
+#4 transferring context: 10.02kB done
+#4 DONE 0.0s
+
+#5 [1/5] FROM mcr.microsoft.com/playwright:v1.61.1-noble@sha256:5b8f294aff9041b7191c34a4bab3ac270157a28774d4b0660e9743297b697e48
+#5 resolve mcr.microsoft.com/playwright:v1.61.1-noble@sha256:5b8f294aff9041b7191c34a4bab3ac270157a28774d4b0660e9743297b697e48
+#5 resolve mcr.microsoft.com/playwright:v1.61.1-noble@sha256:5b8f294aff9041b7191c34a4bab3ac270157a28774d4b0660e9743297b697e48 0.3s done
+#5 DONE 0.3s
+
+#5 [1/5] FROM mcr.microsoft.com/playwright:v1.61.1-noble@sha256:5b8f294aff9041b7191c34a4bab3ac270157a28774d4b0660e9743297b697e48
+#5 sha256:18cafece23fba151bf5d91d8713c418cb7dc6120a0c1dbe80d8c5e4d6b1692c6 0B / 2.86MB 0.2s
+#5 sha256:9c070ff519937f911e22de17a75c6c16b470ed3961fb440402f8e4fc3dcb9a5f 0B / 104.11MB 0.2s
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 0B / 801.28MB 0.3s
+#5 sha256:f397efa33935aefd0ddecae5c2cb62ba75b3960f3717aa8aaf0e42c518feca61 0B / 29.95MB 0.2s
+#5 sha256:18cafece23fba151bf5d91d8713c418cb7dc6120a0c1dbe80d8c5e4d6b1692c6 1.05MB / 2.86MB 1.2s
+#5 sha256:9c070ff519937f911e22de17a75c6c16b470ed3961fb440402f8e4fc3dcb9a5f 6.29MB / 104.11MB 1.4s
+#5 sha256:f397efa33935aefd0ddecae5c2cb62ba75b3960f3717aa8aaf0e42c518feca61 5.24MB / 29.95MB 1.4s
+#5 sha256:18cafece23fba151bf5d91d8713c418cb7dc6120a0c1dbe80d8c5e4d6b1692c6 2.86MB / 2.86MB 1.6s done
+#5 sha256:f397efa33935aefd0ddecae5c2cb62ba75b3960f3717aa8aaf0e42c518feca61 8.39MB / 29.95MB 1.5s
+#5 sha256:9c070ff519937f911e22de17a75c6c16b470ed3961fb440402f8e4fc3dcb9a5f 13.63MB / 104.11MB 1.7s
+#5 sha256:f397efa33935aefd0ddecae5c2cb62ba75b3960f3717aa8aaf0e42c518feca61 11.53MB / 29.95MB 1.7s
+#5 sha256:f397efa33935aefd0ddecae5c2cb62ba75b3960f3717aa8aaf0e42c518feca61 15.73MB / 29.95MB 1.8s
+#5 sha256:9c070ff519937f911e22de17a75c6c16b470ed3961fb440402f8e4fc3dcb9a5f 22.02MB / 104.11MB 2.0s
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 42.99MB / 801.28MB 2.1s
+#5 sha256:f397efa33935aefd0ddecae5c2cb62ba75b3960f3717aa8aaf0e42c518feca61 18.87MB / 29.95MB 2.0s
+#5 sha256:f397efa33935aefd0ddecae5c2cb62ba75b3960f3717aa8aaf0e42c518feca61 22.02MB / 29.95MB 2.1s
+#5 sha256:9c070ff519937f911e22de17a75c6c16b470ed3961fb440402f8e4fc3dcb9a5f 30.41MB / 104.11MB 2.3s
+#5 sha256:f397efa33935aefd0ddecae5c2cb62ba75b3960f3717aa8aaf0e42c518feca61 25.17MB / 29.95MB 2.3s
+#5 sha256:f397efa33935aefd0ddecae5c2cb62ba75b3960f3717aa8aaf0e42c518feca61 29.95MB / 29.95MB 2.5s done
+#5 extracting sha256:f397efa33935aefd0ddecae5c2cb62ba75b3960f3717aa8aaf0e42c518feca61
+#5 sha256:9c070ff519937f911e22de17a75c6c16b470ed3961fb440402f8e4fc3dcb9a5f 39.85MB / 104.11MB 2.6s
+#5 sha256:9c070ff519937f911e22de17a75c6c16b470ed3961fb440402f8e4fc3dcb9a5f 51.38MB / 104.11MB 2.9s
+#5 extracting sha256:f397efa33935aefd0ddecae5c2cb62ba75b3960f3717aa8aaf0e42c518feca61 0.5s done
+#5 sha256:9c070ff519937f911e22de17a75c6c16b470ed3961fb440402f8e4fc3dcb9a5f 62.91MB / 104.11MB 3.2s
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 88.08MB / 801.28MB 3.3s
+#5 sha256:9c070ff519937f911e22de17a75c6c16b470ed3961fb440402f8e4fc3dcb9a5f 73.40MB / 104.11MB 3.5s
+#5 sha256:9c070ff519937f911e22de17a75c6c16b470ed3961fb440402f8e4fc3dcb9a5f 79.69MB / 104.11MB 3.6s
+#5 sha256:9c070ff519937f911e22de17a75c6c16b470ed3961fb440402f8e4fc3dcb9a5f 91.23MB / 104.11MB 3.9s
+#5 sha256:9c070ff519937f911e22de17a75c6c16b470ed3961fb440402f8e4fc3dcb9a5f 96.47MB / 104.11MB 4.1s
+#5 sha256:9c070ff519937f911e22de17a75c6c16b470ed3961fb440402f8e4fc3dcb9a5f 104.11MB / 104.11MB 4.3s done
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 131.07MB / 801.28MB 4.4s
+#5 extracting sha256:9c070ff519937f911e22de17a75c6c16b470ed3961fb440402f8e4fc3dcb9a5f
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 173.02MB / 801.28MB 5.1s
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 213.91MB / 801.28MB 5.9s
+#5 extracting sha256:9c070ff519937f911e22de17a75c6c16b470ed3961fb440402f8e4fc3dcb9a5f 1.4s done
+#5 extracting sha256:18cafece23fba151bf5d91d8713c418cb7dc6120a0c1dbe80d8c5e4d6b1692c6 done
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 259.00MB / 801.28MB 6.6s
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 301.99MB / 801.28MB 7.4s
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 346.03MB / 801.28MB 8.1s
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 387.97MB / 801.28MB 8.9s
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 430.96MB / 801.28MB 9.6s
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 479.20MB / 801.28MB 10.5s
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 524.29MB / 801.28MB 11.6s
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 566.23MB / 801.28MB 12.5s
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 609.22MB / 801.28MB 13.4s
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 653.26MB / 801.28MB 14.3s
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 701.50MB / 801.28MB 15.2s
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 744.49MB / 801.28MB 16.1s
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 792.72MB / 801.28MB 17.0s
+#5 sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 801.28MB / 801.28MB 17.2s done
+#5 extracting sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce
+#5 extracting sha256:b7444ad6f809df5bef3a02452e69bcb890d1805b40ffb5882d76a453a907ccce 6.4s done
+#5 DONE 23.9s
+
+#6 [2/5] WORKDIR /opt/collector
+#6 DONE 0.2s
+
+#7 [3/5] COPY package.json package-lock.json ./
+#7 DONE 0.0s
+
+#8 [4/5] RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+#8 1.026 
+#8 1.026 added 2 packages, and audited 3 packages in 824ms
+#8 1.027 
+#8 1.027 found 0 vulnerabilities
+#8 1.098 npm warn using --force Recommended protections disabled.
+#8 DONE 1.2s
+
+#9 [5/5] COPY src ./src
+#9 DONE 0.0s
+
+#10 exporting to image
+#10 exporting layers
+#10 exporting layers 0.2s done
+#10 exporting manifest sha256:a2cbcfe8c9fa6e7688f8f6aedac80d24c8db3b9df74a0c95ade2d265767b10cf done
+#10 exporting config sha256:45ac504e15d1df8981e2c504c7c3582f1dd278613c7203e0bcac66c8aa529d06 done
+#10 exporting attestation manifest sha256:f5764af22292804c6f2001b0358673043f9c09252f5cbbba7e1e74cbcfb42a71 done
+#10 exporting manifest list sha256:3756faf7f13d5c817ff63949db864bea8b804f39b579a9136b3b09e4d40abfa9 done
+#10 naming to docker.io/library/partsignal-browser-collector:geo801 done
+#10 unpacking to docker.io/library/partsignal-browser-collector:geo801 0.1s done
+#10 DONE 0.3s

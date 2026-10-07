@@ -1,0 +1,15 @@
+{
+  "command": [
+    "env",
+    "UV_CACHE_DIR=.cache/uv",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_geo_claims.py",
+    "-k",
+    "review or later_replacement or unmonitored_product"
+  ],
+  "exit_code": 1
+}

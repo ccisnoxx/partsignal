@@ -1,0 +1,9 @@
+{
+  "command": [
+    "make",
+    "test-unit"
+  ],
+  "started_at": "2026-10-04T15:14:12.872458+00:00",
+  "duration_seconds": 83.32010225002887,
+  "exit_code": 2
+}

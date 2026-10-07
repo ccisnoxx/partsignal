@@ -1,0 +1,164 @@
+invalid-syntax: Expected a statement
+  --> backend/tests/integration/geo_runs_support.py:62:9
+   |
+60 |             "'LEGACY_MODEL_RESULT',%s,%s,'原问题','legacy-model','原回答',true,true,"
+61 |             "'RECOMMENDED','ACCURATE',now(),'保持旧记录',%s)", topic, product, db.actor),
+62 |         )
+   |         ^
+63 |         before = existing_rows(conn)
+64 |     run_alembic(db.env, db.backend_dir, "0048_geo_batches_runs")
+   |
+
+invalid-syntax: Expected a statement
+  --> backend/tests/integration/geo_runs_support.py:62:10
+   |
+60 |             "'LEGACY_MODEL_RESULT',%s,%s,'原问题','legacy-model','原回答',true,true,"
+61 |             "'RECOMMENDED','ACCURATE',now(),'保持旧记录',%s)", topic, product, db.actor),
+62 |         )
+   |          ^
+63 |         before = existing_rows(conn)
+64 |     run_alembic(db.env, db.backend_dir, "0048_geo_batches_runs")
+   |
+
+B023 Function definition does not bind loop variable `fields`
+  --> backend/tests/integration/test_geo_runs.py:89:81
+   |
+87 |         {"cost_amount": 1, "cost_currency": "USD"},
+88 |     ]:
+89 |         rejected(conn, "ck_geo_runs_terminal", lambda: update(conn, identity, **fields))
+   |                                                                                 ^^^^^^
+90 |     rejected(
+91 |         conn,
+   |
+
+B023 Function definition does not bind loop variable `patch`
+   --> backend/tests/integration/test_geo_runs.py:111:95
+    |
+109 |             "ck_geo_runs_attempt_chain",
+110 |             lambda: run(
+111 |                 conn, db, parent_batch, **({"attempt_no": 2, "previous_attempt_id": parent} | patch)
+    |                                                                                               ^^^^^
+112 |             ),
+113 |         )
+    |
+
+B023 Function definition does not bind loop variable `value`
+   --> backend/tests/integration/test_geo_runs.py:175:82
+    |
+173 |             conn,
+174 |             "ck_geo_runs_input",
+175 |             lambda: run(conn, db, identity, repeat_index=2, input_snapshot=Jsonb(value)),
+    |                                                                                  ^^^^^
+176 |         )
+    |
+
+E501 Line too long (179 > 100)
+   --> backend/tests/integration/test_geo_runs.py:228:101
+    |
+226 | …_at=now)
+227 | …
+228 | …=now(),lease_token=%s,lease_expires_at=now()+interval '1 minute',external_call_state='SENT' WHERE id=%s",
+    |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+229 | …
+230 | …
+    |
+
+E501 Line too long (203 > 100)
+   --> backend/tests/integration/test_geo_runs.py:265:101
+    |
+263 | …
+264 | …
+265 | …epeat_index,input_snapshot,attempt_no,previous_attempt_id) VALUES (%s,%s,%s,%s,1,%s,2,%s),(%s,%s,%s,%s,1,%s,1,NULL)",
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+266 | …
+267 | …
+    |
+
+E501 Line too long (145 > 100)
+   --> backend/tests/integration/test_geo_runs.py:284:101
+    |
+283 | …ER"])
+284 | …ects(connection: psycopg.Connection[Any], run_database: RunDatabase, mode: str) -> None:
+    |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+285 | …apshot
+286 | …
+    |
+
+E501 Line too long (118 > 100)
+   --> backend/tests/integration/test_geo_runs.py:295:101
+    |
+293 |     secret = {"api_key": "虚构密钥", "Cookie": "虚构Cookie"}
+294 |     invalid = []
+295 |     for section, field in [("prompt","canonical_question"), ("profile","login_state"), ("profile","adapter_version")]:
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^
+296 |         item = deepcopy(value)
+297 |         item[section][field] = secret
+    |
+
+E501 Line too long (129 > 100)
+   --> backend/tests/integration/test_geo_runs.py:303:99
+    |
+301 |     invalid.append(item)
+302 |     item = deepcopy(value)
+303 |     item["subjects"][0]["aliases"] = [{"alias": secret, "normalized_alias": "虚构", "alias_kind": "NAME", "language_code": None}]
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+304 |     invalid.append(item)
+305 |     item = deepcopy(value)
+    |
+
+E501 Line too long (120 > 100)
+   --> backend/tests/integration/test_geo_runs.py:312:101
+    |
+310 |     invalid.append(item)
+311 |     for item in invalid:
+312 |         rejected(conn, "ck_geo_runs_input", lambda: run(conn, db, identity, repeat_index=2, input_snapshot=Jsonb(item)))
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^
+    |
+
+B023 Function definition does not bind loop variable `item`
+   --> backend/tests/integration/test_geo_runs.py:312:114
+    |
+310 |     invalid.append(item)
+311 |     for item in invalid:
+312 |         rejected(conn, "ck_geo_runs_input", lambda: run(conn, db, identity, repeat_index=2, input_snapshot=Jsonb(item)))
+    |                                                                                                                  ^^^^
+    |
+
+E501 Line too long (116 > 100)
+   --> backend/tests/integration/test_geo_runs.py:315:101
+    |
+315 | def test_sql_plan_snapshot_items_are_closed(connection: psycopg.Connection[Any], run_database: RunDatabase) -> None:
+    |                                                                                                     ^^^^^^^^^^^^^^^^
+316 |     from tests.unit.test_geo_run_contract import plan_snapshot
+317 |     conn, db = connection, run_database
+    |
+
+E501 Line too long (193 > 100)
+   --> backend/tests/integration/test_geo_runs.py:319:98
+    |
+317 | …
+318 | …
+319 | …}, value | {"prompt_variant_ids": [{"api_key": "虚构值"}]}, value | {"budget_limit": {"api_key": "虚构值"}}]:
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+320 | …napshot=Jsonb(patch)))
+    |
+
+B023 Function definition does not bind loop variable `patch`
+   --> backend/tests/integration/test_geo_runs.py:320:96
+    |
+318 |     value = plan_snapshot(db.input)
+319 |     for patch in [value | {"subjects": [value["subjects"][0] | {"cookie": "虚构值"}]}, value | {"prompt_variant_ids": [{"api_key": "虚   …
+320 |         rejected(conn, "ck_geo_batches_snapshots", lambda: batch(conn, db, plan_snapshot=Jsonb(patch)))
+    |                                                                                                ^^^^^
+    |
+
+E501 Line too long (103 > 100)
+   --> backend/tests/integration/test_geo_runs.py:320:101
+    |
+318 |     value = plan_snapshot(db.input)
+319 |     for patch in [value | {"subjects": [value["subjects"][0] | {"cookie": "虚构值"}]}, value | {"prompt_variant_ids": [{"api_key": "虚   …
+320 |         rejected(conn, "ck_geo_batches_snapshots", lambda: batch(conn, db, plan_snapshot=Jsonb(patch)))
+    |                                                                                                     ^^^
+    |
+
+Found 16 errors.

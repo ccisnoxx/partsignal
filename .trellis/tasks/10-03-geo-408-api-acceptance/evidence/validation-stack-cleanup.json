@@ -1,0 +1,10 @@
+{
+  "owned_project": "partsignal-geo408",
+  "remaining_owned_resources": {
+    "containers": [],
+    "volumes": [],
+    "networks": []
+  },
+  "listening_test_ports": [],
+  "cleanup_exit_code": 0
+}

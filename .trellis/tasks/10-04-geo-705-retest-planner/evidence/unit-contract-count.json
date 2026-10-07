@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "env",
+    "UV_CACHE_DIR=.cache/uv",
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/unit/test_contract.py::test_frozen_response_status_signatures_cover_every_operation"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 2.183
+}

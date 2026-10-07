@@ -1,0 +1,21 @@
+{
+  "deploy/scripts/test-geo-configuration.py": "59f270edc6c087a953323a4675ee2bf561c6b381eae5f3ea49bee1fd40ee0532",
+  "docs/geo-monitoring/03-technical/10-core-rollout-runbook.md": "c099aeb905767ae3fe2dda664d85e4605be821fe116b61d3f6fa722877a840c8",
+  "docs/geo-monitoring/04-delivery/geo-906-release-record.template.yaml": "d8235c691d30ef049a1baa57dedda7354243b51ed950a1b31fbfb2a2ee02915e",
+  "docs/geo-monitoring/04-delivery/13-r8-core-release-acceptance.md": "fa251722241ce5b612ed8be4a2d09515befb2c31a6ca404196b2b1aa1b28356f",
+  "deploy/scripts/deploy.sh": "42221763ffc3ae677500a6fb9dae5f9f1d7e5ede7648b5199d0ffbd5671bae94",
+  "deploy/scripts/activate-production.sh": "c0a05c5f056465a8015d5513260389e8a4bd5b8e2766ffabf92464d2eaf1fa13",
+  "deploy/scripts/create-release-manifest.py": "ceb42f24c2857e806eab617188186e9d4814379a80fbd43b675489246e91f74c",
+  "deploy/scripts/prepare-production-data.py": "24b31c735b8a214b729c4d7c04860909db969812442a8ae52e24fbccdabf14b9",
+  "deploy/compose.prod.yaml": "a528433f97e1bf75914b98082c03a2a1fedca72eb73252c5cff1c3c66f3a40c2",
+  "backend/app/worker.py": "00dbef12cb90987a88532de95a06fbe5910b01f982615d18567fe34bc9465d9a",
+  "backend/app/config.py": "1b08b925f4a51a37f7a60ac37f3f5bbb43299991fa03d48b3d43f60ecea0bead",
+  "docs/Hostdzire部署上线流程.md": "2a06bed5dd14e72f2cecb5e1388f58dedb6d206f60e828ec9098f35964a0d1b4",
+  "docs/Hostdzire部署附录.md": "3a361f7144cde85b1b9d04bc55d6e6f81bd10da69aa1bba5295287ac88fe25dc",
+  "docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md": "2fbec827c69bc5ed179ee8752b252ef1419f97392c38b6770c9184fa9ba641ba",
+  "docs/geo-monitoring/03-technical/09-backup-recovery-runbook.md": "48ee02798a720cd1c74067e040677bf18947e56933521c2d409b4feb81cc4c0e",
+  "deploy/observability/geo/README.md": "6e4c455608d06e46a8daf6970e424b24aa29f79a5189b0b52d7affe99f533771",
+  ".trellis/tasks/10-05-geo-906-rollout/prd.md": "9fc44f2e9f3600f23e324f908d2542e13260f59d69b366de6d4bd61360f4959d",
+  ".trellis/tasks/10-05-geo-906-rollout/design.md": "08b574a54f472c21e3fd8fef06d08c77b88c39ae7c85630984b7367bb975b42d",
+  ".trellis/tasks/10-05-geo-906-rollout/evidence/before/deploy/scripts/test-geo-configuration.py": "a87febb166e240afef9d6670d0b05986755a4d4d43e80e9eeb266c773ac23eb9"
+}

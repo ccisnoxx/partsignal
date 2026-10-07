@@ -1,0 +1,59 @@
+{
+  "task": "GEO-303",
+  "status": "review",
+  "commands": [
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "log": "diff-check-final.log"
+    },
+    {
+      "command": "make contract-check",
+      "exit_code": 0,
+      "log": "contract-check-final.log"
+    },
+    {
+      "command": "make lint",
+      "exit_code": 0,
+      "log": "lint-final.log"
+    },
+    {
+      "command": "make typecheck",
+      "exit_code": 0,
+      "log": "typecheck-final.log"
+    },
+    {
+      "command": "make test-unit",
+      "exit_code": 0,
+      "backend_passed": 2642,
+      "frontend_passed": 1067,
+      "log": "test-unit-final.log"
+    },
+    {
+      "command": "make test-integration COMPOSE='docker compose -p partsignal-geo303-validation -f .trellis/tasks/10-02-geo-303-batch-factory/evidence/validation-compose.yaml'",
+      "exit_code": 0,
+      "passed": 667,
+      "warnings": 12,
+      "log": "test-integration-final.log"
+    }
+  ],
+  "performance": {
+    "runs": 1000,
+    "creation_seconds": 0.729,
+    "environment": "本机隔离PostgreSQL16",
+    "log": "1000-runs.log"
+  },
+  "audit_id": "20261002T215936Z-geo-303-3fe30466",
+  "independent_review": "未确认实现缺陷，工具证据只读，bundle校验通过",
+  "not_run": [
+    "make verify",
+    "build",
+    "浏览器E2E/矩阵"
+  ],
+  "scope_gap": [
+    "工厂等待资源锁时资格变化专属交错",
+    "主体完整性全部直接SQL反例",
+    "历史Subject缺失前滚失败演练"
+  ],
+  "cleanup": "专属容器/网络/卷/镜像删除；Colima恢复停止，Docker context=default"
+}

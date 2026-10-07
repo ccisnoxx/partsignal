@@ -1,0 +1,18 @@
+{
+  "command": [
+    "gh",
+    "run",
+    "view",
+    "37581493190",
+    "--repo",
+    "ccisnoxx/partsignal",
+    "--log-failed"
+  ],
+  "headSha": "c6b310f568798a6f068869870c648189ff7d604d",
+  "started_at": "2026-10-07T06:32:44.816062+00:00",
+  "ended_at": "2026-10-07T06:32:48.208813+00:00",
+  "exit_code": 0,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/delivery-ci-failed.log",
+  "log_sha256": "d2eea7b89cd60464402943fd19fe1353dab558b006bead581bb40c2de40b17f3",
+  "stderr": ""
+}

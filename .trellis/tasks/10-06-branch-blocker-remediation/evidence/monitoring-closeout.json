@@ -1,0 +1,7 @@
+{
+  "recorded_at": "2026-10-06T21:00:08.526372+00:00",
+  "action": "observe already-completed local gh watcher",
+  "terminated_watcher_pids": [],
+  "remote_ci_cancelled": false,
+  "reason": "watcher已于20:56:44退出1；21:00查询时没有存活watcher可终止。远端CI已failure，未取消、未重触发。"
+}

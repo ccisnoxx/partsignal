@@ -1,0 +1,14 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "frontend",
+    "run",
+    "test",
+    "--",
+    "src/domains/geo-rules/geo-rules-page.test.tsx"
+  ],
+  "started_at": "2026-10-04T15:36:48.915483+00:00",
+  "duration_seconds": 3.7214963749866,
+  "exit_code": 0
+}

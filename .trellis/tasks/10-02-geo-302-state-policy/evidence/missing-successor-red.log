@@ -1,0 +1,18 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________ test_complete_roots_cannot_hide_an_existing_latest_successor _________
+
+    def test_complete_roots_cannot_hide_an_existing_latest_successor() -> None:
+        history = [
+            BatchRunState("cell", 1, state(Status.FAILED, has_successor=True)),
+            BatchRunState("cell", 2, state(Status.PENDING)),
+        ]
+        assert batch_status(history, requested_run_count=1, matrix_committed=True) == Batch.QUEUED
+>       with pytest.raises(ValueError, match="后继"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'ValueError'>
+
+backend/tests/unit/test_geo_batch_policy.py:96: Failed
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_batch_policy.py::test_complete_roots_cannot_hide_an_existing_latest_successor
+1 failed, 762 deselected in 0.16s

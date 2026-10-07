@@ -1,0 +1,2 @@
+backend/app/services/geo_analysis_queries.py:79: error: "Base" has no attribute "analysis_revision_id"  [attr-defined]
+Found 1 error in 1 file (checked 177 source files)

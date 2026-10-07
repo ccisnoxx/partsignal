@@ -1,0 +1,19 @@
+{
+  "guard_type": "DISPATCH_CONTRACT_GUARD",
+  "planner_version": "1.5.1",
+  "plan_id": "geo-103-schema-correction-review",
+  "task_id": "geo103-schema-review-a1",
+  "status": "passed",
+  "observed_dispatch": {
+    "method": "spawn_agent",
+    "task_name": "geo103_schema_correction_review",
+    "fork_turns": "none",
+    "model_override": null,
+    "reasoning_effort_override": null
+  },
+  "audit_id": "20261002T062023Z-geo-103-catalog-review-d852ceb3",
+  "audit_bundle_version": 1,
+  "audit_stage": "02-schema-correction-review",
+  "audit_plan": "02-schema-correction-review.plan.json",
+  "audit_dispatch": "02-schema-correction-review.dispatches/geo103-schema-review-a1.json"
+}

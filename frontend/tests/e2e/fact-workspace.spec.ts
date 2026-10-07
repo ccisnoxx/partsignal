@@ -30,6 +30,9 @@ test('direct/refresh 只读取一个 workspace read model，并适配 375/768/10
   const widths = testInfo.project.name === 'foundation-mobile' ? [375, 768] : [1024, 1440];
   for (const width of widths) {
     await page.setViewportSize({ width, height: 1000 });
+    // 先观察工作区切换完成，避免随后聚焦即将被响应式布局替换的编辑器。
+    await expect(page.getByRole('tablist', { name: '工作区面板' })).toHaveCount(width < 1280 ? 1 : 0);
+    await expect(page.getByRole('textbox', { name: '事实 Markdown' })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `${width}px 页面根不应横向溢出`).toBe(true);
   }
 

@@ -1,0 +1,16 @@
+{
+  "command": [
+    "docker",
+    "compose",
+    "--env-file",
+    ".env",
+    "-f",
+    "deploy/compose.dev.yaml",
+    "config",
+    "--quiet"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-03T06:41:02.579284+00:00",
+  "seconds": 0.06,
+  "log": "dev-compose-config.log"
+}

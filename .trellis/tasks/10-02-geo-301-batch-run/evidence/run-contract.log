@@ -1,0 +1,67 @@
+....FFF..........................                                        [100%]
+=================================== FAILURES ===================================
+_______ test_complete_snapshot_and_plan_dump_validate_in_openapi[MANUAL] _______
+
+mode = 'MANUAL'
+contract = {'components': {'headers': {'RequestIdResponseHeader': {'required': True, 'schema': {'maxLength': 100, 'minLength': 1,.../components/responses/ErrorResponse'}, '403': {'$ref': '#/components/responses/ErrorResponse'}, ...}, ...}}, ...}, ...}
+
+    @pytest.mark.parametrize("mode", ["MANUAL", "API", "BROWSER"])
+    def test_complete_snapshot_and_plan_dump_validate_in_openapi(
+        mode: str, contract: dict[str, Any]
+    ) -> None:
+        value = input_snapshot(mode)
+        parsed = schemas.GeoRunInputSnapshot.model_validate(value)
+>       assert parsed.model_dump(mode="json") == value
+E       AssertionError: assert {'data_classi...sion': 1, ...} == {'data_classi...sion': 1, ...}
+E         
+E         Omitting 5 identical items, use -vv to show
+E         Differing items:
+E         {'profile': {'adapter_key': 'manual', 'adapter_version': 'fixture-v1', 'ai_channel_id': None, 'ai_model_id': None, ...}} != {'profile': {'adapter_key': 'manual', 'adapter_version': 'fixture-v1', 'ai_channel_id': None, 'ai_model_id': None, ...}}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_run_contract.py:133: AssertionError
+________ test_complete_snapshot_and_plan_dump_validate_in_openapi[API] _________
+
+mode = 'API'
+contract = {'components': {'headers': {'RequestIdResponseHeader': {'required': True, 'schema': {'maxLength': 100, 'minLength': 1,.../components/responses/ErrorResponse'}, '403': {'$ref': '#/components/responses/ErrorResponse'}, ...}, ...}}, ...}, ...}
+
+    @pytest.mark.parametrize("mode", ["MANUAL", "API", "BROWSER"])
+    def test_complete_snapshot_and_plan_dump_validate_in_openapi(
+        mode: str, contract: dict[str, Any]
+    ) -> None:
+        value = input_snapshot(mode)
+        parsed = schemas.GeoRunInputSnapshot.model_validate(value)
+>       assert parsed.model_dump(mode="json") == value
+E       AssertionError: assert {'data_classi...sion': 1, ...} == {'data_classi...sion': 1, ...}
+E         
+E         Omitting 5 identical items, use -vv to show
+E         Differing items:
+E         {'profile': {'adapter_key': 'fictional-adapter', 'adapter_version': 'fixture-v1', 'ai_channel_id': None, 'ai_model_id': None, ...}} != {'profile': {'adapter_key': 'fictional-adapter', 'adapter_version': 'fixture-v1', 'ai_channel_id': None, 'ai_model_id': None, ...}}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_run_contract.py:133: AssertionError
+______ test_complete_snapshot_and_plan_dump_validate_in_openapi[BROWSER] _______
+
+mode = 'BROWSER'
+contract = {'components': {'headers': {'RequestIdResponseHeader': {'required': True, 'schema': {'maxLength': 100, 'minLength': 1,.../components/responses/ErrorResponse'}, '403': {'$ref': '#/components/responses/ErrorResponse'}, ...}, ...}}, ...}, ...}
+
+    @pytest.mark.parametrize("mode", ["MANUAL", "API", "BROWSER"])
+    def test_complete_snapshot_and_plan_dump_validate_in_openapi(
+        mode: str, contract: dict[str, Any]
+    ) -> None:
+        value = input_snapshot(mode)
+        parsed = schemas.GeoRunInputSnapshot.model_validate(value)
+>       assert parsed.model_dump(mode="json") == value
+E       AssertionError: assert {'data_classi...sion': 1, ...} == {'data_classi...sion': 1, ...}
+E         
+E         Omitting 5 identical items, use -vv to show
+E         Differing items:
+E         {'profile': {'adapter_key': 'fictional-adapter', 'adapter_version': 'fixture-v1', 'ai_channel_id': None, 'ai_model_id': None, ...}} != {'profile': {'adapter_key': 'fictional-adapter', 'adapter_version': 'fixture-v1', 'ai_channel_id': None, 'ai_model_id': None, ...}}
+E         Use -v to get more diff
+
+backend/tests/unit/test_geo_run_contract.py:133: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_geo_run_contract.py::test_complete_snapshot_and_plan_dump_validate_in_openapi[MANUAL]
+FAILED backend/tests/unit/test_geo_run_contract.py::test_complete_snapshot_and_plan_dump_validate_in_openapi[API]
+FAILED backend/tests/unit/test_geo_run_contract.py::test_complete_snapshot_and_plan_dump_validate_in_openapi[BROWSER]
+3 failed, 30 passed in 0.50s

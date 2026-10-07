@@ -1,0 +1,30 @@
+{
+  "modified_from_snapshot": [
+    "contracts/openapi.yaml",
+    "contracts/database.md",
+    "backend/app/models/__init__.py",
+    "backend/app/models/ai_generation.py",
+    "backend/tests/integration/test_migrations.py",
+    "backend/tests/integration/test_geo_prompt_variants.py",
+    "frontend/src/shared/api/generated/schema.d.ts",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/SHA256SUMS",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md",
+    "docs/geo-monitoring/03-technical/02-data-architecture.md",
+    "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+    "docs/geo-monitoring/01-product/02-geo-core-prd.md",
+    "docs/geo-monitoring/02-business/02-domain-model.md"
+  ],
+  "new_code": [
+    "backend/app/models/geo_surfaces.py",
+    "backend/app/schemas/geo_surfaces.py",
+    "backend/alembic/versions/0046_geo_surfaces_profiles.py",
+    "backend/tests/unit/test_geo_surface_contract.py",
+    "backend/tests/integration/test_geo_surfaces_profiles.py"
+  ],
+  "additional_shared_change": {
+    "backend/app/services/identity.py": "导入两个ORM；_user_business_reference_counts增加两个created_by。其他既有修改保留。"
+  }
+}

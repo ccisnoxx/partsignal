@@ -1,0 +1,13 @@
+{
+  "command": [
+    "npm",
+    "--prefix",
+    "frontend",
+    "run",
+    "test"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-03T06:38:07.189141+00:00",
+  "seconds": 33.39,
+  "log": "frontend-test.log"
+}

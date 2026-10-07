@@ -1,0 +1,32 @@
+{
+  "run_id": 37594203220,
+  "sha": "0475a776056b7689721a42af90766fb94c13c6ed",
+  "conclusion": "failure",
+  "job_elapsed_seconds": 841,
+  "build_deploy_scripts": "PASS",
+  "canonical_real_stack": {
+    "passed": 32,
+    "failed": 0,
+    "elapsed": "5.2m",
+    "secret_scan": "clean",
+    "cleanup": "PASS"
+  },
+  "geo_enabled": {
+    "failed": 1,
+    "skipped": 1,
+    "failed_location": "frontend/tests/e2e/geo-api-real-stack.spec.ts:104",
+    "cause": "详情错误段和历史尝试链均含PROVIDER_RATE_LIMITED；裸错误码locator双匹配",
+    "secret_scan": "clean",
+    "cleanup": "PASS"
+  },
+  "not_executed": [
+    "GEO api-disabled",
+    "GEO monitoring-disabled",
+    "fixture E2E",
+    "末端dev/prod Compose config"
+  ],
+  "previous_success_evidence_reused": true,
+  "pr_code_accepted": false,
+  "main_gate_executed": false,
+  "rc_frozen": false
+}

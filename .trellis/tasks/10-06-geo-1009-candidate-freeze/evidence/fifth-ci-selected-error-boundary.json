@@ -1,0 +1,16 @@
+{
+  "name": "fifth-ci-selected-error-boundary",
+  "command": [
+    "node",
+    "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/fifth-selected-error-boundary.cjs"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "0475a776056b7689721a42af90766fb94c13c6ed",
+  "dirty": true,
+  "started_at": "2026-10-07T08:51:15.972637+00:00",
+  "ended_at": "2026-10-07T08:51:16.266447+00:00",
+  "exit_code": 0,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/fifth-ci-selected-error-boundary.log",
+  "log_sha256": "e583eaf327c2fd722081206e72a930d37d9ddab6cc6345a5888431c7b51dc27f"
+}

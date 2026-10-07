@@ -21,7 +21,7 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "第四次delivery37587914372固定135d801e实际FAILURE（13分5秒）：build/all deploy-scripts远端通过，真实栈29通过3失败，后序GEO/fixture/Compose未执行。仅修三spec时序；首轮固定8fd复审CHANGES_REQUESTED的图片空集合/旧图条件已补正，固定0b6e5aa0 fresh独立复审APPROVE，两P2 RESOLVED。三例97.8秒通过；补正仅GEO84秒通过，两个真实浏览器边界探针和三文件定向ESLint通过；未重复全单元/PG/完整门禁。源码hash绑定dirty执行，不伪称新SHA远端通过。第五CI未授权、不自动触发；PR仍Draft/整PR未接受/mainRC未执行，恢复1008既有接受原样保留。",
+  "notes": "第五delivery37594203220已获用户针对0475a776的一次明确授权，实际FAILURE（14分1秒）：build/all deploy-scripts与32真实栈远端通过；后续GEO enabled在历史尝试错误码裸匹配处strict-mode失败，api-disabled/monitoring-disabled/fixture/末端Compose未执行。仅修geo-api spec一条断言为当前详情alert内完整阶段+错误码；真实enabled模式57.8秒exit0（1通过/1模式跳过）、真实Chromium旧locator误通过/双匹配反例与定向ESLint通过，源码hash绑定0475+dirty执行。修复固定提交独立复审待执行。第六CI未授权、不自动触发；整PR未接受/仍Draft/mainRC未执行，恢复1008原接受保留。",
   "meta": {
     "manifest_id": "GEO-1009",
     "ci_run_id": 37572374117,
@@ -62,7 +62,7 @@
     "fourth_ci_source_commit": "135d801edc9b1e8dc72dc9892897dd233404a667",
     "fourth_ci_conclusion": "failure",
     "fourth_ci_failure_step": "make e2e/canonical real-stack: 29 passed, 3 failed",
-    "fifth_ci_dispatched": false,
+    "fifth_ci_dispatched": true,
     "e2e_fix_commit": "8fd843471de6d455cafba20da11d81a82b7dd305",
     "e2e_first_review": "CHANGES_REQUESTED",
     "e2e_first_review_ref": "evidence/independent-e2e-review-8fd84347.md",
@@ -70,6 +70,13 @@
     "e2e_final_review": "APPROVE",
     "e2e_image_readiness_findings": "RESOLVED",
     "e2e_final_review_ref": "evidence/independent-e2e-review-0b6e5aa0.md",
-    "e2e_review_audit_id": "20261007T075745Z-delivery-e2e-timing-fixed-review-2333f765"
+    "e2e_review_audit_id": "20261007T075745Z-delivery-e2e-timing-fixed-review-2333f765",
+    "fifth_ci_budget": "AUTHORIZED_ONE_DELIVERY_RUN_USED",
+    "fifth_ci_run_id": 37594203220,
+    "fifth_ci_source_commit": "0475a776056b7689721a42af90766fb94c13c6ed",
+    "fifth_ci_conclusion": "failure",
+    "fifth_ci_failure_step": "make e2e/geo-api enabled historical attempt strict locator",
+    "geo_api_fix_review": "PENDING_FIXED_COMMIT_REVIEW",
+    "sixth_ci_dispatched": false
   }
 }

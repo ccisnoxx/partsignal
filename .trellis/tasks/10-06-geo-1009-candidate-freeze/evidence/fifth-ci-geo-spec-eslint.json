@@ -1,0 +1,17 @@
+{
+  "name": "fifth-ci-geo-spec-eslint",
+  "command": [
+    "sh",
+    "-c",
+    "cd frontend && ./node_modules/.bin/eslint tests/e2e/geo-api-real-stack.spec.ts"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "0475a776056b7689721a42af90766fb94c13c6ed",
+  "dirty": true,
+  "started_at": "2026-10-07T08:49:54.239608+00:00",
+  "ended_at": "2026-10-07T08:49:54.922688+00:00",
+  "exit_code": 0,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/fifth-ci-geo-spec-eslint.log",
+  "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

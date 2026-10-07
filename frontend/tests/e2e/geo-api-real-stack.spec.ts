@@ -101,7 +101,7 @@ test('API 自动轮询、原文引用、部分 usage、费用、429/未知结果
     const batch = await body<Schema['GeoBatchDetail']>(await page.request.get(`${api}${batches}/${old.batchId}`));
     expect(batch.summary.cost).toMatchObject({ known_attempt_count: 1, unknown_attempt_count: 1, known_costs: [{ currency: 'USD', value: '0.0012' }] });
     await page.getByRole('button', { name: '尝试 1', exact: true }).click();
-    await expect(region.getByText(new RegExp(code))).toBeVisible();
+    await expect(region.getByRole('alert').getByText(`错误阶段：COLLECTION · ${code}`, { exact: true })).toBeVisible();
     await expect(region.getByRole('button', { name: '创建新采集尝试', exact: true })).toHaveCount(0);
   }
   for (const blocked of ['INTERNAL', 'BUDGET'] as const) {

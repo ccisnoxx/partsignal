@@ -1,0 +1,23 @@
+{
+  "name": "fifth-delivery-ci-watch",
+  "command": [
+    "gh",
+    "run",
+    "watch",
+    "37594203220",
+    "--repo",
+    "ccisnoxx/partsignal",
+    "--interval",
+    "30",
+    "--exit-status"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "0475a776056b7689721a42af90766fb94c13c6ed",
+  "dirty": false,
+  "started_at": "2026-10-07T08:31:32.492525+00:00",
+  "ended_at": "2026-10-07T08:44:56.217063+00:00",
+  "exit_code": 1,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/fifth-delivery-ci-watch.log",
+  "log_sha256": "6976d17d0c6e2c222088682e6d2135056ee10e4ff42ac1b4fe00ad034f3babfa"
+}

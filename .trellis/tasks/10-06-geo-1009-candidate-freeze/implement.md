@@ -67,3 +67,13 @@ runner日志绑定ubuntu24/20261004.327，官方固定软件清单为Compose2.38
 固定0b6e5aa01e8bd37e70433e0b7c9e3da1d31b6756相对135的三spec累计增量fresh独立只读复审APPROVE，原图片空/部分集合和异步旧图条件均RESOLVED，无新增finding，报告evidence/independent-e2e-review-0b6e5aa0.md。两组源码/四驱动/八日志hash已独立核对，两个审查阶段前后全部tracked/untracked内容一致；审计20261007T075745Z-delivery-e2e-timing-fixed-review-2333f765 closed/verified（两个审查交付均验收：首轮判CHANGES_REQUESTED，补正后判APPROVE；不是两个实现批准），无写入/无残留worker。0b clean上三文件定向ESLint0.66秒exit0；没有扩大本地测试。先前SUCCESS接受脚本显式失效、未执行，第四次CI失败不变，增量批准不能代替整个PR准入或生产验收。
 
 本次收尾仅保存检查点并提交/推送治理记录，任务保留blocked，completedAt为空。下一次delivery需用户明确追加一次预算；在获得授权且新固定SHA CI通过前，不接受其他任务/Ready/合并main/跑clean main全门禁/冻结RC。main仍83ff42e7，恢复1008接受保持byte exact；真正main门禁仍只计划合并后一次执行。
+
+## 第五次固定 delivery 与 GEO API 错误详情断言
+
+用户明确授权在当前0475a776追加一次delivery。run37594203220实际headSha为0475a776056b7689721a42af90766fb94c13c6ed，最终FAILURE，verify耗时14分1秒；命令/开始结束/退出/完整日志hash见evidence/fifth-delivery-ci-*。build与全部部署脚本检查通过；32canonical真实栈用例全部通过（5.2分钟），此前三spec修复取得远端成功证据，secret scan与随机资源精确清理通过。
+
+后续GEO enabled在geo-api-real-stack.spec.ts:104失败：选择历史尝试后，PROVIDER_RATE_LIMITED同时出现在当前详情的错误阶段段落和尝试链span。裸code正则locator既能双匹配触发strict mode，也可能在当前详情尚未切换时仅凭历史span误通过。只把该断言改为运行详情alert内的完整“错误阶段：COLLECTION · code”精确匹配，RATE_LIMIT与UNKNOWN共用；不取first、不删断言、不改应用/迁移/helper/workflow/依赖。其他provider调用次数、费用未知、旧尝试不可变、重试资格及runtime error断言保持。
+
+只运行对应enabled真实栈：0475+dirty一行修复，2026-10-07T08:49:53Z～08:50:50Z，exit0，总57.8秒，1passed(42.5s)/1按模式skipped。真实PG16随机数据库、API/Celery/fake provider、production artifact与429/UNKNOWN重试均执行；secret scan clean，DB12精确Kombu键删除、固定端口释放、随机DB和临时存储删除，两个原开发容器恢复停止。真实Chromium从旧/新spec提取实际locator，历史span单独存在时旧误通过/新拒绝，header与span共存时旧strict拒绝/新唯一通过，RATE_LIMIT/UNKNOWN共四例；该DOM探针不代替应用E2E。定向单文件ESLint和git diff --check通过。源文件、driver及所有log hash见fifth-ci-selected-error-source-proof.json，不伪称clean新SHA重跑。
+
+api-disabled、monitoring-disabled、fixture及末端两项Compose被远端前序失败阻断，尚无本次成功证据。已通过且输入未变的unit/PG/旧本地完整验证与本次32真实栈继续复用；不重复全套。预备接受写入器未执行，其SUCCESS前提不成立，invalidated记录保留；其他task未接受、PR仍Draft、main完整门禁/RC/生产未执行。第六CI未获授权，不自动派发。当前一行修复提交后需新的固定源码独立复审，旧0b6复审只覆盖前三spec，不扩大其范围。

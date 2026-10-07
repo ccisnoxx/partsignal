@@ -100,6 +100,9 @@ test('历史回答、事实、复核与签名证据 → 确认 → 忽略 → �
   await expect(actionLink).toHaveAttribute('href', action.action.navigation_path!);
   await actionLink.focus(); await page.keyboard.press('Enter');
   await expect.poll(() => new URL(page.url()).pathname).toBe(`/products/${initial.opportunity.product_id}/facts`);
+  // URL 已提交时 route chunk 仍可能在加载；完成目标页面验收后再主动 Back。
+  await expect(page.locator('#fact-workspace-title')).toContainText(graph.partNumber);
+  await page.waitForLoadState('networkidle');
   await page.goBack(); await expect(drawer).toBeVisible(); await expect(actionLink).toBeVisible();
   await drawer.getByRole('button', { name: '忽略机会', exact: true }).click();
   await drawer.getByRole('textbox', { name: '忽略原因代码', exact: true }).fill('NON_ACTIONABLE');

@@ -1,0 +1,15 @@
+{
+  "executed_base_sha": "135d801edc9b1e8dc72dc9892897dd233404a667",
+  "executed_dirty": true,
+  "files": {
+    "frontend/tests/e2e/plans-real-stack.spec.ts": "59de36de24ade1cc54b70370b18757a00af6321067ea83a79b875893be28e79e",
+    "frontend/tests/e2e/opportunities-real-stack.spec.ts": "f753b6956bfc1932f672cb70d410c09d5f2c7d5a7cc0861e93581e7281d8028c",
+    "frontend/tests/e2e/geo-loop-real-stack.spec.ts": "33e4bf01d935b9dd24c6cb5de91ee6725a8fb8de5e0e11a4cb90bca1d4052a88",
+    "frontend/tests/e2e/real-stack-runtime.ts": "3f909f2a01e62d51c3fe77ba5955fec2a6d9fcd123000ffab309289853e53e3f"
+  },
+  "external_probe_scripts": {
+    "runtime-watch-boundary.mjs": "7b6fe1b5cfbfd66efee3ef1622c68ff8e022a7106bb96eba0264c37f73dde381",
+    "run-three-e2e.py": "3fc6df87158f1eb39de09f2ce71291e3b93fbb851eab75d253b7239a24f14554"
+  },
+  "scope": "仅三处spec；runtime audit、应用、迁移、依赖、工作流不变；新提交通过hash绑定，不声称clean新SHA重新执行"
+}

@@ -47,3 +47,13 @@ runner日志绑定ubuntu24/20261004.327，官方固定软件清单为Compose2.38
 修复待固定新SHAfresh只读增量复核。此前准备的接受脚本/PR SUCCESS说明没有执行或发布，本次结果不满足整PR准入条件；PR仍Draft，1002–1007未done，恢复1008既有接受保留。main完整门禁留到实际合并后一次执行，RC真实镜像仓库及已验证previous V2缺口保留；第四次CI未获本轮授权，不自动运行。
 
 固定bd6abde19a20d2bdcd259254d0a8578d2d36d2bd已获fresh只读增量复审APPROVE，无确认finding，报告evidence/independent-production-review-bd6abde1.md；全部tracked/untracked校验无写入，审计20261007T070747Z-production-ci-env-binding-review-45b5eb7d closed/verified。复核纠正本次runner身份为20260927.320.1（前次20261004.327不沿用），本次固定官方清单同为Compose2.38.2，Linux组件结论不变。完整harness/x86_64及新SHA远端后序仍缺；原三次CI失败、PR Draft、恢复1008接受和main/RC未知不改写。
+
+## 固定135d801e的第四次delivery
+
+用户明确允许当前135d801edc9b1e8dc72dc9892897dd233404a667再运行一次delivery。run37587914372固定该SHA，created07:32:06Z，verify13分5秒；watch07:32:16.309179Z—07:45:38.707207Z exit1。build与完整deploy-scripts实际远端通过（5分16秒），此前GNU/staging/Production配置自检修复已在runner闭合。make e2e首轮32真实栈用例29通过、3失败：geo-loop五个真实截图GET被取消；opportunities两个事实route chunk被取消；plans在最后运行时审计发现response-without-request-identity。后续GEO模式、fixture suite和末端两项Compose未执行，不能称通过；secret scan clean exit0、E2E1/make2，隔离DB/Redis/端口/临时owner精确清理成功。六项前序和frontend shard按delivery跳过，继续复用输入未变的旧证据。命令/SHA/UTC/退出及原始受控日志hash已保存。
+
+本轮只修三个失败spec：plans在首次浏览器导航前挂接审计，并把两次真实前置UI写入纳入精确计数，未知请求身份仍失败；opportunities在实际事实标题和资源加载完成后再Back；geo-loop明确验证五张真实截图complete且naturalWidth>0后才确认，确认后的重读也验证。未增加ERR_ABORTED/资源/未知身份豁免，未改应用、迁移、依赖或CI入口。首次本地定向入口在创建测试资源前拒绝DB14的6个现存键；未删除这些非本轮键。只读确认DB12为空后使用DB12的原有独占preflight/owner清理路径，保存原拒绝记录，不把它当用例失败或代码反例。后续只运行三例，不重跑全单元/PG/部署集合/完整门禁；固定修复SHA需fresh增量审查。
+
+先前预备的SUCCESS接受脚本没有执行。此次预算已使用，第五次CI未授权、不自动触发；PR仍Draft、任务仍blocked，整PR接受/main/clean main完整门禁/RC仍待真实准入闭合。严格恢复1008既有接受未改，历史失败不改写。
+
+定向三例于135d801e+dirty修复执行：07:54:44.782021Z—07:56:22.572976Z exit0，Playwright 3 passed（1.4m），真实PG16/迁移0066/API/Worker/production artifact，秘密扫描clean，DB12一枚本轮Kombu键精确删除、全部端口释放、随机owner DB删除、临时目录清理，本次启动的两个既有dev容器恢复停止。没有执行1253条integration或完整32例。0.35秒真实浏览器边界探针稳定复现晚挂接的同名拒绝，早挂接通过；该探针证明事件边界，不伪称直接重跑旧plans spec失败。四个源码hash把dirty定向证据绑定到随后提交。

@@ -59,10 +59,21 @@ test('五次覆盖缺口 → 确认与内容发布 → 五次严格复测恢复 
   await page.waitForLoadState('networkidle');
   await page.goto(`/geo/opportunities?opportunity_id=${seed.opportunity_id}`);
   const drawer = page.getByRole('dialog', { name: '机会详情与历史证据', exact: true });
+  const waitForSourceImages = async () => {
+    const images = drawer.getByRole('img', { name: '机会来源截图证据', exact: true });
+    await expect(images).toHaveCount(5);
+    await expect.poll(() => images.evaluateAll((elements) => elements.every((element) => {
+      const image = element as HTMLImageElement;
+      return image.complete && image.naturalWidth > 0;
+    }))).toBe(true);
+  };
   await expect(drawer.getByRole('region', { name: '首次触发快照（不可变）', exact: true })).toContainText('分子 0 / 分母 5');
+  // 确认会重新读取签名证据并重挂载图片；先完成五张真实截图读取，不能只等文本可见。
+  await waitForSourceImages();
   const acknowledged = await uiCommand<Schema['GeoOpportunityListItem']>(page, `${path}/acknowledge`, () => drawer.getByRole('button', { name: '确认机会', exact: true }).click());
   expect(acknowledged.status).toBe('ACKNOWLEDGED');
   await expect(drawer.getByRole('button', { name: '确认机会', exact: true })).toHaveCount(0);
+  await waitForSourceImages();
 
   // 704 当前没有行动创建 UI，使用公共 API；目标域保留审批与发布的所有裁决。
   const linked = await body<Schema['GeoOpportunityActionResult']>(await page.request.post(`${api}${path}/actions/content-task`, {

@@ -21,7 +21,7 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "用户再次明确允许本次delivery37584298170，固定d0f61aaa实际FAILURE（4分11秒）：staging修复已通过，production自检读取Compose2.38.2展开后的JSON env_file触发KeyError。仅修测试环境实际绑定断言，原生配置入口通过、真实Linux2.38.2旧失败/新成功且错误文件/额外环境拒绝；未重跑单元/PG/完整门禁。固定bd6abde1 fresh独立只读增量复核已APPROVE，未自动触发第四次CI；PR仍Draft，其他任务未接受，main/RC/生产未执行。",
+  "notes": "用户明确允许135d801e再运行一次delivery，run37587914372实际FAILURE（13分5秒）：build与全部deploy-scripts远端通过；首轮真实栈E2E 29通过/3失败（截图与route chunk请求取消、审计晚挂接遗漏请求身份），末端Compose未执行。仅修三个失败用例时序，运行源码/迁移/依赖/工作流不变；第五次CI未授权不自动触发。PR仍Draft，整PR未接受，main/RC未推进，恢复1008既有接受保留。",
   "meta": {
     "manifest_id": "GEO-1009",
     "ci_run_id": 37572374117,
@@ -53,9 +53,15 @@
     "third_ci_failure_step": "test-deploy-production.sh/Compose JSON KeyError env_file",
     "production_fix_script_sha256": "4f76fb229375bd35ca7e301b05b51f1932753cddda5065f4afbfec0e2317e1f9",
     "production_fix_independent_review": "APPROVE",
-    "fourth_ci_dispatched": false,
+    "fourth_ci_dispatched": true,
     "production_fix_commit": "bd6abde19a20d2bdcd259254d0a8578d2d36d2bd",
     "production_review_ref": "evidence/independent-production-review-bd6abde1.md",
-    "production_review_audit_id": "20261007T070747Z-production-ci-env-binding-review-45b5eb7d"
+    "production_review_audit_id": "20261007T070747Z-production-ci-env-binding-review-45b5eb7d",
+    "fourth_ci_budget": "AUTHORIZED_ONE_DELIVERY_RUN_USED",
+    "fourth_ci_run_id": 37587914372,
+    "fourth_ci_source_commit": "135d801edc9b1e8dc72dc9892897dd233404a667",
+    "fourth_ci_conclusion": "failure",
+    "fourth_ci_failure_step": "make e2e/canonical real-stack: 29 passed, 3 failed",
+    "fifth_ci_dispatched": false
   }
 }

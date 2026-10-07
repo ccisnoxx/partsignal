@@ -81,6 +81,13 @@ test('工程师 MANUAL 八步创建、CRON 不可选、服务端预览、启停�
   const context = await browser.newContext({ baseURL: process.env.PARTSIGNAL_E2E_BASE_URL ?? 'http://127.0.0.1:4174', viewport: testInfo.project.use.viewport });
   try {
     const engineer = await context.newPage();
+    // 首次导航前观察请求；networkidle 不能为中途挂接的审计补回已经发出的请求身份。
+    let phase = 'setup';
+    const allowedCancellations: RuntimeCancellation[] = ['resume', 'delete', 'archive'].map((phase) => ({ phase, method: 'GET', origin: apiOrigin, pathname: plans, reason: 'net::ERR_ABORTED' }));
+    const audit = createRealStackRuntimeAudit({ apiOrigin, getPhase: () => phase, allowedCancellations }); audit.watch(engineer);
+    const expectations: TrafficExpectation[] = [
+      { phase, origin: apiOrigin, method: 'POST', pathname: '/api/v1/query-topics', attempts: 1, responses: 1, status: 201 },
+    ];
     const session = await body<components['schemas']['AuthSession']>(await engineer.request.post(`${api}/api/v1/auth/login`, { data: { username, password: temporaryPassword } }));
     await registerRealStackLoginSecrets(context, api, session.csrf_token);
     expect((await engineer.request.post(`${api}/api/v1/auth/change-password`, { headers: { 'X-CSRF-Token': session.csrf_token }, data: { old_password: temporaryPassword, new_password: newPassword } })).status()).toBe(204);
@@ -94,6 +101,7 @@ test('工程师 MANUAL 八步创建、CRON 不可选、服务端预览、启停�
     const topicResponse = engineer.waitForResponse((response) => new URL(response.url()).pathname === '/api/v1/query-topics' && response.request().method() === 'POST');
     await dialog.getByRole('button', { name: '创建', exact: true }).click();
     const topic = await body<components['schemas']['QueryTopic']>(await topicResponse, 201);
+    expectations.push({ phase, origin: apiOrigin, method: 'POST', pathname: `/api/v1/geo/query-topics/${topic.id}/prompt-variants`, attempts: 1, responses: 1, status: 201 });
     await expect(dialog).toBeHidden(); await engineer.waitForLoadState('networkidle');
     await engineer.goto('/geo/questions?new=1');
     await choose(engineer, '问题主题', topicName);
@@ -107,11 +115,7 @@ test('工程师 MANUAL 八步创建、CRON 不可选、服务端预览、启停�
     const variant = await body<components['schemas']['GeoPromptVariantOut']>(await variantResponse, 201);
     await engineer.waitForLoadState('networkidle');
 
-    let phase = 'open';
-    // 写后取消旧列表 GET 是防止旧快照回写的已观测行为；写请求不允许取消。
-    const allowedCancellations: RuntimeCancellation[] = ['resume', 'delete', 'archive'].map((phase) => ({ phase, method: 'GET', origin: apiOrigin, pathname: plans, reason: 'net::ERR_ABORTED' }));
-    const audit = createRealStackRuntimeAudit({ apiOrigin, getPhase: () => phase, allowedCancellations }); audit.watch(engineer);
-    const expectations: TrafficExpectation[] = [];
+    phase = 'open';
     const mutate = async <T,>(next: string, method: string, pathname: string, click: () => Promise<unknown>, status = 200): Promise<T> => {
       await engineer.waitForLoadState('networkidle'); phase = next;
       expectations.push({ phase, origin: apiOrigin, method, pathname, attempts: 1, responses: 1, status });

@@ -12,14 +12,14 @@
 
 | 门禁 | Go 所需证据 | 当前结论/收口任务 |
 |---|---|---|
-| 范围与任务接受 | ADR-007 Accepted；1002～1009 已人工接受，候选包含全部修复；范围外能力披露 | GEO-1002～1007 实现/本地验证已接受；恢复1008原单项接受（baea420f）保留；1009候选收口 in_progress；整体 NOT_MET |
+| 范围与任务接受 | ADR-007/008 Accepted；1002～1009 及 UI 已人工接受，新候选包含全部修复与页面；范围外能力披露 | 1002～1009及UI已接受，1009只接受旧固定SHA门禁；新候选/内部部署归属DEPLOY，尚未冻结；整体 NOT_MET |
 | Browser production 硬禁止 | Settings/启动预检/profile-overlay 明确拒绝 true/显式启动，负例通过且独立复核；现场三进程 false、零服务/profile/会话/材料 | 1003代码/本地负例已接受；现场 NOT_VERIFIED（1010） |
-| Catalog 当前身份 | 正确锁序及锁内 active/ADMIN/改密重验；真实 PG 角色变化竞态拒绝且零业务写入，独立复核 | 1004实现/真实PG验证已接受；候选门禁待1009 |
+| Catalog 当前身份 | 正确锁序及锁内 active/ADMIN/改密重验；真实 PG 角色变化竞态拒绝且零业务写入，独立复核 | 1004已接受；旧1009门禁已接受，新候选门禁待DEPLOY |
 | CRON 禁用与既存治理 | 禁止 CRON Plan 新建/全部写命令/首次 run、PLAN 建批及 scheduled 新窗口，稳定 409；历史配置/状态/快照只读，无写动作且页面明确不调度；MANUAL 入口正常 | GEO-1005 实现/本地验证已接受；目标/候选历史清点及投影现场证据 NOT_VERIFIED（1010）；不要求自动到期入口 |
 | Opportunity 显式评估 | ADMIN 经实际受保护入口评估，非管理员/资格关闭拒绝，重复触发去重、来源可追溯；无周期或隐式触发 | GEO-1006 实现/本地验证已接受；同候选现场实际入口证据 NOT_VERIFIED（1010）；测试 seed 不替代入口 |
 | 能力真实性 | 现有报告/三类 CSV/API 与页面说明一致；未实现 CSV/UI/重分析/占位明确不可用，无依据无引用不推断 | 原delivery1007实现/能力说明已接受；正式现场闭环仍 NOT_VERIFIED（1010） |
-| 升级失败恢复 | 未 initialized 的 UPGRADE_DEPLOYING/PREPARED artifact 失败可安全前向/阶段恢复；身份/兼容/维护锁/再次失败拒绝演练和独立复核 | GEO-1007 Trellis（delivery 1008）已按用户条件授权单项接受；accepted_commit=baea420fb8a479d66d578d3f4fd91d38086b8c29，fresh复审APPROVE；固定候选及目标恢复仍 NOT_VERIFIED（1009/1010） |
-| 固定候选 | clean main=origin/main；commit/archive/release manifest/images/schema/tracked hashes 一致；同候选完整 make verify exit 0，失败/skip/限制明列 | NOT_VERIFIED；1009；旧本地成功日志不替代新候选 |
+| 升级失败恢复 | 未 initialized 的 UPGRADE_DEPLOYING/PREPARED artifact 失败可安全前向/阶段恢复；身份/兼容/维护锁/再次失败拒绝演练和独立复核 | GEO-1007 Trellis（delivery 1008）已按用户条件授权单项接受；accepted_commit=baea420fb8a479d66d578d3f4fd91d38086b8c29，fresh复审APPROVE；新固定候选及目标恢复仍 NOT_VERIFIED（1010-DEPLOY） |
+| 固定候选 | clean main=origin/main；commit/archive/release manifest/images/schema/tracked hashes 一致；同候选完整 make verify exit 0，失败/skip/限制明列 | NOT_VERIFIED；1010-DEPLOY；1009旧SHA通过不替代包含UI的新候选 |
 | 目标配置与安全 | 精确目标/入口/权限，API/Worker/Beat 重建实际值一致；API 初始 false、显式评估资格准确；CSRF/SSRF/secret/页面安全及全应用 AI/OSS Gate | NOT_VERIFIED；1010；不输出秘密 |
 | 目标备份/容量/监控/恢复 | DB/OSS/适用密钥成套备份与隔离扫描；目标规格/代表负载/冻结阈值及告警观察期；目标安全停止、升级失败恢复与恢复后对账 | NOT_VERIFIED；1010；904/905/906 done 不证明现场 |
 | 正式 MANUAL 与内部试运行 | 真实批准样本→原文/引用/证据→确定性分析→必要复核→指标/现有报告→管理员显式评估→Action/Retest API→严格比较/显式解决；人群/时长/反馈与业务签署 | NOT_VERIFIED；1010；不把 API 操作写成全程页面 |
@@ -47,7 +47,7 @@ GEO-1010 必须另建绑定目标/候选/时间的低敏 readiness 和 Go/No-Go 
 | 批准 | expand/deploy/enable 各自审批人、目标、候选、窗口、操作范围、停止/恢复负责人和批准记录引用；改变目标或候选须重新批准 |
 | 全应用外部服务 | 真实 AI/OSS 配置与既有门禁；GEO API 关闭不免除 activation 的 `PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET` |
 
-dirty GEO 分支只用于实现，不能生成正式 candidate。生成 candidate 必须在另一份已批准、已推送的 clean main 中使用既有 `create-release-manifest.py`；不使用测试绕过变量，不为准备材料提交或推送当前树。记录引用 producer 的原始 manifest，不复制或编造 image ID/commit。GEO-1006 当前本地候选的 schema head 为 `0066_geo_manual_evaluation`；该加法迁移只新增管理员评估回执及不可变守卫，不回填或改写既有业务历史。正式 candidate 必须包含已接受的迁移并按实际 head 核对。
+dirty 工作树只用于实现和准备，不能生成正式 candidate。按ADR-008，生成包含已接受UI的新candidate必须使用已批准、已推送的clean main及既有 `create-release-manifest.py`；提交/推送另按实际授权，不使用测试绕过变量。记录引用producer原始manifest，不复制或编造image ID/commit。当前源码head为 `0066_geo_manual_evaluation`；该加法迁移只新增管理员评估回执及不可变守卫，不回填或改写既有业务历史。DEPLOY须在选定候选重新核对唯一head和同身份完整门禁，不把准备或旧SHA通过写成候选通过。
 
 现有发布入口把前滚和应用部署合在一次 `deploy.sh` 内。执行该入口前必须同时具备 expand 与 deploy 批准；不能通过手工迁移/Compose up 拆开或绕过维护锁和持久阶段。GEO 使用已有数据的 upgrade，不执行 clean-init/quarantine/物理删除。
 
@@ -142,17 +142,17 @@ COMMIT;
 | 录入/提交 | 真实问题和非空回答、引用来源/采集环境准确；草稿保存后正式提交；提交证据不可原地修改，unknown usage/cost 不补零 |
 | 分析/复核 | Worker 处理已提交观察并形成当前 revision；需复核样本由人工追加有效复核；旧 revision 的复核不挪作当前资格 |
 | 指标/下钻 | Overview/Insights/Report 按已验收分母、时间、模式和证据来源计算；失败不当未提及；报告/CSV 权限、低敏和公式注入边界不变 |
-| 机会/行动 | ADMIN 经 GEO-1006 的真实受保护入口显式 evaluate 产生可解释机会，人工使用现有 Action API 并查看结果；AI 仅草稿，不直接发布；入口见 §4.1 |
-| 同口径复测 | 既有公共 API 创建 action/retest（创建 UI 未完整接线时不伪称页面完成）；保存冻结 baseline 和 comparability，完整结果后显式 resolve |
+| 机会/行动 | ADMIN 经 GEO-1006 的真实受保护入口显式 evaluate 产生可解释机会，在 Opportunity 详情选择产品/已批准事实/平台创建 Content Task 并查看目标链接；AI 仅草稿，不直接发布；入口见 §4.1 |
+| 同口径复测 | Opportunity 详情选择来源基线并显式 preview/create Retest；核对差异与冻结矩阵，不可比禁止创建；运行中心完成观测后比较并显式 resolve/continue |
 | 拒绝/恢复 | 错角色、CSRF、stale revision、重复提交保留既有错误；未知外发结果不自动重发；安全停止后能恢复 MANUAL 分析，无历史修改 |
 
 至少一批实际生产 MANUAL 闭环及内部使用者反馈，由业务验收人签署；冻结试用人群/问题样本/时长/缺陷处理负责人。本地假数据 E2E 只证明实现边界，不证明正式试用或真实采集质量。外部人工采集仍须遵守平台许可，不要求普通测试访问真实外部 AI。
 
 当前生产 Plan cron 批次扫描和自动 opportunity evaluator **未接线**。ADR-007 明确将它们移出 V1.0，能力矩阵保留 deferred/not implemented 的事实；首发改为 GEO-1005 的 CRON 禁用/既存治理与 GEO-1006 的管理员显式评估门禁。Beat tick/健康不能证明业务执行，手工评估也不证明周期执行；旧 906 NOT_MET 原文保留，本次不改写其历史。
 
-### 4.1 管理员显式机会评估（GEO-1006）
+### 4.1 管理员显式机会评估（GEO-1006 / GEO-1010-UI）
 
-内部试运行每次机会评估由 ADMIN 明确执行 `POST /api/v1/geo/opportunities/evaluate`。该接口使用现有登录会话，必须携带会话绑定的 `X-CSRF-Token` 和独立 `Idempotency-Key`（8～128 个非空白可打印 ASCII 字符）；ENGINEER 不能执行。没有评估操作页面，使用获准的管理 API 客户端。不要将会话、CSRF 或幂等键写入命令历史、报告或审计证据。
+内部试运行每次机会评估由 ADMIN 明确执行 `POST /api/v1/geo/opportunities/evaluate`。该接口使用现有登录会话，必须携带会话绑定的 `X-CSRF-Token` 和独立 `Idempotency-Key`（8～128 个非空白可打印 ASCII 字符）；ENGINEER 不能执行。管理员从 GEO 机会工作台点击“评估 Opportunity”，填写带时区窗口、明确规则 revision 和筛选范围。产品通过关联产品的 Subject 选择；Surface/Profile 分页搜索，模式默认 MANUAL。提交后查看冻结回执、created/reused/skipped 与未生成原因；无机会是可解释结果，不当作成功空数据。页面使用同一受保护 API。不要将会话、CSRF 或幂等键写入命令历史、报告或审计证据。
 
 执行前确认当前进程的 `GEO_MONITORING_ENABLED` 与 `GEO_OPPORTUNITY_EVALUATION_ENABLED` 均为 true；这只授予显式评估资格，不启动周期任务。ADMIN 从现有 `GET /api/v1/geo/rules` 读取并明确选择规则 revision；也可使用已有历史 revision，不会被当前规则指针替换。窗口必须带时区，UTC 半开 `[date_from,date_to)`、不超过31天。
 
@@ -177,9 +177,9 @@ ALL 评估所选模式窗口内全部观测，不能带实体过滤。限定评�
 
 网络中断或响应丢失时，同一管理员以完全相同规范参数和原 key 重试，服务返回原回执及原 as_of、replayed=true，不再次评估、不追加成功审计。同 key 变参返回409 IDEMPOTENCY_CONFLICT；需要主动评估新观测或新复核时使用新 key，开放机会与相同结果沿既有 identity/指纹复用。key 按管理员隔离，不将另一管理员的同 key 当作全局重放。角色/停用/改密或开关已关闭时，重放同样拒绝。
 
-评估只记录机会和评估证据；Action 和 Retest 仍由人工分别调用已有接口，不自动执行，不注册 Beat/CRON 或任何周期调度，也不在采集提交、指标读取或报表读取时隐式触发。成功 `geo_opportunity.evaluated` 审计仅保留范围、规则 revision、计数、原因代码、as_of 和请求摘要；失败整体回滚，重放无重复审计。
+评估只记录机会和评估证据；Action 和 Retest 仍由人工分别确认：详情的 Content Task 表单选择原子创建选项，Retest 先预览再创建；事实/发布修复仍使用已有 API，不自动执行，不注册 Beat/CRON 或任何周期调度，也不在采集提交、指标读取或报表读取时隐式触发。成功 `geo_opportunity.evaluated` 审计仅保留范围、规则 revision、计数、原因代码、as_of 和请求摘要；失败整体回滚，重放无重复审计。
 
-候选需先前滚到0066；加法迁移保留既有历史，回执不可修改或删除，downgrade 安全停止。故障时先关闭评估资格并保留失败现场，使用前向修复或迁移前成套备份恢复，不清除回执/审计来重新执行。GEO-1010 仍须在获准目标/候选上证明真实入口、重复触发、拒绝与 MANUAL 闭环；本地 PostgreSQL 测试不替代现场试运行。
+候选需先前滚到0066；加法迁移保留既有历史，回执不可修改或删除，downgrade 安全停止。页面遇到 409 保留输入并要求重新核对；Content Task/Retest 的 revision 冲突须显式加载最新机会，Retest 再预览原基线。5xx/网络丢失保留冻结 payload/key，只允许用户确认原请求结果，禁止自动重发或静默换基线。服务端仍重验资格。故障时先关闭评估资格并保留失败现场，使用前向修复或迁移前成套备份恢复，不清除回执/审计来重新执行。GEO-1010 仍须在获准目标/候选上证明真实入口、重复触发、拒绝与 MANUAL 闭环；本地 PostgreSQL 测试不替代现场试运行。
 
 ## 5. 监控与停止
 

@@ -1,0 +1,330 @@
+{
+  "recorded_at_utc": "2026-10-07T17:01:57.918219+00:00",
+  "scope": "DEPLOY开始准备前工作树快照，不是候选",
+  "branch": "main",
+  "head": "bc68f087153009aae032e52415ee5c9274199581",
+  "origin_main_cached": "bc68f087153009aae032e52415ee5c9274199581",
+  "remote_fetched_this_session": false,
+  "working_tree_clean": false,
+  "changed_file_hashes": {
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/acceptance.json": {
+      "exists": true,
+      "sha256": "f87848da1b9bb4c4dbb2184221428ac2ce8fab8a55fc2c57cfb43f0e0b83f873"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/design.md": {
+      "exists": true,
+      "sha256": "d94854bfcb685b69da8b0c835d71b8c72852a28e9d6ee960b4c482f70364cae9"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/backend-lint.log": {
+      "exists": true,
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/backend-projection-tests.log": {
+      "exists": true,
+      "sha256": "ecf57d762b443151696ef4727347520d0d5715719bac1e0cd93caddf627ffa61"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/backend-typecheck.log": {
+      "exists": true,
+      "sha256": "5d4b6d285b77932e3d08212c3b4974d0a803f98ec60408ac6ccf6a063fa6c19e"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/candidate-review.diff": {
+      "exists": true,
+      "sha256": "8c6182250843f8486a0a967832279086b1c3f5d6f0acce701d6ef321dddbb96d"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/compare-intent-before.log": {
+      "exists": true,
+      "sha256": "f933685fa4c838517448202b6399cc7b6383786ec077c32c14cb5bf37eae6d0b"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/compare-intent-setup-error.log": {
+      "exists": true,
+      "sha256": "7e5b620451214c19ae5608ee5efd91dd3512052711f2f28476285e8ff39c52bb"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/contract-check.log": {
+      "exists": true,
+      "sha256": "2e0bb347a4363d4c6239376a127859d66b0f541eda602cd4c7a5124f337a13cc"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/detail-denied-before.log": {
+      "exists": true,
+      "sha256": "bb048f7b3bc8fb020591e2e9b30cca94e2cfcbe0038316e7ed9f729ae24886aa"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/docs-hash-check.log": {
+      "exists": true,
+      "sha256": "52698e42e481b45f0f710ea7cfcb4ebe14cf899852890e10dd49a77fb7ad5c02"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/evaluation-tests.log": {
+      "exists": true,
+      "sha256": "12a2344d21de11912bda441c1e56d1b5eaf93c5708669efd779397c374262f09"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/final-state.json": {
+      "exists": true,
+      "sha256": "c06f671dcf7bfe7b76296da5a59583e6bf509cc8c586e6037906f9e475c6395f"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/frontend-lint.log": {
+      "exists": true,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/frontend-unit.log": {
+      "exists": true,
+      "sha256": "5bc17bb826f8fd9f97572bdac064aeaf027f5f76eff64e001586fbcb9cf2e45a"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/geo1010-content-task.png": {
+      "exists": true,
+      "sha256": "bb8dc5fac6606fc8e7594bef986ecc3aad4241d929666d9ae94ae8c1b8932a9a"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/geo1010-retest-preview.png": {
+      "exists": true,
+      "sha256": "12bdfd2fbb49f5183d6abb6ced9034985ca62e4f20d9a426ebe84ffcb4546649"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/geo707-safe-audit.png": {
+      "exists": true,
+      "sha256": "81ee8f5ccbe00aa4e5a8adf48ed159fbbe5b5f7ecd4f3a9edbc50b56429a90e9"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/independent-review.md": {
+      "exists": true,
+      "sha256": "293599e89aa0a994bb6cb525fe8bc50fbaaf5e5ccecc5e5d3e5e60ba46a0fc92"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/opportunities-tests-final.log": {
+      "exists": true,
+      "sha256": "8b3fe5ca8715b3cfc25234f51959d65257a2fca4411d7fbda1cdac181b41b6f7"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/opportunities-tests-initial.log": {
+      "exists": true,
+      "sha256": "65c7bdceda5e18a93c0cad7cd2a1c16de488693dc2ee78c656ca7c8eee2cef4e"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/prompt-hash-check.log": {
+      "exists": true,
+      "sha256": "ac639895ba9cf9843d3d361ff838c6f4f4bab083c6a3baca6ec7ca676123522c"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/real-stack-e2e-before-review-fixes.log": {
+      "exists": true,
+      "sha256": "6bb2c9b443b66e06033e3a9617ba87da4ab46fcbebaaef91129c94e684fcb1db"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/real-stack-e2e-before-select-width.log": {
+      "exists": true,
+      "sha256": "b19185ea2178cee261dfba680016bddd94576f0d54250084d2030103d5af8d3b"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/real-stack-e2e-fieldset-width-failed.log": {
+      "exists": true,
+      "sha256": "98ade765bf483def06297365cc5ffd4e16fbb6735920dbec8bf6881d77a2e81a"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/real-stack-e2e-selector-interrupted.log": {
+      "exists": true,
+      "sha256": "98ed3e32b522b82275fa8ec940f970051e65aded47373520f8916b2c063d50c4"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/real-stack-e2e.log": {
+      "exists": true,
+      "sha256": "a48757c97f763952dfe179f8d7ffefa6e6a6488d23813e2646b82cdb4f325087"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/recheck-before.json": {
+      "exists": true,
+      "sha256": "86505c3f423bfd622492d1a8e88cfe8ac182b76a3393d259d1193f5887a4e46b"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/recheck-write-evidence.json": {
+      "exists": true,
+      "sha256": "10e238881550774d98dbc418600044751925618368206b8f5fea1f5ad2f9d7d7"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/review-regressions-before.log": {
+      "exists": true,
+      "sha256": "57008e5544a860b21c283bc1a70458257e6979e5fb8090e09065d6b1c98b0d4e"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/reviewer-before.json": {
+      "exists": true,
+      "sha256": "82aec57b06985e253ed6ac7708421aa58c4f8eb892d214154ea36e34794393ef"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/typecheck-business.log": {
+      "exists": true,
+      "sha256": "8477c7fd19e83d96189389c781883aebc77712d52c0de19c573ad4bf5e0d7d6b"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/typecheck-evaluation.log": {
+      "exists": true,
+      "sha256": "6e74ca2d4fcd0b736470da1e95179b1304e1213b233ddc84de0f0a73e366db98"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/typecheck-final.log": {
+      "exists": true,
+      "sha256": "8477c7fd19e83d96189389c781883aebc77712d52c0de19c573ad4bf5e0d7d6b"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/typecheck-initial.log": {
+      "exists": true,
+      "sha256": "7c2a0492e1645053511a460171960661e9a7fa13976056633a06985cb7605d77"
+    },
+    "docs/geo-monitoring/06-reviews/2026-10-07-geo-1010-ui-acceptance.md": {
+      "exists": true,
+      "sha256": "718d13da8b49425c85b7515223c3fb016970c54fb74681520184ceb858bfbf92"
+    },
+    "frontend/src/domains/geo-opportunities/opportunity-business.api.ts": {
+      "exists": true,
+      "sha256": "63c64d55b25b9ce2c42f8adeb59fa38ac2bbd5c494d015a4fb5606354af3effd"
+    },
+    "frontend/src/domains/geo-opportunities/opportunity-business.model.test.ts": {
+      "exists": true,
+      "sha256": "9edbaa478261139dff1d4b5c99d81455acaa70ee16a88c2f962d6d7957fb0164"
+    },
+    "frontend/src/domains/geo-opportunities/opportunity-business.model.ts": {
+      "exists": true,
+      "sha256": "5a405f22c17d4e98726d18038f980b04d8330dde0f18c0367983a49b12c05242"
+    },
+    "frontend/src/domains/geo-opportunities/opportunity-business.test.tsx": {
+      "exists": true,
+      "sha256": "af18681eb9c038ac06ffc80cc34f31946ea7af9ab6a5c7fcf2cc7f4267affb56"
+    },
+    "frontend/src/domains/geo-opportunities/opportunity-content-task.tsx": {
+      "exists": true,
+      "sha256": "071494f77f0cc21e428c855c1606f9a06f86e741d6b359df2bf1ab65e4430c97"
+    },
+    "frontend/src/domains/geo-opportunities/opportunity-evaluation-options.tsx": {
+      "exists": true,
+      "sha256": "3ea1899440469c989e0d5e8cffd9bb22420a25ee59b7cef4a7bba128945b1bca"
+    },
+    "frontend/src/domains/geo-opportunities/opportunity-evaluation.api.ts": {
+      "exists": true,
+      "sha256": "fed4ddc218148e3e54a2996d884181972c654386325ea2af8a6dfa94ccdc433f"
+    },
+    "frontend/src/domains/geo-opportunities/opportunity-evaluation.model.test.ts": {
+      "exists": true,
+      "sha256": "afa7f4ed8d5a92c06507b18b3512e543a590b0ed5f696569effc2f7a6f812929"
+    },
+    "frontend/src/domains/geo-opportunities/opportunity-evaluation.model.ts": {
+      "exists": true,
+      "sha256": "869b283aa15d7dfa0d4785f2f539a3bd133150451c6786f6f92a60c7adcf2084"
+    },
+    "frontend/src/domains/geo-opportunities/opportunity-evaluation.test.tsx": {
+      "exists": true,
+      "sha256": "e4acd7cbdfc945282d62310596344a5392f011da519e93eabc7ed8a9adaae821"
+    },
+    "frontend/src/domains/geo-opportunities/opportunity-evaluation.tsx": {
+      "exists": true,
+      "sha256": "4d7262a39fd2b78d5007ff1e8a3260347abdd9e87fdc0aa7e6568324a735e4ad"
+    },
+    "frontend/src/domains/geo-opportunities/opportunity-retest.tsx": {
+      "exists": true,
+      "sha256": "92669be75ba1356a36e1f44123e85a08105d1608d789d9bf3ecedea31f307d3a"
+    },
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/prd.md": {
+      "exists": true,
+      "sha256": "091816b44ac34583d99b633587399d5b96c31326138f1a723da37da1ae9e6520"
+    },
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/task.json": {
+      "exists": true,
+      "sha256": "ecc462c4b4354f8c0883c63c50f1cefb723d4ff1f8d60870d3fb6560f1504096"
+    },
+    ".trellis/tasks/10-07-geo-1010-manual-pilot/design.md": {
+      "exists": true,
+      "sha256": "99f0dbbea3c5ee9ceb50e8ed7e484e8e6cf0bcd6ce1442aec1d088f6faa58d29"
+    },
+    ".trellis/tasks/10-07-geo-1010-manual-pilot/implement.md": {
+      "exists": true,
+      "sha256": "c69458895f94177a6b49465794ee6f951f2d7cf4053c092226a886562de8ae3d"
+    },
+    ".trellis/tasks/10-07-geo-1010-manual-pilot/prd.md": {
+      "exists": true,
+      "sha256": "58ea1e50703b4a6a6aff24f5b9a267eb4be227d1263f4cd4cb6c793a6f627bc5"
+    },
+    ".trellis/tasks/10-07-geo-1010-manual-pilot/task.json": {
+      "exists": true,
+      "sha256": "80c0be4692565fcdccad42af6756c28bc87583757af5e538e73500eee91fab68"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/implement.md": {
+      "exists": true,
+      "sha256": "1916ec50bbd7d1b9385ad64dbb1c6c2428adce32899dbf86084b95446619ebf4"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/prd.md": {
+      "exists": true,
+      "sha256": "cea8c70d696eed1c804e124327cb5d2e51b98e19a575c1818069f4eaf59b64ec"
+    },
+    ".trellis/tasks/10-07-geo-1010-ui-business-closure/task.json": {
+      "exists": true,
+      "sha256": "8687d57983811d27adff34a6d04cd29fe18835924e6a2fff1ee1892af8736829"
+    },
+    "backend/app/services/geo_opportunity_policy.py": {
+      "exists": true,
+      "sha256": "1e897c3ab7fd68f60b7a1c931e8bb69435541802f4f49fcdcb2b9caf03525476"
+    },
+    "backend/tests/geo_loop_e2e_seed.py": {
+      "exists": false,
+      "sha256": null
+    },
+    "backend/tests/unit/test_geo_opportunity_actions.py": {
+      "exists": true,
+      "sha256": "bff72dd551cdaf6e559122bbe8da627af40e2bb1c32af9e9ea221f2a5924d4c6"
+    },
+    "contracts/database.md": {
+      "exists": true,
+      "sha256": "dddfc30752216bad7d2984bf3cf3bba2334b9b1f0f2fe86dddc685db3fe38488"
+    },
+    "deploy/scripts/e2e-local.sh": {
+      "exists": true,
+      "sha256": "eb75051b3a8c0de7f2fc6283699b7c75d854602fda081b211d6dae1855dab422"
+    },
+    "docs/geo-monitoring/01-product/02-geo-core-prd.md": {
+      "exists": true,
+      "sha256": "ec1bc9d5cdd2145f0955d97894d5837fbbc7d17135a475f1038aed751bf97267"
+    },
+    "docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md": {
+      "exists": true,
+      "sha256": "34c930bcb568bc6dfb13c52e130bccb517403bda26f4cdf473530908774f4613"
+    },
+    "docs/geo-monitoring/03-technical/04-frontend-architecture.md": {
+      "exists": true,
+      "sha256": "c462b7a33a76395a915855cd42aa6b16f842a0dc19bf7e1fc71cd241069771ab"
+    },
+    "docs/geo-monitoring/03-technical/07-testing-and-quality.md": {
+      "exists": true,
+      "sha256": "4f4380ed7c7f5f9a458bc5cd259610e6588dbd0120eda64f95a080b1427c4173"
+    },
+    "docs/geo-monitoring/03-technical/10-core-rollout-runbook.md": {
+      "exists": true,
+      "sha256": "423d2b0a327065d35891918c61190bc88e9e18d5735d3bf0c9e91dc8d99b9bcc"
+    },
+    "docs/geo-monitoring/04-delivery/01-implementation-roadmap.md": {
+      "exists": true,
+      "sha256": "93469eb5d425b6c6d370f11e82594eadb60654429dec6d1db6e740c5d2977a89"
+    },
+    "docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md": {
+      "exists": true,
+      "sha256": "36a4e8bf1b3087b92608a98f68778d11309c14b675a72cc15ed71b23765dbe59"
+    },
+    "docs/geo-monitoring/04-delivery/codex-prompts/EXECUTION_ORDER.md": {
+      "exists": true,
+      "sha256": "1a77222d37ed68c15876cb6158bea4a328e280b85102c7636e790a768f0f65f7"
+    },
+    "docs/geo-monitoring/04-delivery/codex-prompts/SHA256SUMS": {
+      "exists": true,
+      "sha256": "b46a2708c93b93d7d4e5497636432145affb32fb4e51a0ba7250d2022c21c19c"
+    },
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml": {
+      "exists": true,
+      "sha256": "80c61d07edd9fa2254e91bcbc92a9e54f514678befc71cb92f462f37a995778e"
+    },
+    "docs/geo-monitoring/SHA256SUMS": {
+      "exists": true,
+      "sha256": "cc1415bd52e536aac65526de771615e5169fa15ad73095b9d7024eaa12e1145a"
+    },
+    "frontend/src/domains/geo-opportunities/opportunities-page.tsx": {
+      "exists": true,
+      "sha256": "4e91f132829b4ea58545a1dca17f38a45fd60122750129f342fc32c7d230fa39"
+    },
+    "frontend/src/domains/geo-opportunities/opportunities.api.ts": {
+      "exists": true,
+      "sha256": "9c594375343db1e514d5ad34b6b01226c23c961bb8b1bd43eb42fa9723aac02b"
+    },
+    "frontend/src/domains/geo-opportunities/opportunity-detail.tsx": {
+      "exists": true,
+      "sha256": "5f40afd304c54b5a3cbbe80d345274fc508a27f1676ff946b385e1b39b6e4e11"
+    },
+    "frontend/src/routes/_app/geo/opportunities.tsx": {
+      "exists": true,
+      "sha256": "ffb9e4306d1c14208b7d8a0c7d04ffc7593da60aa3a8c2f29f240802344f65ea"
+    },
+    "frontend/tests/e2e/geo-loop-real-stack.spec.ts": {
+      "exists": true,
+      "sha256": "4f3f6e67509e13779258f3d749e483bfefcb37c6f5f4f12161fdf6b8ec4f4854"
+    },
+    "frontend/tests/e2e/geo-loop-support.ts": {
+      "exists": true,
+      "sha256": "e606ecf38f3e621ca7290a1ec212eaf4d95671bedcc20de9b8de73c8914a20f1"
+    }
+  },
+  "git_status_porcelain": "M .trellis/tasks/10-07-geo-1010-internal-pilot-deploy/prd.md\n M .trellis/tasks/10-07-geo-1010-internal-pilot-deploy/task.json\n M .trellis/tasks/10-07-geo-1010-manual-pilot/design.md\n M .trellis/tasks/10-07-geo-1010-manual-pilot/implement.md\n M .trellis/tasks/10-07-geo-1010-manual-pilot/prd.md\n M .trellis/tasks/10-07-geo-1010-manual-pilot/task.json\n M .trellis/tasks/10-07-geo-1010-ui-business-closure/implement.md\n M .trellis/tasks/10-07-geo-1010-ui-business-closure/prd.md\n M .trellis/tasks/10-07-geo-1010-ui-business-closure/task.json\n M backend/app/services/geo_opportunity_policy.py\n D backend/tests/geo_loop_e2e_seed.py\n M backend/tests/unit/test_geo_opportunity_actions.py\n M contracts/database.md\n M deploy/scripts/e2e-local.sh\n M docs/geo-monitoring/01-product/02-geo-core-prd.md\n M docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md\n M docs/geo-monitoring/03-technical/04-frontend-architecture.md\n M docs/geo-monitoring/03-technical/07-testing-and-quality.md\n M docs/geo-monitoring/03-technical/10-core-rollout-runbook.md\n M docs/geo-monitoring/04-delivery/01-implementation-roadmap.md\n M docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md\n M docs/geo-monitoring/04-delivery/codex-prompts/EXECUTION_ORDER.md\n M docs/geo-monitoring/04-delivery/codex-prompts/SHA256SUMS\n M docs/geo-monitoring/04-delivery/task-manifest.yaml\n M docs/geo-monitoring/SHA256SUMS\n M frontend/src/domains/geo-opportunities/opportunities-page.tsx\n M frontend/src/domains/geo-opportunities/opportunities.api.ts\n M frontend/src/domains/geo-opportunities/opportunity-detail.tsx\n M frontend/src/routes/_app/geo/opportunities.tsx\n M frontend/tests/e2e/geo-loop-real-stack.spec.ts\n M frontend/tests/e2e/geo-loop-support.ts\n?? .trellis/tasks/10-07-geo-1010-ui-business-closure/acceptance.json\n?? .trellis/tasks/10-07-geo-1010-ui-business-closure/design.md\n?? .trellis/tasks/10-07-geo-1010-ui-business-closure/evidence/\n?? docs/geo-monitoring/06-reviews/2026-10-07-geo-1010-ui-acceptance.md\n?? frontend/src/domains/geo-opportunities/opportunity-business.api.ts\n?? frontend/src/domains/geo-opportunities/opportunity-business.model.test.ts\n?? frontend/src/domains/geo-opportunities/opportunity-business.model.ts\n?? frontend/src/domains/geo-opportunities/opportunity-business.test.tsx\n?? frontend/src/domains/geo-opportunities/opportunity-content-task.tsx\n?? frontend/src/domains/geo-opportunities/opportunity-evaluation-options.tsx\n?? frontend/src/domains/geo-opportunities/opportunity-evaluation.api.ts\n?? frontend/src/domains/geo-opportunities/opportunity-evaluation.model.test.ts\n?? frontend/src/domains/geo-opportunities/opportunity-evaluation.model.ts\n?? frontend/src/domains/geo-opportunities/opportunity-evaluation.test.tsx\n?? frontend/src/domains/geo-opportunities/opportunity-evaluation.tsx\n?? frontend/src/domains/geo-opportunities/opportunity-retest.tsx",
+  "candidate_commit": null,
+  "target": null
+}

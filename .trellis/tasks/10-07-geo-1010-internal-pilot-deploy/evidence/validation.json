@@ -1,0 +1,100 @@
+{
+  "record_status": "PASSED",
+  "recorded_at_utc": "2026-10-07T17:12:51.409243+00:00",
+  "scope": "准备文档/治理/检查脚本，不是候选或目标验收",
+  "preserved_initial_files_checked": 71,
+  "unrelated_file_changes": [],
+  "documentation_hashes_checked": 211,
+  "documentation_hash_mismatches": [],
+  "local_links_checked": 66,
+  "missing_links": [],
+  "parent_child_status_and_relations": true,
+  "unknown_candidate_target_approvals_retained": true,
+  "commands": [
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--cached",
+        "--quiet"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--exit-code",
+        "--",
+        ".trellis/tasks/10-07-geo-1010-manual-uat-performance"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "backend/.venv/bin/ruff",
+        "check",
+        "--config",
+        "backend/pyproject.toml",
+        ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/evidence/check-preparation.py"
+      ],
+      "exit_code": 0,
+      "stdout": "All checks passed!",
+      "stderr": ""
+    }
+  ],
+  "prior_failures": [
+    {
+      "check": "系统python3临时准备核对",
+      "exit_code": 1,
+      "cause": "ModuleNotFoundError: yaml",
+      "resolution": "使用已安装项目venv，entry-state保留"
+    },
+    {
+      "check": "准备脚本初次Ruff",
+      "exit_code": 1,
+      "codes": [
+        "B905",
+        "B905",
+        "UP017"
+      ],
+      "resolution": "修正严格zip与UTC别名，复查通过"
+    },
+    {
+      "check": "最终链接核对首次输出前",
+      "exit_code": 1,
+      "cause": "implement.md引用尚未创建的validation.json",
+      "resolution": "创建明确IN_PROGRESS记录，再核验真实文件路径，最终写入实际结果"
+    }
+  ],
+  "nginx_source_check": {
+    "command": [
+      "node",
+      "deploy/scripts/check-nginx-security.mjs"
+    ],
+    "exit_code": 0,
+    "scope": "当前工作树源码检查；复用本轮有效结果"
+  },
+  "preparation_script_result_ref": "preparation-checks.json",
+  "candidate_full_gate": "NOT_RUN",
+  "candidate_artifacts": "NOT_CREATED",
+  "target_checks": "NOT_VERIFIED",
+  "independent_review": "NOT_PERFORMED_PREPARATION_ONLY_NO_RELEASE_EXECUTOR_CHANGE",
+  "git_commit_push_fetch_performed": false,
+  "deployment_performed": false,
+  "source_head": "bc68f087153009aae032e52415ee5c9274199581"
+}

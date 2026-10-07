@@ -1,0 +1,83 @@
+{
+  "recorded_at_utc": "2026-10-07T17:10:36.777672+00:00",
+  "evidence_scope": "当前未提交工作树的准备核对；不证明新候选完整门禁或现场",
+  "dependencies": {
+    "GEO-1009": "done",
+    "GEO-1010": "in_progress",
+    "GEO-1010-UI": "done"
+  },
+  "ui_acceptance_source_count": 22,
+  "ui_acceptance_source_mismatches": [],
+  "ui_acceptance_evidence_count": 9,
+  "ui_acceptance_evidence_mismatches": [],
+  "geo1009_accepted_commit": "e5949ab66989c1277424cfe9ab8b93e10ce10046",
+  "geo1009_log_hash_matches": true,
+  "producer_consumer_tracked_allowlist_match": true,
+  "tracked_file_count": 13,
+  "tracked_file_hashes": {
+    "deploy/compose.prod.yaml": "c4b55da84bbd8e8e83f76a15b183cc2a9c76ef9961ef4af8bee6ac3fd4261a7b",
+    "deploy/nginx/partsignal-maintenance.conf.template": "9259ce49b8877c123e2ce0d7c70dc3a6414a0c764a012ff5d3acc7894d83f217",
+    "deploy/nginx/partsignal-security-headers.conf": "c946c3a33dc8f3ae078545cb37df3b6a65759ca589345ed485139bdd9148931e",
+    "deploy/nginx/partsignal.conf.template": "40b28f36f5cf8e3abe34182eb5e67feba4849bf3346d1c09bc9986ff284e1321",
+    "deploy/scripts/activate-production.sh": "7b2015616701e9c570888a1d4074f5653a05a36695e801e5553ab7c4668078dc",
+    "deploy/scripts/check-production-inputs.py": "815ee217c72d4f28010dad0060743cce79f82fe1b7878c76f3b077c456a3d663",
+    "deploy/scripts/deploy.sh": "0ad34e3d8a28285a74c23bc0fd261dc37ee2689665af7a719d13629ccf6e5120",
+    "deploy/scripts/prepare-production-data.py": "312236f2f2dbd144f795d72c8b1f04f30ed9c6b901681c2691984b97e746dec3",
+    "deploy/scripts/production_deployment.py": "89999a546337c74d23be0ffca17ec24abacd8e8f4dbc389ed73d4416c0ef085e",
+    "deploy/scripts/production_maintenance_execution.py": "3e7d0164ba78ea43a3d4b14fafed7a06f92eecf2ef2f65e45e309b2b78c0d239",
+    "deploy/scripts/production_migration_runtime.py": "172a034739eefaa77c2d6eb13b7bf114b1d643a643f971c39a6856f4988407dd",
+    "deploy/scripts/production_upgrade_recovery.py": "77939f095eb1b17d8ffe9ad14b079afa224b3cde83d9558ba695f17904fa3e76",
+    "deploy/scripts/rollback-production-frontend.sh": "25e26c6d6b9773e40fcd36b9ebbfeb783111b905ffb4271109426e5378736c69"
+  },
+  "scheduler_beat_schedule": {
+    "redispatch-pending-geo-analyses": "partsignal.redispatch_pending_geo_analyses",
+    "recover-expired-geo-analyses": "partsignal.recover_expired_geo_analyses",
+    "recover-expired-generation-leases": "partsignal.recover_expired_generation_jobs",
+    "redispatch-pending-generation-jobs": "partsignal.redispatch_pending_generation_jobs",
+    "recover-expired-geo-leases": "partsignal.recover_expired_geo_runs",
+    "redispatch-pending-geo-runs": "partsignal.redispatch_pending_geo_runs",
+    "cleanup-geo-artifacts": "partsignal.geo_cleanup_artifacts",
+    "cleanup-platform-logo-files": "partsignal.cleanup_platform_logo_files"
+  },
+  "scheduler_allowed_set_matches": true,
+  "schema_head_check": {
+    "command": [
+      "backend/.venv/bin/alembic",
+      "-c",
+      "backend/alembic.ini",
+      "heads"
+    ],
+    "exit_code": 0,
+    "stdout": "0066_geo_manual_evaluation (head)",
+    "stderr": ""
+  },
+  "local_tool_checks": [
+    {
+      "command": [
+        "docker",
+        "version",
+        "--format",
+        "{{.Client.Version}}|{{.Server.Version}}"
+      ],
+      "exit_code": 0,
+      "stdout": "29.6.1|29.5.2",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "docker",
+        "compose",
+        "version",
+        "--short"
+      ],
+      "exit_code": 0,
+      "stdout": "5.3.1",
+      "stderr": ""
+    }
+  ],
+  "observed_runtime_flags": null,
+  "candidate_full_gate": "NOT_RUN",
+  "target_readiness": "NOT_VERIFIED",
+  "deployment_performed": false,
+  "preparation_check_passed": true
+}

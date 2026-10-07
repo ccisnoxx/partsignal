@@ -280,21 +280,21 @@ R7延期不是核心阻断原因；生产输入缺失与上述核心缺口不能
 | 首发修复 | GEO-1003 production Browser 硬禁止；1004 Catalog 当前身份；1005 CRON 禁用/既存状态治理；1006 管理员显式评估；1008 升级失败安全恢复 |
 | 能力真实性 | GEO-1007：依赖 1005/1006，校准页面和操作说明，不实现范围外自动化/UI/CSV |
 | main 门禁接受 | GEO-1009：固定 clean main 完整门禁验证已获人工接受；未生成的候选工件与冻结移交 UI done 后的 GEO-1010-DEPLOY |
-| 内部试运行聚合 | GEO-1010 ready：UI ready → DEPLOY planned → UAT planned；同候选部署、真实业务/性能验收与具名内部 Go/No-Go |
+| 内部试运行聚合 | GEO-1010 in_progress：UI done → DEPLOY ready → UAT planned；同候选部署、真实业务/性能验收与具名内部 Go/No-Go |
 
-每项完整依赖、交付物、测试及验收以 [WBS](./02-work-breakdown-structure.md) 和 [manifest](./task-manifest.yaml) 为准。GEO-1001 作为审计输入，不补造任务状态；R9A 不依赖 deferred R7。CRON 自动建批次、周期 evaluator、Opportunity CSV、公共重分析和超出下述核心闭环的完整 Action/Retest UI仍延期。ADR-008将管理员评估、Content Task创建、Retest preview/create/比较与显式决定的最小页面闭环加入内部试运行前置，不宣称已实现。
+每项完整依赖、交付物、测试及验收以 [WBS](./02-work-breakdown-structure.md) 和 [manifest](./task-manifest.yaml) 为准。GEO-1001 作为审计输入，不补造任务状态；R9A 不依赖 deferred R7。CRON 自动建批次、周期 evaluator、Opportunity CSV、公共重分析和超出下述核心闭环的完整 Action/Retest UI仍延期。ADR-008将管理员评估、Content Task创建、Retest preview/create/比较与显式决定的最小页面闭环加入内部试运行前置；UI已本地实现验证并获[人工接受](../06-reviews/2026-10-07-geo-1010-ui-acceptance.md)，尚未部署或现场试用。
 
 2026-10-07 用户批准的范围调整见 [ADR-008](../05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md) 和 [GEO-1009 接受记录](../06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md)：GEO-1009 的 done 只接受固定 main 完整门禁验证；同候选 archive/images/manifest/schema/hash 与候选冻结仍由后续 DEPLOY 收口。旧 SHA 的成功不证明未来 UI 候选已验证。
 
 ### GEO-1010 当前执行顺序
 
-| 顺序 | 任务导航 | 初始状态 / 退出条件 |
+| 顺序 | 任务导航 | 当前状态 / 退出条件 |
 |---|---|---|
-| 1 | [GEO-1010-UI](../../../.trellis/tasks/10-07-geo-1010-ui-business-closure/prd.md) | ready；真实页面完成评估/Content Task/Retest/比较与显式决定，目标E2E、无P0/P1，人工接受才done |
-| 2 | [GEO-1010-DEPLOY](../../../.trellis/tasks/10-07-geo-1010-internal-pilot-deploy/prd.md) | planned；UI done后固定新main候选，完成同候选门禁/工件、获批内部部署与smoke/恢复，人工接受才done |
+| 1 | [GEO-1010-UI](../../../.trellis/tasks/10-07-geo-1010-ui-business-closure/prd.md) | done；真实页面完成评估/Content Task/Retest/比较与显式决定，目标E2E、无P0/P1，已获人工接受 |
+| 2 | [GEO-1010-DEPLOY](../../../.trellis/tasks/10-07-geo-1010-internal-pilot-deploy/prd.md) | ready；依赖done且获新会话启动授权；固定新main候选，完成同候选门禁/工件、获批内部部署与smoke/恢复，人工接受才done |
 | 3 | [GEO-1010-UAT](../../../.trellis/tasks/10-07-geo-1010-manual-uat-performance/prd.md) | planned；UI/DEPLOY done后真实样本、闭环、性能/反馈及具名内部Go/No-Go，人工接受才done |
 
-[父任务](../../../.trellis/tasks/10-07-geo-1010-manual-pilot/prd.md)为ready；任一子任务实际开始后in_progress，三个done且集成工作验收后才review，父任务另经显式人工接受才能done。不要并行UI与DEPLOY，不增加第四任务；当前不实施、不部署、不创建业务数据。子任务done不代表生产Go。
+[父任务](../../../.trellis/tasks/10-07-geo-1010-manual-pilot/prd.md)已in_progress；三个子任务done且集成工作验收后才review，父任务另经显式人工接受才能done。不要并行UI与DEPLOY，不增加第四任务；UI已done，DEPLOY转ready并移交新会话，当前尚未部署或创建现场业务数据。子任务done不代表生产Go。
 
 ### 退出门禁
 
@@ -354,3 +354,5 @@ GEO-106 Catalog E2E
 ```
 
 首批不创建 Run、Collector 或指标，先证明主数据模型和开发流程稳定。
+
+2026-10-07 DEPLOY 后续进度：发布准备已开始；用户已授权提交/push/fetch并固定新候选，候选门禁待执行；精确目标、镜像/runtime、阶段与恢复实际输入尚缺，目标部署 blocked。上文 ready 为 UI 接受时的移交状态；当前执行状态以 DEPLOY task.json/implement.md 为准，UAT 未开始。

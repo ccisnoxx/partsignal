@@ -21,7 +21,7 @@ GEO-1009 的成功 SHA `e5949ab66989c1277424cfe9ab8b93e10ce10046` 只证明该�
 
 ## 状态和失败边界
 
-父任务 ready → 任一子任务实际开始后 in_progress → 三项 done＋集成工作验收后 review → 显式人工接受后 done。本次只设置 ready/planned，不运行 task start，不自动激活、归档或跳过人工接受。
+父任务 ready → 任一子任务实际开始后 in_progress → 三项 done＋集成工作验收后 review → 显式人工接受后 done。规划时只设置 ready/planned。后续 UI 实施按其用户授权执行，父任务同步 in_progress；不得自动接受、归档或跳过人工接受。
 
 UI 的接口不匹配、权限/幂等/revision/比较失败通过现有服务端合同显式处理；领域规则缺口另行明确。DEPLOY 缺授权、候选身份、恢复路径或 readiness 不通过时停止对应阶段，沿既有 runbook 保持维护隔离，不手改发布状态、不 downgrade。UAT 发现代码问题另建缺陷任务；新候选通过修复接受和获批部署后再验证受影响流程，旧结果保留身份，不静默改阈值或样本分母。
 
@@ -31,4 +31,4 @@ Scheduler 保留现有分析/lease 恢复、PENDING 补投递、retention dry-ru
 
 每个 implement.md 初始化为未开始模板；实际命令、结果、候选/环境/时间、操作者、缺口和人工接受仅在执行后填写。UI 关键动作必须用页面；DEPLOY 本地检查不代替现场；UAT 页面耗时不代替 API 时间，实测及具名调整完整保存。
 
-治理规划只离线核对 YAML、ID/依赖无环、双向父子、Trellis 字段、链接、文档哈希、diff 与受保护路径。不重跑已接受应用门禁，不启动环境。子任务 brief 为独立范围/验收权威；本设计不复制 UI 组件设计或部署 runbook。
+治理规划只离线核对 YAML、ID/依赖无环、双向父子、Trellis 字段、链接、文档哈希、diff 与受保护路径。规划阶段不重跑已接受应用门禁、不启动环境；UI后续实施仅运行其本地验收入口，不执行DEPLOY门禁。子任务 brief 为独立范围/验收权威；本设计不复制 UI 组件设计或部署 runbook。

@@ -1,0 +1,127 @@
+# 本次DEPLOY低敏实际记录；不是候选manifest或批准。现场未知保留null/NOT_VERIFIED。
+record_kind: geo1010_deploy_rollout_evidence
+task_id: GEO-1010-DEPLOY
+record_status: PREPARATION_ONLY_TARGET_NOT_SELECTED
+recorded_at_utc: '2026-10-07T17:03:08.692002+00:00'
+target:
+  environment_id: null
+  authorized_entry_ref: null
+  observed_runtime_owner_ref: null
+candidate:
+  release_id: null
+  commit: null
+  immutable_manifest_ref: null
+  source_archive_sha256: null
+  image_identity_evidence_ref: null
+  tracked_files_evidence_ref: null
+  expected_schema_head: 0066_geo_manual_evaluation
+  observed_schema_head: null
+  recovery_candidate_manifest_ref: null
+approvals:
+  expand: null
+  deploy: null
+  enable: null
+  public_traffic: null
+  stop_recovery_drill: null
+  production_data_restore: null
+stages:
+  prepare: IN_PROGRESS_INPUTS_PENDING
+  expand: NOT_STARTED
+  deploy: NOT_STARTED
+  enable_internal: NOT_STARTED
+  observation: NOT_STARTED
+  release: NOT_STARTED
+configuration:
+  desired_browser_collection_enabled: false
+  api_observed_geo_flags: null
+  worker_observed_geo_flags: null
+  scheduler_observed_geo_flags: null
+  retention_dry_run_observed: null
+  celery_concurrency_observed: null
+  external_services_gate_evidence_ref: null
+browser:
+  status: NOT_VERIFIED
+  observed_at_utc: null
+  running_service_count: null
+  compose_profile_enabled: null
+  session_overlay_present: null
+  session_key_or_volume_mount_present: null
+  enabled_browser_profile_count: null
+  database_all_session_row_count: null
+  material_inventory_ref: null
+  material_count: null
+  negative_evidence_ref: null
+  cleanup_applicability: NOT_DETERMINED
+  session_recovery_applicability: NOT_DETERMINED
+backup_and_recovery:
+  quiescence_evidence_ref: null
+  protected_bundle_ref: null
+  authenticated_hash_inventory_ref: null
+  isolated_restore_result: NOT_VERIFIED
+  reconciliation_after_backup_ref: null
+  target_stop_drill_result: NOT_VERIFIED
+  target_recovery_drill_result: NOT_VERIFIED
+  schema_compatible_rollback_ref: null
+  upgrade_forward_recovery_record_ref: null
+manual_acceptance:
+  status: NOT_VERIFIED
+  batch_id: null
+  submitted_run_ids: []
+  current_analysis_review_evidence_ref: null
+  metric_and_report_evidence_ref: null
+  opportunity_action_retest_resolve_evidence_ref: null
+  permissions_revision_idempotency_evidence_ref: null
+  business_acceptor: null
+  signed_at_utc: null
+internal_trial:
+  status: NOT_VERIFIED
+  cohort_and_access_control_ref: null
+  plans_and_sample_scope_ref: null
+  feedback_and_defects_ref: null
+  owner: null
+observation:
+  status: NOT_VERIFIED
+  capacity_target_and_load_ref: null
+  calibrated_thresholds_and_stop_policy_ref: null
+  period_start_utc: null
+  period_end_utc: null
+  exporter_dashboard_alert_evidence_ref: null
+  actual_samples_ref: null
+  on_call_owner: null
+verification:
+  local_commands_and_results_ref: preparation-checks.json
+  production_loopback_smoke: NOT_VERIFIED
+  production_public_smoke: OUT_OF_SCOPE_NOT_AUTHORIZED
+  frontend_security_and_navigation: NOT_VERIFIED
+  independent_review_ref: null
+known_implementation_gaps:
+  production_plan_cron_dispatch: NOT_IMPLEMENTED
+  automatic_opportunity_evaluator: NOT_IMPLEMENTED
+  pre_initialized_artifact_failure_recovery: IMPLEMENTED_LOCAL_ACCEPTED_TARGET_NOT_VERIFIED
+  disposition_approval_ref: docs/geo-monitoring/05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md
+deferred_scope:
+  decision_ref: ADR-006
+  tasks:
+  - GEO-804
+  - GEO-805
+  - GEO-806
+  - GEO-807
+  status: DEFERRED_POST_CORE
+final_acceptance:
+  status: NOT_VERIFIED
+  owner: null
+  evidence_and_signoff_ref: null
+  unresolved_blockers:
+  - TARGET
+  - IMAGES
+  - RUNTIME
+  - STAGES
+  - RECOVERY
+template_source: docs/geo-monitoring/04-delivery/geo-906-release-record.template.yaml
+scope_note: 受控内部DEPLOY；本地准备不证明现场，UAT与正式公网开放未授权/未开始。
+candidate_full_gate: NOT_RUN
+deployment_performed: false
+production_go: false
+preparation_evidence_ref: preparation-checks.json
+git_publication_authorization_ref: current_conversation_user_confirmation
+git_publication_authorized_at_utc: 2026-10-07T17:19:07.470277+00:00

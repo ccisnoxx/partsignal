@@ -189,12 +189,14 @@ planned / ready / in_progress / blocked → deferred（产品延期）
 
 ## GEO-1010 聚合父任务与独立子任务（2026-10-07）
 
-依据 [ADR-008](../05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)，GEO-1009 已获[人工接受](../06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md)为 done。顶层 manifest 保留 GEO-1010（ready），children 引用三个 Trellis 路径；原生 parent/children 是关系权威，子任务展示 ID 不新建数字顶层条目。
+依据 [ADR-008](../05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)，GEO-1009 已获[人工接受](../06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md)为 done。顶层 manifest 保留 GEO-1010（in_progress），children 引用三个 Trellis 路径；原生 parent/children 是关系权威，子任务展示 ID 不新建数字顶层条目。
 
 | 展示 ID / brief | 状态 | 必须 done 的依赖 | 范围与独立验收摘要 |
 |---|---|---|---|
-| [GEO-1010-UI](../../../.trellis/tasks/10-07-geo-1010-ui-business-closure/prd.md) | ready | GEO-1009、GEO-1006、GEO-704、GEO-705、GEO-706、GEO-707 | 管理员页面评估、来源与revision可追溯的Content Task创建、Retest preview/create、比较及显式resolve/continue；available_actions与权限/错误态；真实页面E2E通过、契约历史保持、无P0/P1流程缺陷。 |
-| [GEO-1010-DEPLOY](../../../.trellis/tasks/10-07-geo-1010-internal-pilot-deploy/prd.md) | planned | GEO-1009、GEO-1010-UI | UI done后的固定main候选门禁、archive/images/manifest/schema/hash、获批内部部署、MANUAL smoke、备份/停止恢复和内部访问说明；核心健康、自动API/Browser关闭、不手改DB，明确非正式生产。 |
+| [GEO-1010-UI](../../../.trellis/tasks/10-07-geo-1010-ui-business-closure/prd.md) | done | GEO-1009、GEO-1006、GEO-704、GEO-705、GEO-706、GEO-707 | 管理员页面评估、来源与revision可追溯的Content Task创建、Retest preview/create、比较及显式resolve/continue；available_actions与权限/错误态；真实页面E2E通过、契约历史保持、无P0/P1流程缺陷。 |
+| [GEO-1010-DEPLOY](../../../.trellis/tasks/10-07-geo-1010-internal-pilot-deploy/prd.md) | ready | GEO-1009、GEO-1010-UI | UI done后的固定main候选门禁、archive/images/manifest/schema/hash、获批内部部署、MANUAL smoke、备份/停止恢复和内部访问说明；核心健康、自动API/Browser关闭、不手改DB，明确非正式生产。 |
 | [GEO-1010-UAT](../../../.trellis/tasks/10-07-geo-1010-manual-uat-performance/prd.md) | planned | GEO-1010-UI、GEO-1010-DEPLOY | 120～180目标Run或具名缩量、真实Opportunity—Action—Retest、证据追溯、用户反馈与性能实测；无未处理P0、P1有owner/处置、正式具名内部Go/No-Go。代码问题另建缺陷任务。 |
 
-[父任务 brief](../../../.trellis/tasks/10-07-geo-1010-manual-pilot/prd.md)与[治理设计](../../../.trellis/tasks/10-07-geo-1010-manual-pilot/design.md)规定：任一子任务实际开始后父任务in_progress；所有三个子任务done且集成工作验收后才review；父任务另有人工接受才done。DEPLOY不得与UI并行，不新增第四个子任务；UAT Go/No-Go为显式人工结论，子任务完成不代表生产Go。此次均未开始，下一任务只有GEO-1010-UI。
+[父任务 brief](../../../.trellis/tasks/10-07-geo-1010-manual-pilot/prd.md)与[治理设计](../../../.trellis/tasks/10-07-geo-1010-manual-pilot/design.md)规定：任一子任务实际开始后父任务in_progress；所有三个子任务done且集成工作验收后才review；父任务另有人工接受才done。DEPLOY不得与UI并行，不新增第四个子任务；UAT Go/No-Go为显式人工结论，子任务完成不代表生产Go。当前GEO-1010-UI已获[人工接受](../06-reviews/2026-10-07-geo-1010-ui-acceptance.md)并done，DEPLOY依赖满足转ready并移交新会话，UAT尚未开始。
+
+2026-10-07 DEPLOY 后续进度：发布准备已开始；用户已授权提交/push/fetch并固定新候选，候选门禁待执行；精确目标、镜像/runtime、阶段与恢复实际输入尚缺，目标部署 blocked。上文 ready 为 UI 接受时的移交状态；当前执行状态以 DEPLOY task.json/implement.md 为准，UAT 未开始。

@@ -4,6 +4,7 @@
 
 - 展示 ID：GEO-1010-DEPLOY；Trellis ID/slug：`geo-1010-internal-pilot-deploy`。
 - 初始状态：planned；必须等待 GEO-1009 done、GEO-1010-UI done。不得和 UI 并行部署，不增加第四个任务。
+- 2026-10-07 UI已获[人工接受](../../../docs/geo-monitoring/06-reviews/2026-10-07-geo-1010-ui-acceptance.md)并done，GEO-1009/UI依赖满足；当前会话用户授权开启DEPLOY会话，任务转为ready。该启动授权不补足下述精确目标、阶段与恢复输入。
 - 父任务：[GEO-1010](../10-07-geo-1010-manual-pilot/prd.md)。
 - 目标：将通过候选门禁的固定 main 部署至获批内部 UAT/Pilot，证明安装、迁移、启动、登录和 MANUAL 主链路可用。
 - 任务规划不授予目标环境写入权限。执行前必须记录获批环境/namespace/入口、操作范围与阶段、操作者及业务/运维/停止恢复负责人；未获批准或缺身份/恢复输入时不得部署。
@@ -46,7 +47,7 @@ Scheduler 只运行既有分析恢复、过期采集 lease 恢复、PENDING 分�
 - 既有 runbook 要求的可拉取且已验证 previous V2/恢复材料；不得凭空构造，不能自行因“空环境”把必需恢复输入改成 N/A。确需不同空环境恢复路径时先取得明确批准并对齐权威 runbook。
 - 获批 runtime 配置与内部账号、smoke 数据、备份和恢复负责人、容量/监控观察期与停止阈值。
 
-本规划只登记缺口，不请求或记录私有密钥，不创建账号/数据，不启动环境。
+规划阶段只登记缺口。2026-10-07 新会话已开展发布准备，接受身份、源码head、producer/consumer及配置/恢复路径核对完成；具体输入和分阶段操作见[preparation.md](./preparation.md)。Git 提交/push/fetch授权已于后续用户确认闭合；正在提交与固定候选，其余目标/阶段与材料输入尚缺，目标部署仍blocked；未请求或记录私有密钥，未创建账号/数据、未冻结候选或启动目标环境。
 
 ## 范围外
 

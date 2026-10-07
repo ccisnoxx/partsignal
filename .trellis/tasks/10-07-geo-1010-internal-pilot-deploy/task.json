@@ -2,8 +2,8 @@
   "id": "geo-1010-internal-pilot-deploy",
   "name": "geo-1010-internal-pilot-deploy",
   "title": "GEO-1010-DEPLOY：部署 MANUAL GEO 内部试运行环境",
-  "description": "仅任务规划，尚未实施；范围和独立验收见 prd.md",
-  "status": "planned",
+  "description": "发布准备已完成；用户已授权提交/push/fetch并固定新候选，正在执行；目标与镜像/runtime/阶段/恢复输入仍待闭合，未部署。",
+  "status": "blocked",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -21,7 +21,7 @@
   "children": [],
   "parent": "10-07-geo-1010-manual-pilot",
   "relatedFiles": [],
-  "notes": "本次仅规划，未开始、未实现、未部署、未创建真实数据；状态不表示实施结果。",
+  "notes": "2026-10-07：新会话启动授权已执行，准备核对完成；UI接受身份保留。DEPLOY blocked，必需输入见preparation.md；未冻结候选、未运行新SHA完整门禁、未部署，不可review/done。\n2026-10-07：用户确认Git授权，提交已接受UI、接受治理及DEPLOY准备到main并push/fetch；候选完整门禁待实际执行，目标输入仍缺。",
   "meta": {
     "display_id": "GEO-1010-DEPLOY",
     "manifest_id": null,
@@ -32,9 +32,25 @@
     ],
     "planning_baseline_commit": "360aabe8a83e66398d801ba0bbe48b0663aed4a1",
     "business_gate_commit": "e5949ab66989c1277424cfe9ab8b93e10ce10046",
-    "planning_only": true,
-    "implementation_started": false,
+    "planning_only": false,
+    "implementation_started": true,
     "human_acceptance_required": true,
-    "production_go": false
+    "production_go": false,
+    "session_start_authorized_at": "2026-10-07T16:52:04Z",
+    "deployment_performed": false,
+    "candidate_frozen": false,
+    "execution_phase": "authorized_git_and_candidate_gate_preparation",
+    "preparation_recorded_at": "2026-10-07T17:08:44.014304+00:00",
+    "candidate_commit": null,
+    "target_environment": null,
+    "blocked_input_ids": [
+      "TARGET",
+      "IMAGES",
+      "RUNTIME",
+      "STAGES",
+      "RECOVERY"
+    ],
+    "git_publication_authorized_at": "2026-10-07T17:19:07.470277+00:00",
+    "git_publication_authorization": "current_conversation_user: commit accepted UI, acceptance governance and DEPLOY preparation to main; push, fetch and fix new candidate"
   }
 }

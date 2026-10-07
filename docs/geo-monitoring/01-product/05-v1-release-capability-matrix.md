@@ -1,6 +1,6 @@
 # GEO Core V1.0 发布能力矩阵
 
-- 冻结日期：2026-10-05
+- 范围冻结日期：2026-10-05；页面实现状态更新：2026-10-07
 - 范围依据：[Accepted ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md)
 - 实现证据：[GEO-1001 审计](../06-reviews/GEO-1001-release-readiness-audit.md)
 - 发布结论：**NO-GO**；以下政策不证明运行配置、修复或生产启用已完成。
@@ -29,7 +29,7 @@
 | 指标与洞察 | available | 回答级 Overview、趋势、SOV、引用、风险/质量及下钻已实现 | 分母零 null、失败排除、模式/环境不混算 |
 | 现有报告 | available | 现有打印及 runs/citations/claims CSV 已实现 | CSV 权限、低敏、注入边界保持；GEO-1007/1010 |
 | Opportunity 管理员显式评估方式 | manual-only | GEO-1006 受 CSRF 保护的 ADMIN API 复用现有 evaluator，显式范围/窗口/revision/幂等键，无自动 Action/Retest | 实现/本地验证已接受；现场获批后由管理员执行，操作见 Runbook §4.1 |
-| Opportunity 管理员生产评估入口 | available | POST /api/v1/geo/opportunities/evaluate；真实 HTTP/PostgreSQL 验证 ADMIN、CSRF、ENGINEER 拒绝、冻结回执/原子审计及幂等；没有操作页面 | GEO-1006 实现已接受；0066 正式候选前滚及 GEO-1010 同候选现场验收尚未执行 |
+| Opportunity 管理员生产评估入口 | available | POST /api/v1/geo/opportunities/evaluate；真实 HTTP/PostgreSQL 验证 ADMIN、CSRF、ENGINEER 拒绝、冻结回执/原子审计及幂等；GEO-1010-UI 补齐管理员工作台表单与冻结摘要/未生成原因 | GEO-1006 实现已接受；0066 正式候选前滚及 GEO-1010 同候选现场验收尚未执行 |
 | Opportunity 列表/详情、确认/忽略 | available | 现有工作台与服务端状态/证据已实现 | 机会需显式评估产生；保持来源历史 |
 | 现有 Action API | available | 事实/内容/发布/补测应用服务协调及公共 API 已实现 | 人工调用；AI 仅草稿；GEO-1007/1010 |
 | 现有 Retest API 与比较/解决 | available | preview/create、冻结基线、可比性门禁及显式解决已实现 | 不可比/未知版本阻断；不承诺因果；可复现的历史基线即使来自 CRON，人工 RETEST 仍按冻结矩阵执行，保留来源且不运行当前 Plan |
@@ -42,7 +42,8 @@
 | Opportunity 自动调度 | disabled | 开关是评估资格，不证明自动调度；当前无生产周期入口 | GEO-1006/1007 保持无周期/隐式触发 |
 | Opportunity 自动周期评估交付 | deferred | not implemented：没有周期注册；管理员显式 API 不代表自动调度 | 后续重新排期；V1.0 不以周期执行为门禁 |
 | Opportunity CSV | not implemented | 当前固定 501，三类已有 CSV 不受影响 | 首发之外；GEO-1007 明确不可用，不伪装空导出 |
-| Action/Retest 完整页面操作 | not implemented | 现有 API 可用，完整创建 action、retest preview/create UI 未交付 | 首发之外；明确页面与 API 组合操作边界 |
+| 核心 Action/Retest 页面操作 | available | GEO-1010-UI：Content Task 创建、Retest preview/create、比较与显式 resolve/continue；消费服务端投影与原子选项，revision 冲突显式重读，未知结果使用原请求核对 | 本地验证通过、UI已[人工接受](../06-reviews/2026-10-07-geo-1010-ui-acceptance.md)并done；DEPLOY依赖满足转ready并移交新会话，UAT未开始；页面实现不证明现场可用 |
+| 其他 Action 创建页面 | not implemented | 事实修订、发布修复 API 仍可用；本次不增加对应创建表单 | 超出 ADR-008 核心页面闭环，不宣称完整 Action UI |
 | 公共管理员重分析入口 | not implemented | 内部可追加 revision，无生产公共 Router/CLI 操作入口 | 首发之外；不回退 FAILED Run，不承诺指标资格恢复 |
 | Overview/报告机会整合、Run Detail 指标资格占位 | not implemented | 开放机会等仍占位；详情资格字段不能代替洞察权威计算 | 首发不承诺完整整合；GEO-1007 披露边界 |
 | 不可观测的“无引用”自动推断 | disabled | citation_absence_observable=False；零引用不能证明引用丢失 | 保持 UNKNOWN/不适用，不触发无依据自动机会 |
@@ -60,3 +61,5 @@
 | Opportunity 自动调度 | 无周期注册/隐式触发 | 关闭 | 不虚构新的已实现环境键；保持人工评估与自动调度分开 |
 
 GEO_RETENTION_DRY_RUN=true、CELERY_CONCURRENCY=1 及既有数据/外发/备份安全条件按 runbook 保留。当前 production readiness 原文为 NOT_STARTED/NOT_VERIFIED，GEO-1002 不将策略值写成已观测事实。
+
+2026-10-07 DEPLOY 后续进度：发布准备已开始；用户已授权提交/push/fetch并固定新候选，候选门禁待执行；精确目标、镜像/runtime、阶段与恢复实际输入尚缺，目标部署 blocked。上文 ready 为 UI 接受时的移交状态；当前执行状态以 DEPLOY task.json/implement.md 为准，UAT 未开始。

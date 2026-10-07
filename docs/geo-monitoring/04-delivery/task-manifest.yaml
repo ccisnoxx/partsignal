@@ -1906,7 +1906,7 @@ tasks:
   phase: R9A
   release: V1.0-manual-first
   title: MANUAL GEO 内部试运行与人工验收（聚合父任务）
-  status: ready
+  status: in_progress
   dependencies:
   - GEO-1009
   - GEO-904
@@ -1933,11 +1933,11 @@ tasks:
   - 03-technical/08-deployment-and-operations.md
   - 05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md
   audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
-  scope_note: ADR-008批准核心最小页面闭环与UI→DEPLOY→UAT顺序；本次只规划，UI ready，其余planned，不开始实施或生产操作。
+  scope_note: ADR-008批准核心最小页面闭环与UI→DEPLOY→UAT顺序；2026-10-07用户人工接受UI并标记done，授权开启DEPLOY会话；DEPLOY依赖满足转ready，UAT仍planned且未开始。
   trellis_task: .trellis/tasks/10-07-geo-1010-manual-pilot
   children:
   - .trellis/tasks/10-07-geo-1010-ui-business-closure
   - .trellis/tasks/10-07-geo-1010-internal-pilot-deploy
   - .trellis/tasks/10-07-geo-1010-manual-uat-performance
   child_relation_authority: Trellis parent/children
-  execution_note: 2026-10-07：GEO-1009人工接受及done提交推送后，clean main上建立父子任务；未开始实施、部署或UAT。
+  execution_note: 2026-10-07：GEO-1009及UI依赖均done；UI人工接受记录保留。父任务in_progress；UI=done，DEPLOY新会话完成发布准备核对但因候选/目标/授权与恢复输入缺失blocked（实施已开始，未部署）；UAT planned/未开始，后续用户已授权Git提交/push/fetch及固定新候选，GIT输入闭合、本地候选工作继续；其余具体输入与证据见DEPLOY preparation.md/implement.md。

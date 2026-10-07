@@ -75,7 +75,7 @@ API、Worker、Scheduler 的 Compose backend 定义共享同一 env 文件，固
 
 GEO-1003 的生产部署、激活和前端回滚脚本在取得维护锁、改变部署状态或调用 Compose 前执行 `check-production-inputs.py --deployment-boundary <runtime_file>`。该模式只依赖 Python 标准库，并检查 runtime 与宿主环境：Browser 必须省略或 literal false；拒绝所有 Browser 会话材料；`COMPOSE_PROFILES` 只允许空值或 `production-async`；`COMPOSE_FILE` 只允许权威 `deploy/compose.prod.yaml`，拒绝 Browser/service-session overlay 和多文件组合。runtime 仍须符合普通文件、当前用户所有和 0600 合同。该模式不替代完整输入检查或 backend preflight。
 
-权威 production Compose 不包含 Browser service/profile/session 卷；显式 `geo-browser`、`COMPOSE_PROFILES=geo-browser` 或 `--profile '*'` 展开也不会产生 Browser 服务。两个 Browser Compose 文件仅供非 production，独立 Collector 在 production 身份下先于 Chromium 启动拒绝。禁止通过手工多文件 Compose 绕过权威部署入口；非生产骨架与 GEO-801～803 本地合同继续保留，没有真实 Adapter。release manifest producer/consumer 同时将输入检查脚本纳入固定 9 项 tracked files，旧 manifest 不自动兼容；新候选由 GEO-1009 冻结，目标生产零容器/零会话材料证据仍由 GEO-1010 验证。
+权威 production Compose 不包含 Browser service/profile/session 卷；显式 `geo-browser`、`COMPOSE_PROFILES=geo-browser` 或 `--profile '*'` 展开也不会产生 Browser 服务。两个 Browser Compose 文件仅供非 production，独立 Collector 在 production 身份下先于 Chromium 启动拒绝。禁止通过手工多文件 Compose 绕过权威部署入口；非生产骨架与 GEO-801～803 本地合同继续保留，没有真实 Adapter。release manifest producer/consumer 当前固定13项tracked files，包含输入检查、迁移运行时与部署/supervisor模块；旧manifest不自动兼容。[ADR-008](./geo-monitoring/05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)将UI完成后新候选的门禁、工件和冻结归属GEO-1010-DEPLOY；目标Browser零服务/零会话材料仍须独立现场证据。
 
 开发专用 `OBJECT_STORAGE_ENDPOINT`、`OBJECT_STORAGE_PUBLIC_ENDPOINT`、`OBJECT_STORAGE_PATH` 在开发模板中完整列出，生产 Aliyun OSS 不使用这三项。Production 不增加 `fake-oss`、`19001` 或 `/object-storage/`。
 

@@ -15,13 +15,13 @@
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
-  "commit": "0b6e5aa01e8bd37e70433e0b7c9e3da1d31b6756",
+  "commit": "b254b58a60ce7696533abd18b0a2bdb30b851d7e",
   "pr_url": "https://github.com/ccisnoxx/partsignal/pull/1",
   "subtasks": [],
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "第五delivery37594203220已获用户针对0475a776的一次明确授权，实际FAILURE（14分1秒）：build/all deploy-scripts与32真实栈远端通过；后续GEO enabled在历史尝试错误码裸匹配处strict-mode失败，api-disabled/monitoring-disabled/fixture/末端Compose未执行。仅修geo-api spec一条断言为当前详情alert内完整阶段+错误码；真实enabled模式57.8秒exit0（1通过/1模式跳过）、真实Chromium旧locator误通过/双匹配反例与定向ESLint通过，源码hash绑定0475+dirty执行。修复固定提交独立复审待执行。第六CI未授权、不自动触发；整PR未接受/仍Draft/mainRC未执行，恢复1008原接受保留。",
+  "notes": "第五delivery37594203220已获用户针对0475a776的一次明确授权，实际FAILURE（14分1秒）：build/all deploy-scripts与32真实栈远端通过；后续GEO enabled在历史尝试错误码裸匹配处strict-mode失败，api-disabled/monitoring-disabled/fixture/末端Compose未执行。仅修geo-api spec一条断言为当前详情alert内完整阶段+错误码；真实enabled模式57.8秒exit0（1通过/1模式跳过）、真实Chromium旧locator误通过/双匹配反例与定向ESLint通过，源码hash绑定0475+dirty执行。固定b254b58a fresh独立复审APPROVE，该locator问题RESOLVED，无确认finding；审计关闭并通过。第六CI未授权、不自动触发；整PR未接受/仍Draft/mainRC未执行，恢复1008原接受保留。",
   "meta": {
     "manifest_id": "GEO-1009",
     "ci_run_id": 37572374117,
@@ -76,7 +76,11 @@
     "fifth_ci_source_commit": "0475a776056b7689721a42af90766fb94c13c6ed",
     "fifth_ci_conclusion": "failure",
     "fifth_ci_failure_step": "make e2e/geo-api enabled historical attempt strict locator",
-    "geo_api_fix_review": "PENDING_FIXED_COMMIT_REVIEW",
-    "sixth_ci_dispatched": false
+    "geo_api_fix_review": "APPROVE",
+    "sixth_ci_dispatched": false,
+    "geo_api_fix_commit": "b254b58a60ce7696533abd18b0a2bdb30b851d7e",
+    "geo_api_fix_review_ref": "evidence/independent-geo-api-review-b254b58a.md",
+    "geo_api_fix_finding": "RESOLVED",
+    "geo_api_review_audit_id": "20261007T085023Z-delivery-geo-selected-error-fixed-review-518b459f"
   }
 }

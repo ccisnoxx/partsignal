@@ -1,0 +1,9 @@
+{
+  "fixed_sha": "b254b58a60ce7696533abd18b0a2bdb30b851d7e",
+  "checked_at": "2026-10-07T09:03:40.278705+00:00",
+  "tracked_and_nonignored_untracked_files": 12842,
+  "before_sha256": "b3f8a37d0833a0cf0aaf895ebc00edf934eec95fdcb39781deb2c482d25013bc",
+  "after_sha256": "b3f8a37d0833a0cf0aaf895ebc00edf934eec95fdcb39781deb2c482d25013bc",
+  "bytes_and_status_exact": true,
+  "observed_write_paths": []
+}

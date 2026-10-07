@@ -15,13 +15,13 @@
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "28e921112aadb9f00da9449f71c4a616babc972d",
   "pr_url": "https://github.com/ccisnoxx/partsignal/pull/1",
   "subtasks": [],
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "一次固定0b CI实际FAILURE；单元/PG/恢复已通过，失败为GNU grep CRLF自检，定向修复与默认full/显式delivery入口完成。等待新固定SHA独立复审及追加定向CI预算调整；PR仍Draft，未main/RC。缺真实镜像repository/已验证previous V2，生产未执行。",
+  "notes": "唯一CI37572374117在0b失败；GNU CRLF定向修复28e92111已推送，fresh独立增量APPROVE。等待追加一次delivery远端验证的预算调整；PR仍Draft，未main/RC。旧成功且输入不变的单元/PG证据复用。缺真实镜像repository/已验证previous V2，生产未执行。",
   "meta": {
     "manifest_id": "GEO-1009",
     "ci_run_id": 37572374117,
@@ -30,6 +30,10 @@
     "ci_failure_step": "make build test-deploy-scripts/test-frontend-container.sh",
     "additional_ci_dispatched": false,
     "main_gate_executed": false,
-    "rc_frozen": false
+    "rc_frozen": false,
+    "remediation_commit": "28e921112aadb9f00da9449f71c4a616babc972d",
+    "independent_review_ref": "evidence/independent-ci-review-28e92111.md",
+    "independent_delta_conclusion": "APPROVE",
+    "additional_ci_budget": "PENDING_USER_RESPONSE"
   }
 }

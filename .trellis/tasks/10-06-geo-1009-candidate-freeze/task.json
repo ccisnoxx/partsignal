@@ -3,7 +3,7 @@
   "name": "geo-1009-candidate-freeze",
   "title": "GEO-1009：CI准入、整PR接受与RC候选冻结",
   "description": "固定0b232f2c运行一次CI；复用审查后接受整PR，合并main并执行一次clean main完整门禁；同commit冻结archive/images/manifest/RC，不替代生产验收",
-  "status": "in_progress",
+  "status": "blocked",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -16,15 +16,20 @@
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,
-  "pr_url": null,
+  "pr_url": "https://github.com/ccisnoxx/partsignal/pull/1",
   "subtasks": [],
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "",
+  "notes": "一次固定0b CI实际FAILURE；单元/PG/恢复已通过，失败为GNU grep CRLF自检，定向修复与默认full/显式delivery入口完成。等待新固定SHA独立复审及追加定向CI预算调整；PR仍Draft，未main/RC。缺真实镜像repository/已验证previous V2，生产未执行。",
   "meta": {
     "manifest_id": "GEO-1009",
     "ci_run_id": 37572374117,
-    "ci_source_commit": "0b232f2ce268c7e78836a2f2ce811c9eaa45944c"
+    "ci_source_commit": "0b232f2ce268c7e78836a2f2ce811c9eaa45944c",
+    "ci_conclusion": "failure",
+    "ci_failure_step": "make build test-deploy-scripts/test-frontend-container.sh",
+    "additional_ci_dispatched": false,
+    "main_gate_executed": false,
+    "rc_frozen": false
   }
 }

@@ -1,0 +1,21 @@
+{
+  "name": "rc-ci-watch",
+  "command": [
+    "gh",
+    "run",
+    "watch",
+    "37572374117",
+    "--exit-status",
+    "--interval",
+    "30"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "0b232f2ce268c7e78836a2f2ce811c9eaa45944c",
+  "dirty": false,
+  "started_at": "2026-10-07T04:38:22.221580+00:00",
+  "ended_at": "2026-10-07T05:22:43.821476+00:00",
+  "exit_code": 1,
+  "log": "/Users/sc/.codex/reviews/partsignal/branch-blocker-remediation-20261006/logs/rc-ci-watch.log",
+  "log_sha256": "ce88cd76da0dfc670487ff96eb5c2ac042effc7f6d84fb78addb2cca8d0a4642"
+}

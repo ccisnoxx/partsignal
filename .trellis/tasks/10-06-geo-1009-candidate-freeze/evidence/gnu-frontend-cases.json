@@ -1,0 +1,34 @@
+{
+  "status": "PASS",
+  "scope": "同一真实Nginx镜像/HTTP响应，真实脚本入口；仅grep切换为网络隔离Linux容器中的GNU grep，通过stdin消费真实响应和资产。并非整个shell位于Linux，不作为远端CI通过证明。",
+  "cases": [
+    {
+      "case": "pre_fix_gnu",
+      "command": [
+        "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/before-frontend-container.sh"
+      ],
+      "grep_implementation": "grep (GNU grep) 3.11",
+      "grep_proxy": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/gnu-bin/grep",
+      "source_sha256": "5009fb2a82b6feef4cb10c28581c829d587c34af14c4eb350b5870c58e00ed44",
+      "started_at": "2026-10-07T05:28:48.451233+00:00",
+      "ended_at": "2026-10-07T05:28:49.418951+00:00",
+      "expected_exit": 1,
+      "exit_code": 1,
+      "output": ""
+    },
+    {
+      "case": "fixed_gnu",
+      "command": [
+        "/Users/sc/PycharmProjects/partsignal/deploy/scripts/test-frontend-container.sh"
+      ],
+      "grep_implementation": "grep (GNU grep) 3.11",
+      "grep_proxy": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/gnu-bin/grep",
+      "source_sha256": "52b2d9fa4c4d933af7ba6f5515363d567ec1a77badca61eb26c7be7d9401a894",
+      "started_at": "2026-10-07T05:28:49.418965+00:00",
+      "ended_at": "2026-10-07T05:28:50.239212+00:00",
+      "expected_exit": 0,
+      "exit_code": 0,
+      "output": "canonical Frontend 容器 fallback、缓存和 source map 自检通过\n"
+    }
+  ]
+}

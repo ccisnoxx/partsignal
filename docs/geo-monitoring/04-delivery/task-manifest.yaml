@@ -1869,8 +1869,8 @@ tasks:
 - id: GEO-1009
   phase: R9A
   release: V1.0-manual-first
-  title: 冻结 V1.0 候选与完整性验证证据
-  status: blocked
+  title: 固定 main 完整门禁验证与人工接受
+  status: done
   dependencies:
   - GEO-1003
   - GEO-1004
@@ -1879,13 +1879,13 @@ tasks:
   - GEO-1007
   - GEO-1008
   areas:
-  - release candidate evidence
   - clean authorized main checkout
   - validation records
+  - human acceptance
   - docs
-  deliverables: 收集已人工接受修复的 diff/独立复核记录；在已批准且已推送 clean main=origin/main 上冻结 commit/archive/release manifest/镜像身份/schema head/tracked-file hashes；记录同一候选完整门禁。
-  tests: 既有 candidate producer/consumer 完整性检查；同一固定候选 make verify 全门禁、Markdown/manifest/hash 检查与 git diff --check；历史日志仅在输入相同且证据适用时复用。
-  acceptance: 候选覆盖全部首发修复且可重现，完整门禁 exit 0；dirty 工作区不代替候选；缺 commit/push/candidate 权限或身份输入时 blocked，不擅自提交/推送；不使用测试绕过；不宣称生产已部署。
+  deliverables: 固定 clean main=origin/main 的完整 run-verify.py 门禁验证、原日志哈希与人工接受记录；source archive、镜像身份、release manifest、schema/hash 及候选冻结移交 UI done 后的 GEO-1010-DEPLOY。
+  tests: 复用固定 e5949ab66989c1277424cfe9ab8b93e10ce10046 已执行的完整门禁 exit 0；核对日志哈希、接受范围、文档/manifest/hash 与 git diff --check，不重复运行应用门禁。
+  acceptance: 用户明确接受调整后的固定 main 门禁交付；保留原成功/失败、45 warnings/77既有skip、被验证SHA及候选未冻结事实；人工接受后done，不代表生产Go。
   required_docs:
   - 01-product/02-geo-core-prd.md
   - 01-product/05-v1-release-capability-matrix.md
@@ -1896,9 +1896,12 @@ tasks:
   - 05-decisions/ADR-007-manual-first-v1-release-scope.md
   - 06-reviews/GEO-1001-release-readiness-audit.md
   audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
-  scope_note: 后续独立任务；本次 GEO-1002 只登记范围、依赖与验收，不开始实现或生产操作。
+  scope_note: 2026-10-07 当前会话用户明确批准范围调整和人工接受；候选冻结义务转属 GEO-1010-DEPLOY，不以本任务 done 免除该下游义务。
   trellis_task: .trellis/tasks/10-06-geo-1009-candidate-freeze
-  execution_note: "2026-10-07：PR1已合并main20cb；唯一一次完整main门禁exit2（3864单元通过/1 fake TCP连接失败，后序未执行）。de7局部修复146目标通过/fresh独立APPROVE；完整新main门禁成功与RC真实身份输入未获得，blocked，不代表现场验收。"
+  execution_note: 固定clean main e5949ab66989c1277424cfe9ab8b93e10ce10046一次完整门禁exit0；本轮核对原日志hash，用户接受review→done；未重跑、未冻结RC、未部署。原失败/review证据保留。
+  acceptance_record: 06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md
+  accepted_commit: e5949ab66989c1277424cfe9ab8b93e10ce10046
+  candidate_owner: GEO-1010-DEPLOY
 - id: GEO-1010
   phase: R9A
   release: V1.0-manual-first

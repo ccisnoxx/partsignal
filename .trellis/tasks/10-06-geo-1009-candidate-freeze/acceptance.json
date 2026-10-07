@@ -1,0 +1,29 @@
+{
+  "task": "GEO-1009",
+  "status": "ACCEPTED",
+  "accepted_by": "当前会话用户（未提供姓名）",
+  "accepted_at": "2026-10-07T14:31:31Z",
+  "accepted_at_meaning": "当前会话接受指令落库时间",
+  "authorization_source": "当前会话用户明确要求按范围调整、人工接受并从review置done、治理提交推送、再建GEO-1010子任务的顺序推进",
+  "accepted_scope": "固定 clean main=origin/main 的完整 run-verify.py 门禁验证",
+  "accepted_commit": "e5949ab66989c1277424cfe9ab8b93e10ce10046",
+  "gate_exit_code": 0,
+  "gate_record": "evidence/main-business-priority-gate-20261007.json",
+  "gate_log_sha256": "602645e78b6d470aa8fd3471df9f2020b53c427899588876be8143d53f264294",
+  "acceptance_document": "docs/geo-monitoring/06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md",
+  "decision_document": "docs/geo-monitoring/05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md",
+  "transferred_to": "GEO-1010-DEPLOY",
+  "transferred_obligations": [
+    "UI done之后固定main候选及其同候选门禁",
+    "source archive",
+    "正式镜像身份及digests",
+    "release manifest",
+    "schema head及tracked-file hashes",
+    "候选冻结",
+    "既有runbook要求的恢复材料"
+  ],
+  "rc_frozen": false,
+  "production_go": false,
+  "production_deployment_started": false,
+  "governance_commit_is_gate_commit": false
+}

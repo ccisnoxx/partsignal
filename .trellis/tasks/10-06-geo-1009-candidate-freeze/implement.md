@@ -95,3 +95,13 @@ Python3.12本机TCPServer默认request_queue_size=5，失败用例为6并发发�
 固定修复提交de7e402d9626d279614f8f19229a9902dd01b252的fresh critical_reviewer只读复核APPROVE，无确认P0-P3 finding；完整返回见evidence/independent-main-fake-review-de7e402d.md。独立重算2份源码前后/4份日志hash，确认所有旧12个函数AST未改、真实TCP反例与连接释放、已检查10路容量调用者相容。覆盖缺口如实保留：执行时逐文件hash未即时写入，事后绑定；仅macOS Python3.12，无本次Linux验证；原完整失败日志未保留底层errno，不夸称直接观察了其backlog原因。审计bundle20261007T095458Z-main-fake-provider-backlog-fixed-review-9b3a3974 closed/verify通过，1尝试/1验收/1独立复核、0异常；前后12854个tracked/非忽略untracked及HEAD/status相同，无观察到源码写入。
 
 第二次main完整门禁与第七CI均未授权，不自动运行。RC无已通过同main门禁，也缺真实发布repository和可执行已验证previous V2输入；GEO-1009仅blocked、不done，GEO-1010生产NO-GO。1002～1007和恢复1008原接受不改；局部复审不扩展为main完整验证或生产接受。
+
+## 本轮业务发布优先、一次性 main 门禁
+
+按用户本轮授权，fetch origin 后 switch main，确认 clean 且 HEAD=origin/main=e5949ab66989c1277424cfe9ab8b93e10ce10046。仅运行一次原 run-verify.py：2026-10-07T10:40:13.661133+00:00～2026-10-07T11:17:44.718013+00:00，exit0，运行后 HEAD 未变、工作区仍 clean。后续治理写入不属于被验证 commit。完整分阶段结果、命令、日志 SHA-256、原始仓库外日志、业务/V1.1 分类与部署缺口见 [一次性门禁记录](./evidence/main-business-priority-gate-20261007.md) 和 [JSON](./evidence/main-business-priority-gate-20261007.json)。
+
+本次业务阻断为空；32 真实栈核心、PG1253/恢复6、性能、build、deploy 与末端 Compose 均通过。45 warnings、3 mode skip 与74 fixture skip如实保留，未新增跳过。只将 Trellis/manifest 更新 review，不标 completed/done，不新增源码/安全设计/独立审计、不重跑完整门禁。RC未冻结、生产NOT_STARTED、1010现场NOT_VERIFIED；已接受业务合同和1002～1008历史接受不改。原三个开发依赖恢复 exited，未删除卷或未知Redis键。
+
+## 人工接受与候选义务移交（2026-10-07）
+
+当前会话用户明确批准调整交付范围，接受固定 e5949ab66989c1277424cfe9ab8b93e10ce10046 完整门禁验证，并要求 review→done、治理提交推送后再创建子任务。正式记录见 [acceptance.json](./acceptance.json) 和 [接受文档](../../../docs/geo-monitoring/06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md)。本会话核对原日志 SHA-256 一致，未重跑门禁；45 warnings/77旧skip和所有失败历史保留。候选工件/同候选验证/恢复输入移交GEO-1010-DEPLOY，尚未冻结或部署；不代表生产Go。治理提交身份由Git实际记录，不冒充被验证SHA。

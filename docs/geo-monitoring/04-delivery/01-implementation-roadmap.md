@@ -279,10 +279,12 @@ R7延期不是核心阻断原因；生产输入缺失与上述核心缺口不能
 | 范围裁决 | GEO-1002：Accepted ADR-007、能力矩阵、任务/门禁；不修改代码/协议/部署 |
 | 首发修复 | GEO-1003 production Browser 硬禁止；1004 Catalog 当前身份；1005 CRON 禁用/既存状态治理；1006 管理员显式评估；1008 升级失败安全恢复 |
 | 能力真实性 | GEO-1007：依赖 1005/1006，校准页面和操作说明，不实现范围外自动化/UI/CSV |
-| 候选冻结 | GEO-1009：1003～1008 全部人工接受后，在获准 clean main 冻结同一完整候选并通过 make verify |
+| main 门禁接受 | GEO-1009：固定 clean main 完整门禁验证已获人工接受；未生成的候选工件与冻结移交 UI done 后的 GEO-1010-DEPLOY |
 | 现场裁决 | GEO-1010：同候选/目标的配置、MANUAL 闭环/内部试用、监控/容量/停止/恢复与 Go/No-Go 签署 |
 
 每项完整依赖、交付物、测试及验收以 [WBS](./02-work-breakdown-structure.md) 和 [manifest](./task-manifest.yaml) 为准。GEO-1001 作为审计输入，不补造任务状态；R9A 不依赖 deferred R7。CRON 自动建批次、周期 evaluator、完整 Action/Retest UI、Opportunity CSV、公共重分析另行排期，不纳入本阶段实现。
+
+2026-10-07 用户批准的范围调整见 [ADR-008](../05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md) 和 [GEO-1009 接受记录](../06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md)：GEO-1009 的 done 只接受固定 main 完整门禁验证；同候选 archive/images/manifest/schema/hash 与候选冻结仍由后续 DEPLOY 收口。旧 SHA 的成功不证明未来 UI 候选已验证。
 
 ### 退出门禁
 

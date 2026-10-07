@@ -16,7 +16,7 @@
 
 **当前仍为 NO-GO。** [GEO-1001 审计](./06-reviews/GEO-1001-release-readiness-audit.md)记录的 Browser 硬禁止、Catalog 竞态、CRON 假 ACTIVE、管理员评估入口、升级恢复、候选和生产证据由新增 R9A / GEO-1003～1010 收口；范围批准不代表修复或现场验收。API 初始关闭，Browser production 硬禁止，CRON 到期执行和 Opportunity 自动周期评估不属首发。机会 CSV、完整 Action/Retest 页面、公共管理员重分析及无依据无引用推断不能宣称可用。
 
-R0—R8 的 67 done＋4 deferred 和历史接受记录保持；任务状态以 manifest 为准，旧 done 不替代本次发布门禁。GEO-1002～1007 的实现与本地验证已按用户条件授权接受，恢复1008保留原接受；[整PR接受记录](./06-reviews/2026-10-07-v1-pr-acceptance.md)明确复用证据与覆盖边界。1009的clean main门禁和候选冻结、1010现场验收仍未完成，生产继续NO-GO。
+R0—R8 的 67 done＋4 deferred 和历史接受记录保持；任务状态以 manifest 为准。GEO-1002～1008 的接受边界保留；[整PR接受记录](./06-reviews/2026-10-07-v1-pr-acceptance.md)不改写。GEO-1009 的固定 clean main `e5949ab66989c1277424cfe9ab8b93e10ce10046` 完整门禁 exit 0 已按用户本轮指令[人工接受](./06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md)，状态 done。[ADR-008](./05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)将尚未生成的候选工件和冻结移交 UI done 后的 GEO-1010-DEPLOY；GEO-1010 子任务尚待本次治理提交后建立。生产仍 NOT_STARTED/NO-GO。
 
 ## 历史阶段交付记录与目标设计导航
 
@@ -203,6 +203,8 @@ docs/geo-monitoring/
 | 决策 | [ADR-006：人工优先、浏览器延期](./05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md) |
 | 决策 | [ADR-007：V1.0 人工优先发布范围和门禁](./05-decisions/ADR-007-manual-first-v1-release-scope.md) |
 | 评审 | [GEO-1001：发布候选完整性审计（NO-GO）](./06-reviews/GEO-1001-release-readiness-audit.md) |
+| 决策 | [ADR-008：内部试运行页面优先与候选归属](./05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md) |
+| 评审 | [GEO-1009：固定 main 门禁人工接受](./06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md) |
 | 决策 | [GEO-002：架构评审记录](./05-decisions/GEO-002-architecture-review.md) |
 
 校验命令从本目录执行：`shasum -a 256 -c SHA256SUMS`。清单覆盖本目录其余全部文件，不包含 `SHA256SUMS` 自身；修改文件后应同步更新对应哈希。

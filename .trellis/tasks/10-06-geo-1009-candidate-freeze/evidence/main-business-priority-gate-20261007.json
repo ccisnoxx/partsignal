@@ -1,0 +1,186 @@
+{
+  "task": "GEO-1009",
+  "scope": "业务发布优先、一次性门禁",
+  "branch": "main",
+  "commit": "e5949ab66989c1277424cfe9ab8b93e10ce10046",
+  "origin_main": "e5949ab66989c1277424cfe9ab8b93e10ce10046",
+  "initial_worktree_clean": true,
+  "command": "UV_CACHE_DIR=\"$PWD/.cache/uv\" uv run --project backend python .trellis/tasks/10-05-verify-entrypoint/run-verify.py",
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "run_count_this_turn": 1,
+  "started_at_utc": "2026-10-07T10:40:13.661133+00:00",
+  "started_at_local": "2026-10-07T03:40:13.661288-07:00",
+  "initial_dev_services": [
+    {
+      "ID": "47945efb8f90",
+      "Service": "fake-oss",
+      "State": "exited"
+    },
+    {
+      "ID": "e9b9bad7a700",
+      "Service": "postgres",
+      "State": "exited"
+    },
+    {
+      "ID": "e12ce66b1e3f",
+      "Service": "redis",
+      "State": "exited"
+    }
+  ],
+  "initial_dev_services_query_exit_code": 0,
+  "log_path": "/Users/sc/.codex/reviews/partsignal/geo1009-business-gate-20261007T104013Z/run-verify.log",
+  "exit_code": 0,
+  "production_deployment_started": false,
+  "finished_at_utc": "2026-10-07T11:17:44.718013+00:00",
+  "finished_at_local": "2026-10-07T04:17:44.718067-07:00",
+  "log_sha256": "602645e78b6d470aa8fd3471df9f2020b53c427899588876be8143d53f264294",
+  "final_head": "e5949ab66989c1277424cfe9ab8b93e10ce10046",
+  "final_worktree_porcelain": "",
+  "dev_services_after_gate": [
+    {
+      "ID": "47945efb8f90",
+      "Service": "fake-oss",
+      "State": "running"
+    },
+    {
+      "ID": "e9b9bad7a700",
+      "Service": "postgres",
+      "State": "running"
+    },
+    {
+      "ID": "e12ce66b1e3f",
+      "Service": "redis",
+      "State": "running"
+    }
+  ],
+  "redis_after_gate_key_counts": {
+    "13": 0,
+    "14": 6,
+    "15": 75
+  },
+  "redis_cleanup_deleted_keys": 0,
+  "dev_services_restore_exit_code": 0,
+  "dev_services_restored": [
+    {
+      "ID": "47945efb8f90",
+      "Service": "fake-oss",
+      "State": "exited"
+    },
+    {
+      "ID": "e9b9bad7a700",
+      "Service": "postgres",
+      "State": "exited"
+    },
+    {
+      "ID": "e12ce66b1e3f",
+      "Service": "redis",
+      "State": "exited"
+    }
+  ],
+  "dev_service_restore_scope": "仅停止门禁启动且初始 exited 的原容器；未删除容器、卷或 Redis 键",
+  "duration_seconds": 2251.05688,
+  "conclusion": "success",
+  "full_gate_complete": true,
+  "summary": {
+    "contract_check": "passed",
+    "lint": "passed",
+    "typecheck": {
+      "status": "passed",
+      "mypy_source_files": 253
+    },
+    "browser_collector_unit": {
+      "passed": 14
+    },
+    "backend_unit": {
+      "passed": 3866
+    },
+    "frontend_unit": {
+      "passed": 1308,
+      "files": 138
+    },
+    "postgres_integration": {
+      "passed": 1253,
+      "warnings": 45,
+      "seconds": 633.3
+    },
+    "isolated_recovery": {
+      "passed": 6,
+      "seconds": 14.95
+    },
+    "performance_100k": {
+      "passed": 1,
+      "seconds": 560.69,
+      "p95_seconds": {
+        "overview_product_30d": 0.151,
+        "insights_product_30d": 0.265,
+        "report_product_30d": 0.261,
+        "insights_all_30d": 2.86,
+        "overview_all_30d": 1.499
+      }
+    },
+    "build": {
+      "frontend": "passed",
+      "backend": "passed"
+    },
+    "canonical_real_stack_e2e": {
+      "passed": 32,
+      "minutes": 3.9
+    },
+    "geo_mode_e2e": {
+      "passed": 3,
+      "skipped": 3,
+      "skip_reason": "enabled/api-disabled/monitoring-disabled 各跳过另一模式的既有用例"
+    },
+    "frontend_fixture_e2e": {
+      "passed": 498,
+      "skipped": 74,
+      "minutes": 6.5,
+      "skip_reason": "既有项目/条件 skip，本轮未增加 skip"
+    },
+    "deploy_scripts": {
+      "status": "passed",
+      "recovery_boundaries_passed": 17,
+      "collector_contract_passed": 195,
+      "configuration_groups_passed": 17,
+      "staging": "passed",
+      "production_cleanup": "passed",
+      "production": "passed",
+      "upgrade_recovery": "passed"
+    },
+    "compose_config": {
+      "dev": "passed",
+      "prod": "passed"
+    },
+    "existing_e2e_secret_scan": {
+      "status": "clean",
+      "runs": 5
+    },
+    "schema_evidence": {
+      "head": "0066_geo_manual_evaluation",
+      "scope": "隔离本地真实栈迁移；未执行目标部署迁移"
+    }
+  },
+  "business_blockers": [],
+  "deferred_v1_1": [
+    "Browser 真实采集与 API 自动化扩展；现有完整门禁中的相关检查仍原样执行。",
+    "CRON/自动调度、自动 Opportunity、Opportunity CSV、非核心导出与公共重分析。",
+    "附加安全强化与新的多轮独立安全审计。",
+    "不影响业务的测试夹具问题；本次未观察到此类失败。"
+  ],
+  "review_eligible": true,
+  "review_scope": "用户本轮限定的业务发布优先、main 一次性完整门禁",
+  "rc_frozen": false,
+  "remaining_internal_trial_inputs": [
+    "内部试运行的精确目标环境、访问/部署入口、部署目录和数据归属；限定人群的访问控制方式。",
+    "真实镜像发布 repository/交付方式，以及可执行、可拉取且已验证的 previous V2 回退镜像引用；同 SHA 的 source archive/images/manifest/RC 尚未冻结。",
+    "全应用真实 AI/OSS 等保护配置及既有外部服务 Gate 的目标证据；密钥经受保护通道提供。",
+    "expand/deploy/enable 的目标、候选、操作范围、时间窗口与阶段授权，业务/运维/停止恢复负责人。",
+    "试运行 ADMIN/ENGINEER 人群、批准产品事实与 MANUAL 样本/计划、试用时长、反馈渠道与业务验收人。",
+    "目标备份及恢复材料、容量/监控观察期与停止阈值的既有要求和现场验证安排；GEO-1010 尚未执行。"
+  ],
+  "source_changes": false,
+  "accepted_business_contract_changes": false,
+  "new_independent_security_audits": 0,
+  "reruns_this_turn": 0,
+  "evidence_written_after_gate": true
+}

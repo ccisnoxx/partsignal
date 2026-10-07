@@ -33,3 +33,5 @@ CI准入未闭合，PR保持Draft，1002–1007接受记录不提前done。main�
 runner日志绑定ubuntu24/20261004.327，官方固定软件清单为Compose2.38.2。下载该版本Linux ARM64官方客户端并验证release SHA256 4d0f7678dd3338452beba4518e36a8e22b20cad79ba2535c687da554dc3997fb；仅配置探针在network-none本次临时容器中执行，其他shell仍Mac。初次驱动挂载临时路径不能读取输入，exit1保留；改用docker cp传入完全相同文件后，旧真实入口因.env.staging缺失exit1、新入口exit0（总3.73秒），容器按实际ID精确移除。未伪称完整Linux runner，也没有重复全套。脚本hash e5a7a3c50b6cbd2554299180fecc0ef262c0d1623588aa54614f258251389f2d绑定随后提交。相关命令/SHA/时间/退出/日志在evidence。
 
 修复待新固定SHAfresh只读增量复核。此次预算已使用，第三次CI未触发；PR保持Draft，1002–1007没有提前done，1008恢复既有接受未改，main完整门禁留到实际准入成功后的合并。RC与1010现场缺口保持。
+
+固定00b4eca271c635c1fc4b6b0c5fbc08d1dfd680bd的fresh只读增量复审已APPROVE，无确认finding；报告evidence/independent-staging-review-00b4eca2.md，全部tracked前后hash零变化，审计closed/verified。代码已推送；独立批准只覆盖自检增量，失败run不变，main/RC不推进。第三次delivery预算问题已提出，未收到答复时不触发；只保存检查点。

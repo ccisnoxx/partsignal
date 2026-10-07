@@ -1,0 +1,19 @@
+{
+  "name": "main-fake-backlog-before",
+  "command": [
+    "backend/.venv/bin/python",
+    "-m",
+    "pytest",
+    "backend/tests/unit/test_geo_fake_provider.py::test_fake_accepts_pending_connection_burst_before_handler_scheduling",
+    "-q"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "20cbdbd2c6f873a1d7c0ce457d368e2be80dbbd3",
+  "dirty": true,
+  "started_at": "2026-10-07T09:51:07.274571+00:00",
+  "ended_at": "2026-10-07T09:51:07.797468+00:00",
+  "exit_code": 1,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/main-fake-backlog-before.log",
+  "log_sha256": "2eb3396312be738168591bfbc80c80b67b26044e47d3626add9ab8472a0904f4"
+}

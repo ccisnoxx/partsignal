@@ -1,0 +1,33 @@
+{
+  "status": "PASS",
+  "governance_commit": "afc125cc6e058555342fe16f7b904dd1e9cda206",
+  "ci_source_commit": "8d2e528cce0f804b224bf9b78e02bb2651f6ac62",
+  "runtime_source_identical": true,
+  "files": [
+    ".trellis/tasks/10-05-geo-1002-v1-release-scope/task.json",
+    ".trellis/tasks/10-05-geo-1003-production-browser-ban/task.json",
+    ".trellis/tasks/10-05-geo-1004-catalog-current-actor/task.json",
+    ".trellis/tasks/10-05-geo-1005-cron-plan-boundary/task.json",
+    ".trellis/tasks/10-05-geo-1006-manual-opportunity-evaluation/task.json",
+    ".trellis/tasks/10-06-branch-blocker-remediation/task.json",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/acceptance-scope.json",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/evidence/sixth-delivery-ci-dispatch.json",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/evidence/sixth-delivery-ci-final.json",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/evidence/sixth-delivery-ci-full-fetch.json",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/evidence/sixth-delivery-ci-observed-summary.json",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/evidence/sixth-delivery-ci-start.json",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/evidence/sixth-delivery-ci-watch.json",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/evidence/sixth-delivery-source-reuse.json",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/evidence/sixth-governance-check.json",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/implement.md",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/prd.md",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/task.json",
+    "docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md",
+    "docs/geo-monitoring/03-technical/10-core-rollout-runbook.md",
+    "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+    "docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md",
+    "docs/geo-monitoring/README.md",
+    "docs/geo-monitoring/SHA256SUMS"
+  ],
+  "checked_at": "2026-10-07T09:43:52.733125+00:00"
+}

@@ -1,0 +1,187 @@
+{
+  "sha": "20cbdbd2c6f873a1d7c0ce457d368e2be80dbbd3",
+  "dirty": false,
+  "started_at": "2026-10-07T09:45:31.374353+00:00",
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "python",
+    ".trellis/tasks/10-05-verify-entrypoint/run-verify.py"
+  ],
+  "infra_before": {
+    "fake-oss": {
+      "id": "47945efb8f905de0cfc19472f345968a28123779ec5a32155c9ad9fdc3d20a11",
+      "running": false,
+      "mounts": [
+        {
+          "Type": "bind",
+          "Destination": "/app"
+        },
+        {
+          "Type": "volume",
+          "Name": "partsignal-dev_partsignal-fake-oss",
+          "Destination": "/data"
+        }
+      ]
+    },
+    "postgres": {
+      "id": "e9b9bad7a70087b7095fec963df14c391b844caf88a7b81e7662a278e24d34a2",
+      "running": false,
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "partsignal-dev_partsignal-postgres",
+          "Destination": "/var/lib/postgresql/data"
+        }
+      ]
+    },
+    "redis": {
+      "id": "e12ce66b1e3f72c32b9f75cbd4617719cfc03ff94d7789d4525d6aaf634bccad",
+      "running": false,
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "partsignal-dev_partsignal-redis",
+          "Destination": "/data"
+        }
+      ]
+    }
+  },
+  "gate_started": true,
+  "infra_started": {
+    "fake-oss": {
+      "id": "47945efb8f905de0cfc19472f345968a28123779ec5a32155c9ad9fdc3d20a11",
+      "running": true,
+      "mounts": [
+        {
+          "Type": "bind",
+          "Destination": "/app"
+        },
+        {
+          "Type": "volume",
+          "Name": "partsignal-dev_partsignal-fake-oss",
+          "Destination": "/data"
+        }
+      ]
+    },
+    "postgres": {
+      "id": "e9b9bad7a70087b7095fec963df14c391b844caf88a7b81e7662a278e24d34a2",
+      "running": true,
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "partsignal-dev_partsignal-postgres",
+          "Destination": "/var/lib/postgresql/data"
+        }
+      ]
+    },
+    "redis": {
+      "id": "e12ce66b1e3f72c32b9f75cbd4617719cfc03ff94d7789d4525d6aaf634bccad",
+      "running": true,
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "partsignal-dev_partsignal-redis",
+          "Destination": "/data"
+        }
+      ]
+    }
+  },
+  "redis_preflight": {
+    "counts": {
+      "12": 0,
+      "13": 0,
+      "14": 6
+    },
+    "db13_clients": 0,
+    "deleted_keys": 0
+  },
+  "gate_started_at": "2026-10-07T09:45:35.436635+00:00",
+  "gate_exit_code": 2,
+  "gate_ended_at": "2026-10-07T09:47:10.028750+00:00",
+  "infra_after_gate": {
+    "fake-oss": {
+      "id": "47945efb8f905de0cfc19472f345968a28123779ec5a32155c9ad9fdc3d20a11",
+      "running": true,
+      "mounts": [
+        {
+          "Type": "bind",
+          "Destination": "/app"
+        },
+        {
+          "Type": "volume",
+          "Name": "partsignal-dev_partsignal-fake-oss",
+          "Destination": "/data"
+        }
+      ]
+    },
+    "postgres": {
+      "id": "e9b9bad7a70087b7095fec963df14c391b844caf88a7b81e7662a278e24d34a2",
+      "running": true,
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "partsignal-dev_partsignal-postgres",
+          "Destination": "/var/lib/postgresql/data"
+        }
+      ]
+    },
+    "redis": {
+      "id": "e12ce66b1e3f72c32b9f75cbd4617719cfc03ff94d7789d4525d6aaf634bccad",
+      "running": true,
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "partsignal-dev_partsignal-redis",
+          "Destination": "/data"
+        }
+      ]
+    }
+  },
+  "infra_restored": {
+    "fake-oss": {
+      "id": "47945efb8f905de0cfc19472f345968a28123779ec5a32155c9ad9fdc3d20a11",
+      "running": false,
+      "mounts": [
+        {
+          "Type": "bind",
+          "Destination": "/app"
+        },
+        {
+          "Type": "volume",
+          "Name": "partsignal-dev_partsignal-fake-oss",
+          "Destination": "/data"
+        }
+      ]
+    },
+    "postgres": {
+      "id": "e9b9bad7a70087b7095fec963df14c391b844caf88a7b81e7662a278e24d34a2",
+      "running": false,
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "partsignal-dev_partsignal-postgres",
+          "Destination": "/var/lib/postgresql/data"
+        }
+      ]
+    },
+    "redis": {
+      "id": "e12ce66b1e3f72c32b9f75cbd4617719cfc03ff94d7789d4525d6aaf634bccad",
+      "running": false,
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "partsignal-dev_partsignal-redis",
+          "Destination": "/data"
+        }
+      ]
+    }
+  },
+  "ended_at": "2026-10-07T09:47:10.686311+00:00",
+  "exit_code": 2,
+  "dirty_after": false,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/main-candidate-full-verify.log",
+  "log_sha256": "ea0e08ae771c7fe52ad8369bc7ced0f5566fece59e686f1cf33356720bab5504"
+}

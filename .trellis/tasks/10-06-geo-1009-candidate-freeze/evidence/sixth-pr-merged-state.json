@@ -1,0 +1,12 @@
+{
+  "baseRefOid": "83ff42e7cacc9f2aa406eba2f128f3f4d4dd86af",
+  "headRefOid": "afc125cc6e058555342fe16f7b904dd1e9cda206",
+  "isDraft": false,
+  "mergeCommit": {
+    "oid": "20cbdbd2c6f873a1d7c0ce457d368e2be80dbbd3"
+  },
+  "mergedAt": "2026-10-07T09:44:29Z",
+  "number": 1,
+  "state": "MERGED",
+  "url": "https://github.com/ccisnoxx/partsignal/pull/1"
+}

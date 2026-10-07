@@ -83,3 +83,15 @@ api-disabled、monitoring-disabled、fixture及末端两项Compose被远端前�
 ## 本次delivery授权、结果与整PR接受
 
 用户再次明确允许本次delivery，run37598569164固定8d2e528c最终SUCCESS。命令、SHA、UTC时间、退出码及完整原始日志摘要见evidence/sixth-delivery-ci-*。旧0b/c6/d0/135d/0475失败历史保留，输入未变的旧成功前序继续复用；fresh整PR及14dd/28/00/bd6/0b6/b254增量审查均APPROVE。按既有条件授权接受1002–1007实现，恢复1008原接受不变；详见acceptance-scope.json与docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md。随后Ready/合并/一次clean main完整门禁。delivery是partial，不宣称单次完整CI；1009尚未完成，RC缺真实身份输入，1010/生产未执行。
+
+## PR 合并、一次 clean main 门禁失败与局部修复复审
+
+固定8d2 delivery成功后，治理提交afc125cc6e058555342fe16f7b904dd1e9cda206仅写接受/文档/证据；PR1转Ready并于2026-10-07T09:44:29Z合并，main=20cbdbd2c6f873a1d7c0ce457d368e2be80dbbd3。工作区clean、HEAD=origin/main且树与afc完全一致，证据见evidence/main-candidate-source-preflight.json与sixth-pr-merged-state.json。
+
+唯一一次run-verify门禁：2026-10-07T09:45:35.436635Z～09:47:10.028750Z，exit2。合同/lint/type通过；后端单元3864pass/1fail，test_call_counter_observes_duplicates_concurrency_and_instance_isolation在真实TCP CONNECT阶段失败。前端单元、PG、部署、E2E等后序尚未执行，不用旧成功日志宣称同main完整通过。开发基础服务原ID/volumes保留且恢复stopped；启动前DB13空且无外部client，未删已有键，DB14原6键保留。命令/UTC/exit/loghash和资源前后状态见evidence/main-candidate-full-verify.json，原日志受控存仓库外。
+
+Python3.12本机TCPServer默认request_queue_size=5，失败用例为6并发发送者/12次请求。新增真实TCP反例在accept线程调度前保留12个连接，旧默认在连接阶段ConnectionResetError，非mock调用断言。最小修复只在本地GeoFakeServer设request_queue_size=12及说明；handler/state/逐次计数、超时/重试/敏感诊断、生产PinnedHTTPTransport、迁移/依赖/workflow均未改。新增反例和原计数用例随4个直接provider/collector单元文件共146项通过，2026-10-07T09:51:20.253797Z～09:51:30.908969Z，exit0；ruff与diff-check通过。此执行为20cb+dirty/hash绑定固定de7，不伪称新clean SHA重跑。旧red/newgreen日志hash见evidence/main-fake-backlog-*.json。源码绑定/元数据整理脚本首次缺re导入，未写证据而只提交代码；纠正后独立验证，未重跑行为测试。
+
+固定修复提交de7e402d9626d279614f8f19229a9902dd01b252的fresh critical_reviewer只读复核APPROVE，无确认P0-P3 finding；完整返回见evidence/independent-main-fake-review-de7e402d.md。独立重算2份源码前后/4份日志hash，确认所有旧12个函数AST未改、真实TCP反例与连接释放、已检查10路容量调用者相容。覆盖缺口如实保留：执行时逐文件hash未即时写入，事后绑定；仅macOS Python3.12，无本次Linux验证；原完整失败日志未保留底层errno，不夸称直接观察了其backlog原因。审计bundle20261007T095458Z-main-fake-provider-backlog-fixed-review-9b3a3974 closed/verify通过，1尝试/1验收/1独立复核、0异常；前后12854个tracked/非忽略untracked及HEAD/status相同，无观察到源码写入。
+
+第二次main完整门禁与第七CI均未授权，不自动运行。RC无已通过同main门禁，也缺真实发布repository和可执行已验证previous V2输入；GEO-1009仅blocked、不done，GEO-1010生产NO-GO。1002～1007和恢复1008原接受不改；局部复审不扩展为main完整验证或生产接受。

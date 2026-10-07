@@ -1,0 +1,77 @@
+{
+  "checked_at": "2026-10-07T09:55:33.592311+00:00",
+  "fixed_source_commit": "de7e402d9626d279614f8f19229a9902dd01b252",
+  "execution_source_commit": "20cbdbd2c6f873a1d7c0ce457d368e2be80dbbd3",
+  "execution_dirty": true,
+  "files": {
+    "backend/app/geo_fake_server.py": {
+      "before_sha256": "9dd412c8bc8d05f7ee65cbc57735d5e547cbb6ddff85b8a317e071aa18cb7696",
+      "after_sha256": "ee780503c75fa821d1f9d16e0d6081456b9c99854e7ec9c7dce5b329dc120826"
+    },
+    "backend/tests/unit/test_geo_fake_provider.py": {
+      "before_sha256": "7a1f3fe76c960568956e10b211932df82dbbcd66ee32e163444c1720fb930eeb",
+      "after_sha256": "27dbccbde3f4c4be2de6c6f2df9a10fbac897791359643c6ad17de535f1881cc"
+    }
+  },
+  "existing_counter_test_ast_unchanged": true,
+  "fake_server_change": "only request_queue_size=12 and explanation",
+  "production_transport_migration_workflow_changed": false,
+  "targeted_passed": 146,
+  "logs": {
+    "main-candidate-full-verify": {
+      "log_sha256": "ea0e08ae771c7fe52ad8369bc7ced0f5566fece59e686f1cf33356720bab5504",
+      "exit_code": 2,
+      "command": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "python",
+        ".trellis/tasks/10-05-verify-entrypoint/run-verify.py"
+      ],
+      "started_at": "2026-10-07T09:45:31.374353+00:00",
+      "ended_at": "2026-10-07T09:47:10.686311+00:00"
+    },
+    "main-fake-backlog-before": {
+      "log_sha256": "2eb3396312be738168591bfbc80c80b67b26044e47d3626add9ab8472a0904f4",
+      "exit_code": 1,
+      "command": [
+        "backend/.venv/bin/python",
+        "-m",
+        "pytest",
+        "backend/tests/unit/test_geo_fake_provider.py::test_fake_accepts_pending_connection_burst_before_handler_scheduling",
+        "-q"
+      ],
+      "started_at": "2026-10-07T09:51:07.274571+00:00",
+      "ended_at": "2026-10-07T09:51:07.797468+00:00"
+    },
+    "main-fake-backlog-targeted": {
+      "log_sha256": "f24b0ee38cbdf15269c7724da1f3143f026dc85a8058799166ce6a9a39672381",
+      "exit_code": 0,
+      "command": [
+        "backend/.venv/bin/python",
+        "-m",
+        "pytest",
+        "backend/tests/unit/test_geo_fake_provider.py",
+        "backend/tests/unit/test_geo_openai_collector.py",
+        "backend/tests/unit/test_geo_collector_suite.py",
+        "backend/tests/unit/test_geo_openai_network.py",
+        "-q"
+      ],
+      "started_at": "2026-10-07T09:51:20.253797+00:00",
+      "ended_at": "2026-10-07T09:51:30.908969+00:00"
+    },
+    "main-fake-backlog-lint": {
+      "log_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+      "exit_code": 0,
+      "command": [
+        "backend/.venv/bin/ruff",
+        "check",
+        "backend/app/geo_fake_server.py",
+        "backend/tests/unit/test_geo_fake_provider.py"
+      ],
+      "started_at": "2026-10-07T09:51:21.422035+00:00",
+      "ended_at": "2026-10-07T09:51:21.482069+00:00"
+    }
+  }
+}

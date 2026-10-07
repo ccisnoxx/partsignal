@@ -1870,7 +1870,7 @@ tasks:
   phase: R9A
   release: V1.0-manual-first
   title: 冻结 V1.0 候选与完整性验证证据
-  status: in_progress
+  status: blocked
   dependencies:
   - GEO-1003
   - GEO-1004
@@ -1898,7 +1898,7 @@ tasks:
   audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
   scope_note: 后续独立任务；本次 GEO-1002 只登记范围、依赖与验收，不开始实现或生产操作。
   trellis_task: .trellis/tasks/10-06-geo-1009-candidate-freeze
-  execution_note: "2026-10-07：PR代码接受和组合CI闭合；main固定门禁、真实镜像/archive/manifest/RC待执行，不代表现场验收。"
+  execution_note: "2026-10-07：PR1已合并main20cb；唯一一次完整main门禁exit2（3864单元通过/1 fake TCP连接失败，后序未执行）。de7局部修复146目标通过/fresh独立APPROVE；完整新main门禁成功与RC真实身份输入未获得，blocked，不代表现场验收。"
 - id: GEO-1010
   phase: R9A
   release: V1.0-manual-first

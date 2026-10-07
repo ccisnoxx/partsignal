@@ -2,8 +2,8 @@
   "id": "geo-1010-ui-business-closure",
   "name": "geo-1010-ui-business-closure",
   "title": "GEO-1010-UI：补齐 MANUAL GEO 核心业务页面闭环",
-  "description": "仅任务规划，尚未实施；范围和独立验收见 prd.md",
-  "status": "ready",
+  "description": "MANUAL GEO核心页面闭环已实现、验证并获当前会话用户人工接受，已done；后续移交DEPLOY新会话。",
+  "status": "done",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "777",
   "assignee": "777",
   "createdAt": "2026-10-07",
-  "completedAt": null,
+  "completedAt": "2026-10-07",
   "branch": "main",
   "base_branch": "main",
   "worktree_path": null,
@@ -21,7 +21,7 @@
   "children": [],
   "parent": "10-07-geo-1010-manual-pilot",
   "relatedFiles": [],
-  "notes": "本次仅规划，未开始、未实现、未部署、未创建真实数据；状态不表示实施结果。",
+  "notes": "2026-10-07：前端完整单元1342通过，最终Opportunity域79通过，typecheck/定向lint/合同/后端投影16项通过；最终真实栈闭环1通过、secret_scan clean。独立复核及覆盖边界见implement.md。用户明确人工接受并要求标记done、开启DEPLOY会话；接受当前未提交工作树，不冒称已冻结或部署候选。",
   "meta": {
     "display_id": "GEO-1010-UI",
     "manifest_id": null,
@@ -36,9 +36,13 @@
     ],
     "planning_baseline_commit": "360aabe8a83e66398d801ba0bbe48b0663aed4a1",
     "business_gate_commit": "e5949ab66989c1277424cfe9ab8b93e10ce10046",
-    "planning_only": true,
-    "implementation_started": false,
+    "planning_only": false,
+    "implementation_started": true,
     "human_acceptance_required": true,
-    "production_go": false
+    "production_go": false,
+    "human_acceptance": true,
+    "accepted_at": "2026-10-07T16:52:04Z",
+    "accepted_by": "current_conversation_user",
+    "acceptance_record": "docs/geo-monitoring/06-reviews/2026-10-07-geo-1010-ui-acceptance.md"
   }
 }

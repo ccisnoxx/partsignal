@@ -1260,6 +1260,10 @@ acknowledge/dismiss由应用服务拥有READ COMMITTED事务，User非键更新�
 
 成功审计geo_opportunity.acknowledged/dismissed与状态同事务追加，只包含revision/status，不记录人工原因、答案、凭据或签名URL。受控文件完整性与签名由Run/机会共用同一所有者；详情no-store，无外部HEAD或AI请求。权限ADMIN/ENGINEER、session、强制改密和CSRF保持。关闭保留全部历史证据；行动创建/resolve/复测仍属704–706，既有行动关系仅只读。
 
+### GEO-1010-UI：行动入口投影
+
+不新增 schema/迁移或持久状态。`available_action_types` 在已有 ADMIN/ENGINEER、活动账号、无需改密且 IN_PROGRESS 的条件下包含已有 `ADDITIONAL_MONITORING`，用于尝试严格 Retest preview；ACKNOWLEDGED 不提供该 token。它不承诺 baseline 来源或环境可比，preview/create 仍重验既有资格，冻结历史、幂等与 revision 合同保持。Content Task 选择消费已有原子 creation-options 读模型，不能以客户端关联替代领域资格。
+
 ### GEO-704：跨域行动、来源快照与幂等（R6）
 
 head=`0060_geo_opportunity_actions`，down_revision=`0059_geo_opportunities`。仅加法扩展行动表：可空`source_snapshot JSONB`、`request_key_sha256 varchar(64)`、`request_sha256 varchar(64)`、`opportunity_revision_after integer`；四字段全空表示704前历史，保留原值且不补造快照。新704行动全部非空，创建者与请求键摘要partial unique最终仲裁；摘要不公开。新快照闭合版本1，包含opportunity ID/原revision、完整首次trigger、锁内全部来源run/analysis/review/role、选中product/topic/fact/platform/article/issue ID和request ID；不复制回答、事实正文或凭据。全部行动继续禁止UPDATE/DELETE/TRUNCATE。

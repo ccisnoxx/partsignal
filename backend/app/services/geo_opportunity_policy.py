@@ -111,7 +111,7 @@ def workflow(status: Status, actor: User) -> GeoOpportunityWorkflow:
 
 
 def action_types(status: Status, rule: GeoRuleCode, actor: User) -> list[ActionType]:
-    """704的创建资格；治理/补测/解决机会不在本次边界内。"""
+    """行动入口投影；具体目标和严格复测资格仍由命令在锁内重验。"""
     if (
         status not in {Status.ACKNOWLEDGED, Status.IN_PROGRESS}
         or not actor.is_active
@@ -126,4 +126,7 @@ def action_types(status: Status, rule: GeoRuleCode, actor: User) -> list[ActionT
         result.append(ActionType.CONTENT_TASK)
     if rule == GeoRuleCode.OWN_CITATION_LOST:
         result.append(ActionType.PUBLICATION_REPAIR)
+    if status == Status.IN_PROGRESS:
+        # 严格复测先预览冻结基线；此 token 只允许尝试，不承诺环境可比。
+        result.append(ActionType.ADDITIONAL_MONITORING)
     return result

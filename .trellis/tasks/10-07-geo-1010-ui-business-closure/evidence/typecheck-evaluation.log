@@ -1,0 +1,6 @@
+
+> partsignal-frontend-v2@0.1.0 typecheck
+> tsc -b --pretty false
+
+src/domains/geo-opportunities/opportunity-retest.tsx(36,59): error TS2345: Argument of type '"RETEST"' is not assignable to parameter of type '"CONTENT_TASK" | "OTHER" | "FACT_REVISION" | "PUBLICATION_REPAIR" | "ADDITIONAL_MONITORING"'.
+src/domains/geo-opportunities/opportunity-retest.tsx(137,440): error TS2339: Property 'rendered_question' does not exist on type '{ id: string; revision: number; query_topic_id: string; query_topic_revision: number; canonical_question: string; intent_type: "BRAND" | "PRODUCT" | "REPLACEMENT" | "COMPARISON" | "APPLICATION" | "TROUBLESHOOTING"; ... 4 more ...; region_code: string; }'.

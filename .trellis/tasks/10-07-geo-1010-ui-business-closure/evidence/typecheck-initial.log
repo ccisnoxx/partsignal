@@ -1,0 +1,11 @@
+
+> partsignal-frontend-v2@0.1.0 typecheck
+> tsc -b --pretty false
+
+src/domains/geo-opportunities/opportunity-evaluation.test.tsx(63,84): error TS2339: Property 'body' does not exist on type 'never'.
+src/domains/geo-opportunities/opportunity-evaluation.test.tsx(63,123): error TS2339: Property 'params' does not exist on type 'never'.
+tests/e2e/geo-loop-real-stack.spec.ts(56,111): error TS2339: Property 'rule_snapshot' does not exist on type '{ workflow_stage: "COMPLETED" | "CANCELLED" | "BUDGET_BLOCKED" | "QUEUED" | "MANUAL_ENTRY_REQUIRED" | "COLLECTION_IN_PROGRESS" | "ANALYSIS_PENDING" | "ANALYSIS_IN_PROGRESS" | "REVIEW_REQUIRED" | "RETRYABLE_FAILURE" | "HISTORICAL_FAILURE"; ... 37 more ...; is_latest_attempt: boolean; }'.
+tests/e2e/geo-loop-real-stack.spec.ts(101,19): error TS2552: Cannot find name 'headers'. Did you mean 'Headers'?
+tests/e2e/geo-loop-real-stack.spec.ts(101,47): error TS2304: Cannot find name 'randomUUID'.
+tests/e2e/geo-loop-real-stack.spec.ts(116,19): error TS2552: Cannot find name 'headers'. Did you mean 'Headers'?
+tests/e2e/geo-loop-real-stack.spec.ts(116,47): error TS2304: Cannot find name 'randomUUID'.

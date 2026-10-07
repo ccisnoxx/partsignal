@@ -570,9 +570,9 @@ review reasons、首轮Run/Batch推进、同hash复用、失败显式新revision
 
 ## GEO-707 / R6 机会闭环验收边界
 
-`test_geo_opportunity_loop.py` 使用真实 PG、计划/行动/复测/决策 HTTP 和实际确定性分析/规则。集成层仅准备虚构采集事实及批准内容夹具，ContentTask 完成由既有发布领域服务产生，不直接写完成/解决状态。真实栈 `geo-loop-real-stack.spec.ts` 覆盖人工证据提交、分析 Worker、机会认领、内容人工稿/审核/发布核验、复测与显式恢复解决及审计工作台。没有创建页面的行动和 RETEST 使用公共 API 编排；本任务不增加这些页面。
+`test_geo_opportunity_loop.py` 使用真实 PG、计划/行动/复测/决策 HTTP 和实际确定性分析/规则。集成层仅准备虚构采集事实及批准内容夹具，ContentTask 完成由既有发布领域服务产生，不直接写完成/解决状态。真实栈 `geo-loop-real-stack.spec.ts` 覆盖人工证据提交、分析 Worker、机会认领、内容人工稿/审核/发布核验、复测与显式恢复解决及审计工作台。GEO-707 原始验收中没有创建页面的行动和 RETEST 使用公共 API 编排；该任务历史范围不变。GEO-1010-UI 已将当前 spec 的评估、Content Task Action、Retest preview/create 改为真实页面操作，setup 和只读断言仍可用 API。
 
-独立 E2E evaluator 辅助入口仅接受 test、当前随机数据库 owner token 匹配与 GEO707 虚构运行；它调用实际机会应用服务，不插入机会或伪造恢复。trace/video 关闭；取消只允许已登记阶段的精确只读请求，文件 PUT 仅在同一具体文件路径确实返回204后接受 Chromium 空响应结束事件，十个文件仍逐一验证 VERIFIED、字节数和SHA-256。凭据和敏感正文不进入审计或交付证据。实际测试/脱敏状态、完整门禁缺口与环境阻断见 [R6 机会闭环验收](../04-delivery/10-r6-opportunity-acceptance.md)，不可把分段检查或失败门禁写成全部通过。
+原 GEO-707 evaluator 辅助入口曾仅接受 test、随机数据库 owner 与 GEO707 虚构运行。当前闭环已替换为正式 ADMIN HTTP 页面评估并删除专用辅助入口；隔离 test 栈显式开启评估资格，不注册自动 evaluator。trace/video 关闭；取消只允许已登记阶段的精确只读请求，文件 PUT 仅在同一具体文件路径确实返回204后接受 Chromium 空响应结束事件，十个文件仍逐一验证 VERIFIED、字节数和SHA-256。凭据和敏感正文不进入审计或交付证据。实际测试/脱敏状态、完整门禁缺口与环境阻断见 [R6 机会闭环验收](../04-delivery/10-r6-opportunity-acceptance.md)，不可把分段检查或失败门禁写成全部通过。
 
 canonical 隔离 test 栈将 GEO_RECOVERY_SCAN_SECONDS 设为 5 秒，使用真实 Beat/Worker 推进人工采集；生产默认 60 秒和其他 lease/重试边界不变。十次串行观测不应每次等待生产扫描周期；该设置不跳过资格、分析、复核或状态裁决。
 
@@ -604,3 +604,7 @@ canonical 隔离 test 栈将 GEO_RECOVERY_SCAN_SECONDS 设为 5 秒，使用真�
 CSV通过实际ASGI send逐块消费100000行，不用缓冲全量的TestClient。验证固定as_of、日期DESC/id ASC顺序、行数、RSS稳定区间增长<32MiB、首块<2s、正常及1000行提前取消后连接回池。Worker覆盖threads/prefork十路及20条重复消息只产生10次本地模拟请求；threads的业务与观测均绑定fixture库，Redis专用UUID队列退出时清理。prefork记录进程数及采样PSS，默认生产adapter资格不被测试入口修改。
 
 数据形态仍为20个冻结输入、短回答、单引用、365天100k存量，30天当前8400候选；不覆盖30天100k密度、高输入多样性、长回答、多引用或目标VPS资源边界。完整结果和失败分类见[容量记录](../04-delivery/12-r8-capacity-hardening.md)。
+
+## GEO-1010-UI 验证边界
+
+Opportunity 模型/组件验证评估范围窗口与回执、角色入口、原子选项、不可比禁止创建、409 显式重确认、422 字段反馈、未知结果原命令恢复、preview 取消与主体/卸载隔离。既有比较/resolve/continue 覆盖复用。任务要求全前端 unit/typecheck 和目标真实栈 spec；实际结果、早期失败与未验证边界记录在 UI implement/evidence。无新增第三方依赖、OpenAPI/DDL/历史回填。DEPLOY 同候选完整门禁、现场 smoke/恢复及 UAT 真实业务/性能另行验收。

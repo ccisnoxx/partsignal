@@ -1,0 +1,29 @@
+{
+  "baseline": "bc68f087153009aae032e52415ee5c9274199581",
+  "ui": "review",
+  "parent": "in_progress",
+  "children": {
+    "GEO-1010-DEPLOY": "planned",
+    "GEO-1010-UAT": "planned"
+  },
+  "dependencies": {
+    "GEO-1009": "done",
+    "GEO-1006": "done",
+    "GEO-704": "done",
+    "GEO-705": "done",
+    "GEO-706": "done",
+    "GEO-707": "done"
+  },
+  "checks": {
+    "task_state": "passed",
+    "links": "passed",
+    "docs_hash": "passed",
+    "openapi_generated_unchanged": "passed",
+    "DEPLOY_UAT_unchanged": "passed",
+    "real_stack": "passed",
+    "secret_scan": "clean"
+  },
+  "candidate_frozen": false,
+  "human_acceptance": false,
+  "production_go": false
+}

@@ -1,0 +1,10 @@
+{
+  "observed_agent_writes": [],
+  "known_primary_changes_during_or_after_review": [
+    "frontend/src/domains/geo-opportunities/opportunity-content-task.tsx",
+    "frontend/src/domains/geo-opportunities/opportunity-business.test.tsx",
+    "frontend/src/domains/geo-opportunities/opportunity-detail.tsx",
+    "frontend/tests/e2e/geo-loop-real-stack.spec.ts"
+  ],
+  "basis": "父代理已记录的apply_patch/写入命令与维护源码前后hash、实际diff一致；readonly agent返回期间未观察到其他维护源码变化。"
+}

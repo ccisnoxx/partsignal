@@ -3,7 +3,7 @@
 ## 基本信息与执行门禁
 
 - 展示 ID：GEO-1010-UI；Trellis ID/slug：`geo-1010-ui-business-closure`。
-- 初始状态：ready；本次只规划，未开始实施、未运行应用测试。
+- 初始状态：ready；2026-10-07 按用户授权开始 UI 实施。当前状态见 task.json，实际验证见 implement.md。
 - 父任务：[GEO-1010](../10-07-geo-1010-manual-pilot/prd.md)。
 - 依赖（必须全部 done）：GEO-1009、GEO-1006、GEO-704、GEO-705、GEO-706、GEO-707。
 - 关联能力：CAP-GEO-12；沿用现有 Opportunity/Action/Retest 合同，不新增业务规则。
@@ -29,17 +29,17 @@
 
 Opportunity CSV、Browser Adapter、CRON、自动 Opportunity 调度、公共管理员重分析、自动发布；evaluator/Action/Retest 领域规则重写；无关安全强化；全站视觉重构；部署和真实 UAT 数据。
 
-## 独立验收
+## 工作验收（2026-10-07 已获人工接受）
 
-- [ ] ADMIN 全程通过页面完成显式评估，回执和未生成原因可解释；ENGINEER 没有评估操作权限。
-- [ ] 用户通过页面创建 Content Task，来源/revision/产品/FactVersion/PlatformProfile 可核对，目标任务可导航。
-- [ ] 页面完成 Retest preview 和 create；不可比较的 preview 无可用创建入口，服务端拒绝反馈正确。
-- [ ] 比较和冻结恢复判断可读；用户显式 resolve 或 continue，页面明确“不证明因果”。
-- [ ] 关键流程不再要求手工调用 API；409/403/422/5xx、加载/空/错误/旧 revision 的实际可达状态可理解。
-- [ ] API 契约和历史数据语义保持；目标真实栈 E2E 通过，无未处理 P0/P1 业务流程缺陷。
-- [ ] 实际变更、命令/结果、覆盖边界、截图或 trace（需要时）记录完成；人工接受后才 done。
+- [x] ADMIN 全程通过页面完成显式评估，回执和未生成原因可解释；ENGINEER 没有评估操作权限。
+- [x] 用户通过页面创建 Content Task，来源/revision/产品/FactVersion/PlatformProfile 可核对，目标任务可导航。
+- [x] 页面完成 Retest preview 和 create；不可比较的 preview 无可用创建入口，服务端拒绝反馈正确。
+- [x] 比较和冻结恢复判断可读；用户显式 resolve 或 continue，页面明确“不证明因果”。
+- [x] 关键流程不再要求手工调用 API；409/403/422/5xx、加载/空/错误/旧 revision 的实际可达状态可理解。
+- [x] API 契约和历史数据语义保持；目标真实栈 E2E 通过，无未处理 P0/P1 业务流程缺陷。
+- [x] 实际变更、命令/结果、覆盖边界、截图或 trace（需要时）记录完成；人工接受后才 done。
 
-## 验证计划（尚未执行）
+## 验证入口
 
 从仓库根目录使用现有入口：
 
@@ -62,4 +62,4 @@ git diff --check
 - [OpenAPI](../../../contracts/openapi.yaml)、[数据库合同](../../../contracts/database.md)、[ADR-008](../../../docs/geo-monitoring/05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)
 - 当前源码/测试入口：`frontend/src/domains/geo-opportunities/`、`frontend/src/routes/_app/geo/opportunities.tsx`、`frontend/tests/e2e/geo-loop-real-stack.spec.ts`；`backend/app/routers/geo_opportunities.py`、`geo_retests.py` 及对应服务。
 
-当前规划复用父任务设计与现有领域合同。必要的局部 UI 设计在实施前补入本任务，不能以规划文档存在冒充实现或验收。
+本次实施复用父任务设计与现有领域合同；局部 UI 设计见 design.md，实际证据见 implement.md。2026-10-07 当前会话用户明确接受并要求标记 done；[人工接受记录](../../../docs/geo-monitoring/06-reviews/2026-10-07-geo-1010-ui-acceptance.md)已登记。候选冻结与内部部署由后续 DEPLOY 独立执行。

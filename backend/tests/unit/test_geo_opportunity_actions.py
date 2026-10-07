@@ -28,7 +28,9 @@ def test_only_confirmed_business_opportunities_can_create_actions(rule, expected
     actor = User(account_type="ENGINEER", is_active=True, must_change_password=False)
     for state in Status:
         assert action_types(state, rule, actor) == (
-            expected if state in {Status.ACKNOWLEDGED, Status.IN_PROGRESS} else []
+            expected + ["ADDITIONAL_MONITORING"]
+            if state == Status.IN_PROGRESS
+            else expected if state == Status.ACKNOWLEDGED else []
         )
     actor.must_change_password = True
     assert action_types(Status.IN_PROGRESS, rule, actor) == []
@@ -53,3 +55,19 @@ def test_publication_union_rejects_unknown_mode_invalid_revision_and_extra_ident
     }
     with pytest.raises(ValidationError):
         TypeAdapter(GeoOpportunityPublicationRepairRequest).validate_python(value | patch)
+
+
+@pytest.mark.parametrize("account_type,is_active,must_change_password", [
+    ("ADMIN", True, False), ("ENGINEER", True, False),
+    ("ADMIN", False, False), ("ENGINEER", True, True),
+])
+def test_strict_retest_entry_respects_actor_and_in_progress_boundary(
+    account_type, is_active, must_change_password
+):
+    actor = User(account_type=account_type, is_active=is_active,
+                 must_change_password=must_change_password)
+    result = action_types(Status.IN_PROGRESS, GeoRuleCode.TOPIC_COVERAGE_GAP, actor)
+    assert ("ADDITIONAL_MONITORING" in result) == (is_active and not must_change_password)
+    assert "ADDITIONAL_MONITORING" not in action_types(
+        Status.ACKNOWLEDGED, GeoRuleCode.TOPIC_COVERAGE_GAP, actor
+    )

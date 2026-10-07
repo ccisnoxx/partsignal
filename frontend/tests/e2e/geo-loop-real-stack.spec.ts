@@ -1,10 +1,9 @@
-/** GEO-707：真实监测 → 内容行动 → 同环境复测 → 显式解决及安全审计。 */
-import { randomUUID } from 'node:crypto';
+/** GEO-707 / GEO-1010-UI：真实页面监测 → 内容行动 → 同环境复测 → 显式解决及安全审计。 */
 import { expect, test } from '@playwright/test';
 import { defaultStringifySearch } from '@tanstack/react-router';
 import type { components } from '../../src/shared/api/generated/schema';
 import { api, body, login, runs, uiCommand } from './geo-api-support';
-import { completeLoopContent, createLoopBaseline, evaluateLoopBaseline, loopConfiguration, opportunities, sourceEnvironment, submitLoopBatch } from './geo-loop-support';
+import { completeLoopContent, createLoopBaseline, loopConfiguration, opportunities, sourceEnvironment, submitLoopBatch } from './geo-loop-support';
 import { createRealStackRuntimeAudit, type RuntimeCancellation } from './real-stack-runtime';
 import { registerCurrentRealStackCookies } from './real-stack-session';
 
@@ -24,7 +23,6 @@ test.afterEach(async ({ context }) => registerCurrentRealStackCookies(context, a
 test('五次覆盖缺口 → 确认与内容发布 → 五次严格复测恢复 → 人工显式解决 → 历史与审计保留', async ({ page }, testInfo) => {
   const auth = await login(page);
   const graph = await loopConfiguration(page, auth.csrf_token);
-  const headers = { 'X-CSRF-Token': auth.csrf_token };
   const apiOrigin = new URL(api).origin;
   const cancellations: RuntimeCancellation[] = [];
   const allowedPaths = new Set<string>();
@@ -48,9 +46,29 @@ test('五次覆盖缺口 → 确认与内容发布 → 五次严格复测恢复 
   const baselineBatch = await createLoopBaseline(page, graph);
   const baseline = await submitLoopBatch(page, baselineBatch.batch_id, graph.partNumber, 'baseline', allowRead);
   expect(baseline.map((item) => item.run.repeat_index)).toEqual([1, 2, 3, 4, 5]);
-  const seed = await evaluateLoopBaseline(baselineBatch.batch_id);
+  // GEO-1010-UI：正式ADMIN页面评估，API只读取断言，不使用内部evaluator seed。
+  await page.goto('/geo/opportunities');
+  await page.getByRole('button', { name: '评估 Opportunity', exact: true }).click();
+  const evaluationForm = page.getByRole('form', { name: '管理员显式评估', exact: true });
+  const createdTimes = baseline.map((item) => Date.parse(item.run.created_at));
+  await evaluationForm.getByRole('textbox', { name: '评估开始时间', exact: true }).fill(new Date(Math.min(...createdTimes) - 1000).toISOString());
+  await evaluationForm.getByRole('textbox', { name: '评估结束时间', exact: true }).fill(new Date(Math.max(...createdTimes) + 1000).toISOString());
+  const currentRules = await body<Schema['GeoRuleSetRead']>(await page.request.get(`${api}/api/v1/geo/rules`));
+  await evaluationForm.getByRole('spinbutton', { name: '评估规则修订号', exact: true }).fill(String(currentRules.revision));
+  await evaluationForm.getByRole('searchbox', { name: '搜索Subject / 产品', exact: true }).fill(graph.partNumber);
+  await evaluationForm.getByRole('region', { name: 'Subject / 产品', exact: true }).getByRole('button', { name: new RegExp(`选择：.*${graph.partNumber}`) }).click();
+  const evaluationResponse = page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname === `${opportunities}/evaluate`);
+  await evaluationForm.getByRole('button', { name: '确认执行评估', exact: true }).click();
+  const evaluationHttp = await evaluationResponse;
+  const evaluation = await body<Schema['GeoOpportunityEvaluationReceipt']>(evaluationHttp);
+  expect(evaluation.created).toBeGreaterThan(0);
+  await expect(evaluationForm.getByRole('region', { name: '评估冻结回执', exact: true })).toContainText(`新建 ${evaluation.created}`);
+  const evaluatedList = await body<Schema['GeoOpportunityListPage']>(await page.request.get(`${api}${opportunities}`, { params: { subject_id: graph.subject.id, rule_code: 'TOPIC_COVERAGE_GAP' } }));
+  expect(evaluatedList.items).toHaveLength(1);
+  const seed = { opportunity_id: evaluatedList.items[0]!.id, request_id: evaluationHttp.headers()['x-request-id'] };
+  await evaluationForm.getByRole('button', { name: '收起评估表单（保留输入）', exact: true }).click();
   const path = `${opportunities}/${seed.opportunity_id}`;
-  allowRead(path); allowRead(`${path}/comparison`);
+  allowRead(path); allowRead(`${path}/comparison`); allowRead(`${path}/retest-preview`);
   const initial = await body<Schema['GeoOpportunityDetail']>(await page.request.get(`${api}${path}`));
   expect(initial.opportunity).toMatchObject({ status: 'OPEN', rule_code: 'TOPIC_COVERAGE_GAP', numerator: 0, denominator: 5, product_id: graph.product.id });
   expect(initial.trigger_snapshot.rule_snapshot.configuration).toMatchObject({ sample_policy: { stable_minimum: 5 }, recovery: { topic_visibility_minimum_rate: 0.6 } });
@@ -79,11 +97,21 @@ test('五次覆盖缺口 → 确认与内容发布 → 五次严格复测恢复 
   await expect(drawer.getByRole('button', { name: '确认机会', exact: true })).toHaveCount(0);
   await waitForSourceImages(refreshedUrls);
 
-  // 704 当前没有行动创建 UI，使用公共 API；目标域保留审批与发布的所有裁决。
-  const linked = await body<Schema['GeoOpportunityActionResult']>(await page.request.post(`${api}${path}/actions/content-task`, {
-    headers: { ...headers, 'Idempotency-Key': randomUUID() },
-    data: { expected_revision: acknowledged.revision, product_id: graph.product.id, fact_version_id: graph.fact.id, platform_profile_id: graph.platform.id } satisfies Schema['GeoOpportunityContentTaskRequest'],
-  }));
+  await drawer.getByRole('button', { name: '创建 Content Task', exact: true }).click();
+  await drawer.getByRole('textbox', { name: '搜索 Content Task 产品', exact: true }).fill(graph.partNumber);
+  await drawer.getByRole('combobox', { name: 'Content Task 产品', exact: true }).click();
+  await page.getByRole('option', { name: new RegExp(graph.partNumber) }).click();
+  await drawer.getByRole('combobox', { name: 'Content Task 已批准事实版本', exact: true }).click();
+  await page.getByRole('option', { name: new RegExp(graph.fact.id) }).click();
+  await drawer.getByRole('combobox', { name: 'Content Task 目标平台', exact: true }).click();
+  await page.getByRole('option', { name: new RegExp(graph.platform.name) }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await expect.poll(() => drawer.getByRole('combobox', { name: 'Content Task 已批准事实版本', exact: true }).evaluate((element) => element.getBoundingClientRect().right <= window.innerWidth)).toBe(true);
+  await drawer.getByRole('region', { name: '从机会创建 Content Task', exact: true }).screenshot({ path: testInfo.outputPath('geo1010-content-task.png') });
+  const linked = await uiCommand<Schema['GeoOpportunityActionResult']>(page, `${path}/actions/content-task`, () => drawer.getByRole('button', { name: '确认创建 Content Task', exact: true }).click());
+  await expect(drawer.getByRole('link', { name: '打开新 Content Task', exact: true })).toHaveAttribute('href', new RegExp(`/content/tasks/${linked.action.target_id}`));
+  await page.setViewportSize({ width: 1440, height: 900 });
   expect(linked.action).toMatchObject({ action_type: 'CONTENT_TASK', target_type: 'ContentTask', status_snapshot: 'OPEN', source_snapshot: { opportunity_id: seed.opportunity_id, fact_version_id: graph.fact.id, trigger_snapshot: initial.trigger_snapshot } });
   const content = await completeLoopContent(page, linked.action.target_id, graph, allowRead);
   const afterContent = await body<Schema['GeoOpportunityDetail']>(await page.request.get(`${api}${path}`));
@@ -91,14 +119,22 @@ test('五次覆盖缺口 → 确认与内容发布 → 五次严格复测恢复 
   expect(afterContent.trigger_snapshot).toEqual(initial.trigger_snapshot);
   expect(afterContent.actions[0]).toMatchObject({ id: linked.action.id, target_id: content.task.task.id, status_snapshot: 'OPEN' });
 
-  // 705 当前没有复测创建 UI，preview/create 仍经过真实 CSRF、revision、同环境校验和 dispatch。
-  const preview = await body<Schema['GeoRetestPreview']>(await page.request.get(`${api}${path}/retest-preview`, { params: { baseline_batch_id: baselineBatch.batch_id } }));
+  await page.waitForLoadState('networkidle');
+  await page.goto(`/geo/opportunities?opportunity_id=${seed.opportunity_id}`);
+  await drawer.getByRole('button', { name: '预览并创建 Retest', exact: true }).click();
+  await drawer.getByRole('textbox', { name: 'Retest 基线批次 ID', exact: true }).fill(baselineBatch.batch_id);
+  const previewResponse = page.waitForResponse((response) => response.request().method() === 'GET' && new URL(response.url()).pathname === `${path}/retest-preview`);
+  await drawer.getByRole('button', { name: '预览 Retest', exact: true }).click();
+  const preview = await body<Schema['GeoRetestPreview']>(await previewResponse);
   expect(preview).toMatchObject({ comparable: true, requires_new_baseline: false, differences: [], opportunity_revision: afterContent.opportunity.revision });
   expect(preview.snapshot.cells).toHaveLength(5);
-  const retest = await body<Schema['GeoRetestCreated']>(await page.request.post(`${api}${path}/retest`, {
-    headers: { ...headers, 'Idempotency-Key': randomUUID() },
-    data: { expected_revision: preview.opportunity_revision, baseline_batch_id: baselineBatch.batch_id } satisfies Schema['GeoRetestRequest'],
-  }), 201);
+  await expect(drawer.getByRole('region', { name: 'Retest 可比性预览', exact: true })).toContainText('可比');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await drawer.getByRole('region', { name: 'Retest 可比性预览', exact: true }).screenshot({ path: testInfo.outputPath('geo1010-retest-preview.png') });
+  const retest = await uiCommand<Schema['GeoRetestCreated']>(page, `${path}/retest`, () => drawer.getByRole('button', { name: '确认创建 Retest', exact: true }).click(), 201);
+  await expect(drawer.getByRole('link', { name: '打开新 Retest 批次', exact: true })).toHaveAttribute('href', `/geo/runs?batch_id=${retest.batch_id}`);
+  await page.setViewportSize({ width: 1440, height: 900 });
   expect(retest).toMatchObject({ requested_run_count: 5, replayed: false });
   const repeated = await submitLoopBatch(page, retest.batch_id, graph.partNumber, 'retest', allowRead);
   for (let index = 0; index < baseline.length; index += 1) {

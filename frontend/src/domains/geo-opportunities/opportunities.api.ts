@@ -42,7 +42,7 @@ export function opportunityDetailOptions(search: OpportunitySearch) {
     return result.data as components['schemas']['GeoOpportunityDetail'];
   } });
 }
-function headers(csrfToken: string | null) {
+export function headers(csrfToken: string | null) {
   if (!csrfToken) throw new OpportunityRequestError('缺少会话安全令牌，无法执行操作');
   return { 'X-CSRF-Token': csrfToken };
 }
@@ -73,7 +73,7 @@ function decisionReceipt(id: string, revision: number, result: components['schem
   return result;
 }
 function record(value: unknown): value is Record<string, unknown> { return Boolean(value && typeof value === 'object' && !Array.isArray(value)); }
-function requestError(action: string, result: { error?: unknown; response: Response }) {
+export function requestError(action: string, result: { error?: unknown; response: Response }) {
   if (record(result.error) && record(result.error.error)) {
     const detail = result.error.error;
     if (typeof detail.code === 'string' && typeof detail.message === 'string' && typeof detail.request_id === 'string' && record(detail.details))

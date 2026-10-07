@@ -13,5 +13,5 @@ export const Route = createFileRoute('/_app/geo/opportunities')({
 });
 function OpportunitiesRoute() {
   const search = Route.useSearch(); const { auth } = Route.useRouteContext(); const navigate = Route.useNavigate();
-  return <OpportunitiesPage search={search} csrfToken={auth.csrfToken} onSearchChange={(next, replace) => void navigate({ search: next, replace })} />;
+  return <OpportunitiesPage isAdmin={auth.isAdmin} search={search} csrfToken={auth.csrfToken} onSearchChange={(next, replace) => void navigate({ search: next, replace })} />;
 }

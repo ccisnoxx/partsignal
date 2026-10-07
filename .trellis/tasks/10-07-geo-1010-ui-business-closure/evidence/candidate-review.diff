@@ -1,0 +1,1413 @@
+diff --git a/backend/app/services/geo_opportunity_policy.py b/backend/app/services/geo_opportunity_policy.py
+index c7f96aca..f3c8def7 100644
+--- a/backend/app/services/geo_opportunity_policy.py
++++ b/backend/app/services/geo_opportunity_policy.py
+@@ -111,7 +111,7 @@ def workflow(status: Status, actor: User) -> GeoOpportunityWorkflow:
+ 
+ 
+ def action_types(status: Status, rule: GeoRuleCode, actor: User) -> list[ActionType]:
+-    """704的创建资格；治理/补测/解决机会不在本次边界内。"""
++    """行动入口投影；具体目标和严格复测资格仍由命令在锁内重验。"""
+     if (
+         status not in {Status.ACKNOWLEDGED, Status.IN_PROGRESS}
+         or not actor.is_active
+@@ -126,4 +126,7 @@ def action_types(status: Status, rule: GeoRuleCode, actor: User) -> list[ActionT
+         result.append(ActionType.CONTENT_TASK)
+     if rule == GeoRuleCode.OWN_CITATION_LOST:
+         result.append(ActionType.PUBLICATION_REPAIR)
++    if status == Status.IN_PROGRESS:
++        # 严格复测先预览冻结基线；此 token 只允许尝试，不承诺环境可比。
++        result.append(ActionType.ADDITIONAL_MONITORING)
+     return result
+diff --git a/backend/tests/geo_loop_e2e_seed.py b/backend/tests/geo_loop_e2e_seed.py
+deleted file mode 100644
+index 72431993..00000000
+--- a/backend/tests/geo_loop_e2e_seed.py
++++ /dev/null
+@@ -1,130 +0,0 @@
+-"""GEO707 隔离真实栈的规则评估入口；不伪造采集、分析或业务状态。"""
+-
+-import json
+-import sys
+-from datetime import timedelta
+-from uuid import UUID
+-
+-from sqlalchemy import select
+-
+-from app.db import SessionLocal
+-from app.models.geo_answers import GeoAnswerSnapshot
+-from app.models.geo_opportunities import GeoOpportunityEvaluation
+-from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
+-from app.models.identity import User
+-from app.models.product_facts import FactVersion, Product
+-from app.schemas.geo_insights import GeoOverviewFilters
+-from app.schemas.geo_runs import GeoRunInputSnapshot
+-from app.services.geo_opportunities import evaluate_opportunities
+-from tests.geo_opportunity_e2e_seed import validate_owned_database
+-
+-
+-def main() -> None:
+-    validate_owned_database()
+-    batch_id = UUID(sys.argv[1])
+-    request_id = f"GEO707-{batch_id}"
+-    with SessionLocal() as db:
+-        batch = db.get(GeoObservationBatch, batch_id)
+-        runs = list(
+-            db.scalars(
+-                select(GeoObservationRun)
+-                .where(GeoObservationRun.batch_id == batch_id)
+-                .order_by(GeoObservationRun.repeat_index)
+-            )
+-        )
+-        if (
+-            batch is None
+-            or not batch.plan_snapshot["name"].startswith("GEO707 ")
+-            or batch.trigger_type != "MANUAL"
+-            or batch.status != "COMPLETED"
+-            or batch.requested_run_count != 5
+-            or len(runs) != 5
+-            or [run.repeat_index for run in runs] != [1, 2, 3, 4, 5]
+-        ):
+-            raise ValueError("GEO707 只评估本轮 API 创建且完成真实分析的五次虚构基线")
+-        first = GeoRunInputSnapshot.model_validate(runs[0].input_snapshot)
+-        if (
+-            len(first.subjects) != 1
+-            or first.subjects[0].subject_type != "OWN_PRODUCT"
+-            or first.subjects[0].role != "PRIMARY"
+-            or not first.subjects[0].canonical_name.startswith("GEO707-")
+-            # 公开产品事实不授予外发资格；canonical 批次仍冻结 INTERNAL。
+-            or first.data_classification != "INTERNAL"
+-            or first.prompt.mention_mode != "UNBRANDED"
+-            or first.prompt.priority != "CORE"
+-            or not first.prompt.prompt_text.startswith("GEO707 ")
+-            or not first.prompt.canonical_question.startswith("GEO707 ")
+-            or first.profile.collection_mode != "MANUAL"
+-            or not first.profile.name.startswith("GEO707 ")
+-            or not first.profile.settings.require_screenshot
+-        ):
+-            raise ValueError("GEO707 评估输入必须为自有虚构公开产品的核心非点名人工观测")
+-        product = db.get(Product, first.subjects[0].product_id)
+-        # 隔离测试使用已初始化管理员执行评估，批次创建者仍可为 ENGINEER。
+-        actor = db.scalar(
+-            select(User).where(User.username == "admin", User.account_type == "ADMIN")
+-        )
+-        if product is None or not product.part_number.startswith("GEO707-") or actor is None:
+-            raise ValueError("GEO707 评估缺少本轮虚构产品或创建者")
+-        fact = db.scalar(
+-            select(FactVersion)
+-            .where(
+-                FactVersion.product_id == product.id,
+-                FactVersion.status == "APPROVED",
+-                FactVersion.classification == "PUBLIC",
+-            )
+-            .order_by(FactVersion.version.desc())
+-            .limit(1)
+-        )
+-        if fact is None or not fact.body_markdown.startswith(f"# {product.part_number}\n"):
+-            raise ValueError("GEO707 评估必须使用同产品已批准的虚构公开事实")
+-        for run in runs:
+-            snapshot = GeoRunInputSnapshot.model_validate(run.input_snapshot)
+-            answer = db.scalar(select(GeoAnswerSnapshot).where(GeoAnswerSnapshot.run_id == run.id))
+-            if (
+-                run.status != "COMPLETED"
+-                or run.current_analysis_revision_id is None
+-                or snapshot != first
+-                or answer is None
+-                or product.part_number in answer.answer_text
+-                or answer.screenshot_file_id is None
+-                or answer.source_product != "GEO707虚构观测产品"
+-                or answer.source_model != "geo707-fictional-model"
+-                or answer.source_version != "geo707-fixture-v1"
+-            ):
+-                raise ValueError("GEO707 五次基线须有真实证据和分析，同环境且全部不提及型号")
+-        filters = GeoOverviewFilters(
+-            date_from=min(run.created_at for run in runs),
+-            date_to=max(run.created_at for run in runs) + timedelta(microseconds=1),
+-            subject_ids=[first.subjects[0].id],
+-            product_ids=[product.id],
+-            query_topic_ids=[first.prompt.query_topic_id],
+-            prompt_variant_ids=[first.prompt.id],
+-            collection_profile_ids=[first.profile.id],
+-        )
+-        results = evaluate_opportunities(db, filters, actor=actor, request_id=request_id)
+-        evaluations = list(
+-            db.scalars(
+-                select(GeoOpportunityEvaluation).where(
+-                    GeoOpportunityEvaluation.id.in_([result.evaluation_id for result in results]),
+-                    GeoOpportunityEvaluation.result_snapshot["rule_code"].as_string()
+-                    == "TOPIC_COVERAGE_GAP",
+-                    GeoOpportunityEvaluation.opportunity_id.is_not(None),
+-                )
+-            )
+-        )
+-        if len(evaluations) != 1:
+-            raise ValueError("GEO707 真实 evaluator 未生成唯一主题覆盖缺口机会")
+-        evaluation = evaluations[0]
+-        if (
+-            evaluation.result_snapshot["numerator"] != 0
+-            or evaluation.result_snapshot["denominator"] != 5
+-        ):
+-            raise ValueError("GEO707 主题覆盖缺口必须来源于全部五次有效基线")
+-        print(
+-            json.dumps({"opportunity_id": str(evaluation.opportunity_id), "request_id": request_id})
+-        )
+-
+-
+-if __name__ == "__main__":
+-    main()
+diff --git a/backend/tests/unit/test_geo_opportunity_actions.py b/backend/tests/unit/test_geo_opportunity_actions.py
+index 39abaf3c..84f27c33 100644
+--- a/backend/tests/unit/test_geo_opportunity_actions.py
++++ b/backend/tests/unit/test_geo_opportunity_actions.py
+@@ -28,7 +28,9 @@ def test_only_confirmed_business_opportunities_can_create_actions(rule, expected
+     actor = User(account_type="ENGINEER", is_active=True, must_change_password=False)
+     for state in Status:
+         assert action_types(state, rule, actor) == (
+-            expected if state in {Status.ACKNOWLEDGED, Status.IN_PROGRESS} else []
++            expected + ["ADDITIONAL_MONITORING"]
++            if state == Status.IN_PROGRESS
++            else expected if state == Status.ACKNOWLEDGED else []
+         )
+     actor.must_change_password = True
+     assert action_types(Status.IN_PROGRESS, rule, actor) == []
+@@ -53,3 +55,19 @@ def test_publication_union_rejects_unknown_mode_invalid_revision_and_extra_ident
+     }
+     with pytest.raises(ValidationError):
+         TypeAdapter(GeoOpportunityPublicationRepairRequest).validate_python(value | patch)
++
++
++@pytest.mark.parametrize("account_type,is_active,must_change_password", [
++    ("ADMIN", True, False), ("ENGINEER", True, False),
++    ("ADMIN", False, False), ("ENGINEER", True, True),
++])
++def test_strict_retest_entry_respects_actor_and_in_progress_boundary(
++    account_type, is_active, must_change_password
++):
++    actor = User(account_type=account_type, is_active=is_active,
++                 must_change_password=must_change_password)
++    result = action_types(Status.IN_PROGRESS, GeoRuleCode.TOPIC_COVERAGE_GAP, actor)
++    assert ("ADDITIONAL_MONITORING" in result) == (is_active and not must_change_password)
++    assert "ADDITIONAL_MONITORING" not in action_types(
++        Status.ACKNOWLEDGED, GeoRuleCode.TOPIC_COVERAGE_GAP, actor
++    )
+diff --git a/deploy/scripts/e2e-local.sh b/deploy/scripts/e2e-local.sh
+index d0e71bda..8cb55d96 100755
+--- a/deploy/scripts/e2e-local.sh
++++ b/deploy/scripts/e2e-local.sh
+@@ -16,7 +16,8 @@ export APP_ENV=test
+ export GEO_MONITORING_ENABLED=true
+ export GEO_API_COLLECTION_ENABLED=false
+ export GEO_BROWSER_COLLECTION_ENABLED=false
+-export GEO_OPPORTUNITY_EVALUATION_ENABLED=false
++# GEO-1010-UI：隔离 MANUAL 验收通过正式 ADMIN 页面显式评估；不注册自动评估。
++export GEO_OPPORTUNITY_EVALUATION_ENABLED=true
+ # 人工提交由真实分析扫描推进；隔离test栈缩短扫描等待，十次采样不逐次等待生产默认60秒。
+ export GEO_RECOVERY_SCAN_SECONDS=5
+ geo_port_arguments=
+diff --git a/frontend/src/domains/geo-opportunities/opportunities-page.tsx b/frontend/src/domains/geo-opportunities/opportunities-page.tsx
+index 39507cfc..d5820db6 100644
+--- a/frontend/src/domains/geo-opportunities/opportunities-page.tsx
++++ b/frontend/src/domains/geo-opportunities/opportunities-page.tsx
+@@ -8,9 +8,10 @@ import { formatTime, opportunitySearchSchema, type Opportunity, type Opportunity
+ import { canRetryOpportunityRead, canShowOpportunitySnapshot, OpportunityReadFailure } from './opportunity-controls';
+ import { OpportunityDrawer } from './opportunity-detail';
+ import { OpportunityFilters } from './opportunity-filters';
++import { OpportunityEvaluation } from './opportunity-evaluation';
+ import { OpportunityTable } from './opportunity-list';
+ 
+-export function OpportunitiesPage({ search, csrfToken, onSearchChange }: { search: OpportunitySearch; csrfToken: string | null; onSearchChange: (search: OpportunitySearch, replace?: boolean) => void }) {
++export function OpportunitiesPage({ search, csrfToken, onSearchChange, isAdmin = false }: { isAdmin?: boolean; search: OpportunitySearch; csrfToken: string | null; onSearchChange: (search: OpportunitySearch, replace?: boolean) => void }) {
+   const query = useQuery(opportunityListOptions(search));
+   const data = canShowOpportunitySnapshot(query.error) ? query.data : undefined;
+   const focusReturn = useRef<HTMLElement | null>(null);
+@@ -27,6 +28,7 @@ export function OpportunitiesPage({ search, csrfToken, onSearchChange }: { searc
+   }, []);
+   return <section aria-labelledby="opportunities-title" className="min-w-0 space-y-5">
+     <header className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 space-y-1"><h1 className="type-page-title" id="opportunities-title" ref={pageHeading} tabIndex={-1}>GEO 机会工作台</h1><p className="text-text-secondary">追溯历史证据、比较复测结果，并依据服务端动作显式处理机会。</p></div>{canRetryOpportunityRead(query.error) && <Button type="button" variant="outline" disabled={query.isFetching} onClick={() => void query.refetch()}>刷新列表</Button>}</header>
++    {isAdmin && <OpportunityEvaluation csrfToken={csrfToken} />}
+     <OpportunityFilters key={JSON.stringify(search)} search={search} options={data?.filter_options} onChange={onSearchChange} />
+     {query.isFetching && <p className="text-sm" role="status">{query.data ? '正在刷新机会列表…' : '正在读取机会列表…'}</p>}
+     {query.error && <OpportunityReadFailure error={query.error} retained={Boolean(query.data)} onRetry={() => void query.refetch()} />}
+diff --git a/frontend/src/domains/geo-opportunities/opportunities.api.ts b/frontend/src/domains/geo-opportunities/opportunities.api.ts
+index 7253b541..8d9aa36d 100644
+--- a/frontend/src/domains/geo-opportunities/opportunities.api.ts
++++ b/frontend/src/domains/geo-opportunities/opportunities.api.ts
+@@ -42,7 +42,7 @@ export function opportunityDetailOptions(search: OpportunitySearch) {
+     return result.data as components['schemas']['GeoOpportunityDetail'];
+   } });
+ }
+-function headers(csrfToken: string | null) {
++export function headers(csrfToken: string | null) {
+   if (!csrfToken) throw new OpportunityRequestError('缺少会话安全令牌，无法执行操作');
+   return { 'X-CSRF-Token': csrfToken };
+ }
+@@ -73,7 +73,7 @@ function decisionReceipt(id: string, revision: number, result: components['schem
+   return result;
+ }
+ function record(value: unknown): value is Record<string, unknown> { return Boolean(value && typeof value === 'object' && !Array.isArray(value)); }
+-function requestError(action: string, result: { error?: unknown; response: Response }) {
++export function requestError(action: string, result: { error?: unknown; response: Response }) {
+   if (record(result.error) && record(result.error.error)) {
+     const detail = result.error.error;
+     if (typeof detail.code === 'string' && typeof detail.message === 'string' && typeof detail.request_id === 'string' && record(detail.details))
+diff --git a/frontend/src/domains/geo-opportunities/opportunity-detail.tsx b/frontend/src/domains/geo-opportunities/opportunity-detail.tsx
+index badaa653..6a8b1308 100644
+--- a/frontend/src/domains/geo-opportunities/opportunity-detail.tsx
++++ b/frontend/src/domains/geo-opportunities/opportunity-detail.tsx
+@@ -1,5 +1,5 @@
+ import { useQuery } from '@tanstack/react-query';
+-import { useState } from 'react';
++import { useLayoutEffect, useRef, useState } from 'react';
+ import { TablePagination } from '@/design-system/data-table/table-pagination';
+ import { TableShell } from '@/design-system/data-table/table-shell';
+ import { Badge } from '@/design-system/primitives/badge';
+@@ -13,15 +13,19 @@ import { OpportunityComparison } from './opportunity-comparison';
+ import { OpportunityDecisions } from './opportunity-decisions';
+ import { canRetryOpportunityRead, canShowOpportunitySnapshot, OpportunityReadFailure } from './opportunity-controls';
+ import { OpportunityEvidence } from './opportunity-evidence';
++import { OpportunityContentTask } from './opportunity-content-task';
++import { OpportunityRetest } from './opportunity-retest';
+ 
+ export function OpportunityDrawer({ search, csrfToken, onChange, finalFocus, intent }: { search: OpportunitySearch; csrfToken: string | null; onChange: (search: OpportunitySearch) => void; finalFocus: () => HTMLElement | null; intent?: components['schemas']['GeoOpportunityAction'] }) {
+   const query = useQuery(opportunityDetailOptions(search));
+   const comparisonQuery = useQuery(opportunityComparisonOptions(search));
+   const [privacyFailure, setPrivacyFailure] = useState<{ id: string; error: OpportunityRequestError }>();
+-  const privateError = privacyFailure && privacyFailure.id === search.opportunity_id ? privacyFailure.error : comparisonQuery.error instanceof OpportunityRequestError && [401, 403, 404].includes(comparisonQuery.error.status ?? 0) ? comparisonQuery.error : undefined;
++  const privateError = privacyFailure && privacyFailure.id === search.opportunity_id ? privacyFailure.error : query.error instanceof OpportunityRequestError && [401, 403, 404].includes(query.error.status ?? 0) ? query.error : comparisonQuery.error instanceof OpportunityRequestError && [401, 403, 404].includes(comparisonQuery.error.status ?? 0) ? comparisonQuery.error : undefined;
+   const detail = !privateError && canShowOpportunitySnapshot(query.error) ? query.data : undefined;
+   const comparisonRead = !privateError && canShowOpportunitySnapshot(query.error) && canShowOpportunitySnapshot(comparisonQuery.error) ? comparisonQuery.data : undefined;
+-  const change = (patch: Partial<OpportunitySearch>) => onChange(opportunitySearchSchema.parse({ ...search, ...patch }));
++  const navigation = useRef({ search, onChange });
++  useLayoutEffect(() => { navigation.current = { search, onChange }; }, [search, onChange]);
++  const change = (patch: Partial<OpportunitySearch>) => { const current = navigation.current; current.onChange(opportunitySearchSchema.parse({ ...current.search, ...patch })); };
+   async function reload() { const result = await query.refetch({ throwOnError: true }); if (!result.data) throw new Error('机会详情缺少读取结果'); return result.data.opportunity; }
+   async function reloadDecision(withComparison: boolean) {
+     if (!withComparison) return { opportunity: await reload() };
+@@ -35,6 +39,8 @@ export function OpportunityDrawer({ search, csrfToken, onChange, finalFocus, int
+       {query.isFetching && <p role="status">{query.data ? '正在刷新机会证据…' : '正在读取机会证据…'}</p>}{query.error && <OpportunityReadFailure evidence error={query.error} retained={Boolean(query.data)} onRetry={() => void query.refetch()} />}
+       {privateError && !query.error && <OpportunityReadFailure error={privateError} onRetry={() => {}} />}
+       {search.opportunity_id && <OpportunityCommands opportunityId={search.opportunity_id} opportunity={detail?.opportunity} key={search.opportunity_id} csrfToken={csrfToken} blocked={Boolean(query.error) || query.isFetching || !detail} intent={intent} onReload={reload} onDenied={(error) => setPrivacyFailure({ id: search.opportunity_id!, error })} />}
++      {search.opportunity_id && !privateError && <OpportunityContentTask key={`content-${search.opportunity_id}`} opportunityId={search.opportunity_id} detail={detail} blocked={Boolean(query.error) || query.isFetching || !detail} csrfToken={csrfToken} onReload={reload} onDenied={(error) => setPrivacyFailure({ id: search.opportunity_id!, error })} />}
++      {search.opportunity_id && !privateError && <OpportunityRetest key={`retest-${search.opportunity_id}`} opportunityId={search.opportunity_id} detail={detail} blocked={Boolean(query.error) || query.isFetching || !detail} csrfToken={csrfToken} onReload={reload} onDenied={(error) => setPrivacyFailure({ id: search.opportunity_id!, error })} onCreated={(batchId) => change({ retest_batch_id: batchId })} />}
+       {search.opportunity_id && !privateError && (!query.error || detail) && <OpportunityComparison key={`comparison-${search.opportunity_id}`} data={comparisonRead} selectedBatchId={search.retest_batch_id} fetching={comparisonQuery.isFetching} error={comparisonQuery.error} onSelect={(id) => change({ retest_batch_id: id })} onReload={() => void comparisonQuery.refetch()} />}
+       {search.opportunity_id && <OpportunityDecisions key={`decisions-${search.opportunity_id}`} opportunityId={search.opportunity_id} opportunity={detail?.opportunity} comparisonRead={comparisonRead} comparisonBlocked={Boolean(comparisonQuery.error) || comparisonQuery.isFetching || !comparisonRead} blocked={Boolean(query.error) || query.isFetching || !detail || Boolean(privateError)} csrfToken={csrfToken} intent={intent} onReload={reloadDecision} onDenied={(error) => setPrivacyFailure({ id: search.opportunity_id!, error })} />}
+       {detail && <>
+diff --git a/frontend/src/routes/_app/geo/opportunities.tsx b/frontend/src/routes/_app/geo/opportunities.tsx
+index d417ead7..42d984b1 100644
+--- a/frontend/src/routes/_app/geo/opportunities.tsx
++++ b/frontend/src/routes/_app/geo/opportunities.tsx
+@@ -13,5 +13,5 @@ export const Route = createFileRoute('/_app/geo/opportunities')({
+ });
+ function OpportunitiesRoute() {
+   const search = Route.useSearch(); const { auth } = Route.useRouteContext(); const navigate = Route.useNavigate();
+-  return <OpportunitiesPage search={search} csrfToken={auth.csrfToken} onSearchChange={(next, replace) => void navigate({ search: next, replace })} />;
++  return <OpportunitiesPage isAdmin={auth.isAdmin} search={search} csrfToken={auth.csrfToken} onSearchChange={(next, replace) => void navigate({ search: next, replace })} />;
+ }
+diff --git a/frontend/tests/e2e/geo-loop-real-stack.spec.ts b/frontend/tests/e2e/geo-loop-real-stack.spec.ts
+index a47be23c..96bae5ec 100644
+--- a/frontend/tests/e2e/geo-loop-real-stack.spec.ts
++++ b/frontend/tests/e2e/geo-loop-real-stack.spec.ts
+@@ -1,10 +1,9 @@
+-/** GEO-707：真实监测 → 内容行动 → 同环境复测 → 显式解决及安全审计。 */
+-import { randomUUID } from 'node:crypto';
++/** GEO-707 / GEO-1010-UI：真实页面监测 → 内容行动 → 同环境复测 → 显式解决及安全审计。 */
+ import { expect, test } from '@playwright/test';
+ import { defaultStringifySearch } from '@tanstack/react-router';
+ import type { components } from '../../src/shared/api/generated/schema';
+ import { api, body, login, runs, uiCommand } from './geo-api-support';
+-import { completeLoopContent, createLoopBaseline, evaluateLoopBaseline, loopConfiguration, opportunities, sourceEnvironment, submitLoopBatch } from './geo-loop-support';
++import { completeLoopContent, createLoopBaseline, loopConfiguration, opportunities, sourceEnvironment, submitLoopBatch } from './geo-loop-support';
+ import { createRealStackRuntimeAudit, type RuntimeCancellation } from './real-stack-runtime';
+ import { registerCurrentRealStackCookies } from './real-stack-session';
+ 
+@@ -24,7 +23,6 @@ test.afterEach(async ({ context }) => registerCurrentRealStackCookies(context, a
+ test('五次覆盖缺口 → 确认与内容发布 → 五次严格复测恢复 → 人工显式解决 → 历史与审计保留', async ({ page }, testInfo) => {
+   const auth = await login(page);
+   const graph = await loopConfiguration(page, auth.csrf_token);
+-  const headers = { 'X-CSRF-Token': auth.csrf_token };
+   const apiOrigin = new URL(api).origin;
+   const cancellations: RuntimeCancellation[] = [];
+   const allowedPaths = new Set<string>();
+@@ -48,9 +46,29 @@ test('五次覆盖缺口 → 确认与内容发布 → 五次严格复测恢复
+   const baselineBatch = await createLoopBaseline(page, graph);
+   const baseline = await submitLoopBatch(page, baselineBatch.batch_id, graph.partNumber, 'baseline', allowRead);
+   expect(baseline.map((item) => item.run.repeat_index)).toEqual([1, 2, 3, 4, 5]);
+-  const seed = await evaluateLoopBaseline(baselineBatch.batch_id);
++  // GEO-1010-UI：正式ADMIN页面评估，API只读取断言，不使用内部evaluator seed。
++  await page.goto('/geo/opportunities');
++  await page.getByRole('button', { name: '评估 Opportunity', exact: true }).click();
++  const evaluationForm = page.getByRole('form', { name: '管理员显式评估', exact: true });
++  const createdTimes = baseline.map((item) => Date.parse(item.run.created_at));
++  await evaluationForm.getByRole('textbox', { name: '评估开始时间', exact: true }).fill(new Date(Math.min(...createdTimes) - 1000).toISOString());
++  await evaluationForm.getByRole('textbox', { name: '评估结束时间', exact: true }).fill(new Date(Math.max(...createdTimes) + 1000).toISOString());
++  const currentRules = await body<Schema['GeoRuleSetRead']>(await page.request.get(`${api}/api/v1/geo/rules`));
++  await evaluationForm.getByRole('spinbutton', { name: '评估规则修订号', exact: true }).fill(String(currentRules.revision));
++  await evaluationForm.getByRole('searchbox', { name: '搜索Subject / 产品', exact: true }).fill(graph.partNumber);
++  await evaluationForm.getByRole('region', { name: 'Subject / 产品', exact: true }).getByRole('button', { name: new RegExp(`选择：.*${graph.partNumber}`) }).click();
++  const evaluationResponse = page.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname === `${opportunities}/evaluate`);
++  await evaluationForm.getByRole('button', { name: '确认执行评估', exact: true }).click();
++  const evaluationHttp = await evaluationResponse;
++  const evaluation = await body<Schema['GeoOpportunityEvaluationReceipt']>(evaluationHttp);
++  expect(evaluation.created).toBeGreaterThan(0);
++  await expect(evaluationForm.getByRole('region', { name: '评估冻结回执', exact: true })).toContainText(`新建 ${evaluation.created}`);
++  const evaluatedList = await body<Schema['GeoOpportunityListPage']>(await page.request.get(`${api}${opportunities}`, { params: { subject_id: graph.subject.id, rule_code: 'TOPIC_COVERAGE_GAP' } }));
++  expect(evaluatedList.items).toHaveLength(1);
++  const seed = { opportunity_id: evaluatedList.items[0]!.id, request_id: evaluationHttp.headers()['x-request-id'] };
++  await evaluationForm.getByRole('button', { name: '收起评估表单（保留输入）', exact: true }).click();
+   const path = `${opportunities}/${seed.opportunity_id}`;
+-  allowRead(path); allowRead(`${path}/comparison`);
++  allowRead(path); allowRead(`${path}/comparison`); allowRead(`${path}/retest-preview`);
+   const initial = await body<Schema['GeoOpportunityDetail']>(await page.request.get(`${api}${path}`));
+   expect(initial.opportunity).toMatchObject({ status: 'OPEN', rule_code: 'TOPIC_COVERAGE_GAP', numerator: 0, denominator: 5, product_id: graph.product.id });
+   expect(initial.trigger_snapshot.rule_snapshot.configuration).toMatchObject({ sample_policy: { stable_minimum: 5 }, recovery: { topic_visibility_minimum_rate: 0.6 } });
+@@ -79,11 +97,20 @@ test('五次覆盖缺口 → 确认与内容发布 → 五次严格复测恢复
+   await expect(drawer.getByRole('button', { name: '确认机会', exact: true })).toHaveCount(0);
+   await waitForSourceImages(refreshedUrls);
+ 
+-  // 704 当前没有行动创建 UI，使用公共 API；目标域保留审批与发布的所有裁决。
+-  const linked = await body<Schema['GeoOpportunityActionResult']>(await page.request.post(`${api}${path}/actions/content-task`, {
+-    headers: { ...headers, 'Idempotency-Key': randomUUID() },
+-    data: { expected_revision: acknowledged.revision, product_id: graph.product.id, fact_version_id: graph.fact.id, platform_profile_id: graph.platform.id } satisfies Schema['GeoOpportunityContentTaskRequest'],
+-  }));
++  await drawer.getByRole('button', { name: '创建 Content Task', exact: true }).click();
++  await drawer.getByRole('textbox', { name: '搜索 Content Task 产品', exact: true }).fill(graph.partNumber);
++  await drawer.getByRole('combobox', { name: 'Content Task 产品', exact: true }).click();
++  await page.getByRole('option', { name: new RegExp(graph.partNumber) }).click();
++  await drawer.getByRole('combobox', { name: 'Content Task 已批准事实版本', exact: true }).click();
++  await page.getByRole('option', { name: new RegExp(graph.fact.id) }).click();
++  await drawer.getByRole('combobox', { name: 'Content Task 目标平台', exact: true }).click();
++  await page.getByRole('option', { name: new RegExp(graph.platform.name) }).click();
++  await page.setViewportSize({ width: 390, height: 844 });
++  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
++  await drawer.getByRole('region', { name: '从机会创建 Content Task', exact: true }).screenshot({ path: testInfo.outputPath('geo1010-content-task.png') });
++  const linked = await uiCommand<Schema['GeoOpportunityActionResult']>(page, `${path}/actions/content-task`, () => drawer.getByRole('button', { name: '确认创建 Content Task', exact: true }).click());
++  await expect(drawer.getByRole('link', { name: '打开新 Content Task', exact: true })).toHaveAttribute('href', new RegExp(`/content/tasks/${linked.action.target_id}`));
++  await page.setViewportSize({ width: 1440, height: 900 });
+   expect(linked.action).toMatchObject({ action_type: 'CONTENT_TASK', target_type: 'ContentTask', status_snapshot: 'OPEN', source_snapshot: { opportunity_id: seed.opportunity_id, fact_version_id: graph.fact.id, trigger_snapshot: initial.trigger_snapshot } });
+   const content = await completeLoopContent(page, linked.action.target_id, graph, allowRead);
+   const afterContent = await body<Schema['GeoOpportunityDetail']>(await page.request.get(`${api}${path}`));
+@@ -91,14 +118,22 @@ test('五次覆盖缺口 → 确认与内容发布 → 五次严格复测恢复
+   expect(afterContent.trigger_snapshot).toEqual(initial.trigger_snapshot);
+   expect(afterContent.actions[0]).toMatchObject({ id: linked.action.id, target_id: content.task.task.id, status_snapshot: 'OPEN' });
+ 
+-  // 705 当前没有复测创建 UI，preview/create 仍经过真实 CSRF、revision、同环境校验和 dispatch。
+-  const preview = await body<Schema['GeoRetestPreview']>(await page.request.get(`${api}${path}/retest-preview`, { params: { baseline_batch_id: baselineBatch.batch_id } }));
++  await page.waitForLoadState('networkidle');
++  await page.goto(`/geo/opportunities?opportunity_id=${seed.opportunity_id}`);
++  await drawer.getByRole('button', { name: '预览并创建 Retest', exact: true }).click();
++  await drawer.getByRole('textbox', { name: 'Retest 基线批次 ID', exact: true }).fill(baselineBatch.batch_id);
++  const previewResponse = page.waitForResponse((response) => response.request().method() === 'GET' && new URL(response.url()).pathname === `${path}/retest-preview`);
++  await drawer.getByRole('button', { name: '预览 Retest', exact: true }).click();
++  const preview = await body<Schema['GeoRetestPreview']>(await previewResponse);
+   expect(preview).toMatchObject({ comparable: true, requires_new_baseline: false, differences: [], opportunity_revision: afterContent.opportunity.revision });
+   expect(preview.snapshot.cells).toHaveLength(5);
+-  const retest = await body<Schema['GeoRetestCreated']>(await page.request.post(`${api}${path}/retest`, {
+-    headers: { ...headers, 'Idempotency-Key': randomUUID() },
+-    data: { expected_revision: preview.opportunity_revision, baseline_batch_id: baselineBatch.batch_id } satisfies Schema['GeoRetestRequest'],
+-  }), 201);
++  await expect(drawer.getByRole('region', { name: 'Retest 可比性预览', exact: true })).toContainText('可比');
++  await page.setViewportSize({ width: 390, height: 844 });
++  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
++  await drawer.getByRole('region', { name: 'Retest 可比性预览', exact: true }).screenshot({ path: testInfo.outputPath('geo1010-retest-preview.png') });
++  const retest = await uiCommand<Schema['GeoRetestCreated']>(page, `${path}/retest`, () => drawer.getByRole('button', { name: '确认创建 Retest', exact: true }).click(), 201);
++  await expect(drawer.getByRole('link', { name: '打开新 Retest 批次', exact: true })).toHaveAttribute('href', `/geo/runs?batch_id=${retest.batch_id}`);
++  await page.setViewportSize({ width: 1440, height: 900 });
+   expect(retest).toMatchObject({ requested_run_count: 5, replayed: false });
+   const repeated = await submitLoopBatch(page, retest.batch_id, graph.partNumber, 'retest', allowRead);
+   for (let index = 0; index < baseline.length; index += 1) {
+diff --git a/frontend/tests/e2e/geo-loop-support.ts b/frontend/tests/e2e/geo-loop-support.ts
+index 3db5b5f8..c3c14de1 100644
+--- a/frontend/tests/e2e/geo-loop-support.ts
++++ b/frontend/tests/e2e/geo-loop-support.ts
+@@ -1,8 +1,5 @@
+ /** GEO-707 的虚构输入与既有页面旅程；业务状态始终由真实领域服务裁决。 */
+-import { execFile } from 'node:child_process';
+ import { createHash, randomUUID } from 'node:crypto';
+-import { resolve } from 'node:path';
+-import { promisify } from 'node:util';
+ import { expect, type Page } from '@playwright/test';
+ import type { components } from '../../src/shared/api/generated/schema';
+ import { api, batches, body, detail, runs, uiCommand } from './geo-api-support';
+@@ -208,13 +205,6 @@ export async function submitLoopBatch(page: Page, batchId: string, partNumber: s
+   return observations;
+ }
+ 
+-export async function evaluateLoopBaseline(batchId: string) {
+-  const evaluated = await promisify(execFile)(resolve(process.cwd(), '../backend/.venv/bin/python'), ['-m', 'tests.geo_loop_e2e_seed', batchId], {
+-    cwd: process.cwd(), timeout: 40_000, env: { ...process.env, GEO_OPPORTUNITY_EVALUATION_ENABLED: 'true' },
+-  });
+-  return JSON.parse(evaluated.stdout) as { opportunity_id: string; request_id: string };
+-}
+-
+ export async function completeLoopContent(page: Page, taskId: string, graph: Awaited<ReturnType<typeof loopConfiguration>>, allowRead: (path: string) => void) {
+   const title = `${graph.partNumber} 虚构选型说明`;
+   allowRead(`/api/v1/content-tasks/${taskId}/detail`);
+diff --git a/frontend/src/domains/geo-opportunities/opportunity-business.api.ts b/frontend/src/domains/geo-opportunities/opportunity-business.api.ts
+new file mode 100644
+index 00000000..c974f210
+--- /dev/null
++++ b/frontend/src/domains/geo-opportunities/opportunity-business.api.ts
+@@ -0,0 +1,50 @@
++import { queryOptions, type QueryClient } from '@tanstack/react-query';
++import { contentKeys } from '@/domains/content/content.api';
++import { runKeys } from '@/domains/geo-runs/runs.api';
++import { api } from '@/shared/api/client';
++import type { components } from '@/shared/api/generated/schema';
++import { headers, opportunityKeys, OpportunityRequestError, requestError } from './opportunities.api';
++import type { BusinessRequest, ContentCommand, RetestCommand } from './opportunity-business.model';
++
++export function opportunityContentOptions(productId?: string, enabled = true) {
++  return queryOptions({ queryKey: contentKeys.creationOptions(productId), enabled, retry: false, retryOnMount: false, staleTime: 0, gcTime: 0,
++    queryFn: async ({ signal }) => {
++      const result = await api.GET('/api/v1/content-tasks/creation-options', { params: { query: { requested_product_id: productId } }, signal, cache: 'no-store' });
++      if (!result.data) throw requestError('读取 Content Task 创建选项', result);
++      if (productId && result.data.requested_product?.product_id !== productId) throw new OpportunityRequestError('创建选项的产品身份与请求不一致');
++      return result.data;
++    },
++  });
++}
++export function opportunityRetestPreviewOptions(id: string, baselineId?: string, enabled = true) {
++  return queryOptions({ queryKey: ['geo', 'opportunities', 'retest-preview', id, baselineId ?? null] as const, enabled: enabled && Boolean(baselineId), retry: false, retryOnMount: false, staleTime: 0, gcTime: 0,
++    queryFn: async ({ signal }) => {
++      if (!baselineId) throw new OpportunityRequestError('复测预览缺少明确基线');
++      const result = await api.GET('/api/v1/geo/opportunities/{opportunity_id}/retest-preview', { params: { path: { opportunity_id: id }, query: { baseline_batch_id: baselineId } }, signal, cache: 'no-store' });
++      if (!result.data) throw requestError('读取 Retest 预览', result);
++      if (result.data.opportunity_id !== id || result.data.baseline_batch_id !== baselineId || result.data.snapshot.opportunity_id !== id || result.data.snapshot.baseline_batch_id !== baselineId) throw new OpportunityRequestError('复测预览身份与请求不一致');
++      return result.data as components['schemas']['GeoRetestPreview'];
++    },
++  });
++}
++export async function createOpportunityContentTask(id: string, request: BusinessRequest<ContentCommand>, csrfToken: string | null, signal: AbortSignal) {
++  const result = await api.POST('/api/v1/geo/opportunities/{opportunity_id}/actions/content-task', { params: { path: { opportunity_id: id }, header: { ...headers(csrfToken), 'Idempotency-Key': request.key } }, body: request.body, signal, cache: 'no-store' });
++  if (!result.data) throw requestError('从机会创建 Content Task', result);
++  const source = result.data.action.source_snapshot;
++  if (result.data.action.action_type !== 'CONTENT_TASK' || result.data.opportunity_revision !== request.body.expected_revision + 1 || !source || source.opportunity_id !== id || source.opportunity_revision !== request.body.expected_revision || source.product_id !== request.body.product_id || source.fact_version_id !== request.body.fact_version_id || source.platform_profile_id !== request.body.platform_profile_id) throw new OpportunityRequestError('Content Task 回执与原请求不一致，请使用原请求核对结果');
++  return result.data;
++}
++export async function createOpportunityRetest(id: string, request: BusinessRequest<RetestCommand>, csrfToken: string | null, signal: AbortSignal) {
++  const result = await api.POST('/api/v1/geo/opportunities/{opportunity_id}/retest', { params: { path: { opportunity_id: id }, header: { ...headers(csrfToken), 'Idempotency-Key': request.key } }, body: request.body, signal, cache: 'no-store' });
++  if (!result.data) throw requestError('从机会创建 Retest', result);
++  if (result.data.opportunity_revision !== request.body.expected_revision + 1) throw new OpportunityRequestError('Retest 回执修订号与原请求不一致，请使用原请求核对结果');
++  return result.data;
++}
++export async function invalidateOpportunityBusiness(client: QueryClient, id: string, kind: 'content' | 'retest') {
++  await Promise.all([
++    client.invalidateQueries({ queryKey: opportunityKeys.lists() }),
++    client.invalidateQueries({ queryKey: opportunityKeys.details(id) }),
++    client.invalidateQueries({ queryKey: opportunityKeys.comparisons(id) }),
++    kind === 'content' ? client.invalidateQueries({ queryKey: contentKeys.lists() }) : client.invalidateQueries({ queryKey: runKeys.batches() }),
++  ]);
++}
+diff --git a/frontend/src/domains/geo-opportunities/opportunity-business.model.test.ts b/frontend/src/domains/geo-opportunities/opportunity-business.model.test.ts
+new file mode 100644
+index 00000000..8dbd6e01
+--- /dev/null
++++ b/frontend/src/domains/geo-opportunities/opportunity-business.model.test.ts
+@@ -0,0 +1,32 @@
++import { describe, expect, it } from 'vitest';
++import { OpportunityRequestError } from './opportunities.api';
++import { baselineBatchChoices, businessFailureKind, businessRequest, opportunityContentFormSchema, opportunityRetestFormSchema } from './opportunity-business.model';
++import { detail, opportunityId, retestId } from './opportunities.test-support';
++
++describe('机会业务输入与恢复合同', () => {
++  it('UUID 输入规范化，空或非法选择不会成为创建载荷', () => {
++    expect(opportunityContentFormSchema.parse({ product_id: opportunityId.toUpperCase(), fact_version_id: retestId, platform_profile_id: opportunityId })).toEqual({ product_id: opportunityId, fact_version_id: retestId, platform_profile_id: opportunityId });
++    expect(opportunityContentFormSchema.safeParse({ product_id: '', fact_version_id: retestId, platform_profile_id: opportunityId }).success).toBe(false);
++    expect(opportunityRetestFormSchema.safeParse({ baseline_batch_id: '基线不明' }).success).toBe(false);
++  });
++  it('原请求同载荷继承 key，明确改变 revision 或基线创建新的 key', () => {
++    const body = { expected_revision: 3, baseline_batch_id: opportunityId };
++    const original = businessRequest(body);
++    expect(businessRequest({ ...body }, original)).toBe(original);
++    expect(businessRequest({ ...body, expected_revision: 4 }, original).key).not.toBe(original.key);
++    expect(businessRequest({ ...body, baseline_batch_id: retestId }, original).key).not.toBe(original.key);
++  });
++  it('网络、5xx 与异常回执保持未知；拒绝和 revision 冲突明确分开', () => {
++    expect(businessFailureKind(new TypeError('network'))).toBe('unknown');
++    expect(businessFailureKind(new OpportunityRequestError('invalid receipt'))).toBe('unknown');
++    expect(businessFailureKind(new OpportunityRequestError('unavailable', 503))).toBe('unknown');
++    expect(businessFailureKind(new OpportunityRequestError('conflict', 409))).toBe('conflict');
++    expect(businessFailureKind(new OpportunityRequestError('invalid', 422))).toBe('rejected');
++    expect(businessFailureKind(new OpportunityRequestError('private', 403))).toBe('denied');
++  });
++  it('基线候选只投影当前来源页的真实 batch_id，不按运行状态推导资格', () => {
++    const value = detail(); const source = value.sources.items[0]!;
++    value.sources.items.push({ ...source, id: retestId, run: { ...source.run, status: 'FAILED' } });
++    expect(baselineBatchChoices(value)).toEqual([{ value: source.run.batch_id, label: `基线批次 ${source.run.batch_id} · 当前来源页 2 条证据` }]);
++  });
++});
+diff --git a/frontend/src/domains/geo-opportunities/opportunity-business.model.ts b/frontend/src/domains/geo-opportunities/opportunity-business.model.ts
+new file mode 100644
+index 00000000..6b568d65
+--- /dev/null
++++ b/frontend/src/domains/geo-opportunities/opportunity-business.model.ts
+@@ -0,0 +1,45 @@
++import { z } from 'zod';
++import type { components } from '@/shared/api/generated/schema';
++import { canonicalUuidSchema } from '@/shared/lib/canonical-uuid';
++import { OpportunityRequestError } from './opportunities.api';
++import type { OpportunityDetail } from './opportunities.model';
++
++export const opportunityContentFormSchema = z.object({
++  product_id: canonicalUuidSchema,
++  fact_version_id: canonicalUuidSchema,
++  platform_profile_id: canonicalUuidSchema,
++});
++export type OpportunityContentValues = z.infer<typeof opportunityContentFormSchema>;
++export const opportunityRetestFormSchema = z.object({ baseline_batch_id: canonicalUuidSchema });
++export type OpportunityRetestValues = z.infer<typeof opportunityRetestFormSchema>;
++export type ContentCommand = components['schemas']['GeoOpportunityContentTaskRequest'];
++export type RetestCommand = components['schemas']['GeoRetestRequest'];
++export type BusinessRequest<T> = { body: T; key: string; signature: string };
++
++// 同一请求的恢复继承完整载荷和 key；修订号也是载荷的一部分。
++export function businessRequest<T extends ContentCommand | RetestCommand>(body: T, previous?: BusinessRequest<T>): BusinessRequest<T> {
++  const signature = JSON.stringify(body);
++  return previous?.signature === signature ? previous : { body, signature, key: crypto.randomUUID() };
++}
++export function businessFailureKind(error: unknown): 'denied' | 'conflict' | 'rejected' | 'unknown' {
++  if (!(error instanceof OpportunityRequestError) || !error.status) return 'unknown';
++  if ([401, 403, 404].includes(error.status)) return 'denied';
++  if (error.status === 409) return 'conflict';
++  return error.status >= 400 && error.status < 500 ? 'rejected' : 'unknown';
++}
++export function businessErrorMessage(error: unknown) {
++  if (businessFailureKind(error) === 'denied') return '当前机会或选项不可访问，请关闭详情并确认登录与访问权限。';
++  return error instanceof Error ? error.message : '机会业务操作失败';
++}
++export function baselineBatchChoices(detail: OpportunityDetail) {
++  const batches = new Map<string, number>();
++  for (const source of detail.sources.items) batches.set(source.run.batch_id, (batches.get(source.run.batch_id) ?? 0) + 1);
++  return [...batches].map(([value, count]) => ({ value, label: `基线批次 ${value} · 当前来源页 ${count} 条证据` }));
++}
++export const retestDifferenceLabels = {
++  OPPORTUNITY_NOT_IN_PROGRESS: '机会当前不允许复测', BASELINE_NOT_SOURCE: '基线不属于机会来源',
++  BASELINE_NOT_FINISHED: '基线尚未完成', MATRIX_INVALID: '冻结矩阵无效', VARIANT_UNAVAILABLE: '问题变体不可用',
++  VARIANT_CHANGED: '问题变体变化', TOPIC_CHANGED: '问题主题变化', PROFILE_UNAVAILABLE: '采集配置不可用',
++  PROFILE_CHANGED: '采集配置变化', SURFACE_CHANGED: '观测面变化', SUBJECT_UNAVAILABLE: '监测对象不可用',
++  SUBJECT_CHANGED: '监测对象变化', MODEL_VERSION_CHANGED: '模型版本变化', MODEL_VERSION_UNKNOWN: '模型版本未知',
++} satisfies Record<components['schemas']['GeoRetestDifferenceCode'], string>;
+diff --git a/frontend/src/domains/geo-opportunities/opportunity-business.test.tsx b/frontend/src/domains/geo-opportunities/opportunity-business.test.tsx
+new file mode 100644
+index 00000000..6833c18b
+--- /dev/null
++++ b/frontend/src/domains/geo-opportunities/opportunity-business.test.tsx
+@@ -0,0 +1,222 @@
++import { act, screen, waitFor, within } from '@testing-library/react';
++import userEvent from '@testing-library/user-event';
++import { afterEach, describe, expect, it, vi } from 'vitest';
++import { invalidatePrincipalEpoch } from '@/app/auth/principal-epoch';
++import { api } from '@/shared/api/client';
++import type { components } from '@/shared/api/generated/schema';
++import { opportunityKeys } from './opportunities.api';
++import type { Opportunity, OpportunityDetail } from './opportunities.model';
++import { comparisonRead, detail, failure, list, opportunity, opportunityId, renderOpportunities, response, retestId, time } from './opportunities.test-support';
++
++afterEach(() => vi.restoreAllMocks());
++const productId = '10000000-0000-4000-8000-000000000001';
++const otherProductId = '40000000-0000-4000-8000-000000000001';
++const factId = '40000000-0000-4000-8000-000000000002';
++const platformId = '40000000-0000-4000-8000-000000000003';
++const taskId = '40000000-0000-4000-8000-000000000004';
++const otherBaselineId = '40000000-0000-4000-8000-000000000005';
++const sheet = () => screen.getByRole('dialog', { name: '机会详情与历史证据' });
++const active = () => opportunity({ rule_code: 'TOPIC_COVERAGE_GAP', status: 'IN_PROGRESS', workflow_stage: 'IN_PROGRESS', primary_task: 'VIEW_EVIDENCE', available_actions: ['DISMISS', 'RESOLVE', 'CONTINUE'] });
++function businessDetail(current = active()): OpportunityDetail { return { ...detail(current), available_action_types: ['CONTENT_TASK', 'ADDITIONAL_MONITORING'] }; }
++function options(): components['schemas']['ContentTaskCreationOptions'] {
++  return { products: [{ id: productId, brand: '测试品牌', part_number: 'PS-123', approved_fact_versions: [{ id: factId, version: 2, classification: 'PUBLIC' }] }, { id: otherProductId, brand: '其他品牌', part_number: 'PS-456', approved_fact_versions: [{ id: retestId, version: 5, classification: 'INTERNAL' }] }], platforms: [{ id: platformId, name: '测试发布平台' }], requested_product: { product_id: productId, brand: '测试品牌', part_number: 'PS-123', eligibility: 'ELIGIBLE' } };
++}
++function preview(current = active(), baselineId = businessDetail(current).sources.items[0]!.run.batch_id): components['schemas']['GeoRetestPreview'] {
++  const source = businessDetail(current).sources.items[0]!;
++  return { opportunity_id: current.id, opportunity_revision: current.revision, baseline_id: null, baseline_batch_id: baselineId, comparable: true, requires_new_baseline: false, differences: [], snapshot: { schema_version: 1, opportunity_id: current.id, baseline_batch_id: baselineId, trigger_snapshot: businessDetail(current).trigger_snapshot,
++    plan_snapshot: { schema_version: 1, plan_id: null, plan_revision: null, name: '冻结独立基线', description: '', subjects: [{ subject_id: productId, role: 'PRIMARY' }], prompt_variant_ids: [productId], collection_profile_ids: [productId], repeat_count: 1, schedule_kind: 'MANUAL_ONLY', cron_expression: null, timezone: 'Asia/Shanghai', budget_limit: null, rule_set_revision: 1 }, rule_snapshot: { schema_version: 1, rule_set_revision: 1 },
++    cells: [{ root_run_id: source.run_id, repeat_index: 1, input_snapshot: source.run.input_snapshot, answer_snapshot_id: source.answer!.id, source_product: '实际产品', source_model: '实际模型', source_version: 'v1' }] } };
++}
++function contentReceipt(body: components['schemas']['GeoOpportunityContentTaskRequest'], replayed = false): components['schemas']['GeoOpportunityActionResult'] {
++  return { opportunity_revision: body.expected_revision + 1, replayed, action: { id: retestId, action_type: 'CONTENT_TASK', target_type: 'ContentTask', target_id: taskId, status_snapshot: 'OPEN', created_by: opportunityId, created_at: time, navigation_path: `/content/tasks/${taskId}`, target_available: true, source_snapshot: { schema_version: 1, opportunity_id: opportunityId, opportunity_revision: body.expected_revision, trigger_snapshot: detail().trigger_snapshot, sources: [], product_id: body.product_id, fact_version_id: body.fact_version_id, platform_profile_id: body.platform_profile_id, query_topic_id: null, published_article_id: null, published_content_issue_id: null, request_id: 'content-create-test' } } };
++}
++function retestReceipt(revision = 1, replayed = false): components['schemas']['GeoRetestCreated'] { return { baseline_id: otherBaselineId, batch_id: retestId, requested_run_count: 1, opportunity_revision: revision + 1, created_at: time, replayed }; }
++function reads(current: () => Opportunity = active, config: { detail?: () => OpportunityDetail; detailResponse?: () => ReturnType<typeof response>; options?: () => ReturnType<typeof response>; preview?: (baselineId: string) => ReturnType<typeof response> | Promise<never> } = {}) {
++  return vi.spyOn(api, 'GET').mockImplementation(async (path, params) => {
++    if (path === '/api/v1/geo/opportunities') return response(list(current()));
++    if (path === '/api/v1/geo/opportunities/{opportunity_id}') return config.detailResponse?.() ?? response(config.detail?.() ?? businessDetail(current()));
++    if (path === '/api/v1/geo/opportunities/{opportunity_id}/comparison') return response(comparisonRead(current()));
++    if (path === '/api/v1/content-tasks/creation-options') return config.options?.() ?? response(options());
++    if (path === '/api/v1/geo/opportunities/{opportunity_id}/retest-preview') {
++      const baselineId = (params as { params: { query: { baseline_batch_id: string } } }).params.query.baseline_batch_id;
++      return config.preview?.(baselineId) ?? response(preview(current(), baselineId));
++    }
++    throw new Error(`测试收到未声明 GET：${path}`);
++  });
++}
++async function select(label: string, option: string | RegExp) { await userEvent.click(within(sheet()).getByRole('combobox', { name: label })); await userEvent.click(await screen.findByRole('option', { name: option })); }
++async function contentInput() {
++  await userEvent.click(await within(sheet()).findByRole('button', { name: '创建 Content Task' }));
++  await within(sheet()).findByRole('combobox', { name: 'Content Task 产品' });
++  await userEvent.type(within(sheet()).getByRole('textbox', { name: '搜索 Content Task 产品' }), 'PS-123');
++  await select('Content Task 产品', '测试品牌 · PS-123');
++  await select('Content Task 已批准事实版本', /FactVersion v2/);
++  await select('Content Task 目标平台', '测试发布平台');
++}
++async function retestInput(baselineId?: string) {
++  await userEvent.click(await within(sheet()).findByRole('button', { name: '预览并创建 Retest' }));
++  if (baselineId) await userEvent.type(within(sheet()).getByRole('textbox', { name: 'Retest 基线批次 ID' }), baselineId);
++  else await userEvent.click(within(sheet()).getByRole('button', { name: /^基线批次 / }));
++  await userEvent.click(within(sheet()).getByRole('button', { name: '预览 Retest' }));
++  await within(sheet()).findByRole('region', { name: 'Retest 可比性预览' });
++}
++
++describe('GEO-1010 Opportunity 创建闭环', () => {
++  it.each(['content', 'retest'] as const)('详情刷新403时卸载已打开的%s业务快照与表单', async (kind) => {
++    let denied = false;
++    reads(active, { detailResponse: () => denied ? failure(403) : response(businessDetail()) });
++    renderOpportunities(); await screen.findByRole('dialog', { name: '机会详情与历史证据' });
++    if (kind === 'content') await contentInput(); else await retestInput();
++    denied = true;
++    await userEvent.click(within(sheet()).getByRole('button', { name: '刷新详情' }));
++    await within(sheet()).findByText(/当前机会不可访问/);
++    expect(within(sheet()).queryByRole('region', { name: '从机会创建 Content Task' })).not.toBeInTheDocument();
++    expect(within(sheet()).queryByRole('region', { name: 'Retest 可比性预览' })).not.toBeInTheDocument();
++    expect(within(sheet()).queryByRole('region', { name: 'Retest 冻结矩阵' })).not.toBeInTheDocument();
++  });
++  it('只按服务端 action_types 显示创建入口，不按 IN_PROGRESS 状态补资格', async () => {
++    const get = reads(active, { detail: () => detail(active()) }); const post = vi.spyOn(api, 'POST'); renderOpportunities();
++    await screen.findByRole('heading', { name: active().title });
++    expect(within(sheet()).queryByRole('button', { name: '创建 Content Task' })).not.toBeInTheDocument();
++    expect(within(sheet()).queryByRole('button', { name: '预览并创建 Retest' })).not.toBeInTheDocument();
++    expect(get.mock.calls.some(([path]: [string, unknown]) => path.includes('creation-options'))).toBe(false); expect(post).not.toHaveBeenCalled();
++  });
++  it('可搜索选项创建三字段内容任务，来源/revision/事实/平台可核对并提供 canonical 目标链接', async () => {
++    let current = active(); const get = reads(() => current);
++    const post = vi.spyOn(api, 'POST').mockImplementation(async (_path, params) => { const body = (params as { body: components['schemas']['GeoOpportunityContentTaskRequest'] }).body; current = { ...current, revision: 2 }; return response(contentReceipt(body)); });
++    renderOpportunities(); await screen.findByRole('dialog', { name: '机会详情与历史证据' }); await contentInput();
++    expect(within(sheet()).getByRole('region', { name: '从机会创建 Content Task' })).toHaveTextContent(`来源 Opportunity：${opportunityId} · 提交 revision 1`);
++    await userEvent.click(within(sheet()).getByRole('button', { name: '确认创建 Content Task' }));
++    const link = await within(sheet()).findByRole('link', { name: '打开新 Content Task' }); expect(link).toHaveAttribute('href', `/content/tasks/${taskId}`);
++    expect(post.mock.calls[0]).toMatchObject(['/api/v1/geo/opportunities/{opportunity_id}/actions/content-task', { body: { expected_revision: 1, product_id: productId, fact_version_id: factId, platform_profile_id: platformId }, params: { header: { 'X-CSRF-Token': 'geo703-csrf', 'Idempotency-Key': expect.any(String) } } }]);
++    expect(Object.keys((post.mock.calls[0]![1] as { body: object }).body)).toEqual(['expected_revision', 'product_id', 'fact_version_id', 'platform_profile_id']);
++    expect(get.mock.calls.filter(([path]: [string, unknown]) => path === '/api/v1/geo/opportunities/{opportunity_id}').length).toBeGreaterThan(1);
++  });
++  it('更换产品清除依赖 FactVersion，保留独立平台；过期选项不会继续提交', async () => {
++    reads(); const post = vi.spyOn(api, 'POST'); renderOpportunities(); await screen.findByRole('dialog', { name: '机会详情与历史证据' }); await contentInput();
++    await userEvent.clear(within(sheet()).getByRole('textbox', { name: '搜索 Content Task 产品' }));
++    await select('Content Task 产品', '其他品牌 · PS-456');
++    expect(within(sheet()).getByRole('combobox', { name: 'Content Task 已批准事实版本' })).toHaveTextContent('请选择');
++    expect(within(sheet()).getByRole('combobox', { name: 'Content Task 目标平台' })).toHaveTextContent('测试发布平台');
++    expect(within(sheet()).getByRole('button', { name: '确认创建 Content Task' })).toBeDisabled(); expect(post).not.toHaveBeenCalled();
++  });
++  it('Content Task 未知结果冻结输入，显式恢复精确继承同 payload 和 key，双击不重复提交', async () => {
++    reads(); const post = vi.spyOn(api, 'POST').mockResolvedValueOnce(failure(503, 'UNAVAILABLE')).mockImplementation(async (_path, params) => response(contentReceipt((params as { body: components['schemas']['GeoOpportunityContentTaskRequest'] }).body, true)));
++    renderOpportunities(); await screen.findByRole('dialog', { name: '机会详情与历史证据' }); await contentInput();
++    await userEvent.click(within(sheet()).getByRole('button', { name: '确认创建 Content Task' }));
++    const recovery = await within(sheet()).findByRole('button', { name: '确认原 Content Task 创建结果' });
++    expect(post).toHaveBeenCalledTimes(1); expect(within(sheet()).getByRole('combobox', { name: 'Content Task 产品' })).toBeDisabled();
++    await userEvent.dblClick(recovery); await within(sheet()).findByRole('link', { name: '打开新 Content Task' });
++    expect(post).toHaveBeenCalledTimes(2); expect(post.mock.calls[1]![1]).toMatchObject({ body: (post.mock.calls[0]![1] as { body: object }).body, params: (post.mock.calls[0]![1] as { params: object }).params });
++  });
++  it('Content Task 409 保留选择，后台刷新不解锁，显式加载后重新确认使用新 revision 与 key', async () => {
++    let current = active(); reads(() => current); const post = vi.spyOn(api, 'POST').mockResolvedValueOnce(failure(409)).mockImplementation(async (_path, params) => response(contentReceipt((params as { body: components['schemas']['GeoOpportunityContentTaskRequest'] }).body)));
++    const { client } = renderOpportunities(); await screen.findByRole('dialog', { name: '机会详情与历史证据' }); await contentInput();
++    await userEvent.click(within(sheet()).getByRole('button', { name: '确认创建 Content Task' })); await within(sheet()).findByRole('button', { name: '加载最新机会与创建选项' });
++    current = { ...current, revision: 3 }; await act(async () => { client.setQueryData(opportunityKeys.detail(opportunityId, { source_page: 1, source_page_size: 20 }), businessDetail(current)); });
++    expect(within(sheet()).getByRole('button', { name: '确认创建 Content Task' })).toBeDisabled(); expect(post).toHaveBeenCalledTimes(1);
++    await userEvent.click(within(sheet()).getByRole('button', { name: '加载最新机会与创建选项' }));
++    await waitFor(() => expect(within(sheet()).getByRole('button', { name: '确认创建 Content Task' })).toBeEnabled());
++    expect(within(sheet()).getByRole('combobox', { name: 'Content Task 产品' })).toHaveTextContent('PS-123');
++    await userEvent.click(within(sheet()).getByRole('button', { name: '确认创建 Content Task' })); await within(sheet()).findByRole('link', { name: '打开新 Content Task' });
++    expect(post.mock.calls[1]![1]).toMatchObject({ body: { expected_revision: 3 } });
++    expect((post.mock.calls[1]![1] as { params: { header: object } }).params.header).not.toEqual((post.mock.calls[0]![1] as { params: { header: object } }).params.header);
++  });
++  it('Content Task 422 字段错误定位已知选择，未知 issue 保留在服务端反馈，原选择不清空', async () => {
++    reads(); const post = vi.spyOn(api, 'POST').mockResolvedValue({ error: { error: { code: 'VALIDATION_ERROR', message: '服务端输入校验失败', request_id: 'field-422', details: { errors: [{ loc: ['body', 'fact_version_id'], msg: '该事实版本已不再批准' }, { loc: ['body', 'new_unknown_field'], msg: '未知合同字段' }] } } }, response: Response.json({}, { status: 422 }) } as never);
++    renderOpportunities(); await screen.findByRole('dialog', { name: '机会详情与历史证据' }); await contentInput();
++    await userEvent.click(within(sheet()).getByRole('button', { name: '确认创建 Content Task' }));
++    await within(sheet()).findByText(/服务端输入校验失败/);
++    expect(within(sheet()).getByRole('combobox', { name: 'Content Task 已批准事实版本' })).toHaveAttribute('aria-invalid', 'true');
++    expect(within(sheet()).getByRole('combobox', { name: 'Content Task 产品' })).toHaveTextContent('PS-123'); expect(post).toHaveBeenCalledTimes(1);
++  });
++  it('选项 403 隐藏历史敏感证据与创建表单，不暴露服务器原始拒绝内容', async () => {
++    reads(active, { options: () => failure(403, 'PRIVATE_DETAIL') }); renderOpportunities(); await screen.findByRole('dialog', { name: '机会详情与历史证据' });
++    await userEvent.click(await within(sheet()).findByRole('button', { name: '创建 Content Task' }));
++    await within(sheet()).findByText(/当前机会不可访问/);
++    expect(within(sheet()).queryByRole('region', { name: '机会历史来源' })).not.toBeInTheDocument();
++    expect(within(sheet()).queryByRole('form', { name: 'Opportunity Content Task 创建表单' })).not.toBeInTheDocument();
++    expect(within(sheet()).queryByText(/服务端拒绝当前请求/)).not.toBeInTheDocument();
++  });
++  it('不可比 preview 显示具体差异与冻结矩阵，禁止创建，不自动换基线', async () => {
++    const get = reads(active, { preview: (id) => response({ ...preview(active(), id), comparable: false, requires_new_baseline: true, differences: [{ code: 'MODEL_VERSION_UNKNOWN', field: 'source_version', resource_id: productId, reason: '来源版本未记录' }] }) });
++    const post = vi.spyOn(api, 'POST'); renderOpportunities(); await screen.findByRole('dialog', { name: '机会详情与历史证据' }); await retestInput(otherBaselineId);
++    expect(within(sheet()).getByRole('region', { name: 'Retest 可比性预览' })).toHaveTextContent('不可比较');
++    expect(within(sheet()).getByRole('region', { name: 'Retest 具体差异' })).toHaveTextContent('MODEL_VERSION_UNKNOWN');
++    expect(within(sheet()).getByRole('region', { name: 'Retest 冻结矩阵' })).toHaveTextContent('冻结完整问题');
++    expect(within(sheet()).getByRole('button', { name: '确认创建 Retest' })).toBeDisabled(); expect(post).not.toHaveBeenCalled();
++    expect(get.mock.calls.filter(([path]: [string, unknown]) => path.endsWith('/retest-preview'))).toHaveLength(1);
++    expect(within(sheet()).getByRole('textbox', { name: 'Retest 基线批次 ID' })).toHaveValue(otherBaselineId);
++  });
++  it('比较通过后显式创建 Retest，冻结 revision/基线并衔接比较 URL 与批次链接', async () => {
++    let current = active(); reads(() => current); const post = vi.spyOn(api, 'POST').mockImplementation(async () => { current = { ...current, revision: 2 }; return response(retestReceipt()); });
++    const { router } = renderOpportunities(); await screen.findByRole('dialog', { name: '机会详情与历史证据' }); await retestInput(); expect(post).not.toHaveBeenCalled();
++    await userEvent.click(within(sheet()).getByRole('button', { name: '确认创建 Retest' }));
++    const link = await within(sheet()).findByRole('link', { name: '打开新 Retest 批次' }); expect(link).toHaveAttribute('href', `/geo/runs?batch_id=${retestId}`);
++    await waitFor(() => expect(router.state.location.search).toMatchObject({ opportunity_id: opportunityId, retest_batch_id: retestId }));
++    expect(post.mock.calls[0]).toMatchObject(['/api/v1/geo/opportunities/{opportunity_id}/retest', { body: { expected_revision: 1, baseline_batch_id: preview().baseline_batch_id } }]);
++    expect(within(sheet()).getByRole('region', { name: 'Retest 预览与创建' })).toHaveTextContent('结果变化不能证明因果');
++  });
++  it('Retest 创建在途切换来源页，迟到成功只补充复测选择且保留当前 URL', async () => {
++    reads(); let release!: (value: never) => void;
++    vi.spyOn(api, 'POST').mockImplementation(() => new Promise<never>((resolve) => { release = resolve; }));
++    const { router } = renderOpportunities(); await screen.findByRole('dialog', { name: '机会详情与历史证据' }); await retestInput();
++    await userEvent.click(within(sheet()).getByRole('button', { name: '确认创建 Retest' }));
++    await act(async () => { await router.navigate({ to: '/geo/opportunities', search: { ...router.state.location.search, source_page: 2 } }); });
++    expect(router.state.location.search).toHaveProperty('source_page', 2);
++    await act(async () => { release(response(retestReceipt())); });
++    await waitFor(() => expect(router.state.location.search).toMatchObject({ opportunity_id: opportunityId, retest_batch_id: retestId, source_page: 2 }));
++  });
++  it('Retest 409 保留基线，显式刷新后必须重新 preview，才可携带新 revision 创建', async () => {
++    let current = active(); reads(() => current); const post = vi.spyOn(api, 'POST').mockResolvedValueOnce(failure(409)).mockImplementation(async () => response(retestReceipt(2)));
++    renderOpportunities(); await screen.findByRole('dialog', { name: '机会详情与历史证据' }); await retestInput();
++    await userEvent.click(within(sheet()).getByRole('button', { name: '确认创建 Retest' })); await within(sheet()).findByRole('button', { name: '加载最新机会并保留 Retest 基线' }); current = { ...current, revision: 2 };
++    await userEvent.click(within(sheet()).getByRole('button', { name: '加载最新机会并保留 Retest 基线' }));
++    await waitFor(() => expect(within(sheet()).getByRole('button', { name: '预览 Retest' })).toBeEnabled());
++    expect(within(sheet()).queryByRole('button', { name: '确认创建 Retest' })).not.toBeInTheDocument();
++    expect(within(sheet()).getByRole('textbox', { name: 'Retest 基线批次 ID' })).toHaveValue(preview().baseline_batch_id);
++    await userEvent.click(within(sheet()).getByRole('button', { name: '预览 Retest' })); await within(sheet()).findByRole('region', { name: 'Retest 可比性预览' });
++    await userEvent.click(within(sheet()).getByRole('button', { name: '确认创建 Retest' })); await within(sheet()).findByRole('link', { name: '打开新 Retest 批次' });
++    expect(post.mock.calls[1]![1]).toMatchObject({ body: { expected_revision: 2, baseline_batch_id: preview().baseline_batch_id } });
++  });
++  it('Retest 网络未知结果显式恢复同 key 同 payload，不再次 preview 或自动重发', async () => {
++    const get = reads(); const post = vi.spyOn(api, 'POST').mockRejectedValueOnce(new TypeError('network unavailable')).mockResolvedValue(response(retestReceipt(1, true)));
++    renderOpportunities(); await screen.findByRole('dialog', { name: '机会详情与历史证据' }); await retestInput();
++    await userEvent.click(within(sheet()).getByRole('button', { name: '确认创建 Retest' }));
++    const recover = await within(sheet()).findByRole('button', { name: '确认原 Retest 创建结果' });
++    expect(within(sheet()).getByRole('textbox', { name: 'Retest 基线批次 ID' })).toBeDisabled(); expect(post).toHaveBeenCalledTimes(1);
++    await userEvent.click(recover); await within(sheet()).findByRole('link', { name: '打开新 Retest 批次' });
++    expect(post).toHaveBeenCalledTimes(2); expect(post.mock.calls[1]![1]).toMatchObject({ body: (post.mock.calls[0]![1] as { body: object }).body, params: (post.mock.calls[0]![1] as { params: object }).params });
++    expect(get.mock.calls.filter(([path]: [string, unknown]) => path.endsWith('/retest-preview'))).toHaveLength(1);
++  });
++  it('更换基线取消旧 preview，迟到响应不覆盖新选择', async () => {
++    let release: ((value: never) => void) | undefined;
++    const current = active(); const firstId = preview().baseline_batch_id;
++    const get = reads(() => current, { preview: (id) => id === firstId ? new Promise<never>((resolve) => { release = resolve; }) : response(preview(current, id)) });
++    renderOpportunities(); await screen.findByRole('dialog', { name: '机会详情与历史证据' }); await userEvent.click(await within(sheet()).findByRole('button', { name: '预览并创建 Retest' }));
++    await userEvent.click(within(sheet()).getByRole('button', { name: /^基线批次 / })); await userEvent.click(within(sheet()).getByRole('button', { name: '预览 Retest' }));
++    await within(sheet()).findByText('正在核对基线与冻结矩阵…'); const oldSignal = (get.mock.calls.find(([path]: [string, unknown]) => path.endsWith('/retest-preview'))![1] as { signal: AbortSignal }).signal;
++    const input = within(sheet()).getByRole('textbox', { name: 'Retest 基线批次 ID' }); await userEvent.clear(input); await userEvent.type(input, otherBaselineId);
++    expect(oldSignal.aborted).toBe(true); await userEvent.click(within(sheet()).getByRole('button', { name: '预览 Retest' }));
++    await within(sheet()).findByRole('region', { name: 'Retest 可比性预览' });
++    await act(async () => { release?.(response(preview(current, firstId))); });
++    expect(within(sheet()).getByRole('region', { name: 'Retest 可比性预览' })).toHaveTextContent(otherBaselineId);
++  });
++  it.each(['principal', 'unmount'] as const)('%s 边界隔离在途 Retest，迟到成功不导航或改变机会缓存', async (boundary) => {
++    reads(); let release: ((value: never) => void) | undefined; let signal: AbortSignal | undefined;
++    const post = vi.spyOn(api, 'POST').mockImplementation(async (_path, params) => { signal = (params as { signal: AbortSignal }).signal; return new Promise<never>((resolve) => { release = resolve; }); });
++    const { client, router, view } = renderOpportunities(); await screen.findByRole('dialog', { name: '机会详情与历史证据' }); await retestInput();
++    await userEvent.dblClick(within(sheet()).getByRole('button', { name: '确认创建 Retest' })); expect(post).toHaveBeenCalledTimes(1);
++    if (boundary === 'principal') invalidatePrincipalEpoch(client, 'new-owner'); else { view.unmount(); expect(signal?.aborted).toBe(true); }
++    await act(async () => { release?.(response(retestReceipt())); });
++    expect(router.state.location.search).not.toHaveProperty('retest_batch_id');
++    expect(client.getQueryData(opportunityKeys.detail(opportunityId, { source_page: 1, source_page_size: 20 }))).toMatchObject({ opportunity: { revision: 1 } });
++  });
++  it('有业务草稿关闭详情时显示 DirtyGuard，选择继续编辑保留输入', async () => {
++    reads(); const { router } = renderOpportunities(); await screen.findByRole('dialog', { name: '机会详情与历史证据' }); await contentInput();
++    act(() => { void router.navigate({ to: '/geo/opportunities', search: {} }); });
++    const guard = await screen.findByRole('dialog', { name: '要离开当前页面吗？' }); await userEvent.click(within(guard).getByRole('button', { name: '继续编辑' }));
++    expect(within(sheet()).getByRole('combobox', { name: 'Content Task 产品' })).toHaveTextContent('PS-123');
++    expect(router.state.location.search).toHaveProperty('opportunity_id', opportunityId);
++  });
++});
+diff --git a/frontend/src/domains/geo-opportunities/opportunity-content-task.tsx b/frontend/src/domains/geo-opportunities/opportunity-content-task.tsx
+new file mode 100644
+index 00000000..7d35ddef
+--- /dev/null
++++ b/frontend/src/domains/geo-opportunities/opportunity-content-task.tsx
+@@ -0,0 +1,141 @@
++import { zodResolver } from '@hookform/resolvers/zod';
++import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
++import { useEffect, useRef, useState } from 'react';
++import { FormProvider, useForm, useWatch } from 'react-hook-form';
++import { capturePrincipalContinuation } from '@/app/auth/principal-epoch';
++import { DirtyGuard } from '@/design-system/forms/dirty-guard';
++import { FormField } from '@/design-system/forms/form-field';
++import { ErrorSummary } from '@/design-system/forms/form-layout';
++import { Button } from '@/design-system/primitives/button';
++import { Input } from '@/design-system/primitives/input';
++import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/design-system/primitives/select';
++import type { components } from '@/shared/api/generated/schema';
++import { OpportunityRequestError } from './opportunities.api';
++import type { Opportunity, OpportunityDetail } from './opportunities.model';
++import { createOpportunityContentTask, invalidateOpportunityBusiness, opportunityContentOptions } from './opportunity-business.api';
++import { businessErrorMessage, businessFailureKind, businessRequest, opportunityContentFormSchema, type BusinessRequest, type ContentCommand, type OpportunityContentValues } from './opportunity-business.model';
++import { OpportunityNotice } from './opportunity-controls';
++
++const emptyValues: OpportunityContentValues = { product_id: '', fact_version_id: '', platform_profile_id: '' };
++const classificationLabels = { PUBLIC: '公开', INTERNAL: '内部', RESTRICTED: '受限' } satisfies Record<components['schemas']['Confidentiality'], string>;
++export function OpportunityContentTask({ opportunityId, detail, blocked, csrfToken, onReload, onDenied }: {
++  opportunityId: string; detail?: OpportunityDetail; blocked: boolean; csrfToken: string | null;
++  onReload: () => Promise<Opportunity>; onDenied: (error: OpportunityRequestError) => void;
++}) {
++  const client = useQueryClient();
++  const [owner] = useState(() => capturePrincipalContinuation(client));
++  const [open, setOpen] = useState(false);
++  const [baseline, setBaseline] = useState<Opportunity>();
++  const [productSearch, setProductSearch] = useState(''); const [platformSearch, setPlatformSearch] = useState('');
++  const [held, setHeld] = useState(false); const [unknown, setUnknown] = useState(false); const [refreshing, setRefreshing] = useState(false);
++  const [error, setError] = useState<unknown>(); const [message, setMessage] = useState('');
++  const [receipt, setReceipt] = useState<components['schemas']['GeoOpportunityActionResult']>();
++  const request = useRef<BusinessRequest<ContentCommand> | undefined>(undefined);
++  const inFlight = useRef(false); const mounted = useRef(true); const controller = useRef<AbortController | null>(null);
++  useEffect(() => { mounted.current = true; return () => { mounted.current = false; controller.current?.abort(); }; }, []);
++  const form = useForm<OpportunityContentValues>({ defaultValues: emptyValues, resolver: zodResolver(opportunityContentFormSchema), mode: 'onChange' });
++  const values = useWatch({ control: form.control });
++  const { isDirty, isValid, isSubmitting, errors } = form.formState;
++  const offered = detail?.available_action_types.includes('CONTENT_TASK') === true;
++  const options = useQuery(opportunityContentOptions(detail?.opportunity.product_id ?? undefined, open && offered && owner.isCurrent()));
++  const mutation = useMutation({ retry: false, gcTime: 0, mutationFn: async (command: BusinessRequest<ContentCommand>) => {
++    owner.assertCurrent();
++    if (!controller.current) throw new Error('Content Task 请求缺少取消边界');
++    return createOpportunityContentTask(opportunityId, command, csrfToken, controller.current.signal);
++  } });
++  const busy = mutation.isPending || refreshing || isSubmitting;
++  const current = () => mounted.current && owner.isCurrent();
++  const denied = businessFailureKind(error) === 'denied' || businessFailureKind(options.error) === 'denied';
++  const stale = Boolean(baseline && detail && baseline.revision !== detail.opportunity.revision);
++  const unavailable = blocked || !offered || !csrfToken || busy || held || denied || stale || !owner.isCurrent();
++  const product = options.data?.products.find((item) => item.id === values.product_id);
++  const fact = product?.approved_fact_versions.find((item) => item.id === values.fact_version_id);
++  const platform = options.data?.platforms.find((item) => item.id === values.platform_profile_id);
++  const optionSelectionValid = Boolean(product && fact && platform);
++  useEffect(() => { if (options.error instanceof OpportunityRequestError && businessFailureKind(options.error) === 'denied' && owner.isCurrent()) onDenied(options.error); }, [options.error, onDenied, owner]);
++
++  async function submit(input?: OpportunityContentValues) {
++    if (inFlight.current || !current() || busy || denied || !csrfToken || (unknown && blocked)) return;
++    if (!unknown && (unavailable || options.isFetching || options.error || !baseline || !input || !optionSelectionValid)) return;
++    const command = unknown ? request.current : baseline && input ? businessRequest<ContentCommand>({ expected_revision: baseline.revision, ...input }, request.current) : undefined;
++    if (!command) return;
++    request.current = command; inFlight.current = true; controller.current = new AbortController(); setError(undefined); setMessage('');
++    let committed = false;
++    try {
++      const result = await mutation.mutateAsync(command);
++      if (!current()) return;
++      committed = true;
++      request.current = undefined; setUnknown(false); setHeld(false); setReceipt(result); form.reset(form.getValues()); setOpen(false);
++      setMessage(`${result.replayed ? '已确认原请求结果' : '已创建 Content Task'}，机会 revision ${result.opportunity_revision}；行动完成后仍需显式处理机会。`);
++      await invalidateOpportunityBusiness(client, opportunityId, 'content');
++    } catch (failure) {
++      if (!current()) return;
++      setError(failure);
++      if (committed) return;
++      const kind = businessFailureKind(failure); setUnknown(kind === 'unknown'); setHeld(kind === 'conflict');
++      if (kind === 'denied' && failure instanceof OpportunityRequestError) onDenied(failure);
++      if (failure instanceof OpportunityRequestError && failure.status === 422) {
++        const issues = failure.detail?.details.errors;
++        if (Array.isArray(issues)) for (const issue of issues) {
++          if (issue && typeof issue === 'object' && 'loc' in issue && 'msg' in issue && Array.isArray(issue.loc) && issue.loc.length === 2 && issue.loc[0] === 'body' && ['product_id', 'fact_version_id', 'platform_profile_id'].includes(issue.loc[1]) && typeof issue.msg === 'string') form.setError(issue.loc[1] as keyof OpportunityContentValues, { message: issue.msg });
++        }
++      }
++    } finally { inFlight.current = false; controller.current = null; if (current()) mutation.reset(); }
++  }
++  async function reload() {
++    if (inFlight.current || busy || unknown || !current()) return;
++    setRefreshing(true); setMessage('');
++    try {
++      const canonical = await onReload();
++      if (!current()) return;
++      const refreshed = await options.refetch({ throwOnError: true });
++      if (!current()) return;
++      if (!refreshed.data) throw new OpportunityRequestError('创建选项缺少读取结果');
++      setBaseline(canonical); setHeld(false); setError(undefined); form.clearErrors();
++      if (error instanceof OpportunityRequestError && error.detail?.code === 'IDEMPOTENCY_CONFLICT') request.current = undefined;
++      setMessage(`已读取机会 revision ${canonical.revision} 与最新创建选项，原选择已保留；请核对来源和三项选择后重新确认。`);
++    } catch (failure) { if (current()) { setError(failure); if (businessFailureKind(failure) === 'denied' && failure instanceof OpportunityRequestError) onDenied(failure); } }
++    finally { if (current()) setRefreshing(false); }
++  }
++  if (!owner.isCurrent()) return <p role="alert">认证主体已变化，请重新进入机会详情。</p>;
++  if (!offered && !open && !receipt) return null;
++  const summary = Object.entries(errors).flatMap(([name, value]) => value?.message ? [{ id: name, fieldId: `opportunity-content-${name}`, message: value.message }] : []);
++  return <section aria-label="从机会创建 Content Task" className="min-w-0 space-y-3 border-t border-border-subtle pt-4">
++    <h3 className="type-section-title">Content Task 行动</h3>
++    <DirtyGuard when={!receipt && (isDirty || busy || unknown)} description={unknown ? '创建结果尚未确认，离开会丢失原载荷和幂等键。请先确认原请求结果。' : undefined} shouldBlockNavigation={({ current: location, next }) => location.pathname !== next.pathname || (next.search as Record<string, unknown>).opportunity_id !== opportunityId} />
++    {!open && offered && <Button type="button" disabled={blocked || !csrfToken} onClick={() => { setBaseline(detail?.opportunity); setOpen(true); setReceipt(undefined); }}>创建 Content Task</Button>}
++    {message && <OpportunityNotice>{message}</OpportunityNotice>}
++    {receipt && Boolean(error) && <OpportunityNotice error>Content Task 已创建，关联列表刷新失败：{businessErrorMessage(error)}。可打开已确认的任务核对。</OpportunityNotice>}
++    {receipt && <OpportunityNotice><p className="break-all">目标任务 ID：{receipt.action.target_id} · {receipt.action.status_snapshot}</p>{receipt.action.target_available === true && receipt.action.navigation_path && <a href={receipt.action.navigation_path} className="text-interaction-primary underline underline-offset-4">打开新 Content Task</a>}{receipt.action.target_available === false && <p>目标任务已不可用，行动来源快照仍保留。</p>}</OpportunityNotice>}
++    {open && baseline && !denied && <>
++      <p className="break-all text-sm">来源 Opportunity：{opportunityId} · 提交 revision {baseline.revision}</p>
++      <p className="text-sm text-text-secondary">选择来自服务端创建选项；事实版本均已批准，服务端提交时再次校验。</p>
++      {!offered && <OpportunityNotice>服务端当前未提供 Content Task 创建动作；原选择已保留，新提交暂停。</OpportunityNotice>}
++      {options.data?.requested_product && options.data.requested_product.eligibility !== 'ELIGIBLE' && <OpportunityNotice>机会关联产品创建资格：{options.data.requested_product.eligibility}。请核对产品事实；页面不会自动改选产品。</OpportunityNotice>}
++      {Boolean(error) && <OpportunityNotice error>{businessErrorMessage(error)}</OpportunityNotice>}
++      {options.isFetching && <p role="status">正在读取 Content Task 创建选项…</p>}
++      {options.error && <OpportunityNotice error>{businessErrorMessage(options.error)}{businessFailureKind(options.error) !== 'denied' && <Button type="button" variant="outline" disabled={busy} onClick={() => void options.refetch()}>重试创建选项</Button>}</OpportunityNotice>}
++      {(held || stale) && <OpportunityNotice><p>机会修订号或创建依据已变化，原选择已保留，提交暂停；请显式刷新并重新确认。</p><Button type="button" variant="outline" disabled={busy || unknown} onClick={() => void reload()}>加载最新机会与创建选项</Button></OpportunityNotice>}
++      {unknown && <OpportunityNotice><p>创建结果未知。原载荷与幂等键已冻结；可显式使用同一请求确认，不会自动重发。</p><Button type="button" disabled={busy || blocked || !csrfToken} onClick={() => void submit()}>确认原 Content Task 创建结果</Button></OpportunityNotice>}
++      {options.data && <FormProvider {...form}><form aria-label="Opportunity Content Task 创建表单" className="space-y-3" onSubmit={(event) => void form.handleSubmit((input) => submit(input))(event)}>
++        <fieldset disabled={busy || unknown || blocked || held || stale} className="space-y-3">
++          <label className="block space-y-1 text-sm">搜索 Content Task 产品<Input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} /></label>
++          <BusinessSelect name="product_id" label="Content Task 产品" choices={options.data.products.filter((item) => item.id === values.product_id || `${item.brand} ${item.part_number}`.toLowerCase().includes(productSearch.trim().toLowerCase())).map((item) => ({ value: item.id, label: `${item.brand} · ${item.part_number}` }))} onChange={(value) => { form.setValue('product_id', value, { shouldDirty: true, shouldValidate: true }); form.setValue('fact_version_id', '', { shouldDirty: true, shouldValidate: true }); }} />
++          {!options.data.products.length && <p>没有可用产品，请先在产品事实页面批准事实版本。</p>}
++          <BusinessSelect name="fact_version_id" label="Content Task 已批准事实版本" choices={product?.approved_fact_versions.map((item) => ({ value: item.id, label: `FactVersion v${item.version} · ${classificationLabels[item.classification]} · ${item.id}` })) ?? []} />
++          <label className="block space-y-1 text-sm">搜索 Content Task 平台<Input value={platformSearch} onChange={(event) => setPlatformSearch(event.target.value)} /></label>
++          <BusinessSelect name="platform_profile_id" label="Content Task 目标平台" choices={options.data.platforms.filter((item) => item.id === values.platform_profile_id || item.name.toLowerCase().includes(platformSearch.trim().toLowerCase())).map((item) => ({ value: item.id, label: item.name }))} />
++          {!options.data.platforms.length && <p>没有活动平台，请先配置可用平台。</p>}
++        </fieldset>
++        <dl className="space-y-1 break-all text-xs text-text-secondary"><div><dt>产品核对</dt><dd>{product ? `${product.brand} · ${product.part_number} · ${product.id}` : values.product_id ? `所选产品当前不在可用选项中：${values.product_id}` : '尚未选择'}</dd></div><div><dt>FactVersion 核对</dt><dd>{fact ? `v${fact.version} · ${classificationLabels[fact.classification]} · ${fact.id}` : values.fact_version_id ? `所选事实版本当前不可用：${values.fact_version_id}` : '尚未选择'}</dd></div><div><dt>PlatformProfile 核对</dt><dd>{platform ? `${platform.name} · ${platform.id}` : values.platform_profile_id ? `所选平台当前不可用：${values.platform_profile_id}` : '尚未选择'}</dd></div></dl>
++        <ErrorSummary errors={summary} />
++        {!unknown && <Button type="submit" disabled={unavailable || !isValid || !optionSelectionValid || options.isFetching || Boolean(options.error)}>确认创建 Content Task</Button>}
++        <Button type="button" variant="ghost" disabled={busy || unknown} onClick={() => { form.reset(emptyValues); setOpen(false); setError(undefined); setHeld(false); request.current = undefined; }}>取消 Content Task 创建</Button>
++      </form></FormProvider>}
++    </>}
++    {denied && <p role="alert">{businessErrorMessage(error ?? options.error)}</p>}
++  </section>;
++}
++function BusinessSelect({ name, label, choices, onChange }: { name: keyof OpportunityContentValues; label: string; choices: { value: string; label: string }[]; onChange?: (value: string) => void }) {
++  return <FormField<OpportunityContentValues, keyof OpportunityContentValues> name={name} id={`opportunity-content-${name}`} label={label} required render={({ field, inputId, 'aria-describedby': describedBy, 'aria-invalid': invalid }) => <Select items={choices} value={field.value} onValueChange={(value) => { if (value !== null) (onChange ?? field.onChange)(value); }}><SelectTrigger id={inputId} ref={field.ref} onBlur={field.onBlur} aria-describedby={describedBy} aria-invalid={invalid} aria-required><SelectValue placeholder="请选择" /></SelectTrigger><SelectContent>{choices.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select>} />;
++}
+diff --git a/frontend/src/domains/geo-opportunities/opportunity-evaluation-options.tsx b/frontend/src/domains/geo-opportunities/opportunity-evaluation-options.tsx
+new file mode 100644
+index 00000000..4e77a03a
+--- /dev/null
++++ b/frontend/src/domains/geo-opportunities/opportunity-evaluation-options.tsx
+@@ -0,0 +1,22 @@
++import { useQuery } from '@tanstack/react-query';
++import { useState } from 'react';
++import { Button } from '@/design-system/primitives/button';
++import { Input } from '@/design-system/primitives/input';
++import { evaluationOptions, type EvaluationOptionKind } from './opportunity-evaluation.api';
++import { OpportunityNotice } from './opportunity-controls';
++
++export function EvaluationOptions({ kind, label, value, onChange, disabled }: { kind: EvaluationOptionKind; label: string; value: string[]; onChange: (ids: string[]) => void; disabled: boolean }) {
++  const [q, setQ] = useState(''); const [page, setPage] = useState(1);
++  const query = useQuery(evaluationOptions(kind, q, page));
++  return <section aria-label={label} className="min-w-0 space-y-2">
++    <h4 className="type-label">{label}</h4>
++    <Input aria-label={`搜索${label}`} type="search" value={q} maxLength={200} disabled={disabled} onChange={(event) => { setQ(event.currentTarget.value); setPage(1); }} />
++    {query.isFetching && <p role="status">正在读取{label}…</p>}
++    {query.error && <OpportunityNotice error><p>{query.error instanceof Error ? query.error.message : '候选读取失败'}</p><Button type="button" variant="outline" onClick={() => void query.refetch()}>重试{label}</Button></OpportunityNotice>}
++    {query.data && !query.error && <><div className="space-y-2">{query.data.items.map((item) => <Button type="button" className="h-auto w-full justify-start whitespace-normal text-left" variant="outline" aria-pressed={value.includes(item.id)} disabled={disabled || (!value.includes(item.id) && value.length >= 50)} key={item.id} onClick={() => onChange(value.includes(item.id) ? value.filter((id) => id !== item.id) : [...value, item.id])}><span className="min-w-0 break-words [overflow-wrap:anywhere]">{value.includes(item.id) ? '已选：' : '选择：'}{item.label}<span className="block text-xs text-text-muted">{item.description}</span></span></Button>)}</div>
++      {!query.data.items.length && <p className="text-sm">没有匹配的{label}。</p>}
++      <div className="flex flex-wrap items-center gap-2 text-xs"><span>第 {page} 页 · 共 {query.data.total} 项</span><Button type="button" size="sm" variant="outline" disabled={disabled || page === 1 || query.isFetching} onClick={() => setPage(page - 1)}>上一页{label}</Button><Button type="button" size="sm" variant="outline" disabled={disabled || page * 10 >= query.data.total || query.isFetching} onClick={() => setPage(page + 1)}>下一页{label}</Button></div></>}
++    <p className="text-xs">已选择 {value.length} 项</p>
++    {value.map((id) => <div key={id} className="flex min-w-0 items-center gap-2"><span className="min-w-0 break-all text-xs">{id}</span><Button type="button" size="sm" variant="ghost" disabled={disabled} aria-label={`移除${label} ${id}`} onClick={() => onChange(value.filter((item) => item !== id))}>移除</Button></div>)}
++  </section>;
++}
+diff --git a/frontend/src/domains/geo-opportunities/opportunity-evaluation.api.ts b/frontend/src/domains/geo-opportunities/opportunity-evaluation.api.ts
+new file mode 100644
+index 00000000..95d0b0ff
+--- /dev/null
++++ b/frontend/src/domains/geo-opportunities/opportunity-evaluation.api.ts
+@@ -0,0 +1,32 @@
++import { queryOptions } from '@tanstack/react-query';
++import { api } from '@/shared/api/client';
++import type { components } from '@/shared/api/generated/schema';
++import { headers, OpportunityRequestError, requestError } from './opportunities.api';
++
++export async function evaluateOpportunities(body: components['schemas']['GeoOpportunityEvaluationRequest'], key: string, csrfToken: string | null, signal: AbortSignal) {
++  const result = await api.POST('/api/v1/geo/opportunities/evaluate', { body, signal, cache: 'no-store', params: { header: { ...headers(csrfToken), 'Idempotency-Key': key } } });
++  if (!result.data) throw requestError('评估机会', result);
++  if (result.data.rule_set_revision !== body.rule_set_revision || result.data.created + result.data.existing_reused + result.data.skipped !== result.data.evaluated_cells) throw new OpportunityRequestError('评估回执与提交合同不一致，请使用原请求核对结果');
++  return result.data;
++}
++export type EvaluationOptionKind = 'subject_ids' | 'engine_surface_ids' | 'collection_profile_ids';
++export function evaluationOptions(kind: EvaluationOptionKind, q: string, page: number) {
++  return queryOptions({ queryKey: ['geo', 'opportunity-evaluation', 'options', kind, q, page], retry: false, staleTime: 30000,
++    queryFn: async ({ signal }) => {
++      const query = { q: q || undefined, page, page_size: 10 as const, sort: 'NAME_ASC' as const };
++      if (kind === 'subject_ids') {
++        const result = await api.GET('/api/v1/geo/subjects', { params: { query }, signal });
++        if (!result.data) throw requestError('读取评估对象', result);
++        return { total: result.data.total, items: result.data.items.map((item) => ({ id: item.id, label: item.display_name, description: `${item.subject_type} · 产品 ${item.subject_type === 'OWN_PRODUCT' ? item.product_id : '未关联'} · ${item.id}` })) };
++      }
++      if (kind === 'engine_surface_ids') {
++        const result = await api.GET('/api/v1/geo/engine-surfaces', { params: { query }, signal });
++        if (!result.data) throw requestError('读取评估观测面', result);
++        return { total: result.data.total, items: result.data.items.map(({ summary }) => ({ id: summary.id, label: summary.name, description: summary.id })) };
++      }
++      const result = await api.GET('/api/v1/geo/collection-profiles', { params: { query }, signal });
++      if (!result.data) throw requestError('读取评估采集配置', result);
++      return { total: result.data.total, items: result.data.items.map(({ summary }) => ({ id: summary.id, label: summary.name, description: `${summary.collection_mode} · ${summary.engine_surface.name} · ${summary.id}` })) };
++    },
++  });
++}
+diff --git a/frontend/src/domains/geo-opportunities/opportunity-evaluation.model.test.ts b/frontend/src/domains/geo-opportunities/opportunity-evaluation.model.test.ts
+new file mode 100644
+index 00000000..65d72417
+--- /dev/null
++++ b/frontend/src/domains/geo-opportunities/opportunity-evaluation.model.test.ts
+@@ -0,0 +1,16 @@
++import { describe, expect, it } from 'vitest';
++import { evaluationFormSchema, evaluationRequest, type EvaluationValues } from './opportunity-evaluation.model';
++
++const id = '30000000-0000-4000-8000-000000000001';
++const values: EvaluationValues = { scope: 'FILTERED', date_from: '2026-10-01T08:00:00+08:00', date_to: '2026-10-02T08:00:00+08:00', rule_set_revision: 2, subject_ids: [id], engine_surface_ids: [], collection_profile_ids: [], collection_modes: ['MANUAL'] };
++describe('管理员评估表单合同', () => {
++  it('UTC转换且规范去重，不加入API没有的产品过滤', () => {
++    expect(evaluationRequest({ ...values, subject_ids: [id, id] })).toEqual({ ...values, subject_ids: [id], date_from: '2026-10-01T00:00:00.000Z', date_to: '2026-10-02T00:00:00.000Z' });
++  });
++  it.each([{ scope: 'ALL' as const }, { subject_ids: [] }, { date_to: values.date_from }, { date_to: '2026-11-02T08:00:00+08:00' }, { date_from: '2026-10-01T08:00:00' }, { rule_set_revision: 0 }])('阻止不符合显式范围/窗口/revision的请求 %j', (patch) => {
++    expect(evaluationFormSchema.safeParse({ ...values, ...patch }).success).toBe(false);
++  });
++  it('ALL及空模式明确合法，不隐式补MANUAL', () => {
++    expect(evaluationRequest({ ...values, scope: 'ALL', subject_ids: [], collection_modes: [] }).collection_modes).toEqual([]);
++  });
++});
+diff --git a/frontend/src/domains/geo-opportunities/opportunity-evaluation.model.ts b/frontend/src/domains/geo-opportunities/opportunity-evaluation.model.ts
+new file mode 100644
+index 00000000..092fe557
+--- /dev/null
++++ b/frontend/src/domains/geo-opportunities/opportunity-evaluation.model.ts
+@@ -0,0 +1,31 @@
++import { z } from 'zod';
++import type { components } from '@/shared/api/generated/schema';
++import { canonicalUuidSchema } from '@/shared/lib/canonical-uuid';
++
++const identities = z.array(canonicalUuidSchema).max(50, '每类最多选择 50 个对象');
++export const evaluationFormSchema = z.object({
++  scope: z.enum(['ALL', 'FILTERED']),
++  date_from: z.iso.datetime({ offset: true, message: '请输入带时区的 ISO 时间' }),
++  date_to: z.iso.datetime({ offset: true, message: '请输入带时区的 ISO 时间' }),
++  rule_set_revision: z.number().int().min(1, '规则修订号必须是正整数'),
++  subject_ids: identities, engine_surface_ids: identities, collection_profile_ids: identities,
++  collection_modes: z.array(z.enum(['MANUAL', 'API', 'BROWSER'])).max(3),
++}).superRefine((value, ctx) => {
++  const duration = Date.parse(value.date_to) - Date.parse(value.date_from);
++  if (!(duration > 0 && duration <= 31 * 86400000)) ctx.addIssue({ code: 'custom', path: ['date_to'], message: '结束必须晚于开始，窗口最长 31 天' });
++  const filtered = Boolean(value.subject_ids.length || value.engine_surface_ids.length || value.collection_profile_ids.length);
++  if (filtered !== (value.scope === 'FILTERED')) ctx.addIssue({ code: 'custom', path: ['scope'], message: '全部范围不允许对象过滤；筛选范围至少选择一类 Subject、Surface 或 Profile' });
++});
++export type EvaluationValues = z.infer<typeof evaluationFormSchema>;
++export function evaluationRequest(values: EvaluationValues): components['schemas']['GeoOpportunityEvaluationRequest'] {
++  const value = evaluationFormSchema.parse(values);
++  return { ...value, date_from: new Date(value.date_from).toISOString(), date_to: new Date(value.date_to).toISOString(),
++    subject_ids: [...new Set(value.subject_ids)].sort(), engine_surface_ids: [...new Set(value.engine_surface_ids)].sort(),
++    collection_profile_ids: [...new Set(value.collection_profile_ids)].sort(), collection_modes: [...new Set(value.collection_modes)].sort() };
++}
++const reasons: Record<string, string> = {
++  NO_CANDIDATES: '没有符合范围的候选数据', INSUFFICIENT_SAMPLE: '有效样本不足', NOT_COMPARABLE: '窗口或环境不可比较',
++  THRESHOLD_NOT_CONFIGURED: '没有配置触发阈值', CITATION_OBSERVATION_UNAVAILABLE: '没有可观察的引用依据',
++  PRIMARY_SUBJECT_UNAVAILABLE: '主要监测对象不可用', NO_BASELINE: '缺少历史基线',
++};
++export function evaluationReason(code: string) { return reasons[code] ? `${reasons[code]}（${code}）` : `服务端未生成原因：${code}`; }
+diff --git a/frontend/src/domains/geo-opportunities/opportunity-evaluation.test.tsx b/frontend/src/domains/geo-opportunities/opportunity-evaluation.test.tsx
+new file mode 100644
+index 00000000..6ed7b196
+--- /dev/null
++++ b/frontend/src/domains/geo-opportunities/opportunity-evaluation.test.tsx
+@@ -0,0 +1,81 @@
++import { QueryClientProvider } from '@tanstack/react-query';
++import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router';
++import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
++import userEvent from '@testing-library/user-event';
++import { afterEach, describe, expect, it, vi } from 'vitest';
++import { initializePrincipalEpoch, invalidatePrincipalEpoch } from '@/app/auth/principal-epoch';
++import { createAppQueryClient } from '@/app/query-client';
++import { api } from '@/shared/api/client';
++import type { components } from '@/shared/api/generated/schema';
++import { OpportunityEvaluation } from './opportunity-evaluation';
++import { failure, mockReads, renderOpportunities, response } from './opportunities.test-support';
++
++const receipt: components['schemas']['GeoOpportunityEvaluationReceipt'] = { evaluation_run_id: '30000000-0000-4000-8000-000000000001', rule_set_revision: 2, evaluated_cells: 3, created: 1, existing_reused: 1, skipped: 1, unavailable_reasons: [{ code: 'INSUFFICIENT_SAMPLE', count: 1 }], as_of: '2026-10-07T08:00:00Z', replayed: false };
++afterEach(() => vi.restoreAllMocks());
++function setup() {
++  vi.spyOn(api, 'GET').mockResolvedValue(response({ items: [], total: 0 }));
++  const client = createAppQueryClient(); initializePrincipalEpoch(client, 'admin');
++  const routeTree = createRootRoute({ component: () => <OpportunityEvaluation csrfToken="csrf" /> });
++  const router = createRouter({ routeTree, history: createMemoryHistory() });
++  const view = render(<QueryClientProvider client={client}><RouterProvider router={router} /></QueryClientProvider>);
++  return { client, view };
++}
++async function fill() {
++  await userEvent.click(await screen.findByRole('button', { name: '评估 Opportunity' }));
++  fireEvent.change(screen.getByRole('textbox', { name: '评估开始时间' }), { target: { value: '2026-10-01T00:00:00Z' } });
++  fireEvent.change(screen.getByRole('textbox', { name: '评估结束时间' }), { target: { value: '2026-10-02T00:00:00Z' } });
++  fireEvent.change(screen.getByRole('spinbutton', { name: '评估规则修订号' }), { target: { value: '2' } });
++  await userEvent.click(screen.getByRole('combobox', { name: '评估范围' }));
++  await userEvent.click(await screen.findByRole('option', { name: '全部对象（不带实体过滤）' }));
++  await waitFor(() => expect(screen.getByRole('button', { name: '确认执行评估' })).toBeEnabled());
++}
++describe('管理员评估页面', () => {
++  it('ENGINEER route没有评估入口或评估选项请求', async () => {
++    const read = mockReads(); renderOpportunities('/geo/opportunities');
++    await screen.findByRole('heading', { name: 'GEO 机会工作台' });
++    expect(screen.queryByRole('button', { name: '评估 Opportunity' })).not.toBeInTheDocument();
++    expect(read.requests.every((item) => item.path === '/api/v1/geo/opportunities')).toBe(true);
++  });
++  it('明确提交并显示新建/复用/跳过及低样本原因', async () => {
++    setup(); const post = vi.spyOn(api, 'POST').mockResolvedValue(response(receipt)); await fill();
++    await userEvent.click(screen.getByRole('button', { name: '确认执行评估' }));
++    expect(await screen.findByRole('region', { name: '评估冻结回执' })).toHaveTextContent('新建 1 · 复用 1 · 跳过 1');
++    expect(screen.getByRole('region', { name: '评估冻结回执' })).toHaveTextContent('有效样本不足');
++    expect(post.mock.calls[0]).toMatchObject(['/api/v1/geo/opportunities/evaluate', { body: { scope: 'ALL', rule_set_revision: 2, date_from: '2026-10-01T00:00:00.000Z', collection_modes: ['MANUAL'] }, params: { header: { 'X-CSRF-Token': 'csrf', 'Idempotency-Key': expect.any(String) } } }]);
++  });
++  it.each([403, 409, 422])('HTTP %i显示反馈并保留输入，不自动重发', async (status) => {
++    setup(); const post = vi.spyOn(api, 'POST').mockResolvedValue(failure(status)); await fill(); await userEvent.click(screen.getByRole('button', { name: '确认执行评估' }));
++    await screen.findByText(/服务端拒绝当前请求/);
++    expect(screen.getByRole('textbox', { name: '评估开始时间' })).toHaveValue('2026-10-01T00:00:00Z');
++    expect(post).toHaveBeenCalledTimes(1);
++    if (status === 403) expect(screen.getByRole('button', { name: '确认执行评估' })).toBeDisabled();
++  });
++  it('未知5xx只显式恢复同key同payload；进行中不重复提交', async () => {
++    setup(); let finish!: (value: never) => void;
++    const post = vi.spyOn(api, 'POST').mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; })).mockResolvedValue(response({ ...receipt, replayed: true }));
++    await fill(); await userEvent.click(screen.getByRole('button', { name: '确认执行评估' }));
++    expect(screen.getByRole('button', { name: '确认执行评估' })).toBeDisabled();
++    await act(async () => finish(failure(503)));
++    expect(await screen.findByText(/提交结果未知/)).toBeVisible();
++    expect(screen.getByRole('textbox', { name: '评估开始时间' })).toBeDisabled();
++    await userEvent.click(screen.getByRole('button', { name: '使用原请求核对评估结果' }));
++    await screen.findByText(/原请求回放/);
++    expect(post.mock.calls[1]?.[1]).toMatchObject(JSON.parse(JSON.stringify(post.mock.calls[0]?.[1])));
++  });
++  it('主体切换后迟到回执不进入页面', async () => {
++    const { client } = setup(); let finish!: (value: never) => void;
++    vi.spyOn(api, 'POST').mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
++    await fill(); await userEvent.click(screen.getByRole('button', { name: '确认执行评估' }));
++    invalidatePrincipalEpoch(client, 'engineer'); await act(async () => finish(response(receipt)));
++    expect(screen.queryByRole('region', { name: '评估冻结回执' })).not.toBeInTheDocument();
++  });
++  it('成功HTTP缺失回执视为结果未知，显式恢复仍使用原payload和key', async () => {
++    setup();
++    const post = vi.spyOn(api, 'POST').mockResolvedValueOnce({ response: new Response(null, { status: 204 }) } as never).mockResolvedValue(response({ ...receipt, replayed: true }));
++    await fill(); await userEvent.click(screen.getByRole('button', { name: '确认执行评估' }));
++    await screen.findByText(/提交结果未知/);
++    await userEvent.click(screen.getByRole('button', { name: '使用原请求核对评估结果' }));
++    await screen.findByText(/原请求回放/);
++    expect(post.mock.calls[1]?.[1]).toMatchObject(JSON.parse(JSON.stringify(post.mock.calls[0]?.[1])));
++  });
++});
+diff --git a/frontend/src/domains/geo-opportunities/opportunity-evaluation.tsx b/frontend/src/domains/geo-opportunities/opportunity-evaluation.tsx
+new file mode 100644
+index 00000000..9162bb8c
+--- /dev/null
++++ b/frontend/src/domains/geo-opportunities/opportunity-evaluation.tsx
+@@ -0,0 +1,78 @@
++import { zodResolver } from '@hookform/resolvers/zod';
++import { useQueryClient } from '@tanstack/react-query';
++import { useEffect, useRef, useState } from 'react';
++import { FormProvider, useForm, useWatch } from 'react-hook-form';
++import { capturePrincipalContinuation, type PrincipalContinuation } from '@/app/auth/principal-epoch';
++import { DirtyGuard } from '@/design-system/forms/dirty-guard';
++import { FormField } from '@/design-system/forms/form-field';
++import { ErrorSummary } from '@/design-system/forms/form-layout';
++import { Button } from '@/design-system/primitives/button';
++import { Input } from '@/design-system/primitives/input';
++import type { components } from '@/shared/api/generated/schema';
++import { opportunityKeys, OpportunityRequestError } from './opportunities.api';
++import { formatTime, modeLabels } from './opportunities.model';
++import { OpportunityNotice, OpportunitySelect } from './opportunity-controls';
++import { evaluateOpportunities } from './opportunity-evaluation.api';
++import { evaluationFormSchema, evaluationReason, evaluationRequest, type EvaluationValues } from './opportunity-evaluation.model';
++import { EvaluationOptions } from './opportunity-evaluation-options';
++
++type Command = { body: components['schemas']['GeoOpportunityEvaluationRequest']; key: string; continuation: PrincipalContinuation };
++const initial: EvaluationValues = { scope: 'FILTERED', date_from: '', date_to: '', rule_set_revision: 1, subject_ids: [], engine_surface_ids: [], collection_profile_ids: [], collection_modes: ['MANUAL'] };
++export function OpportunityEvaluation({ csrfToken }: { csrfToken: string | null }) {
++  const client = useQueryClient();
++  const form = useForm<EvaluationValues>({ defaultValues: initial, resolver: zodResolver(evaluationFormSchema), mode: 'onChange' });
++  const [open, setOpen] = useState(false); const [busy, setBusy] = useState(false);
++  const [command, setCommand] = useState<Command>(); const [error, setError] = useState<unknown>();
++  const [receipt, setReceipt] = useState<components['schemas']['GeoOpportunityEvaluationReceipt']>();
++  const mounted = useRef(true); const inFlight = useRef(false); const controller = useRef<AbortController | null>(null);
++  const trigger = useRef<HTMLButtonElement>(null);
++  useEffect(() => { mounted.current = true; return () => { mounted.current = false; controller.current?.abort(); }; }, []);
++  const values = useWatch({ control: form.control }) as EvaluationValues;
++  const denied = error instanceof OpportunityRequestError && [401, 403].includes(error.status ?? 0);
++  const locked = busy || Boolean(command) || Boolean(receipt) || denied;
++  async function execute(values?: EvaluationValues) {
++    if (inFlight.current || denied || !csrfToken || receipt) return;
++    let pending = command;
++    inFlight.current = true; setBusy(true); setError(undefined);
++    try {
++      if (!pending) {
++        if (!values) return;
++        pending = { body: evaluationRequest(values), key: crypto.randomUUID(), continuation: capturePrincipalContinuation(client) };
++        setCommand(pending);
++      }
++      pending.continuation.assertCurrent(); controller.current = new AbortController();
++      const result = await evaluateOpportunities(pending.body, pending.key, csrfToken, controller.current.signal);
++      if (!mounted.current || !pending.continuation.isCurrent()) return;
++      setReceipt(result); setCommand(undefined); form.reset(form.getValues());
++      void client.invalidateQueries({ queryKey: opportunityKeys.root() });
++    } catch (failure) {
++      if (!mounted.current || (pending && !pending.continuation.isCurrent())) return;
++      setError(failure);
++      // 已确认的HTTP拒绝允许修正输入；网络/5xx结果未知，继续保留同一冻结命令。
++      if (failure instanceof OpportunityRequestError && failure.status && failure.status >= 400 && failure.status < 500) setCommand(undefined);
++    } finally { inFlight.current = false; controller.current = null; if (mounted.current && (!pending || pending.continuation.isCurrent())) setBusy(false); }
++  }
++  const errors = Object.entries(form.formState.errors).flatMap(([name, value]) => value?.message ? [{ id: name, fieldId: `evaluation-${name}`, message: String(value.message) }] : []);
++  return <section aria-label="管理员机会评估" className="min-w-0 space-y-3">
++    <Button type="button" ref={trigger} variant="outline" aria-expanded={open} onClick={() => setOpen(true)}>评估 Opportunity</Button>
++    <DirtyGuard when={form.formState.isDirty || busy || Boolean(command)} />
++    {open && <FormProvider {...form}><form aria-label="管理员显式评估" className="min-w-0 space-y-4 rounded-lg border border-border-default p-4" onSubmit={(event) => void form.handleSubmit((value) => execute(value))(event)}>
++      <h2 className="type-section-title">管理员显式评估</h2>
++      <p className="text-sm text-text-secondary">仅评估已保存观测；不会自动采集、创建行动或复测。时间为含开始、不含结束的窗口，最长 31 天；提交后规则与范围冻结。</p>
++      <fieldset className="min-w-0 space-y-4" disabled={locked}>
++        <div className="grid gap-3 sm:grid-cols-2">{(['date_from', 'date_to', 'rule_set_revision'] as const).map((name) => <FormField<EvaluationValues, typeof name> key={name} name={name} id={`evaluation-${name}`} label={name === 'date_from' ? '评估开始时间' : name === 'date_to' ? '评估结束时间' : '评估规则修订号'} description={name === 'rule_set_revision' ? '明确填写已存在的规则修订号；可使用历史规则。' : '带时区的 ISO 时间，例如 2026-10-07T00:00:00Z。'} required render={({ field, inputId, 'aria-describedby': describedBy, 'aria-invalid': invalid }) => <Input {...field} type={name === 'rule_set_revision' ? 'number' : 'text'} min={name === 'rule_set_revision' ? 1 : undefined} id={inputId} aria-describedby={describedBy} aria-invalid={invalid} onChange={(event) => field.onChange(name === 'rule_set_revision' ? event.currentTarget.valueAsNumber : event.currentTarget.value)} />} />)}</div>
++        <FormField<EvaluationValues, 'scope'> name="scope" id="evaluation-scope" label="评估范围" required render={({ field, inputId }) => <OpportunitySelect id={inputId} label="评估范围" value={field.value} choices={[{ value: 'FILTERED', label: '明确筛选对象' }, { value: 'ALL', label: '全部对象（不带实体过滤）' }]} onChange={field.onChange} />} />
++        <p className="text-xs">全部范围必须先移除已选对象；切换范围不会静默清空输入。产品范围通过已关联产品的 Subject 选择。</p>
++        {values.scope === 'ALL' && (values.subject_ids.length + values.engine_surface_ids.length + values.collection_profile_ids.length > 0) && <Button type="button" variant="outline" disabled={locked} onClick={() => { for (const key of ['subject_ids', 'engine_surface_ids', 'collection_profile_ids'] as const) form.setValue(key, [], { shouldDirty: true, shouldValidate: true }); }}>明确清除实体过滤</Button>}
++        {values.scope === 'FILTERED' && <div className="grid min-w-0 gap-4 lg:grid-cols-3">{([{ kind: 'subject_ids', label: 'Subject / 产品' }, { kind: 'engine_surface_ids', label: 'Surface' }, { kind: 'collection_profile_ids', label: 'Profile' }] as const).map(({ kind, label }) => <EvaluationOptions key={kind} kind={kind} label={label} value={values[kind]} disabled={locked} onChange={(ids) => form.setValue(kind, ids, { shouldDirty: true, shouldValidate: true })} />)}</div>}
++        <div className="space-y-2"><p className="type-label">Collection Mode（空选表示所有历史模式）</p><div className="flex flex-wrap gap-2">{(['MANUAL', 'API', 'BROWSER'] as const).map((mode) => <Button key={mode} type="button" variant="outline" aria-pressed={values.collection_modes.includes(mode)} disabled={locked} onClick={() => form.setValue('collection_modes', values.collection_modes.includes(mode) ? values.collection_modes.filter((item) => item !== mode) : [...values.collection_modes, mode], { shouldDirty: true, shouldValidate: true })}>{modeLabels[mode]}</Button>)}</div></div>
++      </fieldset>
++      <ErrorSummary errors={errors} />
++      {busy && <p role="status">正在评估，请勿重复提交…</p>}
++      {Boolean(error) && <OpportunityNotice error>{error instanceof Error ? error.message : '评估失败'}{error instanceof OpportunityRequestError && error.status === 409 && <p>请求冲突，输入已保留。请核对规则与范围，修正后显式提交新的请求。</p>}{error instanceof OpportunityRequestError && error.status === 422 && <p>窗口、范围或规则不符合合同，请修正表单。</p>}{denied && <p>当前会话没有评估权限，请确认账号权限后返回工作台。</p>}</OpportunityNotice>}
++      {command && !busy && <OpportunityNotice><p>提交结果未知；输入和幂等键已保留。恢复仅发送原范围、窗口和规则，服务端去重，不创建第二次请求。</p><Button type="button" variant="outline" onClick={() => void execute()}>使用原请求核对评估结果</Button></OpportunityNotice>}
++      {receipt && <section aria-label="评估冻结回执" className="min-w-0 space-y-2"><h3 className="type-section-title">评估冻结回执</h3><p className="break-all text-xs">评估 ID：{receipt.evaluation_run_id} · 规则 revision {receipt.rule_set_revision} · 截止 {formatTime(receipt.as_of)} · {receipt.replayed ? '原请求回放' : '首次提交'}</p><p>评估结果 {receipt.evaluated_cells} · 新建 {receipt.created} · 复用 {receipt.existing_reused} · 跳过 {receipt.skipped}</p><p className="text-xs">计数为规则与范围的结果数；跳过包含未触发，多个不可用原因可同时影响同一结果。</p>{receipt.unavailable_reasons.length ? <ul className="list-disc pl-5 text-sm">{receipt.unavailable_reasons.map(({ code, count }) => <li className="break-words" key={code}>{evaluationReason(code)}：{count}</li>)}</ul> : <p>服务端未报告不可用原因。</p>}</section>}
++      <div className="flex flex-wrap gap-2">{!receipt && <Button type="submit" disabled={locked || !csrfToken || !form.formState.isValid}>确认执行评估</Button>}{receipt && <Button type="button" variant="outline" onClick={() => { setReceipt(undefined); setError(undefined); }}>开始新评估</Button>}<Button type="button" variant="ghost" disabled={busy || Boolean(command)} onClick={() => { setOpen(false); queueMicrotask(() => trigger.current?.focus()); }}>收起评估表单（保留输入）</Button></div>
++    </form></FormProvider>}
++  </section>;
++}
+diff --git a/frontend/src/domains/geo-opportunities/opportunity-retest.tsx b/frontend/src/domains/geo-opportunities/opportunity-retest.tsx
+new file mode 100644
+index 00000000..2029ffec
+--- /dev/null
++++ b/frontend/src/domains/geo-opportunities/opportunity-retest.tsx
+@@ -0,0 +1,147 @@
++import { zodResolver } from '@hookform/resolvers/zod';
++import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
++import { useEffect, useRef, useState } from 'react';
++import { FormProvider, useForm, useWatch } from 'react-hook-form';
++import { capturePrincipalContinuation } from '@/app/auth/principal-epoch';
++import { TableShell } from '@/design-system/data-table/table-shell';
++import { DirtyGuard } from '@/design-system/forms/dirty-guard';
++import { FormField } from '@/design-system/forms/form-field';
++import { ErrorSummary } from '@/design-system/forms/form-layout';
++import { Button } from '@/design-system/primitives/button';
++import { Input } from '@/design-system/primitives/input';
++import type { components } from '@/shared/api/generated/schema';
++import { OpportunityRequestError } from './opportunities.api';
++import type { Opportunity, OpportunityDetail } from './opportunities.model';
++import { createOpportunityRetest, invalidateOpportunityBusiness, opportunityRetestPreviewOptions } from './opportunity-business.api';
++import { baselineBatchChoices, businessErrorMessage, businessFailureKind, businessRequest, opportunityRetestFormSchema, retestDifferenceLabels, type BusinessRequest, type OpportunityRetestValues, type RetestCommand } from './opportunity-business.model';
++import { OpportunityNotice } from './opportunity-controls';
++
++export function OpportunityRetest({ opportunityId, detail, blocked, csrfToken, onReload, onDenied, onCreated }: {
++  opportunityId: string; detail?: OpportunityDetail; blocked: boolean; csrfToken: string | null;
++  onReload: () => Promise<Opportunity>; onDenied: (error: OpportunityRequestError) => void; onCreated: (batchId: string) => void;
++}) {
++  const client = useQueryClient();
++  const [owner] = useState(() => capturePrincipalContinuation(client));
++  const [open, setOpen] = useState(false); const [baseline, setBaseline] = useState<Opportunity>();
++  const [requestedBaseline, setRequestedBaseline] = useState<string>();
++  const [held, setHeld] = useState(false); const [unknown, setUnknown] = useState(false); const [refreshing, setRefreshing] = useState(false);
++  const [error, setError] = useState<unknown>(); const [message, setMessage] = useState('');
++  const [receipt, setReceipt] = useState<components['schemas']['GeoRetestCreated']>();
++  const request = useRef<BusinessRequest<RetestCommand> | undefined>(undefined);
++  const inFlight = useRef(false); const mounted = useRef(true); const controller = useRef<AbortController | null>(null);
++  useEffect(() => { mounted.current = true; return () => { mounted.current = false; controller.current?.abort(); }; }, []);
++  const form = useForm<OpportunityRetestValues>({ defaultValues: { baseline_batch_id: '' }, resolver: zodResolver(opportunityRetestFormSchema), mode: 'onChange' });
++  const selectedBaseline = useWatch({ control: form.control, name: 'baseline_batch_id' });
++  const { isDirty, isValid, isSubmitting, errors } = form.formState;
++  const offered = detail?.available_action_types.includes('ADDITIONAL_MONITORING') === true;
++  const previewQuery = useQuery(opportunityRetestPreviewOptions(opportunityId, requestedBaseline, open && owner.isCurrent() && !unknown));
++  const preview = requestedBaseline === selectedBaseline ? previewQuery.data : undefined;
++  const current = () => mounted.current && owner.isCurrent();
++  const denied = businessFailureKind(error) === 'denied' || businessFailureKind(previewQuery.error) === 'denied';
++  const mutation = useMutation({ retry: false, gcTime: 0, mutationFn: async (command: BusinessRequest<RetestCommand>) => {
++    owner.assertCurrent();
++    if (!controller.current) throw new Error('Retest 请求缺少取消边界');
++    return createOpportunityRetest(opportunityId, command, csrfToken, controller.current.signal);
++  } });
++  const busy = mutation.isPending || refreshing || isSubmitting;
++  const stale = Boolean(baseline && detail && baseline.revision !== detail.opportunity.revision) || Boolean(preview && baseline && preview.opportunity_revision !== baseline.revision);
++  const unavailable = blocked || !offered || !csrfToken || busy || held || denied || stale || !owner.isCurrent();
++  useEffect(() => { if (previewQuery.error instanceof OpportunityRequestError && businessFailureKind(previewQuery.error) === 'denied' && owner.isCurrent()) onDenied(previewQuery.error); }, [previewQuery.error, onDenied, owner]);
++
++  function changeBaseline(value: string) {
++    if (inFlight.current || unknown) return;
++    setRequestedBaseline(undefined); setError(undefined); setMessage(''); setReceipt(undefined);
++    form.setValue('baseline_batch_id', value, { shouldDirty: true, shouldValidate: true });
++  }
++  async function previewRetest(values: OpportunityRetestValues) {
++    if (inFlight.current || unavailable || unknown || previewQuery.isFetching || !current()) return;
++    setError(undefined); setMessage('');
++    form.setValue('baseline_batch_id', values.baseline_batch_id);
++    if (requestedBaseline === values.baseline_batch_id) await previewQuery.refetch();
++    else setRequestedBaseline(values.baseline_batch_id);
++  }
++  async function create() {
++    if (inFlight.current || !current() || busy || denied || !csrfToken || (unknown && blocked)) return;
++    if (!unknown && (unavailable || previewQuery.isFetching || previewQuery.error || !preview?.comparable || preview.requires_new_baseline || !baseline)) return;
++    const command = unknown ? request.current : preview ? businessRequest<RetestCommand>({ expected_revision: preview.opportunity_revision, baseline_batch_id: preview.baseline_batch_id }, request.current) : undefined;
++    if (!command) return;
++    request.current = command; inFlight.current = true; controller.current = new AbortController(); setError(undefined); setMessage('');
++    let committed = false;
++    try {
++      const result = await mutation.mutateAsync(command);
++      if (!current()) return;
++      committed = true;
++      request.current = undefined; setUnknown(false); setHeld(false); setReceipt(result); setRequestedBaseline(undefined); form.reset(form.getValues()); setOpen(false);
++      setMessage(`${result.replayed ? '已确认原 Retest 创建结果' : '已创建 Retest'}：${result.requested_run_count} 次运行，机会 revision ${result.opportunity_revision}。复测不会自动解决机会，结果变化不能证明因果。`);
++      await invalidateOpportunityBusiness(client, opportunityId, 'retest');
++      if (current()) onCreated(result.batch_id);
++    } catch (failure) {
++      if (!current()) return;
++      setError(failure);
++      if (committed) return;
++      const kind = businessFailureKind(failure); setUnknown(kind === 'unknown'); setHeld(kind === 'conflict');
++      if (kind === 'denied' && failure instanceof OpportunityRequestError) onDenied(failure);
++      if (failure instanceof OpportunityRequestError && failure.status === 422) {
++        const issues = failure.detail?.details.errors;
++        if (Array.isArray(issues)) for (const issue of issues) {
++          if (issue && typeof issue === 'object' && 'loc' in issue && 'msg' in issue && Array.isArray(issue.loc) && issue.loc.length === 2 && issue.loc[0] === 'body' && issue.loc[1] === 'baseline_batch_id' && typeof issue.msg === 'string') form.setError('baseline_batch_id', { message: issue.msg });
++        }
++      }
++    } finally { inFlight.current = false; controller.current = null; if (current()) mutation.reset(); }
++  }
++  async function reload() {
++    if (inFlight.current || busy || unknown || !current()) return;
++    setRefreshing(true); setMessage('');
++    try {
++      const canonical = await onReload();
++      if (!current()) return;
++      setBaseline(canonical); setRequestedBaseline(undefined); setHeld(false); setError(undefined); form.clearErrors();
++      if (error instanceof OpportunityRequestError && error.detail?.code === 'IDEMPOTENCY_CONFLICT') request.current = undefined;
++      setMessage(`已读取机会 revision ${canonical.revision}，原基线 ID 已保留；请重新预览同一基线并核对，不会自动更换基线。`);
++    } catch (failure) { if (current()) { setError(failure); if (businessFailureKind(failure) === 'denied' && failure instanceof OpportunityRequestError) onDenied(failure); } }
++    finally { if (current()) setRefreshing(false); }
++  }
++  if (!owner.isCurrent()) return <p role="alert">认证主体已变化，请重新进入机会详情。</p>;
++  if (!offered && !open && !receipt) return null;
++  return <section aria-label="Retest 预览与创建" className="min-w-0 space-y-3 border-t border-border-subtle pt-4">
++    <h3 className="type-section-title">Retest 复测</h3>
++    <DirtyGuard when={!receipt && (isDirty || busy || unknown || previewQuery.isFetching)} description={unknown ? 'Retest 创建结果尚未确认，离开会丢失原载荷和幂等键。请先确认原请求结果。' : undefined} shouldBlockNavigation={({ current: location, next }) => location.pathname !== next.pathname || (next.search as Record<string, unknown>).opportunity_id !== opportunityId} />
++    {!open && offered && <Button type="button" disabled={blocked || !csrfToken} variant="outline" onClick={() => { setBaseline(detail?.opportunity); setOpen(true); setReceipt(undefined); }}>预览并创建 Retest</Button>}
++    {message && <OpportunityNotice>{message}</OpportunityNotice>}
++    {receipt && Boolean(error) && <OpportunityNotice error>Retest 已创建，关联列表刷新失败：{businessErrorMessage(error)}。可打开已确认的批次核对。</OpportunityNotice>}
++    {receipt && <OpportunityNotice><p className="break-all">Retest 批次：{receipt.batch_id} · 冻结基线：{receipt.baseline_id}</p><a className="text-interaction-primary underline underline-offset-4" href={`/geo/runs?batch_id=${receipt.batch_id}`}>打开新 Retest 批次</a></OpportunityNotice>}
++    {open && baseline && !denied && <>
++      <p className="break-all text-sm">来源 Opportunity：{opportunityId} · 提交 revision {baseline.revision}</p>
++      <p className="text-sm text-text-secondary">从当前来源页选择冻结批次，或明确填写其他历史来源基线 ID。最终来源资格与可比性由服务端预览裁决。</p>
++      {!offered && <OpportunityNotice>服务端当前未提供 Retest 创建动作；原基线已保留，新提交暂停。</OpportunityNotice>}
++      <FormProvider {...form}><form aria-label="Retest 基线预览表单" className="space-y-3" onSubmit={(event) => void form.handleSubmit(previewRetest)(event)}>
++        <fieldset disabled={busy || unknown || held || blocked || stale} className="space-y-3">
++          <div className="flex flex-col gap-2">{detail && baselineBatchChoices(detail).map((choice) => <Button key={choice.value} type="button" variant="outline" className="h-auto justify-start whitespace-normal break-all text-left" aria-pressed={choice.value === selectedBaseline} onClick={() => changeBaseline(choice.value)}>{choice.label}</Button>)}</div>
++          {detail?.sources.items.length === 0 && <p className="text-sm">当前来源页没有批次候选。可切换来源页，或明确填写已知的基线批次 ID。</p>}
++          <FormField<OpportunityRetestValues, 'baseline_batch_id'> name="baseline_batch_id" id="opportunity-retest-baseline" label="Retest 基线批次 ID" description="必须是明确的 UUID；修改基线后需要重新预览。" required render={({ field, inputId, 'aria-describedby': describedBy, 'aria-invalid': invalid }) => <Input {...field} id={inputId} onChange={(event) => changeBaseline(event.target.value)} aria-describedby={describedBy} aria-invalid={invalid} aria-required />} />
++        </fieldset>
++        <ErrorSummary errors={errors.baseline_batch_id?.message ? [{ id: 'baseline', fieldId: 'opportunity-retest-baseline', message: errors.baseline_batch_id.message }] : []} />
++        <Button type="submit" variant="outline" disabled={unavailable || unknown || !isValid || previewQuery.isFetching}>预览 Retest</Button>
++      </form></FormProvider>
++      {previewQuery.isFetching && <p role="status">正在核对基线与冻结矩阵…</p>}
++      {Boolean(error) && <OpportunityNotice error>{businessErrorMessage(error)}</OpportunityNotice>}
++      {previewQuery.error && <OpportunityNotice error>{businessErrorMessage(previewQuery.error)}{businessFailureKind(previewQuery.error) !== 'denied' && businessFailureKind(previewQuery.error) !== 'conflict' && <Button type="button" variant="outline" disabled={busy || unknown} onClick={() => void previewQuery.refetch()}>重试 Retest 预览</Button>}</OpportunityNotice>}
++      {(held || stale || businessFailureKind(previewQuery.error) === 'conflict') && <OpportunityNotice><p>机会修订号或复测依据已变化，基线 ID 已保留；提交暂停，请显式刷新、重新预览并确认。</p><Button type="button" variant="outline" disabled={busy || unknown} onClick={() => void reload()}>加载最新机会并保留 Retest 基线</Button></OpportunityNotice>}
++      {preview && !previewQuery.error && <RetestPreview preview={preview} />}
++      {unknown ? <OpportunityNotice><p>Retest 创建结果未知。原载荷与幂等键已冻结；可显式使用同一请求确认，不会自动重发。</p><Button type="button" disabled={busy || blocked || !csrfToken} onClick={() => void create()}>确认原 Retest 创建结果</Button></OpportunityNotice> : preview && <Button type="button" disabled={unavailable || previewQuery.isFetching || Boolean(previewQuery.error) || !preview.comparable || preview.requires_new_baseline} onClick={() => void create()}>确认创建 Retest</Button>}
++      <Button type="button" variant="ghost" disabled={busy || unknown} onClick={() => { form.reset({ baseline_batch_id: '' }); setRequestedBaseline(undefined); setOpen(false); setError(undefined); setHeld(false); request.current = undefined; }}>取消 Retest 创建</Button>
++    </>}
++    {denied && <p role="alert">{businessErrorMessage(error ?? previewQuery.error)}</p>}
++  </section>;
++}
++function RetestPreview({ preview }: { preview: components['schemas']['GeoRetestPreview'] }) {
++  return <section aria-label="Retest 可比性预览" className="min-w-0 space-y-3">
++    <OpportunityNotice><p>可比性：{preview.comparable ? '可比较' : '不可比较'} · requires_new_baseline：{preview.requires_new_baseline ? '是，需要新基线' : '否'}</p><p className="break-all">预览 Opportunity revision {preview.opportunity_revision} · 原基线批次 {preview.baseline_batch_id}</p>{!preview.comparable && <p>当前预览禁止创建 Retest。请核对具体差异；页面不会自动更换基线。</p>}</OpportunityNotice>
++    <section aria-label="Retest 具体差异" className="space-y-2"><h4 className="type-label">differences：{preview.differences.length} 项</h4>{preview.differences.map((difference, index) => <p key={`${difference.code}-${difference.field}-${index}`} className="break-all text-sm">{retestDifferenceLabels[difference.code]}（{difference.code}） · {difference.field} · 资源 {difference.resource_id ?? '无'}{difference.reason && ` · ${difference.reason}`}</p>)}{preview.differences.length === 0 && <p className="text-sm">服务端未发现可比性差异。</p>}</section>
++    <section aria-label="Retest 冻结矩阵" className="min-w-0 space-y-2"><h4 className="type-label">冻结矩阵：{preview.snapshot.cells.length} 次运行（只读）</h4><p className="text-xs text-text-secondary">复测复制历史问题、采集配置、对象和事实绑定；不使用当前计划重新生成矩阵。</p>
++      <TableShell regionLabel="Retest 冻结运行矩阵"><thead><tr><th scope="col">原运行 / 重复序号</th><th scope="col">冻结问题 / 采集方式</th><th scope="col">实际产品 / 模型 / 版本</th><th scope="col">完整冻结输入</th></tr></thead><tbody>{preview.snapshot.cells.map((cell) => <tr key={cell.root_run_id}><td className="max-w-sm break-all">{cell.root_run_id}<p>重复 {cell.repeat_index}</p></td><td className="max-w-sm whitespace-pre-wrap break-words">{cell.input_snapshot.prompt.prompt_text}<p>{cell.input_snapshot.profile.collection_mode}</p></td><td className="max-w-sm break-words">{cell.source_product ?? '未记录'} · {cell.source_model ?? '未记录'} · {cell.source_version ?? '未记录'}</td><td className="max-w-sm"><details><summary className="cursor-pointer text-sm">冻结输入与事实绑定</summary><pre className="whitespace-pre-wrap break-words text-xs [overflow-wrap:anywhere]">{JSON.stringify(cell.input_snapshot, null, 2)}</pre></details></td></tr>)}</tbody></TableShell>
++      <details><summary className="cursor-pointer text-sm">完整冻结基线、计划与规则</summary><pre className="whitespace-pre-wrap break-words text-xs [overflow-wrap:anywhere]">{JSON.stringify(preview.snapshot, null, 2)}</pre></details>
++    </section>
++    <p className="text-xs text-text-secondary">创建和复测结果都不会自动解决机会；后续比较与恢复判断仍需显式确认，变化不证明因果。</p>
++  </section>;
++}

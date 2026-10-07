@@ -8,9 +8,10 @@ import { formatTime, opportunitySearchSchema, type Opportunity, type Opportunity
 import { canRetryOpportunityRead, canShowOpportunitySnapshot, OpportunityReadFailure } from './opportunity-controls';
 import { OpportunityDrawer } from './opportunity-detail';
 import { OpportunityFilters } from './opportunity-filters';
+import { OpportunityEvaluation } from './opportunity-evaluation';
 import { OpportunityTable } from './opportunity-list';
 
-export function OpportunitiesPage({ search, csrfToken, onSearchChange }: { search: OpportunitySearch; csrfToken: string | null; onSearchChange: (search: OpportunitySearch, replace?: boolean) => void }) {
+export function OpportunitiesPage({ search, csrfToken, onSearchChange, isAdmin = false }: { isAdmin?: boolean; search: OpportunitySearch; csrfToken: string | null; onSearchChange: (search: OpportunitySearch, replace?: boolean) => void }) {
   const query = useQuery(opportunityListOptions(search));
   const data = canShowOpportunitySnapshot(query.error) ? query.data : undefined;
   const focusReturn = useRef<HTMLElement | null>(null);
@@ -27,6 +28,7 @@ export function OpportunitiesPage({ search, csrfToken, onSearchChange }: { searc
   }, []);
   return <section aria-labelledby="opportunities-title" className="min-w-0 space-y-5">
     <header className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 space-y-1"><h1 className="type-page-title" id="opportunities-title" ref={pageHeading} tabIndex={-1}>GEO 机会工作台</h1><p className="text-text-secondary">追溯历史证据、比较复测结果，并依据服务端动作显式处理机会。</p></div>{canRetryOpportunityRead(query.error) && <Button type="button" variant="outline" disabled={query.isFetching} onClick={() => void query.refetch()}>刷新列表</Button>}</header>
+    {isAdmin && <OpportunityEvaluation csrfToken={csrfToken} />}
     <OpportunityFilters key={JSON.stringify(search)} search={search} options={data?.filter_options} onChange={onSearchChange} />
     {query.isFetching && <p className="text-sm" role="status">{query.data ? '正在刷新机会列表…' : '正在读取机会列表…'}</p>}
     {query.error && <OpportunityReadFailure error={query.error} retained={Boolean(query.data)} onRetry={() => void query.refetch()} />}

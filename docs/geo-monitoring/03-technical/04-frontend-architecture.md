@@ -425,3 +425,11 @@ Opportunity详情只消费generated OpenAPI行动快照、navigation_path和targ
 RESOLVE/CONTINUE资源token提供入口；用户再显式选择人工解决、复测恢复确认或继续跟进。三种处理都填写非空代码/说明；人工解决独立于复测资格，复测确认还携带所选batch/fingerprint。表单revision及比较证据来自编辑基线，后台查询刷新不能改写输入；409保留草稿，只在明确重读后再次确认，不自动重放。CSRF、principal epoch、inflight、DirtyGuard、no-store与AbortSignal保持，原因和比较快照不进入URL或浏览器持久存储。
 
 复用canonical Design System、命名表格region、键盘焦点和响应式布局。GEO-707完整监测→内容→复测闭环E2E/R6接受、Browser和生产上线均不包含在706。
+
+## GEO-1010-UI 核心机会页面闭环
+
+ADMIN 工作台提供显式评估表单与冻结回执，产品范围通过 Subject 关联。评估候选复用分页 API；Content Task 只使用现有 creation-options 原子读模型，产品变化清除依赖事实，平台选择保留。Content Task/Retest 入口分别消费 CONTENT_TASK/ADDITIONAL_MONITORING；补测 token 只允许尝试，preview/create 继续由服务端裁决。
+
+Retest 选择当前来源页真实 batch 或明确 UUID，显示可比性、逐项差异、requires_new_baseline 与冻结矩阵；不可比禁止 create，不替换历史条件。成功 batch 写入 retest_batch_id URL 并衔接 GEO-706 的比较与显式决定。动作完成/复测恢复不自动解决，变化不证明因果。
+
+表单基线 revision 与完整幂等命令由当前主体/组件生命周期持有。409 保留输入，只有显式重读才更新基线；Retest 必须重新预览。网络/5xx/异常回执只恢复原 payload/key，无自动重试。DirtyGuard 提示离开会丢失未知请求身份；主体或卸载变化丢弃迟到结果。页面开发与本地验证不代表 DEPLOY/UAT 或生产 Go。

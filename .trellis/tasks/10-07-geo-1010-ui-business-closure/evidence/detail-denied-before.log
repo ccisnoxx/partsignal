@@ -1,0 +1,342 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/geo-opportunities/opportunity-business.test.tsx -t 详情刷新403
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+ ❯ src/domains/geo-opportunities/opportunity-business.test.tsx (17 tests | 2 failed | 15 skipped) 720ms
+     × 详情刷新403时卸载已打开的content业务快照与表单 574ms
+     × 详情刷新403时卸载已打开的retest业务快照与表单 145ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/domains/geo-opportunities/opportunity-business.test.tsx > GEO-1010 Opportunity 创建闭环 > 详情刷新403时卸载已打开的content业务快照与表单
+Error: expect(element).not.toBeInTheDocument()
+
+expected document not to contain element, found <section
+  aria-label="从机会创建 Content Task"
+  class="min-w-0 space-y-3 border-t border-border-subtle pt-4"
+>
+  <h3
+    class="type-section-title"
+  >
+    Content Task 行动
+  </h3>
+  <p
+    class="break-all text-sm"
+  >
+    来源 Opportunity：
+    30000000-0000-4000-8000-000000000001
+     · 提交 revision 
+    1
+  </p>
+  <p
+    class="text-sm text-text-secondary"
+  >
+    选择来自服务端创建选项；事实版本均已批准，服务端提交时再次校验。
+  </p>
+  <div
+    class="min-w-0 space-y-2 rounded-lg border p-3 text-sm border-border-default bg-surface-raised text-text-secondary"
+    role="status"
+  >
+    服务端当前未提供 Content Task 创建动作；原选择已保留，新提交暂停。
+  </div>
+</section> instead
+ ❯ src/domains/geo-opportunities/opportunity-business.test.tsx:73:87
+     71|     await userEvent.click(within(sheet()).getByRole('button', { name: …
+     72|     await within(sheet()).findByText(/当前机会不可访问/);
+     73|     expect(within(sheet()).queryByRole('region', { name: '从机会创建 Conten…
+       |                                                                                       ^
+     74|     expect(within(sheet()).queryByRole('region', { name: 'Retest 可比性预览…
+     75|     expect(within(sheet()).queryByRole('region', { name: 'Retest 冻结矩阵'…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/domains/geo-opportunities/opportunity-business.test.tsx > GEO-1010 Opportunity 创建闭环 > 详情刷新403时卸载已打开的retest业务快照与表单
+Error: expect(element).not.toBeInTheDocument()
+
+expected document not to contain element, found <section
+  aria-label="Retest 可比性预览"
+  class="min-w-0 space-y-3"
+>
+  <div
+    class="min-w-0 space-y-2 rounded-lg border p-3 text-sm border-border-default bg-surface-raised text-text-secondary"
+    role="status"
+  >
+    <p>
+      可比性：
+      可比较
+       · requires_new_baseline：
+      否
+    </p>
+    <p
+      class="break-all"
+    >
+      预览 Opportunity revision 
+      1
+       · 原基线批次 
+      10000000-0000-4000-8000-000000000002
+    </p>
+  </div>
+  <section
+    aria-label="Retest 具体差异"
+    class="space-y-2"
+  >
+    <h4
+      class="type-label"
+    >
+      differences：
+      0
+       项
+    </h4>
+    <p
+      class="text-sm"
+    >
+      服务端未发现可比性差异。
+    </p>
+  </section>
+  <section
+    aria-label="Retest 冻结矩阵"
+    class="min-w-0 space-y-2"
+  >
+    <h4
+      class="type-label"
+    >
+      冻结矩阵：
+      1
+       次运行（只读）
+    </h4>
+    <p
+      class="text-xs text-text-secondary"
+    >
+      复测复制历史问题、采集配置、对象和事实绑定；不使用当前计划重新生成矩阵。
+    </p>
+    <div
+      aria-label="Retest 冻结运行矩阵"
+      class="ps-table-region"
+      data-slot="table-region"
+      role="region"
+      tabindex="0"
+    >
+      <table
+        class="ps-table"
+      >
+        <thead>
+          <tr … />
+        </thead>
+        <tbody>
+          <tr … />
+        </tbody>
+      </table>
+    </div>
+    <details>
+      <summary
+        class="cursor-pointer text-sm"
+      >
+        完整冻结基线、计划与规则
+      </summary>
+      <pre
+        class="whitespace-pre-wrap break-words text-xs [overflow-wrap:anywhere]"
+      >
+        {
+  "schema_version": 1,
+  "opportunity_id": "30000000-0000-4000-8000-000000000001",
+  "baseline_batch_id": "10000000-0000-4000-8000-000000000002",
+  "trigger_snapshot": {
+    "schema_version": 1,
+    "rule_snapshot": {
+      "schema_version": 1,
+      "rule_set_revision": 1,
+      "configuration": {
+        "sample_policy": {
+          "reportable_minimum": 3,
+          "stable_minimum": 5
+        },
+        "visibility_drop_points": 0.1,
+        "recommendation_drop_points": 0.1,
+        "competitor_surge_points": 0.15,
+        "own_citation_previous_count": 2,
+        "repeated_error_minimum_runs": 3,
+        "repeated_error_window_days": 30,
+        "unstable_minimum_repeats": 3,
+        "stability_minimum_rate": 0.67,
+        "dedup_window_days": 30,
+        "data_quality_minimum_success_rate": null,
+        "data_quality_minimum_evidence_rate": null,
+        "run_failure_consecutive_limit": null,
+        "recovery": {
+          "minimum_runs": 5,
+          "visibility_drop_max_points": 0,
+          "recommendation_drop_max_points": 0,
+          "competitor_surge_max_points": 0,
+          "topic_visibility_minimum_rate": 0.6,
+          "owned_citation_minimum_count": 1,
+          "stability_minimum_rate": 0.67,
+          "fact_error_max_count": 0,
+          "strict_comparability_required": true,
+          "manual_confirmation_required": true
+        }
+      }
+    },
+    "rule_code": "TOPIC_COVERAGE_GAP",
+    "scope": {
+      "subject_id": "10000000-0000-4000-8000-000000000001",
+      "query_topic_id": "10000000-0000-4000-8000-000000000001",
+      "prompt_variant_id": "10000000-0000-4000-8000-000000000001",
+      "collection_profile_id": "10000000-0000-4000-8000-000000000001",
+      "engine_surface_id": "10000000-0000-4000-8000-000000000001",
+      "batch_id": null,
+      "environment_key": "fixture"
+    },
+    "source_date_from": "2026-10-03T08:00:00Z",
+    "source_date_to": "2026-10-04T08:00:00Z",
+    "triggered": true,
+    "priority": "CRITICAL",
+    "value": 1,
+    "threshold": 0,
+    "numerator": 1,
+    "denominator": 1,
+    "unavailable_reasons": [],
+    "sources": [
+      {
+        "run_id": "10000000-0000-4000-8000-000000000001",
+        "analysis_revision_id": "10000000-0000-4000-8000-000000000010",
+        "review_id": "10000000-0000-4000-8000-000000000013",
+        "source_role": "TRIGGER"
+      }
+    ],
+    "details": {
+      "claim": "保存的触发依据"
+    }
+  },
+  "plan_snapshot": {
+    "schema_version": 1,
+    "plan_id": null,
+    "plan_revision": null,
+    "name": "冻结独立基线",
+    "description": "",
+    "subjects": [
+      {
+        "subject_id": "10000000-0000-4000-8000-000000000001",
+        "role": "PRIMARY"
+      }
+    ],
+    "prompt_variant_ids": [
+      "10000000-0000-4000-8000-000000000001"
+    ],
+    "collection_profile_ids": [
+      "10000000-0000-4000-8000-000000000001"
+    ],
+    "repeat_count": 1,
+    "schedule_kind": "MANUAL_ONLY",
+    "cron_expression": null,
+    "timezone": "Asia/Shanghai",
+    "budget_limit": null,
+    "rule_set_revision": 1
+  },
+  "rule_snapshot": {
+    "schema_version": 1,
+    "rule_set_revision": 1
+  },
+  "cells": [
+    {
+      "root_run_id": "10000000-0000-4000-8000-000000000001",
+      "repeat_index": 1,
+      "input_snapshot": {
+        "schema_version": 1,
+        "data_classification": "PUBLIC",
+        "rule_set_revision": 1,
+        "subjects": [
+          {
+            "id": "10000000-0000-4000-8000-000000000001",
+            "revision": 1,
+            "subject_type": "REFERENCE_PART",
+            "role": "PRIMARY",
+            "product_id": null,
+            "parent_subject_id": null,
+            "canonical_name": "参考零件",
+            "display_name": "参考零件",
+            "aliases": [],
+            "domains": []
+          }
+        ],
+        "prompt": {
+          "id": "10000000-0000-4000-8000-000000000001",
+          "revision": 1,
+          "query_topic_id": "10000000-0000-4000-8000-000000000001",
+          "query_topic_revision": 1,
+          "canonical_question": "冻结标准问题",
+          "prompt_text": "冻结完整问题",
+          "intent_type": "PRODUCT",
+          "mention_mode": "UNBRANDED",
+          "priority": "STANDARD",
+          "language_code": "zh-CN",
+          "region_code": "CN"
+        },
+        "profile": {
+          "id": "10000000-0000-4000-8000-000000000001",
+          "revision": 1,
+          "name": "人工配置",
+          "adapter_key": "manual",
+          "adapter_version": "1",
+          "collection_mode": "MANUAL",
+          "ai_channel_id": null,
+          "ai_model_id": null,
+          "login_state": "ANONYMOUS",
+          "language_code": "zh-CN",
+          "region_code": "CN",
+          "web_search_policy": "UNKNOWN",
+          "settings": {
+            "require_screenshot": true
+          },
+          "surface": {
+            "id": "10000000-0000-4000-8000-000000000001",
+            "revision": 1,
+            "name": "人工观测面",
+            "surface_kind": "CONSUMER_UI",
+            "provider_brand": "CUSTOM",
+            "compliance_status": "APPROVED",
+            "capabilities": {
+              "answer_text": true,
+              "citations": true,
+              "web_search_signal": true,
+              "model_version": false,
+              "usage": false,
+              "cost": false
+            }
+          }
+        }
+      },
+      "answer_snapshot_id": "10000000-0000-4000-8000-000000000002",
+      "source_product": "实际产品",
+      "source_model": "实际模型",
+      "source_version": "v1"
+    }
+  ]
+}
+      </pre>
+    </details>
+  </section>
+  <p
+    class="text-xs text-text-secondary"
+  >
+    创建和复测结果都不会自动解决机会；后续比较与恢复判断仍需显式确认，变化不证明因果。
+  </p>
+</section> instead
+ ❯ src/domains/geo-opportunities/opportunity-business.test.tsx:74:81
+     72|     await within(sheet()).findByText(/当前机会不可访问/);
+     73|     expect(within(sheet()).queryByRole('region', { name: '从机会创建 Conten…
+     74|     expect(within(sheet()).queryByRole('region', { name: 'Retest 可比性预览…
+       |                                                                                 ^
+     75|     expect(within(sheet()).queryByRole('region', { name: 'Retest 冻结矩阵'…
+     76|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 15 skipped (17)
+   Start at  09:12:32
+   Duration  2.16s (transform 818ms, setup 71ms, import 980ms, tests 720ms, environment 336ms)
+

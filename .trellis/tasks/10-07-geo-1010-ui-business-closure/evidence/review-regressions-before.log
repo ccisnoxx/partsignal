@@ -1,0 +1,430 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/geo-opportunities/opportunity-business.test.tsx src/domains/geo-opportunities/opportunity-evaluation.test.tsx -t 在途切换来源页|成功HTTP缺失
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+ ❯ src/domains/geo-opportunities/opportunity-evaluation.test.tsx (8 tests | 1 failed | 7 skipped) 1221ms
+     × 成功HTTP缺失回执视为结果未知，显式恢复仍使用原payload和key 1221ms
+ ❯ src/domains/geo-opportunities/opportunity-business.test.tsx (18 tests | 1 failed | 17 skipped) 1454ms
+     × Retest 创建在途切换来源页，迟到成功只补充复测选择且保留当前 URL 1454ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/domains/geo-opportunities/opportunity-business.test.tsx > GEO-1010 Opportunity 创建闭环 > Retest 创建在途切换来源页，迟到成功只补充复测选择且保留当前 URL
+AssertionError: expected { …(2) } to match object { …(3) }
+
+Ignored nodes: comments, script, style
+[36m<html[39m
+  [33mstyle[39m=[32m"scrollbar-gutter: stable;"[39m
+[36m>[39m
+  [36m<head />[39m
+  [36m<body[39m
+    [33mstyle[39m=[32m"overflow-y: hidden; overflow-x: hidden;"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mdata-base-ui-inert[39m=[32m""[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"min-h-screen bg-surface-app text-text-primary lg:grid lg:grid-cols-[13rem_minmax(0,1fr)]"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"fixed top-2 left-2 z-[70] -translate-y-20 rounded-md bg-primary px-3 py-2 text-primary-foreground shadow-md transition-transform focus:translate-y-0 focus:outline-none focus:ring-3 focus:ring-ring/50"[39m
+          [33mhref[39m=[32m"#main-content"[39m
+        [36m>[39m
+          [0m跳到主内容[0m
+        [36m</a>[39m
+        [36m<aside[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"hidden min-h-screen border-r border-border-subtle bg-surface-panel lg:flex lg:flex-col"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex h-16 items-center border-b border-border-subtle px-4"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"font-heading text-base font-semibold"[39m
+            [36m>[39m
+              [0mPartSignal[0m
+            [36m</span>[39m
+          [36m</div>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"主导航"[39m
+            [33mclass[39m=[32m"flex-1 space-y-5 p-3"[39m
+          [36m>[39m
+            [36m<section[39m
+              [33maria-labelledby[39m=[32m"nav-工作区"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mclass[39m=[32m"mb-1 px-2 type-label text-text-muted"[39m
+                [33mid[39m=[32m"nav-工作区"[39m
+              [36m>[39m
+                [0m工作区[0m
+              [36m</h2>[39m
+              [36m<ul[39m
+                [33mclass[39m=[32m"space-y-1"[39m
+              [36m>[39m
+                [36m<li>[39m
+                  [36m<a[39m
+                    [33mclass[39m=[32m"flex min-h-9 items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 text-text-secondary hover:bg-surface-raised hover:text-text-primary"[39m
+                    [33mhref[39m=[32m"/"[39m
+                  [36m>[39m
+                    [36m<svg[39m
+                      [33maria-hidden[39m=[32m"true"[39m
+                      [33mclass[39m=[32m"lucide lucide-layout-dashboard size-4"[39m
+                      [33mfill[39m=[32m"none"[39m
+                      [33mheight[39m=[32m"24"[39m
+                      [33mstroke[39m=[32m"currentColor"[39m
+                      [33mstroke-linecap[39m=[32m"round"[39m
+                      [33mstroke-linejoin[39m=[32m"round"[39m
+                      [33mstroke-width[39m=[32m"2"[39m
+                      [33mviewBox[39m=[32m"0 0 24 24"[39m
+                      [33mwidth[39m=[32m"24"[39m
+                      [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                    [36m>[39m
+                      [36m<rect[39m
+                        [33mheight[39m=[32m"9"[39m
+                        [33mrx[39m=[32m"1"[39m
+                        [33mwidth[39m=[32m"7"[39m
+                        [33mx[39m=[32m"3"[39m
+                        [33my[39m=[32m"3"[39m
+                      [36m/>[39m
+                      [36m<rect[39m
+                        [33mheight[39m=[32m"5"[39m
+                        [33mrx[39m=[32m"1"[39m
+                        [33mwidth[39m=[32m"7"[39m
+                        [33mx[39m=[32m"14"[39m
+                        [33my[39m=[32m"3"[39m
+                      [36m/>[39m
+                      [36m<rect[39m
+                        [33mheight[39m=[32m"9"[39m
+                        [33mrx[39m=[32m"1"[39m
+                        [33mwidth[39m=[32m"7"[39m
+                        [33mx[39m=[32m"14"[39m
+                        [33my[39m=[32m"12"[39m
+                      [36m/>[39m
+                      [36m<rect[39m
+                        [33mheight[39m=[32m"5"[39m
+                        [33mrx[39m=[32m"1"[39m
+                        [33mwidth[39m=[32m"7"[39m
+                        [33mx[39m=[32m"3"[39m
+                        [33my[39m=[32m"16"[39m
+                      [36m/>[39m
+                    [36m</svg>[39m
+                    [0m工作台[0m
+                  [36m</a>[39m
+                [36m</li>[39m
+                [36m<li>[39m
+                  [36m<a[39m
+                    [33mclass[39m=[32m"flex min-h-9 items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 text-text-secondary hover:bg-surface-raised hover:text-text-primary"[39m
+                    [33mhref[39m=[32m"/products"[39m
+                  [36m>[39m
+                    [36m<svg[39m
+                      [33maria-hidden[39m=[32m"true"[39m
+                      [33mclass[39m=[32m"lucide lucide-boxes size-4"[39m
+                      [33mfill[39m=[32m"none"[39m
+                      [33mheight[39m=[32m"24"[39m
+                      [33mstroke[39m=[32m"currentColor"[39m
+                      [33mstroke-linecap[39m=[32m"round"[39m
+                      [33mstroke-linejoin[39m=[32m"round"[39m
+                      [33mstroke-width[39m=[32m"2"[39m
+                      [33mviewBox[39m=[32m"0 0 24 24"[39m
+                      [33mwidth[39m=[32m"24"[39m
+                      [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+                    [36m>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"m7 16.5-4.74-2.85"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"m7 16.5 5-3"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M7 16.5v5.17"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"m17 16.5-5-3"[39m
+                      [36m/>[39m
+                      [36m<path[39m
+                        [33md[39m=[32m"m17 16.5 4.74...
+
+- Expected
++ Received
+
+  {
+    "opportunity_id": "30000000-0000-4000-8000-000000000001",
+    "retest_batch_id": "30000000-0000-4000-8000-000000000002",
+-   "source_page": 2,
+  }
+
+ ❯ src/domains/geo-opportunities/opportunity-business.test.tsx:168:62
+    166|     expect(router.state.location.search).toHaveProperty('source_page',…
+    167|     await act(async () => { release(response(retestReceipt())); });
+    168|     await waitFor(() => expect(router.state.location.search).toMatchOb…
+       |                                                              ^
+    169|   });
+    170|   it('Retest 409 保留基线，显式刷新后必须重新 preview，才可携带新 revision 创建', async () =…
+ ❯ runWithExpensiveErrorDiagnosticsDisabled node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/domains/geo-opportunities/opportunity-evaluation.test.tsx > 管理员评估页面 > 成功HTTP缺失回执视为结果未知，显式恢复仍使用原payload和key
+TestingLibraryElementError: Unable to find an element with the text: /提交结果未知/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m""[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"管理员机会评估"[39m
+      [33mclass[39m=[32m"min-w-0 space-y-3"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33maria-expanded[39m=[32m"true"[39m
+        [33mclass[39m=[32m"group/button inline-flex shrink-0 items-center justify-center rounded-lg border bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-[length:var(--focus-ring-width)] focus-visible:ring-ring/50 focus-visible:ring-offset-[length:var(--focus-ring-offset)] focus-visible:ring-offset-background active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-[length:var(--focus-ring-width)] aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2"[39m
+        [33mdata-slot[39m=[32m"button"[39m
+        [33mtabindex[39m=[32m"0"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [0m评估 Opportunity[0m
+      [36m</button>[39m
+      [36m<form[39m
+        [33maria-label[39m=[32m"管理员显式评估"[39m
+        [33mclass[39m=[32m"min-w-0 space-y-4 rounded-lg border border-border-default p-4"[39m
+      [36m>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"type-section-title"[39m
+        [36m>[39m
+          [0m管理员显式评估[0m
+        [36m</h2>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-sm text-text-secondary"[39m
+        [36m>[39m
+          [0m仅评估已保存观测；不会自动采集、创建行动或复测。时间为含开始、不含结束的窗口，最长 31 天；提交后规则与范围冻结。[0m
+        [36m</p>[39m
+        [36m<fieldset[39m
+          [33mclass[39m=[32m"min-w-0 space-y-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"grid gap-3 sm:grid-cols-2"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-1.5"[39m
+            [36m>[39m
+              [36m<label[39m
+                [33mclass[39m=[32m"type-label block text-text-primary"[39m
+                [33mfor[39m=[32m"evaluation-date_from"[39m
+              [36m>[39m
+                [0m评估开始时间[0m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"ml-1 text-danger"[39m
+                [36m>[39m
+                  [0m*[0m
+                [36m</span>[39m
+              [36m</label>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-xs text-text-secondary"[39m
+                [33mid[39m=[32m"evaluation-date_from-description"[39m
+              [36m>[39m
+                [0m带时区的 ISO 时间，例如 2026-10-07T00:00:00Z。[0m
+              [36m</p>[39m
+              [36m<input[39m
+                [33maria-describedby[39m=[32m"evaluation-date_from-description"[39m
+                [33maria-invalid[39m=[32m"false"[39m
+                [33mclass[39m=[32m"h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[length:var(--focus-ring-width)] focus-visible:ring-ring/50 focus-visible:ring-offset-[length:var(--focus-ring-offset)] focus-visible:ring-offset-background disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-muted disabled:text-text-disabled aria-invalid:border-destructive aria-invalid:ring-[length:var(--focus-ring-width)] aria-invalid:ring-destructive/20 md:text-sm"[39m
+                [33mdata-slot[39m=[32m"input"[39m
+                [33mid[39m=[32m"evaluation-date_from"[39m
+                [33mname[39m=[32m"date_from"[39m
+                [33mtype[39m=[32m"text"[39m
+                [33mvalue[39m=[32m"2026-10-01T00:00:00Z"[39m
+              [36m/>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-1.5"[39m
+            [36m>[39m
+              [36m<label[39m
+                [33mclass[39m=[32m"type-label block text-text-primary"[39m
+                [33mfor[39m=[32m"evaluation-date_to"[39m
+              [36m>[39m
+                [0m评估结束时间[0m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"ml-1 text-danger"[39m
+                [36m>[39m
+                  [0m*[0m
+                [36m</span>[39m
+              [36m</label>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-xs text-text-secondary"[39m
+                [33mid[39m=[32m"evaluation-date_to-description"[39m
+              [36m>[39m
+                [0m带时区的 ISO 时间，例如 2026-10-07T00:00:00Z。[0m
+              [36m</p>[39m
+              [36m<input[39m
+                [33maria-describedby[39m=[32m"evaluation-date_to-description"[39m
+                [33maria-invalid[39m=[32m"false"[39m
+                [33mclass[39m=[32m"h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[length:var(--focus-ring-width)] focus-visible:ring-ring/50 focus-visible:ring-offset-[length:var(--focus-ring-offset)] focus-visible:ring-offset-background disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-muted disabled:text-text-disabled aria-invalid:border-destructive aria-invalid:ring-[length:var(--focus-ring-width)] aria-invalid:ring-destructive/20 md:text-sm"[39m
+                [33mdata-slot[39m=[32m"input"[39m
+                [33mid[39m=[32m"evaluation-date_to"[39m
+                [33mname[39m=[32m"date_to"[39m
+                [33mtype[39m=[32m"text"[39m
+                [33mvalue[39m=[32m"2026-10-02T00:00:00Z"[39m
+              [36m/>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-1.5"[39m
+            [36m>[39m
+              [36m<label[39m
+                [33mclass[39m=[32m"type-label block text-text-primary"[39m
+                [33mfor[39m=[32m"evaluation-rule_set_revision"[39m
+              [36m>[39m
+                [0m评估规则修订号[0m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"ml-1 text-danger"[39m
+                [36m>[39m
+                  [0m*[...
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m""[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"管理员机会评估"[39m
+      [33mclass[39m=[32m"min-w-0 space-y-3"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33maria-expanded[39m=[32m"true"[39m
+        [33mclass[39m=[32m"group/button inline-flex shrink-0 items-center justify-center rounded-lg border bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-[length:var(--focus-ring-width)] focus-visible:ring-ring/50 focus-visible:ring-offset-[length:var(--focus-ring-offset)] focus-visible:ring-offset-background active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-[length:var(--focus-ring-width)] aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2"[39m
+        [33mdata-slot[39m=[32m"button"[39m
+        [33mtabindex[39m=[32m"0"[39m
+        [33mtype[39m=[32m"button"[39m
+      [36m>[39m
+        [0m评估 Opportunity[0m
+      [36m</button>[39m
+      [36m<form[39m
+        [33maria-label[39m=[32m"管理员显式评估"[39m
+        [33mclass[39m=[32m"min-w-0 space-y-4 rounded-lg border border-border-default p-4"[39m
+      [36m>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"type-section-title"[39m
+        [36m>[39m
+          [0m管理员显式评估[0m
+        [36m</h2>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-sm text-text-secondary"[39m
+        [36m>[39m
+          [0m仅评估已保存观测；不会自动采集、创建行动或复测。时间为含开始、不含结束的窗口，最长 31 天；提交后规则与范围冻结。[0m
+        [36m</p>[39m
+        [36m<fieldset[39m
+          [33mclass[39m=[32m"min-w-0 space-y-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"grid gap-3 sm:grid-cols-2"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-1.5"[39m
+            [36m>[39m
+              [36m<label[39m
+                [33mclass[39m=[32m"type-label block text-text-primary"[39m
+                [33mfor[39m=[32m"evaluation-date_from"[39m
+              [36m>[39m
+                [0m评估开始时间[0m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"ml-1 text-danger"[39m
+                [36m>[39m
+                  [0m*[0m
+                [36m</span>[39m
+              [36m</label>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-xs text-text-secondary"[39m
+                [33mid[39m=[32m"evaluation-date_from-description"[39m
+              [36m>[39m
+                [0m带时区的 ISO 时间，例如 2026-10-07T00:00:00Z。[0m
+              [36m</p>[39m
+              [36m<input[39m
+                [33maria-describedby[39m=[32m"evaluation-date_from-description"[39m
+                [33maria-invalid[39m=[32m"false"[39m
+                [33mclass[39m=[32m"h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[length:var(--focus-ring-width)] focus-visible:ring-ring/50 focus-visible:ring-offset-[length:var(--focus-ring-offset)] focus-visible:ring-offset-background disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-muted disabled:text-text-disabled aria-invalid:border-destructive aria-invalid:ring-[length:var(--focus-ring-width)] aria-invalid:ring-destructive/20 md:text-sm"[39m
+                [33mdata-slot[39m=[32m"input"[39m
+                [33mid[39m=[32m"evaluation-date_from"[39m
+                [33mname[39m=[32m"date_from"[39m
+                [33mtype[39m=[32m"text"[39m
+                [33mvalue[39m=[32m"2026-10-01T00:00:00Z"[39m
+              [36m/>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-1.5"[39m
+            [36m>[39m
+              [36m<label[39m
+                [33mclass[39m=[32m"type-label block text-text-primary"[39m
+                [33mfor[39m=[32m"evaluation-date_to"[39m
+              [36m>[39m
+                [0m评估结束时间[0m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"ml-1 text-danger"[39m
+                [36m>[39m
+                  [0m*[0m
+                [36m</span>[39m
+              [36m</label>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"text-xs text-text-secondary"[39m
+                [33mid[39m=[32m"evaluation-date_to-description"[39m
+              [36m>[39m
+                [0m带时区的 ISO 时间，例如 2026-10-07T00:00:00Z。[0m
+              [36m</p>[39m
+              [36m<input[39m
+                [33maria-describedby[39m=[32m"evaluation-date_to-description"[39m
+                [33maria-invalid[39m=[32m"false"[39m
+                [33mclass[39m=[32m"h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[length:var(--focus-ring-width)] focus-visible:ring-ring/50 focus-visible:ring-offset-[length:var(--focus-ring-offset)] focus-visible:ring-offset-background disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-muted disabled:text-text-disabled aria-invalid:border-destructive aria-invalid:ring-[length:var(--focus-ring-width)] aria-invalid:ring-destructive/20 md:text-sm"[39m
+                [33mdata-slot[39m=[32m"input"[39m
+                [33mid[39m=[32m"evaluation-date_to"[39m
+                [33mname[39m=[32m"date_to"[39m
+                [33mtype[39m=[32m"text"[39m
+                [33mvalue[39m=[32m"2026-10-02T00:00:00Z"[39m
+              [36m/>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"space-y-1.5"[39m
+            [36m>[39m
+              [36m<label[39m
+                [33mclass[39m=[32m"type-label block text-text-primary"[39m
+                [33mfor[39m=[32m"evaluation-rule_set_revision"[39m
+              [36m>[39m
+                [0m评估规则修订号[0m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"ml-1 text-danger"[39m
+                [36m>[39m
+                  [0m*[...
+ ❯ waitForWrapper node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/domains/geo-opportunities/opportunity-evaluation.test.tsx:76:18
+     74|     const post = vi.spyOn(api, 'POST').mockResolvedValueOnce({ respons…
+     75|     await fill(); await userEvent.click(screen.getByRole('button', { n…
+     76|     await screen.findByText(/提交结果未知/);
+       |                  ^
+     77|     await userEvent.click(screen.getByRole('button', { name: '使用原请求核对评…
+     78|     await screen.findByText(/原请求回放/);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 24 skipped (26)
+   Start at  09:13:37
+   Duration  2.77s (transform 1.53s, setup 102ms, import 1.98s, tests 2.68s, environment 444ms)
+

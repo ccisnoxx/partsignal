@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { TablePagination } from '@/design-system/data-table/table-pagination';
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { Badge } from '@/design-system/primitives/badge';
@@ -13,15 +13,21 @@ import { OpportunityComparison } from './opportunity-comparison';
 import { OpportunityDecisions } from './opportunity-decisions';
 import { canRetryOpportunityRead, canShowOpportunitySnapshot, OpportunityReadFailure } from './opportunity-controls';
 import { OpportunityEvidence } from './opportunity-evidence';
+import { OpportunityContentTask } from './opportunity-content-task';
+import { OpportunityRetest } from './opportunity-retest';
 
 export function OpportunityDrawer({ search, csrfToken, onChange, finalFocus, intent }: { search: OpportunitySearch; csrfToken: string | null; onChange: (search: OpportunitySearch) => void; finalFocus: () => HTMLElement | null; intent?: components['schemas']['GeoOpportunityAction'] }) {
   const query = useQuery(opportunityDetailOptions(search));
   const comparisonQuery = useQuery(opportunityComparisonOptions(search));
   const [privacyFailure, setPrivacyFailure] = useState<{ id: string; error: OpportunityRequestError }>();
-  const privateError = privacyFailure && privacyFailure.id === search.opportunity_id ? privacyFailure.error : comparisonQuery.error instanceof OpportunityRequestError && [401, 403, 404].includes(comparisonQuery.error.status ?? 0) ? comparisonQuery.error : undefined;
+  const privateError = privacyFailure && privacyFailure.id === search.opportunity_id ? privacyFailure.error : query.error instanceof OpportunityRequestError && [401, 403, 404].includes(query.error.status ?? 0) ? query.error : comparisonQuery.error instanceof OpportunityRequestError && [401, 403, 404].includes(comparisonQuery.error.status ?? 0) ? comparisonQuery.error : undefined;
   const detail = !privateError && canShowOpportunitySnapshot(query.error) ? query.data : undefined;
   const comparisonRead = !privateError && canShowOpportunitySnapshot(query.error) && canShowOpportunitySnapshot(comparisonQuery.error) ? comparisonQuery.data : undefined;
-  const change = (patch: Partial<OpportunitySearch>) => onChange(opportunitySearchSchema.parse({ ...search, ...patch }));
+  // 同一选择的重渲染保留身份；后选比较批次会撤销在途创建的自动选择权。
+  const comparisonIntent = useMemo(() => ({ batchId: search.retest_batch_id }), [search.retest_batch_id]);
+  const navigation = useRef({ search, onChange, comparisonIntent });
+  useLayoutEffect(() => { navigation.current = { search, onChange, comparisonIntent }; }, [search, onChange, comparisonIntent]);
+  const change = (patch: Partial<OpportunitySearch>) => { const current = navigation.current; current.onChange(opportunitySearchSchema.parse({ ...current.search, ...patch })); };
   async function reload() { const result = await query.refetch({ throwOnError: true }); if (!result.data) throw new Error('机会详情缺少读取结果'); return result.data.opportunity; }
   async function reloadDecision(withComparison: boolean) {
     if (!withComparison) return { opportunity: await reload() };
@@ -35,6 +41,8 @@ export function OpportunityDrawer({ search, csrfToken, onChange, finalFocus, int
       {query.isFetching && <p role="status">{query.data ? '正在刷新机会证据…' : '正在读取机会证据…'}</p>}{query.error && <OpportunityReadFailure evidence error={query.error} retained={Boolean(query.data)} onRetry={() => void query.refetch()} />}
       {privateError && !query.error && <OpportunityReadFailure error={privateError} onRetry={() => {}} />}
       {search.opportunity_id && <OpportunityCommands opportunityId={search.opportunity_id} opportunity={detail?.opportunity} key={search.opportunity_id} csrfToken={csrfToken} blocked={Boolean(query.error) || query.isFetching || !detail} intent={intent} onReload={reload} onDenied={(error) => setPrivacyFailure({ id: search.opportunity_id!, error })} />}
+      {search.opportunity_id && !privateError && <OpportunityContentTask key={`content-${search.opportunity_id}`} opportunityId={search.opportunity_id} detail={detail} blocked={Boolean(query.error) || query.isFetching || !detail} csrfToken={csrfToken} onReload={reload} onDenied={(error) => setPrivacyFailure({ id: search.opportunity_id!, error })} />}
+      {search.opportunity_id && !privateError && <OpportunityRetest key={`retest-${search.opportunity_id}`} opportunityId={search.opportunity_id} detail={detail} blocked={Boolean(query.error) || query.isFetching || !detail} csrfToken={csrfToken} onReload={reload} onDenied={(error) => setPrivacyFailure({ id: search.opportunity_id!, error })} onCreated={(batchId) => { if (navigation.current.comparisonIntent === comparisonIntent) change({ retest_batch_id: batchId }); }} />}
       {search.opportunity_id && !privateError && (!query.error || detail) && <OpportunityComparison key={`comparison-${search.opportunity_id}`} data={comparisonRead} selectedBatchId={search.retest_batch_id} fetching={comparisonQuery.isFetching} error={comparisonQuery.error} onSelect={(id) => change({ retest_batch_id: id })} onReload={() => void comparisonQuery.refetch()} />}
       {search.opportunity_id && <OpportunityDecisions key={`decisions-${search.opportunity_id}`} opportunityId={search.opportunity_id} opportunity={detail?.opportunity} comparisonRead={comparisonRead} comparisonBlocked={Boolean(comparisonQuery.error) || comparisonQuery.isFetching || !comparisonRead} blocked={Boolean(query.error) || query.isFetching || !detail || Boolean(privateError)} csrfToken={csrfToken} intent={intent} onReload={reloadDecision} onDenied={(error) => setPrivacyFailure({ id: search.opportunity_id!, error })} />}
       {detail && <>

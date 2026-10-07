@@ -1,0 +1,34 @@
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/geo-opportunities/opportunity-business.test.tsx -t 后选择已有比较批次
+
+
+ RUN  v4.1.10 /Users/sc/PycharmProjects/partsignal/frontend
+
+ ❯ src/domains/geo-opportunities/opportunity-business.test.tsx (19 tests | 1 failed | 18 skipped) 530ms
+     × Retest 创建在途后选择已有比较批次，迟到成功保留用户后选批次 529ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/domains/geo-opportunities/opportunity-business.test.tsx > GEO-1010 Opportunity 创建闭环 > Retest 创建在途后选择已有比较批次，迟到成功保留用户后选批次
+AssertionError: expected { …(2) } to have property "retest_batch_id" with value '30000000-0000-4000-8000-000000000002'
+
+Expected: "30000000-0000-4000-8000-000000000002"
+Received: "40000000-0000-4000-8000-000000000004"
+
+ ❯ src/domains/geo-opportunities/opportunity-business.test.tsx:179:42
+    177|     await act(async () => { release(response({ ...retestReceipt(), bat…
+    178|     await within(sheet()).findByRole('link', { name: '打开新 Retest 批次' }…
+    179|     expect(router.state.location.search).toHaveProperty('retest_batch_…
+       |                                          ^
+    180|   });
+    181|   it('Retest 409 保留基线，显式刷新后必须重新 preview，才可携带新 revision 创建', async () =…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 18 skipped (19)
+   Start at  09:23:16
+   Duration  1.76s (transform 808ms, setup 44ms, import 948ms, tests 530ms, environment 192ms)
+

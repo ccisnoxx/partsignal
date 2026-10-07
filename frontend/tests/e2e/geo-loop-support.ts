@@ -1,8 +1,5 @@
 /** GEO-707 的虚构输入与既有页面旅程；业务状态始终由真实领域服务裁决。 */
-import { execFile } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { resolve } from 'node:path';
-import { promisify } from 'node:util';
 import { expect, type Page } from '@playwright/test';
 import type { components } from '../../src/shared/api/generated/schema';
 import { api, batches, body, detail, runs, uiCommand } from './geo-api-support';
@@ -206,13 +203,6 @@ export async function submitLoopBatch(page: Page, batchId: string, partNumber: s
   }
   await expect.poll(async () => (await body<Schema['GeoBatchDetail']>(await page.request.get(`${api}${batches}/${batchId}`))).batch.status).toBe('COMPLETED');
   return observations;
-}
-
-export async function evaluateLoopBaseline(batchId: string) {
-  const evaluated = await promisify(execFile)(resolve(process.cwd(), '../backend/.venv/bin/python'), ['-m', 'tests.geo_loop_e2e_seed', batchId], {
-    cwd: process.cwd(), timeout: 40_000, env: { ...process.env, GEO_OPPORTUNITY_EVALUATION_ENABLED: 'true' },
-  });
-  return JSON.parse(evaluated.stdout) as { opportunity_id: string; request_id: string };
 }
 
 export async function completeLoopContent(page: Page, taskId: string, graph: Awaited<ReturnType<typeof loopConfiguration>>, allowRead: (path: string) => void) {

@@ -16,7 +16,8 @@ export APP_ENV=test
 export GEO_MONITORING_ENABLED=true
 export GEO_API_COLLECTION_ENABLED=false
 export GEO_BROWSER_COLLECTION_ENABLED=false
-export GEO_OPPORTUNITY_EVALUATION_ENABLED=false
+# GEO-1010-UI：隔离 MANUAL 验收通过正式 ADMIN 页面显式评估；不注册自动评估。
+export GEO_OPPORTUNITY_EVALUATION_ENABLED=true
 # 人工提交由真实分析扫描推进；隔离test栈缩短扫描等待，十次采样不逐次等待生产默认60秒。
 export GEO_RECOVERY_SCAN_SECONDS=5
 geo_port_arguments=

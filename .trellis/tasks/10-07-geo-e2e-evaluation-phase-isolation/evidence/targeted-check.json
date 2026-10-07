@@ -1,0 +1,20 @@
+{
+  "command": [
+    "deploy/scripts/e2e-geo.sh"
+  ],
+  "started_at_utc": "2026-10-07T17:53:03.202761+00:00",
+  "scope": "GEO-408三模式定向修复验证",
+  "status": "PASSED",
+  "exit_code": 0,
+  "ended_at_utc": "2026-10-07T17:54:32.855793+00:00",
+  "log_sha256": "e5bdda07a1af950f997f6140fb0a0624b424bb4b8ae2621799b558338880571c",
+  "log_ref": "/Users/sc/.codex/reviews/partsignal/geo1010-candidate-gate-20261007T172107Z-6a1_ywwm/geo-mode-fix.log",
+  "full_gate": "PENDING_NEW_FIXED_MAIN",
+  "shell_syntax_exit_code": 0,
+  "modes": [
+    "enabled",
+    "api-disabled",
+    "monitoring-disabled"
+  ],
+  "observed_cleanup": "每阶段database dropped、storage removed、Redis deleted、ports released，secret_scan=0"
+}

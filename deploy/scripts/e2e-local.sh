@@ -32,6 +32,8 @@ case "$PARTSIGNAL_E2E_GEO_MODE" in
     fi
     export GEO_MONITORING_ENABLED=true
     export GEO_API_COLLECTION_ENABLED=true
+    # GEO-408 只验收采集模式；隔离工厂禁止继承 MANUAL 机会评估资格。
+    export GEO_OPPORTUNITY_EVALUATION_ENABLED=false
     test "$PARTSIGNAL_E2E_GEO_MODE" != api-disabled || export GEO_API_COLLECTION_ENABLED=false
     if test "$PARTSIGNAL_E2E_GEO_MODE" = monitoring-disabled; then
       export GEO_MONITORING_ENABLED=false

@@ -21,7 +21,7 @@
   "children": [],
   "parent": "10-07-geo-1010-manual-pilot",
   "relatedFiles": [],
-  "notes": "2026-10-07：新会话启动授权已执行，准备核对完成；UI接受身份保留。DEPLOY blocked，必需输入见preparation.md；未冻结候选、未运行新SHA完整门禁、未部署，不可review/done。\n2026-10-07：用户确认Git授权，提交已接受UI、接受治理及DEPLOY准备到main并push/fetch；候选完整门禁待实际执行，目标输入仍缺。",
+  "notes": "2026-10-07：新会话启动授权已执行，准备核对完成；UI接受身份保留。DEPLOY blocked，必需输入见preparation.md；未冻结候选、未运行新SHA完整门禁、未部署，不可review/done。\n2026-10-07：用户确认Git授权，提交已接受UI、接受治理及DEPLOY准备到main并push/fetch；候选完整门禁待实际执行，目标输入仍缺。\n已按归属提交两笔main并push/fetch；候选1ed8c4af完整门禁exit2，GEO测试入口配置冲突另立独立缺陷记录，尚无正式release manifest。",
   "meta": {
     "display_id": "GEO-1010-DEPLOY",
     "manifest_id": null,
@@ -39,9 +39,9 @@
     "session_start_authorized_at": "2026-10-07T16:52:04Z",
     "deployment_performed": false,
     "candidate_frozen": false,
-    "execution_phase": "authorized_git_and_candidate_gate_preparation",
+    "execution_phase": "candidate_gate_failed_test_harness_fix_in_progress",
     "preparation_recorded_at": "2026-10-07T17:08:44.014304+00:00",
-    "candidate_commit": null,
+    "candidate_commit": "1ed8c4af1d62fb6d86b4401d0703a90bf629a839",
     "target_environment": null,
     "blocked_input_ids": [
       "TARGET",
@@ -51,6 +51,7 @@
       "RECOVERY"
     ],
     "git_publication_authorized_at": "2026-10-07T17:19:07.470277+00:00",
-    "git_publication_authorization": "current_conversation_user: commit accepted UI, acceptance governance and DEPLOY preparation to main; push, fetch and fix new candidate"
+    "git_publication_authorization": "current_conversation_user: commit accepted UI, acceptance governance and DEPLOY preparation to main; push, fetch and fix new candidate",
+    "candidate_full_gate": "FAILED"
   }
 }

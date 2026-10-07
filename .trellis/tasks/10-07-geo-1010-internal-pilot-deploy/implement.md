@@ -41,3 +41,11 @@ DEPLOY 六项验收尚未完成；没有 DEPLOY review、人工接受、内部 G
 ## Git 授权后的候选工作
 
 2026-10-07T17:19:07.470277+00:00 用户明确授权提交已接受 UI、接受治理及本次 DEPLOY 准备到 main，并 push/fetch、固定新候选。开始按 UI 与 DEPLOY 归属提交；尚未填写未执行的 SHA 或门禁通过。GIT 已闭合，其余五组输入没有实际值或记录引用，目标写入继续等待。
+
+## 已执行 Git 与第一次候选门禁
+
+UI 实现/接受证据提交 `ce65c6fa`，接受治理/DEPLOY准备提交 `1ed8c4af`；push origin main、fetch origin均exit0。候选固定为 `1ed8c4af1d62fb6d86b4401d0703a90bf629a839`，固定时main clean、HEAD=origin/main。原始日志/diff保留原 whitespace，以免改写接受证据；staged check除原始`.log`/`.diff`后exit0，其余准备staged check全量exit0。
+
+完整原始wrapper于2026-10-07T17:21:38.090873Z–17:50:13.773705Z执行，exit2，工作树仍clean/同SHA。静态/类型、3870 backend unit、1347 frontend unit（142files）、1253 PG integration（45warnings）、6隔离恢复、1性能（100000回答fixture）、32canonical真实页面E2E/secret_scan=0通过；GEO模式工厂因评估开关true拒绝后readiness失败。fixture/部署脚本/最终Compose尚未运行，不能以部分通过冻结release。
+
+已保存仓库外确定性source archive及13项tracked hashes；仍没有正式镜像/manifest。失败与工件身份见[candidate-attempt-1.json](./evidence/candidate-attempt-1.json)。测试入口缺陷单独记录在[geo-e2e-evaluation-phase-isolation](../10-07-geo-e2e-evaluation-phase-isolation/prd.md)，仅修正模式配置，原UI接受身份与失败证据保留。修正后须提交/push/fetch固定新候选并运行完整门禁。目标五组实际输入仍未取得，未部署或UAT。

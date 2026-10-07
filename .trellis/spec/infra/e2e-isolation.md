@@ -28,7 +28,7 @@ backend/.venv/bin/uvicorn app.dev_storage:app --host 127.0.0.1 --port "$PARTSIGN
 - lifecycle supervisor 向独立 process group 转发信号后，同组父进程与 reporter 的退出先后没有保证；harness 必须分别证明二者都在 secret scanner 之前完成，不能把 sibling 调度顺序当作合同。每个 case 至少输出 begin/pass，失败时输出 case、断言名、期望/实际和不含 marker/secret 内容的事件证据。
 - 退出时无论测试成功、失败或收到信号，都停止并 `wait` 本次进程；只删除枚举后符合 allowlist 的精确 Celery/Kombu 键，并证明 Redis 为空和固定端口释放，再 drop 本次数据库和删除临时目录。
 - 清理输出分别使用数据库 `status=dropped`、存储 `status=removed`、Redis `status=deleted` 与端口 `status=released`；测试成功但任一清理失败时，脚本仍以非零状态退出。禁止 `FLUSHDB`、通配删除、broad kill 或候选路径清理。
-- `e2e-local.sh` 默认开启 `GEO_MONITORING_ENABLED`，使人工配置与计划启停具备真实资格，API/Browser/机会关闭。显式 `PARTSIGNAL_E2E_GEO_MODE=enabled|api-disabled|monitoring-disabled` 时运行独立 GEO-408 阶段，分别使用总/API 开关 true/true、true/false、false/false；Browser/机会始终关闭，生产默认值不变。
+- `e2e-local.sh` 默认开启 `GEO_MONITORING_ENABLED` 与 `GEO_OPPORTUNITY_EVALUATION_ENABLED`，使 MANUAL 页面闭环具备人工配置、计划启停与 ADMIN 显式评估资格，API/Browser 关闭。显式 `PARTSIGNAL_E2E_GEO_MODE=enabled|api-disabled|monitoring-disabled` 时运行独立 GEO-408 阶段，分别使用总/API 开关 true/true、true/false、false/false，并显式关闭机会评估，符合隔离工厂的启动合同。Browser 始终关闭，生产默认值不变；不能把 MANUAL 页面资格无条件传给 GEO-408 工厂。
 - GEO 测试入口只在 `backend/tests/geo_e2e_*` 显式装配；启动验证 APP_ENV=test、随机独占 DB 名和 PostgreSQL owner comment、非 0 Redis 与精确回环 provider `127.0.0.1:19012/v1`。进程内批准和 PUBLIC 仅用于严格 GEO408 虚构输入；生产 registry、INTERNAL 工厂、CSRF/revision/SSRF/TLS/凭据/审计边界保持。GEO 端口与 PID 纳入同一 preflight、readiness 和 cleanup。
 - 根 `make e2e` 先运行全部 canonical 真实 flow，精确清理后通过 `e2e-geo.sh` 依次运行上述三个独立 GEO 阶段，再运行 canonical fixture-based 页面 suite；任一阶段失败时根 target 非零。
 - 关闭开关阶段通过真实 Application Service 预先创建/排队 PENDING，然后启动关闭配置的新 API/Worker，并直接观察 PG 安全终态与该 Run 的 fake count=0。测试控制可重复真实 Celery 稳定 ID，不能改 Run 状态、伪造回答或业务成功；diagnostic UUID 与业务 UUID 分开计数。

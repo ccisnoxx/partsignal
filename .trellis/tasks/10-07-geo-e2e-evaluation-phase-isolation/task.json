@@ -1,0 +1,31 @@
+{
+  "id": "geo-e2e-evaluation-phase-isolation",
+  "name": "geo-e2e-evaluation-phase-isolation",
+  "title": "修复 GEO 候选门禁的 E2E 评估开关隔离",
+  "description": "GEO-1010-DEPLOY固定候选完整门禁中，canonical MANUAL开启评估后污染GEO-408模式工厂。仅修正测试入口模式配置与规范；不新增业务功能或改变Production默认。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-07",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "related_task": "GEO-1010-DEPLOY",
+    "failure_candidate_commit": "1ed8c4af1d62fb6d86b4401d0703a90bf629a839",
+    "application_behavior_changed": false,
+    "implementation_started": true
+  }
+}

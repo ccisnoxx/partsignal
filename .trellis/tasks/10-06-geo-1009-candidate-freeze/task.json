@@ -15,13 +15,13 @@
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
-  "commit": "8fd843471de6d455cafba20da11d81a82b7dd305",
+  "commit": "0b6e5aa01e8bd37e70433e0b7c9e3da1d31b6756",
   "pr_url": "https://github.com/ccisnoxx/partsignal/pull/1",
   "subtasks": [],
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "用户明确允许135d801e再运行一次delivery，run37587914372实际FAILURE（13分5秒）：build与全部deploy-scripts远端通过；首轮真实栈E2E 29通过/3失败（截图与route chunk请求取消、审计晚挂接遗漏请求身份），末端Compose未执行。仅修三个失败用例时序，运行源码/迁移/依赖/工作流不变；第五次CI未授权不自动触发。PR仍Draft，整PR未接受，main/RC未推进，恢复1008既有接受保留。",
+  "notes": "第四次delivery37587914372固定135d801e实际FAILURE（13分5秒）：build/all deploy-scripts远端通过，真实栈29通过3失败，后序GEO/fixture/Compose未执行。仅修三spec时序；首轮固定8fd复审CHANGES_REQUESTED的图片空集合/旧图条件已补正，固定0b6e5aa0 fresh独立复审APPROVE，两P2 RESOLVED。三例97.8秒通过；补正仅GEO84秒通过，两个真实浏览器边界探针和三文件定向ESLint通过；未重复全单元/PG/完整门禁。源码hash绑定dirty执行，不伪称新SHA远端通过。第五CI未授权、不自动触发；PR仍Draft/整PR未接受/mainRC未执行，恢复1008既有接受原样保留。",
   "meta": {
     "manifest_id": "GEO-1009",
     "ci_run_id": 37572374117,
@@ -65,6 +65,11 @@
     "fifth_ci_dispatched": false,
     "e2e_fix_commit": "8fd843471de6d455cafba20da11d81a82b7dd305",
     "e2e_first_review": "CHANGES_REQUESTED",
-    "e2e_first_review_ref": "evidence/independent-e2e-review-8fd84347.md"
+    "e2e_first_review_ref": "evidence/independent-e2e-review-8fd84347.md",
+    "e2e_final_source_commit": "0b6e5aa01e8bd37e70433e0b7c9e3da1d31b6756",
+    "e2e_final_review": "APPROVE",
+    "e2e_image_readiness_findings": "RESOLVED",
+    "e2e_final_review_ref": "evidence/independent-e2e-review-0b6e5aa0.md",
+    "e2e_review_audit_id": "20261007T075745Z-delivery-e2e-timing-fixed-review-2333f765"
   }
 }

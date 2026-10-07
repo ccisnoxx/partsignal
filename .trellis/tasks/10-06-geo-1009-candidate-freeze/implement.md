@@ -63,3 +63,7 @@ runner日志绑定ubuntu24/20261004.327，官方固定软件清单为Compose2.38
 仅修改geo-loop截图就绪：同一次evaluateAll绑定length=5、complete、naturalWidth；确认前监听真实GET详情，核验回执revision，取该响应的五张截图URL并在当前DOM逐项比较后验证解码完成，不输出签名URL。真实浏览器探针从旧commit和新实际源码AST读取evaluateAll回调，HTTP200损坏图片onerror移除、空、部分、旧URL分别旧true/新false，五张正确解码且当前URL旧新true，全部runtime-errors=0，证明不能以网络审计替代图片结构检查。探针0.59秒exit0；只重跑受影响geo-loop，不重复已通过plans/opportunities或全套。第五次CI仍未触发。
 
 受影响geo-loop真实栈08:06:52.348174Z—08:08:16.358627Z exit0（外层84.0秒），1 passed1.2m/secret clean/本轮DB12键与端口及owner随机DB精确清理。plans/opportunities代码未变且先前三例验证已通过，不重跑。实际执行8fd84347+dirty，由新的source hash记录绑定下一固定SHA；等待fresh只读复审，未重用8fd的CHANGES_REQUESTED为批准。
+
+固定0b6e5aa01e8bd37e70433e0b7c9e3da1d31b6756相对135的三spec累计增量fresh独立只读复审APPROVE，原图片空/部分集合和异步旧图条件均RESOLVED，无新增finding，报告evidence/independent-e2e-review-0b6e5aa0.md。两组源码/四驱动/八日志hash已独立核对，两个审查阶段前后全部tracked/untracked内容一致；审计20261007T075745Z-delivery-e2e-timing-fixed-review-2333f765 closed/verified（两个审查交付均验收：首轮判CHANGES_REQUESTED，补正后判APPROVE；不是两个实现批准），无写入/无残留worker。0b clean上三文件定向ESLint0.66秒exit0；没有扩大本地测试。先前SUCCESS接受脚本显式失效、未执行，第四次CI失败不变，增量批准不能代替整个PR准入或生产验收。
+
+本次收尾仅保存检查点并提交/推送治理记录，任务保留blocked，completedAt为空。下一次delivery需用户明确追加一次预算；在获得授权且新固定SHA CI通过前，不接受其他任务/Ready/合并main/跑clean main全门禁/冻结RC。main仍83ff42e7，恢复1008接受保持byte exact；真正main门禁仍只计划合并后一次执行。

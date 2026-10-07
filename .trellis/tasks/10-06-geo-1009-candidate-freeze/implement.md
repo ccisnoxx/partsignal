@@ -57,3 +57,9 @@ runner日志绑定ubuntu24/20261004.327，官方固定软件清单为Compose2.38
 先前预备的SUCCESS接受脚本没有执行。此次预算已使用，第五次CI未授权、不自动触发；PR仍Draft、任务仍blocked，整PR接受/main/clean main完整门禁/RC仍待真实准入闭合。严格恢复1008既有接受未改，历史失败不改写。
 
 定向三例于135d801e+dirty修复执行：07:54:44.782021Z—07:56:22.572976Z exit0，Playwright 3 passed（1.4m），真实PG16/迁移0066/API/Worker/production artifact，秘密扫描clean，DB12一枚本轮Kombu键精确删除、全部端口释放、随机owner DB删除、临时目录清理，本次启动的两个既有dev容器恢复停止。没有执行1253条integration或完整32例。0.35秒真实浏览器边界探针稳定复现晚挂接的同名拒绝，早挂接通过；该探针证明事件边界，不伪称直接重跑旧plans spec失败。四个源码hash把dirty定向证据绑定到随后提交。
+
+固定8fd843471de6d455cafba20da11d81a82b7dd305增量独立复审为CHANGES_REQUESTED：截图数量与every分两次DOM观察，图片错误移除造成空/部分集合假成功；确认后的旧图不能证明异步详情刷新收敛。审查没有发现plans/机会Back修复削弱，原审计/写入计数及四源码两驱动六日志hash核对成立。报告保留，不把首轮三例通过代替该finding关闭。
+
+仅修改geo-loop截图就绪：同一次evaluateAll绑定length=5、complete、naturalWidth；确认前监听真实GET详情，核验回执revision，取该响应的五张截图URL并在当前DOM逐项比较后验证解码完成，不输出签名URL。真实浏览器探针从旧commit和新实际源码AST读取evaluateAll回调，HTTP200损坏图片onerror移除、空、部分、旧URL分别旧true/新false，五张正确解码且当前URL旧新true，全部runtime-errors=0，证明不能以网络审计替代图片结构检查。探针0.59秒exit0；只重跑受影响geo-loop，不重复已通过plans/opportunities或全套。第五次CI仍未触发。
+
+受影响geo-loop真实栈08:06:52.348174Z—08:08:16.358627Z exit0（外层84.0秒），1 passed1.2m/secret clean/本轮DB12键与端口及owner随机DB精确清理。plans/opportunities代码未变且先前三例验证已通过，不重跑。实际执行8fd84347+dirty，由新的source hash记录绑定下一固定SHA；等待fresh只读复审，未重用8fd的CHANGES_REQUESTED为批准。

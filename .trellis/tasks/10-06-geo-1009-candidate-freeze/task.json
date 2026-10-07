@@ -15,7 +15,7 @@
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
-  "commit": "bd6abde19a20d2bdcd259254d0a8578d2d36d2bd",
+  "commit": "8fd843471de6d455cafba20da11d81a82b7dd305",
   "pr_url": "https://github.com/ccisnoxx/partsignal/pull/1",
   "subtasks": [],
   "children": [],
@@ -62,6 +62,9 @@
     "fourth_ci_source_commit": "135d801edc9b1e8dc72dc9892897dd233404a667",
     "fourth_ci_conclusion": "failure",
     "fourth_ci_failure_step": "make e2e/canonical real-stack: 29 passed, 3 failed",
-    "fifth_ci_dispatched": false
+    "fifth_ci_dispatched": false,
+    "e2e_fix_commit": "8fd843471de6d455cafba20da11d81a82b7dd305",
+    "e2e_first_review": "CHANGES_REQUESTED",
+    "e2e_first_review_ref": "evidence/independent-e2e-review-8fd84347.md"
   }
 }

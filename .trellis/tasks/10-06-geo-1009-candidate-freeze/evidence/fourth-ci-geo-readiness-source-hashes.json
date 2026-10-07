@@ -1,0 +1,15 @@
+{
+  "executed_base_sha": "8fd843471de6d455cafba20da11d81a82b7dd305",
+  "executed_dirty": true,
+  "files": {
+    "frontend/tests/e2e/geo-loop-real-stack.spec.ts": "fb5389468111e6149fde158b4fa305f83c43d139e7720304295206e36dad9b90",
+    "frontend/tests/e2e/opportunities-real-stack.spec.ts": "f753b6956bfc1932f672cb70d410c09d5f2c7d5a7cc0861e93581e7281d8028c",
+    "frontend/tests/e2e/plans-real-stack.spec.ts": "59de36de24ade1cc54b70370b18757a00af6321067ea83a79b875893be28e79e",
+    "frontend/tests/e2e/real-stack-runtime.ts": "3f909f2a01e62d51c3fe77ba5955fec2a6d9fcd123000ffab309289853e53e3f"
+  },
+  "external_probe_scripts": {
+    "image-readiness-boundary.mjs": "28a8cfa95aebf363de33c89907e6764b6a5c4417e206a33c3e0909fa01a5ffc3",
+    "run-geo-image-readiness.py": "5757807251e252e4a3b0d7edd520755c5a0716867d6902b80b8a5512ddfbca6e"
+  },
+  "scope": "GEO截图就绪修复/源回调真实浏览器反例；已通过且未变plans/opportunities复用；新commit由hash绑定，不称clean新SHA重跑"
+}

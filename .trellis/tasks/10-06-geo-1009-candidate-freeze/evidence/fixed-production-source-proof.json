@@ -1,0 +1,12 @@
+{
+  "checked_at": "2026-10-07T07:11:14.797088+00:00",
+  "source_commit": "bd6abde19a20d2bdcd259254d0a8578d2d36d2bd",
+  "base": "d0f61aaa78522be330207ed335869dafcd50017e",
+  "clean": true,
+  "fixed_script_sha256": "4f76fb229375bd35ca7e301b05b51f1932753cddda5065f4afbfec0e2317e1f9",
+  "script_hash_matches_dirty_execution": true,
+  "protected_runtime_workflow_and_acceptance_unchanged": true,
+  "new_ci_executed_on_this_sha": false,
+  "main_gate_executed": false,
+  "rc_frozen": false
+}

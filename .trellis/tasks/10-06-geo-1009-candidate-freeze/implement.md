@@ -45,3 +45,5 @@ runner日志绑定ubuntu24/20261004.327，官方固定软件清单为Compose2.38
 原生network-identity配置入口exit0（0.55秒）。Linux2.38.2组件执行旧真实配置入口同样KeyError exit1，修复exit0，错误env_file及额外environment分别AssertionError api exit1（四例总4.21秒）。仅Compose客户端在Linux，shell/断言仍Mac ARM64，不能称完整runner或x86_64验证。两个先行驱动失败（隔离源码缺Node依赖、模板替换误碰环境变量名）日志保留；复用已有node_modules并修正驱动占位符后上述反例成立，不把驱动失败作为产品反例。配置不接触Engine socket；本次临时容器按实际ID移除，未接管固定Production项目。执行发生于d0+dirty修复，脚本hash绑定后续提交，不伪称clean新SHA重跑。
 
 修复待固定新SHAfresh只读增量复核。此前准备的接受脚本/PR SUCCESS说明没有执行或发布，本次结果不满足整PR准入条件；PR仍Draft，1002–1007未done，恢复1008既有接受保留。main完整门禁留到实际合并后一次执行，RC真实镜像仓库及已验证previous V2缺口保留；第四次CI未获本轮授权，不自动运行。
+
+固定bd6abde19a20d2bdcd259254d0a8578d2d36d2bd已获fresh只读增量复审APPROVE，无确认finding，报告evidence/independent-production-review-bd6abde1.md；全部tracked/untracked校验无写入，审计20261007T070747Z-production-ci-env-binding-review-45b5eb7d closed/verified。复核纠正本次runner身份为20260927.320.1（前次20261004.327不沿用），本次固定官方清单同为Compose2.38.2，Linux组件结论不变。完整harness/x86_64及新SHA远端后序仍缺；原三次CI失败、PR Draft、恢复1008接受和main/RC未知不改写。

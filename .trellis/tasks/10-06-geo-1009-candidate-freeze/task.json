@@ -1,0 +1,30 @@
+{
+  "id": "geo-1009-candidate-freeze",
+  "name": "geo-1009-candidate-freeze",
+  "title": "GEO-1009：CI准入、整PR接受与RC候选冻结",
+  "description": "固定0b232f2c运行一次CI；复用审查后接受整PR，合并main并执行一次clean main完整门禁；同commit冻结archive/images/manifest/RC，不替代生产验收",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-06",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "manifest_id": "GEO-1009",
+    "ci_run_id": 37572374117,
+    "ci_source_commit": "0b232f2ce268c7e78836a2f2ce811c9eaa45944c"
+  }
+}

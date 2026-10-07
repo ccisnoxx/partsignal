@@ -20,7 +20,7 @@ python3 deploy/scripts/create-release-manifest.py \
   --backend-image "$backend_image" \
   --frontend-image "$frontend_v2_image" \
   --rollback-frontend-image "$previous_verified_v2_image" \
-  --schema-head 0043_geo_platform_identity \
+  --schema-head 0066_geo_manual_evaluation \
   --tracked-file deploy/compose.prod.yaml \
   --tracked-file deploy/nginx/partsignal-maintenance.conf.template \
   --tracked-file deploy/scripts/deploy.sh \
@@ -28,6 +28,8 @@ python3 deploy/scripts/create-release-manifest.py \
   --tracked-file deploy/scripts/check-production-inputs.py \
   --tracked-file deploy/scripts/prepare-production-data.py \
   --tracked-file deploy/scripts/production_upgrade_recovery.py \
+  --tracked-file deploy/scripts/production_deployment.py \
+  --tracked-file deploy/scripts/production_maintenance_execution.py \
   --tracked-file deploy/scripts/production_migration_runtime.py \
   --tracked-file deploy/scripts/rollback-production-frontend.sh \
   --tracked-file deploy/nginx/partsignal.conf.template \
@@ -35,7 +37,7 @@ python3 deploy/scripts/create-release-manifest.py \
   --output "$manifest_path"
 ```
 
-生成器会机器验证当前分支、clean working tree、`HEAD == origin/main == --commit`，并重新生成该 commit 的 `git archive` 比较 SHA-256；测试逃生开关不得出现在候选环境。输出目标采用排他创建，存在即失败。三个镜像都必须具有合法且非空的 `repo_digests`；tracked file 必须与脚本固定 allowlist 完全一致。部署和激活会重新计算这些文件的 SHA-256，并同时核对 `PARTSIGNAL_VERSION == release_id`、本地 image ID 与 RepoDigest；任何漂移都拒绝继续。不得手工修改清单。
+生成器会机器验证当前分支、clean working tree、`HEAD == origin/main == --commit`，并重新生成该 commit 的 `git archive` 比较 SHA-256；测试逃生开关不得出现在候选环境。输出目标采用排他创建，存在即失败。backend、migration、current V2 和 previous V2 四个镜像角色都必须具有合法且非空的 `repo_digests`（migration 首次默认 backend，独立时显式传 `--migration-image`）；tracked file 必须与脚本固定 allowlist 完全一致。部署和激活会重新计算这些文件的 SHA-256，并同时核对 `PARTSIGNAL_VERSION == release_id`、本地 image ID 与 RepoDigest；任何漂移都拒绝继续。不得手工修改清单。
 
 镜像交付模式由 `PARTSIGNAL_IMAGE_DELIVERY_MODE` 控制，未设置时为 `registry`；registry 模式保留 pull 后校验。Hostdzire 从本地构建候选时必须显式使用 `local`，此模式跳过 pull、要求候选 image 已存在，并在任何 `docker compose run`/`up` 前校验 manifest image ID 与 RepoDigest，相关命令均固定 `--pull never`。空值或未知模式、以及 V1 镜像仓库都会 fail closed。
 

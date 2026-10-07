@@ -1,0 +1,16 @@
+{
+  "name": "governance-docs",
+  "command": [
+    "python3",
+    "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/validate-docs.py"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "0b232f2ce268c7e78836a2f2ce811c9eaa45944c",
+  "dirty": true,
+  "started_at": "2026-10-07T04:53:03.591395+00:00",
+  "ended_at": "2026-10-07T04:53:03.648238+00:00",
+  "exit_code": 0,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/governance-docs.log",
+  "log_sha256": "32392bd932c46182fc1579d77398a8fc6e82383ca04fc9247cb491f229a526cd"
+}

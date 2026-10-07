@@ -149,9 +149,9 @@
 | `GEO-1007` | V1.0 页面/API 能力真实性与操作说明对齐 | GEO-1002, GEO-1005, GEO-1006, GEO-606, GEO-707 | 将页面入口、能力说明、管理员评估操作指南与首发矩阵对齐；对 Opportunity CSV、完整 Action/Retest UI、公共重分析、跨页机会/资格占位明确不可用，保留现有 API 组合操作说明。 | 相关页面组件或目标浏览器验收，核对可达入口与权限/错误/空态；三类现有 CSV 成功及 Opportunity CSV 501 说明；人工评估入口和 Action/Retest API 组合说明可复现；文档链接检查。 | 用户看不到可点击但未实现的成功承诺；占位/501 不能当空结果；现有指标/报告/API 边界准确且可操作；不顺带补 CSV、完整 UI、公共重分析或无引用推断；实际检查与未检查范围明列。 |
 | `GEO-1008` | 闭合升级候选 artifact 失败安全恢复 | GEO-1002, GEO-903, GEO-906 | 由现有发布状态所有者提供 UPGRADE_DEPLOYING/UPGRADE_PREPARED、未 initialized 时候选无法启动且需新 artifact 的安全前向恢复或阶段恢复路径；维护锁、候选身份、schema 兼容及授权可审查。 | 发布状态集成/隔离演练：前滚后候选 readiness 失败、同候选环境修正重入、修正 artifact 接管、错误身份/旧镜像/并发恢复拒绝、恢复再次失败保持维护；保留业务数据与历史。 | 不通过先 activate、手改/删除状态、覆盖 artifact、直接 Compose up 或 schema downgrade 解锁；能在阶段失败后验证恢复/前向修复并保持公开维护隔离；恢复输入与安全停止明确；独立只读复核通过。 |
 | `GEO-1009` | 固定 main 完整门禁验证与人工接受 | GEO-1003, GEO-1004, GEO-1005, GEO-1006, GEO-1007, GEO-1008 | 固定 clean main=origin/main 的完整 run-verify.py 门禁验证、原日志哈希与人工接受记录；source archive、镜像身份、release manifest、schema/hash 及候选冻结移交 UI done 后的 GEO-1010-DEPLOY。 | 复用固定 e5949ab66989c1277424cfe9ab8b93e10ce10046 已执行的完整门禁 exit 0；核对日志哈希、接受范围、文档/manifest/hash 与 git diff --check，不重复运行应用门禁。 | 用户明确接受调整后的固定 main 门禁交付；保留原成功/失败、45 warnings/77既有skip、被验证SHA及候选未冻结事实；人工接受后done，不代表生产Go。 |
-| `GEO-1010` | V1.0 生产 readiness 与 MANUAL 试运行 Go/No-Go | GEO-1009, GEO-904, GEO-905, GEO-906 | 在分别获批目标/阶段收集同候选三进程配置、Browser 硬禁止与零部署/会话/材料、既存 CRON 治理、备份/恢复/停止、容量/监控观察期、正式 MANUAL 闭环及使用者反馈；新建本轮 readiness 记录，不改写旧现场未知。 | 获批目标定向 smoke/页面安全/权限；MANUAL 正式提交→真实分析→必要复核→指标/现有报告→管理员入口评估→Action/Retest API→比较/显式解决；实际负证据、告警、冻结容量和停止/恢复演练。 | 所有必需门禁及业务/运维签署 MET 才 Go；任何 NOT_MET/NOT_VERIFIED/缺授权均 No-Go，保留原始失败/未知；自动 CRON/evaluator 和 R7/未实现页面不作首发必需；完成先 review，done 需用户接受，生产启用仍需相应授权。 |
+| `GEO-1010` | MANUAL GEO 内部试运行与人工验收（聚合父任务） | GEO-1009, GEO-904, GEO-905, GEO-906 | 三个独立Trellis子任务：UI页面评估/Content Task/Retest闭环；DEPLOY固定UI完成后候选、完整门禁/工件/内部部署及停止恢复；UAT真实120～180 Run、闭环、可用性/性能及具名内部Go/No-Go。 | 各子任务按brief独立验证和人工接受；UI真实页面E2E，DEPLOY同候选门禁与获批目标smoke/恢复，UAT真实流程/性能/反馈；父任务集成工作验收，不以旧SHA或本地证据冒充现场。 | 三个children全部done且完成集成工作验收后父任务才review；另有显式人工接受才能done。UAT Go/No-Go须具名人工结论，不等于正式生产Go；未验证项保持未知。 |
 
-GEO-1001 是审计输入，不在本轮补登记接受状态。R9A 无直接或隐式 R7 依赖；1003～1008 可按依赖分别交付，1009 冻结候选，1010 收口现场。范围冻结不授权实施后续任务、提交/推送或生产操作。
+GEO-1001 是审计输入，不在本轮补登记接受状态。R9A 无直接或隐式 R7 依赖；1003～1008 可按依赖分别交付，1009接受固定main门禁；1010按UI→DEPLOY→UAT收口内部试运行，冻结归DEPLOY。原范围冻结本身不授权实施或生产操作；本次用户另行授权治理提交推送与规划。
 
 ## 3. 任务状态
 
@@ -186,3 +186,15 @@ planned / ready / in_progress / blocked → deferred（产品延期）
 - API Collector 和 Browser Collector；
 - 公式变化和管理层报告上线；
 - 数据迁移和历史重分析。
+
+## GEO-1010 聚合父任务与独立子任务（2026-10-07）
+
+依据 [ADR-008](../05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)，GEO-1009 已获[人工接受](../06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md)为 done。顶层 manifest 保留 GEO-1010（ready），children 引用三个 Trellis 路径；原生 parent/children 是关系权威，子任务展示 ID 不新建数字顶层条目。
+
+| 展示 ID / brief | 状态 | 必须 done 的依赖 | 范围与独立验收摘要 |
+|---|---|---|---|
+| [GEO-1010-UI](../../../.trellis/tasks/10-07-geo-1010-ui-business-closure/prd.md) | ready | GEO-1009、GEO-1006、GEO-704、GEO-705、GEO-706、GEO-707 | 管理员页面评估、来源与revision可追溯的Content Task创建、Retest preview/create、比较及显式resolve/continue；available_actions与权限/错误态；真实页面E2E通过、契约历史保持、无P0/P1流程缺陷。 |
+| [GEO-1010-DEPLOY](../../../.trellis/tasks/10-07-geo-1010-internal-pilot-deploy/prd.md) | planned | GEO-1009、GEO-1010-UI | UI done后的固定main候选门禁、archive/images/manifest/schema/hash、获批内部部署、MANUAL smoke、备份/停止恢复和内部访问说明；核心健康、自动API/Browser关闭、不手改DB，明确非正式生产。 |
+| [GEO-1010-UAT](../../../.trellis/tasks/10-07-geo-1010-manual-uat-performance/prd.md) | planned | GEO-1010-UI、GEO-1010-DEPLOY | 120～180目标Run或具名缩量、真实Opportunity—Action—Retest、证据追溯、用户反馈与性能实测；无未处理P0、P1有owner/处置、正式具名内部Go/No-Go。代码问题另建缺陷任务。 |
+
+[父任务 brief](../../../.trellis/tasks/10-07-geo-1010-manual-pilot/prd.md)与[治理设计](../../../.trellis/tasks/10-07-geo-1010-manual-pilot/design.md)规定：任一子任务实际开始后父任务in_progress；所有三个子任务done且集成工作验收后才review；父任务另有人工接受才done。DEPLOY不得与UI并行，不新增第四个子任务；UAT Go/No-Go为显式人工结论，子任务完成不代表生产Go。此次均未开始，下一任务只有GEO-1010-UI。

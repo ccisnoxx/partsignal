@@ -16,7 +16,18 @@
 
 **当前仍为 NO-GO。** [GEO-1001 审计](./06-reviews/GEO-1001-release-readiness-audit.md)记录的 Browser 硬禁止、Catalog 竞态、CRON 假 ACTIVE、管理员评估入口、升级恢复、候选和生产证据由新增 R9A / GEO-1003～1010 收口；范围批准不代表修复或现场验收。API 初始关闭，Browser production 硬禁止，CRON 到期执行和 Opportunity 自动周期评估不属首发。机会 CSV、完整 Action/Retest 页面、公共管理员重分析及无依据无引用推断不能宣称可用。
 
-R0—R8 的 67 done＋4 deferred 和历史接受记录保持；任务状态以 manifest 为准。GEO-1002～1008 的接受边界保留；[整PR接受记录](./06-reviews/2026-10-07-v1-pr-acceptance.md)不改写。GEO-1009 的固定 clean main `e5949ab66989c1277424cfe9ab8b93e10ce10046` 完整门禁 exit 0 已按用户本轮指令[人工接受](./06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md)，状态 done。[ADR-008](./05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)将尚未生成的候选工件和冻结移交 UI done 后的 GEO-1010-DEPLOY；GEO-1010 子任务尚待本次治理提交后建立。生产仍 NOT_STARTED/NO-GO。
+R0—R8 的 67 done＋4 deferred 和历史接受记录保持；任务状态以 manifest 为准。GEO-1002～1008 的接受边界保留；[整PR接受记录](./06-reviews/2026-10-07-v1-pr-acceptance.md)不改写。GEO-1009 的固定 clean main `e5949ab66989c1277424cfe9ab8b93e10ce10046` 完整门禁 exit 0 已按用户本轮指令[人工接受](./06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md)，状态 done。[ADR-008](./05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)将尚未生成的候选工件和冻结移交 UI done 后的 GEO-1010-DEPLOY；GEO-1010 聚合父任务已规划为 ready；三个子任务为 UI ready、DEPLOY planned、UAT planned，尚未开始。核心最小页面闭环见 ADR-008，超出该闭环的完整 UI仍延期。生产仍 NOT_STARTED/NO-GO。
+
+## GEO-1010 当前任务导航
+
+| 任务 | 状态 | brief / 交付 |
+|---|---|---|
+| [GEO-1010](../../.trellis/tasks/10-07-geo-1010-manual-pilot/prd.md) | ready | 聚合治理；三项done且集成工作验收后review，人工接受才done |
+| [GEO-1010-UI](../../.trellis/tasks/10-07-geo-1010-ui-business-closure/prd.md) | ready | 页面评估、Content Task、Retest preview/create及比较/显式决定 |
+| [GEO-1010-DEPLOY](../../.trellis/tasks/10-07-geo-1010-internal-pilot-deploy/prd.md) | planned | UI done后同候选工件与门禁、受控内部部署/smoke/停止恢复 |
+| [GEO-1010-UAT](../../.trellis/tasks/10-07-geo-1010-manual-uat-performance/prd.md) | planned | 真实MANUAL样本/闭环、用户反馈、性能和具名内部Go/No-Go |
+
+下一步只启动GEO-1010-UI；本次仅规划，未实现、未部署、未创建真实业务数据。内部Go/No-Go须显式人工结论，任务done不代表正式生产Go。完整依赖与验收见[WBS](./04-delivery/02-work-breakdown-structure.md)；父子关系以Trellis为准。
 
 ## 历史阶段交付记录与目标设计导航
 
@@ -207,7 +218,7 @@ docs/geo-monitoring/
 | 评审 | [GEO-1009：固定 main 门禁人工接受](./06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md) |
 | 决策 | [GEO-002：架构评审记录](./05-decisions/GEO-002-architecture-review.md) |
 
-校验命令从本目录执行：`shasum -a 256 -c SHA256SUMS`。清单覆盖本目录其余全部文件，不包含 `SHA256SUMS` 自身；修改文件后应同步更新对应哈希。
+校验命令从本目录执行：`shasum -a 256 -c SHA256SUMS`。清单覆盖本目录其余可交付文件（Git 跟踪或本次新增且非忽略的文档），不包含本机忽略缓存或 `SHA256SUMS` 自身；修改文件后应同步更新对应哈希。
 
 R9A Release Blocker Closure 追加在 R8 之后；具体依赖/交付/测试/验收见路线图、WBS 和 manifest。GEO-1001 / production-readiness 原始记录保持，新的首发证据由 GEO-1010 另行收集。
 

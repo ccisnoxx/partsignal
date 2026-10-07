@@ -280,18 +280,28 @@ R7延期不是核心阻断原因；生产输入缺失与上述核心缺口不能
 | 首发修复 | GEO-1003 production Browser 硬禁止；1004 Catalog 当前身份；1005 CRON 禁用/既存状态治理；1006 管理员显式评估；1008 升级失败安全恢复 |
 | 能力真实性 | GEO-1007：依赖 1005/1006，校准页面和操作说明，不实现范围外自动化/UI/CSV |
 | main 门禁接受 | GEO-1009：固定 clean main 完整门禁验证已获人工接受；未生成的候选工件与冻结移交 UI done 后的 GEO-1010-DEPLOY |
-| 现场裁决 | GEO-1010：同候选/目标的配置、MANUAL 闭环/内部试用、监控/容量/停止/恢复与 Go/No-Go 签署 |
+| 内部试运行聚合 | GEO-1010 ready：UI ready → DEPLOY planned → UAT planned；同候选部署、真实业务/性能验收与具名内部 Go/No-Go |
 
-每项完整依赖、交付物、测试及验收以 [WBS](./02-work-breakdown-structure.md) 和 [manifest](./task-manifest.yaml) 为准。GEO-1001 作为审计输入，不补造任务状态；R9A 不依赖 deferred R7。CRON 自动建批次、周期 evaluator、完整 Action/Retest UI、Opportunity CSV、公共重分析另行排期，不纳入本阶段实现。
+每项完整依赖、交付物、测试及验收以 [WBS](./02-work-breakdown-structure.md) 和 [manifest](./task-manifest.yaml) 为准。GEO-1001 作为审计输入，不补造任务状态；R9A 不依赖 deferred R7。CRON 自动建批次、周期 evaluator、Opportunity CSV、公共重分析和超出下述核心闭环的完整 Action/Retest UI仍延期。ADR-008将管理员评估、Content Task创建、Retest preview/create/比较与显式决定的最小页面闭环加入内部试运行前置，不宣称已实现。
 
 2026-10-07 用户批准的范围调整见 [ADR-008](../05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md) 和 [GEO-1009 接受记录](../06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md)：GEO-1009 的 done 只接受固定 main 完整门禁验证；同候选 archive/images/manifest/schema/hash 与候选冻结仍由后续 DEPLOY 收口。旧 SHA 的成功不证明未来 UI 候选已验证。
+
+### GEO-1010 当前执行顺序
+
+| 顺序 | 任务导航 | 初始状态 / 退出条件 |
+|---|---|---|
+| 1 | [GEO-1010-UI](../../../.trellis/tasks/10-07-geo-1010-ui-business-closure/prd.md) | ready；真实页面完成评估/Content Task/Retest/比较与显式决定，目标E2E、无P0/P1，人工接受才done |
+| 2 | [GEO-1010-DEPLOY](../../../.trellis/tasks/10-07-geo-1010-internal-pilot-deploy/prd.md) | planned；UI done后固定新main候选，完成同候选门禁/工件、获批内部部署与smoke/恢复，人工接受才done |
+| 3 | [GEO-1010-UAT](../../../.trellis/tasks/10-07-geo-1010-manual-uat-performance/prd.md) | planned；UI/DEPLOY done后真实样本、闭环、性能/反馈及具名内部Go/No-Go，人工接受才done |
+
+[父任务](../../../.trellis/tasks/10-07-geo-1010-manual-pilot/prd.md)为ready；任一子任务实际开始后in_progress，三个done且集成工作验收后才review，父任务另经显式人工接受才能done。不要并行UI与DEPLOY，不增加第四任务；当前不实施、不部署、不创建业务数据。子任务done不代表生产Go。
 
 ### 退出门禁
 
 - GEO-1002～1009 已人工接受；不通过旧 done 或范围裁决跳过新增修复。
 - Browser production 硬禁止＋现场零启用，Catalog 权限竞态闭合，CRON 无假 ACTIVE，管理员经真实入口评估；现有分析/补投递继续工作。
 - 升级 artifact 失败安全恢复演练通过；候选 commit/archive/manifest/images/schema/hashes 一致且完整门禁通过。
-- GEO-1010 所有必需现场门禁 MET，业务/运维签署及对应阶段授权齐全；未知或缺批准即 NO-GO。
+- GEO-1010 三子任务独立接受和集成工作验收齐全，内部现场门禁、业务/运维签署及阶段授权齐全，UAT具名内部Go/No-Go；未知或缺批准保留NO-GO。正式生产另有对应授权。
 - 阶段完成与任务接受、生产批准分别记录；任务交付先 review，人工接受才 done。
 
 ## 12. 关键路径
@@ -308,7 +318,7 @@ GEO-001 → GEO-003
 → GEO-901/902/903/906
 ```
 
-V1.0 当前关键路径为 R6 → R8 → R9A（1002 → 1003/1004/1005/1006/1008 → 1007 → 1009 → 1010）。以上 R0—R8 编号路径为历史交付链，状态不改。R7 是 post-core 可选扩展，deferred 不阻断核心发布；API 能力仍按原依赖和批准范围保留，不更改 MANUAL/API 行为。人工操作见[观测 SOP](../02-business/05-manual-geo-observation-sop.md)。
+V1.0 当前关键路径为 R6 → R8 → R9A（1002 → 1003/1004/1005/1006/1008 → 1007 → 1009 → 1010-UI → 1010-DEPLOY → 1010-UAT → 1010 review → 人工接受后done）。以上 R0—R8 编号路径为历史交付链，状态不改。R7 是 post-core 可选扩展，deferred 不阻断核心发布；API 能力仍按原依赖和批准范围保留，不更改 MANUAL/API 行为。人工操作见[观测 SOP](../02-business/05-manual-geo-observation-sop.md)。
 
 ## 13. Codex 执行节奏
 

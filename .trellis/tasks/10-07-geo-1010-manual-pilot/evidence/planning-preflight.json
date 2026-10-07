@@ -1,0 +1,20 @@
+{
+  "branch": "main",
+  "head": "360aabe8a83e66398d801ba0bbe48b0663aed4a1",
+  "origin_main": "360aabe8a83e66398d801ba0bbe48b0663aed4a1",
+  "clean": true,
+  "fetch_origin": "exit 0",
+  "geo_1009_status": "done",
+  "recorded_at": "2026-10-07T14:48:51Z",
+  "repository": "ccisnoxx/partsignal",
+  "business_gate_commit": "e5949ab66989c1277424cfe9ab8b93e10ce10046",
+  "geo_1009_acceptance": "docs/geo-monitoring/06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md",
+  "geo_1009_acceptance_commit": "360aabe8a83e66398d801ba0bbe48b0663aed4a1",
+  "geo_1010_before": "planned",
+  "top_level_id_convention": "GEO-数字",
+  "child_relation_authority": "Trellis parent/children directory names",
+  "schema_modified": false,
+  "required_documents_read": true,
+  "application_gate_rerun": false,
+  "planning_only": true
+}

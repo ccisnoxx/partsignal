@@ -1905,20 +1905,20 @@ tasks:
 - id: GEO-1010
   phase: R9A
   release: V1.0-manual-first
-  title: V1.0 生产 readiness 与 MANUAL 试运行 Go/No-Go
-  status: planned
+  title: MANUAL GEO 内部试运行与人工验收（聚合父任务）
+  status: ready
   dependencies:
   - GEO-1009
   - GEO-904
   - GEO-905
   - GEO-906
   areas:
-  - production acceptance evidence
-  - rollout runbook
-  - MANUAL internal trial
-  deliverables: 在分别获批目标/阶段收集同候选三进程配置、Browser 硬禁止与零部署/会话/材料、既存 CRON 治理、备份/恢复/停止、容量/监控观察期、正式 MANUAL 闭环及使用者反馈；新建本轮 readiness 记录，不改写旧现场未知。
-  tests: 获批目标定向 smoke/页面安全/权限；MANUAL 正式提交→真实分析→必要复核→指标/现有报告→管理员入口评估→Action/Retest API→比较/显式解决；实际负证据、告警、冻结容量和停止/恢复演练。
-  acceptance: 所有必需门禁及业务/运维签署 MET 才 Go；任何 NOT_MET/NOT_VERIFIED/缺授权均 No-Go，保留原始失败/未知；自动 CRON/evaluator 和 R7/未实现页面不作首发必需；完成先 review，done 需用户接受，生产启用仍需相应授权。
+  - MANUAL business UI closure
+  - internal pilot candidate deployment
+  - manual UAT and performance evidence
+  deliverables: 三个独立Trellis子任务：UI页面评估/Content Task/Retest闭环；DEPLOY固定UI完成后候选、完整门禁/工件/内部部署及停止恢复；UAT真实120～180 Run、闭环、可用性/性能及具名内部Go/No-Go。
+  tests: 各子任务按brief独立验证和人工接受；UI真实页面E2E，DEPLOY同候选门禁与获批目标smoke/恢复，UAT真实流程/性能/反馈；父任务集成工作验收，不以旧SHA或本地证据冒充现场。
+  acceptance: 三个children全部done且完成集成工作验收后父任务才review；另有显式人工接受才能done。UAT Go/No-Go须具名人工结论，不等于正式生产Go；未验证项保持未知。
   required_docs:
   - 01-product/02-geo-core-prd.md
   - 01-product/05-v1-release-capability-matrix.md
@@ -1928,5 +1928,16 @@ tasks:
   - 03-technical/10-core-rollout-runbook.md
   - 05-decisions/ADR-007-manual-first-v1-release-scope.md
   - 06-reviews/GEO-1001-release-readiness-audit.md
+  - 03-technical/04-frontend-architecture.md
+  - 03-technical/07-testing-and-quality.md
+  - 03-technical/08-deployment-and-operations.md
+  - 05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md
   audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
-  scope_note: 后续独立任务；本次 GEO-1002 只登记范围、依赖与验收，不开始实现或生产操作。
+  scope_note: ADR-008批准核心最小页面闭环与UI→DEPLOY→UAT顺序；本次只规划，UI ready，其余planned，不开始实施或生产操作。
+  trellis_task: .trellis/tasks/10-07-geo-1010-manual-pilot
+  children:
+  - .trellis/tasks/10-07-geo-1010-ui-business-closure
+  - .trellis/tasks/10-07-geo-1010-internal-pilot-deploy
+  - .trellis/tasks/10-07-geo-1010-manual-uat-performance
+  child_relation_authority: Trellis parent/children
+  execution_note: 2026-10-07：GEO-1009人工接受及done提交推送后，clean main上建立父子任务；未开始实施、部署或UAT。

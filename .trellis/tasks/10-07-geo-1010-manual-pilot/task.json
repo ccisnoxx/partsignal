@@ -1,0 +1,52 @@
+{
+  "id": "geo-1010-manual-pilot",
+  "name": "geo-1010-manual-pilot",
+  "title": "GEO-1010：MANUAL GEO 内部试运行与人工验收（聚合父任务）",
+  "description": "仅任务规划，尚未实施；范围和独立验收见 prd.md",
+  "status": "ready",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-07",
+  "completedAt": null,
+  "branch": "main",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "10-07-geo-1010-ui-business-closure",
+    "10-07-geo-1010-internal-pilot-deploy",
+    "10-07-geo-1010-manual-uat-performance"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "本次仅规划，未开始、未实现、未部署、未创建真实数据；状态不表示实施结果。",
+  "meta": {
+    "display_id": "GEO-1010",
+    "manifest_id": "GEO-1010",
+    "manifest_parent_id": null,
+    "dependencies": [
+      "GEO-1009",
+      "GEO-904",
+      "GEO-905",
+      "GEO-906"
+    ],
+    "planning_baseline_commit": "360aabe8a83e66398d801ba0bbe48b0663aed4a1",
+    "business_gate_commit": "e5949ab66989c1277424cfe9ab8b93e10ce10046",
+    "planning_only": true,
+    "implementation_started": false,
+    "human_acceptance_required": true,
+    "production_go": false,
+    "lifecycle": {
+      "any_child_started": "in_progress",
+      "review_requires": "所有三个children done且完成集成工作验收",
+      "done_requires": "父任务单独显式人工接受",
+      "uat_go_no_go": "具名显式人工结论，不代表生产Go"
+    }
+  }
+}

@@ -97,3 +97,15 @@
 - `GEO-904` 执行 GEO 安全与合规专项复核（依赖：GEO-903）
 - `GEO-905` 完成大数据量性能和容量硬化（依赖：GEO-607, GEO-902）
 - `GEO-906` 执行生产渐进上线、最终验收和文档状态更新（依赖：GEO-903, GEO-904, GEO-905）
+
+## R9A 当前推进（2026-10-07）
+
+R0—R8条目保留为历史顺序；当前状态以manifest及Trellis为准，旧done不代替现场验收。[ADR-008](../../05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)规定核心页面先于候选冻结。
+
+1. GEO-1002～1008已接受，GEO-1009固定main门禁获[人工接受](../../06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md)并done；候选冻结移交DEPLOY。
+2. [GEO-1010-UI](../../../../.trellis/tasks/10-07-geo-1010-ui-business-closure/prd.md)：ready，依赖1009、1006、704、705、706、707全部done；下一步只启动此任务。
+3. [GEO-1010-DEPLOY](../../../../.trellis/tasks/10-07-geo-1010-internal-pilot-deploy/prd.md)：planned，等待1009/UI done；不与UI并行，在获批内部目标执行。
+4. [GEO-1010-UAT](../../../../.trellis/tasks/10-07-geo-1010-manual-uat-performance/prd.md)：planned，等待UI/DEPLOY done；代码问题另建缺陷任务，具名内部Go/No-Go。
+5. [GEO-1010父任务](../../../../.trellis/tasks/10-07-geo-1010-manual-pilot/prd.md)：ready；任一子任务开始后in_progress，三个done且集成工作验收后review，另有人工接受才done。子任务完成不代表生产Go。
+
+本次只规划，未启动任何子任务；不增加第四任务、不创建GEO-1011～1013。原manifest顶层数字ID保留，parent/children由Trellis双向关系裁决。

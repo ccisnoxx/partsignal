@@ -1,0 +1,22 @@
+{
+  "source_commit": "c6b310f568798a6f068869870c648189ff7d604d",
+  "fixed_script_sha256": "e5a7a3c50b6cbd2554299180fecc0ef262c0d1623588aa54614f258251389f2d",
+  "compose_version": "5.3.1",
+  "cases": [
+    {
+      "case": "before",
+      "exit_code": 0,
+      "stdout": "canonical Frontend Nginx 安全头、Markdown、HTML 与 DOM sink 校验通过\nPreview env preparation: 2 positive / 6 negative; automatic secrets, no overwrite/output, staging boundary passed\nStaging archive env allowlist: 3 public templates allowed / 6 private-or-unknown entries rejected\n预发布 full/fast 与 Production canonical Frontend 边界自检通过\n",
+      "stderr": "",
+      "checkout_private_env_absent": true
+    },
+    {
+      "case": "fixed",
+      "exit_code": 0,
+      "stdout": "canonical Frontend Nginx 安全头、Markdown、HTML 与 DOM sink 校验通过\nPreview env preparation: 2 positive / 6 negative; automatic secrets, no overwrite/output, staging boundary passed\nStaging archive env allowlist: 3 public templates allowed / 6 private-or-unknown entries rejected\n预发布 full/fast 与 Production canonical Frontend 边界自检通过\n",
+      "stderr": "",
+      "checkout_private_env_absent": true
+    }
+  ],
+  "linux_runner_proof": false
+}

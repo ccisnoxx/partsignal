@@ -21,19 +21,27 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "唯一CI37572374117在0b失败；GNU CRLF定向修复28e92111已推送，fresh独立增量APPROVE。等待追加一次delivery远端验证的预算调整；PR仍Draft，未main/RC。旧成功且输入不变的单元/PG证据复用。缺真实镜像repository/已验证previous V2，生产未执行。",
+  "notes": "用户允许的追加一次delivery37581493190固定c6b310f5实际FAILURE：GNU修复远端通过，staging自检依赖缺失私有.env.staging。仅自检使用原Compose副本及测试拥有环境，原生与真实Linux Compose2.38.2反例通过，待固定新SHA独立增量复核。预算已使用，不触发第三次CI；PR仍Draft，未接受其他任务或main/RC；真实镜像repository/已验证previous V2缺失，生产未执行。",
   "meta": {
     "manifest_id": "GEO-1009",
     "ci_run_id": 37572374117,
     "ci_source_commit": "0b232f2ce268c7e78836a2f2ce811c9eaa45944c",
     "ci_conclusion": "failure",
     "ci_failure_step": "make build test-deploy-scripts/test-frontend-container.sh",
-    "additional_ci_dispatched": false,
+    "additional_ci_dispatched": true,
     "main_gate_executed": false,
     "rc_frozen": false,
     "remediation_commit": "28e921112aadb9f00da9449f71c4a616babc972d",
     "independent_review_ref": "evidence/independent-ci-review-28e92111.md",
     "independent_delta_conclusion": "APPROVE",
-    "additional_ci_budget": "PENDING_USER_RESPONSE"
+    "additional_ci_budget": "AUTHORIZED_ONE_DELIVERY_RUN_USED",
+    "delivery_run_id": 37581493190,
+    "delivery_source_commit": "c6b310f568798a6f068869870c648189ff7d604d",
+    "delivery_conclusion": "failure",
+    "delivery_failure_step": "test-deploy-staging.sh/frontend-only-compose-config missing .env.staging",
+    "staging_fix_script_sha256": "e5a7a3c50b6cbd2554299180fecc0ef262c0d1623588aa54614f258251389f2d",
+    "staging_fix_independent_review": "PENDING",
+    "third_ci_dispatched": false,
+    "pr_code_accepted": false
   }
 }

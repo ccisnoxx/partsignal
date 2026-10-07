@@ -1,0 +1,16 @@
+{
+  "name": "isolated-staging-env",
+  "command": [
+    "python3",
+    "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/check-isolated-staging.py"
+  ],
+  "cwd": "/Users/sc/PycharmProjects/partsignal",
+  "process_umask": "0o22",
+  "sha": "c6b310f568798a6f068869870c648189ff7d604d",
+  "dirty": true,
+  "started_at": "2026-10-07T06:36:24.052152+00:00",
+  "ended_at": "2026-10-07T06:36:26.928400+00:00",
+  "exit_code": 0,
+  "log": "/Users/sc/.codex/reviews/partsignal/rc-candidate-20261007/logs/isolated-staging-env.log",
+  "log_sha256": "c0dfaec4fc59178aba74c4df26669fc3cbaf4419125a7d7585a3376a9b4b27e3"
+}

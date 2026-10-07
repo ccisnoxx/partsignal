@@ -23,3 +23,13 @@ CI准入未闭合，PR保持Draft，1002–1007接受记录不提前done。main�
 ## 保存检查点
 
 代码28e92111已推送。预算调整问题已向用户提出，未收到答复时不执行第二次远端CI；保持Draft/blocked。定向delivery仅补失败与未执行后序，不重复旧成功单元/PG；未来成功后才组合证据做整PR接受。追加CI未执行、main门禁未执行、RC未冻结。
+
+## 追加一次delivery：真实失败与定向修复
+
+用户明确允许追加一次，dispatch命令/批准原文/UTC时间保存。run37581493190固定c6b310f568798a6f068869870c648189ff7d604d，created06:26:20Z，verify4分21秒，watch06:26:58—06:31:17Z exit1。frontend shard与六项前序按delivery跳过，不算新通过。两个应用镜像构建、canonical frontend容器缓存/fallback/source-map自检（GNU修复）、17恢复边界单元、194Collector合同、fixture金标、17组启动配置、E2E生命周期/数据库生命周期/秘密扫描后处理通过。失败于test-deploy-staging.sh的frontend-only配置解析：checkout没有私有.env.staging；make退出2，余下deploy、E2E及末端Compose未执行。原始完整/失败日志及hash受保护保存，旧失败不改写。
+
+仅修改test-deploy-staging.sh：在测试拥有temp目录复制原始staging及其include的Compose文件，复用已经生成/验证的preview.env作为本次.env.staging；不依赖或覆盖真实checkout私有文件，不改部署Compose、workflow、应用/迁移/依赖，也不加skip或放宽frontend单服务/image/depends_on/links断言，原trap精确清理覆盖新增文件。原生完整自检exit0（1.73秒）。隔离git archive checkout没有任何私有.env，本机Compose5.3.1旧/新均exit0，不能把该结果当红绿。
+
+runner日志绑定ubuntu24/20261004.327，官方固定软件清单为Compose2.38.2。下载该版本Linux ARM64官方客户端并验证release SHA256 4d0f7678dd3338452beba4518e36a8e22b20cad79ba2535c687da554dc3997fb；仅配置探针在network-none本次临时容器中执行，其他shell仍Mac。初次驱动挂载临时路径不能读取输入，exit1保留；改用docker cp传入完全相同文件后，旧真实入口因.env.staging缺失exit1、新入口exit0（总3.73秒），容器按实际ID精确移除。未伪称完整Linux runner，也没有重复全套。脚本hash e5a7a3c50b6cbd2554299180fecc0ef262c0d1623588aa54614f258251389f2d绑定随后提交。相关命令/SHA/时间/退出/日志在evidence。
+
+修复待新固定SHAfresh只读增量复核。此次预算已使用，第三次CI未触发；PR保持Draft，1002–1007没有提前done，1008恢复既有接受未改，main完整门禁留到实际准入成功后的合并。RC与1010现场缺口保持。

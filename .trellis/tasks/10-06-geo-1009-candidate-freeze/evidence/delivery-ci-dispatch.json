@@ -1,0 +1,24 @@
+{
+  "authorization": "确认允许追加这一次定向 CI",
+  "expected_head_sha": "c6b310f568798a6f068869870c648189ff7d604d",
+  "checks_group": "delivery",
+  "command": [
+    "gh",
+    "workflow",
+    "run",
+    "ci.yml",
+    "--repo",
+    "ccisnoxx/partsignal",
+    "--ref",
+    "geo/GEO-906",
+    "-f",
+    "checks_group=delivery"
+  ],
+  "started_at": "2026-10-07T06:26:18.287631+00:00",
+  "main_gate_executed": false,
+  "rc_frozen": false,
+  "ended_at": "2026-10-07T06:26:20.769492+00:00",
+  "exit_code": 0,
+  "stdout": "https://github.com/ccisnoxx/partsignal/actions/runs/37581493190\n",
+  "stderr": ""
+}

@@ -1,0 +1,9 @@
+{
+  "version": "2.38.2",
+  "binary_sha256": "4d0f7678dd3338452beba4518e36a8e22b20cad79ba2535c687da554dc3997fb",
+  "official_release": "https://github.com/docker/compose/releases/tag/v2.38.2",
+  "runner_image_software": "https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md",
+  "architecture": "linux-arm64",
+  "runner_architecture_match_claimed": false,
+  "network": "none"
+}

@@ -48,3 +48,9 @@
 ## Git 授权后续记录
 
 2026-10-07T17:19:07.470277+00:00 当前会话用户明确授权将已接受 UI、接受治理与本 DEPLOY 准备按归属提交到 main，随后 push、fetch 并固定新候选。GIT 输入已闭合；提交结果、候选 SHA 与门禁结果以执行后证据为准。第 2、3 项尚未提供实际目标或材料引用，TARGET/IMAGES/RUNTIME/STAGES/RECOVERY 仍未闭合。此前快照与检查中的未执行状态保留其原始时间，不冒充当前执行结果。
+
+## 当前源码候选与剩余输入
+
+Git授权已执行，修正测试模式冲突后的源码候选`76d1d523b87816ba2ce52a2fc6a679144b5dab06`完整门禁exit0，archive、13项hash与clean checkout已保存，详见[evidence/candidate-source-verification.json](./evidence/candidate-source-verification.json)。上文为准备时历史，NOT_RUN与dirty不作为当前候选结果；原check-preparation.py用于原UI接受工作树身份，修复后的runner身份改动在独立缺陷记录中，不改写接受历史。
+
+仍缺TARGET/IMAGES/RUNTIME/STAGES/RECOVERY实际输入。SOURCE已固定并验证，但正式镜像与manifest未创建，完整release未冻结，也未部署或启动UAT。后续治理提交不得替代此候选SHA。

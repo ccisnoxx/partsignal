@@ -1,0 +1,27 @@
+{
+  "recorded_at_utc": "2026-10-07T18:42:28.830548+00:00",
+  "status": "PASSED",
+  "scope": "门禁证据/治理文档/归属，不冒充新SHA应用门禁",
+  "verified_source_candidate_commit": "76d1d523b87816ba2ce52a2fc6a679144b5dab06",
+  "full_gate_evidence_hash_match": true,
+  "archive_hash_match": true,
+  "clean_fixed_checkout": true,
+  "accepted_ui_evidence_hashes_preserved": 9,
+  "accepted_ui_source_identities_unchanged": 21,
+  "intentional_harness_fix": [
+    "deploy/scripts/e2e-local.sh"
+  ],
+  "documentation_hashes_checked": 211,
+  "local_links_checked": 30,
+  "diff_check_exit_code": 0,
+  "uat_diff_exit_code": 0,
+  "resource_final_state_ref": "candidate-source-verification.json",
+  "prior_failure": {
+    "check": "最终根/嵌套文档摘要核对",
+    "cause": "先刷新根清单后刷新嵌套清单，使根所记录的嵌套SHA256SUMS摘要过期",
+    "resolution": "嵌套清单先、根清单后刷新，211项复核通过；修正仅在后续治理提交，不改已验证源码候选",
+    "frozen_source_candidate_limitation": "76d1d523源码archive保留其原始文档清单；其中根清单所录嵌套清单摘要有一项旧值。13项部署tracked hashes与archive身份匹配，应用门禁通过；后续治理修正不能冒充在该SHA上通过了文档哈希检查。"
+  },
+  "deployment_performed": false,
+  "production_go": false
+}

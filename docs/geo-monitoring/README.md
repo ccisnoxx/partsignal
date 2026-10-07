@@ -16,7 +16,7 @@
 
 **当前仍为 NO-GO。** [GEO-1001 审计](./06-reviews/GEO-1001-release-readiness-audit.md)记录的 Browser 硬禁止、Catalog 竞态、CRON 假 ACTIVE、管理员评估入口、升级恢复、候选和生产证据由新增 R9A / GEO-1003～1010 收口；范围批准不代表修复或现场验收。API 初始关闭，Browser production 硬禁止，CRON 到期执行和 Opportunity 自动周期评估不属首发。机会 CSV、完整 Action/Retest 页面、公共管理员重分析及无依据无引用推断不能宣称可用。
 
-R0—R8 的 67 done＋4 deferred 和历史接受记录保持；任务状态以 manifest 为准。GEO-1002～1008 的接受边界保留；[整PR接受记录](./06-reviews/2026-10-07-v1-pr-acceptance.md)不改写。GEO-1009 的固定 clean main `e5949ab66989c1277424cfe9ab8b93e10ce10046` 完整门禁 exit 0 已获[人工接受](./06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md)，状态 done。[ADR-008](./05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)将 UI done 后新候选的门禁、工件和冻结归属 GEO-1010-DEPLOY。UI 已于2026-10-07[人工接受](./06-reviews/2026-10-07-geo-1010-ui-acceptance.md)并done；父任务in_progress，DEPLOY已开始准备但候选/目标/授权/恢复输入未闭合，当前blocked；UAT planned、未开始。UI及治理已按后续Git授权提交并push/fetch；首个新候选完整门禁因GEO测试配置冲突失败，独立缺陷修正后须重新固定验证，旧SHA不证明新候选。核心最小页面闭环见ADR-008，超出该闭环的完整UI仍延期。生产仍NOT_STARTED/NO-GO。
+R0—R8 的 67 done＋4 deferred 和历史接受记录保持；任务状态以 manifest 为准。GEO-1002～1008 的接受边界保留；[整PR接受记录](./06-reviews/2026-10-07-v1-pr-acceptance.md)不改写。GEO-1009 的固定 clean main `e5949ab66989c1277424cfe9ab8b93e10ce10046` 完整门禁 exit 0 已获[人工接受](./06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md)，状态 done。[ADR-008](./05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)将 UI done 后新候选的门禁、工件和冻结归属 GEO-1010-DEPLOY。UI 已于2026-10-07[人工接受](./06-reviews/2026-10-07-geo-1010-ui-acceptance.md)并done；父任务in_progress，DEPLOY已开始准备但候选/目标/授权/恢复输入未闭合，当前blocked；UAT planned、未开始。UI及治理已按后续Git授权提交并push/fetch；首个候选因GEO测试配置冲突失败，独立修复后的源码候选76d1d523完整门禁exit0，archive/hash和clean checkout已保存；正式镜像/manifest与目标输入仍缺，完整release未冻结。核心最小页面闭环见ADR-008，超出该闭环的完整UI仍延期。生产仍NOT_STARTED/NO-GO。
 
 ## GEO-1010 当前任务导航
 
@@ -24,7 +24,7 @@ R0—R8 的 67 done＋4 deferred 和历史接受记录保持；任务状态以 m
 |---|---|---|
 | [GEO-1010](../../.trellis/tasks/10-07-geo-1010-manual-pilot/prd.md) | in_progress | 聚合治理；三项done且集成工作验收后review，人工接受才done |
 | [GEO-1010-UI](../../.trellis/tasks/10-07-geo-1010-ui-business-closure/prd.md) | done | 页面闭环已人工接受并提交；原接受对象为工作树身份 |
-| [GEO-1010-DEPLOY](../../.trellis/tasks/10-07-geo-1010-internal-pilot-deploy/prd.md) | blocked | 发布准备已核对；候选/目标/阶段与恢复输入待闭合，首次候选门禁失败待修正；尚未冻结release或部署 |
+| [GEO-1010-DEPLOY](../../.trellis/tasks/10-07-geo-1010-internal-pilot-deploy/prd.md) | blocked | 发布准备已核对；候选/目标/阶段与恢复输入待闭合，源码候选76d1d523门禁通过；正式工件/目标输入待闭合，尚未部署 |
 | [GEO-1010-UAT](../../.trellis/tasks/10-07-geo-1010-manual-uat-performance/prd.md) | planned | 真实MANUAL样本/闭环、用户反馈、性能和具名内部Go/No-Go |
 
 用户已授权提交/push/fetch与新候选固定，本地候选工作继续；下一步闭合其余[DEPLOY发布准备输入](../../.trellis/tasks/10-07-geo-1010-internal-pilot-deploy/preparation.md)，在获批固定候选和目标上继续执行。DEPLOY尚未部署，UAT不得提前开始。内部Go/No-Go须具名显式人工结论，任务done不代表正式生产Go。完整依赖与验收见[WBS](./04-delivery/02-work-breakdown-structure.md)；父子关系以Trellis为准。

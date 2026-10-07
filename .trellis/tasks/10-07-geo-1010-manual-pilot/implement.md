@@ -11,3 +11,5 @@ DEPLOY 的 GEO-1009/UI 依赖均done，新会话启动已授权，移交时状�
 2026-10-07 DEPLOY新会话已开展发布准备，接受身份、源码schema head、producer/consumer、配置/Scheduler及停止恢复路径核对完成；具体输入和分阶段操作见[DEPLOY准备](../10-07-geo-1010-internal-pilot-deploy/preparation.md)。固定候选/目标/阶段与恢复输入尚未闭合，DEPLOY现为blocked、implementation_started=true，但deployment_performed=false；没有新完整门禁、工件或现场验收。以上ready为移交历史，不作为当前执行状态。父任务仍in_progress，UAT保持planned/未开始。
 
 2026-10-07 后续用户明确授权 UI/接受治理/DEPLOY 准备提交到 main，随后 push/fetch 并固定候选；GIT 输入已闭合，本地候选工作继续。精确目标与材料尚无具体值，部署仍 blocked；UAT 未开始。
+
+2026-10-07 当前DEPLOY结果：Git提交/push/fetch已执行；修正测试入口后的源码候选76d1d523完整门禁exit0，archive/hash及clean checkout保留。正式images/manifest和精确目标/阶段/恢复实际输入仍缺，DEPLOY blocked/未部署，UAT planned/未开始；见DEPLOY候选验证记录。后续治理提交不是该已验证候选。

@@ -1,0 +1,183 @@
+{
+  "task_id": "GEO-1010-DEPLOY",
+  "recorded_at_utc": "2026-10-07T18:39:26.830641+00:00",
+  "candidate_commit": "76d1d523b87816ba2ce52a2fc6a679144b5dab06",
+  "candidate_preflight": {
+    "task_id": "GEO-1010-DEPLOY",
+    "recorded_at_utc": "2026-10-07T17:56:03.797610+00:00",
+    "branch": "main",
+    "candidate_commit": "76d1d523b87816ba2ce52a2fc6a679144b5dab06",
+    "origin_main": "76d1d523b87816ba2ce52a2fc6a679144b5dab06",
+    "clean": true,
+    "fetch_completed": true,
+    "git_push_completed": true,
+    "initial_docker_resources": [
+      {
+        "ID": "47945efb8f90",
+        "Names": "partsignal-dev-fake-oss-1",
+        "Image": "partsignal-dev-fake-oss",
+        "State": "running"
+      },
+      {
+        "ID": "e9b9bad7a700",
+        "Names": "partsignal-dev-postgres-1",
+        "Image": "postgres:16-alpine",
+        "State": "running"
+      },
+      {
+        "ID": "e12ce66b1e3f",
+        "Names": "partsignal-dev-redis-1",
+        "Image": "redis:7.4-alpine",
+        "State": "running"
+      }
+    ],
+    "original_resource_baseline_ref": "/Users/sc/.codex/reviews/partsignal/geo1010-candidate-gate-20261007T172107Z-6a1_ywwm/candidate-preflight.json",
+    "redis_before_counts": {
+      "13": 0,
+      "14": 6,
+      "15": 79
+    },
+    "target_environment": null,
+    "deployment_performed": false
+  },
+  "full_gate": {
+    "task_id": "GEO-1010-DEPLOY",
+    "candidate_commit": "76d1d523b87816ba2ce52a2fc6a679144b5dab06",
+    "command": [
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "python",
+      ".trellis/tasks/10-05-verify-entrypoint/run-verify.py"
+    ],
+    "working_directory": "/Users/sc/PycharmProjects/partsignal",
+    "UV_CACHE_DIR": "/Users/sc/PycharmProjects/partsignal/.cache/uv",
+    "started_at_utc": "2026-10-07T17:56:34.595156+00:00",
+    "status": "PASSED",
+    "log_ref": "/Users/sc/.codex/reviews/partsignal/geo1010-candidate-gate-20261007T175603Z-cp9lgugz/run-verify.log",
+    "deployment_performed": false,
+    "ended_at_utc": "2026-10-07T18:34:07.274518+00:00",
+    "exit_code": 0,
+    "log_sha256": "d62782b4e17169bef4ff954a0ef62217f419a5981ccb9aa0423ba5fc39a45d4a",
+    "source_head_after": "76d1d523b87816ba2ce52a2fc6a679144b5dab06",
+    "working_tree_after": ""
+  },
+  "source_candidate": {
+    "task_id": "GEO-1010-DEPLOY",
+    "candidate_commit": "76d1d523b87816ba2ce52a2fc6a679144b5dab06",
+    "source_archive_ref": "/Users/sc/.codex/reviews/partsignal/geo1010-candidate-gate-20261007T175603Z-cp9lgugz/source-76d1d523b87816ba2ce52a2fc6a679144b5dab06.tar.gz",
+    "source_archive_sha256": "041b715e59e4201dfed4e067ede16877ae8b91e27369404d85ac3fc59f11969e",
+    "source_archive_bytes": 3822503,
+    "tracked_files": {
+      "deploy/compose.prod.yaml": "c4b55da84bbd8e8e83f76a15b183cc2a9c76ef9961ef4af8bee6ac3fd4261a7b",
+      "deploy/nginx/partsignal-maintenance.conf.template": "9259ce49b8877c123e2ce0d7c70dc3a6414a0c764a012ff5d3acc7894d83f217",
+      "deploy/nginx/partsignal-security-headers.conf": "c946c3a33dc8f3ae078545cb37df3b6a65759ca589345ed485139bdd9148931e",
+      "deploy/nginx/partsignal.conf.template": "40b28f36f5cf8e3abe34182eb5e67feba4849bf3346d1c09bc9986ff284e1321",
+      "deploy/scripts/activate-production.sh": "7b2015616701e9c570888a1d4074f5653a05a36695e801e5553ab7c4668078dc",
+      "deploy/scripts/check-production-inputs.py": "815ee217c72d4f28010dad0060743cce79f82fe1b7878c76f3b077c456a3d663",
+      "deploy/scripts/deploy.sh": "0ad34e3d8a28285a74c23bc0fd261dc37ee2689665af7a719d13629ccf6e5120",
+      "deploy/scripts/prepare-production-data.py": "312236f2f2dbd144f795d72c8b1f04f30ed9c6b901681c2691984b97e746dec3",
+      "deploy/scripts/production_deployment.py": "89999a546337c74d23be0ffca17ec24abacd8e8f4dbc389ed73d4416c0ef085e",
+      "deploy/scripts/production_maintenance_execution.py": "3e7d0164ba78ea43a3d4b14fafed7a06f92eecf2ef2f65e45e309b2b78c0d239",
+      "deploy/scripts/production_migration_runtime.py": "172a034739eefaa77c2d6eb13b7bf114b1d643a643f971c39a6856f4988407dd",
+      "deploy/scripts/production_upgrade_recovery.py": "77939f095eb1b17d8ffe9ad14b079afa224b3cde83d9558ba695f17904fa3e76",
+      "deploy/scripts/rollback-production-frontend.sh": "25e26c6d6b9773e40fcd36b9ebbfeb783111b905ffb4271109426e5378736c69"
+    },
+    "schema_head": "0066_geo_manual_evaluation",
+    "full_gate_status": "PASSED",
+    "release_manifest_status": "NOT_CREATED",
+    "release_candidate_frozen": false,
+    "target_environment": null,
+    "deployment_performed": false,
+    "full_gate_evidence_ref": "/Users/sc/.codex/reviews/partsignal/geo1010-candidate-gate-20261007T175603Z-cp9lgugz/gate-result.json",
+    "clean_main_checkout_ref": "/Users/sc/.codex/reviews/partsignal/geo1010-candidate-gate-20261007T175603Z-cp9lgugz/source-checkout"
+  },
+  "source_checkout": {
+    "candidate_commit": "76d1d523b87816ba2ce52a2fc6a679144b5dab06",
+    "clean_main_checkout_ref": "/Users/sc/.codex/reviews/partsignal/geo1010-candidate-gate-20261007T175603Z-cp9lgugz/source-checkout",
+    "branch": "main",
+    "origin_main_at_fixed_snapshot": "76d1d523b87816ba2ce52a2fc6a679144b5dab06",
+    "origin_url_matches_authoritative_repository": true,
+    "clean": true,
+    "clone_uses_independent_object_store": true,
+    "created_at_utc": "2026-10-07T18:36:04.428559+00:00",
+    "purpose": "后续producer使用固定且已验证的source checkout；后续治理提交不冒充候选",
+    "fetch_after_governance_requires_rechecking_candidate_identity": true
+  },
+  "resource_final_state": {
+    "recorded_at_utc": "2026-10-07T18:36:01.279989+00:00",
+    "original_resource_baseline_ref": "/Users/sc/.codex/reviews/partsignal/geo1010-candidate-gate-20261007T172107Z-6a1_ywwm/candidate-preflight.json",
+    "redis_after_counts": {
+      "13": 0,
+      "14": 6,
+      "15": 83
+    },
+    "redis_db13_empty": true,
+    "redis_db14_count_unchanged": true,
+    "redis_db15_note": "既有integration使用DB15；基线75→首轮79→第二轮实际值已记录，不删除未知键或声称DB15未变化",
+    "stopped_only_originally_exited_dev_container_ids": [
+      "47945efb8f90",
+      "e9b9bad7a700",
+      "e12ce66b1e3f"
+    ],
+    "docker_final_resources": [
+      {
+        "ID": "47945efb8f90",
+        "Names": "partsignal-dev-fake-oss-1",
+        "Image": "partsignal-dev-fake-oss",
+        "State": "exited"
+      },
+      {
+        "ID": "e9b9bad7a700",
+        "Names": "partsignal-dev-postgres-1",
+        "Image": "postgres:16-alpine",
+        "State": "exited"
+      },
+      {
+        "ID": "e12ce66b1e3f",
+        "Names": "partsignal-dev-redis-1",
+        "Image": "redis:7.4-alpine",
+        "State": "exited"
+      }
+    ],
+    "original_container_states_restored": true,
+    "unexpected_remaining_containers": [],
+    "cleanup_scope": "仅本次启动的原始Dev容器；E2E随机数据库/存储/Redis allowlist/端口由runner清理"
+  },
+  "validation_summary": {
+    "backend_unit_passed": 3870,
+    "frontend_unit_passed": 1347,
+    "frontend_unit_files_passed": 142,
+    "postgresql_integration_passed": 1253,
+    "postgresql_warnings": 45,
+    "isolated_recovery_passed": 6,
+    "performance_passed": 1,
+    "canonical_real_stack_e2e_passed": 32,
+    "geo_modes_passed": 3,
+    "geo_mode_existing_skips": 3,
+    "fixture_e2e_passed": 498,
+    "fixture_existing_skips": 74,
+    "deploy_scripts_and_final_compose_config": "PASSED",
+    "e2e_secret_scans": "ALL_ZERO"
+  },
+  "first_failed_candidate_evidence_ref": "candidate-attempt-1.json",
+  "harness_fix_commit": "76d1d523b87816ba2ce52a2fc6a679144b5dab06",
+  "harness_defect_task_ref": ".trellis/tasks/10-07-geo-e2e-evaluation-phase-isolation",
+  "release_manifest_status": "NOT_CREATED",
+  "official_images_status": "NOT_CREATED_MISSING_APPROVED_INPUTS",
+  "release_candidate_frozen": false,
+  "target_environment": null,
+  "target_runtime_verification": "NOT_VERIFIED",
+  "deployment_performed": false,
+  "uat_started": false,
+  "production_go": false,
+  "unresolved_input_ids": [
+    "TARGET",
+    "IMAGES",
+    "RUNTIME",
+    "STAGES",
+    "RECOVERY"
+  ],
+  "subsequent_governance_commit_is_not_verified_candidate": true
+}

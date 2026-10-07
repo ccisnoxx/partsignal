@@ -11,7 +11,7 @@
 
 ## 当前交付与移交
 
-GEO-1009 只接受固定 `e5949ab66989c1277424cfe9ab8b93e10ce10046` 的完整 main 门禁验证，详见[人工接受](../../../docs/geo-monitoring/06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md)。本任务接管未完成的 source archive、正式镜像身份、release manifest、schema/hash、候选冻结和恢复输入。当前没有部署或冻结结果，旧本地通过不代表目标已验证。
+GEO-1009 只接受固定 `e5949ab66989c1277424cfe9ab8b93e10ce10046` 的完整 main 门禁验证，详见[人工接受](../../../docs/geo-monitoring/06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md)。本任务接管未完成的 source archive、正式镜像身份、release manifest、schema/hash、候选冻结和恢复输入。后续已固定源码候选76d1d523并完成完整门禁、archive/hash；正式images/manifest与完整release冻结仍未完成，未部署。源码通过不代表目标已验证。
 
 ## 范围内
 

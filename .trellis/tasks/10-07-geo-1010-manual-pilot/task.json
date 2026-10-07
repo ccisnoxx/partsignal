@@ -2,7 +2,7 @@
   "id": "geo-1010-manual-pilot",
   "name": "geo-1010-manual-pilot",
   "title": "GEO-1010：MANUAL GEO 内部试运行与人工验收（聚合父任务）",
-  "description": "UI已人工接受并done；DEPLOY开始发布准备后因候选/目标/授权与恢复输入缺失blocked；UAT未开始，集成验收与父任务人工接受仍待完成。",
+  "description": "UI已人工接受并提交；DEPLOY源码候选完整门禁通过，但正式工件及目标/runtime/阶段/恢复输入缺失，部署blocked；UAT未开始，集成与人工接受待完成。",
   "status": "in_progress",
   "dev_type": null,
   "scope": null,

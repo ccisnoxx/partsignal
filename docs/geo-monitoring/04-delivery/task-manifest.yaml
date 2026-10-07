@@ -1940,4 +1940,4 @@ tasks:
   - .trellis/tasks/10-07-geo-1010-internal-pilot-deploy
   - .trellis/tasks/10-07-geo-1010-manual-uat-performance
   child_relation_authority: Trellis parent/children
-  execution_note: 2026-10-07：GEO-1009及UI依赖均done；UI人工接受记录保留。父任务in_progress；UI=done，DEPLOY新会话完成发布准备核对但因候选/目标/授权与恢复输入缺失blocked（实施已开始，未部署）；UAT planned/未开始，后续用户已授权Git提交/push/fetch及固定新候选，GIT输入闭合、本地候选工作继续；其余具体输入与证据见DEPLOY preparation.md/implement.md。
+  execution_note: 2026-10-07：GEO-1009及UI依赖均done；UI人工接受记录保留。父任务in_progress；UI=done，DEPLOY新会话完成发布准备核对但因候选/目标/授权与恢复输入缺失blocked（实施已开始，未部署）；UAT planned/未开始，后续用户已授权Git提交/push/fetch及固定新候选，GIT已执行，源码候选76d1d523完整门禁exit0与archive/hash完成；正式images/manifest和目标五组实际输入尚缺、未部署；其余具体输入与证据见DEPLOY preparation.md/implement.md。

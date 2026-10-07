@@ -49,3 +49,17 @@ UI 实现/接受证据提交 `ce65c6fa`，接受治理/DEPLOY准备提交 `1ed8c
 完整原始wrapper于2026-10-07T17:21:38.090873Z–17:50:13.773705Z执行，exit2，工作树仍clean/同SHA。静态/类型、3870 backend unit、1347 frontend unit（142files）、1253 PG integration（45warnings）、6隔离恢复、1性能（100000回答fixture）、32canonical真实页面E2E/secret_scan=0通过；GEO模式工厂因评估开关true拒绝后readiness失败。fixture/部署脚本/最终Compose尚未运行，不能以部分通过冻结release。
 
 已保存仓库外确定性source archive及13项tracked hashes；仍没有正式镜像/manifest。失败与工件身份见[candidate-attempt-1.json](./evidence/candidate-attempt-1.json)。测试入口缺陷单独记录在[geo-e2e-evaluation-phase-isolation](../10-07-geo-e2e-evaluation-phase-isolation/prd.md)，仅修正模式配置，原UI接受身份与失败证据保留。修正后须提交/push/fetch固定新候选并运行完整门禁。目标五组实际输入仍未取得，未部署或UAT。
+
+## 修正后源码候选通过（当前结果）
+
+修复提交/push/fetch后，固定main `76d1d523b87816ba2ce52a2fc6a679144b5dab06`；固定时与门禁结束时均clean、HEAD=origin/main。原始wrapper于2026-10-07T17:56:34.595156Z–18:34:07.274518Z运行完整make verify，exit0（2252.679362秒）。[源码候选验证记录](./evidence/candidate-source-verification.json)包含命令、SHA、日志哈希、archive/hash、clean checkout与资源状态；原失败记录保留。
+
+3870 backend unit、1347 frontend unit（142files）、1253 PG integration（45原warnings）、6隔离恢复、1性能、32canonical真实页面E2E、3GEO模式通过（3原skip）、498fixture通过（74原skip）；部署脚本与最终Dev/Prod Compose检查通过，全部E2E secret_scan=0。成功证据只绑定该SHA，不冒充后续治理提交。
+
+archive SHA256=`041b715e59e4201dfed4e067ede16877ae8b91e27369404d85ac3fc59f11969e`；唯一源码schema head=0066，13项tracked hashes已绑定。仓库外独立clean main checkout为 `/Users/sc/.codex/reviews/partsignal/geo1010-candidate-gate-20261007T175603Z-cp9lgugz/source-checkout`，保留固定时的origin/main快照，供后续producer使用；发生fetch/源码漂移须重新核对身份。正式repository、previous V2等未取得，未创建正式镜像/manifest，candidate_frozen仍false。
+
+原3个Dev容器均按相同ID恢复exited，没有残留临时容器；Redis DB13最终0，DB14仍6，DB15在两次既有integration后75→79→83，保留且未删除未知键，不声称其未变化。E2E随机DB/storage/端口由原runner精确清理。原UI接受9项证据仍保留；22源码身份中仅测试runner由独立缺陷修复改变，不改写旧接受记录或哈希。
+
+TARGET/IMAGES/RUNTIME/STAGES/RECOVERY仍无实际值或引用，DEPLOY保持blocked，现场六项独立验收未完成；UAT planned/未开始，没有Go/No-Go或生产Go。GIT与本地源码候选验证已完成。后续验证记录治理提交不是新的应用候选。
+
+最终证据/归属与文档复核见[git-candidate-validation.json](./evidence/git-candidate-validation.json)：当前治理211项文档摘要、30本地链接、diff与UAT保全通过。首次最终摘要核对发现根清单里嵌套SHA256SUMS的一项旧摘要，原因是先刷新根再刷新嵌套；已按嵌套→根顺序修正，只在后续治理提交。原76d1d523 archive保持不可变，保留该文档摘要旧值限制；不声称其文档哈希检查通过。应用完整门禁、13项部署文件hash与archive身份均匹配，后续治理不是另一个已执行完整门禁的SHA。

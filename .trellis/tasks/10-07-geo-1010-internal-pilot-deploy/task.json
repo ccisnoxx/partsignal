@@ -2,7 +2,7 @@
   "id": "geo-1010-internal-pilot-deploy",
   "name": "geo-1010-internal-pilot-deploy",
   "title": "GEO-1010-DEPLOY：部署 MANUAL GEO 内部试运行环境",
-  "description": "发布准备已完成；用户已授权提交/push/fetch并固定新候选，正在执行；目标与镜像/runtime/阶段/恢复输入仍待闭合，未部署。",
+  "description": "已提交/push/fetch并固定包含UI和测试入口修复的main源码候选；完整门禁exit0、archive/hash完成。正式镜像/manifest及目标/runtime/阶段/恢复输入缺失，部署blocked。",
   "status": "blocked",
   "dev_type": null,
   "scope": null,
@@ -21,7 +21,7 @@
   "children": [],
   "parent": "10-07-geo-1010-manual-pilot",
   "relatedFiles": [],
-  "notes": "2026-10-07：新会话启动授权已执行，准备核对完成；UI接受身份保留。DEPLOY blocked，必需输入见preparation.md；未冻结候选、未运行新SHA完整门禁、未部署，不可review/done。\n2026-10-07：用户确认Git授权，提交已接受UI、接受治理及DEPLOY准备到main并push/fetch；候选完整门禁待实际执行，目标输入仍缺。\n已按归属提交两笔main并push/fetch；候选1ed8c4af完整门禁exit2，GEO测试入口配置冲突另立独立缺陷记录，尚无正式release manifest。",
+  "notes": "2026-10-07：新会话启动授权已执行，准备核对完成；UI接受身份保留。DEPLOY blocked，必需输入见preparation.md；未冻结候选、未运行新SHA完整门禁、未部署，不可review/done。\n2026-10-07：用户确认Git授权，提交已接受UI、接受治理及DEPLOY准备到main并push/fetch；候选完整门禁待实际执行，目标输入仍缺。\n已按归属提交两笔main并push/fetch；候选1ed8c4af完整门禁exit2，GEO测试入口配置冲突另立独立缺陷记录，尚无正式release manifest。\n2026-10-07：新源码候选76d1d523完整门禁exit0；独立clean main checkout与archive已保存。未冻结完整release；目标五组输入缺失、未部署、UAT未开始。治理结果后续提交不冒充候选。",
   "meta": {
     "display_id": "GEO-1010-DEPLOY",
     "manifest_id": null,
@@ -39,9 +39,9 @@
     "session_start_authorized_at": "2026-10-07T16:52:04Z",
     "deployment_performed": false,
     "candidate_frozen": false,
-    "execution_phase": "candidate_gate_failed_test_harness_fix_in_progress",
+    "execution_phase": "source_candidate_verified_awaiting_deployment_inputs",
     "preparation_recorded_at": "2026-10-07T17:08:44.014304+00:00",
-    "candidate_commit": "1ed8c4af1d62fb6d86b4401d0703a90bf629a839",
+    "candidate_commit": "76d1d523b87816ba2ce52a2fc6a679144b5dab06",
     "target_environment": null,
     "blocked_input_ids": [
       "TARGET",
@@ -52,6 +52,9 @@
     ],
     "git_publication_authorized_at": "2026-10-07T17:19:07.470277+00:00",
     "git_publication_authorization": "current_conversation_user: commit accepted UI, acceptance governance and DEPLOY preparation to main; push, fetch and fix new candidate",
-    "candidate_full_gate": "FAILED"
+    "candidate_full_gate": "PASSED",
+    "candidate_source_frozen": true,
+    "candidate_evidence_ref": "evidence/candidate-source-verification.json",
+    "clean_candidate_checkout": "/Users/sc/.codex/reviews/partsignal/geo1010-candidate-gate-20261007T175603Z-cp9lgugz/source-checkout"
   }
 }

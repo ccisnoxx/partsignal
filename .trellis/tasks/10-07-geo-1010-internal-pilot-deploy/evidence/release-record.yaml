@@ -1,19 +1,19 @@
 # 本次DEPLOY低敏实际记录；不是候选manifest或批准。现场未知保留null/NOT_VERIFIED。
 record_kind: geo1010_deploy_rollout_evidence
 task_id: GEO-1010-DEPLOY
-record_status: PREPARATION_ONLY_TARGET_NOT_SELECTED
-recorded_at_utc: '2026-10-07T17:03:08.692002+00:00'
+record_status: SOURCE_CANDIDATE_VERIFIED_TARGET_NOT_SELECTED
+recorded_at_utc: '2026-10-07T18:39:26.830641+00:00'
 target:
   environment_id: null
   authorized_entry_ref: null
   observed_runtime_owner_ref: null
 candidate:
   release_id: null
-  commit: null
+  commit: 76d1d523b87816ba2ce52a2fc6a679144b5dab06
   immutable_manifest_ref: null
-  source_archive_sha256: null
+  source_archive_sha256: 041b715e59e4201dfed4e067ede16877ae8b91e27369404d85ac3fc59f11969e
   image_identity_evidence_ref: null
-  tracked_files_evidence_ref: null
+  tracked_files_evidence_ref: candidate-source-verification.json
   expected_schema_head: 0066_geo_manual_evaluation
   observed_schema_head: null
   recovery_candidate_manifest_ref: null
@@ -119,9 +119,11 @@ final_acceptance:
   - RECOVERY
 template_source: docs/geo-monitoring/04-delivery/geo-906-release-record.template.yaml
 scope_note: 受控内部DEPLOY；本地准备不证明现场，UAT与正式公网开放未授权/未开始。
-candidate_full_gate: NOT_RUN
+candidate_full_gate: PASSED
 deployment_performed: false
 production_go: false
 preparation_evidence_ref: preparation-checks.json
 git_publication_authorization_ref: current_conversation_user_confirmation
 git_publication_authorized_at_utc: 2026-10-07T17:19:07.470277+00:00
+source_candidate_evidence_ref: candidate-source-verification.json
+release_candidate_frozen: false

@@ -96,6 +96,8 @@ class FakeProviderState:
 
 
 class GeoFakeServer(ThreadingHTTPServer):
+    # 计数用例突发发送 12 次请求；默认 backlog=5 会把 accept 调度延迟伪装成网络故障。
+    request_queue_size = 12
     # join 所有已接受的连接；timeout/delay 在停止时唤醒，不留下孤儿请求线程。
     daemon_threads = False
 

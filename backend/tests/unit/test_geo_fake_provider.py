@@ -4,13 +4,14 @@ import hashlib
 import json
 import socket
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import ExitStack
 from uuid import uuid4
 
 import httpx
 import pytest
 
 from app.errors import AppError
-from app.geo_fake_server import FakeMode, FakeScenario, running_geo_fake
+from app.geo_fake_server import FakeMode, FakeScenario, GeoFakeServer, running_geo_fake
 from app.services.pinned_http import PinnedHTTPTransport
 from tests.geo_collector_contract import assert_secrets_absent, test_secret
 from tests.geo_network_guard import local_geo_network as local_geo_network
@@ -147,6 +148,15 @@ def test_call_counter_observes_duplicates_concurrency_and_instance_isolation():
         # 返回副本不可改变真实计数。
         records["requests"].clear()
         assert first.state.snapshot(attempt)["count"] == 12
+
+
+def test_fake_accepts_pending_connection_burst_before_handler_scheduling():
+    # accept 线程尚未调度时仍要容纳计数用例的突发连接；使用真实 TCP，不改客户端超时。
+    with GeoFakeServer() as provider, ExitStack() as pending:
+        for _ in range(12):
+            pending.enter_context(
+                socket.create_connection(("127.0.0.1", provider.server_port), timeout=1)
+            )
 
 
 def test_failed_connection_is_genuinely_unsent_and_provider_can_stop():

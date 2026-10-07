@@ -35,3 +35,13 @@ runner日志绑定ubuntu24/20261004.327，官方固定软件清单为Compose2.38
 修复待新固定SHAfresh只读增量复核。此次预算已使用，第三次CI未触发；PR保持Draft，1002–1007没有提前done，1008恢复既有接受未改，main完整门禁留到实际准入成功后的合并。RC与1010现场缺口保持。
 
 固定00b4eca271c635c1fc4b6b0c5fbc08d1dfd680bd的fresh只读增量复审已APPROVE，无确认finding；报告evidence/independent-staging-review-00b4eca2.md，全部tracked前后hash零变化，审计closed/verified。代码已推送；独立批准只覆盖自检增量，失败run不变，main/RC不推进。第三次delivery预算问题已提出，未收到答复时不触发；只保存检查点。
+
+## 本次delivery：production配置自检失败与局部修复
+
+用户再次明确允许这一次delivery CI，run37584298170固定d0f61aaa78522be330207ed335869dafcd50017e，created06:56:12Z，verify4分11秒，watch06:56:22.465622Z—07:00:41.607452Z exit1。staging修复与Production cleanup自检已实际远端通过；随后Production自检在JSON env_file字段处KeyError，make退出2。E2E与末端两项Compose未执行，六项前序/frontend shard按delivery跳过不算新通过。旧单元/PG/本地完整验证输入未变继续复用，三个失败run均保留，未将任何失败写成SUCCESS。命令、SHA、时间、退出码及受控原始日志hash见evidence/third-delivery-ci-*。
+
+使用此前已验证官方Linux Compose2.38.2客户端、network-none本次临时容器复现：默认JSON及no-normalize JSON均展开运行环境而不保留api env_file。只修改Production自检前三个配置探针：生成本次独有公开cookie名的测试拥有env副本，显式解析环境；对默认/async/冻结migration候选的api/migrate/postgres/worker/scheduler比较完整实际environment与该副本，不依赖env_file表示形态。原部署mock的deployment-runtime.env、实际Compose/部署入口/迁移/镜像/依赖/workflow完全不变。镜像/命令/网络/profile断言保留，0600文件及原精确owner清理覆盖；不读取私有环境、不输出environment或秘密值。
+
+原生network-identity配置入口exit0（0.55秒）。Linux2.38.2组件执行旧真实配置入口同样KeyError exit1，修复exit0，错误env_file及额外environment分别AssertionError api exit1（四例总4.21秒）。仅Compose客户端在Linux，shell/断言仍Mac ARM64，不能称完整runner或x86_64验证。两个先行驱动失败（隔离源码缺Node依赖、模板替换误碰环境变量名）日志保留；复用已有node_modules并修正驱动占位符后上述反例成立，不把驱动失败作为产品反例。配置不接触Engine socket；本次临时容器按实际ID移除，未接管固定Production项目。执行发生于d0+dirty修复，脚本hash绑定后续提交，不伪称clean新SHA重跑。
+
+修复待固定新SHAfresh只读增量复核。此前准备的接受脚本/PR SUCCESS说明没有执行或发布，本次结果不满足整PR准入条件；PR仍Draft，1002–1007未done，恢复1008既有接受保留。main完整门禁留到实际合并后一次执行，RC真实镜像仓库及已验证previous V2缺口保留；第四次CI未获本轮授权，不自动运行。

@@ -65,7 +65,7 @@ fi
 test_dir=$(mktemp -d "$temporary_root/partsignal-production-test.XXXXXX")
 # 部署脚本 mock 仍使用明确的 production runtime；不借开发 env 绕过生产入口。
 python3 - "$root/.env.example" "$test_dir/deployment-runtime.env" \
-  "$root/.env.production.example" <<'PYCONFIG'
+  "$root/.env.production.example" "$test_dir/compose-runtime.env" <<'PYCONFIG'
 from pathlib import Path
 import sys
 allowed = {line.split("=", 1)[0] for line in Path(sys.argv[3]).read_text().splitlines()
@@ -76,6 +76,15 @@ source = source.replace("APP_ENV=development", "APP_ENV=production") + "\n"
 target = Path(sys.argv[2])
 target.write_text(source)
 target.chmod(0o600)
+# Compose 各版本保留 env_file 的 JSON 形态不同；用本次独有的公开 cookie 名检查实际绑定。
+probe = Path(sys.argv[4])
+lines = source.splitlines()
+assert sum(line.startswith("SESSION_COOKIE_NAME=") for line in lines) == 1
+probe.write_text("\n".join(
+    "SESSION_COOKIE_NAME=" + probe.parent.name if line.startswith("SESSION_COOKIE_NAME=") else line
+    for line in lines
+) + "\n")
+probe.chmod(0o600)
 PYCONFIG
 candidate_release=production-20260829-120000-0123456789ab
 next_release=production-20260829-130000-fedcba987654
@@ -106,32 +115,33 @@ printf '%s\n' old-object >"$test_dir/live/objects/marker"
 PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
 PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 \
 PARTSIGNAL_VERSION=test \
-PARTSIGNAL_RUNTIME_ENV_FILE="$test_dir/deployment-runtime.env" \
+PARTSIGNAL_RUNTIME_ENV_FILE="$test_dir/compose-runtime.env" \
 PARTSIGNAL_DATA_ROOT="$test_dir/live" \
   docker compose --env-file "$root/.env.example" -f "$root/deploy/compose.prod.yaml" \
-  config --no-env-resolution --format json >"$test_dir/compose.json"
+  config --format json >"$test_dir/compose.json"
 PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
 PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 \
 PARTSIGNAL_VERSION=test \
-PARTSIGNAL_RUNTIME_ENV_FILE="$test_dir/deployment-runtime.env" \
+PARTSIGNAL_RUNTIME_ENV_FILE="$test_dir/compose-runtime.env" \
 PARTSIGNAL_DATA_ROOT="$test_dir/live" \
   docker compose --profile production-async --env-file "$root/.env.example" \
   -f "$root/deploy/compose.prod.yaml" \
-  config --no-env-resolution --format json >"$test_dir/compose-async.json"
+  config --format json >"$test_dir/compose-async.json"
 PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
 PARTSIGNAL_MIGRATION_IMAGE=partsignal-migration:frozen-failed \
 PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 \
 PARTSIGNAL_VERSION=test \
-PARTSIGNAL_RUNTIME_ENV_FILE="$test_dir/deployment-runtime.env" \
+PARTSIGNAL_RUNTIME_ENV_FILE="$test_dir/compose-runtime.env" \
 PARTSIGNAL_DATA_ROOT="$test_dir/live" \
   docker compose --env-file "$root/.env.example" -f "$root/deploy/compose.prod.yaml" \
-  config --no-env-resolution --format json >"$test_dir/compose-frozen-migration.json"
+  config --format json >"$test_dir/compose-frozen-migration.json"
 
 if test "${PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE:-}" != network-compatibility; then
-python3 - "$test_dir/compose.json" "$test_dir/live" "$test_dir/deployment-runtime.env" \
+python3 - "$test_dir/compose.json" "$test_dir/live" "$test_dir/compose-runtime.env" \
   "$test_dir/compose-async.json" "$root/deploy/compose.prod.yaml" \
   "$test_dir/compose-frozen-migration.json" <<'PY'
 import json
+from pathlib import Path
 import sys
 
 with open(sys.argv[1], encoding="utf-8") as config_file:
@@ -153,7 +163,10 @@ assert frontend["ports"] == [{
 }]
 assert services["postgres"]["volumes"][0]["source"] == f"{sys.argv[2]}/postgres"
 assert services["redis"]["volumes"][0]["source"] == f"{sys.argv[2]}/redis"
-assert services["api"]["env_file"] == [{"path": sys.argv[3]}]
+expected_environment = dict(line.split("=", 1) for line in Path(sys.argv[3]).read_text().splitlines())
+assert expected_environment["SESSION_COOKIE_NAME"] == Path(sys.argv[3]).parent.name
+for name in ("migrate", "api", "postgres"):
+    assert services[name]["environment"] == expected_environment, name
 assert services["frontend"]["networks"] == {"partsignal-staging-edge": None}
 assert "worker" not in services
 assert "scheduler" not in services
@@ -163,6 +176,8 @@ with open(sys.argv[6], encoding="utf-8") as config_file:
 assert frozen_services["api"]["image"] == "partsignal-backend:test"
 assert frozen_services["migrate"]["image"] == "partsignal-migration:frozen-failed"
 assert frozen_services["migrate"]["command"] == ["alembic", "upgrade", "head"]
+for name in ("migrate", "api", "postgres"):
+    assert frozen_services[name]["environment"] == expected_environment, name
 with open(sys.argv[4], encoding="utf-8") as config_file:
     async_config = json.load(config_file)
 expected_networks = {"partsignal-staging-" + suffix for suffix in ("internal", "egress", "edge")}
@@ -185,6 +200,8 @@ for name, networks in expected_services.items():
     assert set(async_config["services"][name]["networks"]) == networks, name
     if name in services:
         assert set(services[name]["networks"]) == networks, name
+for name in ("migrate", "api", "worker", "scheduler", "postgres"):
+    assert async_config["services"][name]["environment"] == expected_environment, name
 for name in ("postgres", "redis"):
     assert not async_config["services"][name].get("ports"), name
 with open(sys.argv[5], encoding="utf-8") as source:

@@ -79,3 +79,7 @@ runner日志绑定ubuntu24/20261004.327，官方固定软件清单为Compose2.38
 api-disabled、monitoring-disabled、fixture及末端两项Compose被远端前序失败阻断，尚无本次成功证据。已通过且输入未变的unit/PG/旧本地完整验证与本次32真实栈继续复用；不重复全套。预备接受写入器未执行，其SUCCESS前提不成立，invalidated记录保留；其他task未接受、PR仍Draft、main完整门禁/RC/生产未执行。第六CI未获授权，不自动派发。当前一行修复提交后需新的固定源码独立复审，旧0b6复审只覆盖前三spec，不扩大其范围。
 
 固定b254b58a60ce7696533abd18b0a2bdb30b851d7e fresh独立只读critical_reviewer复核APPROVE，locator问题RESOLVED，无确认P0～P3 finding；完整返回见evidence/independent-geo-api-review-b254b58a.md。审查者重算3份源码/2驱动/3定向日志及full/watch日志hash，区分当前detail告警与尝试链span，确认其他spec字节原样；没有重跑测试。审计bundle20261007T085023Z-delivery-geo-selected-error-fixed-review-518b459f closed/verify通过，1交付/1独立复核，0异常，前后12842个tracked/非忽略untracked及HEAD/status相同。只批准此一行增量；run37594203220仍FAILURE，新的远端成功证据、后序阶段、整PR/main/RC/生产仍未闭合，第六CI未获授权。
+
+## 本次delivery授权、结果与整PR接受
+
+用户再次明确允许本次delivery，run37598569164固定8d2e528c最终SUCCESS。命令、SHA、UTC时间、退出码及完整原始日志摘要见evidence/sixth-delivery-ci-*。旧0b/c6/d0/135d/0475失败历史保留，输入未变的旧成功前序继续复用；fresh整PR及14dd/28/00/bd6/0b6/b254增量审查均APPROVE。按既有条件授权接受1002–1007实现，恢复1008原接受不变；详见acceptance-scope.json与docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md。随后Ready/合并/一次clean main完整门禁。delivery是partial，不宣称单次完整CI；1009尚未完成，RC缺真实身份输入，1010/生产未执行。

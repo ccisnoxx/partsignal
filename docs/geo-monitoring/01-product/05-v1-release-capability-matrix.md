@@ -28,16 +28,16 @@
 | 人工复核 | available | confirm/correct、追加历史、当前有效结果已实现 | 严重错误/歧义保持复核门禁 |
 | 指标与洞察 | available | 回答级 Overview、趋势、SOV、引用、风险/质量及下钻已实现 | 分母零 null、失败排除、模式/环境不混算 |
 | 现有报告 | available | 现有打印及 runs/citations/claims CSV 已实现 | CSV 权限、低敏、注入边界保持；GEO-1007/1010 |
-| Opportunity 管理员显式评估方式 | manual-only | GEO-1006 受 CSRF 保护的 ADMIN API 复用现有 evaluator，显式范围/窗口/revision/幂等键，无自动 Action/Retest | 本地交付 review；获批后由管理员执行，操作见 Runbook §4.1 |
-| Opportunity 管理员生产评估入口 | available | POST /api/v1/geo/opportunities/evaluate；真实 HTTP/PostgreSQL 验证 ADMIN、CSRF、ENGINEER 拒绝、冻结回执/原子审计及幂等；没有操作页面 | GEO-1006 待人工接受；0066 前滚及 GEO-1010 同候选现场验收尚未执行 |
+| Opportunity 管理员显式评估方式 | manual-only | GEO-1006 受 CSRF 保护的 ADMIN API 复用现有 evaluator，显式范围/窗口/revision/幂等键，无自动 Action/Retest | 实现/本地验证已接受；现场获批后由管理员执行，操作见 Runbook §4.1 |
+| Opportunity 管理员生产评估入口 | available | POST /api/v1/geo/opportunities/evaluate；真实 HTTP/PostgreSQL 验证 ADMIN、CSRF、ENGINEER 拒绝、冻结回执/原子审计及幂等；没有操作页面 | GEO-1006 实现已接受；0066 正式候选前滚及 GEO-1010 同候选现场验收尚未执行 |
 | Opportunity 列表/详情、确认/忽略 | available | 现有工作台与服务端状态/证据已实现 | 机会需显式评估产生；保持来源历史 |
 | 现有 Action API | available | 事实/内容/发布/补测应用服务协调及公共 API 已实现 | 人工调用；AI 仅草稿；GEO-1007/1010 |
 | 现有 Retest API 与比较/解决 | available | preview/create、冻结基线、可比性门禁及显式解决已实现 | 不可比/未知版本阻断；不承诺因果；可复现的历史基线即使来自 CRON，人工 RETEST 仍按冻结矩阵执行，保留来源且不运行当前 Plan |
 | MANUAL 内部试运行 | manual-only | 本地真实栈有证据，生产试用未执行 | GEO-1010；负责人、范围、时长、反馈需签署 |
 | API Collection 初始试运行 | disabled | 采集/Worker/发送恢复已有实现，生产供应商批准与验收未取得 | 默认 false；后续启用需单独批准与验收 |
-| Browser production Collection/会话 | disabled | GEO-1003 已实现 Settings/预检/部署入口硬拒绝 true 和会话材料；production Compose 无 Browser；交付 review，现场未知 | GEO-1003 待人工接受＋GEO-1010 零启用/零材料证据 |
+| Browser production Collection/会话 | disabled | GEO-1003 已实现 Settings/预检/部署入口硬拒绝 true 和会话材料；production Compose 无 Browser；实现已接受，现场未知 | GEO-1003 实现已接受＋GEO-1010 零启用/零材料证据 |
 | Browser 真实界面 Adapter/生产证据采集 | deferred | GEO-804～807 延期；真实 Adapter/证据路径未实现 | ADR-006；801～803 done 保留 |
-| CRON Plan 创建/启用及到期建批 | disabled | GEO-1005：CRON Plan 写命令/首次 run、PLAN 建批及 scheduled 新窗口均 409 GEO_PLAN_CRON_UNSUPPORTED；历史仅 UNSUPPORTED_SCHEDULE 只读，无写动作；Beat 无到期入口 | 本地交付 review；GEO-1010 核实同候选与现场历史披露，不原地停用/删除 |
+| CRON Plan 创建/启用及到期建批 | disabled | GEO-1005：CRON Plan 写命令/首次 run、PLAN 建批及 scheduled 新窗口均 409 GEO_PLAN_CRON_UNSUPPORTED；历史仅 UNSUPPORTED_SCHEDULE 只读，无写动作；Beat 无到期入口 | 实现/本地验证已接受；GEO-1010 核实同候选与现场历史披露，不原地停用/删除 |
 | CRON 生产自动调度交付 | deferred | not implemented：无生产到期入口 | 后续重新排期；V1.0 不以自动执行为门禁 |
 | Opportunity 自动调度 | disabled | 开关是评估资格，不证明自动调度；当前无生产周期入口 | GEO-1006/1007 保持无周期/隐式触发 |
 | Opportunity 自动周期评估交付 | deferred | not implemented：没有周期注册；管理员显式 API 不代表自动调度 | 后续重新排期；V1.0 不以周期执行为门禁 |
@@ -54,9 +54,9 @@
 | GEO_MONITORING_ENABLED | false | 按环境批准设 true | API/Worker/Beat 启动后核对实际值 |
 | MANUAL Collection | 随总开关不开放新写入 | 启用；没有独立 MANUAL 环境键 | 人工采集/创建，确定性分析和复核继续执行 |
 | GEO_API_COLLECTION_ENABLED | false | false（初始默认） | 保留已有代码，不自动回退到 API |
-| GEO_BROWSER_COLLECTION_ENABLED | false | production **硬禁止 true** | GEO-1003 实现/本地验证交付 review；现场 GEO-1010 |
+| GEO_BROWSER_COLLECTION_ENABLED | false | production **硬禁止 true** | GEO-1003 实现/本地验证已接受；现场 GEO-1010 |
 | CRON Plan | 禁止新建和启用 | 全部历史 CRON Plan 只读，不能从当前 Plan 建批 | GEO-1005 已实现；旧 ACTIVE 原值保留但投影明确不支持；不新增存储状态 |
-| GEO_OPPORTUNITY_EVALUATION_ENABLED | false | 显式评估获批时 true | 这是资格开关；GEO-1006 管理员显式 API 已交付 review，现场启用另需批准 |
+| GEO_OPPORTUNITY_EVALUATION_ENABLED | false | 显式评估获批时 true | 这是资格开关；GEO-1006 管理员显式 API 实现已接受，现场启用另需批准 |
 | Opportunity 自动调度 | 无周期注册/隐式触发 | 关闭 | 不虚构新的已实现环境键；保持人工评估与自动调度分开 |
 
 GEO_RETENTION_DRY_RUN=true、CELERY_CONCURRENCY=1 及既有数据/外发/备份安全条件按 runbook 保留。当前 production readiness 原文为 NOT_STARTED/NOT_VERIFIED，GEO-1002 不将策略值写成已观测事实。

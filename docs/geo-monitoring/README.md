@@ -16,7 +16,7 @@
 
 **当前仍为 NO-GO。** [GEO-1001 审计](./06-reviews/GEO-1001-release-readiness-audit.md)记录的 Browser 硬禁止、Catalog 竞态、CRON 假 ACTIVE、管理员评估入口、升级恢复、候选和生产证据由新增 R9A / GEO-1003～1010 收口；范围批准不代表修复或现场验收。API 初始关闭，Browser production 硬禁止，CRON 到期执行和 Opportunity 自动周期评估不属首发。机会 CSV、完整 Action/Retest 页面、公共管理员重分析及无依据无引用推断不能宣称可用。
 
-R0—R8 的 67 done＋4 deferred 和历史接受记录保持；任务状态以 manifest 为准，旧 done 不替代本次发布门禁。GEO-1002 交付只进入 review，后续新增任务本次只定义，不执行。
+R0—R8 的 67 done＋4 deferred 和历史接受记录保持；任务状态以 manifest 为准，旧 done 不替代本次发布门禁。GEO-1002～1007 的实现与本地验证已按用户条件授权接受，恢复1008保留原接受；[整PR接受记录](./06-reviews/2026-10-07-v1-pr-acceptance.md)明确复用证据与覆盖边界。1009的clean main门禁和候选冻结、1010现场验收仍未完成，生产继续NO-GO。
 
 ## 历史阶段交付记录与目标设计导航
 

@@ -1654,7 +1654,7 @@ tasks:
   phase: R9A
   release: V1.0-manual-first
   title: 冻结 GEO Core V1.0 人工优先发布范围和发布门禁
-  status: review
+  status: done
   dependencies:
   - GEO-906
   areas:
@@ -1677,11 +1677,13 @@ tasks:
   validation_record: .trellis/tasks/10-05-geo-1002-v1-release-scope/implement.md
   execution_note: 2026-10-05：用户明确授权范围冻结；只实施 GEO-1002 文档与任务治理，其余新增任务仅计划。
   review_note: 2026-10-05：ADR-007、能力矩阵、R9A 和发布门禁已交付；离线链接/manifest/历史/保护指纹校验通过，独立只读复核无确认发现；完整 git diff --check 保留未改 GEO-1001 审计的 12 处既存 Markdown 尾空格，本次文档差异无空白错误；仅 review，生产仍 NO-GO，不自行 done。
+  acceptance_record: 06-reviews/2026-10-07-v1-pr-acceptance.md
+  acceptance_note: "2026-10-07：依用户条件授权接受实现与验证；旧整分支/六项修复/入口/治理fresh复核及0b成功前序+8d2成功delivery及14dd/28/00/bd6/0b6/b254fresh复核组合。生产未知保留，1009/1010不自动接受。"
 - id: GEO-1003
   phase: R9A
   release: V1.0-manual-first
   title: production Browser Collection 硬禁止
-  status: review
+  status: done
   dependencies:
   - GEO-1002
   - GEO-004
@@ -1707,11 +1709,13 @@ tasks:
   trellis_task: .trellis/tasks/10-05-geo-1003-production-browser-ban
   validation_record: .trellis/tasks/10-05-geo-1003-production-browser-ban/implement.md
   review_note: 2026-10-05：production Settings/input checker/启动预检硬拒绝 Browser=true 和会话材料；权威 Compose 全部 profile 展开零 Browser；deploy/activate/rollback 在维护锁前拒绝 profile/overlay/环境绕过。152 项定向后端、17 组启动正例及生产负例、Compose/Browser 骨架检查、14 项 Collector/27 项本地合同、生产部署自检通过；独立只读复核发现附录 tracked-file 漏项已修复并解除。完整 git diff --check 仅报未改 GEO-1001 审计既存 12 处尾空格，本任务差异无空白错误。仅 review，不自行 done；候选和现场证据仍属 GEO-1009/1010。
+  acceptance_record: 06-reviews/2026-10-07-v1-pr-acceptance.md
+  acceptance_note: "2026-10-07：依用户条件授权接受实现与验证；旧整分支/六项修复/入口/治理fresh复核及0b成功前序+8d2成功delivery及14dd/28/00/bd6/0b6/b254fresh复核组合。生产未知保留，1009/1010不自动接受。"
 - id: GEO-1004
   phase: R9A
   release: V1.0-manual-first
   title: Catalog 写命令锁内重验当前管理员身份
-  status: planned
+  status: done
   dependencies:
   - GEO-1002
   - GEO-104
@@ -1734,11 +1738,15 @@ tasks:
   - 06-reviews/GEO-1001-release-readiness-audit.md
   audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
   scope_note: 后续独立任务；本次 GEO-1002 只登记范围、依赖与验收，不开始实现或生产操作。
+  trellis_task: .trellis/tasks/10-05-geo-1004-catalog-current-actor
+  validation_record: .trellis/tasks/10-05-geo-1004-catalog-current-actor/implement.md
+  acceptance_record: 06-reviews/2026-10-07-v1-pr-acceptance.md
+  acceptance_note: "2026-10-07：依用户条件授权接受实现与验证；旧整分支/六项修复/入口/治理fresh复核及0b成功前序+8d2成功delivery及14dd/28/00/bd6/0b6/b254fresh复核组合。生产未知保留，1009/1010不自动接受。 原manifest planned为治理漂移，真实Trellis原review，不补造历史transition。"
 - id: GEO-1005
   phase: R9A
   release: V1.0-manual-first
   title: V1.0 禁止 CRON 假 ACTIVE 并治理既存计划
-  status: review
+  status: done
   dependencies:
   - GEO-1002
   - GEO-208
@@ -1763,11 +1771,15 @@ tasks:
   audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
   scope_note: GEO-1005 按 2026-10-05 产品决策实施；历史只读优先于原停用设想，无迁移、生产操作或发布授权。
   review_note: "2026-10-05：V1.0 Plan policy/命令/读模型、PLAN/scheduled 首次建批及前端边界完成；历史原值只读，不回填/降级，人工 Retest 保留独立冻结基线合同。后端111单元、30个独立PG/API用例、前端89+5目标用例、桌面真实栈1项、lint/type/contract/生成一致性和文档哈希通过；首轮测试准备/类型失败及纠正保留。fresh独立只读复核无阻断发现，审计Bundle校验通过。详情见Trellis implement/evidence；仅review，待人工接受，不提交/生产操作；GEO-1009/1010完整门禁与现场验证仍未执行。"
+  trellis_task: .trellis/tasks/10-05-geo-1005-cron-plan-boundary
+  validation_record: .trellis/tasks/10-05-geo-1005-cron-plan-boundary/implement.md
+  acceptance_record: 06-reviews/2026-10-07-v1-pr-acceptance.md
+  acceptance_note: "2026-10-07：依用户条件授权接受实现与验证；旧整分支/六项修复/入口/治理fresh复核及0b成功前序+8d2成功delivery及14dd/28/00/bd6/0b6/b254fresh复核组合。生产未知保留，1009/1010不自动接受。"
 - id: GEO-1006
   phase: R9A
   release: V1.0-manual-first
   title: 交付管理员显式 Opportunity 评估入口
-  status: review
+  status: done
   dependencies:
   - GEO-1002
   - GEO-702
@@ -1791,11 +1803,15 @@ tasks:
   audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
   scope_note: GEO-1006 已交付 ADMIN + CSRF 管理 API，复用 evaluator，无独立 CLI、操作页面、自动 Action/Retest 或周期接线；0066 加法回执迁移，不改既有历史。
   review_note: "2026-10-05：显式范围/窗口/revision/过滤/幂等键、冻结摘要、资格锁内重验和原子低敏审计完成；45个独立PG用例、121个后端单元和24个前端审计用例分轮最终通过，合同/类型/生成一致性/目标lint及文档hash通过。两轮fresh只读复核指出Runbook0065漂移，三处已统一0066；audit/commit故障证据已补齐，未知异常仍500并脱敏。审计Bundle校验通过；首轮写入证据unknown如实保留，第二轮源快照无写入。详见Trellis implement/evidence；仅review，待人工接受；未提交、部署或生产评估；GEO-1009/1010同候选及现场门禁保留。"
+  trellis_task: .trellis/tasks/10-05-geo-1006-manual-opportunity-evaluation
+  validation_record: .trellis/tasks/10-05-geo-1006-manual-opportunity-evaluation/implement.md
+  acceptance_record: 06-reviews/2026-10-07-v1-pr-acceptance.md
+  acceptance_note: "2026-10-07：依用户条件授权接受实现与验证；旧整分支/六项修复/入口/治理fresh复核及0b成功前序+8d2成功delivery及14dd/28/00/bd6/0b6/b254fresh复核组合。生产未知保留，1009/1010不自动接受。"
 - id: GEO-1007
   phase: R9A
   release: V1.0-manual-first
   title: V1.0 页面/API 能力真实性与操作说明对齐
-  status: planned
+  status: done
   dependencies:
   - GEO-1002
   - GEO-1005
@@ -1820,6 +1836,8 @@ tasks:
   - 06-reviews/GEO-1001-release-readiness-audit.md
   audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
   scope_note: 后续独立任务；本次 GEO-1002 只登记范围、依赖与验收，不开始实现或生产操作。
+  acceptance_record: 06-reviews/2026-10-07-v1-pr-acceptance.md
+  acceptance_note: "2026-10-07：依用户条件授权接受实现与验证；旧整分支/六项修复/入口/治理fresh复核及0b成功前序+8d2成功delivery及14dd/28/00/bd6/0b6/b254fresh复核组合。生产未知保留，1009/1010不自动接受。"
 - id: GEO-1008
   phase: R9A
   release: V1.0-manual-first
@@ -1852,7 +1870,7 @@ tasks:
   phase: R9A
   release: V1.0-manual-first
   title: 冻结 V1.0 候选与完整性验证证据
-  status: planned
+  status: in_progress
   dependencies:
   - GEO-1003
   - GEO-1004
@@ -1879,6 +1897,8 @@ tasks:
   - 06-reviews/GEO-1001-release-readiness-audit.md
   audit_source: 06-reviews/GEO-1001-release-readiness-audit.md
   scope_note: 后续独立任务；本次 GEO-1002 只登记范围、依赖与验收，不开始实现或生产操作。
+  trellis_task: .trellis/tasks/10-06-geo-1009-candidate-freeze
+  execution_note: "2026-10-07：PR代码接受和组合CI闭合；main固定门禁、真实镜像/archive/manifest/RC待执行，不代表现场验收。"
 - id: GEO-1010
   phase: R9A
   release: V1.0-manual-first

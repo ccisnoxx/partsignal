@@ -3,7 +3,7 @@
   "name": "geo-1009-candidate-freeze",
   "title": "GEO-1009：CI准入、整PR接受与RC候选冻结",
   "description": "固定0b232f2c运行一次CI；复用审查后接受整PR，合并main并执行一次clean main完整门禁；同commit冻结archive/images/manifest/RC，不替代生产验收",
-  "status": "blocked",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -21,7 +21,7 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "第五delivery37594203220已获用户针对0475a776的一次明确授权，实际FAILURE（14分1秒）：build/all deploy-scripts与32真实栈远端通过；后续GEO enabled在历史尝试错误码裸匹配处strict-mode失败，api-disabled/monitoring-disabled/fixture/末端Compose未执行。仅修geo-api spec一条断言为当前详情alert内完整阶段+错误码；真实enabled模式57.8秒exit0（1通过/1模式跳过）、真实Chromium旧locator误通过/双匹配反例与定向ESLint通过，源码hash绑定0475+dirty执行。固定b254b58a fresh独立复审APPROVE，该locator问题RESOLVED，无确认finding；审计关闭并通过。第六CI未授权、不自动触发；整PR未接受/仍Draft/mainRC未执行，恢复1008原接受保留。",
+  "notes": "用户再次明确允许本次delivery37598569164，固定8d2e528c远端成功；原0b/c6/d0/135d/0475五次FAILURE保留。输入未变的旧成功前序、fresh整PR与14dd/28/00/bd6/0b6/b254增量复核及新delivery成功组合完成PR代码准入与1002–1007实现接受。恢复1008原接受保留；下一步Ready/合并/一次clean main门禁。RC真实发布repository及已验证previous V2仍缺，生产未执行。",
   "meta": {
     "manifest_id": "GEO-1009",
     "ci_run_id": 37572374117,
@@ -42,7 +42,7 @@
     "staging_fix_script_sha256": "e5a7a3c50b6cbd2554299180fecc0ef262c0d1623588aa54614f258251389f2d",
     "staging_fix_independent_review": "APPROVE",
     "third_ci_dispatched": true,
-    "pr_code_accepted": false,
+    "pr_code_accepted": true,
     "staging_fix_commit": "00b4eca271c635c1fc4b6b0c5fbc08d1dfd680bd",
     "staging_review_ref": "evidence/independent-staging-review-00b4eca2.md",
     "third_ci_budget": "AUTHORIZED_ONE_DELIVERY_RUN_USED",
@@ -77,10 +77,15 @@
     "fifth_ci_conclusion": "failure",
     "fifth_ci_failure_step": "make e2e/geo-api enabled historical attempt strict locator",
     "geo_api_fix_review": "APPROVE",
-    "sixth_ci_dispatched": false,
+    "sixth_ci_dispatched": true,
     "geo_api_fix_commit": "b254b58a60ce7696533abd18b0a2bdb30b851d7e",
     "geo_api_fix_review_ref": "evidence/independent-geo-api-review-b254b58a.md",
     "geo_api_fix_finding": "RESOLVED",
-    "geo_api_review_audit_id": "20261007T085023Z-delivery-geo-selected-error-fixed-review-518b459f"
+    "geo_api_review_audit_id": "20261007T085023Z-delivery-geo-selected-error-fixed-review-518b459f",
+    "sixth_ci_budget": "AUTHORIZED_ONE_DELIVERY_RUN_USED",
+    "sixth_ci_run_id": 37598569164,
+    "sixth_ci_source_commit": "8d2e528cce0f804b224bf9b78e02bb2651f6ac62",
+    "sixth_ci_conclusion": "success",
+    "acceptance_record": "docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md"
   }
 }

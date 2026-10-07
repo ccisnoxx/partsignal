@@ -1,0 +1,25 @@
+{
+  "authorization_user_message": "批准请求（最新8d2e528c一次delivery CI授权请求）",
+  "authorization_scope": "当前固定HEAD追加一次delivery；输入未变的单元/PG/本地完整验证复用；成功后条件授权PR接受/main收口",
+  "expected_head_sha": "8d2e528cce0f804b224bf9b78e02bb2651f6ac62",
+  "checks_group": "delivery",
+  "started_at": "2026-10-07T09:08:41.115489+00:00",
+  "command": [
+    "gh",
+    "workflow",
+    "run",
+    "ci.yml",
+    "--repo",
+    "ccisnoxx/partsignal",
+    "--ref",
+    "geo/GEO-906",
+    "-f",
+    "checks_group=delivery"
+  ],
+  "status": "DISPATCH_RETURNED",
+  "ended_at": "2026-10-07T09:08:43.550902+00:00",
+  "exit_code": 0,
+  "stdout": "https://github.com/ccisnoxx/partsignal/actions/runs/37598569164\n",
+  "stderr": "",
+  "run_id": 37598569164
+}

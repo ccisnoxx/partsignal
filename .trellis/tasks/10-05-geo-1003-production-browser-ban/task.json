@@ -3,7 +3,7 @@
   "name": "geo-1003-production-browser-ban",
   "title": "GEO-1003 生产环境硬禁止 Browser Collection",
   "description": "生产 Settings/input checker/deploy/profile 硬禁止 Browser；保留本地骨架和合同",
-  "status": "review",
+  "status": "completed",
   "dev_type": "fullstack",
   "scope": null,
   "package": null,
@@ -11,12 +11,12 @@
   "creator": "777",
   "assignee": "777",
   "createdAt": "2026-10-05",
-  "completedAt": null,
+  "completedAt": "2026-10-07",
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
-  "pr_url": null,
+  "commit": "8d2e528cce0f804b224bf9b78e02bb2651f6ac62",
+  "pr_url": "https://github.com/ccisnoxx/partsignal/pull/1",
   "subtasks": [],
   "children": [],
   "parent": null,
@@ -51,12 +51,15 @@
     "docs/Hostdzire部署附录.md",
     "docs/Hostdzire部署上线流程.md"
   ],
-  "notes": "2026-10-05：实现与本地定向验证、独立只读复核完成；仅review，不自行done、提交或部署。全工作树diff check保留未改审计既存12处尾空格。",
+  "notes": "2026-10-05：实现与本地定向验证、独立只读复核完成；仅review，不自行done、提交或部署。全工作树diff check保留未改审计既存12处尾空格。 2026-10-07：依据用户条件授权、组合CI成功与独立审查，接受实现/本地验证并completed；生产及同main候选门禁不自动继承，接受记录见docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md。",
   "meta": {
     "manifest_id": "GEO-1003",
-    "delivery_status": "review",
+    "delivery_status": "done",
     "audit_id": "20261006T040310Z-geo-1003-production-browser-ban-8c250d3e",
     "independent_review_record": ".trellis/tasks/10-05-geo-1003-production-browser-ban/evidence/independent-review.md",
-    "validation_record": ".trellis/tasks/10-05-geo-1003-production-browser-ban/implement.md"
+    "validation_record": ".trellis/tasks/10-05-geo-1003-production-browser-ban/implement.md",
+    "accepted_commit": "8d2e528cce0f804b224bf9b78e02bb2651f6ac62",
+    "accepted_at": "2026-10-07T09:41:01.437699+00:00",
+    "acceptance_record": "docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md"
   }
 }

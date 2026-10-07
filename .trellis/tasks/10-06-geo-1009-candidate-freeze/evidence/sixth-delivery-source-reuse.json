@@ -1,0 +1,26 @@
+{
+  "checked_at": "2026-10-07T09:10:02.115839+00:00",
+  "previous_success_source": "0b232f2ce268c7e78836a2f2ce811c9eaa45944c",
+  "current_source": "8d2e528cce0f804b224bf9b78e02bb2651f6ac62",
+  "unchanged_previous_unit_pg_inputs": true,
+  "unchanged_application_migration_contract_dependencies": true,
+  "deployment_runtime_changed": false,
+  "e2e_source_reviewed_commits": [
+    "0b6e5aa01e8bd37e70433e0b7c9e3da1d31b6756",
+    "b254b58a60ce7696533abd18b0a2bdb30b851d7e"
+  ],
+  "e2e_review_conclusions": [
+    "APPROVE",
+    "APPROVE"
+  ],
+  "governance_only_after_geo_api_review": [
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/evidence/fifth-review-observed-writes.json",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/evidence/independent-geo-api-review-b254b58a.md",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/implement.md",
+    ".trellis/tasks/10-06-geo-1009-candidate-freeze/task.json"
+  ],
+  "ci_input_group": "delivery",
+  "new_runner_predecessor_tests_claimed": false,
+  "full_ci_claimed": false,
+  "status": "PASS"
+}

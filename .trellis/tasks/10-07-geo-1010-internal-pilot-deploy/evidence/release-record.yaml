@@ -52,7 +52,7 @@ configuration:
   external_services_gate_evidence_ref: null
   host_runtime_read_only_check: PASSED
   host_runtime_ref: /root/partsignal/shared/.env.production
-  ai_input_check: AI_CUSTOM_HEADERS_UNSUPPORTED
+  ai_input_check: AI_KEY_SET_MISMATCH_OLD_METADATA_FORMAT
   ai_input_ref: protected_local_dot_env_production_ai_json
   ai_initialization_confirmations_ready: false
   host_runtime_non_secret_flags_ref: fresh-rebuild-decision.json
@@ -144,7 +144,7 @@ final_acceptance:
   - AI_INITIALIZATION_INPUTS_NOT_READY
 template_source: docs/geo-monitoring/04-delivery/geo-906-release-record.template.yaml
 scope_note: Hostdzire清空重建：旧数据丢弃已批准，不隔离/保留；fresh工具及16项定向检查/独立复核完成。AI初始化交接、新完整候选Gate和现场阶段未完成；未停服/清空/部署，UAT未开始。
-candidate_full_gate: NOT_RUN_AFTER_FRESH_TOOLING_CHANGE
+candidate_full_gate: NOT_RUN_AFTER_OPTIONAL_HEADER_CHANGE
 deployment_performed: false
 production_go: false
 preparation_evidence_ref: preparation-checks.json
@@ -166,3 +166,14 @@ fresh_tooling:
   review_ref: fresh-init-review-final.md
   multi_agent_audit_id: 20261008T014655Z-hostdzire-fresh-rebuild-145a7537
   new_source_full_gate: NOT_RUN_LOCAL_DOCKER_UNAVAILABLE
+
+optional_bootstrap_headers:
+  commit: 4a4859b0e9737cf6e8da9bddb88d0580c8734ea9
+  optional: true
+  targeted_validation: PASSED
+  independent_review: PASSED_AFTER_CAPACITY_FIX
+  validation_ref: optional-bootstrap-headers-validation.json
+  review_ref: optional-bootstrap-headers-review-final.md
+  pg_integration: NOT_VERIFIED_11_SKIPPED
+  private_input_checklist: OLD_METADATA_FORMAT_UNCHANGED
+  multi_agent_audit_id: 20261008T023338Z-optional-bootstrap-headers-81760223

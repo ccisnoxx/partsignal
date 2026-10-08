@@ -2,7 +2,7 @@
   "id": "geo-1010-internal-pilot-deploy",
   "name": "geo-1010-internal-pilot-deploy",
   "title": "GEO-1010-DEPLOY：部署 MANUAL GEO 内部试运行环境",
-  "description": "Hostdzire现有站点直接清空重建；旧数据不隔离/不保留已授权，fresh工具/定向验证/独立复核完成并提交。AI初始化交接与新完整候选Gate未就绪，服务器未停服/清空/部署。",
+  "description": "Hostdzire现有站点直接清空重建；fresh工具及可选AI Header已实现、定向验证与独立复核完成并提交。AI初始化交接与新完整候选Gate未就绪，服务器未停服/清空/部署。",
   "status": "blocked",
   "dev_type": null,
   "scope": null,
@@ -21,7 +21,7 @@
   "children": [],
   "parent": "10-07-geo-1010-manual-pilot",
   "relatedFiles": [],
-  "notes": "2026-10-07：新会话启动授权已执行，准备核对完成；UI接受身份保留。DEPLOY blocked，必需输入见preparation.md；未冻结候选、未运行新SHA完整门禁、未部署，不可review/done。\n2026-10-07：用户确认Git授权，提交已接受UI、接受治理及DEPLOY准备到main并push/fetch；候选完整门禁待实际执行，目标输入仍缺。\n已按归属提交两笔main并push/fetch；候选1ed8c4af完整门禁exit2，GEO测试入口配置冲突另立独立缺陷记录，尚无正式release manifest。\n2026-10-07：新源码候选76d1d523完整门禁exit0；独立clean main checkout与archive已保存。未冻结完整release；目标五组输入缺失、未部署、UAT未开始。治理结果后续提交不冒充候选。\n2026-10-07当地：用户将现有站点方向纠正为直接清空重建，不隔离或保留旧数据；旧preview保留数据接管方案撤回。清理仅固定postgres/redis/objects内容，fresh-init发布路径实现中；受保护Host runtime只读检查PASSED，AI清单custom headers澄清待回复。\n2026-10-08T02:23:24.022958+00:00：fresh工具提交3811738db696724fa948ebb133b000889c933ca8；16项fresh检查及受影响旧路径通过，root mount缺口修正后独立复核关闭。Audit 20261008T014655Z-hostdzire-fresh-rebuild-145a7537已校验。基线76完整Gate仅作历史，本机Docker不可连接，新完整Gate未运行，AI初始化交接未就绪，无服务器写入。",
+  "notes": "2026-10-07：新会话启动授权已执行，准备核对完成；UI接受身份保留。DEPLOY blocked，必需输入见preparation.md；未冻结候选、未运行新SHA完整门禁、未部署，不可review/done。\n2026-10-07：用户确认Git授权，提交已接受UI、接受治理及DEPLOY准备到main并push/fetch；候选完整门禁待实际执行，目标输入仍缺。\n已按归属提交两笔main并push/fetch；候选1ed8c4af完整门禁exit2，GEO测试入口配置冲突另立独立缺陷记录，尚无正式release manifest。\n2026-10-07：新源码候选76d1d523完整门禁exit0；独立clean main checkout与archive已保存。未冻结完整release；目标五组输入缺失、未部署、UAT未开始。治理结果后续提交不冒充候选。\n2026-10-07当地：用户将现有站点方向纠正为直接清空重建，不隔离或保留旧数据；旧preview保留数据接管方案撤回。清理仅固定postgres/redis/objects内容，fresh-init发布路径实现中；受保护Host runtime只读检查PASSED，AI清单custom headers澄清待回复。\n2026-10-08T02:23:24.022958+00:00：fresh工具提交3811738db696724fa948ebb133b000889c933ca8；16项fresh检查及受影响旧路径通过，root mount缺口修正后独立复核关闭。Audit 20261008T014655Z-hostdzire-fresh-rebuild-145a7537已校验。基线76完整Gate仅作历史，本机Docker不可连接，新完整Gate未运行，AI初始化交接未就绪，无服务器写入。\n2026-10-08T02:44:47.207591+00:00：用户要求自定义Header可选；首次bootstrap/header T1加密/stdin路径已实施，unit58与scripts harness通过，PG11skip不作通过，独立复核进行中。未改私有输入清单或执行服务器写入。\n2026-10-08T02:54:30.568424+00:00：可选Header实现提交4a4859b0e9737cf6e8da9bddb88d0580c8734ea9；名称容量P2已在reader/Host提前拒绝，修后unit60/Host7/输入预检5正44负及定向static/type通过；独立修正复核关闭P2。PG11skip不作通过，Audit81760223校验闭合；私有清单及Host未写入。",
   "meta": {
     "display_id": "GEO-1010-DEPLOY",
     "manifest_id": null,
@@ -58,7 +58,7 @@
     ],
     "git_publication_authorized_at": "2026-10-07T17:19:07.470277+00:00",
     "git_publication_authorization": "current_conversation_user: commit accepted UI, acceptance governance and DEPLOY preparation to main; push, fetch and fix new candidate",
-    "candidate_full_gate": "NOT_RUN_AFTER_FRESH_TOOLING_CHANGE",
+    "candidate_full_gate": "NOT_RUN_AFTER_OPTIONAL_HEADER_CHANGE",
     "candidate_source_frozen": false,
     "candidate_evidence_ref": null,
     "clean_candidate_checkout": null,
@@ -67,7 +67,7 @@
     "old_data_restore_required": false,
     "previous_v2_required_for_fresh_init": false,
     "host_runtime_read_only_check": "PASSED",
-    "ai_input_check": "AI_CUSTOM_HEADERS_UNSUPPORTED",
+    "ai_input_check": "AI_KEY_SET_MISMATCH_OLD_METADATA_FORMAT",
     "application_baseline_commit": "76d1d523b87816ba2ce52a2fc6a679144b5dab06",
     "application_baseline_full_gate": "PASSED",
     "fresh_init_tooling_commit": "3811738db696724fa948ebb133b000889c933ca8",
@@ -89,11 +89,17 @@
     "blocked_input_details": {
       "TARGET": "主机/域名/project/清空路径已选定；限定人群、访问边界及smoke范围需现场操作包记录",
       "IMAGES": "明确Hostdzire原生linux/amd64构建/local交付；镜像身份/正式manifest未生成",
-      "RUNTIME": "受保护runtime结构通过；AI Header需求和凭据交接未就绪，GEO enable基线需受控配置变更",
+      "RUNTIME": "受保护runtime结构通过；Header已明确为可选并实现，私有旧清单待按新元数据格式更新，凭据交接未就绪，GEO enable基线需受控配置变更",
       "STAGES": "新候选Gate、操作窗口/责任人及内部enable/切流范围待闭合",
       "RECOVERY": "旧隔离/备份恢复/previous V2不适用；fresh安全停止/新安装路径已准备，目标停止演练未执行"
     },
     "application_baseline_evidence_ref": "evidence/candidate-source-verification.json",
-    "application_baseline_clean_checkout": "/Users/sc/.codex/reviews/partsignal/geo1010-candidate-gate-20261007T175603Z-cp9lgugz/source-checkout"
+    "application_baseline_clean_checkout": "/Users/sc/.codex/reviews/partsignal/geo1010-candidate-gate-20261007T175603Z-cp9lgugz/source-checkout",
+    "ai_custom_headers_contract": "OPTIONAL_IMPLEMENTED",
+    "ai_custom_headers_review": "PASSED_AFTER_CAPACITY_FIX",
+    "optional_headers_validation_ref": "evidence/optional-bootstrap-headers-validation.json",
+    "optional_headers_audit_id": "20261008T023338Z-optional-bootstrap-headers-81760223",
+    "optional_headers_implementation_commit": "4a4859b0e9737cf6e8da9bddb88d0580c8734ea9",
+    "optional_headers_audit_validation": "PASSED"
   }
 }

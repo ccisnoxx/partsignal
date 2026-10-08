@@ -63,4 +63,4 @@ Git授权已执行，修正测试模式冲突后的源码候选`76d1d523b87816ba
 
 ## 清空重建工具准备结果（当前）
 
-fresh-init/reset-data及fresh manifest已实现，工具提交`3811738db696724fa948ebb133b000889c933ca8`；16项fresh及受影响旧发布/恢复检查通过。root bind缺口已修正并独立确认，见[清空重建准备](./hostdzire-fresh-rebuild.md)。旧隔离/备份恢复/previous V2不适用。新完整Gate未运行，本机Docker不可连接；AI Header需求及owner/TTY交接、GEO enable基线和现场操作阶段待闭合，无服务器停服/删除/部署。
+fresh-init/reset-data及fresh manifest已实现，工具提交`3811738db696724fa948ebb133b000889c933ca8`；16项fresh及受影响旧发布/恢复检查通过。root bind缺口已修正并独立确认，见[清空重建准备](./hostdzire-fresh-rebuild.md)。旧隔离/备份恢复/previous V2不适用。新完整Gate未运行，本机Docker不可连接；自定义Header已按用户要求实现为可选，见[Header合同](./optional-bootstrap-headers.md)；私有清单格式及owner/TTY交接、GEO enable基线和现场操作阶段待闭合，无服务器停服/删除/部署。

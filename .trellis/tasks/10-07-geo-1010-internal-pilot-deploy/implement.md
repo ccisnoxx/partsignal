@@ -79,3 +79,10 @@ TARGET/IMAGES/RUNTIME/STAGES/RECOVERY仍无实际值或引用，DEPLOY保持bloc
 [初次验证](./evidence/fresh-init-script-validation.json)和[修正验证](./evidence/fresh-init-root-mount-validation.json)保存命令/退出码/带SHA日志：13项fresh及3项root挂载检查最终通过；旧Production scripts harness、recovery19/failure7/registry4/signal组成功证据复用。初次root bind P1修正后[最终独立复核](./evidence/fresh-init-review-final.md)关闭阻断；Audit `20261008T014655Z-hostdzire-fresh-rebuild-145a7537`已校验。文档JSON/YAML/链接检查通过；系统Python缺YAML后使用已有backend venv，未安装依赖。
 
 Host只读runtime结构检查及Linux mountinfo解析通过；仅concurrency=1，GEO项省略。AI Header需求及凭据ready/owner/TTY/编码上界未闭合，不修改私有清单、不读取Key。新完整Gate未运行：本机Docker socket不可连接，不调用必然失败的make verify；旧76完整通过不冒充新工具。后续补齐输入与Docker门禁环境，固定新main并完成Gate/Host构建/manifest后推进同候选现场阶段。服务器尚未停服/清空/部署，UAT未开始。
+
+
+## 可选 Header 首次初始化
+
+按用户明确要求，配置中心既有 Header 能力扩展到首次 Production bootstrap，默认省略/空数组；使用现有校验、敏感加密和 T1/T2/T3，无 HTTP API/DB schema/UI 变化。实现提交 `4a4859b0e9737cf6e8da9bddb88d0580c8734ea9`，合同见[可选Header](./optional-bootstrap-headers.md)。Host 名称参数可选，值 no-echo TTY/stdin 交接，预检与完整大小检查早于 STARTED。
+
+独立初次复核发现名称161字符可超过varchar160，已补真实输入边界回归并修正，修正复核关闭P2。最终unit60、Host7、输入预检5正/44负、定向mypy/Ruff通过；原全scripts成功证据复用，PG实际11skip/7deselect不作通过。具体命令/hash/限制见[验证](./evidence/optional-bootstrap-headers-validation.json)和[修正复核](./evidence/optional-bootstrap-headers-review-final.md)。Audit81760223已闭合校验。私有旧清单未猜测改写，owner/TTY/预算及现场基线仍待闭合；新完整候选Gate未运行，没有Actions派发或Host写入。

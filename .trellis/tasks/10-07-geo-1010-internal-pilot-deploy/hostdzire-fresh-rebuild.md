@@ -29,7 +29,7 @@
 
 fresh-init/reset-data已实现并完成16项fresh检查，受影响旧Production/upgrade检查通过。root同device bind缺口已修正并独立确认，见[初次复核](./evidence/fresh-init-review-initial.md)、[修正验证](./evidence/fresh-init-root-mount-validation.json)及[最终复核](./evidence/fresh-init-review-final.md)。旧状态缺失及0043存量升级不作为本次阻断。
 
-现有`.env.production.ai.json`已找到且为0600；只读AI准备检查失败为`AI_CUSTOM_HEADERS_UNSUPPORTED`。清单声明需要自定义HTTP Header，已请求用户澄清是误填还是供应商真实要求；不自动改为false、不发送真实provider请求、不索取聊天凭据。清单同时尚未确认凭据已备妥、交接负责人、TTY交接及非secret编码大小上界；不读取或索取真实Key。当前新安装输入未就绪，不进入维护和清空。Host runtime仅声明concurrency=1，五项GEO/retention项省略；文件声明不等于三个进程实际基线。GEO enable须按PRD准备受控配置变更，不轮换secret。
+用户已明确自定义Header应为可选，首次bootstrap路径已补齐，见[可选Header合同](./optional-bootstrap-headers.md)和[定向验证](./evidence/optional-bootstrap-headers-validation.json)。现有`.env.production.ai.json`为0600且未改写；其旧`custom_headers_required`布尔值不能推导真实Header配置，新检查返回`AI_KEY_SET_MISMATCH`，需按新版可选元数据格式更新。凭据备妥、交接负责人、TTY交接及非secret编码大小上界仍未确认；不读取或索取真实Key。当前新安装输入未就绪，不进入维护和清空。Host runtime仅声明concurrency=1，五项GEO/retention项省略；文件声明不等于三个进程实际基线。GEO enable须按PRD准备受控配置变更，不轮换secret。
 
 ## 已执行边界
 

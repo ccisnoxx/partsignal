@@ -1,6 +1,6 @@
 # Hostdzire 直接构建与部署执行记录
 
-当前用户再次明确 GitHub Actions 不需要运行，目标为 Hostdzire 现有站点。按既有部署授权直接使用 `hostdzire` SSH 别名交付固定源码并在主机原生构建，不调用 Actions、不重新索取 Git 或清空授权。用户已经批准清空固定 PartSignal 数据；已核对现有本地配置并完成Production runtime受控交付；OSS读写正常，但Bucket公开读取与CORS待确认，AI上线后UI配置方式已获选择、owner移交实现与定向验证/独立复核完成，新候选准备中，尚未进入维护、停服、清空和应用安装。
+当前用户再次明确 GitHub Actions 不需要运行，目标为 Hostdzire 现有站点。按既有部署授权直接使用 `hostdzire` SSH 别名交付固定源码并在主机原生构建，不调用 Actions、不重新索取 Git 或清空授权。用户已经批准清空固定 PartSignal 数据；已核对现有本地配置并完成Production runtime受控交付；OSS读写正常；已确认对象私有 ACL 可保持共享 Bucket 全局设置，AI上线后UI配置方式已获选择，owner移交候选688f1ef5完整门禁通过，正在固定私有上传修正的新候选，尚未进入维护、停服、清空和应用安装。
 
 ## 已完成
 
@@ -30,6 +30,12 @@
 
 Host工件仍绑定852c6d5e、位于`/root/partsignal/releases/pilot-20261008-030536-852c6d5e`。consumer、Compose和修正配置的真实backend production preflight均通过。上述配置交付没有改变应用源码或镜像，复用852c6d5e的既有Gate；随后用户的UI配置选择需要调整部署owner，正在准备新候选与相应验证。不触发Actions。
 
-runtime已交付，原Nginx未改；Production cutover state仍不存在。未停止旧服务、未删除数据、未迁移目标库、未激活新Worker/Scheduler或切换公网。Bucket权限范围闭合、显式admin-ui移交路径实施/复核并固定新候选后继续现场阶段；AI初始化留给上线后管理界面，不假填bootstrap成功。DEPLOY保持blocked，UAT planned/未开始，没有部署验收、人工接受或Production Go。
+runtime已交付，原Nginx未改；Production cutover state仍不存在。未停止旧服务、未删除数据、未迁移目标库、未激活新Worker/Scheduler或切换公网。对象私有上传修正完成独立复核并固定新候选后继续现场阶段；AI初始化留给上线后管理界面，不假填bootstrap成功。DEPLOY恢复in_progress，UAT planned/未开始，没有部署验收、人工接受或Production Go。
 
 原构建/完整Gate证据见[直接构建执行证据](./evidence/hostdzire-direct-build-execution.json)；本次配置比较、地域诊断、真实读写/权限结果与原子安装见[运行配置执行证据](./evidence/hostdzire-runtime-config-execution.json)。
+
+## 688f1ef5 完整门禁与对象权限修正
+
+AI管理界面移交候选688f1ef5在04:54:53Z–05:32:14Z完整执行原wrapper/make verify，exit0、2241.27秒，前后clean且HEAD=origin/main，env摘要未变，见[完整Gate](./evidence/admin-ui-candidate-full-gate.json)。该SHA的Host原生backend/frontend构建、manifest、生产输入与consumer通过，未切换旧站。
+
+旧应用PUT继承Bucket公开ACL的匿名200失败证据保留。05:33后限定私有对象实验验证同次PUT header设置private、签名200、匿名/到期/未来期限的无效签名403、精确删除，Bucket全局ACL前后相同；无需旧Bucket全局修改批准，CORS在当前同源上传/新窗口下载流程不适用。应用权威storage.put新增该header，现有测试先失败再通过；最终新Host镜像仍须重验真实应用边界。没有改共享Bucket ACL/CORS，也不改已有对象。

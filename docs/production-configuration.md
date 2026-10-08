@@ -77,6 +77,8 @@ GEO-1003 的生产部署、激活和前端回滚脚本在取得维护锁、改�
 
 权威 production Compose 不包含 Browser service/profile/session 卷；显式 `geo-browser`、`COMPOSE_PROFILES=geo-browser` 或 `--profile '*'` 展开也不会产生 Browser 服务。两个 Browser Compose 文件仅供非 production，独立 Collector 在 production 身份下先于 Chromium 启动拒绝。禁止通过手工多文件 Compose 绕过权威部署入口；非生产骨架与 GEO-801～803 本地合同继续保留，没有真实 Adapter。release manifest producer/consumer 当前固定14项tracked files，包含输入检查、迁移运行时、部署/supervisor模块与清空边界owner；旧manifest不自动兼容。[ADR-008](./geo-monitoring/05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)将UI完成后新候选的门禁、工件和冻结归属GEO-1010-DEPLOY；目标Browser零服务/零会话材料仍须独立现场证据。
 
+应用在服务端 PUT 时原子指定对象 ACL 为 private，保护当前安装上传的 INTERNAL/PUBLIC 对象；共享 Bucket 可保留既有全局 ACL，不能以本项目部署为由修改其他项目对象或 Bucket CORS。真实 Gate 必须证明签名读取成功、匿名/到期/无效签名拒绝，并删除本次测试对象。
+
 开发专用 `OBJECT_STORAGE_ENDPOINT`、`OBJECT_STORAGE_PUBLIC_ENDPOINT`、`OBJECT_STORAGE_PATH` 在开发模板中完整列出，生产 Aliyun OSS 不使用这三项。Production 不增加 `fake-oss`、`19001` 或 `/object-storage/`。
 
 宿主机单独运行前端 Vite 时，开发代理的实际输入是进程环境 `VITE_API_PROXY_TARGET`；例如连接 Dev Compose 暴露的 API 时显式设置 `VITE_API_PROXY_TARGET=http://localhost:18000`。Dev Compose 已直接向 frontend 注入 `http://api:8000`。根目录 `.env` 不会自动传给宿主机 Vite。

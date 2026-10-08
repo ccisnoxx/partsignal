@@ -43,7 +43,7 @@ AI 请求只连接经过校验的公网地址，TLS 身份与 Host 使用渠道�
 
 只有作业输入完整且绑定事实快照的全部 Evidence 均为 `PUBLIC` 时才允许出站。供应商已接收但 Worker 丢失的作业只标记失败，不自动再次调用。
 
-生产文件存储必须显式使用 `OBJECT_STORAGE_BACKEND=aliyun_oss` 并注入受控凭据。上线前必须验证同站点后端上传、服务端 OSS PUT、HEAD complete 和短期下载 URL；浏览器跨域读取下载字节时才核对所需 GET CORS。应用上传不要求 Bucket CORS 管理权限；配置错误不得回退到开发存储。
+生产文件存储必须显式使用 `OBJECT_STORAGE_BACKEND=aliyun_oss` 并注入受控凭据。上线前必须验证同站点后端上传、服务端 OSS PUT、HEAD complete 和短期下载 URL；浏览器跨域读取下载字节时才核对所需 GET CORS。所有 Aliyun OSS 对象在 PUT 同次写入 `x-oss-object-acl: private`，不继承共享 Bucket 的公开 ACL；`PUBLIC` 文件分类表示业务使用资格，预览和下载仍走限时签名。应用上传不要求 Bucket 全局 ACL/CORS 管理权限；配置错误不得回退到开发存储。
 
 ## 生成恢复与历史门禁
 

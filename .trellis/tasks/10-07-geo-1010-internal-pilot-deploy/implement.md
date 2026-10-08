@@ -96,3 +96,7 @@ Host只读runtime结构检查及Linux mountinfo解析通过；仅concurrency=1�
 ### admin-ui初始化方式实施与独立复核
 
 按用户“新站上线后在管理界面配置AI”的明确选择，owner新增同锁、同候选的显式defer-ai-configuration，首次激活以OSS_MET_AI_PENDING区分实际OSS通过与AI待配置；upgrade保持完整Gate，任何已有/畸形bootstrap attempt不可绕过。9项CLI/state及production scripts harness通过；fresh独立复核无代码阻断，operations文档P2由主代理修正。真实PG临时库迁移0066后同一空集探针返回EMPTY，库已精确删除；初次基础库无表失败保留为环境事实。详见[定向验证](./evidence/admin-ui-ai-handoff-validation.json)与[独立复核](./evidence/admin-ui-ai-handoff-review.md)。新候选冻结与完整Gate/Host构建尚未执行，原852工件不可冒充新部署owner已交付。Bucket权限范围仍待回复，旧站未停服/清空/迁移/切流。
+
+## AI移交完整Gate通过和权限范围收敛
+
+固定688f1ef5完整wrapper于04:54:53Z–05:32:14Z exit0、工作树与env身份未变，Host原生构建/manifest/preflight通过。对象private原子PUT实验证明签名200、匿名/到期/无效签名403、删除完成且Bucket不变；此前要求修改整个Bucket范围过大，已撤销该前提，不把未答复视为授权。最小应用修正与独立复核正在完成，DEPLOY恢复in_progress。旧站仍运行，尚未清空或切换。

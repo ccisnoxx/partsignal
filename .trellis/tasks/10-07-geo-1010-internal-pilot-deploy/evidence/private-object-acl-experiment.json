@@ -1,0 +1,31 @@
+{
+  "observed_at": "2026-10-08T05:30:43.837236+00:00",
+  "release_id": "pilot-20261008-045337-688f1ef5",
+  "commit": "688f1ef5c8a76802a4b534e5d8d9900d54effeae",
+  "runtime_sha256": "9a84ee70df2fc404801716ebd4981754e22874c01c72465f51a232bbe52cbf60",
+  "probe_exit_code": 0,
+  "actual_oss": {
+    "object_key_sha256": "baf698366d1a3d394bfefe3a41fc6e7646419077cb221a6fbe64a61195789fe4",
+    "ai_key_read": false,
+    "database_writes": false,
+    "bucket_configuration_changed": false,
+    "cors": "NOT_APPLICABLE_CURRENT_APP_FLOWS",
+    "object_acl": "private",
+    "bucket_acl_before": "public-read",
+    "server_put": "PASSED",
+    "head_metadata": "PASSED",
+    "signed_get_status": 200,
+    "signed_read_content": "PASSED",
+    "anonymous_get_status": 403,
+    "expired_signed_get_status": 403,
+    "expiry_rejection": "PASSED",
+    "invalid_signature_get_status": 403,
+    "invalid_signature_rejection": "PASSED",
+    "bucket_acl_after": "public-read",
+    "read_write_expiry": "PASSED",
+    "private_access_control": "PASSED",
+    "test_object_cleanup": "PASSED"
+  },
+  "overall_storage_gate": "PASSED",
+  "evidence_kind": "LIMITED_SDK_EXPERIMENT_NOT_FINAL_APP_GATE"
+}

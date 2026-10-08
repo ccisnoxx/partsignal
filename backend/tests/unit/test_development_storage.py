@@ -113,8 +113,8 @@ def test_aliyun_storage_requires_explicit_credentials() -> None:
         ) = original
 
 
-def test_aliyun_storage_put_and_delete_reuse_existing_bucket() -> None:
-    """服务端导入和清理复用同一 OSS Bucket，不创建第二套客户端。"""
+def test_aliyun_storage_put_is_private_and_delete_reuses_existing_bucket() -> None:
+    """PUT 原子指定私有对象，签名访问不能继承共享 Bucket 的公开 ACL。"""
     storage = object.__new__(AliyunOssEvidenceStorage)
     storage.bucket = Mock()
     storage.put(
@@ -127,7 +127,11 @@ def test_aliyun_storage_put_and_delete_reuse_existing_bucket() -> None:
     storage.bucket.put_object.assert_called_once_with(
         "production/platform_logo/logo.png",
         b"logo",
-        headers={"Content-Type": "image/png", "x-oss-meta-sha256": "a" * 64},
+        headers={
+            "Content-Type": "image/png",
+            "x-oss-meta-sha256": "a" * 64,
+            "x-oss-object-acl": "private",
+        },
     )
     storage.bucket.delete_object.assert_called_once_with(
         "production/platform_logo/logo.png"

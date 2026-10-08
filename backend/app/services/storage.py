@@ -205,7 +205,12 @@ class AliyunOssEvidenceStorage:
             self.bucket.put_object(
                 object_key,
                 data,
-                headers={"Content-Type": content_type, "x-oss-meta-sha256": sha256},
+                # 私有权限随 PUT 原子写入，避免继承共享 Bucket 的公开 ACL。
+                headers={
+                    "Content-Type": content_type,
+                    "x-oss-meta-sha256": sha256,
+                    "x-oss-object-acl": "private",
+                },
             )
         except oss2.exceptions.OssError as error:
             raise StorageUnavailable("阿里云 OSS PUT 请求失败") from error

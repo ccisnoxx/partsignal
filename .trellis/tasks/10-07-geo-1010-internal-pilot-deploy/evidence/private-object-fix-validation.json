@@ -1,0 +1,36 @@
+{
+  "evidence_source": "parent_observed_tool_results",
+  "source_sha256": {
+    "backend/app/services/storage.py": "90d83704403dc78024cb6d5777a300e35d3a99544fccd6839b752b2c914a09bc",
+    "backend/tests/unit/test_development_storage.py": "6db79c7ec3fdacb447cc13b184b74cbd12723306e8f6e3d5c94be1519d98ed26"
+  },
+  "pre_fix_regression": {
+    "command": "backend/.venv/bin/pytest backend/tests/unit/test_development_storage.py -k put_is_private",
+    "exit_code": 1,
+    "failed": 1,
+    "deselected": 5,
+    "failure_reason": "实际 PUT headers 缺少预期 x-oss-object-acl:private；原始终端结果已在会话工具输出，未保存完整独立原始日志"
+  },
+  "after_fix_checks": [
+    {
+      "command": "backend/.venv/bin/pytest backend/tests/unit/test_development_storage.py",
+      "exit_code": 0,
+      "passed": 6
+    },
+    {
+      "command": "backend/.venv/bin/ruff check backend",
+      "exit_code": 0
+    },
+    {
+      "command": "backend/.venv/bin/mypy --config-file backend/pyproject.toml backend/app/services/storage.py",
+      "exit_code": 0
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0
+    }
+  ],
+  "configuration_diagnostics": "从仓库根显式传 Ruff config 改变第一方 import 分类；使用 Makefile 权威 ruff check backend 已通过。最初无config mypy 缺oss2 typed声明，显式使用项目mypy覆盖后通过；未修改第三方或无关 imports。",
+  "final_candidate_full_gate": "WILL_RUN_ON_FINAL_FIXED_COMMIT",
+  "new_host_image_gate": "NOT_RUN_YET"
+}

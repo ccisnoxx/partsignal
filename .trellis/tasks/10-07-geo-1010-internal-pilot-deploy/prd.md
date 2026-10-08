@@ -83,3 +83,7 @@ Scheduler 只运行既有分析恢复、过期采集 lease 恢复、PENDING 分�
 ## Hostdzire 直接构建与当前现场状态（2026-10-08 UTC）
 
 源码852c6d5e完整本地Gate及Hostdzire镜像/manifest通过；现有env已核对，正确OSS地域与Production runtime已受控交付。真实OSS上传/HEAD/签名读取成功，但Bucket公开读取及CORS范围待确认，AI上线后管理UI配置已获选择、部署owner移交实现与定向验证/独立复核完成，新候选准备中；尚未维护、清空、迁移或切换。当前以[直接执行记录](./hostdzire-direct-build.md)和[配置执行证据](./evidence/hostdzire-runtime-config-execution.json)为准；此前404/NoSuchBucket是旧服务器配置的历史失败，不是缺少现有本地配置。配置交付本身未改应用源码/镜像；新增部署owner须新候选验证，旧完整Gate仅作历史。Actions不要求且未触发。DEPLOY blocked，UAT未开始。
+
+## 当前授权和门禁进度（2026-10-08 05:40Z）
+
+用户明确选择上线后管理界面配置AI，688f1ef5包含该移交路径的完整候选Gate已通过，证据见[688完整Gate](./evidence/admin-ui-candidate-full-gate.json)。共享Bucket全局ACL/CORS修改不再是必要输入：同次PUT私有对象权限可保护本项目新上传，真实限定实验已证实且未修改全局权限，应用修正与独立复核中。DEPLOY恢复in_progress；最终冻结新候选仍执行原完整wrapper/make verify，688通过只保留为基线历史；新Host镜像额外重验真实应用OSS边界。现场维护/清空/部署未执行，UAT和完整AI业务验收仍待上线后配置。

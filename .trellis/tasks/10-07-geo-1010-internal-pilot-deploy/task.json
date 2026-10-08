@@ -2,8 +2,8 @@
   "id": "geo-1010-internal-pilot-deploy",
   "name": "geo-1010-internal-pilot-deploy",
   "title": "GEO-1010-DEPLOY：部署 MANUAL GEO 内部试运行环境",
-  "description": "正确runtime已交付，OSS读写成功但Bucket权限范围待确认；admin-ui AI初始化移交实现与定向验证/独立复核已完成，准备新固定候选。旧站尚未清空或切换，UAT未开始。",
-  "status": "blocked",
+  "description": "688f1ef5完整Gate/Host构建通过；以原子private对象PUT修正访问控制，无需Bucket全局变更。新站上线后由用户管理界面配置AI，正在固定最终候选并推进Hostdzire清空重建。",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -21,7 +21,7 @@
   "children": [],
   "parent": "10-07-geo-1010-manual-pilot",
   "relatedFiles": [],
-  "notes": "2026-10-07：新会话启动授权已执行，准备核对完成；UI接受身份保留。DEPLOY blocked，必需输入见preparation.md；未冻结候选、未运行新SHA完整门禁、未部署，不可review/done。\n2026-10-07：用户确认Git授权，提交已接受UI、接受治理及DEPLOY准备到main并push/fetch；候选完整门禁待实际执行，目标输入仍缺。\n已按归属提交两笔main并push/fetch；候选1ed8c4af完整门禁exit2，GEO测试入口配置冲突另立独立缺陷记录，尚无正式release manifest。\n2026-10-07：新源码候选76d1d523完整门禁exit0；独立clean main checkout与archive已保存。未冻结完整release；目标五组输入缺失、未部署、UAT未开始。治理结果后续提交不冒充候选。\n2026-10-07当地：用户将现有站点方向纠正为直接清空重建，不隔离或保留旧数据；旧preview保留数据接管方案撤回。清理仅固定postgres/redis/objects内容，fresh-init发布路径实现中；受保护Host runtime只读检查PASSED，AI清单custom headers澄清待回复。\n2026-10-08T02:23:24.022958+00:00：fresh工具提交3811738db696724fa948ebb133b000889c933ca8；16项fresh检查及受影响旧路径通过，root mount缺口修正后独立复核关闭。Audit 20261008T014655Z-hostdzire-fresh-rebuild-145a7537已校验。基线76完整Gate仅作历史，本机Docker不可连接，新完整Gate未运行，AI初始化交接未就绪，无服务器写入。\n2026-10-08T02:44:47.207591+00:00：用户要求自定义Header可选；首次bootstrap/header T1加密/stdin路径已实施，unit58与scripts harness通过，PG11skip不作通过，独立复核进行中。未改私有输入清单或执行服务器写入。\n2026-10-08T02:54:30.568424+00:00：可选Header实现提交4a4859b0e9737cf6e8da9bddb88d0580c8734ea9；名称容量P2已在reader/Host提前拒绝，修后unit60/Host7/输入预检5正44负及定向static/type通过；独立修正复核关闭P2。PG11skip不作通过，Audit81760223校验闭合；私有清单及Host未写入。\n2026-10-08T03:53:08.400635+00:00：按用户再次纠正直接在Hostdzire构建；源码852c6d5e与fresh工件已生成，完整本地Gate exit0。真实OSS HEAD 404/NoSuchBucket；AI配置选择待回复。原站公网200，未停服/清空/迁移/切换。\n2026-10-08T04:25:37.469841+00:00：现有env已核对并修正OSS地域，Production runtime原子交付且内部secret/DB身份保留。真实PUT/HEAD/签名GET通过、匿名GET200，Bucket public-read/无CORS；权限范围及AI初始化方式待回复，旧站未切换。\n2026-10-08T04:34:09.939561+00:00：用户选择新站上线后管理界面配置AI。首次安装无需凭据owner/TTY输入；必须由候选绑定的owner显式移交，不伪造AI Gate/成功attempt。\n2026-10-08T04:50:24.315596+00:00：admin-ui移交9项/harness/static通过，fresh独立复核未发现代码阻断、operations文档P2已修正；真实临时PG迁移0066的只读空集探针通过且临时库删除。新候选完整Gate/Host交付尚未执行，Bucket scope仍待回复，无旧站停服/删除。",
+  "notes": "2026-10-07：新会话启动授权已执行，准备核对完成；UI接受身份保留。DEPLOY blocked，必需输入见preparation.md；未冻结候选、未运行新SHA完整门禁、未部署，不可review/done。\n2026-10-07：用户确认Git授权，提交已接受UI、接受治理及DEPLOY准备到main并push/fetch；候选完整门禁待实际执行，目标输入仍缺。\n已按归属提交两笔main并push/fetch；候选1ed8c4af完整门禁exit2，GEO测试入口配置冲突另立独立缺陷记录，尚无正式release manifest。\n2026-10-07：新源码候选76d1d523完整门禁exit0；独立clean main checkout与archive已保存。未冻结完整release；目标五组输入缺失、未部署、UAT未开始。治理结果后续提交不冒充候选。\n2026-10-07当地：用户将现有站点方向纠正为直接清空重建，不隔离或保留旧数据；旧preview保留数据接管方案撤回。清理仅固定postgres/redis/objects内容，fresh-init发布路径实现中；受保护Host runtime只读检查PASSED，AI清单custom headers澄清待回复。\n2026-10-08T02:23:24.022958+00:00：fresh工具提交3811738db696724fa948ebb133b000889c933ca8；16项fresh检查及受影响旧路径通过，root mount缺口修正后独立复核关闭。Audit 20261008T014655Z-hostdzire-fresh-rebuild-145a7537已校验。基线76完整Gate仅作历史，本机Docker不可连接，新完整Gate未运行，AI初始化交接未就绪，无服务器写入。\n2026-10-08T02:44:47.207591+00:00：用户要求自定义Header可选；首次bootstrap/header T1加密/stdin路径已实施，unit58与scripts harness通过，PG11skip不作通过，独立复核进行中。未改私有输入清单或执行服务器写入。\n2026-10-08T02:54:30.568424+00:00：可选Header实现提交4a4859b0e9737cf6e8da9bddb88d0580c8734ea9；名称容量P2已在reader/Host提前拒绝，修后unit60/Host7/输入预检5正44负及定向static/type通过；独立修正复核关闭P2。PG11skip不作通过，Audit81760223校验闭合；私有清单及Host未写入。\n2026-10-08T03:53:08.400635+00:00：按用户再次纠正直接在Hostdzire构建；源码852c6d5e与fresh工件已生成，完整本地Gate exit0。真实OSS HEAD 404/NoSuchBucket；AI配置选择待回复。原站公网200，未停服/清空/迁移/切换。\n2026-10-08T04:25:37.469841+00:00：现有env已核对并修正OSS地域，Production runtime原子交付且内部secret/DB身份保留。真实PUT/HEAD/签名GET通过、匿名GET200，Bucket public-read/无CORS；权限范围及AI初始化方式待回复，旧站未切换。\n2026-10-08T04:34:09.939561+00:00：用户选择新站上线后管理界面配置AI。首次安装无需凭据owner/TTY输入；必须由候选绑定的owner显式移交，不伪造AI Gate/成功attempt。\n2026-10-08T04:50:24.315596+00:00：admin-ui移交9项/harness/static通过，fresh独立复核未发现代码阻断、operations文档P2已修正；真实临时PG迁移0066的只读空集探针通过且临时库删除。新候选完整Gate/Host交付尚未执行，Bucket scope仍待回复，无旧站停服/删除。\n2026-10-08 05:40Z：688f1ef5完整Gate通过；私有对象实验通过、共享Bucket全局设置不变，旧Bucket批准问题已被限定应用修正替代，DEPLOY恢复in_progress。",
   "meta": {
     "display_id": "GEO-1010-DEPLOY",
     "manifest_id": null,
@@ -39,9 +39,9 @@
     "session_start_authorized_at": "2026-10-07T16:52:04Z",
     "deployment_performed": false,
     "candidate_frozen": false,
-    "execution_phase": "admin_ui_handoff_reviewed_new_candidate_preparation_bucket_scope_pending",
+    "execution_phase": "private_object_upload_fix_review_final_candidate_preparation",
     "preparation_recorded_at": "2026-10-07T17:08:44.014304+00:00",
-    "candidate_commit": "852c6d5ea4bb6da99d4bd843271eb6634d84a3f1",
+    "candidate_commit": "688f1ef5c8a76802a4b534e5d8d9900d54effeae",
     "target_environment": "hostdzire-existing-site",
     "target_deployment_path": "fresh_init_discard_existing_data",
     "target_selection_authorization": "current_conversation_user: 不需要隔离之前部署的，也不需要保留数据，因为是推到重来",
@@ -49,14 +49,12 @@
     "target_upgrade_plan_ref": "hostdzire-fresh-rebuild.md",
     "target_observed_schema_head": "0043_geo_platform_identity",
     "target_production_state_file_exists": false,
-    "blocked_input_ids": [
-      "RUNTIME"
-    ],
+    "blocked_input_ids": [],
     "git_publication_authorized_at": "2026-10-07T17:19:07.470277+00:00",
     "git_publication_authorization": "current_conversation_user: commit accepted UI, acceptance governance and DEPLOY preparation to main; push, fetch and fix new candidate",
     "candidate_full_gate": "PASSED",
     "candidate_source_frozen": true,
-    "candidate_evidence_ref": "evidence/hostdzire-direct-build-execution.json",
+    "candidate_evidence_ref": "evidence/admin-ui-candidate-full-gate.json",
     "clean_candidate_checkout": "/root/partsignal/releases/pilot-20261008-030536-852c6d5e/source",
     "discard_existing_data_authorized": true,
     "quarantine_required": false,
@@ -82,9 +80,7 @@
     "host_runtime_geo_flags_present": true,
     "host_runtime_celery_concurrency": "1",
     "ai_initialization_confirmations_ready": true,
-    "blocked_input_details": {
-      "RUNTIME": "正确runtime已交付、OSS读写成功；Bucket public-read导致匿名GET200，无CORS，需确认Bucket全局设置范围。用户已选择上线后界面配置AI，显式移交实现/定向验证与独立复核完成，等待新候选与现场Gate。"
-    },
+    "blocked_input_details": {},
     "application_baseline_evidence_ref": "evidence/candidate-source-verification.json",
     "application_baseline_clean_checkout": "/Users/sc/.codex/reviews/partsignal/geo1010-candidate-gate-20261007T175603Z-cp9lgugz/source-checkout",
     "ai_custom_headers_contract": "OPTIONAL_IMPLEMENTED",
@@ -100,7 +96,7 @@
     "release_manifest_path": "/root/partsignal/releases/pilot-20261008-030536-852c6d5e/release-manifest.json",
     "host_runtime_geo_flags_staged": true,
     "host_runtime_geo_flags_installed": true,
-    "real_oss_gate": "READ_WRITE_PASSED_ACCESS_CONTROL_FAILED",
+    "real_oss_gate": "PRIVATE_OBJECT_EXPERIMENT_PASSED_FINAL_APP_RECHECK_REQUIRED",
     "github_actions_required": false,
     "github_actions_triggered": false,
     "runtime_configuration_delivered": true,
@@ -115,6 +111,7 @@
     "admin_ui_handoff_review": "NO_CODE_BLOCKERS_DOCUMENTATION_P2_CORRECTED",
     "admin_ui_handoff_validation_ref": "evidence/admin-ui-ai-handoff-validation.json",
     "admin_ui_handoff_review_ref": "evidence/admin-ui-ai-handoff-review.md",
-    "admin_ui_handoff_audit_id": "20261008T042940Z-hostdzire-admin-ui-ai-initialization-e5f5c9b4"
+    "admin_ui_handoff_audit_id": "20261008T042940Z-hostdzire-admin-ui-ai-initialization-e5f5c9b4",
+    "bucket_global_settings_change_required": false
   }
 }

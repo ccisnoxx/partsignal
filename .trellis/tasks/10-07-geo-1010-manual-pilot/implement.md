@@ -16,3 +16,5 @@ DEPLOY 的 GEO-1009/UI 依赖均done，新会话启动已授权，移交时状�
 
 
 2026-10-08 UTC最新DEPLOY结果：固定852c6d5e完整本地Gate exit0，Hostdzire直接构建前后端并生成同身份fresh工件，production preflight通过；正确runtime已交付、OSS读写成功，但Bucket读取权限待确认，AI已选择上线后管理UI配置。未停服、清空、迁移或切换，UAT未开始。详见[Hostdzire直接执行记录](../10-07-geo-1010-internal-pilot-deploy/hostdzire-direct-build.md)。GitHub Actions不作为部署前提。
+
+2026-10-08 05:40Z：DEPLOY候选688f1ef5完整Gate与Host直接构建通过，AI管理界面移交已实现并复核；通过限定对象private ACL无需修改共享Bucket全局设置，正固定最小存储修正的新候选，DEPLOY恢复in_progress。尚未切换，UAT保持planned。

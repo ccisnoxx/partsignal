@@ -63,3 +63,19 @@ archive SHA256=`041b715e59e4201dfed4e067ede16877ae8b91e27369404d85ac3fc59f11969e
 TARGET/IMAGES/RUNTIME/STAGES/RECOVERY仍无实际值或引用，DEPLOY保持blocked，现场六项独立验收未完成；UAT planned/未开始，没有Go/No-Go或生产Go。GIT与本地源码候选验证已完成。后续验证记录治理提交不是新的应用候选。
 
 最终证据/归属与文档复核见[git-candidate-validation.json](./evidence/git-candidate-validation.json)：当前治理211项文档摘要、30本地链接、diff与UAT保全通过。首次最终摘要核对发现根清单里嵌套SHA256SUMS的一项旧摘要，原因是先刷新根再刷新嵌套；已按嵌套→根顺序修正，只在后续治理提交。原76d1d523 archive保持不可变，保留该文档摘要旧值限制；不声称其文档哈希检查通过。应用完整门禁、13项部署文件hash与archive身份均匹配，后续治理不是另一个已执行完整门禁的SHA。
+
+## Hostdzire 现有站点目标选择与只读 inventory
+
+用户明确选择本次内部试运行升级Hostdzire现有站点。使用原生hostdzire别名完成三次有界只读SSH inventory，全部exit0；观察时间2026-10-08T01:34:39Z–01:36:33Z（当地10月7日）。仅查询容器/镜像/网络与文件元数据、受限配置枚举；数据库以READ ONLY事务读取alembic_version，不读取业务表或对象正文。低敏派生记录见[hostdzire-existing-site-inventory.json](./evidence/hostdzire-existing-site-inventory.json)。
+
+现场为健康运行的09-30 preview/staging；数据库0043、fake-oss运行且objects目录存在，Production持久状态文件不存在。共享Production env root:root/0600和三组网络身份已确认，不能继续把这些已知事实写成全部未知。活动旧镜像有可读RepoDigests，但旧preview正式manifest未找到，旧V2与成套恢复尚未验收。当前upgrade的read_state/upgrade_entry_state明确要求现有Production state，不能直接接管；没有通过执行失败的部署命令来证明已由源码与文件缺失确认的阻断。
+
+当时按保留数据解释形成了升级准备；随后用户明确纠正为不隔离、不保留数据、推倒重来，现以[清空重建准备](./hostdzire-fresh-rebuild.md)覆盖该方案。只读inventory和实际命令事实未改写；旧preview保留数据接管不再实施。没有上传、构建、拉取、停服、迁移、配置/Nginx修改或UAT；没有运行新CI或完整门禁。
+
+## 清空重建工具实施与当前边界
+
+按用户最新决定提交fresh工具`3811738db696724fa948ebb133b000889c933ca8`及四份稳定部署文档。新模块拥有固定root/三叶目录清空、FD/inode/mount边界和RESETTING→RESET_READY；原owner保有锁/supervisor/原子状态，fresh-init共享空库迁移、初始化及bootstrap/activation。共同14项allowlist，fresh回滚角色NOT_APPLICABLE。
+
+[初次验证](./evidence/fresh-init-script-validation.json)和[修正验证](./evidence/fresh-init-root-mount-validation.json)保存命令/退出码/带SHA日志：13项fresh及3项root挂载检查最终通过；旧Production scripts harness、recovery19/failure7/registry4/signal组成功证据复用。初次root bind P1修正后[最终独立复核](./evidence/fresh-init-review-final.md)关闭阻断；Audit `20261008T014655Z-hostdzire-fresh-rebuild-145a7537`已校验。文档JSON/YAML/链接检查通过；系统Python缺YAML后使用已有backend venv，未安装依赖。
+
+Host只读runtime结构检查及Linux mountinfo解析通过；仅concurrency=1，GEO项省略。AI Header需求及凭据ready/owner/TTY/编码上界未闭合，不修改私有清单、不读取Key。新完整Gate未运行：本机Docker socket不可连接，不调用必然失败的make verify；旧76完整通过不冒充新工具。后续补齐输入与Docker门禁环境，固定新main并完成Gate/Host构建/manifest后推进同候选现场阶段。服务器尚未停服/清空/部署，UAT未开始。

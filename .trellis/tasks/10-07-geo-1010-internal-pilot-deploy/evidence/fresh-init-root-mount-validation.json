@@ -1,0 +1,65 @@
+{
+  "scope": "root mount boundary repair; deploy/scripts only; no Git/SSH/server/full regression",
+  "changed_files": [
+    "deploy/scripts/production_fresh_reset.py",
+    "deploy/scripts/test-production-fresh-reset-mounts.py",
+    "deploy/scripts/test-deploy-production.sh"
+  ],
+  "behavior": "verify_directories rejects root present in mountinfo; shared guarded_checkpoint now also runs before first state write and rechecks root before/after deletion; fresh-init state consumer shares root check",
+  "checks": [
+    {
+      "command": "python3 deploy/scripts/test-production-fresh-reset-mounts.py (before production fix)",
+      "exit_code": 1,
+      "result": "all 3 new regressions failed for root bind acceptance / deletion / phase transition",
+      "log": "/Users/sc/.codex/reviews/partsignal/hostdzire-fresh-reset-20261008T0205Z/partsignal-fresh-root-mount-prefix.log",
+      "log_sha256": "fe0bf14042af7a4d98f7af236eefb3ccdd783af7539a80dc8c88a4bbb904ebca"
+    },
+    {
+      "command": "python3 deploy/scripts/test-production-fresh-reset-mounts.py FreshRootMountTests.test_same_device_root_bind_rejected_before_state_or_delete (before initial state checkpoint fix)",
+      "exit_code": 1,
+      "result": "preflight root change produced state before refusal, demonstrating state mutation gap",
+      "log": "/Users/sc/.codex/reviews/partsignal/hostdzire-fresh-reset-20261008T0205Z/partsignal-fresh-root-mount-state-prefix.log",
+      "log_sha256": "c38cec3a493fd6bacf3dd031b879d1143a78454e37e300ff6c66e0e7c7eb5928"
+    },
+    {
+      "command": "python3 deploy/scripts/test-production-fresh-reset-mounts.py",
+      "exit_code": 0,
+      "result": "3 tests passed: same-device initial/preflight mount, mount after actual deletion + blocked resume + recovery, ready fresh-init refusal without transition",
+      "log": "/Users/sc/.codex/reviews/partsignal/hostdzire-fresh-reset-20261008T0205Z/partsignal-fresh-root-mount-final.log",
+      "log_sha256": "07154d69dbda80e387370bae8ec4523ae2e29b36489c3e5f7589914bf419ca05"
+    },
+    {
+      "command": "python3 deploy/scripts/test-production-fresh-reset.py",
+      "exit_code": 0,
+      "result": "all existing 13 fresh reset checks passed",
+      "log": "/Users/sc/.codex/reviews/partsignal/hostdzire-fresh-reset-20261008T0205Z/partsignal-fresh-reset-root-mount-final.log",
+      "log_sha256": "3ef85b0b494ed4adb4d6458e5222be8d4757858615aedb31079755adadcf97b3"
+    },
+    {
+      "command": "uv run --offline --no-sync --project backend ruff check deploy/scripts/production_fresh_reset.py deploy/scripts/test-production-fresh-reset.py deploy/scripts/test-production-fresh-reset-mounts.py",
+      "exit_code": 0,
+      "result": "All checks passed"
+    },
+    {
+      "command": "python3 -m py_compile deploy/scripts/production_fresh_reset.py deploy/scripts/test-production-fresh-reset-mounts.py",
+      "exit_code": 0
+    },
+    {
+      "command": "sh -n deploy/scripts/test-deploy-production.sh",
+      "exit_code": 0
+    },
+    {
+      "command": "actual baseline diff and added whitespace inspection",
+      "exit_code": 0,
+      "diff": "/Users/sc/.codex/reviews/partsignal/hostdzire-fresh-reset-20261008T0205Z/partsignal-fresh-root-mount.diff",
+      "diff_sha256": "8f7d68be5ce1868bafcb8378c193bbed5b2fe39963a5794168f4b2421d83a239"
+    }
+  ],
+  "reused_checks": "prior Production scripts harness and legacy upgrade/recovery successful evidence retained; not rerun because legacy path and code unchanged by root boundary repair",
+  "coverage_limits": [
+    "real local temporary directory deletion; mountinfo set supplied as a controlled boundary fixture; no actual Linux bind mount performed",
+    "parent reports unchanged mount_points executed in Hostdzire memory and parsed 58 Linux mounts; this agent performed no server operation",
+    "independent critical review of remaining fresh reset contract belongs to parent"
+  ],
+  "recorded_at_utc": "2026-10-08T02:16:17.734951+00:00"
+}

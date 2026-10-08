@@ -1,0 +1,93 @@
+{
+  "scope": "deploy/scripts only; no Git, SSH, server operation, dependency download or full regression",
+  "files_changed": [
+    "deploy/scripts/activate-production.sh",
+    "deploy/scripts/create-release-manifest.py",
+    "deploy/scripts/prepare-production-data.py",
+    "deploy/scripts/production_deployment.py",
+    "deploy/scripts/production_fresh_reset.py",
+    "deploy/scripts/rollback-production-frontend.sh",
+    "deploy/scripts/test-deploy-production.sh",
+    "deploy/scripts/test-production-fresh-reset.py"
+  ],
+  "checks": [
+    {
+      "command": "python3 deploy/scripts/test-production-fresh-reset.py",
+      "exit_code": 0,
+      "result": "13 tests passed, including actual partial deletion and SIGTERM resume",
+      "log": "/Users/sc/.codex/reviews/partsignal/hostdzire-fresh-reset-20261008T0205Z/partsignal-fresh-reset-final.log",
+      "log_sha256": "2d78005c064994f2162a25f10802a748fa72f490a9a25405a648c5b445f7632e"
+    },
+    {
+      "command": "PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE=scripts deploy/scripts/test-deploy-production.sh",
+      "exit_code": 0,
+      "result": "existing Production/manifest/clean-init/upgrade/rollback/bootstrap checks passed; network topology static check passed; real Engine network checks intentionally excluded",
+      "log": "/Users/sc/.codex/reviews/partsignal/hostdzire-fresh-reset-20261008T0205Z/partsignal-production-fresh-harness.log",
+      "log_sha256": "2c4f09f884c9c043bcaed42f73f8acddfa1bd7819157d840a834588bfa06a872"
+    },
+    {
+      "command": "python3 deploy/scripts/test-upgrade-recovery.py",
+      "exit_code": 0,
+      "result": "19 tests passed",
+      "log": "/Users/sc/.codex/reviews/partsignal/hostdzire-fresh-reset-20261008T0205Z/partsignal-fresh-upgrade-recovery.log",
+      "log_sha256": "6c2a177c00175e6f18de67854c2dd758149ba84b94d83300d53bfe0d759ca7d8"
+    },
+    {
+      "command": "python3 deploy/scripts/test-upgrade-failure.py",
+      "exit_code": 0,
+      "result": "7 tests passed",
+      "log": "/Users/sc/.codex/reviews/partsignal/hostdzire-fresh-reset-20261008T0205Z/partsignal-fresh-upgrade-failure.log",
+      "log_sha256": "154526489fde269fe7272c687b678bd02bc373c455d1b75e8d01e342124fc77d"
+    },
+    {
+      "command": "python3 deploy/scripts/test-upgrade-registry-order.py",
+      "exit_code": 0,
+      "result": "4 tests passed",
+      "log": "/Users/sc/.codex/reviews/partsignal/hostdzire-fresh-reset-20261008T0205Z/partsignal-fresh-upgrade-registry.log",
+      "log_sha256": "04a8236de1a1ff4d28cf58a413a786528c5a92f533d6c857015ed396207acaea"
+    },
+    {
+      "command": "python3 deploy/scripts/test-upgrade-signal.py",
+      "exit_code": 0,
+      "result": "6 recovery entry signal cases and private group termination/lock case passed",
+      "log": "/Users/sc/.codex/reviews/partsignal/hostdzire-fresh-reset-20261008T0205Z/partsignal-fresh-upgrade-signal.log",
+      "log_sha256": "13e7e5dcad75b00f7947e342fcddb9c5d0ef8b2b716ec329a91db5e59f561239"
+    },
+    {
+      "command": "uv run --offline --no-sync --project backend ruff check deploy/scripts/production_fresh_reset.py deploy/scripts/test-production-fresh-reset.py deploy/scripts/production_deployment.py deploy/scripts/prepare-production-data.py deploy/scripts/create-release-manifest.py",
+      "exit_code": 0,
+      "result": "All checks passed"
+    },
+    {
+      "command": "python3 -m py_compile deploy/scripts/production_fresh_reset.py deploy/scripts/prepare-production-data.py deploy/scripts/production_deployment.py deploy/scripts/create-release-manifest.py",
+      "exit_code": 0
+    },
+    {
+      "command": "sh -n deploy/scripts/activate-production.sh deploy/scripts/rollback-production-frontend.sh deploy/scripts/test-deploy-production.sh",
+      "exit_code": 0
+    },
+    {
+      "command": "in-process producer/consumer REQUIRED_TRACKED_FILES comparison",
+      "exit_code": 0,
+      "result": "exact same 14-file allowlist"
+    },
+    {
+      "command": "baseline unified diff inspection and added whitespace assertion",
+      "exit_code": 0,
+      "result": "only 8 assigned scripts changed/new, no unrelated source edit"
+    }
+  ],
+  "coverage_limits": [
+    "local macOS temporary filesystem with synthetic Docker; no live Linux mount or actual Hostdzire deletion",
+    "synthetic bootstrap/provider/OSS gate does not establish real External Services Gate",
+    "fresh producer unit test isolates existing Git source and migration fingerprint proving boundary; those existing implementations are unchanged",
+    "full make verify, E2E, CI and server operations not executed"
+  ],
+  "independent_review_needed": [
+    "deletion scope / fixed root / mounted-data quiescence / interruption and resume identity",
+    "fresh manifest marker and candidate consumer / legacy path compatibility / rollback NOT_APPLICABLE"
+  ],
+  "recorded_at_utc": "2026-10-08T02:06:10.332493+00:00",
+  "candidate_diff_ref": "/Users/sc/.codex/reviews/partsignal/hostdzire-fresh-reset-20261008T0205Z/candidate.patch",
+  "candidate_diff_sha256": "05383d2a61bbf2fb375b26c614bb102e662de37a4c13759745b7bc106d539f03"
+}

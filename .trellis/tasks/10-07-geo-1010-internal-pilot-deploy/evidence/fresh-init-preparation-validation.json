@@ -1,0 +1,25 @@
+{
+  "recorded_at_utc": "2026-10-08T02:24:03.547289+00:00",
+  "status": "PASSED",
+  "scope": "当前清空重建文档/记录与归属检查；不是完整候选Gate或现场部署证据",
+  "tooling_commit": "3811738db696724fa948ebb133b000889c933ca8",
+  "json_yaml": "valid",
+  "local_links_checked": 53,
+  "diff_check_exit_code": 0,
+  "application_and_contract_inputs_changed_from_76_baseline": false,
+  "new_full_gate": "NOT_RUN",
+  "full_gate_precheck": "LOCAL_DOCKER_SOCKET_UNAVAILABLE",
+  "github_actions_dispatched": false,
+  "server_mutated": false,
+  "pending_install_inputs": "AI_CUSTOM_HEADERS_REQUIREMENT_AND_CREDENTIAL_HANDOFF",
+  "multi_agent_audit_id": "20261008T014655Z-hostdzire-fresh-rebuild-145a7537",
+  "document_sha256": {
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/prd.md": "52ac8ca1f78d7aa1a122a11c4f21a8791aeb3c7e34eab4fb60278cf59515ae17",
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/preparation.md": "23183f871385dacfbe4c88352718d79eac477506b7947ffb21e50b21c4b71a4f",
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/implement.md": "444923ed9743afb2b40d75c0da1fe2810156a095c59c265575dc15f5b0305635",
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/hostdzire-fresh-rebuild.md": "ed80f3477d779786279638640390fa7bbdc3e2872e94b633daad8b0d37491593",
+    "docs/Hostdzire部署上线流程.md": "268a21ffe200bb4b8a49087b50276a3691739ffbee708d54190bbf0eb1954d3d",
+    "docs/Hostdzire部署附录.md": "7df5f6a8ccf25a6fbcd5a8cf2d170cc31dffb1bfc06ca20c023fb78cad587f8c",
+    "docs/production-configuration.md": "be8d564454fd4d471dfc32b1f3d427a03626a8e2dea820a516aad4dfce1bd622"
+  }
+}

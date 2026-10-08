@@ -1,21 +1,25 @@
-# 本次DEPLOY低敏实际记录；不是候选manifest或批准。现场未知保留null/NOT_VERIFIED。
+# 当前低敏准备记录；不是候选manifest或部署成功证据。
 record_kind: geo1010_deploy_rollout_evidence
 task_id: GEO-1010-DEPLOY
-record_status: SOURCE_CANDIDATE_VERIFIED_TARGET_NOT_SELECTED
-recorded_at_utc: '2026-10-07T18:39:26.830641+00:00'
+record_status: FRESH_TOOLING_READY_INSTALL_INPUTS_PENDING
+recorded_at_utc: '2026-10-08T02:23:24.022958+00:00'
 target:
-  environment_id: null
-  authorized_entry_ref: null
-  observed_runtime_owner_ref: null
+  environment_id: hostdzire-existing-site
+  authorized_entry_ref: current_conversation_user_hostdzire_existing_site_fresh_rebuild
+  observed_runtime_owner_ref: hostdzire-existing-site-inventory.json
+  ssh_alias: hostdzire
+  selected_deployment_path: fresh_init_discard_existing_data
+  site_entry_from_runbook: https://geo.962850.xyz
+  target_plan_ref: ../hostdzire-fresh-rebuild.md
 candidate:
   release_id: null
-  commit: 76d1d523b87816ba2ce52a2fc6a679144b5dab06
+  commit: null
   immutable_manifest_ref: null
-  source_archive_sha256: 041b715e59e4201dfed4e067ede16877ae8b91e27369404d85ac3fc59f11969e
+  source_archive_sha256: null
   image_identity_evidence_ref: null
-  tracked_files_evidence_ref: candidate-source-verification.json
+  tracked_files_evidence_ref: null
   expected_schema_head: 0066_geo_manual_evaluation
-  observed_schema_head: null
+  observed_schema_head: 0043_geo_platform_identity
   recovery_candidate_manifest_ref: null
 approvals:
   expand: null
@@ -24,8 +28,15 @@ approvals:
   public_traffic: null
   stop_recovery_drill: null
   production_data_restore: null
+  discard_existing_data:
+    source: current_conversation_user
+    statement: 不需要隔离之前部署的，也不需要保留数据，因为是推到重来
+    scope:
+    - /root/partsignal-data/postgres/*
+    - /root/partsignal-data/redis/*
+    - /root/partsignal-data/objects/*
 stages:
-  prepare: IN_PROGRESS_INPUTS_PENDING
+  prepare: TOOLING_READY_INSTALL_INPUTS_AND_CANDIDATE_GATE_PENDING
   expand: NOT_STARTED
   deploy: NOT_STARTED
   enable_internal: NOT_STARTED
@@ -39,6 +50,12 @@ configuration:
   retention_dry_run_observed: null
   celery_concurrency_observed: null
   external_services_gate_evidence_ref: null
+  host_runtime_read_only_check: PASSED
+  host_runtime_ref: /root/partsignal/shared/.env.production
+  ai_input_check: AI_CUSTOM_HEADERS_UNSUPPORTED
+  ai_input_ref: protected_local_dot_env_production_ai_json
+  ai_initialization_confirmations_ready: false
+  host_runtime_non_secret_flags_ref: fresh-rebuild-decision.json
 browser:
   status: NOT_VERIFIED
   observed_at_utc: null
@@ -57,12 +74,16 @@ backup_and_recovery:
   quiescence_evidence_ref: null
   protected_bundle_ref: null
   authenticated_hash_inventory_ref: null
-  isolated_restore_result: NOT_VERIFIED
+  isolated_restore_result: NOT_APPLICABLE_OLD_DATA_AUTHORIZED_DISCARD
   reconciliation_after_backup_ref: null
   target_stop_drill_result: NOT_VERIFIED
-  target_recovery_drill_result: NOT_VERIFIED
+  target_recovery_drill_result: NOT_APPLICABLE_OLD_DATA_AUTHORIZED_DISCARD
   schema_compatible_rollback_ref: null
   upgrade_forward_recovery_record_ref: null
+  old_data_restore_result: NOT_APPLICABLE_USER_AUTHORIZED_DISCARD
+  old_quarantine_required: false
+  previous_v2_required: false
+  recovery_strategy: fresh-rebuild
 manual_acceptance:
   status: NOT_VERIFIED
   batch_id: null
@@ -90,10 +111,11 @@ observation:
   on_call_owner: null
 verification:
   local_commands_and_results_ref: preparation-checks.json
+  target_read_only_inventory_ref: hostdzire-existing-site-inventory.json
   production_loopback_smoke: NOT_VERIFIED
   production_public_smoke: OUT_OF_SCOPE_NOT_AUTHORIZED
   frontend_security_and_navigation: NOT_VERIFIED
-  independent_review_ref: null
+  independent_review_ref: fresh-init-review-final.md
 known_implementation_gaps:
   production_plan_cron_dispatch: NOT_IMPLEMENTED
   automatic_opportunity_evaluator: NOT_IMPLEMENTED
@@ -117,13 +139,30 @@ final_acceptance:
   - RUNTIME
   - STAGES
   - RECOVERY
+  technical_blockers:
+  - NEW_SOURCE_FULL_GATE_PENDING_DOCKER_UNAVAILABLE
+  - AI_INITIALIZATION_INPUTS_NOT_READY
 template_source: docs/geo-monitoring/04-delivery/geo-906-release-record.template.yaml
-scope_note: 受控内部DEPLOY；本地准备不证明现场，UAT与正式公网开放未授权/未开始。
-candidate_full_gate: PASSED
+scope_note: Hostdzire清空重建：旧数据丢弃已批准，不隔离/保留；fresh工具及16项定向检查/独立复核完成。AI初始化交接、新完整候选Gate和现场阶段未完成；未停服/清空/部署，UAT未开始。
+candidate_full_gate: NOT_RUN_AFTER_FRESH_TOOLING_CHANGE
 deployment_performed: false
 production_go: false
 preparation_evidence_ref: preparation-checks.json
 git_publication_authorization_ref: current_conversation_user_confirmation
-git_publication_authorized_at_utc: 2026-10-07T17:19:07.470277+00:00
-source_candidate_evidence_ref: candidate-source-verification.json
+git_publication_authorized_at_utc: '2026-10-07T17:19:07.470277+00:00'
+source_candidate_evidence_ref: null
 release_candidate_frozen: false
+application_baseline:
+  commit: 76d1d523b87816ba2ce52a2fc6a679144b5dab06
+  full_gate: PASSED
+  evidence_ref: candidate-source-verification.json
+fresh_tooling:
+  commit: 3811738db696724fa948ebb133b000889c933ca8
+  targeted_validation: PASSED
+  validation_refs:
+  - fresh-init-script-validation.json
+  - fresh-init-root-mount-validation.json
+  independent_review: PASSED_AFTER_ROOT_MOUNT_CORRECTION
+  review_ref: fresh-init-review-final.md
+  multi_agent_audit_id: 20261008T014655Z-hostdzire-fresh-rebuild-145a7537
+  new_source_full_gate: NOT_RUN_LOCAL_DOCKER_UNAVAILABLE

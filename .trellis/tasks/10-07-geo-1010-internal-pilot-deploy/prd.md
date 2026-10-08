@@ -9,6 +9,12 @@
 - 目标：将通过候选门禁的固定 main 部署至获批内部 UAT/Pilot，证明安装、迁移、启动、登录和 MANUAL 主链路可用。
 - 任务规划不授予目标环境写入权限。执行前必须记录获批环境/namespace/入口、操作范围与阶段、操作者及业务/运维/停止恢复负责人；未获批准或缺身份/恢复输入时不得部署。
 
+## 已选目标与现场核对（当前）
+
+用户选定Hostdzire现有站点，并随后明确纠正：**不需要隔离之前部署的，也不需要保留数据，因为是推到重来**。本次沿既有`hostdzire` SSH别名与`geo.962850.xyz`清空旧PartSignal数据并新装，不再走保留数据升级；旧postgres/redis/objects内容丢弃已获明确指示，不重复索取保留/清空选择。
+
+2026-10-08T01:34–01:36Z（当地2026-10-07）只读核对确认现有preview/0043、Production配置引用和匹配网络，见[低敏inventory](./evidence/hostdzire-existing-site-inventory.json)。旧状态缺失及0043存量升级不再作为本次阻断；正在补齐不依赖quarantine/previous V2的显式fresh-init路径，范围、输入与进度见[清空重建准备](./hostdzire-fresh-rebuild.md)。受保护runtime/TLS与其他项目不在清理范围。
+
 ## 当前交付与移交
 
 GEO-1009 只接受固定 `e5949ab66989c1277424cfe9ab8b93e10ce10046` 的完整 main 门禁验证，详见[人工接受](../../../docs/geo-monitoring/06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md)。本任务接管未完成的 source archive、正式镜像身份、release manifest、schema/hash、候选冻结和恢复输入。后续已固定源码候选76d1d523并完成完整门禁、archive/hash；正式images/manifest与完整release冻结仍未完成，未部署。源码通过不代表目标已验证。
@@ -17,7 +23,7 @@ GEO-1009 只接受固定 `e5949ab66989c1277424cfe9ab8b93e10ce10046` 的完整 ma
 
 1. UI done 后 fetch 并确认 clean、HEAD=origin/main，固定完整 main commit；执行或核实该候选所需的现有完整门禁，记录具体 SHA/命令/结果。输入变化后不能把旧 SHA 的通过直接用于新候选；同一候选已成功且未受影响的证据按项目规则复用。
 2. 同身份冻结 source archive、backend/frontend 及适用 migrate/worker/scheduler 镜像、正式 digest、唯一 schema head、tracked-file hashes、release manifest；记录环境标识、部署时间、操作者。复用当前 producer/consumer，不伪造 repository/digest，不使用测试绕过或覆盖已冻结工件/tag。
-3. PostgreSQL、Redis、API、Frontend、Worker、Scheduler 与获批 UAT 对象存储 namespace。按空环境或获批升级路径前滚 Alembic 到唯一 head，初始化内部账号，验证 readiness 和页面 smoke。升级路径严格沿现有发布状态所有者、维护隔离和失败恢复合同，不手改状态、提前 activate、直接绕过部署入口或 downgrade。
+3. PostgreSQL、Redis、API、Frontend、Worker、Scheduler与内部对象存储范围。按用户批准的fresh-init清空重建，在状态owner下认证新候选、静止旧project、清空固定三个数据目录内容，再从空库前滚到唯一head、初始化新内部账号并验证readiness/smoke；不伪造quarantine/initialized历史，不手工Compose绕过，不downgrade。
 4. 部署后人工 smoke：登录；创建或读取产品；监测对象；问题；MANUAL Plan；Batch/Run；保存草稿；上传截图；提交回答；Worker 分析；人工复核；Overview/Insights/Reports；管理员评估页面；Action 和 Retest 页面入口。只使用获批内部 smoke 数据，无需开发者手改数据库。
 5. 运维最小闭环：日志、health、停止 Worker、重启服务、数据库与对象证据备份、可执行恢复/安全停止步骤、明确内部访问边界。保留旧 GEO-906/904/905 的现场未知，新目标证据单独绑定候选/环境/时间。
 
@@ -44,14 +50,14 @@ Scheduler 只运行既有分析恢复、过期采集 lease 恢复、PENDING 分�
 
 - 精确内部目标、访问/部署入口、数据归属、UAT namespace、访问控制、时间窗口和阶段批准。
 - 真实镜像 repository/交付方式、UI 完成后的固定候选、唯一 schema head及当前 producer/consumer 所需输入。
-- 既有 runbook 要求的可拉取且已验证 previous V2/恢复材料；不得凭空构造，不能自行因“空环境”把必需恢复输入改成 N/A。确需不同空环境恢复路径时先取得明确批准并对齐权威 runbook。
+- 用户已批准直接清空重建，旧数据隔离/备份恢复及previous V2不作为fresh-init前提。发布工具与权威runbook须明确fresh候选和安全停止/重建策略；旧clean-init/upgrade仍保持原恢复合同，不伪造previous身份。
 - 获批 runtime 配置与内部账号、smoke 数据、备份和恢复负责人、容量/监控观察期与停止阈值。
 
-规划阶段只登记缺口。2026-10-07 新会话已开展发布准备，接受身份、源码head、producer/consumer及配置/恢复路径核对完成；具体输入和分阶段操作见[preparation.md](./preparation.md)。Git 提交/push/fetch授权已于后续用户确认闭合；正在提交与固定候选，其余目标/阶段与材料输入尚缺，目标部署仍blocked；未请求或记录私有密钥，未创建账号/数据、未冻结候选或启动目标环境。
+规划阶段只登记缺口。2026-10-07 新会话已开展发布准备，接受身份、源码head、producer/consumer及配置/恢复路径核对完成；具体输入和分阶段操作见[preparation.md](./preparation.md)。Git提交/push/fetch授权已闭合并用于既有候选及本次工具准备。主机/站点/清空路径已选定，fresh工具/定向验证/独立复核完成；新完整候选Gate、AI初始化交接和现场阶段未闭合，目标部署仍blocked。未索取聊天凭据，未创建目标账号/数据或部署。
 
 ## 范围外
 
-正式公网生产开放、公开流量切换、生产数据库/密钥、Browser 自动采集、外部 API Collection 供应商接入、真实 AI 平台账号接入、CRON、自动 Opportunity 调度、功能代码修复。发现代码问题另建缺陷任务。
+新增正式公网人群、其他站点/数据库、密钥轮换、真实OSS共享bucket删除、Browser自动采集、外部API Collection供应商接入、真实AI平台账号创建、CRON、自动Opportunity调度和无关功能修复。用户本次清空重建所必要的发布入口与状态owner修复属于当前范围；不为已撤销的保留数据升级增加接管能力。
 
 ## 独立验收
 
@@ -59,7 +65,7 @@ Scheduler 只运行既有分析恢复、过期采集 lease 恢复、PENDING 分�
 - [ ] 核心容器健康；API/Worker/Scheduler 的实际配置符合批准基线；API/Browser 自动采集关闭，业务 CRON 与自动 evaluator 未启用。
 - [ ] 目标迁移到唯一 head、账号初始化、readiness 和完整 MANUAL 主链路 smoke 成功；无需手改数据库。
 - [ ] 页面评估、Action、Retest 入口可用；所有 smoke 结果绑定环境、候选、时间和操作者。
-- [ ] 有内部访问说明、日志/health 操作、停止与恢复步骤、数据库和证据备份/恢复证据。
+- [ ] 有内部访问说明、日志/health和安全停止/重新安装步骤；旧数据不保留的范围与执行结果清晰，新内部环境的数据保护义务另按实际试运行范围验收。
 - [ ] 明确声明这是受控内部试运行，不是正式生产发布；独立工作验收并人工接受后才 done。
 
 ## 验证与导航（尚未执行）

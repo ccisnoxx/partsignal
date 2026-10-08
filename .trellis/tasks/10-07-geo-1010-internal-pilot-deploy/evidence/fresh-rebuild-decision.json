@@ -1,0 +1,74 @@
+{
+  "recorded_at_utc": "2026-10-08T01:56:26.907061+00:00",
+  "latest_user_instruction": "不需要隔离之前部署的，也不需要保留数据，因为是推到重来",
+  "selected_path": "fresh_init_discard_existing_data",
+  "supersedes": "prior preserve-data upgrade interpretation",
+  "scope": "fixed PartSignal postgres/redis/objects contents only",
+  "old_data_quarantine_backup_restore_required": false,
+  "host_runtime_check": {
+    "status": "PASSED",
+    "missing_runtime": [],
+    "method": "fixed76 stdlib check functions over SSH; private values never returned",
+    "checks": [
+      "literal",
+      "secret-format",
+      "database-identity",
+      "production-values",
+      "browser-boundary"
+    ],
+    "external_services_gate": "NOT_RUN",
+    "runtime_file_mutated": false
+  },
+  "local_runtime_check": {
+    "status": "FAILED",
+    "code": "ENV_KEY_SET_MISMATCH",
+    "matches_host_runtime": false,
+    "used_as_install_input": false
+  },
+  "ai_input_check": {
+    "status": "FAILED",
+    "code": "AI_CUSTOM_HEADERS_UNSUPPORTED",
+    "custom_headers_required": true,
+    "user_clarification_pending": true,
+    "credentials_read_or_saved": false
+  },
+  "remote_data_erased": false,
+  "remote_services_stopped": false,
+  "deployment_performed": false,
+  "ai_input_preparation_metadata": {
+    "chat_completions_compatibility_confirmed": true,
+    "custom_headers_required": true,
+    "credential_ready": false,
+    "credential_json_bytes_upper_bound": 0,
+    "credential_owner_present": false,
+    "credential_owner_tty_handoff_confirmed": false,
+    "source": "read-only non-secret flags in protected local checklist",
+    "check_repeated": false
+  },
+  "readonly_linux_mountinfo_probe": {
+    "recorded_at_utc": "2026-10-08T02:08:30.393611+00:00",
+    "status": "PASSED",
+    "source": "candidate production_fresh_reset.py exact mount_points function via SSH stdin/in-memory",
+    "linux_mountinfo_parsed": true,
+    "mount_count": 58,
+    "paths_disclosed": false,
+    "server_mutated": false,
+    "limitations": "只证明Linux mountinfo解析，不证明project已停止、目录已清空或真实删除安全"
+  },
+  "host_runtime_non_secret_flag_inventory": {
+    "recorded_at_utc": "2026-10-08T02:12:02.892302+00:00",
+    "configured": {
+      "CELERY_CONCURRENCY": "1"
+    },
+    "omitted": [
+      "GEO_API_COLLECTION_ENABLED",
+      "GEO_BROWSER_COLLECTION_ENABLED",
+      "GEO_MONITORING_ENABLED",
+      "GEO_OPPORTUNITY_EVALUATION_ENABLED",
+      "GEO_RETENTION_DRY_RUN"
+    ],
+    "defaults_not_observed_runtime": true,
+    "server_mutated": false,
+    "scope": "只读文件声明，不是API/Worker/Scheduler进程配置证明"
+  }
+}

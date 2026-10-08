@@ -1,0 +1,34 @@
+{
+  "recorded_at_utc": "2026-10-08T01:40:53.760398+00:00",
+  "status": "PASSED",
+  "scope": "目标选择、低敏inventory派生记录与任务文档一致性；不证明接管、迁移或部署通过",
+  "selected_target": "hostdzire-existing-site",
+  "record_formats": [
+    "JSON",
+    "YAML"
+  ],
+  "local_links_checked": 36,
+  "diff_check_exit_code": 0,
+  "changed_paths": [
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/evidence/release-record.yaml",
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/implement.md",
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/prd.md",
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/preparation.md",
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/task.json",
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/evidence/hostdzire-existing-site-inventory.json",
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/hostdzire-existing-site-upgrade.md"
+  ],
+  "sha256": {
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/evidence/release-record.yaml": "8ac0045523521888b2e3cc761026cb9978f897ef7e5f63bf74d690612da32458",
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/implement.md": "5c41861cdf3d441d4c48ebf8d54831c08014fe5e707aa710a8086635359a7d8e",
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/prd.md": "e4333831ef4fc94ea7d083a244a8e219e5efd1120b93b054acb444186b66a2ee",
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/preparation.md": "1c527383af46f3c6c314fdbece0b862583293cad394a534abc22a4e11a178be2",
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/task.json": "4c2013bfab29e8f12fa2e4da03305aaedd206efa97ca8f467dbd412d4b17644d",
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/evidence/hostdzire-existing-site-inventory.json": "ad78ed62940bfd804f7c53fec338472062ccab2977bf618f64057632e820c7ba",
+    ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/hostdzire-existing-site-upgrade.md": "95fa14c3b834198de892ed8fe97520ce85490d13b8fd140421fa8efe0b3e8627"
+  },
+  "application_contracts_deployment_scripts_or_uat_changed": false,
+  "new_ci_build_or_test_run_started": false,
+  "deployment_performed": false,
+  "technical_blocker": "existing preview lacks required Production state; in-place migration and object handoff unverified"
+}

@@ -1,0 +1,119 @@
+{
+  "record_kind": "derived_read_only_host_inventory",
+  "task_id": "GEO-1010-DEPLOY",
+  "observation_period_utc": {
+    "started_at": "2026-10-08T01:34:39.045305+00:00",
+    "ended_at": "2026-10-08T01:36:33.728576+00:00"
+  },
+  "target_selection": {
+    "source": "current_conversation_user",
+    "user_statement": "这次内部试运行是升级 Hostdzire 上的现有站点",
+    "ssh_alias": "hostdzire",
+    "site_entry_from_runbook": "https://geo.962850.xyz",
+    "selected_path": "upgrade_existing_site_preserve_data",
+    "remote_write_approval_recorded": false
+  },
+  "evidence_method": {
+    "source": "successful SSH tool output, three bounded read-only inventories",
+    "raw_private_configuration_saved": false,
+    "full_docker_inspect_saved": false,
+    "business_table_or_object_contents_read": false,
+    "database_query": "BEGIN READ ONLY; SELECT version_num FROM alembic_version; COMMIT;",
+    "database_query_exit_code": 0,
+    "ssh_exit_codes": [0, 0, 0]
+  },
+  "host": {
+    "hostname": "scrapy",
+    "architecture": "x86_64",
+    "docker_server_version": "29.4.1",
+    "compose_version": "5.1.3",
+    "available_disk_bytes": 36381282304,
+    "available_memory_bytes": 2148032512
+  },
+  "current_release": {
+    "path": "/root/partsignal/releases/preview-20260930-111500-2f171300",
+    "compose_file": "deploy/compose.staging.yaml",
+    "compose_sha256": "34d9f8c61877dcce6334bef91bf46dfadd5b642cd0b2bbcbc43cd134efd6f4fd",
+    "frontend_package_name": "partsignal-frontend-v2",
+    "formal_manifest_found": false,
+    "formal_manifest_search_scope": "current release top-level and releases directory top-level",
+    "source_archive_path_observed": "/root/partsignal/releases/preview-20260930-111500-2f171300.tar.gz",
+    "source_archive_authenticated": false
+  },
+  "services": {
+    "api": {"state": "running", "health": "healthy", "restart_count": 0},
+    "frontend": {"state": "running", "health": null, "restart_count": 0},
+    "worker": {"state": "running", "health": "healthy", "restart_count": 0},
+    "scheduler": {"state": "running", "health": "healthy", "restart_count": 1},
+    "postgres": {"state": "running", "health": "healthy", "restart_count": 0},
+    "redis": {"state": "running", "health": "healthy", "restart_count": 0, "compose_release_label": "preview-20260929-082104-4e85aaf9"},
+    "fake-oss": {"state": "running", "health": null, "restart_count": 0}
+  },
+  "active_application_images": {
+    "backend": {
+      "reference": "partsignal-backend:preview-20260930-111500-2f171300",
+      "image_id": "sha256:072aac34239b9f76782b8f6b1a9badf97e6c7ab5792c6a70464f0138eb890c66",
+      "repo_digests": ["partsignal-backend@sha256:072aac34239b9f76782b8f6b1a9badf97e6c7ab5792c6a70464f0138eb890c66"],
+      "architecture": "amd64"
+    },
+    "frontend": {
+      "reference": "partsignal-frontend:preview-20260930-111500-2f171300",
+      "image_id": "sha256:5b65fa7f7c2662f675ef577b5b50a32f6e398a2f6371d1a121fea11ebbd0390f",
+      "repo_digests": ["partsignal-frontend@sha256:5b65fa7f7c2662f675ef577b5b50a32f6e398a2f6371d1a121fea11ebbd0390f"],
+      "architecture": "amd64"
+    }
+  },
+  "runtime_file": {
+    "path": "/root/partsignal/shared/.env.production",
+    "exists": true,
+    "uid": 0,
+    "gid": 0,
+    "mode": "0600",
+    "sha256": "413092ab3459ca8c1198a1b352eca8009ff1bc965916073d002d2be4cdab6eba",
+    "active_containers_use_this_file_verified": false,
+    "external_services_gate_verified": false
+  },
+  "nginx": {
+    "enabled_target": "/etc/nginx/sites-available/partsignal-staging.conf",
+    "sha256": "ea41efdb6c3b1535eaa3aa07a652f55b915002a8a792ed129b8f437907aea982",
+    "internal_cohort_access_control_verified": false
+  },
+  "database": {
+    "observed_revision": "0043_geo_platform_identity",
+    "candidate_revision": "0066_geo_manual_evaluation",
+    "in_place_data_migration_verified": false
+  },
+  "production_state": {
+    "path": "/root/partsignal-data/.partsignal-production-cutover.json",
+    "exists": false,
+    "current_upgrade_entry_requires_state": true,
+    "existing_preview_adoption_available": false
+  },
+  "data_directories": {
+    "postgres": {"path": "/root/partsignal-data/postgres", "exists": true, "device": 2049},
+    "redis": {"path": "/root/partsignal-data/redis", "exists": true, "device": 2049},
+    "objects": {"path": "/root/partsignal-data/objects", "exists": true, "device": 2049}
+  },
+  "networks": [
+    {"name": "partsignal-staging-internal", "project_label": "partsignal-staging", "network_label": "partsignal-staging-internal", "internal": true},
+    {"name": "partsignal-staging-egress", "project_label": "partsignal-staging", "network_label": "partsignal-staging-egress", "internal": false},
+    {"name": "partsignal-staging-edge", "project_label": "partsignal-staging", "network_label": "partsignal-staging-edge", "internal": false}
+  ],
+  "historical_manifest": {
+    "path": "/root/partsignal/releases/mvp-20260928-023635-649641cec3bd.manifest.json",
+    "sha256": "d9fc3543d2dd73523c0b436d956e22a3f94e61bae19b005aeb2fbecbe55e1ad9",
+    "commit": "649641cec3bdd62fa612021f0841970f99d31dfb",
+    "schema_head": "0043_geo_platform_identity",
+    "binds_active_preview": false
+  },
+  "backup_and_recovery": {
+    "configuration_backup_directory_observed": "/root/partsignal/shared/runtime-gate-rollout-backups/preview-20260930-111500-2f171300",
+    "complete_data_object_key_bundle_verified": false,
+    "isolated_restore_verified": false,
+    "search_was_exhaustive": false
+  },
+  "source_candidate_commit": "76d1d523b87816ba2ce52a2fc6a679144b5dab06",
+  "deployment_performed": false,
+  "remote_application_configuration_data_or_nginx_mutated": false,
+  "new_ci_build_or_test_run_started": false
+}

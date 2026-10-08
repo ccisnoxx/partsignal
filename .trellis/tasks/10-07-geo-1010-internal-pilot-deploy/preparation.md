@@ -54,3 +54,13 @@
 Git授权已执行，修正测试模式冲突后的源码候选`76d1d523b87816ba2ce52a2fc6a679144b5dab06`完整门禁exit0，archive、13项hash与clean checkout已保存，详见[evidence/candidate-source-verification.json](./evidence/candidate-source-verification.json)。上文为准备时历史，NOT_RUN与dirty不作为当前候选结果；原check-preparation.py用于原UI接受工作树身份，修复后的runner身份改动在独立缺陷记录中，不改写接受历史。
 
 仍缺TARGET/IMAGES/RUNTIME/STAGES/RECOVERY实际输入。SOURCE已固定并验证，但正式镜像与manifest未创建，完整release未冻结，也未部署或启动UAT。后续治理提交不得替代此候选SHA。
+
+## Hostdzire 现有站点目标与现场补充（已被重建决定修正）
+
+用户已明确选定升级 Hostdzire 上的现有站点；不再按“未选主机”或空环境准备。已只读核实 `hostdzire` 入口、活动 preview、既有 root:root/0600 runtime 引用、三组匹配网络与旧镜像身份，不再笼统索取这些已有事实。
+
+原保留数据方向已由用户最新“无需隔离、不保留数据、推倒重来”的指示覆盖，当前以[清空重建准备](./hostdzire-fresh-rebuild.md)为准。旧preview接管、旧数据成套恢复与0043→0066存量验证不再适用。现场只读事实和旧解释保留时间边界，不认定服务器已修改。
+
+## 清空重建工具准备结果（当前）
+
+fresh-init/reset-data及fresh manifest已实现，工具提交`3811738db696724fa948ebb133b000889c933ca8`；16项fresh及受影响旧发布/恢复检查通过。root bind缺口已修正并独立确认，见[清空重建准备](./hostdzire-fresh-rebuild.md)。旧隔离/备份恢复/previous V2不适用。新完整Gate未运行，本机Docker不可连接；AI Header需求及owner/TTY交接、GEO enable基线和现场操作阶段待闭合，无服务器停服/删除/部署。

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -52,6 +53,9 @@ from app.services.ai_configuration import (
     list_ai_channel_audit_logs,
     list_ai_channels,
 )
+from app.services.credentials import CredentialCipher
+from app.services.openai_client import OpenAICompatibleClient
+from app.services.pinned_http import PinnedResponse
 
 
 def _psycopg_url(value: str) -> str:
@@ -1829,23 +1833,84 @@ def _seed_production_bootstrap_admin(engine: Engine, **overrides: object) -> uui
 
 
 @pytest.mark.integration
-def test_production_ai_bootstrap_commits_three_phases_and_four_audits(
+@pytest.mark.parametrize(
+    "header_payloads",
+    [
+        None,
+        (),
+        (
+            AIChannelHeaderCreate(
+                expected_channel_revision=999,
+                name="X-Workspace",
+                value="bootstrap-plain-must-not-leak",
+                is_sensitive=False,
+            ),
+            AIChannelHeaderCreate(
+                expected_channel_revision=999,
+                name="X-Access",
+                value="bootstrap-header-secret-must-not-leak",
+                is_sensitive=True,
+            ),
+        ),
+    ],
+    ids=["omitted", "empty", "plain-and-sensitive"],
+)
+def test_production_ai_bootstrap_commits_three_phases_and_sends_optional_headers(
+    header_payloads: tuple[AIChannelHeaderCreate, ...] | None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """T1/T3 各自原子，T2 provider 事务外且成功路径只调用一次。"""
+    """真实解密和协议构造将可选 Header 送入唯一 transport 请求，T1/T3 各自原子。"""
     with temporary_database("head") as (_, database_url, _, _):
         engine = create_engine(database_url)
         _seed_production_bootstrap_admin(engine)
         channel_payload, model_payload = _production_bootstrap_payloads()
         provider_calls: list[dict[str, object]] = []
 
-        def pass_connection(_client: object, **request: object) -> None:
-            provider_calls.append(request)
+        class BootstrapTransport:
+            def request(
+                self,
+                *,
+                method: str,
+                base_url: str,
+                suffix: str,
+                headers: dict[str, str],
+                timeout_seconds: int,
+                body: bytes | None,
+            ) -> PinnedResponse:
+                assert db.in_transaction() is False
+                with Session(engine) as committed_db:
+                    committed_channel = committed_db.scalar(select(AIChannel))
+                    committed_model = committed_db.scalar(select(AIModel))
+                    assert committed_channel is not None and not committed_channel.is_enabled
+                    assert committed_channel.revision == len(header_payloads or ())
+                    assert committed_model is not None and not committed_model.is_enabled
+                    assert committed_model.test_status == "UNTESTED"
+                    assert committed_model.revision == 0
+                provider_calls.append(
+                    {
+                        "method": method,
+                        "base_url": base_url,
+                        "suffix": suffix,
+                        "headers": headers,
+                        "timeout_seconds": timeout_seconds,
+                        "body": body,
+                    }
+                )
+                return PinnedResponse(
+                    status_code=200,
+                    headers={},
+                    body=b'{"choices":[{"message":{"content":"hi"}}]}',
+                )
+
+        def bootstrap_client(*, allow_local_http: bool) -> OpenAICompatibleClient:
+            return OpenAICompatibleClient(
+                allow_local_http=allow_local_http, transport=BootstrapTransport()
+            )
 
         monkeypatch.setattr(
-            ai_configuration_service.OpenAICompatibleClient,
-            "test_connection",
-            pass_connection,
+            ai_configuration_service,
+            "OpenAICompatibleClient",
+            bootstrap_client,
         )
         request_id = f"production-bootstrap-{uuid.uuid4()}"
         try:
@@ -1855,14 +1920,29 @@ def test_production_ai_bootstrap_commits_three_phases_and_four_audits(
                     channel_payload=channel_payload,
                     model_payload=model_payload,
                     request_id=request_id,
+                    **({"header_payloads": header_payloads} if header_payloads is not None else {}),
                 )
                 assert db.in_transaction() is False
             assert result.status == "SUCCEEDED"
             assert result.channel_enabled is True
             assert result.model_enabled is True
             assert result.model_test_status == "PASSED"
+            assert result.channel_revision == len(header_payloads or ()) + 1
+            assert result.model_revision == 2
             assert len(provider_calls) == 1
-            assert provider_calls[0]["model_id"] == "bootstrap-model-exact"
+            request = provider_calls[0]
+            assert request["method"] == "POST"
+            assert request["suffix"] == "chat/completions"
+            assert request["headers"] == {
+                "Authorization": "Bearer bootstrap-secret-must-not-leak",
+                **{item.name: item.value for item in header_payloads or ()},
+            }
+            assert json.loads(request["body"]) == {
+                "model": "bootstrap-model-exact",
+                "messages": [{"role": "user", "content": "hi"}],
+                "stream": False,
+                "temperature": 0,
+            }
             with Session(engine) as db:
                 channel = db.get(AIChannel, result.channel_id)
                 model = db.get(AIModel, result.model_id)
@@ -1870,17 +1950,54 @@ def test_production_ai_bootstrap_commits_three_phases_and_four_audits(
                 assert channel is not None and channel.is_enabled is True
                 assert model is not None and model.is_enabled is True
                 assert model.test_status == "PASSED"
-                assert len(audits) == 4
+                stored_headers = list(db.scalars(select(AIChannelHeader)))
+                assert len(stored_headers) == len(header_payloads or ())
+                stored_by_name = {item.name: item for item in stored_headers}
+                for payload in header_payloads or ():
+                    stored = stored_by_name[payload.name]
+                    assert stored.normalized_name == payload.name.casefold()
+                    assert stored.is_sensitive == payload.is_sensitive
+                    if payload.is_sensitive:
+                        assert stored.plain_value is None
+                        assert stored.encrypted_value is not None
+                        assert stored.encrypted_value.startswith("v1.")
+                        assert payload.value not in stored.encrypted_value
+                        cipher = CredentialCipher(
+                            ai_configuration_service.settings.ai_credential_encryption_key
+                        )
+                        assert (
+                            cipher.decrypt(
+                                stored.encrypted_value,
+                                associated_data=f"ai_channel_header:{stored.id}:value",
+                            )
+                            == payload.value
+                        )
+                        with pytest.raises(AppError) as wrong_record:
+                            cipher.decrypt(
+                                stored.encrypted_value,
+                                associated_data=f"ai_channel_header:{uuid.uuid4()}:value",
+                            )
+                        assert wrong_record.value.code == "CREDENTIAL_DECRYPTION_FAILED"
+                    else:
+                        assert stored.plain_value == payload.value
+                        assert stored.encrypted_value is None
+                assert len(audits) == 4 + len(header_payloads or ())
                 assert {item.action for item in audits} == {
                     "ai_channel.created",
                     "ai_model.created",
                     "ai_model.enabled",
                     "ai_channel.enabled",
-                }
+                } | ({"ai_channel_header.created"} if header_payloads else set())
                 assert all(item.outcome == "SUCCESS" for item in audits)
                 assert all(
                     "bootstrap-secret-must-not-leak" not in str(item.details) for item in audits
                 )
+                for payload in header_payloads or ():
+                    assert all(
+                        payload.name not in str(item.details)
+                        and payload.value not in str(item.details)
+                        for item in audits
+                    )
         finally:
             engine.dispose()
 
@@ -2267,17 +2384,47 @@ def test_production_ai_bootstrap_holds_fresh_locks_through_t3_commit(
 def test_production_ai_bootstrap_t1_and_t3_failures_roll_back_atomically(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """T1 任一步失败不留配置；T3 第二步失败回滚模型启用和两条审计。"""
+    """Header 落库后的 T1 失败全量回滚；T3 失败保留已测试配置并回滚启用。"""
     with temporary_database("head") as (_, database_url, _, _):
         engine = create_engine(database_url)
         _seed_production_bootstrap_admin(engine)
         channel_payload, model_payload = _production_bootstrap_payloads()
+        header_payloads = (
+            AIChannelHeaderCreate(
+                expected_channel_revision=0,
+                name="X-Workspace",
+                value="atomic-plain-value",
+                is_sensitive=False,
+            ),
+            AIChannelHeaderCreate(
+                expected_channel_revision=0,
+                name="X-Access",
+                value="atomic-sensitive-value",
+                is_sensitive=True,
+            ),
+        )
         request_id = f"production-bootstrap-{uuid.uuid4()}"
         original_create_model = ai_configuration_service._create_ai_model_in_transaction
+        provider_calls = 0
 
-        def fail_t1(**_values: object) -> AIModel:
+        def fail_t1(*, db: Session, **_values: object) -> AIModel:
+            assert len(list(db.scalars(select(AIChannelHeader)))) == 2
+            assert len(list(db.scalars(select(AuditLog)))) == 3
+            with Session(engine) as uncommitted_db:
+                assert uncommitted_db.scalar(select(AIChannel.id)) is None
+                assert uncommitted_db.scalar(select(AIChannelHeader.id)) is None
+                assert uncommitted_db.scalar(select(AuditLog.id)) is None
             raise RuntimeError("T1 sentinel")
 
+        def pass_connection(_client: object, **_request: object) -> None:
+            nonlocal provider_calls
+            provider_calls += 1
+
+        monkeypatch.setattr(
+            ai_configuration_service.OpenAICompatibleClient,
+            "test_connection",
+            pass_connection,
+        )
         monkeypatch.setattr(
             ai_configuration_service,
             "_create_ai_model_in_transaction",
@@ -2290,9 +2437,12 @@ def test_production_ai_bootstrap_t1_and_t3_failures_roll_back_atomically(
                     channel_payload=channel_payload,
                     model_payload=model_payload,
                     request_id=request_id,
+                    header_payloads=header_payloads,
                 )
+            assert provider_calls == 0
             with Session(engine) as db:
                 assert db.scalar(select(AIChannel.id)) is None
+                assert db.scalar(select(AIChannelHeader.id)) is None
                 assert db.scalar(select(AIModel.id)) is None
                 assert (
                     db.scalar(select(AuditLog.id).where(AuditLog.request_id == request_id)) is None
@@ -2302,11 +2452,6 @@ def test_production_ai_bootstrap_t1_and_t3_failures_roll_back_atomically(
                 ai_configuration_service,
                 "_create_ai_model_in_transaction",
                 original_create_model,
-            )
-            monkeypatch.setattr(
-                ai_configuration_service.OpenAICompatibleClient,
-                "test_connection",
-                lambda _client, **_request: None,
             )
 
             def fail_t3(**_values: object) -> AIChannel:
@@ -2323,17 +2468,23 @@ def test_production_ai_bootstrap_t1_and_t3_failures_roll_back_atomically(
                     channel_payload=channel_payload,
                     model_payload=model_payload,
                     request_id=request_id,
+                    header_payloads=header_payloads,
                 )
+            assert provider_calls == 1
             with Session(engine) as db:
                 channel = db.scalar(select(AIChannel))
                 model = db.scalar(select(AIModel))
                 audits = list(db.scalars(select(AuditLog).where(AuditLog.request_id == request_id)))
                 assert channel is not None and channel.is_enabled is False
+                assert channel.revision == 2
+                assert len(list(db.scalars(select(AIChannelHeader)))) == 2
                 assert model is not None and model.is_enabled is False
                 assert model.test_status == "PASSED"
-                assert len(audits) == 2
+                assert model.revision == 1
+                assert len(audits) == 4
                 assert {item.action for item in audits} == {
                     "ai_channel.created",
+                    "ai_channel_header.created",
                     "ai_model.created",
                 }
         finally:

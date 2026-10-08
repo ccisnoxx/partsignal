@@ -11,6 +11,7 @@ from types import SimpleNamespace
 import pytest
 
 from app import cli
+from app.schemas.configuration import AIChannelHeaderCreate
 from app.services.ai_configuration import ProductionAIBootstrapResult
 
 
@@ -34,6 +35,20 @@ def _bootstrap_envelope(**overrides: object) -> bytes:
     }
     payload.update(overrides)
     return json.dumps(payload).encode()
+
+
+@pytest.mark.parametrize("length", [160, 161])
+def test_production_bootstrap_header_name_fits_database(length: int) -> None:
+    """maintenance 名称容量在任何数据库写入前与现有 varchar(160) 一致。"""
+    payload = _bootstrap_envelope(
+        headers=[{"name": "X-" + "a" * (length - 2), "value": "test", "is_sensitive": True}]
+    )
+    if length == 161:
+        with pytest.raises(cli.ProductionAIBootstrapInputError):
+            cli.read_production_ai_bootstrap_envelope(BytesIO(payload))
+    else:
+        parsed = cli.read_production_ai_bootstrap_envelope(BytesIO(payload))
+        assert len(parsed.headers[0].name) == 160
 
 
 def test_initialize_accounts_command_uses_public_initialization_owner(
@@ -137,7 +152,20 @@ def test_production_configuration_summary_requires_explicit_runtime_environment(
         cli.production_configuration_summary()
 
 
+@pytest.mark.parametrize(
+    "headers",
+    [
+        None,
+        [],
+        [
+            {"name": "X-Workspace", "value": "plain-must-not-leak", "is_sensitive": False},
+            {"name": "X-Access", "value": "sensitive-must-not-leak", "is_sensitive": True},
+        ],
+    ],
+    ids=["omitted", "empty", "plain-and-sensitive"],
+)
 def test_production_ai_bootstrap_stdin_reuses_schemas_and_outputs_status_only(
+    headers: list[dict[str, object]] | None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """maintenance stdin 只生成现有 Schema，并返回固定非敏感投影。"""
@@ -170,7 +198,8 @@ def test_production_ai_bootstrap_stdin_reuses_schemas_and_outputs_status_only(
 
     monkeypatch.setattr(cli, "bootstrap_production_ai_configuration", bootstrap)
 
-    output, exit_code = cli.run_production_ai_bootstrap(BytesIO(_bootstrap_envelope()))
+    envelope = _bootstrap_envelope(**({"headers": headers} if headers is not None else {}))
+    output, exit_code = cli.run_production_ai_bootstrap(BytesIO(envelope))
 
     assert exit_code == 0
     assert output == {
@@ -190,8 +219,15 @@ def test_production_ai_bootstrap_stdin_reuses_schemas_and_outputs_status_only(
     assert isinstance(values, dict)
     assert values["channel_payload"].api_key == "credential-must-not-leak"
     assert values["model_payload"].model_id == "exact-model-id"
+    assert all(isinstance(item, AIChannelHeaderCreate) for item in values["header_payloads"])
+    assert [
+        item.model_dump(exclude={"expected_channel_revision"}) for item in values["header_payloads"]
+    ] == (headers or [])
     assert "credential-must-not-leak" not in json.dumps(output)
     assert "provider.example" not in json.dumps(output)
+    for item in headers or []:
+        assert item["name"] not in json.dumps(output)
+        assert item["value"] not in json.dumps(output)
 
 
 @pytest.mark.parametrize(
@@ -199,7 +235,7 @@ def test_production_ai_bootstrap_stdin_reuses_schemas_and_outputs_status_only(
     [
         b"not-json",
         _bootstrap_envelope() + b" trailing",
-        _bootstrap_envelope(headers=[]),
+        _bootstrap_envelope(custom_headers=[]),
         _bootstrap_envelope().replace(
             b'"credential": "credential-must-not-leak",',
             b'"credential": "first-value", "credential": "duplicate-value",',
@@ -211,7 +247,7 @@ def test_production_ai_bootstrap_rejects_malformed_oversized_or_unknown_input(
     payload: bytes,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """malformed、trailing、超限与自定义 Header 都在 service 前 fail closed。"""
+    """malformed、trailing、超限与未知键都在 service 前 fail closed。"""
     monkeypatch.setattr(
         cli,
         "bootstrap_production_ai_configuration",
@@ -223,6 +259,133 @@ def test_production_ai_bootstrap_rejects_malformed_oversized_or_unknown_input(
     assert exit_code == 2
     assert output["status"] == "REJECTED"
     assert "credential-must-not-leak" not in json.dumps(output)
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        None,
+        {},
+        "header-value-must-not-leak",
+        [None],
+        [{"name": "X-Valid", "value": "header-value-must-not-leak"}],
+        [
+            {
+                "name": "X-Valid",
+                "value": "header-value-must-not-leak",
+                "is_sensitive": True,
+                "expected_channel_revision": 0,
+            }
+        ],
+        [
+            {
+                "name": "X-Valid",
+                "value": "header-value-must-not-leak",
+                "is_sensitive": True,
+                "unexpected": "header-value-must-not-leak",
+            }
+        ],
+        [{"name": 1, "value": "header-value-must-not-leak", "is_sensitive": True}],
+        [{"name": "X-Valid", "value": 1, "is_sensitive": True}],
+        [{"name": "X-Valid", "value": "header-value-must-not-leak", "is_sensitive": 1}],
+        [{"name": "X-Valid", "value": "header-value-must-not-leak", "is_sensitive": "true"}],
+        [{"name": "", "value": "header-value-must-not-leak", "is_sensitive": True}],
+        [{"name": "X-Valid", "value": "", "is_sensitive": True}],
+        [{"name": "X Bad", "value": "header-value-must-not-leak", "is_sensitive": True}],
+        [{"name": "X-Bad\n", "value": "header-value-must-not-leak", "is_sensitive": True}],
+        [
+            {"name": "X-Valid", "value": "header-value-must-not-leak", "is_sensitive": True},
+            {"name": "x-valid", "value": "second-must-not-leak", "is_sensitive": False},
+        ],
+        *[
+            [{"name": name, "value": "header-value-must-not-leak", "is_sensitive": True}]
+            for name in (
+                "Authorization",
+                "HOST",
+                "Content-Length",
+                "Connection",
+                "Transfer-Encoding",
+            )
+        ],
+        *[
+            [
+                {
+                    "name": "X-Valid",
+                    "value": f"header-value-must-not-leak{character}",
+                    "is_sensitive": True,
+                }
+            ]
+            for character in ("\r", "\n", "\t", "\0", "\x7f", "\u0100")
+        ],
+    ],
+    ids=[
+        "null-list",
+        "object-list",
+        "string-list",
+        "null-item",
+        "missing-key",
+        "external-revision",
+        "unknown-key",
+        "non-string-name",
+        "non-string-value",
+        "numeric-sensitive",
+        "string-sensitive",
+        "empty-name",
+        "empty-value",
+        "invalid-token",
+        "name-control-character",
+        "casefold-duplicate",
+        "reserved-authorization",
+        "reserved-host",
+        "reserved-content-length",
+        "reserved-connection",
+        "reserved-transfer-encoding",
+        "value-cr",
+        "value-lf",
+        "value-tab",
+        "value-nul",
+        "value-del",
+        "value-non-latin1",
+    ],
+)
+def test_production_ai_bootstrap_rejects_invalid_headers_without_disclosure(
+    headers: object,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Header 只接受精确键和类型，注入、保留名与重复名称不进入 service。"""
+    monkeypatch.setattr(
+        cli,
+        "bootstrap_production_ai_configuration",
+        lambda **_values: pytest.fail("无效 Header 不得进入 service"),
+    )
+    monkeypatch.setattr(sys, "argv", ["app.cli", "bootstrap-production-ai"])
+    monkeypatch.setattr(
+        sys, "stdin", SimpleNamespace(buffer=BytesIO(_bootstrap_envelope(headers=headers)))
+    )
+
+    with pytest.raises(SystemExit) as error:
+        cli.main()
+
+    captured = capsys.readouterr()
+    assert error.value.code == 2
+    assert json.loads(captured.out)["status"] == "REJECTED"
+    assert captured.err == "Production AI bootstrap 未完成。\n"
+    assert "header-value-must-not-leak" not in captured.out + captured.err
+    assert "second-must-not-leak" not in captured.out + captured.err
+    assert "credential-must-not-leak" not in captured.out + captured.err
+
+
+def test_production_ai_bootstrap_rejects_duplicate_header_object_keys() -> None:
+    """JSON 重复键不能绕过 Header item 的精确 envelope。"""
+    envelope = _bootstrap_envelope(
+        headers=[{"name": "X-Valid", "value": "original", "is_sensitive": True}]
+    ).replace(b'"value": "original",', b'"value": "original", "value": "replacement",')
+
+    output, exit_code = cli.run_production_ai_bootstrap(BytesIO(envelope))
+
+    assert exit_code == 2
+    assert output == {"status": "REJECTED"}
 
 
 def test_production_ai_bootstrap_rejects_valid_envelope_outside_production(
@@ -270,11 +433,22 @@ def test_production_ai_bootstrap_unknown_never_serializes_secret_exception(
         cli,
         "bootstrap_production_ai_configuration",
         lambda **_values: (_ for _ in ()).throw(
-            RuntimeError("credential-must-not-leak provider response SQL traceback")
+            RuntimeError(
+                "credential-must-not-leak header-value-must-not-leak "
+                "provider response SQL traceback"
+            )
         ),
     )
 
-    output, exit_code = cli.run_production_ai_bootstrap(BytesIO(_bootstrap_envelope()))
+    output, exit_code = cli.run_production_ai_bootstrap(
+        BytesIO(
+            _bootstrap_envelope(
+                headers=[
+                    {"name": "X-Valid", "value": "header-value-must-not-leak", "is_sensitive": True}
+                ]
+            )
+        )
+    )
     encoded = json.dumps(output)
 
     assert exit_code == 2
@@ -283,5 +457,6 @@ def test_production_ai_bootstrap_unknown_never_serializes_secret_exception(
         "request_id": "production-bootstrap-123e4567-e89b-42d3-a456-426614174000",
     }
     assert "credential-must-not-leak" not in encoded
+    assert "header-value-must-not-leak" not in encoded
     assert "provider response" not in encoded
     assert "traceback" not in encoded

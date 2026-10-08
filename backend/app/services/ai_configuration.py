@@ -642,7 +642,7 @@ def delete_ai_channel(
     db.commit()
 
 
-def create_ai_channel_header(
+def _create_ai_channel_header_in_transaction(
     *,
     db: Session,
     channel_id: uuid.UUID,
@@ -650,7 +650,7 @@ def create_ai_channel_header(
     actor: User,
     request_id: str,
 ) -> AIChannel:
-    """新增 Header，并统一撤销依赖旧连接配置的测试结论。"""
+    """在调用者事务内新增 Header，并撤销依赖旧配置的测试结论。"""
     channel = db.scalar(select(AIChannel).where(AIChannel.id == channel_id).with_for_update())
     if channel is None:
         raise not_found("AI 渠道")
@@ -701,6 +701,25 @@ def create_ai_channel_header(
             result_message="AI 渠道 Header 已创建",
             details={"facts": {"is_sensitive": payload.is_sensitive}},
         ),
+    )
+    return channel
+
+
+def create_ai_channel_header(
+    *,
+    db: Session,
+    channel_id: uuid.UUID,
+    payload: AIChannelHeaderCreate,
+    actor: User,
+    request_id: str,
+) -> AIChannel:
+    """新增 Header，并提交配置失效与成功审计。"""
+    channel = _create_ai_channel_header_in_transaction(
+        db=db,
+        channel_id=channel_id,
+        payload=payload,
+        actor=actor,
+        request_id=request_id,
     )
     db.commit()
     return channel
@@ -1386,6 +1405,7 @@ def bootstrap_production_ai_configuration(
     channel_payload: AIChannelCreate,
     model_payload: AIModelCreate,
     request_id: str,
+    header_payloads: Sequence[AIChannelHeaderCreate] = (),
 ) -> ProductionAIBootstrapResult:
     """以 T1 创建、T2 单次外部测试、T3 原子启用完成 fresh bootstrap。"""
     try:
@@ -1397,6 +1417,20 @@ def bootstrap_production_ai_configuration(
             actor=actor,
             request_id=request_id,
         )
+        # 连接级变更先完成再创建模型，避免新模型被 Header 失效；所有写入共用 T1。
+        for header_payload in header_payloads:
+            _create_ai_channel_header_in_transaction(
+                db=db,
+                channel_id=channel.id,
+                payload=AIChannelHeaderCreate(
+                    expected_channel_revision=channel.revision,
+                    name=header_payload.name,
+                    value=header_payload.value,
+                    is_sensitive=header_payload.is_sensitive,
+                ),
+                actor=actor,
+                request_id=request_id,
+            )
         model = _create_ai_model_in_transaction(
             db=db,
             channel_id=channel.id,

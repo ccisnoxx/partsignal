@@ -98,13 +98,15 @@ AI 的 provider、模型、API Key、敏感 Header 属于 PostgreSQL 配置，�
 | `model_display_name`、`model_id` | 非空，model ID 必须为该凭据实际可用的精确 ID；`--model-display-name` / `--model-id` |
 | `request_parameters` | 非 secret JSON object，模板 `{}` 需确认；禁止覆盖 `model`、`messages`、`stream`；转为 JSON 文本传 `--request-parameters-json` |
 | `chat_completions_compatibility_confirmed` | 操作者确认该端点与模型支持上述协议，确认后填 `true` |
-| `custom_headers_required` | 首次 bootstrap 不支持自定义 Header，必须确认不需要并保持 `false`；需要时在维护前停止并解决合同缺口 |
-| `credential_ready` | API Key 已在 owner 手中备妥，且核对其 JSON UTF-8 编码大小不超过下述声明上界，确认后填 `true`；文件内不保存 Key |
+| `custom_headers` | 可选数组，省略或 `[]` 表示不配置；每项只有 `name`、`is_sensitive`、`value_json_bytes_upper_bound`，不保存值。普通项映射为 `--header-name`，敏感项映射为 `--sensitive-header-name`，两个选项均可重复指定 |
+| `credential_ready` | API Key 和已配置的 Header 值已在 owner 手中备妥，且各自 JSON UTF-8 编码大小不超过声明上界，确认后填 `true`；文件内不保存值 |
 | `credential_json_bytes_upper_bound` | owner 确认真实 Key 经 `json.dumps(key, ensure_ascii=False)` 后 UTF-8 编码的字节上界，包含引号与转义；正整数、至少 `3`，模板 `0` 表示未提供；只填非 secret 数量，不填 Key |
 | `credential_owner` | 指定交接责任人；不把其任何 credential 写入文件 |
-| `credential_owner_tty_handoff_confirmed` | 确认维护窗口内可通过本机 `ssh -t hostdzire` 使用真实交互式 TTY，无回显输入一次 Key；确认后填 `true` |
+| `credential_owner_tty_handoff_confirmed` | 确认维护窗口内可通过本机 `ssh -t hostdzire` 使用真实交互式 TTY，无回显输入一次 Key 和按需配置的 Header 值；确认后填 `true` |
 
-最后六项是准备检查，不传给真实 bootstrap。该 JSON 是完整输入清单，**现有 bootstrap 不支持 `--config` 或自动读取它**；发布操作者按[部署附录第 6 节](./Hostdzire部署附录.md#6-clean-init-与-fresh-init)显式传递九项非 secret 参数。确认项全部就绪前，不预约维护或冻结新 release。
+兼容确认和四项 credential 字段是准备检查，不传给真实 bootstrap。该 JSON 是输入清单，**bootstrap 不支持 `--config` 或自动读取它**；发布操作者按[部署附录第 6 节](./Hostdzire部署附录.md#6-clean-init-与-fresh-init)显式传递九项非 secret 参数，按需追加 Header 名称选项。没有 Header 时不要求 Header 声明、值或交接；有 Header 时，owner 确认每项值的 JSON UTF-8 编码上界至少为 `3`，`0` 表示该项未就绪。旧的 `custom_headers_required` 字段已移除，不能把旧布尔值猜测转换成供应商 Header 配置。
+
+所有 Header 值与 API Key 都在 Host 的真实 TTY 无回显输入，通过同一 stdin envelope 进入 backend；不放在本地清单、argv、环境或日志中。`is_sensitive=true` 使用既有 AES-256-GCM 加密存储；普通 Header 按现有渠道合同保存普通值。首次初始化的 Header 名称为 1–160 个合法 token 字符，大小写不敏感地唯一，系统保留名称和非法字符拒绝。
 
 API Key 在 `PRODUCTION_PREPARED` 阶段通过现有 true-TTY bootstrap 一次性写成数据库密文。之后普通 upgrade 复用数据库配置，日常渠道变更走应用 Configuration。不需要每次发布改 env 或重新输入 Key；clean-init、fresh-init、数据恢复、密钥轮换另按对应合同执行。
 
@@ -128,7 +130,7 @@ uv run --project backend python deploy/scripts/check-production-inputs.py \
 
 该命令只读显式输入，要求普通文件、当前用户所有与 `0600`；完整模式检查 runtime 的键集合（仅允许省略四项默认关闭的 GEO 键）、重复/未知键、必填项、literal 语法、URL-safe secret、数据库 URL 解码后的身份一致、固定生产值及 OSS endpoint。AI 缺项和确认状态一起报告；在隔离 cwd/environment 中调用真实 backend 配置预检和 AI envelope reader 后，对 Schema 规范化的 URL 拒绝已知非公网 IP/localhost（包含缩写、十六进制等 IPv4 写法）。DNS 与实际网络仍由真实 Gate 检验。不会发现或读取另一份 `.env`，不会执行 Docker/SSH、连接数据库/provider、生成密钥、上传文件或改变状态；输出仅含已知字段名、固定错误码和配置状态。
 
-AI 检查按 Host 真实的 UTF-8、`ensure_ascii=False`、紧凑 JSON 格式计算完整 envelope，并以 owner 声明的 credential JSON 字节上界预留空间；复用实际 backend 的 **64 KiB** 上限和严格 envelope reader，不放宽 bootstrap 合同。该检查不读取真实 Key；它依赖 owner 对上界的确认，真实输入 Key 大于声明上界时不能使用该准备结果。过大的参数、包含多字节字符的超限参数或不留 credential 空间，均在本地返回失败，避免在 durable `STARTED` 后才被拒绝。
+AI 检查按 Host 真实的 UTF-8、`ensure_ascii=False`、紧凑 JSON 格式计算完整 envelope，并以 owner 声明的 credential 和可选 Header 值 JSON 字节上界预留空间；复用实际 backend 的 **64 KiB** 上限和严格 envelope reader，不放宽 bootstrap 合同。该检查不读取真实值；它依赖 owner 对上界的确认，真实输入大于声明上界时不能使用该准备结果。过大的参数或不留 credential/Header 空间均在本地返回失败；Host 还会在 durable `STARTED` 前检查实际完整输入大小、Header 值字符和无回显读取结果。
 
 未填模板返回 `NOT_READY` / exit `2`；插值等非法输入返回 `FAILED` / exit `2`；`PASSED` / exit `0` 仅证明输入结构与声明就绪，`external_services_gate` 仍为 `NOT_RUN`。省略 `--ai-inputs` 只检查 runtime，输出 `ai_inputs=NOT_CHECKED`，不能据此认定首次发布准备完成。先安装后端项目依赖；缺依赖时检查明确失败，不跳过。
 

@@ -26,6 +26,7 @@
 - `bootstrap-ai` 在同一维护锁内验证 run ID、manifest/candidate、phase 和正在运行 API 容器的 project/service/image/running/mount identity；不得读取 `.Config.Env`，不得启动 one-off service 或执行 `run/up/pull`。
 - host 在调用 backend 前原子写入无 secret 的 `ai_bootstrap_attempt=STARTED`；任何已有 attempt 都拒绝重入。完整成功更新 `SUCCEEDED`，明确失败更新 `FAILED`，结果未知保持 `STARTED`；`verify-prepared`/activation 必须拒绝 `STARTED` 或 `FAILED`，且不提供 force-clear。
 - credential 只从真实交互式 no-echo TTY 经 `docker exec -i` stdin 传入；禁止 argv、environment、文件、history、日志、Docker metadata 或异常透传。bootstrap 成功不自动把完整 External Services Gate 标为 `MET`。
+- 自定义 Header 可选：`--header-name` / `--sensitive-header-name` 只接收名称并可重复指定，省略时不读取 Header；值与 credential 使用同一 no-echo TTY/stdin 边界。Host 在写入 STARTED 前拒绝非法/保留/大小写重复名称、非法值、读取中断和完整输入超过 64 KiB；backend 复用现有 Header owner，在 T1 channel 与 model 之间创建 Headers，敏感值加密且审计脱敏。
 
 ### 4. Validation & Error Matrix
 

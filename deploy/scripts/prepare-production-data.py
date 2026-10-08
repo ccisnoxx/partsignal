@@ -42,6 +42,7 @@ PRODUCTION_COMPOSE_PROJECT = "partsignal-staging"
 PRODUCTION_API_SERVICE = "api"
 PRODUCTION_APPLICATION_ROOT = PurePosixPath("/app")
 BACKEND_BOOTSTRAP_RESULT_MAX_BYTES = 64 * 1024
+BACKEND_BOOTSTRAP_INPUT_MAX_BYTES = 64 * 1024
 BOOTSTRAP_RESULT_FIELDS = {
     "status",
     "request_id",
@@ -472,6 +473,7 @@ def read_bootstrap_credential(
     reader: Callable[[str], str] | None = None,
     stdin: Any = None,
     stderr: Any = None,
+    prompt: str = "AI API Key: ",
 ) -> str:
     """只从真实交互式 TTY 读取一次无回显 credential。"""
     input_stream = sys.stdin if stdin is None else stdin
@@ -482,9 +484,9 @@ def read_bootstrap_credential(
         with warnings.catch_warnings():
             warnings.simplefilter("error", getpass.GetPassWarning)
             credential = (
-                getpass.getpass("AI API Key: ", stream=error_stream)
+                getpass.getpass(prompt, stream=error_stream)
                 if reader is None
-                else reader("AI API Key: ")
+                else reader(prompt)
             )
     except (getpass.GetPassWarning, EOFError, KeyboardInterrupt):
         raise DataStateError("Production AI credential 读取失败") from None
@@ -493,6 +495,38 @@ def read_bootstrap_credential(
     if not isinstance(credential, str) or not credential:
         raise DataStateError("Production AI credential 不能为空")
     return credential
+
+
+def _bootstrap_header_specs(args: argparse.Namespace) -> list[tuple[str, bool]]:
+    """在接收值前拒绝非法或大小写重复的 Header 名；backend 继续最终裁决。"""
+    specs: list[tuple[str, bool]] = []
+    seen: set[str] = set()
+    for field, sensitive in (("header_name", False), ("sensitive_header_name", True)):
+        for name in getattr(args, field, []):
+            normalized = name.casefold()
+            if (
+                len(name) > 160
+                or not re.fullmatch(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+", name)
+                or normalized in {"authorization", "host", "content-length", "connection", "transfer-encoding"}
+                or normalized in seen
+            ):
+                raise DataStateError("Production AI Header 名称无效、保留或重复")
+            seen.add(normalized)
+            specs.append((name, sensitive))
+    return specs
+
+
+def _bootstrap_payload(envelope: dict[str, Any]) -> bytes:
+    """在持久 attempt 前检查完整 stdin 上限，错误不包含输入值。"""
+    try:
+        payload = json.dumps(
+            envelope, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+        ).encode("utf-8")
+    except (TypeError, ValueError, UnicodeError):
+        raise DataStateError("Production AI bootstrap 输入无法编码") from None
+    if len(payload) > BACKEND_BOOTSTRAP_INPUT_MAX_BYTES:
+        raise DataStateError("Production AI bootstrap 输入超过 64 KiB")
+    return payload
 
 
 def _application_code_bind_mount(mounts: Any) -> bool:
@@ -680,11 +714,7 @@ def _backend_bootstrap_result(
     runner: Callable[..., subprocess.CompletedProcess[Any]],
 ) -> dict[str, Any]:
     """以 shell=False 的 stdin pipe 调用容器内 maintenance command。"""
-    payload = json.dumps(
-        envelope,
-        ensure_ascii=False,
-        separators=(",", ":"),
-    ).encode("utf-8")
+    payload = _bootstrap_payload(envelope)
     try:
         completed = runner(
             [
@@ -776,18 +806,27 @@ def bootstrap_ai(
     if _attempt_status(state) is not None:
         raise DataStateError("Production AI bootstrap attempt 已存在，拒绝重入")
     request_parameters = _request_parameters(args.request_parameters_json)
+    header_specs = _bootstrap_header_specs(args)
     container_id = running_api_container_id(candidate, runner=runner)
     credential = read_bootstrap_credential(
         reader=credential_reader,
         stdin=stdin,
         stderr=stderr,
     )
+    headers = []
+    for index, (name, sensitive) in enumerate(header_specs, start=1):
+        value = read_bootstrap_credential(
+            reader=credential_reader, stdin=stdin, stderr=stderr,
+            prompt=f"AI Header value ({index}/{len(header_specs)}): ",
+        )
+        if any(ord(character) < 32 or ord(character) == 127 or ord(character) > 255 for character in value):
+            raise DataStateError("Production AI Header 值包含非法字符")
+        headers.append({"name": name, "is_sensitive": sensitive, "value": value})
     request_id = f"production-bootstrap-{uuid.uuid4()}"
-    state["ai_bootstrap_attempt"] = {"request_id": request_id, "status": "STARTED"}
-    atomic_write_state(data_root, state)
     envelope = {
         "request_id": request_id,
         "credential": credential,
+        "headers": headers,
         "channel": {
             "name": args.channel_name,
             "description": args.channel_description,
@@ -802,6 +841,9 @@ def bootstrap_ai(
             "request_parameters": request_parameters,
         },
     }
+    _bootstrap_payload(envelope)
+    state["ai_bootstrap_attempt"] = {"request_id": request_id, "status": "STARTED"}
+    atomic_write_state(data_root, state)
     result = _backend_bootstrap_result(
         container_id=container_id,
         envelope=envelope,
@@ -1589,6 +1631,14 @@ def parse_args() -> argparse.Namespace:
     bootstrap_parser.add_argument("--model-display-name", required=True)
     bootstrap_parser.add_argument("--model-id", required=True)
     bootstrap_parser.add_argument("--request-parameters-json", required=True)
+    bootstrap_parser.add_argument(
+        "--header-name", action="append", default=[],
+        help="可选普通 Header 名，可重复指定；值随后从无回显 TTY 输入",
+    )
+    bootstrap_parser.add_argument(
+        "--sensitive-header-name", action="append", default=[],
+        help="可选敏感 Header 名，可重复指定；值随后从无回显 TTY 输入并加密保存",
+    )
     subparsers.add_parser("deploy-production")
     locked_parser = subparsers.add_parser("run-locked")
     locked_parser.add_argument("child_command", nargs=argparse.REMAINDER)

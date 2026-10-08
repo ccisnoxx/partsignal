@@ -9,7 +9,7 @@
   "model_id": "",
   "request_parameters": {},
   "chat_completions_compatibility_confirmed": false,
-  "custom_headers_required": false,
+  "custom_headers": [],
   "credential_ready": false,
   "credential_json_bytes_upper_bound": 0,
   "credential_owner": "",

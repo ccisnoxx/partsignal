@@ -32,9 +32,9 @@
 - Settings 为进程启动快照，各 API/Worker/Scheduler 必须加载同一配置；文件更新不是热重载。已有 RUNNING 不因模式变化重放或撤回请求，执行者继续租约/迟到结果合同，收尾不增加模式复验。
 - `AI_ALLOW_LOCAL_HTTP=true` 只允许 `development`/`test` 的回环 HTTP 地址；公网仍使用 HTTPS，私网、链路本地和混合解析结果均拒绝。
 - API Key 和敏感 Header 使用 AES-256-GCM 密文保存，关联数据绑定记录 ID；响应、日志、审计和作业快照不得包含明文。
-- Production bootstrap 的 credential 只能从真实交互式 no-echo TTY 经 stdin pipe 进入 backend；不得使用 argv、environment、文件、shell history、日志、Docker metadata 或网络管理入口。第一版不接收自定义 Header。输出只允许固定状态、request ID、UUID、revision、test status 和 enabled/configured 布尔值，不得包含名称、URL、model ID、参数、credential 长度/摘要/片段、provider body 或原始异常。
+- Production bootstrap 的 credential 与可选 Header 值只能从真实交互式 no-echo TTY 经 stdin pipe 进入 backend；不得使用 argv、environment、文件、shell history、日志、Docker metadata 或网络管理入口。严格 envelope 的可选 `headers` 省略或 `[]` 都表示无 Header；每项恰好 `name/value/is_sensitive`，名称限定 1–160 个合法 token 字符以匹配既有数据库列容量，拒绝保留名、非法值与大小写重复名称，复用既有 Header Schema/加密/审计。输出只允许固定状态、request ID、UUID、revision、test status 和 enabled/configured 布尔值，不得包含名称、URL、model ID、参数、credential 长度/摘要/片段、Header 值、provider body 或原始异常。
 - Production bootstrap 的 fresh 条件是迁移、账号初始化已经完成，且全局 `ai_channels`、`ai_models`、`ai_channel_headers` 为空；任一已有配置都拒绝，不按名称或 model ID 覆盖。固定 `username=admin` 必须存在、为 active ADMIN 且状态安全；它是 Host root maintenance 操作的审计归属，不表示浏览器认证。
-- bootstrap 事务固定为 T1/T2/T3：T1 在同一事务锁定 actor、复核 AI 配置空集、创建 disabled channel 与 disabled/UNTESTED model 并追加两条既有 SUCCESS audit；T2 复用模型测试的事务外 provider 调用和 revision 复核；T3 仅在 `PASSED` 后以冻结 revision 在同一事务启用 model/channel 并追加两条既有 SUCCESS audit。既有 HTTP service wrappers 保持自己的提交合同，内部复用必须通过无 commit 的事务参与函数，禁止吞掉 commit 或直接拼 SQL。
+- bootstrap 事务固定为 T1/T2/T3：T1 在同一事务锁定 actor、复核 AI 配置空集、创建 disabled channel、可选 Headers 与 disabled/UNTESTED model，并追加各自既有 SUCCESS audit；Headers 必须在 model 前创建，冻结最终 channel/model revision 后提交。T2 复用模型测试的事务外 provider 调用和 revision 复核；T3 仅在 `PASSED` 后以冻结 revision 在同一事务启用 model/channel 并追加两条既有 SUCCESS audit。既有 HTTP service wrappers 保持自己的提交合同，内部复用必须通过无 commit 的事务参与函数，禁止吞掉 commit 或直接拼 SQL。
 - T1 任一错误全部回滚；明确 provider 失败保留 disabled 配置与 model=`FAILED`，但不新增失败审计；进程中断可保留 UNTESTED，revision 漂移保留并发事实，T3 任一错误使两个 enable 与两条 audit 共同回滚。任何失败或结果未知都不得自动重试、重测、覆盖 credential 或据此放行部署。
 - `AIChannel.protocol_type` 决定真实调用协议，`provider_brand` 只决定管理端身份、筛选和本地图标。当前协议只有 `openai-compatible-chat-completions`；品牌目录为 `OPENAI | ANTHROPIC | GOOGLE | AZURE_OPENAI | ZHIPU | QWEN | CUSTOM`。未知值或未登记组合必须拒绝，品牌不得改写地址或选择另一个客户端。
 - 渠道集合只返回 `AIChannelSummary`，包含身份、状态、API Key 配置状态、Header 数、模型总数、启用模型数、最近测试、服务端 `configuration_status` 与修订号；不得返回 base URL、Header 名/值、模型数组或任何密钥片段。`configuration_status=READY` 仅表示 Key 已配置且至少存在一个模型，否则为 `NEEDS_SETUP`。`q` 只搜索名称和描述；`counts` 应用 `q` 和 `provider_brand`，但不应用 `status`。列表固定为 counts、total、当前页三条 SQL，不得随行数增加查询。
@@ -118,7 +118,7 @@
 - 并发断言：作业创建锁定任务并读取当前平台 Prompt 与冻结事实；过期租约后的迟到响应不能写入成功结果。
 - 恢复断言：首次投递缺失、Broker 已接受但元数据未提交、重复消息和并发恢复均至多产生一次供应商调用和一个内容版本。
 - 模型测试并发断言：外部调用期间配置可更新，但旧测试结果不得覆盖更新后的 `UNTESTED` 状态。
-- Production bootstrap 断言：严格且有界的 stdin envelope、non-Production/未知字段/trailing input 拒绝、secret-bearing validation/provider/SQL 错误不进入输出；T1/T3 原子性、四条 SUCCESS audit 共用同一 request ID、全局已有/部分配置拒绝、两次并发只有一次可创建、provider failure 保持 disabled/FAILED、revision drift 与外部调用 at-most-once。
+- Production bootstrap 断言：严格且有界的 stdin envelope、可选 Headers 的省略/空数组与普通/敏感值、non-Production/未知字段/trailing input 拒绝、secret-bearing validation/provider/SQL 错误不进入输出；T1/T3 原子性、基础四条与可选 Header SUCCESS audit 共用同一 request ID、全局已有/部分配置拒绝、两次并发只有一次可创建、provider failure 保持 disabled/FAILED、revision drift 与外部调用 at-most-once。
 - Identity 并发断言：Header 按渠道锁串行化后必须一成功一具名 409；Model 用独立 Session/connection 使双方通过预检后竞争真实约束。每个 mapper 断言 cause 的 `sqlstate` 与 `constraint_name`，并用 AI Model 的真实 check constraint 和 primary key 反例证明未列名错误仍为默认 500 且不泄漏数据库文本。
 - Revision 优先级断言：Header、Model 与 Platform Prompt update 必须同时提交已存在 identity 和合法非负的 stale revision，并断言 `REVISION_CONFLICT` 优先、持久状态及 SUCCESS audit 不漂移。当前 revision 为 0 时应先持久化递增真实行再提交旧 revision，不得用非法 `-1` 或未来 revision 代替 stale 证据。
 - 全局自然化 Prompt 必须覆盖首次创建、missing、current update 与 stale 四状态，并断言 missing/stale 无行、revision 或成功审计副作用。

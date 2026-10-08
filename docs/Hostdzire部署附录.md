@@ -174,7 +174,9 @@ python3 ./deploy/scripts/prepare-production-data.py \
   --request-parameters-json "$validated_non_secret_parameters_json"
 ```
 
-三个 `PARTSIGNAL_*` 变量都是非 secret 的候选身份：`release_id` 必须等于 manifest release ID，`backend_repository` 与 `frontend_v2_repository` 必须是不带 tag 的 image repository，并且分别与 `release_id` 拼接后精确等于 manifest 的完整 backend/frontend image reference；它们不会从上一条安装命令的临时环境继承。脚本在同一 maintenance lock 内复核 run ID、绝对 manifest、candidate、`PRODUCTION_PREPARED` 与唯一运行 API 容器的 project/service/image/running/mount identity，然后才用 `getpass` 从真实 TTY 无回显读取 API Key，并通过 `docker exec -i` stdin 调用容器内 `python -m app.cli bootstrap-production-ai`。API Key 不得通过 argv、环境变量、文件、shell history、日志、Docker metadata、Trellis 或对话传入；getpass 发生 echo fallback、non-TTY、EOF 或 Ctrl-C 都必须退出。第一版不支持自定义 Header。
+三个 `PARTSIGNAL_*` 变量都是非 secret 的候选身份：`release_id` 必须等于 manifest release ID，`backend_repository` 与 `frontend_v2_repository` 必须是不带 tag 的 image repository，并且分别与 `release_id` 拼接后精确等于 manifest 的完整 backend/frontend image reference；它们不会从上一条安装命令的临时环境继承。脚本在同一 maintenance lock 内复核 run ID、绝对 manifest、candidate、`PRODUCTION_PREPARED` 与唯一运行 API 容器的 project/service/image/running/mount identity，然后才用 `getpass` 从真实 TTY 无回显读取 API Key，并通过 `docker exec -i` stdin 调用容器内 `python -m app.cli bootstrap-production-ai`。API Key 不得通过 argv、环境变量、文件、shell history、日志、Docker metadata、Trellis 或对话传入；getpass 发生 echo fallback、non-TTY、EOF 或 Ctrl-C 都必须退出。
+
+自定义 Header 可选。无需 Header 时直接使用上述命令；需要时追加 `--header-name X-Region` 或 `--sensitive-header-name X-Access-Token`，可重复指定多个名称。这里只传名称，不传值；脚本先无回显读取 API Key，再按普通 Header、敏感 Header 的顺序逐项无回显读取值。所有值仅通过 stdin envelope 交接，敏感值使用既有数据库加密；不在清单、argv、环境、日志或持久 attempt 中保存。非法、保留、大小写重复的名称，以及非法值、完整输入超过 64 KiB、任一读取中断，均在写入 `STARTED` 前退出。backend 在 T1 同一事务创建 channel、可选 Headers 和 model，复用现有 Header 校验、加密与脱敏审计，然后用完整配置执行一次连接测试。
 
 host 在 backend 启动前把无 secret 的 `ai_bootstrap_attempt` 原子记录为 `STARTED`。任何已有 attempt 或数据库中任意 AI channel/model/header 都拒绝再次执行；完整成功才更新 `SUCCEEDED`，明确失败更新 `FAILED`，结果未知保留 `STARTED`。provider 失败保留停用且 test=`FAILED` 的配置供调查，不自动重试或替换 credential；`STARTED/FAILED` 都阻断 activation。只能做脱敏只读核对或停止精确 API 容器，保留数据路径再按其合同恢复；fresh-init 使用安全停止与新安装路径，不得 force-clear。
 

@@ -15,11 +15,12 @@ from sqlalchemy import select
 from app.config import settings
 from app.db import SessionLocal
 from app.models.identity import User
-from app.schemas.configuration import AIChannelCreate, AIModelCreate
+from app.schemas.configuration import AIChannelCreate, AIChannelHeaderCreate, AIModelCreate
 from app.security import hash_password
 from app.services.ai_configuration import bootstrap_production_ai_configuration
 from app.services.generation_dispatch import generation_diagnostics
 from app.services.integrity import publication_integrity_issues
+from app.services.openai_client import validate_header
 
 PRODUCTION_AI_BOOTSTRAP_MAX_BYTES = 64 * 1024
 PRODUCTION_AI_BOOTSTRAP_REQUEST_ID = re.compile(
@@ -42,6 +43,7 @@ class ProductionAIBootstrapEnvelope:
     request_id: str
     channel: AIChannelCreate
     model: AIModelCreate
+    headers: tuple[AIChannelHeaderCreate, ...] = ()
 
 
 def _strict_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -71,7 +73,13 @@ def read_production_ai_bootstrap_envelope(
         document = json.loads(raw.decode("utf-8"), object_pairs_hook=_strict_json_object)
     except (UnicodeDecodeError, json.JSONDecodeError, ProductionAIBootstrapInputError) as error:
         raise ProductionAIBootstrapInputError() from error
-    root = _require_exact_keys(document, {"request_id", "credential", "channel", "model"})
+    required_keys = {"request_id", "credential", "channel", "model"}
+    if not isinstance(document, dict) or set(document) not in (
+        required_keys,
+        required_keys | {"headers"},
+    ):
+        raise ProductionAIBootstrapInputError()
+    root = document
     request_id = root["request_id"]
     if not isinstance(request_id, str) or not PRODUCTION_AI_BOOTSTRAP_REQUEST_ID.fullmatch(
         request_id
@@ -97,6 +105,25 @@ def read_production_ai_bootstrap_envelope(
             raise ProductionAIBootstrapInputError(request_id=request_id)
         channel = AIChannelCreate(api_key=credential, **channel_values)
         model = AIModelCreate(**model_values)
+        header_values = root.get("headers", [])
+        if not isinstance(header_values, list):
+            raise ProductionAIBootstrapInputError(request_id=request_id)
+        headers: list[AIChannelHeaderCreate] = []
+        normalized_names: set[str] = set()
+        for item in header_values:
+            values = _require_exact_keys(item, {"name", "value", "is_sensitive"})
+            # bootstrap 的渠道尚未创建；真实 revision 由 T1 的事务所有者填入。
+            header = AIChannelHeaderCreate.model_validate(
+                {"expected_channel_revision": 0, **values}, strict=True
+            )
+            # 首次初始化不可重入；在 T1 前匹配既有名称列容量，避免可预检的失败。
+            if len(header.name) > 160:
+                raise ProductionAIBootstrapInputError(request_id=request_id)
+            normalized = validate_header(header.name, header.value)
+            if normalized in normalized_names:
+                raise ProductionAIBootstrapInputError(request_id=request_id)
+            normalized_names.add(normalized)
+            headers.append(header)
     except ProductionAIBootstrapInputError:
         raise
     except Exception as error:
@@ -105,6 +132,7 @@ def read_production_ai_bootstrap_envelope(
         request_id=request_id,
         channel=channel,
         model=model,
+        headers=tuple(headers),
     )
 
 
@@ -143,6 +171,7 @@ def run_production_ai_bootstrap(stream: BinaryIO) -> tuple[dict[str, object], in
                 channel_payload=envelope.channel,
                 model_payload=envelope.model,
                 request_id=request_id,
+                header_payloads=envelope.headers,
             )
     except ProductionAIBootstrapInputError as error:
         output: dict[str, object] = {"status": "REJECTED"}

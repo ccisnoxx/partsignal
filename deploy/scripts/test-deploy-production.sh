@@ -397,6 +397,15 @@ def run(text, ai_value=ai, *, mode=0o600, expected=0, code=None):
 
 summary = run(render(values))
 assert summary["ai_inputs"] == "PASSED" and summary["external_services_gate"] == "NOT_RUN"
+run(render(values), {key: value for key, value in ai.items() if key != "custom_headers"})
+header_metadata = [
+    {"name": "X-Region", "is_sensitive": False, "value_json_bytes_upper_bound": 64},
+    {"name": "X-Access-Token", "is_sensitive": True, "value_json_bytes_upper_bound": 1024},
+]
+run(render(values), {**ai, "custom_headers": header_metadata})
+run(render(values), {**ai, "custom_headers": [
+    {**header_metadata[0], "name": "X-" + "a" * 158}
+]})
 summary = run(template, json.loads((root / "deploy/production-ai.example.json").read_text()), expected=2)
 assert summary["status"] == "NOT_READY" and len(summary["missing_runtime"]) == 11
 assert len(summary["missing_ai"]) == 9
@@ -429,7 +438,13 @@ for changes, code in [
     ({"timeout_seconds": 9}, "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
     ({"model_id": " synthetic-model"}, "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
     ({"request_parameters": {"model": "forbidden"}}, "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
-    ({"custom_headers_required": True}, "AI_CUSTOM_HEADERS_UNSUPPORTED"),
+    ({"custom_headers": [{**header_metadata[0], "value": "must-not-be-in-file"}]}, "AI_HEADER_METADATA_INVALID"),
+    ({"custom_headers": [{**header_metadata[0], "is_sensitive": "true"}]}, "AI_HEADER_METADATA_INVALID"),
+    ({"custom_headers": [{**header_metadata[0], "name": "Authorization"}]}, "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+    ({"custom_headers": [{**header_metadata[0], "name": "X-" + "a" * 159}]}, "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+    ({"custom_headers": [header_metadata[0], {**header_metadata[0], "name": "x-region"}]}, "BACKEND_CONFIG_OR_AI_SCHEMA_INVALID"),
+    ({"custom_headers": [{**header_metadata[0], "value_json_bytes_upper_bound": 70000}]}, "AI_BOOTSTRAP_ENVELOPE_TOO_LARGE"),
+    ({"custom_headers": [{**header_metadata[0], "value_json_bytes_upper_bound": True}]}, "AI_HEADER_BUDGET_INVALID"),
     ({"request_parameters": {"large": "x" * 70000}}, "AI_BOOTSTRAP_ENVELOPE_TOO_LARGE"),
     ({"request_parameters": {"large": "中" * 22000}}, "AI_BOOTSTRAP_ENVELOPE_TOO_LARGE"),
     ({"credential_json_bytes_upper_bound": 70000}, "AI_BOOTSTRAP_ENVELOPE_TOO_LARGE"),
@@ -446,6 +461,10 @@ summary = run(render(values), {**ai, "credential_ready": False}, expected=2)
 assert summary["missing_ai"] == ["credential_ready"]
 summary = run(render(values), {**ai, "credential_json_bytes_upper_bound": 0}, expected=2)
 assert summary["missing_ai"] == ["credential_json_bytes_upper_bound"]
+summary = run(render(values), {**ai, "custom_headers": [
+    {**header_metadata[0], "value_json_bytes_upper_bound": 0}
+]}, expected=2)
+assert summary["missing_ai"] == ["custom_headers[0].value_json_bytes_upper_bound"]
 run(render(values), mode=0o644, expected=2, code="INPUT_FILE_METADATA_INVALID")
 run(render(values), '{"channel_name":"first","channel_name":"second"}',
     expected=2, code="AI_DUPLICATE_KEY")
@@ -2568,4 +2587,5 @@ test "$overwrite_status" -ne 0
 
 python3 "$root/deploy/scripts/test-production-fresh-reset.py"
 python3 "$root/deploy/scripts/test-production-fresh-reset-mounts.py"
+python3 "$root/deploy/scripts/test-production-bootstrap-headers.py"
 printf '%s\n' "Production V2 编排、两阶段激活、可续跑数据状态机与候选清单合同自检通过"

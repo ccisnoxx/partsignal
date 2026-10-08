@@ -200,8 +200,23 @@ def strict_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
 def check_ai(path: Path) -> tuple[dict[str, object], list[str]]:
     value = json.loads(read_private(path), object_pairs_hook=strict_object)
     template = json.loads((ROOT / "deploy/production-ai.example.json").read_text())
-    if not isinstance(value, dict) or set(value) != set(template):
+    if not isinstance(value, dict) or set(value) | {"custom_headers"} != set(template):
         raise InputError("AI_KEY_SET_MISMATCH")
+    # Header 是可选元数据；清单不接收值，真实值只在 Host TTY 交接。
+    headers = value.setdefault("custom_headers", [])
+    if not isinstance(headers, list):
+        raise InputError("AI_HEADER_METADATA_INVALID")
+    for header in headers:
+        if (
+            not isinstance(header, dict)
+            or set(header) != {"name", "is_sensitive", "value_json_bytes_upper_bound"}
+            or not isinstance(header["name"], str)
+            or type(header["is_sensitive"]) is not bool
+        ):
+            raise InputError("AI_HEADER_METADATA_INVALID")
+        budget = header["value_json_bytes_upper_bound"]
+        if type(budget) is not int or budget < 0 or budget in (1, 2):
+            raise InputError("AI_HEADER_BUDGET_INVALID")
     missing = [
         key
         for key in (
@@ -223,8 +238,11 @@ def check_ai(path: Path) -> tuple[dict[str, object], list[str]]:
         )
         if value[key] is not True
     ]
-    if value["custom_headers_required"] is not False:
-        raise InputError("AI_CUSTOM_HEADERS_UNSUPPORTED")
+    missing += [
+        f"custom_headers[{index}].value_json_bytes_upper_bound"
+        for index, header in enumerate(headers)
+        if header["value_json_bytes_upper_bound"] == 0
+    ]
     credential_budget = value["credential_json_bytes_upper_bound"]
     if type(credential_budget) is not int or credential_budget < 0 or credential_budget in (1, 2):
         raise InputError("AI_CREDENTIAL_BUDGET_INVALID")
@@ -267,6 +285,8 @@ try:
                 'base_url': ai['base_url'], 'timeout_seconds': ai['timeout_seconds']},
             'model': {'display_name': ai['model_display_name'], 'model_id': ai['model_id'],
                 'request_parameters': ai['request_parameters']},
+            'headers': [{'name': header['name'], 'is_sensitive': header['is_sensitive'],
+                'value': ''} for header in ai['custom_headers']],
         }
         def encode():
             return json.dumps(envelope, ensure_ascii=False, separators=(',', ':'),
@@ -274,10 +294,14 @@ try:
         # Host 使用同一 UTF-8 紧凑 JSON 格式；所有 UUID request ID 长度固定。
         # 空 credential JSON 为 2 bytes；仅以 owner 声明的上界替代，绝不读取真实 Key。
         required_bytes = len(encode()) - 2 + ai['credential_json_bytes_upper_bound']
+        required_bytes += sum(header['value_json_bytes_upper_bound'] - 2
+            for header in ai['custom_headers'])
         if required_bytes > PRODUCTION_AI_BOOTSTRAP_MAX_BYTES:
             print(json.dumps({'status':'FAILED','code':'AI_BOOTSTRAP_ENVELOPE_TOO_LARGE'}))
             sys.exit(2)
         envelope['credential'] = 'x'
+        for header in envelope['headers']:
+            header['value'] = 'x'
         parsed = read_production_ai_bootstrap_envelope(io.BytesIO(encode()))
         # HttpUrl 会把缩写、十六进制等 IPv4 写法规范化；必须检查真实 consumer 的值。
         hostname = urlsplit(str(parsed.channel.base_url)).hostname.rstrip('.')

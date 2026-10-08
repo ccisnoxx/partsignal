@@ -15,4 +15,4 @@ DEPLOY 的 GEO-1009/UI 依赖均done，新会话启动已授权，移交时状�
 2026-10-07 当前DEPLOY结果：Git提交/push/fetch已执行；修正测试入口后的源码候选76d1d523完整门禁exit0，archive/hash及clean checkout保留。正式images/manifest和精确目标/阶段/恢复实际输入仍缺，DEPLOY blocked/未部署，UAT planned/未开始；见DEPLOY候选验证记录。后续治理提交不是该已验证候选。
 
 
-2026-10-08 UTC最新DEPLOY结果：固定852c6d5e完整本地Gate exit0，Hostdzire直接构建前后端并生成同身份fresh工件，production preflight通过；真实OSS返回404/NoSuchBucket，AI初始化安排待回复。未停服、清空、迁移或切换，UAT未开始。详见[Hostdzire直接执行记录](../10-07-geo-1010-internal-pilot-deploy/hostdzire-direct-build.md)。GitHub Actions不作为部署前提。
+2026-10-08 UTC最新DEPLOY结果：固定852c6d5e完整本地Gate exit0，Hostdzire直接构建前后端并生成同身份fresh工件，production preflight通过；正确runtime已交付、OSS读写成功，但Bucket读取权限待确认，AI已选择上线后管理UI配置。未停服、清空、迁移或切换，UAT未开始。详见[Hostdzire直接执行记录](../10-07-geo-1010-internal-pilot-deploy/hostdzire-direct-build.md)。GitHub Actions不作为部署前提。

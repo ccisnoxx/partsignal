@@ -155,7 +155,22 @@ COMPOSE_FILE=deploy/compose.prod.yaml \
 
 `clean-init` 先验证状态为 `QUARANTINED`、run ID/固定根/隔离目标匹配、两个活动目录为空且没有 `objects`，并把状态绑定到 manifest 摘要、release/commit/schema、backend/frontend 镜像引用、image ID 与 RepoDigest；脚本同时复算固定 tracked files，且只接受 `deploy/compose.prod.yaml`。local 模式不 pull，在任何 create/run/up 前再次核对本地 image ID 与 RepoDigest；registry 模式则保留 pull 后核对。随后才执行 PostgreSQL/Redis、Production config preflight、migration、空库 integrity、`initialize-accounts`、API/Frontend 与回环探针。成功后状态为 `PRODUCTION_PREPARED`，Worker/Scheduler 仍保持停止。
 
-clean-init 成功且阶段为 `PRODUCTION_PREPARED` 后，先由真实 credential owner 在 Hostdzire 交互式 TTY 运行一次 AI bootstrap。以下参数均为非 secret，必须按 credential owner 提供的受控 provider 配置显式填写；不得从品牌、名称或 URL 猜测协议或 model：
+clean-init或fresh-init成功且阶段为`PRODUCTION_PREPARED`后，按用户已选择的AI初始化方式继续。用户明确选择上线后在管理界面配置时，执行以下非secret移交命令：
+
+```sh
+PARTSIGNAL_VERSION="$release_id" \
+PARTSIGNAL_BACKEND_IMAGE="$backend_repository" \
+PARTSIGNAL_FRONTEND_IMAGE="$frontend_v2_repository" \
+PARTSIGNAL_DATA_ROOT=/root/partsignal-data \
+python3 ./deploy/scripts/prepare-production-data.py \
+  defer-ai-configuration prr_YYYYMMDD_HHMMSS "$manifest_path"
+```
+
+owner在同一维护锁内核验run/candidate/manifest、真实运行API identity和AI三表全空，持久化`ai_configuration_handoff`的`mode=admin-ui`、run ID和manifest摘要。任何已有/畸形bootstrap attempt或移交均拒绝，不能把失败或未知结果转换成成功。移交仅记录初始化方式，不保存第二套AI就绪状态；后续配置由PostgreSQL和原管理界面裁决，移交后不再运行Host bootstrap。
+
+真实OSS权限、上传/HEAD、短期读取和CORS均验证后，以`PARTSIGNAL_EXTERNAL_SERVICES_GATE=OSS_MET_AI_PENDING`执行下方同候选activation命令，其余身份/模式参数保持实际值。该值只在合法admin-ui新安装路径有效，upgrade明确拒绝；不能用通用MET掩盖未运行的AI验证。Worker/Scheduler启动不授予模型外发资格；管理员上线后创建配置、测试和手动启用前，AI操作保持真实空态。AI Gate在记录中为待配置，不能宣称完整业务或UAT验收。
+
+未选择admin-ui时，先由真实credential owner在Hostdzire交互式TTY运行一次AI bootstrap。以下参数均为非 secret，必须按 credential owner 提供的受控 provider 配置显式填写；不得从品牌、名称或 URL 猜测协议或 model：
 
 ```sh
 PARTSIGNAL_VERSION="$release_id" \
@@ -180,7 +195,7 @@ python3 ./deploy/scripts/prepare-production-data.py \
 
 host 在 backend 启动前把无 secret 的 `ai_bootstrap_attempt` 原子记录为 `STARTED`。任何已有 attempt 或数据库中任意 AI channel/model/header 都拒绝再次执行；完整成功才更新 `SUCCEEDED`，明确失败更新 `FAILED`，结果未知保留 `STARTED`。provider 失败保留停用且 test=`FAILED` 的配置供调查，不自动重试或替换 credential；`STARTED/FAILED` 都阻断 activation。只能做脱敏只读核对或停止精确 API 容器，保留数据路径再按其合同恢复；fresh-init 使用安全停止与新安装路径，不得 force-clear。
 
-bootstrap 的真实连接测试成功只证明该 model 的 credential 注入与连接边界；不得单独把 External Services Gate 写成 `MET`。继续完成受控的真实 AI/OSS Gate，包括 AI 结果语义与失败边界、OSS 空 namespace/零旧对象引用、预签名上传、HEAD、短期下载和 CORS。只有全部 Gate=`MET` 后才运行：
+bootstrap 的真实连接测试成功只证明该 model 的 credential 注入与连接边界；不得单独把 External Services Gate 写成 `MET`。继续完成受控的真实 AI/OSS Gate，包括 AI 结果语义与失败边界、OSS 空 namespace/零旧对象引用、预签名上传、HEAD、短期下载和 CORS。维护窗口bootstrap路径只有全部Gate=`MET`后才运行；上述显式admin-ui路径仅以`OSS_MET_AI_PENDING`运行：
 
 ```sh
 PARTSIGNAL_VERSION="$release_id" \
@@ -209,7 +224,7 @@ Nginx 写与 reload 是独立授权。每个授权包都包含 enabled symlink t
 
 停止任何容器前，先从 manifest 固定的 `deploy/nginx/partsignal-maintenance.conf.template` 渲染维护站点。它保留现有 host、HTTP 到 HTTPS、ACME、TLS 和 PartSignal security snippet，HTTPS 业务路径固定返回 `503`、`Content-Type: text/plain`、`Cache-Control: no-store`、`Retry-After: 3600` 和正文 `PartSignal maintenance`；不得声明 upstream、`proxy_pass`、静态 root、`19000`、`19001`、`19080` 或 `/object-storage/`。maintenance write 与 maintenance reload 分别授权，公网首次验证维护响应时记录 T0。
 
-真实 AI/OSS Gate、activation 和候选 identity/health 全部通过后，才从 manifest 固定的 Production 模板执行第二次原子写入；final write 与 final reload 仍分别授权。Production 模板必须代理 `19000` 和 `19080`，不包含静态 root、`19001` 或 `/object-storage/`。API upstream `keepalive_timeout 30s`，Uvicorn `--timeout-keep-alive 35`。
+真实外部Gate、activation和候选identity/health全部符合所选路径后，才从manifest固定的Production模板执行第二次原子写入；admin-ui路径只已验证OSS并明确AI待配置，不能宣称AI Gate通过。final write 与 final reload 仍分别授权。Production 模板必须代理 `19000` 和 `19080`，不包含静态 root、`19001` 或 `/object-storage/`。API upstream `keepalive_timeout 30s`，Uvicorn `--timeout-keep-alive 35`。
 
 ## 9. Frontend V2-only 回滚
 

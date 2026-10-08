@@ -56,7 +56,7 @@ Production 镜像交付模式由 `PARTSIGNAL_IMAGE_DELIVERY_MODE` 显式控制�
 
 ## 4. Production 配置
 
-完整模板、本地只读检查命令与准备流程见[开发与 Production 配置准备](./production-configuration.md)。开发复制 `.env.example → .env`；生产独立复制 `.env.production.example → .env.production`，不把开发文件转换为生产文件。AI 首次初始化所需的九项非 secret 参数与凭据交接确认集中在 `deploy/production-ai.example.json`；它是操作输入清单，不是应用自动读取的配置接口。所有已知缺项应在 release freeze 和维护前确认，不能等到 clean-init 中途才索取。runtime 必须为无插值、无控制字符的 literal 配置；暂存安装前再次核验 Compose 实际消费的数据库身份，不能把 `config --quiet` 当作该校验。
+完整模板、本地只读检查命令与准备流程见[开发与 Production 配置准备](./production-configuration.md)。开发复制 `.env.example → .env`；生产独立复制 `.env.production.example → .env.production`，不把开发文件转换为生产文件。AI初始化方式在维护前明确：选择上线后admin-ui时不要求AI输入清单或Key交接；选择维护窗口bootstrap时，九项非secret参数与凭据交接确认集中在`deploy/production-ai.example.json`，该清单不是应用配置加载接口。所选方式的已知缺项应在release freeze和维护前确认，不能等到clean-init中途才索取。runtime 必须为无插值、无控制字符的 literal 配置；暂存安装前再次核验 Compose 实际消费的数据库身份，不能把 `config --quiet` 当作该校验。
 
 本地准备文件可以通过独立受控配置交付安装到 `/root/partsignal/shared/.env.production`；最终文件只能在 Hostdzire 受控创建或更新，权限必须为 `0600`。后续 release 复用它，只有配置变化时才更新，`deploy.sh` 不自动上传或覆盖 env。已有文件更新必须保留现有 secret/数据库身份，并经过精确备份、受控暂存校验、旧 checksum 核验与原子安装；当前 Hostdzire 已有完整文件，不得用新空模板覆盖。至少满足 `APP_ENV=production`、安全 Cookie、`CONTENT_GENERATOR=openai-compatible`、`AI_ALLOW_LOCAL_HTTP=false`、`OBJECT_STORAGE_BACKEND=aliyun_oss`，并使用独立 session/encryption/database/account secrets 和完整低权限 OSS 配置。
 
@@ -73,20 +73,20 @@ Production 镜像交付模式由 `PARTSIGNAL_IMAGE_DELIVERY_MODE` 显式控制�
 3. T+10 前只按重新读取的 full container ID 和 project/service label，依次停止 `scheduler`、`worker`、`api`、`frontend`、`fake-oss`、`postgres`、`redis`；必须先停止调度和写入生产者，再停止状态存储，不得使用 `--remove-orphans`。
 4. 运行 `prepare-production-data.py quarantine <run-id>`。脚本在固定排他锁内验证 canonical 路径、停止的 Compose project、活动 mount、同一 device 和持久阶段，再逐目录原子 rename；失败后以相同 run ID 续跑，不删除数据。
 5. 以 `PARTSIGNAL_RELEASE_MANIFEST`、`PARTSIGNAL_DEPLOY_MODE=clean-init`、`PARTSIGNAL_IMAGE_DELIVERY_MODE=local` 和同一 `PARTSIGNAL_CUTOVER_RUN_ID` 运行 Production deploy script。它只在状态为 `QUARANTINED` 且 PostgreSQL/Redis 活动目录为空时，把 manifest 摘要、release/commit/schema 和镜像 ID 绑定到状态；local 模式不 pull，在任何 create/run/up 前核对实际 image ID 与 RepoDigest，再执行配置预检、migration、完整性检查、`initialize-accounts`，随后只启动 API/Frontend V2 并把阶段推进到 `PRODUCTION_PREPARED`。
-6. 在同一维护锁、同一 run ID/manifest/candidate 且阶段为 `PRODUCTION_PREPARED` 时，由 Hostdzire credential owner 使用 `prepare-production-data.py bootstrap-ai` 的交互式 no-echo TTY 输入真实 AI API Key。Header 可选，按需以 `--header-name` / `--sensitive-header-name` 指定名称，值同样无回显读取；不指定时不要求 Header。该命令只对 manifest 绑定且正在运行的 API 容器执行 `docker exec -i`，先原子创建停用的 channel、可选 Headers 和 model，再真实测试连接，只有 `PASSED` 才原子启用；credential/Header 值不得进入 argv、环境变量、文件、日志、history、Docker inspect 或对话。任何已有 AI 配置、已有 bootstrap attempt、provider 失败、revision 冲突或结果未知都 fail closed，禁止重试或覆盖。
-7. bootstrap 成功只证明该 AI model 的凭据注入与连接测试路径，不等于完整 External Services Gate。继续完成真实 AI 正式生成、OSS 权限/失败、空 namespace、零旧对象引用和受控上传/HEAD/短期读取/CORS Gate；`fake-oss` 保持停止且不属于 Production service 集合。Gate=`MET` 后，只有同一 manifest 且 bootstrap attempt 已确认成功时才能运行 `activate-production.sh`，显式启用非默认 `production-async` profile 并把阶段推进到 `PRODUCTION_INITIALIZED`。
+6. 新安装用户可明确选择上线后在管理界面配置AI；此时由`defer-ai-configuration RUN_ID MANIFEST`在同一维护锁、prepared/candidate/API identity及AI空集校验后记录admin-ui移交，无Key/TTY前提、无bootstrap成功状态。其他新安装在同一维护锁、同一run ID/manifest/candidate且阶段为`PRODUCTION_PREPARED`时，由Hostdzire credential owner使用 `prepare-production-data.py bootstrap-ai` 的交互式 no-echo TTY 输入真实 AI API Key。Header 可选，按需以 `--header-name` / `--sensitive-header-name` 指定名称，值同样无回显读取；不指定时不要求 Header。该命令只对 manifest 绑定且正在运行的 API 容器执行 `docker exec -i`，先原子创建停用的 channel、可选 Headers 和 model，再真实测试连接，只有 `PASSED` 才原子启用；credential/Header 值不得进入 argv、环境变量、文件、日志、history、Docker inspect 或对话。任何已有 AI 配置、已有 bootstrap attempt、provider 失败、revision 冲突或结果未知都 fail closed，禁止重试或覆盖。
+7. bootstrap 成功只证明该 AI model 的凭据注入与连接测试路径，不等于完整 External Services Gate。继续完成真实 AI 正式生成、OSS 权限/失败、空 namespace、零旧对象引用和受控上传/HEAD/短期读取/CORS Gate；`fake-oss` 保持停止且不属于 Production service 集合。维护窗口bootstrap路径Gate=`MET`后，只有同一manifest且bootstrap attempt已确认成功时才能运行`activate-production.sh`；显式admin-ui新安装在真实OSS验证后使用`OSS_MET_AI_PENDING`，owner重验同候选移交，保留AI待配置，upgrade不接受此Gate。激活显式启用非默认 `production-async` profile 并把阶段推进到 `PRODUCTION_INITIALIZED`。
 8. 从同一 manifest 固定的 Production 模板生成最终站点；N3 写授权仍要求原子替换和 `nginx -t`，N4 reload 再单独授权。此前运行中的 Nginx 必须持续返回维护响应。
-9. 完成回环、公网、浏览器、权限、AI/OSS 与受控写验收，进入观察期。T+60 前必须得到经验证的新 Production 或经验证恢复的旧运行态，不能延长窗口继续排障。
+9. 完成回环、公网、浏览器、权限、OSS与受控写验收，进入观察期；admin-ui路径保留AI待配置，管理员真实配置/测试/启用后的AI业务验收另行完成，不能提前声明完整UAT通过。T+60 前必须得到经验证的新 Production 或经验证恢复的旧运行态，不能延长窗口继续排障。
 
 物理删除 quarantine、`.env.staging`、fake-oss container/image 或旧 release/image 不属于上述转换授权。V1 仓库源码已在独立的开发阶段 cutover 中退役，该事实不扩大任何远端删除或 Production 转换授权。
 
 ### 5.1 明确丢弃旧数据的fresh-init
 
-仅在用户明确要求现有PartSignal站点清空重建时适用。该决定覆盖旧数据隔离、备份和恢复要求；不扩大为删除其他project、TLS、runtime、镜像全局prune或真实OSS共享bucket。必须在新源码/镜像/manifest和AI/OSS初始化输入已就绪后才进入维护，避免先删除后发现新安装缺项。
+仅在用户明确要求现有PartSignal站点清空重建时适用。该决定覆盖旧数据隔离、备份和恢复要求；不扩大为删除其他project、TLS、runtime、镜像全局prune或真实OSS共享bucket。必须在新源码/镜像/manifest和真实OSS配置已就绪后才进入维护；维护窗口bootstrap还需AI输入/owner就绪，用户明确选择admin-ui时无需这些AI凭据准备，只需完成显式移交路径的候选验证，避免先删除后发现所选安装路径缺项。
 
 状态owner在固定maintenance lock内认证新候选、run ID、canonical数据根、三个普通目录及其inode、静止project和重叠挂载，再清空postgres/redis/objects的内容。先持久化真实RESETTING，完成后为RESET_READY；同run/candidate可受控续跑，目录替换、不同输入或已有非reset发布状态拒绝。不创建quarantine，不手写QUARANTINED或PRODUCTION_INITIALIZED。
 
-fresh候选显式声明`fresh-rebuild`恢复策略，旧previous V2为不适用，frontend-only rollback明确拒绝。部署使用`fresh-init`，空库迁移、账号初始化、PRODUCTION_PREPARED、受保护AI bootstrap、真实AI/OSS Gate及activation仍由现有owner执行。失败保持维护并安全停止或重新安装，不宣称旧数据可恢复。精确命令见附录清空重建章节；保留数据的第5节与第7节不替代本路径。
+fresh候选显式声明`fresh-rebuild`恢复策略，旧previous V2为不适用，frontend-only rollback明确拒绝。部署使用`fresh-init`，空库迁移、账号初始化和PRODUCTION_PREPARED由现有owner执行；随后按所选方式完成显式admin-ui移交及真实OSS Gate，或受保护AI bootstrap及完整真实AI/OSS Gate，再由owner激活。失败保持维护并安全停止或重新安装，不宣称旧数据可恢复。精确命令见附录清空重建章节；保留数据的第5节与第7节不替代本路径。
 
 ## 6. 验收
 

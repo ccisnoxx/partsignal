@@ -38,4 +38,4 @@ fresh-init/reset-data已实现并完成16项fresh检查，受影响旧Production
 
 ## Hostdzire 直接构建与当前现场状态（2026-10-08 UTC）
 
-源码852c6d5e完整本地Gate exit0，Hostdzire原生前后端构建与manifest/生产预检通过。真实OSS返回404/NoSuchBucket，AI初始化安排待回复；尚未维护、清空、迁移或切换。当前状态以[直接执行记录](./hostdzire-direct-build.md)为准，先前“未上传/未构建/新Gate未运行”是历史准备边界。GitHub Actions 不要求也未触发。DEPLOY保持blocked，UAT未开始。
+源码852c6d5e完整本地Gate及Hostdzire镜像/manifest通过；现有env已核对，正确OSS地域与Production runtime已受控交付。真实OSS上传/HEAD/签名读取成功，但Bucket公开读取及CORS范围待确认，AI上线后管理UI配置已获选择、部署owner移交实现与定向验证/独立复核完成，新候选准备中；尚未维护、清空、迁移或切换。当前以[直接执行记录](./hostdzire-direct-build.md)和[配置执行证据](./evidence/hostdzire-runtime-config-execution.json)为准；此前404/NoSuchBucket是旧服务器配置的历史失败，不是缺少现有本地配置。配置交付本身未改应用源码/镜像；新增部署owner须新候选验证，旧完整Gate仅作历史。Actions不要求且未触发。DEPLOY blocked，UAT未开始。

@@ -33,7 +33,9 @@
 
 读取接口只返回凭据已配置状态，复制配置不包含 API Key 或敏感 Header。排障不得从浏览器状态、数据库密文、普通日志或审计差异导出凭据。
 
-Production clean-init 的首个真实 AI credential 只通过 Hostdzire root/operator maintenance CLI 注入：deploy 状态 owner 必须在同一锁内证明 run、manifest、candidate 与 `PRODUCTION_PREPARED`，credential owner 在真实 TTY 以 no-echo 输入，secret 仅经进程内存、内核 pipe、Docker exec 与 provider buffer，并最终只以应用既有 `CredentialCipher` 密文持久化。不得把 credential 放入 argv、环境变量、文件、history、日志、Docker metadata、Trellis 或对话，也不得读取 seed admin password；固定 `admin` 仅作为 maintenance 操作的业务审计归属。
+选择维护窗口bootstrap的Production clean-init或fresh-init，其首个真实AI credential通过Hostdzire root/operator maintenance CLI注入：deploy 状态 owner 必须在同一锁内证明 run、manifest、candidate 与 `PRODUCTION_PREPARED`，credential owner 在真实 TTY 以 no-echo 输入，secret 仅经进程内存、内核 pipe、Docker exec 与 provider buffer，并最终只以应用既有 `CredentialCipher` 密文持久化。不得把 credential 放入 argv、环境变量、文件、history、日志、Docker metadata、Trellis 或对话，也不得读取 seed admin password；固定 `admin` 仅作为 maintenance 操作的业务审计归属。
+
+用户明确选择上线后admin-ui的新安装，由同一部署state owner在PRODUCTION_PREPARED核验run/candidate/API身份、AI空集及无bootstrap attempt后记录显式初始化移交。真实OSS验证后只以OSS_MET_AI_PENDING激活，保留AI待配置，不声明完整AI Gate或制造成功attempt。上线后首个凭据通过既有ADMIN+CSRF管理接口加密保存；渠道/模型真实测试通过后仍须管理员显式启用，业务生成资格由应用与PostgreSQL裁决，不要求维护终端Key/TTY交接。
 
 该 bootstrap 是单次 fail-closed 状态机：T1 原子创建停用 channel/model，T2 在数据库事务外进行至多一次真实连接测试，T3 仅在 `PASSED` 时原子启用二者。provider 失败、revision 冲突、host/容器结果未知或任何已有 AI 配置/attempt 都禁止自动重试和 credential 覆盖；数据库事实与 operator 确认必须分开处理。bootstrap connection test 不替代真实正式生成、OSS 或浏览器 External Services Gate。
 

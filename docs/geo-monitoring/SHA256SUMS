@@ -130,7 +130,7 @@ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  05-decisions/G
 b949243cf6b9715e2ecad7c36bee3d9e094d76ed9f50dca1bc365da77c956fb3  06-reviews/GEO-1001-release-readiness-audit.md
 b36012529fce0cbbc4000388c5ac5208ee56dec955d1fd83b075f2c300bd47fe  06-reviews/2026-10-06-v1-post-recovery-blocker-audit.md
 4bf765fa4d49d49736ac5b9422a5e63ff2ccdd20f1ee937223b98a1bf944748c  CHANGELOG.md
-5cfb710ef28319554ec61d7dad9ee8678a4f6603b0a0b58cba8e7df83411c1da  README.md
+7c6d99db262bf34b07804cdf1e1eafddff3c1186ee053906bcb6f8c520076ce4  README.md
 9a0e045a854176f9fa12f8da21c58b0432ff4c58d8b900a7328bea7d4ec16e8e  06-reviews/2026-10-06-v1-branch-blocker-remediation.md
 39bf5625a0e57f9ae3031daf39808eaad631ccb59dd8950ed25c8e2609c17fc9  06-reviews/2026-10-07-v1-pr-acceptance.md
 a225244b693d83e6bd52455983cc34960270233ecf14114f2c9a79a4912034ab  05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md

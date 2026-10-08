@@ -1,0 +1,444 @@
+{
+  "recorded_at_utc": "2026-10-08T04:25:37.469841+00:00",
+  "candidate_commit": "852c6d5ea4bb6da99d4bd843271eb6634d84a3f1",
+  "release_id": "pilot-20261008-030536-852c6d5e",
+  "host_alias": "hostdzire",
+  "user_steering": "现有 .env 与 .env.production 已配置；核对并使用，不重复索取已有外部服务配置",
+  "evidence": {
+    "runtime-config-comparison.json": {
+      "sha256": "8e8a1e7287ac377dd07730a585158a8a6e55550ce551630ff0bdf5b82ebf1305",
+      "result": {
+        "checked_at": "2026-10-08T04:07:34.588413+00:00",
+        "local": {
+          ".env": {
+            "path": "/Users/sc/PycharmProjects/partsignal/.env",
+            "mode": "0o600",
+            "sha256": "70c1b7d3b492196834111b80bbbae6c37c7e2e7807c88614b3abe432dac79c47",
+            "oss_configured": {
+              "OSS_ENDPOINT": true,
+              "OSS_BUCKET": true,
+              "OSS_ACCESS_KEY_ID": true,
+              "OSS_ACCESS_KEY_SECRET": true
+            },
+            "ai_related_key_names": [
+              "AI_ALLOW_LOCAL_HTTP",
+              "AI_CREDENTIAL_ENCRYPTION_KEY"
+            ]
+          },
+          ".env.production": {
+            "path": "/Users/sc/PycharmProjects/partsignal/.env.production",
+            "mode": "0o600",
+            "sha256": "b3081159961606911e5f8ac10e7d5dcc81a3867daff80f2993866dd9c835e8d3",
+            "oss_configured": {
+              "OSS_ENDPOINT": true,
+              "OSS_BUCKET": true,
+              "OSS_ACCESS_KEY_ID": true,
+              "OSS_ACCESS_KEY_SECRET": true
+            },
+            "ai_related_key_names": [
+              "AI_ALLOW_LOCAL_HTTP",
+              "AI_CREDENTIAL_ENCRYPTION_KEY"
+            ],
+            "runtime_check": {
+              "status": "FAILED",
+              "code": "ENV_KEY_SET_MISMATCH"
+            },
+            "missing_runtime_key_names": [
+              "GEO_DAILY_BUDGET_CURRENCY"
+            ],
+            "extra_runtime_key_names": []
+          }
+        },
+        "ai_metadata": {
+          "base_url_configured": true,
+          "model_configured": true,
+          "credential_ready": false,
+          "credential_owner_configured": false,
+          "credential_json_bytes_upper_bound": 0,
+          "credential_owner_tty_handoff_confirmed": false,
+          "custom_headers_array_present": false,
+          "legacy_custom_headers_required_field_present": true
+        },
+        "server": {
+          "/root/partsignal/shared/.env.production": {
+            "mode": "0o600",
+            "sha256": "413092ab3459ca8c1198a1b352eca8009ff1bc965916073d002d2be4cdab6eba",
+            "oss_configured": {
+              "OSS_ENDPOINT": true,
+              "OSS_BUCKET": true,
+              "OSS_ACCESS_KEY_ID": true,
+              "OSS_ACCESS_KEY_SECRET": true
+            },
+            "matches_local": {
+              ".env": {
+                "OSS_ENDPOINT": false,
+                "OSS_BUCKET": false,
+                "OSS_ACCESS_KEY_ID": true,
+                "OSS_ACCESS_KEY_SECRET": false
+              },
+              ".env.production": {
+                "OSS_ENDPOINT": false,
+                "OSS_BUCKET": false,
+                "OSS_ACCESS_KEY_ID": true,
+                "OSS_ACCESS_KEY_SECRET": false
+              }
+            }
+          },
+          "/root/partsignal/shared/.env.production.pilot-20261008-030536-852c6d5e.prepared": {
+            "mode": "0o600",
+            "sha256": "06b952634ac5a7d62c7d780de343a27294365653371e80afdcc082154827ab11",
+            "oss_configured": {
+              "OSS_ENDPOINT": true,
+              "OSS_BUCKET": true,
+              "OSS_ACCESS_KEY_ID": true,
+              "OSS_ACCESS_KEY_SECRET": true
+            },
+            "matches_local": {
+              ".env": {
+                "OSS_ENDPOINT": false,
+                "OSS_BUCKET": false,
+                "OSS_ACCESS_KEY_ID": true,
+                "OSS_ACCESS_KEY_SECRET": false
+              },
+              ".env.production": {
+                "OSS_ENDPOINT": false,
+                "OSS_BUCKET": false,
+                "OSS_ACCESS_KEY_ID": true,
+                "OSS_ACCESS_KEY_SECRET": false
+              }
+            }
+          }
+        },
+        "local_oss_pair_equal": {
+          "OSS_ENDPOINT": true,
+          "OSS_BUCKET": true,
+          "OSS_ACCESS_KEY_ID": true,
+          "OSS_ACCESS_KEY_SECRET": true
+        }
+      }
+    },
+    "runtime-oss-stage.json": {
+      "sha256": "9eda2c8d811a7e8fba40a3f8f0bd0a9deab37f3835a383386438c1f05a81d696",
+      "result": {
+        "checked_at": "2026-10-08T04:10:15.879557+00:00",
+        "status": "STAGED",
+        "target": "/root/partsignal/shared/.env.production.pilot-20261008-030536-852c6d5e.oss-prepared",
+        "sha256": "9d4d67354617330a8b28bfe6f4e192147d1f9754af08c5701824dbe2e32ae1ff",
+        "production_input_check": "PASSED",
+        "replaced_fields": [
+          "OSS_ACCESS_KEY_ID",
+          "OSS_ACCESS_KEY_SECRET",
+          "OSS_BUCKET",
+          "OSS_ENDPOINT"
+        ],
+        "endpoint_normalization": "BARE_HOSTNAME_TO_HTTPS",
+        "default_field_added": "GEO_DAILY_BUDGET_CURRENCY",
+        "internal_values_preserved": true,
+        "active_runtime_installed": false
+      }
+    },
+    "runtime-oss-revalidation.json": {
+      "sha256": "287bc092c50a537b592c419cc77076b50d1597df414dc86c8a12cf5bdc5ef73b",
+      "result": {
+        "checked_at": "2026-10-08T04:11:17.815555+00:00",
+        "candidate_commit": "852c6d5ea4bb6da99d4bd843271eb6634d84a3f1",
+        "release_id": "pilot-20261008-030536-852c6d5e",
+        "runtime_sha256": "9d4d67354617330a8b28bfe6f4e192147d1f9754af08c5701824dbe2e32ae1ff",
+        "candidate_images": {
+          "exit_code": 0,
+          "status": "PASSED"
+        },
+        "compose_config": {
+          "exit_code": 0,
+          "status": "PASSED"
+        },
+        "backend_production_preflight": {
+          "exit_code": 0,
+          "status": "PASSED",
+          "configuration_summary": {
+            "ai_allow_local_http": false,
+            "content_generator": "openai-compatible",
+            "database_configured": true,
+            "environment": "production",
+            "geo_browser_collection_enabled": false,
+            "object_storage_backend": "aliyun_oss",
+            "oss_access_key_id_configured": true,
+            "oss_access_key_secret_configured": true,
+            "oss_bucket_configured": true,
+            "oss_endpoint_configured": true,
+            "redis_configured": true,
+            "seed_admin_password_configured": true,
+            "seed_engineer_password_configured": true,
+            "session_cookie_secure": true
+          }
+        },
+        "real_oss_probe_exit_code": 0,
+        "real_oss_probe": {
+          "adapter": "AliyunOssEvidenceStorage",
+          "synthetic_object_only": true,
+          "storage_gate": "FAILED",
+          "error_class": "StorageUnavailable",
+          "provider_error_class": "AccessDenied",
+          "provider_http_status": 403,
+          "provider_code": "AccessDenied",
+          "probe_deleted": "NOT_CREATED"
+        },
+        "old_site_changed": false
+      }
+    },
+    "oss-permission-diagnosis.json": {
+      "sha256": "ede9aa45d07cf28f97135dfab7d875d38db26188cbdbd6a8a3c78685c1e084d0",
+      "result": {
+        "error_class": "AccessDenied",
+        "http_status": 403,
+        "detail_key_names": [
+          "Bucket",
+          "Code",
+          "EC",
+          "Endpoint",
+          "HostId",
+          "Message",
+          "RecommendDoc",
+          "RequestId"
+        ],
+        "message_bucket_acl_denial": false,
+        "message_ram_denial": false,
+        "message_policy_denial": false,
+        "ec_present": true,
+        "access_denied_detail_key_names": [],
+        "AuthType": null,
+        "AuthReason": null,
+        "PolicyType": null,
+        "DeniedAction": null
+      }
+    },
+    "oss-permission-public-code.json": {
+      "sha256": "381de914102c49b36faa47cdaaac182844070f785d61766ae5b08bf2e2f9f716",
+      "result": {
+        "public_ec": "0003-00001403",
+        "public_diagnostic_document": "https://api.aliyun.com/troubleshoot?q=0003-00001403",
+        "message_classifiers": {
+          "specified_endpoint_required": true,
+          "requester_pays": false,
+          "bucket_access_denied": true,
+          "bucket_not_owned": false,
+          "permission_denied": false,
+          "not_owner": false,
+          "object_acl": false,
+          "request_forbidden": false
+        }
+      }
+    },
+    "runtime-oss-region-stage.json": {
+      "sha256": "f02b6ed6cb67811fb8918b2aadb32ab89414327432b55d659068a8d8f0b428d0",
+      "result": {
+        "checked_at": "2026-10-08T04:16:16.472049+00:00",
+        "status": "STAGED",
+        "target": "/root/partsignal/shared/.env.production.pilot-20261008-030536-852c6d5e.oss-region-prepared",
+        "sha256": "9a84ee70df2fc404801716ebd4981754e22874c01c72465f51a232bbe52cbf60",
+        "provider_code": "0003-00001403",
+        "endpoint_region_corrected": true,
+        "other_external_values_preserved": true,
+        "internal_values_preserved": true,
+        "production_input_check": "PASSED",
+        "active_runtime_installed": false,
+        "host_id_matches_requested_host": true,
+        "corrected_head_result": "NO_SUCH_KEY_EXPECTED",
+        "endpoint_source": "OSS_ERROR_ENDPOINT"
+      }
+    },
+    "runtime-oss-region-revalidation.json": {
+      "sha256": "e9f9407465cfb0db3b684033fc715567b913b523a7790b15851027eb2a274135",
+      "result": {
+        "checked_at": "2026-10-08T04:17:31.244528+00:00",
+        "candidate_commit": "852c6d5ea4bb6da99d4bd843271eb6634d84a3f1",
+        "release_id": "pilot-20261008-030536-852c6d5e",
+        "runtime_sha256": "9a84ee70df2fc404801716ebd4981754e22874c01c72465f51a232bbe52cbf60",
+        "candidate_images": {
+          "exit_code": 0,
+          "status": "PASSED"
+        },
+        "compose_config": {
+          "exit_code": 0,
+          "status": "PASSED"
+        },
+        "backend_production_preflight": {
+          "exit_code": 0,
+          "status": "PASSED",
+          "configuration_summary": {
+            "ai_allow_local_http": false,
+            "content_generator": "openai-compatible",
+            "database_configured": true,
+            "environment": "production",
+            "geo_browser_collection_enabled": false,
+            "object_storage_backend": "aliyun_oss",
+            "oss_access_key_id_configured": true,
+            "oss_access_key_secret_configured": true,
+            "oss_bucket_configured": true,
+            "oss_endpoint_configured": true,
+            "redis_configured": true,
+            "seed_admin_password_configured": true,
+            "seed_engineer_password_configured": true,
+            "session_cookie_secure": true
+          }
+        },
+        "real_oss_probe_exit_code": 0,
+        "real_oss_probe": {
+          "adapter": "AliyunOssEvidenceStorage",
+          "synthetic_object_only": true,
+          "application_namespace_used": true,
+          "initial_object_absent": true,
+          "application_server_put": "PASSED",
+          "presigned_put_http_status": 200,
+          "head_metadata_matches": true,
+          "signed_download_matches": true,
+          "anonymous_read_http_status": 200,
+          "anonymous_read_denied": false,
+          "storage_gate": "FAILED",
+          "error_class": "RuntimeError",
+          "provider_error_class": "RuntimeError",
+          "provider_http_status": null,
+          "provider_code": null,
+          "public_ec": null,
+          "probe_deleted": true
+        },
+        "old_site_changed": false
+      }
+    },
+    "oss-bucket-access-diagnosis.json": {
+      "sha256": "68085f09d51b1aca415f02d236af6c0688e6a992c91a4d21ca48e443111ab947",
+      "result": {
+        "bucket_acl": "public-read",
+        "cors_read": {
+          "error_class": "NoSuchCors",
+          "http_status": 404
+        }
+      }
+    },
+    "runtime-production-installation.json": {
+      "sha256": "6342214774fff9902c27f85103761b277b46365c3c2be259b66facad2dacedab",
+      "result": {
+        "installed_at": "2026-10-08T04:21:07.616034+00:00",
+        "status": "INSTALLED",
+        "active_runtime": "/root/partsignal/shared/.env.production",
+        "sha256_before": "413092ab3459ca8c1198a1b352eca8009ff1bc965916073d002d2be4cdab6eba",
+        "sha256_after": "9a84ee70df2fc404801716ebd4981754e22874c01c72465f51a232bbe52cbf60",
+        "backup": "/root/partsignal/shared/.env.production.before-pilot-20261008-030536-852c6d5e",
+        "backup_mode": "0600",
+        "runtime_mode": "0600",
+        "internal_secrets_and_database_identity_preserved": true,
+        "production_input_check": "PASSED",
+        "applications_recreated": false,
+        "maintenance_installed": false,
+        "data_reset": false,
+        "real_oss_gate": "STORAGE_WORKS_BUT_BUCKET_PUBLIC_READ_PENDING_AUTHORIZATION"
+      }
+    },
+    "local-config-endpoint-update.json": {
+      "sha256": "50ac5302e22cc51937cfb822073e1cea526cf9bbcd667a6f2bcad01cadd37a34",
+      "result": {
+        "updated_at": "2026-10-08T04:22:39.983629+00:00",
+        "endpoint_source": "VERIFIED_SERVER_RUNTIME",
+        "files": {
+          ".env": {
+            "mode": "0600",
+            "sha256_before": "70c1b7d3b492196834111b80bbbae6c37c7e2e7807c88614b3abe432dac79c47",
+            "sha256_after": "1cb8796de2c2d005f631ce8fb1a9f3308d75702522c3433ab9f0c04572d36748",
+            "changed_field_names": [
+              "OSS_ENDPOINT"
+            ],
+            "other_values_preserved": true,
+            "backup_mode": "0600"
+          },
+          ".env.production": {
+            "mode": "0600",
+            "sha256_before": "b3081159961606911e5f8ac10e7d5dcc81a3867daff80f2993866dd9c835e8d3",
+            "sha256_after": "fd9cff46e6976c9179fd9bdf475e5f1b8a8f086b98b7625988da1d1352930d42",
+            "changed_field_names": [
+              "OSS_ENDPOINT",
+              "GEO_DAILY_BUDGET_CURRENCY"
+            ],
+            "other_values_preserved": true,
+            "backup_mode": "0600"
+          }
+        }
+      }
+    },
+    "post-config-site-state.json": {
+      "sha256": "5491f816e6b50d1c91ef7529e9ab6a6310f1ffb7b1830e08eead2b6347b23e51",
+      "result": {
+        "checked_at": "2026-10-08T04:24:08.507702+00:00",
+        "site": "https://geo.962850.xyz",
+        "public_http": {
+          "/login": 200,
+          "/api/health/live": 200,
+          "/api/health/ready": 200
+        },
+        "host": {
+          "checked_at": "2026-10-08T04:24:10.715456+00:00",
+          "running_services": [
+            "api",
+            "fake-oss",
+            "frontend",
+            "postgres",
+            "redis",
+            "scheduler",
+            "worker"
+          ],
+          "runtime_sha256": "9a84ee70df2fc404801716ebd4981754e22874c01c72465f51a232bbe52cbf60",
+          "nginx_sha256": "ea41efdb6c3b1535eaa3aa07a652f55b915002a8a792ed129b8f437907aea982",
+          "production_cutover_state_exists": false,
+          "running_api_app_env_production": false,
+          "running_api_uses_new_candidate": false
+        }
+      }
+    },
+    "local-production-runtime-sync.json": {
+      "sha256": "d728aa70e41c5843edc14f86bde301b8912a5564b4b8c196934256f7bf0c4a85",
+      "result": {
+        "synced_at": "2026-10-08T04:37:03.365647+00:00",
+        "local_runtime": "/Users/sc/PycharmProjects/partsignal/.env.production",
+        "server_runtime": "/root/partsignal/shared/.env.production",
+        "sha256": "9a84ee70df2fc404801716ebd4981754e22874c01c72465f51a232bbe52cbf60",
+        "mode": "0600",
+        "full_runtime_input_check": "PASSED",
+        "local_matches_installed_server_runtime": true,
+        "existing_server_internal_secrets_and_db_identity_reused": true,
+        "secrets_regenerated": false,
+        "secrets_printed": false,
+        "ai_initialization": "USER_CHOSE_ADMIN_UI_AFTER_DEPLOY"
+      }
+    }
+  },
+  "current_state": {
+    "runtime_file_installed": true,
+    "running_containers_recreated": false,
+    "maintenance_installed": false,
+    "old_data_discarded": false,
+    "target_migrated": false,
+    "new_candidate_activated": false,
+    "real_oss_write_head_signed_download": "PASSED",
+    "real_oss_anonymous_read_denial": "FAILED_ANONYMOUS_GET_200",
+    "bucket_acl": "public-read",
+    "bucket_cors": "NOT_CONFIGURED",
+    "bucket_global_change_authorized": false,
+    "ai_initialization_choice": "ADMIN_UI_AFTER_DEPLOY_AUTHORIZED",
+    "github_actions_required": false,
+    "github_actions_triggered": false,
+    "candidate_source_or_image_changes": "DEPLOYMENT_OWNER_CHANGE_IN_PROGRESS",
+    "full_gate_evidence_reused": true,
+    "ai_bootstrap_required": false
+  },
+  "local_backend_production_input_check": {
+    "command": [
+      "backend/.venv/bin/python",
+      "deploy/scripts/check-production-inputs.py",
+      ".env.production"
+    ],
+    "exit_code": 0,
+    "status": "PASSED",
+    "ai_inputs": "NOT_CHECKED_NOT_REQUIRED_FOR_SELECTED_ADMIN_UI_MODE",
+    "external_services_gate": "NOT_RUN"
+  },
+  "candidate_source_or_image_changes": "DEPLOYMENT_OWNER_IMPLEMENTED_REVIEWED_NEW_CANDIDATE_PENDING"
+}

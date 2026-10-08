@@ -1,6 +1,6 @@
 # 开发与 Production 配置准备
 
-当前项目处于开发阶段，Hostdzire 用于开发预览；当前操作请先读[开发预览配置说明](./development-preview.md)。本页保留正式 Production 合同，不能把它当成查看开发界面的必填清单。内部密码、系统密钥和初始账号密码由部署准备生成/管理，用户只提供自己拥有的外部服务信息。
+Hostdzire现有站点支持[开发预览](./development-preview.md)与获准的Production安装；本页定义Production运行配置与初始化方式。当前内部试运行按用户授权清空重建，使用既有受保护生产配置。内部密码、系统密钥和初始账号密码由部署准备生成/管理，用户只提供自己拥有的外部服务信息。
 
 ## 1. 应该复制哪个文件
 
@@ -30,7 +30,7 @@ chmod 600 .env .env.production .env.production.ai.json
 
 runtime 文件使用单行 literal `KEY=value`，不使用引号、内联注释、`source/include/export`、插值、命令替换、控制字符或 CRLF。首次生成 database/session/seed/storage secrets 使用 CSPRNG 至少 32 字节经 URL-safe 编码，只含 `A-Z/a-z/0-9/_/-`，至少 43 字符；AI 加密主密钥仍为随机 32 字节的标准 Base64，OSS 凭据由供应商提供。已有生产值继续保留，不能为了符合模板重新生成或轮换。
 
-**当前 Hostdzire 已有受控创建的生产文件。新复制的本地模板只是草稿，不能覆盖它。** 当前清空重建的新安装尚须核实 AI 初始化输入和凭据交接，填写它们不要求修改服务器 `.env.production`。现有数据库密码、session secret、加密主密钥等继续保留；不能为了补全本地模板生成另一组值并替换服务器现有值。
+**当前Hostdzire已有受控创建的生产文件，新复制的本地模板不能覆盖它。** 清空重建的新安装按第3节明确AI初始化方式；上线后admin-ui不要求维护窗口AI凭据交接，bootstrap输入也不要求修改服务器`.env.production`。现有数据库密码、session secret、加密主密钥等继续保留；不能为了补全本地模板生成另一组值并替换服务器现有值。
 
 ## 2. 生产运行时配置项
 
@@ -85,6 +85,8 @@ GEO-1003 的生产部署、激活和前端回滚脚本在取得维护锁、改�
 
 AI 的 provider、模型、API Key、敏感 Header 属于 PostgreSQL 配置，环境文件只保存加密主密钥。往 `.env.production` 添加 `OPENAI_API_KEY`、`OPENAI_BASE_URL` 或 `OPENAI_MODEL` **不会被当前程序读取，也不会完成 AI 配置**。
 
+新安装可以由用户明确选择**上线后在管理界面配置AI**：部署state owner在`PRODUCTION_PREPARED`下通过`defer-ai-configuration RUN_ID MANIFEST`记录同候选的`admin-ui`移交，核验运行API身份、AI三表空集并拒绝任何已有bootstrap attempt。该模式不要求AI输入清单、Key备妥或TTY交接；真实OSS验证仍必需，激活使用明确`OSS_MET_AI_PENDING`，不把AI Gate写成MET。管理员上线后通过既有ADMIN+CSRF入口保存渠道、可选Header和模型，真实测试通过后手动启用；此前无合格模型，AI生成由现有服务守卫拒绝。未显式选择该方式时，以下true-TTY bootstrap输入与原完整Gate仍适用。精确命令见[部署附录第6节](./Hostdzire部署附录.md#6-clean-init-与-fresh-init)。
+
 在本地 `.env.production.ai.json` 填写：
 
 | 字段 | 要求 / 对应 bootstrap 参数 |
@@ -108,18 +110,24 @@ AI 的 provider、模型、API Key、敏感 Header 属于 PostgreSQL 配置，�
 
 所有 Header 值与 API Key 都在 Host 的真实 TTY 无回显输入，通过同一 stdin envelope 进入 backend；不放在本地清单、argv、环境或日志中。`is_sensitive=true` 使用既有 AES-256-GCM 加密存储；普通 Header 按现有渠道合同保存普通值。首次初始化的 Header 名称为 1–160 个合法 token 字符，大小写不敏感地唯一，系统保留名称和非法字符拒绝。
 
-API Key 在 `PRODUCTION_PREPARED` 阶段通过现有 true-TTY bootstrap 一次性写成数据库密文。之后普通 upgrade 复用数据库配置，日常渠道变更走应用 Configuration。不需要每次发布改 env 或重新输入 Key；clean-init、fresh-init、数据恢复、密钥轮换另按对应合同执行。
+选用维护窗口bootstrap时，API Key在`PRODUCTION_PREPARED`阶段通过现有true-TTY路径一次性写成数据库密文；选用admin-ui时，由上线后的管理员配置接口加密保存。之后普通 upgrade 复用数据库配置，日常渠道变更走应用 Configuration。不需要每次发布改 env 或重新输入 Key；clean-init、fresh-init、数据恢复、密钥轮换另按对应合同执行。
 
 ## 4. 本地只读检查命令
 
-从仓库根目录执行，使用项目已安装的后端依赖：
+从仓库根目录执行，使用项目已安装的后端依赖。用户选择上线后admin-ui时，仅检查runtime：
+
+```sh
+uv run --project backend python deploy/scripts/check-production-inputs.py .env.production
+```
+
+选择维护窗口bootstrap时，同时检查AI输入清单：
 
 ```sh
 uv run --project backend python deploy/scripts/check-production-inputs.py \
   .env.production --ai-inputs .env.production.ai.json
 ```
 
-**当前 Hostdzire 的 runtime 已由 I04-1 验证且没有配置变化时**，本地只填 AI 清单，使用下列命令即可，不需要读回服务器 secret 或填完新建的本地 runtime 空模板：
+**选择bootstrap且当前Hostdzire runtime已验证、没有配置变化时**，本地只填AI清单，使用下列命令即可，不需要读回服务器 secret 或填完新建的本地 runtime 空模板：
 
 ```sh
 uv run --project backend python deploy/scripts/check-production-inputs.py \
@@ -132,18 +140,18 @@ uv run --project backend python deploy/scripts/check-production-inputs.py \
 
 AI 检查按 Host 真实的 UTF-8、`ensure_ascii=False`、紧凑 JSON 格式计算完整 envelope，并以 owner 声明的 credential 和可选 Header 值 JSON 字节上界预留空间；复用实际 backend 的 **64 KiB** 上限和严格 envelope reader，不放宽 bootstrap 合同。该检查不读取真实值；它依赖 owner 对上界的确认，真实输入大于声明上界时不能使用该准备结果。过大的参数或不留 credential/Header 空间均在本地返回失败；Host 还会在 durable `STARTED` 前检查实际完整输入大小、Header 值字符和无回显读取结果。
 
-未填模板返回 `NOT_READY` / exit `2`；插值等非法输入返回 `FAILED` / exit `2`；`PASSED` / exit `0` 仅证明输入结构与声明就绪，`external_services_gate` 仍为 `NOT_RUN`。省略 `--ai-inputs` 只检查 runtime，输出 `ai_inputs=NOT_CHECKED`，不能据此认定首次发布准备完成。先安装后端项目依赖；缺依赖时检查明确失败，不跳过。
+未填模板返回 `NOT_READY` / exit `2`；插值等非法输入返回 `FAILED` / exit `2`；`PASSED` / exit `0` 仅证明输入结构与声明就绪，`external_services_gate` 仍为 `NOT_RUN`。省略`--ai-inputs`只检查runtime，输出`ai_inputs=NOT_CHECKED`；用户已选admin-ui时AI清单不适用，仍需候选绑定的显式移交与真实OSS验证。bootstrap路径不能据此认定AI输入准备完成。先安装后端项目依赖；缺依赖时检查明确失败，不跳过。
 
 受控配置暂存仍须在安装前执行同一输入限制，并检查 **Compose 解析后 PostgreSQL 实际环境与 DATABASE_URL 解码身份一致**。解析输出只在受控进程内比较，不打印 `docker compose config --environment` 或含值 JSON。`config --quiet` 本身不会拒绝插值；本地输入检查使本项目支持的 literal 格式没有插值、引号或注释造成的密码变形。
 
 ## 5. 本地准备到上线的顺序
 
-1. **填写输入。** 开发用 `.env`；生产运行时用独立模板。当前主机已有有效 runtime 文件时复用它，重点补齐 AI 输入清单。域名/TLS/OSS 权限与 CORS、AI 协议与 model 权限、credential owner 交接应在此阶段明确。
-2. **提前检查准备状态。** 在 release freeze 之前执行第 4 节只读命令，集中检查生产 39 项键名（四项 GEO 可安全省略）、11 项必填值、数据库身份、secret 格式、固定生产边界与 AI 清单确认。拒绝插值、控制字符、CRLF、`source/include` 等内容。真实 backend 预检不会测试 provider，不能代替 External Services Gate。缺项集中在此阶段报告；当前 Hostdzire 复用已验证文件，本地空模板不能作为安装输入。
+1. **填写输入。** 开发用 `.env`；生产运行时用独立模板。当前主机已有有效 runtime 文件时复用它，先确认服务器文件与现有本地外部配置一致。域名/TLS/OSS权限与CORS必须明确；AI选择上线后admin-ui时只确认移交方式，选择bootstrap时才准备输入清单、协议/model权限与credential owner交接。
+2. **提前检查准备状态。** 在 release freeze 之前执行第 4 节只读命令，集中检查生产 39 项键名（四项 GEO 可安全省略）、11 项必填值、数据库身份、secret格式、固定生产边界；bootstrap路径同时检查AI清单确认。拒绝插值、控制字符、CRLF、`source/include` 等内容。真实 backend 预检不会测试 provider，不能代替 External Services Gate。缺项集中在此阶段报告；当前 Hostdzire 复用已验证文件，本地空模板不能作为安装输入。
 3. **配置交付只在初次安装或配置变化时执行。** 完整本地生产文件可经现有 OpenSSH/scp 交付到明确批准的 Hostdzire 受控位置。现有 `deploy.sh` 不自动上传配置；配置交付与 release 包交付分开。已有文件更新必须保持现有 secret/数据库身份，先精确备份、同目录受控 `0600` 暂存、校验，再按旧文件 checksum 防止覆盖并发改动，原子安装为 `/root/partsignal/shared/.env.production`；不直接 scp 覆盖活动文件，不把未知或空值合并进去。首次安装使用排他创建。更新与应用生效分别执行受控步骤；改文件不等于运行中的容器已经加载。
 4. **Repository 与新候选。** 完成当前源码 Gate、独立复核与新 release 冻结。每次 release ID、镜像 tags、commit、archive、manifest 都重新绑定；固定 runtime 文件不复制进 release。已冻结失败证据不得复用或覆盖。
 5. **维护前复核。** 按附录第 3 节，以同一新 manifest 校验文件和实际 image identity，再运行 `run --rm --pull never --no-deps api ... preflight-production-config`。直接 Compose probe 需要 one-off 容器授权；普通 `docker compose run` 不能替代它。随后核验固定 project/network labels、资源与恢复路径，取得精确维护授权。
-6. **首次安装。** 保留数据的clean-init按runbook完成维护、隔离、空库准备；明确授权丢弃旧数据的fresh-init按附录清空重建路径准备空库；使用已准备好的 AI 非 secret 参数和 owner TTY 输入一次 Key。真实 AI/OSS Gate 通过后才 activation、切流和 observation。
+6. **首次安装。** 保留数据的clean-init按runbook完成维护、隔离、空库准备；明确授权丢弃旧数据的fresh-init按附录清空重建路径准备空库；API/Frontend prepared后按所选方式继续：admin-ui由owner核验AI空集并记录移交，真实OSS验证后以OSS_MET_AI_PENDING激活；bootstrap使用已准备参数和owner TTY输入一次Key，完整真实AI/OSS Gate通过后激活。随后切流、观察，AI待配置不能标作完整业务验收。
 7. **后续 upgrade。** 继续指定 `ENV_FILE=/root/partsignal/shared/.env.production`，按新 manifest 运行受控 deploy/activate；未变更配置时无需交付 env，未清空数据库时无需再次 bootstrap。
 
 完整清单能把已知缺项挡在发布准备阶段；真实供应商拒绝、网络/TLS 故障或 OSS 权限漂移仍须由实际 Gate 发现，不能用填写完成冒充成功。本次模板交付没有执行配置上传、远端更新、新 release、maintenance 或 cutover。

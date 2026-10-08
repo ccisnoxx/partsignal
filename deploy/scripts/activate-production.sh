@@ -25,10 +25,13 @@ test -z "${PARTSIGNAL_FRONTEND_VERSION:-}" || \
 PARTSIGNAL_FRONTEND_VERSION=$PARTSIGNAL_VERSION
 export PARTSIGNAL_FRONTEND_VERSION
 
-test "$PARTSIGNAL_EXTERNAL_SERVICES_GATE" = MET || {
-  printf '%s\n' "真实 AI/OSS Gate 未达到 MET，拒绝激活 Worker/Scheduler" >&2
-  exit 2
-}
+case "$PARTSIGNAL_EXTERNAL_SERVICES_GATE" in
+  MET | OSS_MET_AI_PENDING) ;;
+  *)
+    printf '%s\n' "真实 AI/OSS Gate 未达到 MET，或管理界面初始化的 OSS Gate 未确认，拒绝激活 Worker/Scheduler" >&2
+    exit 2
+    ;;
+esac
 
 if test -z "${PARTSIGNAL_MAINTENANCE_LOCK_FD:-}"; then
   exec python3 "$script_dir/prepare-production-data.py" run-locked \
@@ -68,6 +71,10 @@ case "$deploy_mode" in
       verify-prepared "$PARTSIGNAL_CUTOVER_RUN_ID" "$PARTSIGNAL_RELEASE_MANIFEST"
     ;;
   upgrade)
+    test "$PARTSIGNAL_EXTERNAL_SERVICES_GATE" = MET || {
+      printf '%s\n' "Production upgrade 必须通过真实 AI/OSS Gate MET" >&2
+      exit 2
+    }
     python3 "$script_dir/prepare-production-data.py" \
       verify-upgrade-prepared "$PARTSIGNAL_RELEASE_MANIFEST"
     ;;
@@ -111,3 +118,6 @@ else
     mark-upgrade-initialized "$PARTSIGNAL_RELEASE_MANIFEST"
 fi
 printf '%s\n' "PartSignal ${PARTSIGNAL_VERSION} Production 异步服务已激活（${deploy_mode}）"
+if test "$PARTSIGNAL_EXTERNAL_SERVICES_GATE" = OSS_MET_AI_PENDING; then
+  printf '%s\n' "OSS Gate 已确认；AI 初始化由管理员在管理界面完成，真实 AI Gate 尚未通过。"
+fi

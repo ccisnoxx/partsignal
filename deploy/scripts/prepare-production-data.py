@@ -43,6 +43,7 @@ PRODUCTION_API_SERVICE = "api"
 PRODUCTION_APPLICATION_ROOT = PurePosixPath("/app")
 BACKEND_BOOTSTRAP_RESULT_MAX_BYTES = 64 * 1024
 BACKEND_BOOTSTRAP_INPUT_MAX_BYTES = 64 * 1024
+ADMIN_UI_EXTERNAL_SERVICES_GATE = "OSS_MET_AI_PENDING"
 BOOTSTRAP_RESULT_FIELDS = {
     "status",
     "request_id",
@@ -789,6 +790,109 @@ def require_activation_safe_bootstrap_attempt(state: dict[str, Any]) -> None:
         raise DataStateError("Production AI bootstrap 尚未取得可激活的成功结果")
 
 
+def ai_configuration_handoff(state: dict[str, Any]) -> dict[str, str] | None:
+    """交接仅记录初始化方式；配置与可用模型仍由 PostgreSQL 裁决。"""
+    if "ai_configuration_handoff" not in state:
+        return None
+    handoff = state["ai_configuration_handoff"]
+    if (
+        not isinstance(handoff, dict)
+        or set(handoff) != {"mode", "run_id", "manifest_sha256"}
+        or handoff.get("mode") != "admin-ui"
+        or not isinstance(handoff.get("run_id"), str)
+        or RUN_ID_PATTERN.fullmatch(handoff["run_id"]) is None
+        or handoff["run_id"] != state.get("run_id")
+        or not isinstance(handoff.get("manifest_sha256"), str)
+        or re.fullmatch(r"[0-9a-f]{64}", handoff["manifest_sha256"]) is None
+    ):
+        raise DataStateError("Production AI 配置移交状态无效")
+    return handoff
+
+
+def require_empty_ai_configuration(
+    container_id: str,
+    *,
+    runner: Callable[..., subprocess.CompletedProcess[Any]] = subprocess.run,
+) -> None:
+    """只读三表是否为空，不读取凭据；避免掩盖未跟踪的部分 bootstrap。"""
+    probe = (
+        "from app.db import engine\n"
+        "from sqlalchemy import text\n"
+        "with engine.connect() as connection:\n"
+        "    with connection.begin():\n"
+        "        connection.execute(text('SET TRANSACTION READ ONLY'))\n"
+        "        connection.execute(text(\"SET LOCAL statement_timeout = '10s'\"))\n"
+        "        configured = connection.scalar(text('SELECT EXISTS ('"
+        "'SELECT 1 FROM ai_channels UNION ALL SELECT 1 FROM ai_models '"
+        "'UNION ALL SELECT 1 FROM ai_channel_headers)'))\n"
+        "        print('PRESENT' if configured else 'EMPTY')\n"
+        "engine.dispose()\n"
+    )
+    try:
+        result = runner(
+            ["docker", "exec", container_id, "python", "-c", probe],
+            check=False, capture_output=True, timeout=30,
+        )
+    except subprocess.SubprocessError:
+        raise DataStateError("Production AI 配置只读检查失败") from None
+    if result.returncode != 0 or result.stdout not in {b"EMPTY\n", b"PRESENT\n"}:
+        # 数据库或 Settings 异常可能含敏感内容，不能透传捕获的输出。
+        raise DataStateError("Production AI 配置只读检查结果无法确认")
+    if result.stdout != b"EMPTY\n":
+        raise DataStateError("Production AI 配置非空，拒绝移交管理界面初始化")
+
+
+def defer_ai_configuration(
+    args: argparse.Namespace,
+    *,
+    runner: Callable[..., subprocess.CompletedProcess[Any]] = subprocess.run,
+) -> None:
+    """在维护锁内把全新安装的 AI 初始化显式交给管理界面。"""
+    data_root, _ = configured_roots()
+    run_id = require_run_id(args.run_id)
+    candidate = candidate_from_manifest(args.manifest)
+    state = verify_phase(run_id, {"PRODUCTION_PREPARED"})
+    require_candidate(state, candidate)
+    if _attempt_status(state) is not None:
+        raise DataStateError("Production AI bootstrap attempt 已存在，拒绝配置移交")
+    if ai_configuration_handoff(state) is not None:
+        raise DataStateError("Production AI 配置移交已存在，拒绝重入")
+    container_id = running_api_container_id(candidate, runner=runner)
+    require_empty_ai_configuration(container_id, runner=runner)
+    state["ai_configuration_handoff"] = {
+        "mode": "admin-ui", "run_id": run_id,
+        "manifest_sha256": candidate["manifest_sha256"],
+    }
+    atomic_write_state(data_root, state)
+    print("Production AI 初始化已移交管理界面；真实 AI Gate 尚未通过。")
+
+
+def require_activation_safe_ai_configuration(
+    state: dict[str, Any], candidate: dict[str, Any]
+) -> None:
+    """首次激活只接受成功 bootstrap 或明确绑定的管理界面交接。"""
+    attempt = _attempt_status(state)
+    handoff = ai_configuration_handoff(state)
+    if handoff is not None:
+        if attempt is not None:
+            raise DataStateError("Production AI bootstrap 与配置移交状态冲突")
+        if handoff["manifest_sha256"] != candidate["manifest_sha256"]:
+            raise DataStateError("Production AI 配置移交与当前候选不一致")
+        if os.getenv("PARTSIGNAL_EXTERNAL_SERVICES_GATE") != ADMIN_UI_EXTERNAL_SERVICES_GATE:
+            raise DataStateError("管理界面 AI 初始化要求 OSS_MET_AI_PENDING，不能声明真实 AI Gate MET")
+        running_api_container_id(candidate)
+        return
+    if os.getenv("PARTSIGNAL_EXTERNAL_SERVICES_GATE") == ADMIN_UI_EXTERNAL_SERVICES_GATE:
+        raise DataStateError("Production 尚未显式移交管理界面 AI 初始化")
+    require_activation_safe_bootstrap_attempt(state)
+
+
+def reject_upgrade_ai_pending_gate() -> None:
+    """安装移交不改变普通 upgrade 必须完成真实 AI/OSS Gate 的合同。"""
+    if os.getenv("PARTSIGNAL_EXTERNAL_SERVICES_GATE") == ADMIN_UI_EXTERNAL_SERVICES_GATE:
+        raise DataStateError("Production upgrade 必须通过真实 AI/OSS Gate MET")
+
+
 def bootstrap_ai(
     args: argparse.Namespace,
     *,
@@ -805,6 +909,8 @@ def bootstrap_ai(
     require_candidate(state, candidate)
     if _attempt_status(state) is not None:
         raise DataStateError("Production AI bootstrap attempt 已存在，拒绝重入")
+    if ai_configuration_handoff(state) is not None:
+        raise DataStateError("Production AI 初始化已移交管理界面，拒绝 bootstrap")
     request_parameters = _request_parameters(args.request_parameters_json)
     header_specs = _bootstrap_header_specs(args)
     container_id = running_api_container_id(candidate, runner=runner)
@@ -1100,7 +1206,7 @@ def transition_candidate(
     state = verify_phase(run_id, {source})
     require_candidate(state, candidate)
     if source == "PRODUCTION_PREPARED" and destination == "PRODUCTION_INITIALIZED":
-        require_activation_safe_bootstrap_attempt(state)
+        require_activation_safe_ai_configuration(state, candidate)
     state["phase"] = destination
     atomic_write_state(data_root, state)
     print(f"Production 数据阶段已更新为 {destination}。")
@@ -1267,6 +1373,8 @@ def transition_upgrade(
     source: str, destination: str, candidate: dict[str, str]
 ) -> None:
     """推进与候选绑定的 upgrade 准备或激活阶段。"""
+    if destination == "PRODUCTION_INITIALIZED":
+        reject_upgrade_ai_pending_gate()
     data_root, _ = configured_roots()
     state = read_state(data_root)
     if state.get("phase") != source:
@@ -1291,6 +1399,7 @@ def transition_upgrade(
 
 def verify_upgrade_prepared(candidate: dict[str, str]) -> None:
     """只允许激活本次已准备完成的 upgrade 候选。"""
+    reject_upgrade_ai_pending_gate()
     data_root, _ = configured_roots()
     state = read_state(data_root)
     if state.get("phase") != "UPGRADE_PREPARED":
@@ -1576,6 +1685,7 @@ def parse_args() -> argparse.Namespace:
         "mark-prepared",
         "verify-prepared",
         "mark-initialized",
+        "defer-ai-configuration",
     ):
         command_parser = subparsers.add_parser(command)
         command_parser.add_argument("run_id")
@@ -1677,8 +1787,9 @@ def main() -> None:
                 state = verify_phase(
                     require_run_id(args.run_id), {"PRODUCTION_PREPARED"}
                 )
-                require_candidate(state, candidate_from_manifest(args.manifest))
-                require_activation_safe_bootstrap_attempt(state)
+                candidate = candidate_from_manifest(args.manifest)
+                require_candidate(state, candidate)
+                require_activation_safe_ai_configuration(state, candidate)
                 print("Production clean-init 准备阶段校验通过。")
             elif args.command == "mark-initialized":
                 transition_candidate(
@@ -1721,6 +1832,8 @@ def main() -> None:
                 mark_frontend_rollback(candidate_from_manifest(args.manifest))
             elif args.command == "bootstrap-ai":
                 bootstrap_ai(args)
+            elif args.command == "defer-ai-configuration":
+                defer_ai_configuration(args)
             elif args.command == "restore":
                 restore(require_run_id(args.run_id))
     except (

@@ -20,6 +20,7 @@
 - 管理读取：`GET /api/v1/ai-channels?q=&status=&provider_brand=&sort=&page=&page_size=`、`GET /api/v1/ai-channels/{channel_id}/usage-summary?period=7d|30d|90d|all`、`GET /api/v1/ai-channels/{channel_id}/audit-logs?page=&page_size=`。
 - 渠道命令：创建/更新、`PUT .../api-key`、Header/模型命令、`POST .../discover-models`、具体模型 `POST .../test|enable|disable`、渠道 `POST .../enable|disable` 和删除；读取与写入均要求 `ADMIN`，写入还要求 CSRF。
 - Production bootstrap：仅由 Hostdzire deploy state owner 在 `PRODUCTION_PREPARED` 下通过本地 maintenance CLI 调用；它不是 HTTP API，不改变浏览器 Admin+CSRF 合同，也不读取 seed admin password。
+- 新安装可由用户明确选择上线后管理UI配置AI；部署owner以候选/run/manifest绑定的admin-ui移交与`OSS_MET_AI_PENDING`激活基础服务，AI Gate保留待配置。该路径不执行或伪造bootstrap，任何已有/畸形bootstrap attempt不能改为移交；普通upgrade不接受OSS-only Gate。上线后渠道/Key/Header/模型仍走既有ADMIN+CSRF接口、加密、真实测试和手动启用，无模型时现有生成守卫继续拒绝。
 
 ### 3. 契约
 

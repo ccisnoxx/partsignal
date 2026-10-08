@@ -1,0 +1,90 @@
+{
+  "recorded_at": "2026-10-08T04:50:24.315075+00:00",
+  "files": [
+    {
+      "path": "deploy/scripts/prepare-production-data.py",
+      "sha256": "5fd4505c4a1bf5774f3f3521b6c44093115bf10d52bd9429aee8c588da67a666"
+    },
+    {
+      "path": "deploy/scripts/activate-production.sh",
+      "sha256": "2981ef0a800515fdf442218509ef8a561de7e525abffa4a7fce416b4d5935de2"
+    },
+    {
+      "path": "deploy/scripts/test-deploy-production.sh",
+      "sha256": "f323e5431e08e4869e9a0d53fe847ab64d1d42dfdfbdc67f7b59ee4da9f0d9a4"
+    },
+    {
+      "path": "deploy/scripts/test-production-ai-handoff.py",
+      "sha256": "bd202cda83c41775d5c3b5b92b2d75358f401784d0d3ac79364dbedca4c07b69"
+    }
+  ],
+  "worker_checks": {
+    "executor": "admin_ui_ai_init_impl",
+    "ai_handoff_cli_state": {
+      "exit_code": 0,
+      "passed": 9,
+      "docker": "SYNTHETIC",
+      "log": {
+        "path": "/Users/sc/.codex/reviews/partsignal/pilot-20261008-030536-852c6d5e/admin-ui-implementation/ai-handoff-tests.log",
+        "sha256": "7ad6da789da9348579e1f58c6b863a1ab761626152196a3719f7bfdd10ba59b7"
+      }
+    },
+    "production_scripts_harness": {
+      "exit_code": 0,
+      "mode": "scripts",
+      "log": {
+        "path": "/Users/sc/.codex/reviews/partsignal/pilot-20261008-030536-852c6d5e/admin-ui-implementation/production-scripts.log",
+        "sha256": "37f0ba0d06d23a89f845540103c845e121e3926095d35d6366f191bbdb04b5fe"
+      }
+    },
+    "static": [
+      {
+        "command": [
+          "backend/.venv/bin/ruff",
+          "check",
+          "deploy/scripts/prepare-production-data.py",
+          "deploy/scripts/test-production-ai-handoff.py"
+        ],
+        "exit_code": 0,
+        "output": "All checks passed!\n"
+      },
+      {
+        "command": [
+          "sh",
+          "-n",
+          "deploy/scripts/activate-production.sh",
+          "deploy/scripts/test-deploy-production.sh"
+        ],
+        "exit_code": 0,
+        "output": ""
+      }
+    ]
+  },
+  "parent_actual_postgres_probe": {
+    "observed_at": "2026-10-08T04:48:42.136336+00:00",
+    "status": "PASSED",
+    "probe_sha256": "19e33fc8c3ee0e31e6e01c2024eac6d4b5a95247b3e0597f72ca11bef27d3f8f",
+    "source_sha256": "5fd4505c4a1bf5774f3f3521b6c44093115bf10d52bd9429aee8c588da67a666",
+    "boundary": "actual SQLAlchemy/PostgreSQL probe in owned ephemeral database migrated to head; no Docker API identity or production Gate claim",
+    "prior_probe_failure": "base development database had no application or alembic tables",
+    "ai_key_read": false,
+    "database": "partsignal_handoff_d38fa4d923534455",
+    "created": true,
+    "dropped": true,
+    "migration_exit_code": 0,
+    "schema_head": "0066_geo_manual_evaluation",
+    "result": "EMPTY",
+    "migration_stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "migration_stderr_sha256": "4a8131e6319ec61221ddfa9cba383d78d8c1701816f59ed332215feebea9de85"
+  },
+  "independent_review_ref": "admin-ui-ai-handoff-review.md",
+  "independent_review_code_blockers": 0,
+  "independent_review_documentation_findings": 1,
+  "documentation_finding_resolution": "parent corrected docs/operations.md bootstrap-only wording; no source change",
+  "full_new_candidate_gate": "NOT_RUN",
+  "host_new_candidate_handoff_activation": "NOT_RUN",
+  "ai_initialization_mode": "admin-ui",
+  "ai_configuration": "PENDING_USER_AFTER_ONLINE",
+  "oss_access_control_gate": "FAILED_SCOPE_APPROVAL_PENDING",
+  "audit_id": "20261008T042940Z-hostdzire-admin-ui-ai-initialization-e5f5c9b4"
+}

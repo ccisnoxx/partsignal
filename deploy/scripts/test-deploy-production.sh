@@ -1651,6 +1651,8 @@ assert "尚未取得可激活的成功结果" in mark_failed.stderr.decode()
 assert read_state(failed_data_root)["phase"] == "PRODUCTION_PREPARED"
 PY
 
+python3 "$root/deploy/scripts/test-production-ai-handoff.py"
+
 printf '%s\n' source >"$test_dir/source.tar.gz"
 set +e
 PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \

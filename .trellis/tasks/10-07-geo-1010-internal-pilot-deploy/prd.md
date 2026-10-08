@@ -78,3 +78,8 @@ Scheduler 只运行既有分析恢复、过期采集 lease 恢复、PENDING 分�
 - [生产配置合同](../../../docs/production-configuration.md)、[测试质量](../../../docs/geo-monitoring/03-technical/07-testing-and-quality.md)、[ADR-008](../../../docs/geo-monitoring/05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)
 
 复用权威 runbook，不另造部署流程；选定目标后的具体执行计划应补入本任务 implement.md，当前没有实施结果。
+
+
+## Hostdzire 直接构建与当前现场状态（2026-10-08 UTC）
+
+源码852c6d5e完整本地Gate exit0，Hostdzire原生前后端构建与manifest/生产预检通过。真实OSS返回404/NoSuchBucket，AI初始化安排待回复；尚未维护、清空、迁移或切换。当前状态以[直接执行记录](./hostdzire-direct-build.md)为准，先前“未上传/未构建/新Gate未运行”是历史准备边界。GitHub Actions 不要求也未触发。DEPLOY保持blocked，UAT未开始。

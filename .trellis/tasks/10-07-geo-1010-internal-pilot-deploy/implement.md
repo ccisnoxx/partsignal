@@ -86,3 +86,8 @@ Host只读runtime结构检查及Linux mountinfo解析通过；仅concurrency=1�
 按用户明确要求，配置中心既有 Header 能力扩展到首次 Production bootstrap，默认省略/空数组；使用现有校验、敏感加密和 T1/T2/T3，无 HTTP API/DB schema/UI 变化。实现提交 `4a4859b0e9737cf6e8da9bddb88d0580c8734ea9`，合同见[可选Header](./optional-bootstrap-headers.md)。Host 名称参数可选，值 no-echo TTY/stdin 交接，预检与完整大小检查早于 STARTED。
 
 独立初次复核发现名称161字符可超过varchar160，已补真实输入边界回归并修正，修正复核关闭P2。最终unit60、Host7、输入预检5正/44负、定向mypy/Ruff通过；原全scripts成功证据复用，PG实际11skip/7deselect不作通过。具体命令/hash/限制见[验证](./evidence/optional-bootstrap-headers-validation.json)和[修正复核](./evidence/optional-bootstrap-headers-review-final.md)。Audit81760223已闭合校验。私有旧清单未猜测改写，owner/TTY/预算及现场基线仍待闭合；新完整候选Gate未运行，没有Actions派发或Host写入。
+
+
+## Hostdzire 直接构建与当前现场状态（2026-10-08 UTC）
+
+源码852c6d5e完整本地Gate exit0，Hostdzire原生前后端构建与manifest/生产预检通过。真实OSS返回404/NoSuchBucket，AI初始化安排待回复；尚未维护、清空、迁移或切换。当前状态以[直接执行记录](./hostdzire-direct-build.md)为准，先前“未上传/未构建/新Gate未运行”是历史准备边界。GitHub Actions 不要求也未触发。DEPLOY保持blocked，UAT未开始。

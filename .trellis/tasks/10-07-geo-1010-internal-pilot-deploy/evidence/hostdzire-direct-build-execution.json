@@ -1,0 +1,318 @@
+{
+  "recorded_at_utc": "2026-10-08T03:53:08.400635+00:00",
+  "candidate_commit": "852c6d5ea4bb6da99d4bd843271eb6634d84a3f1",
+  "release_id": "pilot-20261008-030536-852c6d5e",
+  "host_alias": "hostdzire",
+  "site": "https://geo.962850.xyz",
+  "host_release_path": "/root/partsignal/releases/pilot-20261008-030536-852c6d5e",
+  "source": {
+    "release_id": "pilot-20261008-030536-852c6d5e",
+    "commit": "852c6d5ea4bb6da99d4bd843271eb6634d84a3f1",
+    "local_dir": "/Users/sc/.codex/reviews/partsignal/pilot-20261008-030536-852c6d5e",
+    "host_dir": "/root/partsignal/releases/pilot-20261008-030536-852c6d5e",
+    "archive_sha256": "c54529c8bb84ae84b40ff6e84342ac7d538a1ff31b886b3ef243cffda7f2f1d9",
+    "bundle_sha256": "551eb50ee251f66d52f0ade21c25e8dd37c28766556d8bae0a2825503911a6da"
+  },
+  "host_builds": {
+    "release_id": "pilot-20261008-030536-852c6d5e",
+    "commit": "852c6d5ea4bb6da99d4bd843271eb6634d84a3f1",
+    "source_verified": true,
+    "builds": [
+      {
+        "role": "backend",
+        "reference": "localhost:15000/partsignal/backend-v2:pilot-20261008-030536-852c6d5e",
+        "exit_code": 0,
+        "elapsed_seconds": 36.33,
+        "log": "/root/partsignal/releases/pilot-20261008-030536-852c6d5e/backend-build.log",
+        "image_id": "sha256:c7b0ed917ebfc0c7325b1d8c5ad51b0fa98c631757be94bac97a464f4e94f56e",
+        "repo_digests": [
+          "localhost:15000/partsignal/backend-v2@sha256:c7b0ed917ebfc0c7325b1d8c5ad51b0fa98c631757be94bac97a464f4e94f56e"
+        ],
+        "architecture": "amd64"
+      },
+      {
+        "role": "frontend",
+        "reference": "localhost:15000/partsignal/frontend-v2:pilot-20261008-030536-852c6d5e",
+        "exit_code": 1,
+        "elapsed_seconds": 0.41,
+        "log": "/root/partsignal/releases/pilot-20261008-030536-852c6d5e/frontend-build.log"
+      },
+      {
+        "role": "frontend",
+        "reference": "localhost:15000/partsignal/frontend-v2:pilot-20261008-030536-852c6d5e",
+        "exit_code": 0,
+        "elapsed_seconds": 78.33,
+        "log": "/root/partsignal/releases/pilot-20261008-030536-852c6d5e/frontend-build-corrected.log",
+        "correction": "use actual final unnamed Dockerfile stage",
+        "image_id": "sha256:871d5203b8141fcc8718da69e3dff5997e2fcffade1bbae60a81ded2782cb1e8",
+        "repo_digests": [
+          "localhost:15000/partsignal/frontend-v2@sha256:871d5203b8141fcc8718da69e3dff5997e2fcffade1bbae60a81ded2782cb1e8"
+        ],
+        "architecture": "amd64"
+      }
+    ]
+  },
+  "manifest": {
+    "commit": "852c6d5ea4bb6da99d4bd843271eb6634d84a3f1",
+    "images": {
+      "backend": {
+        "image_id": "sha256:c7b0ed917ebfc0c7325b1d8c5ad51b0fa98c631757be94bac97a464f4e94f56e",
+        "reference": "localhost:15000/partsignal/backend-v2:pilot-20261008-030536-852c6d5e",
+        "repo_digests": [
+          "localhost:15000/partsignal/backend-v2@sha256:c7b0ed917ebfc0c7325b1d8c5ad51b0fa98c631757be94bac97a464f4e94f56e"
+        ]
+      },
+      "frontend": {
+        "image_id": "sha256:871d5203b8141fcc8718da69e3dff5997e2fcffade1bbae60a81ded2782cb1e8",
+        "reference": "localhost:15000/partsignal/frontend-v2:pilot-20261008-030536-852c6d5e",
+        "repo_digests": [
+          "localhost:15000/partsignal/frontend-v2@sha256:871d5203b8141fcc8718da69e3dff5997e2fcffade1bbae60a81ded2782cb1e8"
+        ]
+      },
+      "migration": {
+        "image_id": "sha256:c7b0ed917ebfc0c7325b1d8c5ad51b0fa98c631757be94bac97a464f4e94f56e",
+        "reference": "localhost:15000/partsignal/backend-v2:pilot-20261008-030536-852c6d5e",
+        "repo_digests": [
+          "localhost:15000/partsignal/backend-v2@sha256:c7b0ed917ebfc0c7325b1d8c5ad51b0fa98c631757be94bac97a464f4e94f56e"
+        ]
+      },
+      "rollback_frontend": {
+        "status": "NOT_APPLICABLE"
+      }
+    },
+    "migration_runtime": {
+      "environment_sha256": "f2016e7a62e5f6cc3e79c89c84e5a67f5a61f12ae5ea526999ab082897d83aa1",
+      "migration_runtime_sha256": "6104729da515879fcbc88b4008d344434efb8475b45a10c67ecad0824e970106",
+      "source_sha256": "2d73cc9a83e50593a07c193730d5e2f8bf0078be79139cd28a8b3ac57b20c549",
+      "version": "MIGRATION_RUNTIME_V1"
+    },
+    "recovery_strategy": "fresh-rebuild",
+    "release_id": "pilot-20261008-030536-852c6d5e",
+    "schema_head": "0066_geo_manual_evaluation",
+    "source_archive": {
+      "name": "source.tar.gz",
+      "sha256": "c54529c8bb84ae84b40ff6e84342ac7d538a1ff31b886b3ef243cffda7f2f1d9"
+    },
+    "tracked_files": {
+      "deploy/compose.prod.yaml": "c4b55da84bbd8e8e83f76a15b183cc2a9c76ef9961ef4af8bee6ac3fd4261a7b",
+      "deploy/nginx/partsignal-maintenance.conf.template": "9259ce49b8877c123e2ce0d7c70dc3a6414a0c764a012ff5d3acc7894d83f217",
+      "deploy/nginx/partsignal-security-headers.conf": "c946c3a33dc8f3ae078545cb37df3b6a65759ca589345ed485139bdd9148931e",
+      "deploy/nginx/partsignal.conf.template": "40b28f36f5cf8e3abe34182eb5e67feba4849bf3346d1c09bc9986ff284e1321",
+      "deploy/scripts/activate-production.sh": "20d5b6adebb774906c1624645d90923caa1cebbc1bbe685a662c84c15bf7e314",
+      "deploy/scripts/check-production-inputs.py": "d111bceaac84d32c42938645d59877174a3a2dc0721d5a60172199de9689b00d",
+      "deploy/scripts/deploy.sh": "0ad34e3d8a28285a74c23bc0fd261dc37ee2689665af7a719d13629ccf6e5120",
+      "deploy/scripts/prepare-production-data.py": "4007d7ed06783b4dd837c9371ac59d286e85760ef6d011a22679734dced6815e",
+      "deploy/scripts/production_deployment.py": "94539605e914dea63dbe7fbed16de6add49a6029cce04bfa58e419723041d596",
+      "deploy/scripts/production_fresh_reset.py": "c2e2927bd5e47f752a6c55a23b646ccfe1bb005cf4da4148b0aacee98162c67b",
+      "deploy/scripts/production_maintenance_execution.py": "3e7d0164ba78ea43a3d4b14fafed7a06f92eecf2ef2f65e45e309b2b78c0d239",
+      "deploy/scripts/production_migration_runtime.py": "172a034739eefaa77c2d6eb13b7bf114b1d643a643f971c39a6856f4988407dd",
+      "deploy/scripts/production_upgrade_recovery.py": "77939f095eb1b17d8ffe9ad14b079afa224b3cde83d9558ba695f17904fa3e76",
+      "deploy/scripts/rollback-production-frontend.sh": "5c32710d036aebaa8e7a8e923b3d9f5bcdbc3a6bfad12468ad5701c0c73cdae4"
+    }
+  },
+  "host_preflight": {
+    "release_id": "pilot-20261008-030536-852c6d5e",
+    "manifest_sha256": "3586014dd87b12cd8c5d1f191bd46afd330885aaef9da7282cbda3f77da4593c",
+    "image_identity_exit": 0,
+    "compose_config_exit": 0,
+    "backend_preflight_exit": 0,
+    "backend_preflight": {
+      "ai_allow_local_http": false,
+      "content_generator": "openai-compatible",
+      "database_configured": true,
+      "environment": "production",
+      "geo_browser_collection_enabled": false,
+      "object_storage_backend": "aliyun_oss",
+      "oss_access_key_id_configured": true,
+      "oss_access_key_secret_configured": true,
+      "oss_bucket_configured": true,
+      "oss_endpoint_configured": true,
+      "redis_configured": true,
+      "seed_admin_password_configured": true,
+      "seed_engineer_password_configured": true,
+      "session_cookie_secure": true
+    }
+  },
+  "artifact_final_check": {
+    "head": "852c6d5ea4bb6da99d4bd843271eb6634d84a3f1",
+    "origin_main": "852c6d5ea4bb6da99d4bd843271eb6634d84a3f1",
+    "branch": "main",
+    "clean": true,
+    "manifest_sha256": "3586014dd87b12cd8c5d1f191bd46afd330885aaef9da7282cbda3f77da4593c",
+    "runtime_original_sha256": "413092ab3459ca8c1198a1b352eca8009ff1bc965916073d002d2be4cdab6eba",
+    "nginx_original_sha256": "ea41efdb6c3b1535eaa3aa07a652f55b915002a8a792ed129b8f437907aea982",
+    "cutover_state_exists": false
+  },
+  "container_image_identity": {
+    "image_id": "sha256:c7b0ed917ebfc0c7325b1d8c5ad51b0fa98c631757be94bac97a464f4e94f56e",
+    "created_container_image_id": "sha256:c7b0ed917ebfc0c7325b1d8c5ad51b0fa98c631757be94bac97a464f4e94f56e",
+    "image_identity_matches": true,
+    "container_running": false
+  },
+  "source_full_gate": {
+    "commit": "852c6d5ea4bb6da99d4bd843271eb6634d84a3f1",
+    "command": [
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "python",
+      ".trellis/tasks/10-05-verify-entrypoint/run-verify.py"
+    ],
+    "started_at_utc": "2026-10-08T03:09:32.762005+00:00",
+    "redis_before": {
+      "13": 0,
+      "14": 6,
+      "15": 83
+    },
+    "status": "PASSED",
+    "log": "/Users/sc/.codex/reviews/partsignal/pilot-20261008-030536-852c6d5e/candidate-gate.log",
+    "exit_code": 0,
+    "elapsed_seconds": 2243.89,
+    "ended_at_utc": "2026-10-08T03:46:56.649005+00:00",
+    "head_after": "852c6d5ea4bb6da99d4bd843271eb6634d84a3f1",
+    "working_tree_after": "",
+    "log_sha256": "d5b7ae4a709b5333107c284ddb24ee6cfb4f954a1b4fb2eae6e1f9351e85ab1f",
+    "result_summary": [
+      "3902 passed in 67.89s (0:01:07)",
+      "Tests  1347 passed (1347)",
+      "1255 passed, 45 warnings in 629.20s (0:10:29)",
+      "6 passed in 16.02s",
+      "1 passed in 559.69s (0:09:19)",
+      "32 passed (3.9m)",
+      "E2E_RESULT playwright=0 secret_scan=0",
+      "1 skipped",
+      "1 passed (42.3s)",
+      "E2E_RESULT playwright=0 secret_scan=0",
+      "1 skipped",
+      "1 passed (722ms)",
+      "E2E_RESULT playwright=0 secret_scan=0",
+      "1 skipped",
+      "1 passed (848ms)",
+      "E2E_RESULT playwright=0 secret_scan=0",
+      "74 skipped",
+      "498 passed (6.6m)",
+      "E2E_RESULT playwright=0 secret_scan=0"
+    ]
+  },
+  "resource_restoration": {
+    "recorded_at_utc": "2026-10-08T03:49:41.061520+00:00",
+    "redis_after": {
+      "13": 0,
+      "14": 6,
+      "15": 87
+    },
+    "original_started_ids_stopped": [
+      "47945efb8f905de0cfc19472f345968a28123779ec5a32155c9ad9fdc3d20a11",
+      "e9b9bad7a70087b7095fec963df14c391b844caf88a7b81e7662a278e24d34a2",
+      "e12ce66b1e3f72c32b9f75cbd4617719cfc03ff94d7789d4525d6aaf634bccad"
+    ],
+    "resources": [
+      {
+        "id": "47945efb8f905de0cfc19472f345968a28123779ec5a32155c9ad9fdc3d20a11",
+        "name": "/partsignal-dev-fake-oss-1",
+        "state": "exited",
+        "project": "partsignal-dev",
+        "service": "fake-oss"
+      },
+      {
+        "id": "e9b9bad7a70087b7095fec963df14c391b844caf88a7b81e7662a278e24d34a2",
+        "name": "/partsignal-dev-postgres-1",
+        "state": "exited",
+        "project": "partsignal-dev",
+        "service": "postgres"
+      },
+      {
+        "id": "e12ce66b1e3f72c32b9f75cbd4617719cfc03ff94d7789d4525d6aaf634bccad",
+        "name": "/partsignal-dev-redis-1",
+        "state": "exited",
+        "project": "partsignal-dev",
+        "service": "redis"
+      }
+    ],
+    "original_container_states_restored": true,
+    "unexpected_container_ids": [],
+    "colima_initial_state": "STOPPED",
+    "colima_final_state": "STOPPED"
+  },
+  "oss_probe": {
+    "release_id": "pilot-20261008-030536-852c6d5e",
+    "exit_code": 2,
+    "probe": {
+      "adapter": "AliyunOssEvidenceStorage",
+      "provider_called": true,
+      "status": "FAILED",
+      "error_type": "StorageUnavailable"
+    }
+  },
+  "oss_diagnosis": {
+    "operation": "HEAD missing controlled probe key",
+    "credential_values_exposed": false,
+    "error_type": "StorageUnavailable",
+    "provider_error_type": "NoSuchBucket",
+    "http_status": 404,
+    "provider_error_code": "NoSuchBucket"
+  },
+  "existing_public_site_check": {
+    "checked_at_utc": "2026-10-08T03:39:41.096245+00:00",
+    "environment": "existing Hostdzire site; new release not activated",
+    "responses": {
+      "/login": {
+        "status": 200,
+        "content_type": "text/html"
+      },
+      "/api/health/live": {
+        "status": 200,
+        "content_type": "application/json"
+      },
+      "/api/health/ready": {
+        "status": 200,
+        "content_type": "application/json"
+      }
+    }
+  },
+  "runtime_preparation": {
+    "path": "/root/partsignal/shared/.env.production.pilot-20261008-030536-852c6d5e.prepared",
+    "mode": "0600",
+    "sha256": "06b952634ac5a7d62c7d780de343a27294365653371e80afdcc082154827ab11",
+    "installed": false,
+    "flags": {
+      "GEO_MONITORING_ENABLED": true,
+      "GEO_API_COLLECTION_ENABLED": false,
+      "GEO_BROWSER_COLLECTION_ENABLED": false,
+      "GEO_OPPORTUNITY_EVALUATION_ENABLED": true,
+      "GEO_RETENTION_DRY_RUN": true,
+      "CELERY_CONCURRENCY": 1
+    }
+  },
+  "ai_existing_read_only_observation": {
+    "channels": 1,
+    "models": 1,
+    "headers": 0,
+    "models_enabled": 1,
+    "models_historical_test_passed": 1,
+    "active_instance_environment_key_matches_production": false,
+    "configuration_choice": "AWAITING_USER_RESPONSE",
+    "provider_test_performed": false
+  },
+  "github_actions": {
+    "required_for_deployment": false,
+    "triggered_in_this_execution": false,
+    "workflow_event": "workflow_dispatch_only"
+  },
+  "cutover": {
+    "maintenance_installed": false,
+    "nginx_reloaded": false,
+    "old_containers_stopped": false,
+    "old_data_erased": false,
+    "target_migrated": false,
+    "new_services_activated": false,
+    "uat_started": false
+  },
+  "status": "BLOCKED_RUNTIME_CONFIGURATION",
+  "blocked_inputs": [
+    "OSS_BUCKET_ENDPOINT_OR_PROTECTED_RECORD",
+    "AI_INITIALIZATION_CONFIGURATION_CHOICE"
+  ],
+  "reviewable_command_package": "/Users/sc/.codex/reviews/partsignal/pilot-20261008-030536-852c6d5e/host-cutover-commands.sh"
+}

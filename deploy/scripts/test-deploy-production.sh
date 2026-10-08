@@ -91,7 +91,7 @@ next_release=production-20260829-130000-fedcba987654
 
 case "${PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE:-}" in
   "") ;;
-  network-identity | network-compatibility) ;;
+  network-identity | network-compatibility | scripts) ;;
   success) exit 0 ;;
   failure) exit "${PARTSIGNAL_PRODUCTION_HARNESS_TEST_FAILURE_STATUS:-23}" ;;
   initialization-failure) exit 24 ;;
@@ -218,6 +218,7 @@ if test "${PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE:-}" = network-identity; then
 fi
 
 # 真实本地 Engine，直接使用权威 Production Compose；禁止复用未知网络或运行项目。
+if test "${PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE:-}" != scripts; then
 python3 - "$root" "$test_dir" <<'PY'
 import json
 import os
@@ -330,6 +331,7 @@ finally:
     cleanup()
 print("Production Engine network compatibility: 7 positive / 3 negative; containers=0 networks=0")
 PY
+fi
 
 if test "${PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE:-}" = network-compatibility; then
   exit 0
@@ -1043,6 +1045,7 @@ tracked_names = {
     "deploy/scripts/production_migration_runtime.py",
     "deploy/scripts/production_maintenance_execution.py",
     "deploy/scripts/production_deployment.py",
+    "deploy/scripts/production_fresh_reset.py",
     "deploy/scripts/rollback-production-frontend.sh",
 }
 manifest = suite_root / "release-manifest.json"
@@ -1669,6 +1672,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
   --tracked-file "$root/deploy/scripts/production_migration_runtime.py" \
   --tracked-file "$root/deploy/scripts/production_maintenance_execution.py" \
   --tracked-file "$root/deploy/scripts/production_deployment.py" \
+  --tracked-file "$root/deploy/scripts/production_fresh_reset.py" \
   --tracked-file "$root/deploy/scripts/rollback-production-frontend.sh" \
   --output "$test_dir/v1-manifest.json" >/dev/null 2>"$test_dir/v1-manifest.err"
 v1_manifest_status=$?
@@ -1699,6 +1703,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
   --tracked-file "$root/deploy/scripts/production_migration_runtime.py" \
   --tracked-file "$root/deploy/scripts/production_maintenance_execution.py" \
   --tracked-file "$root/deploy/scripts/production_deployment.py" \
+  --tracked-file "$root/deploy/scripts/production_fresh_reset.py" \
   --tracked-file "$root/deploy/scripts/rollback-production-frontend.sh" \
   --output "$test_dir/release-manifest.json" >/dev/null
 PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
@@ -1723,6 +1728,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
   --tracked-file "$root/deploy/scripts/production_migration_runtime.py" \
   --tracked-file "$root/deploy/scripts/production_maintenance_execution.py" \
   --tracked-file "$root/deploy/scripts/production_deployment.py" \
+  --tracked-file "$root/deploy/scripts/production_fresh_reset.py" \
   --tracked-file "$root/deploy/scripts/rollback-production-frontend.sh" \
   --output "$test_dir/release-manifest-next.json" >/dev/null
 
@@ -2541,6 +2547,7 @@ assert set(manifest["tracked_files"]) == {
     "deploy/scripts/production_migration_runtime.py",
     "deploy/scripts/production_maintenance_execution.py",
     "deploy/scripts/production_deployment.py",
+    "deploy/scripts/production_fresh_reset.py",
     "deploy/scripts/rollback-production-frontend.sh",
 }
 PY
@@ -2559,4 +2566,6 @@ overwrite_status=$?
 set -e
 test "$overwrite_status" -ne 0
 
+python3 "$root/deploy/scripts/test-production-fresh-reset.py"
+python3 "$root/deploy/scripts/test-production-fresh-reset-mounts.py"
 printf '%s\n' "Production V2 编排、两阶段激活、可续跑数据状态机与候选清单合同自检通过"

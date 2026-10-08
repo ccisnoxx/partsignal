@@ -62,8 +62,8 @@ case "$PARTSIGNAL_BACKEND_IMAGE:$PARTSIGNAL_FRONTEND_IMAGE" in
 esac
 
 case "$deploy_mode" in
-  clean-init)
-    : "${PARTSIGNAL_CUTOVER_RUN_ID:?clean-init 必须指定 PARTSIGNAL_CUTOVER_RUN_ID}"
+  clean-init | fresh-init)
+    : "${PARTSIGNAL_CUTOVER_RUN_ID:?初始化必须指定 PARTSIGNAL_CUTOVER_RUN_ID}"
     python3 "$script_dir/prepare-production-data.py" \
       verify-prepared "$PARTSIGNAL_CUTOVER_RUN_ID" "$PARTSIGNAL_RELEASE_MANIFEST"
     ;;
@@ -103,7 +103,7 @@ compose_up_async -d --wait worker scheduler
 docker compose --profile production-async --env-file "$env_file" \
   -f "$compose_file" ps
 
-if test "$deploy_mode" = clean-init; then
+if test "$deploy_mode" = clean-init || test "$deploy_mode" = fresh-init; then
   python3 "$script_dir/prepare-production-data.py" \
     mark-initialized "$PARTSIGNAL_CUTOVER_RUN_ID" "$PARTSIGNAL_RELEASE_MANIFEST"
 else

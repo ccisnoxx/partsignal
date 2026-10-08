@@ -30,7 +30,7 @@ chmod 600 .env .env.production .env.production.ai.json
 
 runtime 文件使用单行 literal `KEY=value`，不使用引号、内联注释、`source/include/export`、插值、命令替换、控制字符或 CRLF。首次生成 database/session/seed/storage secrets 使用 CSPRNG 至少 32 字节经 URL-safe 编码，只含 `A-Z/a-z/0-9/_/-`，至少 43 字符；AI 加密主密钥仍为随机 32 字节的标准 Base64，OSS 凭据由供应商提供。已有生产值继续保留，不能为了符合模板重新生成或轮换。
 
-**当前 Hostdzire 已有受控创建的生产文件。新复制的本地模板只是草稿，不能覆盖它。** 当前首次发布尚缺的是 AI 初始化输入和凭据交接，填写它们不要求修改服务器 `.env.production`。现有数据库密码、session secret、加密主密钥等继续保留；不能为了补全本地模板生成另一组值并替换服务器现有值。
+**当前 Hostdzire 已有受控创建的生产文件。新复制的本地模板只是草稿，不能覆盖它。** 当前清空重建的新安装尚须核实 AI 初始化输入和凭据交接，填写它们不要求修改服务器 `.env.production`。现有数据库密码、session secret、加密主密钥等继续保留；不能为了补全本地模板生成另一组值并替换服务器现有值。
 
 ## 2. 生产运行时配置项
 
@@ -75,7 +75,7 @@ API、Worker、Scheduler 的 Compose backend 定义共享同一 env 文件，固
 
 GEO-1003 的生产部署、激活和前端回滚脚本在取得维护锁、改变部署状态或调用 Compose 前执行 `check-production-inputs.py --deployment-boundary <runtime_file>`。该模式只依赖 Python 标准库，并检查 runtime 与宿主环境：Browser 必须省略或 literal false；拒绝所有 Browser 会话材料；`COMPOSE_PROFILES` 只允许空值或 `production-async`；`COMPOSE_FILE` 只允许权威 `deploy/compose.prod.yaml`，拒绝 Browser/service-session overlay 和多文件组合。runtime 仍须符合普通文件、当前用户所有和 0600 合同。该模式不替代完整输入检查或 backend preflight。
 
-权威 production Compose 不包含 Browser service/profile/session 卷；显式 `geo-browser`、`COMPOSE_PROFILES=geo-browser` 或 `--profile '*'` 展开也不会产生 Browser 服务。两个 Browser Compose 文件仅供非 production，独立 Collector 在 production 身份下先于 Chromium 启动拒绝。禁止通过手工多文件 Compose 绕过权威部署入口；非生产骨架与 GEO-801～803 本地合同继续保留，没有真实 Adapter。release manifest producer/consumer 当前固定13项tracked files，包含输入检查、迁移运行时与部署/supervisor模块；旧manifest不自动兼容。[ADR-008](./geo-monitoring/05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)将UI完成后新候选的门禁、工件和冻结归属GEO-1010-DEPLOY；目标Browser零服务/零会话材料仍须独立现场证据。
+权威 production Compose 不包含 Browser service/profile/session 卷；显式 `geo-browser`、`COMPOSE_PROFILES=geo-browser` 或 `--profile '*'` 展开也不会产生 Browser 服务。两个 Browser Compose 文件仅供非 production，独立 Collector 在 production 身份下先于 Chromium 启动拒绝。禁止通过手工多文件 Compose 绕过权威部署入口；非生产骨架与 GEO-801～803 本地合同继续保留，没有真实 Adapter。release manifest producer/consumer 当前固定14项tracked files，包含输入检查、迁移运行时、部署/supervisor模块与清空边界owner；旧manifest不自动兼容。[ADR-008](./geo-monitoring/05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)将UI完成后新候选的门禁、工件和冻结归属GEO-1010-DEPLOY；目标Browser零服务/零会话材料仍须独立现场证据。
 
 开发专用 `OBJECT_STORAGE_ENDPOINT`、`OBJECT_STORAGE_PUBLIC_ENDPOINT`、`OBJECT_STORAGE_PATH` 在开发模板中完整列出，生产 Aliyun OSS 不使用这三项。Production 不增加 `fake-oss`、`19001` 或 `/object-storage/`。
 
@@ -104,9 +104,9 @@ AI 的 provider、模型、API Key、敏感 Header 属于 PostgreSQL 配置，�
 | `credential_owner` | 指定交接责任人；不把其任何 credential 写入文件 |
 | `credential_owner_tty_handoff_confirmed` | 确认维护窗口内可通过本机 `ssh -t hostdzire` 使用真实交互式 TTY，无回显输入一次 Key；确认后填 `true` |
 
-最后六项是准备检查，不传给真实 bootstrap。该 JSON 是完整输入清单，**现有 bootstrap 不支持 `--config` 或自动读取它**；发布操作者按[部署附录第 6 节](./Hostdzire部署附录.md#6-clean-init)显式传递九项非 secret 参数。确认项全部就绪前，不预约维护或冻结新 release。
+最后六项是准备检查，不传给真实 bootstrap。该 JSON 是完整输入清单，**现有 bootstrap 不支持 `--config` 或自动读取它**；发布操作者按[部署附录第 6 节](./Hostdzire部署附录.md#6-clean-init-与-fresh-init)显式传递九项非 secret 参数。确认项全部就绪前，不预约维护或冻结新 release。
 
-API Key 在 `PRODUCTION_PREPARED` 阶段通过现有 true-TTY bootstrap 一次性写成数据库密文。之后普通 upgrade 复用数据库配置，日常渠道变更走应用 Configuration。不需要每次发布改 env 或重新输入 Key；clean-init、数据恢复、密钥轮换另按对应合同执行。
+API Key 在 `PRODUCTION_PREPARED` 阶段通过现有 true-TTY bootstrap 一次性写成数据库密文。之后普通 upgrade 复用数据库配置，日常渠道变更走应用 Configuration。不需要每次发布改 env 或重新输入 Key；clean-init、fresh-init、数据恢复、密钥轮换另按对应合同执行。
 
 ## 4. 本地只读检查命令
 
@@ -141,7 +141,7 @@ AI 检查按 Host 真实的 UTF-8、`ensure_ascii=False`、紧凑 JSON 格式计
 3. **配置交付只在初次安装或配置变化时执行。** 完整本地生产文件可经现有 OpenSSH/scp 交付到明确批准的 Hostdzire 受控位置。现有 `deploy.sh` 不自动上传配置；配置交付与 release 包交付分开。已有文件更新必须保持现有 secret/数据库身份，先精确备份、同目录受控 `0600` 暂存、校验，再按旧文件 checksum 防止覆盖并发改动，原子安装为 `/root/partsignal/shared/.env.production`；不直接 scp 覆盖活动文件，不把未知或空值合并进去。首次安装使用排他创建。更新与应用生效分别执行受控步骤；改文件不等于运行中的容器已经加载。
 4. **Repository 与新候选。** 完成当前源码 Gate、独立复核与新 release 冻结。每次 release ID、镜像 tags、commit、archive、manifest 都重新绑定；固定 runtime 文件不复制进 release。已冻结失败证据不得复用或覆盖。
 5. **维护前复核。** 按附录第 3 节，以同一新 manifest 校验文件和实际 image identity，再运行 `run --rm --pull never --no-deps api ... preflight-production-config`。直接 Compose probe 需要 one-off 容器授权；普通 `docker compose run` 不能替代它。随后核验固定 project/network labels、资源与恢复路径，取得精确维护授权。
-6. **首次 clean-init。** 按 runbook 完成维护、隔离、空库准备；使用已准备好的 AI 非 secret 参数和 owner TTY 输入一次 Key。真实 AI/OSS Gate 通过后才 activation、切流和 observation。
+6. **首次安装。** 保留数据的clean-init按runbook完成维护、隔离、空库准备；明确授权丢弃旧数据的fresh-init按附录清空重建路径准备空库；使用已准备好的 AI 非 secret 参数和 owner TTY 输入一次 Key。真实 AI/OSS Gate 通过后才 activation、切流和 observation。
 7. **后续 upgrade。** 继续指定 `ENV_FILE=/root/partsignal/shared/.env.production`，按新 manifest 运行受控 deploy/activate；未变更配置时无需交付 env，未清空数据库时无需再次 bootstrap。
 
 完整清单能把已知缺项挡在发布准备阶段；真实供应商拒绝、网络/TLS 故障或 OSS 权限漂移仍须由实际 Gate 发现，不能用填写完成冒充成功。本次模板交付没有执行配置上传、远端更新、新 release、maintenance 或 cutover。

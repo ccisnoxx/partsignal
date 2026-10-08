@@ -28,6 +28,7 @@ REQUIRED_TRACKED_FILES = {
     "deploy/scripts/production_migration_runtime.py",
     "deploy/scripts/production_maintenance_execution.py",
     "deploy/scripts/production_deployment.py",
+    "deploy/scripts/production_fresh_reset.py",
     "deploy/scripts/rollback-production-frontend.sh",
 }
 REPO_DIGEST_PATTERN = re.compile(r"[^@\s]+@sha256:[0-9a-f]{64}")
@@ -89,7 +90,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--backend-image", required=True)
     parser.add_argument("--migration-image", help="完整迁移程序镜像；首次默认 backend，恢复时保留失败版本")
     parser.add_argument("--frontend-image", required=True)
-    parser.add_argument("--rollback-frontend-image", required=True)
+    parser.add_argument("--rollback-frontend-image")
+    parser.add_argument("--recovery-strategy", choices=("previous-frontend", "fresh-rebuild"), default="previous-frontend")
     parser.add_argument("--schema-head", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--tracked-file", action="append", type=Path, default=[])
@@ -143,6 +145,10 @@ def verify_release_source(commit: str, source_archive: Path) -> None:
 def main() -> None:
     """校验输入并以排他创建方式写入稳定排序的 JSON 清单。"""
     args = parse_args()
+    if args.recovery_strategy == "fresh-rebuild" and args.rollback_frontend_image:
+        raise ValueError("fresh-rebuild 不允许声明 previous frontend 回滚镜像")
+    if args.recovery_strategy == "previous-frontend" and not args.rollback_frontend_image:
+        raise ValueError("previous-frontend 必须指定 --rollback-frontend-image")
     if not re.fullmatch(r"[a-z0-9][a-z0-9._-]{7,127}", args.release_id):
         raise ValueError("release ID 格式无效")
     if not re.fullmatch(r"[0-9a-f]{40}", args.commit):
@@ -171,6 +177,7 @@ def main() -> None:
         raise ValueError(f"tracked file allowlist 不匹配：missing={missing}, extra={extra}")
 
     manifest = {
+        "recovery_strategy": args.recovery_strategy,
         "release_id": args.release_id,
         "commit": args.commit,
         "schema_head": args.schema_head,
@@ -182,7 +189,10 @@ def main() -> None:
             "backend": inspect_image(args.backend_image),
             "migration": inspect_image(args.migration_image or args.backend_image),
             "frontend": inspect_image(args.frontend_image),
-            "rollback_frontend": inspect_image(args.rollback_frontend_image),
+            "rollback_frontend": (
+                {"status": "NOT_APPLICABLE"} if args.recovery_strategy == "fresh-rebuild"
+                else inspect_image(args.rollback_frontend_image)
+            ),
         },
         "tracked_files": {
             relative: sha256(path)

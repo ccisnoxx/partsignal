@@ -26,7 +26,7 @@ def execute(owner: Any, publish: Callable[[dict[str, Any]], None]) -> int:
     manifest = required("PARTSIGNAL_RELEASE_MANIFEST")
     mode = env.get("PARTSIGNAL_DEPLOY_MODE") or "upgrade"
     delivery = env.get("PARTSIGNAL_IMAGE_DELIVERY_MODE", "registry")
-    if mode not in {"clean-init", "upgrade"}:
+    if mode not in {"clean-init", "fresh-init", "upgrade"}:
         raise owner.DataStateError(f"无效的 Production 部署模式：{mode}")
     if delivery not in {"registry", "local"}:
         raise owner.DataStateError(
@@ -59,9 +59,14 @@ def execute(owner: Any, publish: Callable[[dict[str, Any]], None]) -> int:
     )
     owner.validate_recovery_boundary()
     candidate = owner.candidate_from_manifest(manifest)
-    run_id = required("PARTSIGNAL_CUTOVER_RUN_ID") if mode == "clean-init" else None
+    run_id = required("PARTSIGNAL_CUTOVER_RUN_ID") if mode in {"clean-init", "fresh-init"} else None
     if mode == "clean-init":
         owner.begin_clean_init(owner.require_run_id(run_id), candidate)
+    elif mode == "fresh-init":
+        # 先只读认证清空证明，实际开始必须晚于镜像身份核验。
+        state = owner.verify_phase(owner.require_run_id(run_id), {"RESET_READY", "FRESH_INIT_DEPLOYING", "PRODUCTION_PREPARED"})
+        owner.require_candidate(state, candidate)
+        owner.fresh_reset.require_fresh_candidate(owner, candidate)
     else:
         owner.upgrade_entry_state(candidate)
     compose = ["docker", "compose", "--env-file", runtime, "-f", str(compose_path)]
@@ -94,6 +99,8 @@ def execute(owner: Any, publish: Callable[[dict[str, Any]], None]) -> int:
         data_root, _ = owner.configured_roots()
         attempt = owner.read_state(data_root)["upgrade_attempt"]
         publish({"attempt_id": attempt["attempt_id"]})
+    elif mode == "fresh-init":
+        owner.fresh_reset.begin_fresh_init(owner, owner.require_run_id(run_id), candidate)
     command("data_services", operation("up", ["-d", "--wait", "postgres", "redis"]))
     command(
         "configuration_preflight",
@@ -154,10 +161,10 @@ def execute(owner: Any, publish: Callable[[dict[str, Any]], None]) -> int:
             quiet=True,
         )
     publish({"stage": "prepared_proof"})
-    if mode == "clean-init":
+    if mode in {"clean-init", "fresh-init"}:
         owner.transition_candidate(
             owner.require_run_id(run_id),
-            "CLEAN_INIT_DEPLOYING",
+            "CLEAN_INIT_DEPLOYING" if mode == "clean-init" else "FRESH_INIT_DEPLOYING",
             "PRODUCTION_PREPARED",
             candidate,
         )

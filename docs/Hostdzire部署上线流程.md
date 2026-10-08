@@ -1,6 +1,6 @@
 # PartSignal Hostdzire Production 发布 Runbook
 
-本文档是 `https://geo.962850.xyz` 的 Production 发布权威入口。当前目标是在一次获批维护窗口中原地转换既有运行边界，容器化 Frontend V2 是唯一前端 owner。详细命令和恢复检查见[部署附录](./Hostdzire部署附录.md)，稳定安全边界见[部署与运维](./operations.md)。
+本文档是 `https://geo.962850.xyz` 的 Production 发布权威入口。发布支持既有版本升级、保留旧数据隔离后的首次安装，以及明确获准丢弃旧数据的清空重建；容器化Frontend V2是唯一前端owner。详细命令和恢复检查见[部署附录](./Hostdzire部署附录.md)，稳定安全边界见[部署与运维](./operations.md)。
 
 仓库就绪不等于已经获准修改服务器。上传 release、写入环境文件、停止容器、移动数据、替换 Nginx、reload、受控业务写入和物理清理都需要针对精确目标的远端授权。
 
@@ -14,7 +14,7 @@
 | Compose networks | logical key、physical `name:` 与既有 network label 均为 `partsignal-staging-internal/egress/edge`；internal 保持 `internal: true` |
 | Production env | `/root/partsignal/shared/.env.production`，权限 `0600`，不与 `.env.staging` 共享 |
 | 活动数据 | `/root/partsignal-data/postgres`、`/root/partsignal-data/redis` |
-| 旧环境隔离 | `/root/partsignal-data-quarantine/<run-id>`，不得被 Production mount |
+| 旧环境隔离 | 保留数据安装使用 `/root/partsignal-data-quarantine/<run-id>`，不得被 Production mount；fresh-init 不创建隔离目录 |
 | 回环端口 | API `127.0.0.1:19000`；Frontend V2 `127.0.0.1:19080` |
 | Production services | `postgres`、`redis`、`migrate`、`api`、`worker`、`scheduler`、`frontend` |
 | Frontend owner | `deploy/compose.prod.yaml` 的 `frontend` service，源码只来自 canonical `frontend/`；现有 Production image identity 保持 V2 命名 |
@@ -34,7 +34,7 @@ Production 不使用 `/var/www/partsignal-frontend/current`，`/root/partsignal/
 - SSH 主机密钥冲突、目标身份或只读 inventory 与授权包不一致。
 - 现存网络的 `com.docker.compose.project` 或 `com.docker.compose.network` 与固定 project/logical key 不一致；物理 `name:` 一致仍不足以通过 Engine ownership 校验。
 - Production env 引用 `.env.staging`，或配置为 `deterministic`、development storage、fake OSS、非安全 Cookie、`AI_ALLOW_LOCAL_HTTP=true`。
-- 三个旧数据目录、同文件系统 quarantine、恢复命令或上一份已验证 V2 镜像不明确。
+- 保留旧数据的clean-init/upgrade缺少其要求的quarantine、恢复命令或已验证previous V2；清空重建则必须明确授权固定三个数据目录的内容丢弃，并具备新安装输入和安全停止/重建路径。
 - migration、完整性、账号初始化、Compose health、`nginx -t`、live/ready、缓存/CSP/source-map 或浏览器验收失败。
 - 真实 AI/OSS 只能通过放宽安全策略、固定成功适配器或输出凭据才能验证。
 
@@ -50,7 +50,7 @@ uv run --project backend pytest backend/tests/unit/test_cli.py
 git diff --check
 ```
 
-候选必须来自 clean、已推送的 `main`。使用 `git archive` 生成不可覆盖源归档，构建 backend 和 Frontend V2 镜像后，通过 `deploy/scripts/create-release-manifest.py` 冻结完整 commit、源归档 SHA-256、backend/migration/current V2/previous V2 image ID 与非空 RepoDigest、schema head、版本化 migration_runtime 指纹，以及固定 13 项 allowlist 中的 Production Compose、状态/部署/激活/输入检查脚本、Production/maintenance Nginx 模板和安全 snippet 校验和。migration 首次默认 backend；严格失败恢复须以 `--migration-image` 保留失败执行的原迁移镜像，并以 `PARTSIGNAL_MIGRATION_IMAGE` 将其完整 reference 传入后续正式命令。完整迁移程序由该镜像全部 rootfs 与执行配置冻结，修复 backend 独立变化。输入检查脚本 `check-production-inputs.py` 和迁移归档与运行时证明模块 `production_upgrade_recovery.py`、`production_migration_runtime.py`，以及部署执行 owner `production_deployment.py` 和 supervisor `production_maintenance_execution.py` 必须按附录一起传入 tracked files。manifest 采用排他创建；部署和激活会复算 tracked files，并要求 `PARTSIGNAL_VERSION` 精确等于 release ID。不得复用 tag、覆盖文件或从 release 目录名推断 Git 状态。
+候选必须来自 clean、已推送的 `main`。默认 `previous-frontend` 恢复策略还冻结 previous V2 镜像；获准清空重建的 `fresh-rebuild` 将该角色记录为不适用。使用 `git archive` 生成不可覆盖源归档，构建 backend 和 Frontend V2 镜像后，通过 `deploy/scripts/create-release-manifest.py` 冻结完整 commit、源归档 SHA-256、backend/migration/current V2 的 image ID 与非空 RepoDigest、schema head、版本化 migration_runtime 指纹，以及固定 14 项 allowlist 中的 Production Compose、状态/部署/激活/输入检查脚本、Production/maintenance Nginx 模板和安全 snippet 校验和。migration 首次默认 backend；严格失败恢复须以 `--migration-image` 保留失败执行的原迁移镜像，并以 `PARTSIGNAL_MIGRATION_IMAGE` 将其完整 reference 传入后续正式命令。完整迁移程序由该镜像全部 rootfs 与执行配置冻结，修复 backend 独立变化。输入检查脚本 `check-production-inputs.py` 和迁移归档与运行时证明模块 `production_upgrade_recovery.py`、`production_migration_runtime.py`，以及部署执行 owner `production_deployment.py`、supervisor `production_maintenance_execution.py` 和清空边界 owner `production_fresh_reset.py` 必须按附录一起传入 tracked files。manifest 采用排他创建；部署和激活会复算 tracked files，并要求 `PARTSIGNAL_VERSION` 精确等于 release ID。不得复用 tag、覆盖文件或从 release 目录名推断 Git 状态。
 
 Production 镜像交付模式由 `PARTSIGNAL_IMAGE_DELIVERY_MODE` 显式控制；未设置时默认为 `registry`，按既有顺序 pull 后校验 manifest 中的 image ID 与 RepoDigest。Hostdzire 本地构建候选必须明确设置为 `local`：脚本跳过 pull，但要求候选镜像已存在，并在任何 `docker compose run`/`up` 前完成同一 manifest 的身份校验，同时为相关路径传入 `--pull never`。空值或其他模式，以及任何 V1 镜像仓库，均立即拒绝；不得用手工 Compose 命令绕过该合同。
 
@@ -80,6 +80,14 @@ Production 镜像交付模式由 `PARTSIGNAL_IMAGE_DELIVERY_MODE` 显式控制�
 
 物理删除 quarantine、`.env.staging`、fake-oss container/image 或旧 release/image 不属于上述转换授权。V1 仓库源码已在独立的开发阶段 cutover 中退役，该事实不扩大任何远端删除或 Production 转换授权。
 
+### 5.1 明确丢弃旧数据的fresh-init
+
+仅在用户明确要求现有PartSignal站点清空重建时适用。该决定覆盖旧数据隔离、备份和恢复要求；不扩大为删除其他project、TLS、runtime、镜像全局prune或真实OSS共享bucket。必须在新源码/镜像/manifest和AI/OSS初始化输入已就绪后才进入维护，避免先删除后发现新安装缺项。
+
+状态owner在固定maintenance lock内认证新候选、run ID、canonical数据根、三个普通目录及其inode、静止project和重叠挂载，再清空postgres/redis/objects的内容。先持久化真实RESETTING，完成后为RESET_READY；同run/candidate可受控续跑，目录替换、不同输入或已有非reset发布状态拒绝。不创建quarantine，不手写QUARANTINED或PRODUCTION_INITIALIZED。
+
+fresh候选显式声明`fresh-rebuild`恢复策略，旧previous V2为不适用，frontend-only rollback明确拒绝。部署使用`fresh-init`，空库迁移、账号初始化、PRODUCTION_PREPARED、受保护AI bootstrap、真实AI/OSS Gate及activation仍由现有owner执行。失败保持维护并安全停止或重新安装，不宣称旧数据可恢复。精确命令见附录清空重建章节；保留数据的第5节与第7节不替代本路径。
+
 ## 6. 验收
 
 必须验证回环与公网 live/ready、V2 首页和 canonical deep links；`/assets/*` immutable、HTML/SPA `no-cache`、缺失 asset 与 `.map` 为 `404`、JS 无 `sourceMappingURL`；CSP/安全头只由外层 Nginx 持有，Production 不暴露 `/object-storage/`。
@@ -87,6 +95,8 @@ Production 镜像交付模式由 `PARTSIGNAL_IMAGE_DELIVERY_MODE` 显式控制�
 浏览器覆盖 `/login`、首页、Product、Content、Publishing、GEO、Configuration、System 与 legacy redirect，以及 direct link、refresh、Back/Forward、登录 return-to、权限拒绝、revision conflict、375/768/1024/1440 和键盘/焦点基线。浏览器运行在本机独立 Playwright session 或既有测试中，不在服务器安装浏览器，不输出或持久化密码。
 
 ## 7. 分层恢复
+
+以下旧版本与数据恢复条目适用于保留旧数据的安装或 upgrade。fresh-init 已明确丢弃旧数据，失败保持维护并安全停止；重新安装须按实际失败状态另行准备，不能伪造旧数据恢复或直接清除发布状态。
 
 - 未 initialized 的 upgrade artifact 失败：保持公网 maintenance，停止完整项目；在持久化失败事实绑定当前 attempt、同 schema/完整迁移运行时且新 manifest/image 全部认证后，按[附录显式前向恢复](./Hostdzire部署附录.md#未初始化升级的显式前向恢复)接管。仍处 UPGRADE_DEPLOYING，需重新 deploy/验收/activate。不能用 frontend rollback、先 activate、手改状态或新候选 begin-upgrade 解锁。
 - Frontend：只在 PRODUCTION_INITIALIZED 切回 manifest 冻结的上一份已验证 V2 image，frontend-only recreate；其他 service、DB 和 Nginx 不变。

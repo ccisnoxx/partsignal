@@ -23,6 +23,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from production_deployment import execute as execute_deployment
+import production_fresh_reset as fresh_reset
 from production_maintenance_execution import ExecutionResult, exit_code, supervise
 from production_upgrade_recovery import verify_archives
 from production_migration_runtime import image_runtime_fingerprint, source_digest, validate_fingerprint
@@ -67,6 +68,7 @@ REQUIRED_TRACKED_FILES = {
     "deploy/scripts/production_migration_runtime.py",
     "deploy/scripts/production_maintenance_execution.py",
     "deploy/scripts/production_deployment.py",
+    "deploy/scripts/production_fresh_reset.py",
     "deploy/scripts/rollback-production-frontend.sh",
 }
 rename_count = 0
@@ -210,6 +212,10 @@ def candidate_from_manifest(value: str) -> dict[str, Any]:
     if canonical != manifest_path or not manifest_path.is_file():
         raise DataStateError("Production 候选清单包含路径别名或不是普通文件")
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    recovery_strategy = payload.get("recovery_strategy", "previous-frontend")
+    if not isinstance(recovery_strategy, str) or recovery_strategy not in {"previous-frontend", "fresh-rebuild"}:
+        raise DataStateError("Production 候选恢复策略无效")
+    fresh = recovery_strategy == "fresh-rebuild"
     try:
         candidate = {
             "manifest_sha256": file_sha256(manifest_path),
@@ -230,16 +236,15 @@ def candidate_from_manifest(value: str) -> dict[str, Any]:
             "frontend_repo_digests": sorted(
                 payload["images"]["frontend"]["repo_digests"]
             ),
-            "rollback_frontend_reference": payload["images"]["rollback_frontend"][
-                "reference"
-            ],
-            "rollback_frontend_image_id": payload["images"]["rollback_frontend"][
-                "image_id"
-            ],
-            "rollback_frontend_repo_digests": sorted(
-                payload["images"]["rollback_frontend"]["repo_digests"]
-            ),
         }
+        if fresh:
+            if payload["images"]["rollback_frontend"] != {"status": "NOT_APPLICABLE"}:
+                raise DataStateError("fresh-rebuild 必须显式声明 rollback_frontend NOT_APPLICABLE")
+            candidate["recovery_strategy"] = recovery_strategy
+        else:
+            for field in ("reference", "image_id", "repo_digests"):
+                value = payload["images"]["rollback_frontend"][field]
+                candidate[f"rollback_frontend_{field}"] = sorted(value) if field == "repo_digests" else value
     except (KeyError, TypeError) as error:
         raise DataStateError("Production 候选清单缺少必要身份字段") from error
     validate_fingerprint(candidate["migration_runtime"])
@@ -254,20 +259,21 @@ def candidate_from_manifest(value: str) -> dict[str, Any]:
         "migration_image_id",
         "frontend_reference",
         "frontend_image_id",
-        "rollback_frontend_reference",
-        "rollback_frontend_image_id",
     )
+    if not fresh:
+        scalar_fields += ("rollback_frontend_reference", "rollback_frontend_image_id")
     if not all(
         isinstance(candidate[name], str) and candidate[name] for name in scalar_fields
     ):
         raise DataStateError("Production 候选清单身份字段格式无效")
-    for role in ("backend", "migration", "frontend", "rollback_frontend"):
+    image_roles = ("backend", "migration", "frontend") + (() if fresh else ("rollback_frontend",))
+    for role in image_roles:
         reference = candidate[f"{role}_reference"]
         if V1_REPOSITORY_PATTERN.search(reference):
             raise DataStateError(
                 f"Production 候选清单不允许使用 V1 {role} 镜像仓库：{reference}"
             )
-    for role in ("backend", "migration", "frontend", "rollback_frontend"):
+    for role in image_roles:
         digests = candidate[f"{role}_repo_digests"]
         if (
             not isinstance(digests, list)
@@ -346,6 +352,8 @@ def verify_image(candidate: dict[str, Any], role: str) -> None:
 
 def verify_rollback_frontend(candidate: dict[str, Any]) -> None:
     """只允许使用当前候选冻结的上一份 V2 frontend。"""
+    if candidate.get("recovery_strategy") == "fresh-rebuild":
+        raise DataStateError("fresh-rebuild 的 frontend rollback 为 NOT_APPLICABLE；保持维护并前向重建")
     data_root, _ = configured_roots()
     state = read_state(data_root)
     if state.get("phase") != "PRODUCTION_INITIALIZED":
@@ -363,6 +371,8 @@ def verify_rollback_frontend(candidate: dict[str, Any]) -> None:
 
 def mark_frontend_rollback(candidate: dict[str, Any]) -> None:
     """记录当前 frontend 已切到 manifest 冻结的回滚镜像。"""
+    if candidate.get("recovery_strategy") == "fresh-rebuild":
+        raise DataStateError("fresh-rebuild 的 frontend rollback 为 NOT_APPLICABLE")
     data_root, _ = configured_roots()
     state = read_state(data_root)
     if state.get("phase") != "PRODUCTION_INITIALIZED":
@@ -848,6 +858,12 @@ def ensure_services_stopped(data_root: Path) -> None:
             text=True,
         ).stdout
     )
+    if not isinstance(payload, list) or len(payload) != len(running_ids) or any(
+        not isinstance(container, dict) or not isinstance(container.get("Mounts"), list)
+        or any(not isinstance(mount, dict) or not isinstance(mount.get("Source"), str) for mount in container["Mounts"])
+        for container in payload
+    ):
+        raise DataStateError("运行容器的活动数据 mount metadata 不完整，拒绝维护数据")
     protected_root = data_root.resolve(strict=True)
     mounted = sorted(
         {
@@ -992,6 +1008,8 @@ def verify_phase(run_id: str, allowed: set[str]) -> dict[str, Any]:
     data_root, quarantine_root = configured_roots()
     ensure_plain_directory(data_root, label="活动数据根")
     state = read_state(data_root)
+    if "fresh_reset" in state:
+        return fresh_reset.verify_phase(sys.modules[__name__], data_root, state, run_id, allowed)
     target = target_for(state, quarantine_root, run_id)
     ensure_plain_directory(target, label="隔离目标")
     if state.get("phase") not in allowed:
@@ -1003,6 +1021,8 @@ def verify_phase(run_id: str, allowed: set[str]) -> dict[str, Any]:
 
 def begin_clean_init(run_id: str, candidate: dict[str, str]) -> None:
     """首次证明空目录并把整个 clean-init 部署绑定到唯一候选。"""
+    if candidate.get("recovery_strategy") == "fresh-rebuild":
+        raise DataStateError("fresh-rebuild 候选必须使用 fresh-init")
     data_root, _ = configured_roots()
     state = verify_phase(
         run_id, {"QUARANTINED", "CLEAN_INIT_DEPLOYING", "PRODUCTION_PREPARED"}
@@ -1046,6 +1066,8 @@ def transition_candidate(
 
 def upgrade_entry_state(candidate: dict[str, Any]) -> dict[str, Any]:
     """交付镜像前只读裁决升级资格，不修改阶段或伪造历史策略。"""
+    if candidate.get("recovery_strategy") == "fresh-rebuild":
+        raise DataStateError("fresh-rebuild 候选必须使用 fresh-init")
     data_root, _ = configured_roots()
     state = read_state(data_root)
     phase = state.get("phase")
@@ -1259,6 +1281,8 @@ def recover_upgrade(args: argparse.Namespace, *, checkpoint: Callable[[], None] 
     if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._/-]{0,127}", args.approval_ref):
         raise DataStateError("升级恢复必须提供低敏精确批准引用")
     fixed = candidate_from_manifest(args.manifest)
+    if fixed.get("recovery_strategy") == "fresh-rebuild":
+        raise DataStateError("升级恢复不能切换到 fresh-rebuild；必须保留既有升级恢复合同")
     history = state.get("upgrade_recoveries", [])
     repeated = next((r for r in history if r["recovery_id"] == args.recovery_id), None)
     failed = repeated["failed_candidate"] if repeated else state.get("candidate")
@@ -1406,6 +1430,8 @@ def restore(run_id: str) -> None:
             "RESTORING",
         },
     )
+    if "fresh_reset" in state:
+        raise DataStateError("fresh-init 已丢弃旧数据，restore 为 NOT_APPLICABLE")
     target = target_for(state, quarantine_root, run_id)
     failed_target = target / "failed-production"
 
@@ -1499,6 +1525,10 @@ def parse_args() -> argparse.Namespace:
     for command in ("quarantine", "restore"):
         command_parser = subparsers.add_parser(command)
         command_parser.add_argument("run_id")
+    reset_parser = subparsers.add_parser("reset-data")
+    reset_parser.add_argument("run_id")
+    reset_parser.add_argument("manifest")
+    reset_parser.add_argument("--discard-existing-data", action="store_true")
     for command in (
         "begin-clean-init",
         "mark-prepared",
@@ -1574,6 +1604,14 @@ def main() -> None:
         with maintenance_lock():
             if args.command == "quarantine":
                 quarantine(require_run_id(args.run_id))
+            elif args.command == "reset-data":
+                validate_recovery_boundary()
+                run_id = require_run_id(args.run_id)
+                candidate = candidate_from_manifest(args.manifest)
+                result = supervised_operation(lambda publish: (
+                    fresh_reset.reset_data(sys.modules[__name__], run_id, candidate, discard_data=args.discard_existing_data, checkpoint=lambda: publish({})) or 0
+                ))
+                raise SystemExit(result.exit_code)
             elif args.command == "begin-clean-init":
                 begin_clean_init(
                     require_run_id(args.run_id), candidate_from_manifest(args.manifest)

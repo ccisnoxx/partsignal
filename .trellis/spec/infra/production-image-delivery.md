@@ -79,6 +79,16 @@ PARTSIGNAL_IMAGE_DELIVERY_MODE=local ./deploy/scripts/deploy.sh
 
 由权威脚本完成候选校验、`--pull never` 和既有状态转换。
 
+## Scenario：获准丢弃旧数据的清空重建
+
+- 只有用户明确授权PartSignal旧数据不保留时使用fresh-init；不与旧clean-init/upgrade的保留恢复语义混用。操作范围仅固定DATA_ROOT下postgres/redis/objects目录内容，不删除受保护runtime、TLS、其他project或共享OSSbucket。
+- 清空由状态owner的maintenance lock治理，独立模块`production_fresh_reset.py`拥有目录身份、清空和RESETTING→RESET_READY生命周期。该模块须纳入producer/consumer共同tracked allowlist。
+- 删除前认证固定fresh manifest、真实镜像、run ID、canonical根、普通非独立mountpoint目录和inode，确认project及所有重叠数据挂载停止。显式discard许可不可省略；先持久化阶段，再删除内容并同步目录。
+- 同run/candidate仅在reset阶段受控续跑；输入变化、目录替换、运行服务或已有其他发布阶段明确拒绝。不伪造quarantine或initialized历史，不通过test-only/手工Compose绕过。
+- fresh manifest声明`fresh-rebuild`恢复策略与rollback_frontend不适用；frontend-only rollback拒绝。默认previous-frontend恢复策略及旧upgrade/clean-init合同保持。
+- fresh-init复用空库迁移、账号初始化、prepared/bootstrap/activation边界；RESET_READY证明三目录为空，允许空objects目录存在，不要求quarantine。新安装AI/OSS输入在维护与清空前就绪；失败安全停止/重建，不承诺旧数据恢复。
+- 验证应直接覆盖真实临时目录删除与范围排除、未静止/符号链接/挂载/不同candidate拒绝、中断续跑与目录替换拒绝、fresh manifest/deploy/activate联接，以及受影响的旧部署/恢复路径。仅测试文件更新或声明数量不代替这些行为证据。
+
 ## Scenario：Production Nginx maintenance guard
 
 ### 1. Scope / Trigger
@@ -108,7 +118,7 @@ PartSignal maintenance
 
 ### 3. Contracts
 
-- manifest producer 与 consumer 的 `REQUIRED_TRACKED_FILES` 必须同时包含 maintenance template 和生产输入检查脚本；Production 自检的全部 manifest 创建路径和 exact-set 断言必须使用相同 13 项集合。
+- manifest producer 与 consumer 的 `REQUIRED_TRACKED_FILES` 必须同时包含 maintenance template 和生产输入检查脚本；Production 自检的全部 manifest 创建路径和 exact-set 断言必须使用相同 14 项集合。
 - maintenance template 保留 `geo.962850.xyz`、`<HOSTDZIRE_WG_ADDRESS>`、HTTP 到 HTTPS、ACME、TLS、PartSignal security snippet 和 `add_header_inherit merge`。
 - maintenance template 不得声明 upstream、`proxy_pass`、静态 `root`、`19000`、`19001`、`19080` 或 `/object-storage/`；API/frontend 即使已在同一 loopback 端口启动，也不能通过公网访问。
 - 停止任何 PartSignal 容器前必须先完成 maintenance write、`nginx -t`、独立 maintenance reload 和公网 `503` 验证；首次验证时间是 60 分钟硬窗口的 T0。
@@ -138,7 +148,7 @@ PartSignal maintenance
 
 - maintenance template 精确包含 host、HTTP/HTTPS listen、ACME、TLS、安全 snippet、`add_header_inherit merge`、固定状态/正文/cache/retry 响应；
 - maintenance template 不包含 upstream、`proxy_pass`、静态 root、三个应用端口或 `/object-storage/`；
-- producer、consumer、三组 manifest producer test input 与 manifest exact-set assertion 均包含相同 13 项 tracked files（包含 `check-production-inputs.py` 及两个执行模块）；
+- producer、consumer、三组 manifest producer test input 与 manifest exact-set assertion 均包含相同 14 项 tracked files（包含 `check-production-inputs.py`、两个执行模块及清空边界模块）；
 - `check-nginx-security.mjs` 把 maintenance template 与 Production/Staging template 一起检查，拒绝缺少安全 snippet、缺少 header inheritance 或重复安全头。
 
 ### 7. Wrong vs Correct
@@ -169,7 +179,7 @@ manifest 固定 maintenance template → atomic write → nginx -t
 - MIGRATION_RUNTIME_V1 指纹由 production_migration_runtime.py 唯一拥有。冻结 migration image 全部 rootfs：所有 app、配置、模型、动态 helper/数据文件、Python、依赖、startup/字节码、共享库、基础系统及执行配置，含 Python 缓存选择所需 mtime。不得把局部 AST 或外部文件哈希相同宣称为完整闭包；可变 backend 与完整冻结迁移程序分离。
 - 环境证明使用冻结 ID 的 stopped container 静态 export，不启动、不执行镜像 Python、无网络/数据挂载；/app 的 pyc/pyo 拒绝，非空 Entrypoint/非 /app WorkingDir/隐式 Volumes 拒绝。临时资源按唯一归属精确清理。Cmd 被权威 Compose 覆盖，不参与迁移程序身份；恢复仍严格保持原迁移 image ID。
 - 首次 begin-upgrade 在迁移前验证 manifest/实际 migration image/当前 Alembic tree，并原子冻结 candidate-bound runtime。失败、新 manifest 指纹及两个 migration image 全部相同；认证 archive 与 checkout 的 Alembic Python/SQL/ini 单独比较。app 运行时已由完整迁移镜像冻结，允许修复 backend 的独立 artifact。历史缺证、未知版本、迁移镜像/程序/schema/Alembic变化均停止。
-- producer/consumer/已知调用者使用相同 13 项 tracked-file allowlist，包含两个证明模块和两个执行模块。旧 manifest 只按 state 冻结 sha 认证；新 manifest 不豁免 tracked hash、所有镜像 ID 或 RepoDigest。runtime.env 允许键由 manifest 已认证的 check-production-inputs.py 静态声明拥有，包含合法可选日预算；可编辑模板不能授权额外加载环境覆盖；默认缓存策略仍在首次迁移前证明。
+- producer/consumer/已知调用者使用相同 14 项 tracked-file allowlist，包含两个证明模块、两个执行模块和清空边界模块。旧 manifest 只按 state 冻结 sha 认证；新 manifest 不豁免 tracked hash、所有镜像 ID 或 RepoDigest。runtime.env 允许键由 manifest 已认证的 check-production-inputs.py 静态声明拥有，包含合法可选日预算；可编辑模板不能授权额外加载环境覆盖；默认缓存策略仍在首次迁移前证明。
 - 维护锁内验证整个 project/活动数据 mount stopped。公开 recover/deploy 无条件经过 supervisor；继承 FD 只用于复用锁，不能证明或绕过监督。SIGINT/SIGTERM 转发私有组，嵌套 supervisor 的子孙组同时治理，10秒后必要时 SIGKILL，再确认全部子孙不可执行才释放锁；macOS zombie 组的 EPERM 必须继续读取执行状态。OS 状态不可读则持续持锁；SIGKILL/断电须现场核对 Engine 资源。
 - 一次原子写只绑定新 candidate、phase=UPGRADE_DEPLOYING 和完整 failure/runtime receipt；previous_candidate/历史保留，不 pull/up、不修改DB、不 initialized。相同请求仅在未开始新 attempt、仍 deploying 且全服务 stopped 时重放。完整 redeploy/readiness、backend integrity/schema 证明、外部 Gate/activation 仍必须执行。迁移前默认 integrity 可以允许未建表；迁移后与恢复 prepared 的检查必须传 --require-schema，四张核心发布表缺任一张即 REQUIRED_TABLE_MISSING，不由 Alembic head 代替。
 

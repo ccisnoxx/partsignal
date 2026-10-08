@@ -29,6 +29,7 @@ python3 deploy/scripts/create-release-manifest.py \
   --tracked-file deploy/scripts/prepare-production-data.py \
   --tracked-file deploy/scripts/production_upgrade_recovery.py \
   --tracked-file deploy/scripts/production_deployment.py \
+  --tracked-file deploy/scripts/production_fresh_reset.py \
   --tracked-file deploy/scripts/production_maintenance_execution.py \
   --tracked-file deploy/scripts/production_migration_runtime.py \
   --tracked-file deploy/scripts/rollback-production-frontend.sh \
@@ -37,7 +38,7 @@ python3 deploy/scripts/create-release-manifest.py \
   --output "$manifest_path"
 ```
 
-生成器会机器验证当前分支、clean working tree、`HEAD == origin/main == --commit`，并重新生成该 commit 的 `git archive` 比较 SHA-256；测试逃生开关不得出现在候选环境。输出目标采用排他创建，存在即失败。backend、migration、current V2 和 previous V2 四个镜像角色都必须具有合法且非空的 `repo_digests`（migration 首次默认 backend，独立时显式传 `--migration-image`）；tracked file 必须与脚本固定 allowlist 完全一致。部署和激活会重新计算这些文件的 SHA-256，并同时核对 `PARTSIGNAL_VERSION == release_id`、本地 image ID 与 RepoDigest；任何漂移都拒绝继续。不得手工修改清单。
+生成器会机器验证当前分支、clean working tree、`HEAD == origin/main == --commit`，并重新生成该 commit 的 `git archive` 比较 SHA-256；测试逃生开关不得出现在候选环境。输出目标采用排他创建，存在即失败。默认 `previous-frontend` 恢复策略要求 backend、migration、current V2 和 previous V2 四个镜像角色都具有合法且非空的 `repo_digests`（migration 首次默认 backend，独立时显式传 `--migration-image`）。明确丢弃旧数据的重建改传 `--recovery-strategy fresh-rebuild`，省略 `--rollback-frontend-image`；producer 将 `rollback_frontend` 记录为 `{"status":"NOT_APPLICABLE"}`，其余三个镜像角色继续执行完整身份校验。tracked file 必须与脚本固定的 14 项 allowlist 完全一致，包含清空边界 owner `production_fresh_reset.py`。部署和激活会重新计算这些文件的 SHA-256，并同时核对 `PARTSIGNAL_VERSION == release_id`、本地 image ID 与 RepoDigest；任何漂移都拒绝继续。不得手工修改清单。
 
 镜像交付模式由 `PARTSIGNAL_IMAGE_DELIVERY_MODE` 控制，未设置时为 `registry`；registry 模式保留 pull 后校验。Hostdzire 从本地构建候选时必须显式使用 `local`，此模式跳过 pull、要求候选 image 已存在，并在任何 `docker compose run`/`up` 前校验 manifest image ID 与 RepoDigest，相关命令均固定 `--pull never`。空值或未知模式、以及 V1 镜像仓库都会 fail closed。
 
@@ -114,7 +115,27 @@ PARTSIGNAL_QUARANTINE_ROOT=/root/partsignal-data-quarantine \
 
 脚本只允许固定 Production 根目录；测试路径必须通过显式 test-only 开关。它拒绝路径别名、任一祖先符号链接、嵌套根、独立 mountpoint、跨 device、运行中的历史 Compose project，以及任一运行容器与活动数据根存在祖先/后代重叠的挂载。每个 rename/mkdir 的目录项先同步到磁盘，再原子更新权限为 `0600` 的状态文件；中断后使用同一命令和 run ID 续跑。脚本不执行 `rm`、不创建新 `objects`、不把 quarantine 挂载给 Production。
 
-## 6. Clean init
+### 5.1 明确丢弃旧数据的清空重建
+
+只在用户明确授权现有 PartSignal 数据不保留时使用。先完成新安装输入、候选与镜像检查，再按上述维护与精确停止顺序停下现有服务。该路径不创建 quarantine，不要求旧数据备份或 previous V2，也不删除 runtime、TLS、其他 project 或真实 OSS bucket。
+
+在 fresh-rebuild 候选目录中，使用同一候选的非 secret 身份执行：
+
+```sh
+PARTSIGNAL_VERSION="$release_id" \
+PARTSIGNAL_BACKEND_IMAGE="$backend_repository" \
+PARTSIGNAL_FRONTEND_IMAGE="$frontend_v2_repository" \
+PARTSIGNAL_RUNTIME_ENV_FILE=/root/partsignal/shared/.env.production \
+PARTSIGNAL_DATA_ROOT=/root/partsignal-data \
+python3 ./deploy/scripts/prepare-production-data.py \
+  reset-data prr_YYYYMMDD_HHMMSS "$manifest_path" --discard-existing-data
+```
+
+脚本在固定 maintenance lock 内先核验 candidate、run ID、canonical 固定根、三个叶目录及 inode、停止的 project 和重叠挂载。它先持久化 `RESETTING`，只删除 `postgres`、`redis`、`objects` 内的内容，保留这三个目录本身；完成并复核为空后持久化 `RESET_READY`。同 run/candidate 可续跑；目录被替换、不同输入或旧的非 reset 发布状态会拒绝接管。任何失败都保持维护，不手写 `QUARANTINED` 或 initialized 状态。
+
+随后按第 6 节命令使用 `PARTSIGNAL_DEPLOY_MODE=fresh-init`，deploy 和 activate 两处均须指定该值。fresh-init 从 `RESET_READY` 开始，验证三个目录为空；空 `objects` 目录允许存在。空库迁移、账号初始化、AI bootstrap、真实 AI/OSS Gate 和 activation 继续遵守第 6 节合同。旧数据已丢弃，`restore` 和 frontend-only rollback 不适用；失败应安全停止，调查后准备新的安装候选，不声称可恢复旧站数据。
+
+## 6. Clean init 与 fresh-init
 
 在候选 release 目录运行，变量必须与 manifest 和 Production env 对应：
 
@@ -153,9 +174,9 @@ python3 ./deploy/scripts/prepare-production-data.py \
   --request-parameters-json "$validated_non_secret_parameters_json"
 ```
 
-三个 `PARTSIGNAL_*` 变量都是非 secret 的候选身份：`release_id` 必须等于 manifest release ID，`backend_repository` 与 `frontend_v2_repository` 必须是不带 tag 的 image repository，并且分别与 `release_id` 拼接后精确等于 manifest 的完整 backend/frontend image reference；它们不会从上一条 `clean-init` 命令的临时环境继承。脚本在同一 maintenance lock 内复核 run ID、绝对 manifest、candidate、`PRODUCTION_PREPARED` 与唯一运行 API 容器的 project/service/image/running/mount identity，然后才用 `getpass` 从真实 TTY 无回显读取 API Key，并通过 `docker exec -i` stdin 调用容器内 `python -m app.cli bootstrap-production-ai`。API Key 不得通过 argv、环境变量、文件、shell history、日志、Docker metadata、Trellis 或对话传入；getpass 发生 echo fallback、non-TTY、EOF 或 Ctrl-C 都必须退出。第一版不支持自定义 Header。
+三个 `PARTSIGNAL_*` 变量都是非 secret 的候选身份：`release_id` 必须等于 manifest release ID，`backend_repository` 与 `frontend_v2_repository` 必须是不带 tag 的 image repository，并且分别与 `release_id` 拼接后精确等于 manifest 的完整 backend/frontend image reference；它们不会从上一条安装命令的临时环境继承。脚本在同一 maintenance lock 内复核 run ID、绝对 manifest、candidate、`PRODUCTION_PREPARED` 与唯一运行 API 容器的 project/service/image/running/mount identity，然后才用 `getpass` 从真实 TTY 无回显读取 API Key，并通过 `docker exec -i` stdin 调用容器内 `python -m app.cli bootstrap-production-ai`。API Key 不得通过 argv、环境变量、文件、shell history、日志、Docker metadata、Trellis 或对话传入；getpass 发生 echo fallback、non-TTY、EOF 或 Ctrl-C 都必须退出。第一版不支持自定义 Header。
 
-host 在 backend 启动前把无 secret 的 `ai_bootstrap_attempt` 原子记录为 `STARTED`。任何已有 attempt 或数据库中任意 AI channel/model/header 都拒绝再次执行；完整成功才更新 `SUCCEEDED`，明确失败更新 `FAILED`，结果未知保留 `STARTED`。provider 失败保留停用且 test=`FAILED` 的配置供调查，不自动重试或替换 credential；`STARTED/FAILED` 都阻断 activation，只能做脱敏只读核对或停止精确 API 容器后恢复数据，不得 force-clear。
+host 在 backend 启动前把无 secret 的 `ai_bootstrap_attempt` 原子记录为 `STARTED`。任何已有 attempt 或数据库中任意 AI channel/model/header 都拒绝再次执行；完整成功才更新 `SUCCEEDED`，明确失败更新 `FAILED`，结果未知保留 `STARTED`。provider 失败保留停用且 test=`FAILED` 的配置供调查，不自动重试或替换 credential；`STARTED/FAILED` 都阻断 activation。只能做脱敏只读核对或停止精确 API 容器，保留数据路径再按其合同恢复；fresh-init 使用安全停止与新安装路径，不得 force-clear。
 
 bootstrap 的真实连接测试成功只证明该 model 的 credential 注入与连接边界；不得单独把 External Services Gate 写成 `MET`。继续完成受控的真实 AI/OSS Gate，包括 AI 结果语义与失败边界、OSS 空 namespace/零旧对象引用、预签名上传、HEAD、短期下载和 CORS。只有全部 Gate=`MET` 后才运行：
 
@@ -189,6 +210,8 @@ Nginx 写与 reload 是独立授权。每个授权包都包含 enabled symlink t
 真实 AI/OSS Gate、activation 和候选 identity/health 全部通过后，才从 manifest 固定的 Production 模板执行第二次原子写入；final write 与 final reload 仍分别授权。Production 模板必须代理 `19000` 和 `19080`，不包含静态 root、`19001` 或 `/object-storage/`。API upstream `keepalive_timeout 30s`，Uvicorn `--timeout-keep-alive 35`。
 
 ## 9. Frontend V2-only 回滚
+
+仅适用于声明 `previous-frontend` 的已初始化候选。`fresh-rebuild` 明确不保留旧 frontend 恢复角色，回滚入口在任何 Compose 操作前拒绝执行。
 
 仅当故障被证明局限于 frontend artifact 时，切换 manifest 中上一份已验证 V2：
 

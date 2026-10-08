@@ -2,7 +2,7 @@
 
 ## 目标与规划前提
 
-以三个可独立执行、独立验收的子任务交付核心业务页面、内部候选部署、真实 MANUAL 业务与性能验收。规划阶段仅建立任务与治理。2026-10-07 UI 已实施、验证并获用户人工接受，标记 done；用户随后授权开启 DEPLOY 会话。DEPLOY 依赖满足，移交时转为 ready；发布准备已开始；当前Hostdzire构建和688f1ef5完整Gate通过，现有runtime已交付，admin-ui移交完成，对象私有上传修正和最终候选准备中，DEPLOY为in_progress；UAT 尚未开始。当前实际状态与证据见 implement.md。
+以三个可独立执行、独立验收的子任务交付核心业务页面、内部候选部署、真实 MANUAL 业务与性能验收。规划阶段仅建立任务与治理。2026-10-07 UI 已实施、验证并获用户人工接受，标记 done；用户随后授权开启 DEPLOY 会话。DEPLOY 依赖满足，移交时转为 ready；发布准备已开始；Hostdzire候选6a96bfcb完整Gate/清空重建/现场验证通过，站点已上线，AI配置留给管理界面；后续业务smoke与人工验收未闭合，DEPLOY为in_progress；UAT 尚未开始。当前实际状态与证据见 implement.md。
 
 规划基线为 clean pushed main `360aabe8a83e66398d801ba0bbe48b0663aed4a1`，已 fetch，HEAD=origin/main。GEO-1009 已基于当前会话用户的显式范围调整及[人工接受记录](../../../docs/geo-monitoring/06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md)正式 done。被验证的完整 SHA 仍为 `e5949ab66989c1277424cfe9ab8b93e10ce10046`；规划基线及后续治理提交没有重新执行完整应用门禁。前置事实见 [preflight](./evidence/planning-preflight.json)。
 
@@ -44,4 +44,4 @@ Browser 自动化、API 自动采集供应商接入、CRON、自动 Opportunity 
 - [状态机](../../../docs/geo-monitoring/02-business/03-workflows-and-state-machines.md)、[前端架构](../../../docs/geo-monitoring/03-technical/04-frontend-architecture.md)、[测试质量](../../../docs/geo-monitoring/03-technical/07-testing-and-quality.md)、[部署运维](../../../docs/geo-monitoring/03-technical/08-deployment-and-operations.md)、[Runbook](../../../docs/geo-monitoring/03-technical/10-core-rollout-runbook.md)
 - [Codex 指南](../../../docs/geo-monitoring/04-delivery/04-codex-execution-guide.md)、[ADR-006](../../../docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)、[ADR-007](../../../docs/geo-monitoring/05-decisions/ADR-007-manual-first-v1-release-scope.md)、[ADR-008](../../../docs/geo-monitoring/05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)
 
-GEO-1010-UI 已按用户显式[人工接受](../../../docs/geo-monitoring/06-reviews/2026-10-07-geo-1010-ui-acceptance.md)标记 done；DEPLOY已完成Hostdzire直接构建与688f1ef5完整Gate，对象私有ACL限定实验成功，AI已明确上线后管理界面配置，当前in_progress。后续执行以各 task.json/implement.md 为准；父任务与 UAT 没有被一并接受。
+GEO-1010-UI 已按用户显式[人工接受](../../../docs/geo-monitoring/06-reviews/2026-10-07-geo-1010-ui-acceptance.md)标记 done；DEPLOY已完成Hostdzire候选6a96bfcb的直接构建、完整Gate、清空重建和实际服务/登录/OSS验证，AI仍待管理界面配置，完整业务smoke与人工接受未完成，当前in_progress。后续执行以各 task.json/implement.md 为准；父任务与 UAT 没有被一并接受。

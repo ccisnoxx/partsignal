@@ -17,7 +17,7 @@
 
 ## 当前交付与移交
 
-GEO-1009 只接受固定 `e5949ab66989c1277424cfe9ab8b93e10ce10046` 的完整 main 门禁验证，详见[人工接受](../../../docs/geo-monitoring/06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md)。本任务接管未完成的 source archive、正式镜像身份、release manifest、schema/hash、候选冻结和恢复输入。后续已固定源码候选76d1d523并完成完整门禁、archive/hash；正式images/manifest与完整release冻结仍未完成，未部署。源码通过不代表目标已验证。
+GEO-1009 只接受固定 `e5949ab66989c1277424cfe9ab8b93e10ce10046` 的完整 main 门禁验证，详见[人工接受](../../../docs/geo-monitoring/06-reviews/2026-10-07-geo-1009-main-gate-acceptance.md)。本任务接管未完成的 source archive、正式镜像身份、release manifest、schema/hash、候选冻结和恢复输入。当前固定应用候选6a96bfcb完整门禁、archive、Host images/manifest与现场清空重建/服务/登录/私有OSS验证已完成，站点在线；详见末段和最终现场证据。AI管理界面配置后的完整业务smoke、UAT和人工接受仍未完成。
 
 ## 范围内
 
@@ -61,8 +61,8 @@ Scheduler 只运行既有分析恢复、过期采集 lease 恢复、PENDING 分�
 
 ## 独立验收
 
-- [ ] 同一固定 UI 完成后 main 候选的门禁、archive、images、manifest、schema/hashes 可核验并可重现。
-- [ ] 核心容器健康；API/Worker/Scheduler 的实际配置符合批准基线；API/Browser 自动采集关闭，业务 CRON 与自动 evaluator 未启用。
+- [x] 同一固定 UI 完成后 main 候选6a96bfcb的门禁、archive、images、manifest、schema/hashes 可核验并可重现。
+- [x] 六服务运行，五项已定义healthcheck healthy，Frontend实际页面/资产/浏览器验证通过；API/Worker/Scheduler配置相同，API/Browser自动采集关闭、Beat仅既有8项恢复/清理任务。
 - [ ] 目标迁移到唯一 head、账号初始化、readiness 和完整 MANUAL 主链路 smoke 成功；无需手改数据库。
 - [ ] 页面评估、Action、Retest 入口可用；所有 smoke 结果绑定环境、候选、时间和操作者。
 - [ ] 有内部访问说明、日志/health和安全停止/重新安装步骤；旧数据不保留的范围与执行结果清晰，新内部环境的数据保护义务另按实际试运行范围验收。
@@ -87,3 +87,7 @@ Scheduler 只运行既有分析恢复、过期采集 lease 恢复、PENDING 分�
 ## 当前授权和门禁进度（2026-10-08 05:40Z）
 
 用户明确选择上线后管理界面配置AI，688f1ef5包含该移交路径的完整候选Gate已通过，证据见[688完整Gate](./evidence/admin-ui-candidate-full-gate.json)。共享Bucket全局ACL/CORS修改不再是必要输入：同次PUT私有对象权限可保护本项目新上传，真实限定实验已证实且未修改全局权限，应用修正与独立复核中。DEPLOY恢复in_progress；最终冻结新候选仍执行原完整wrapper/make verify，688通过只保留为基线历史；新Host镜像额外重验真实应用OSS边界。现场维护/清空/部署未执行，UAT和完整AI业务验收仍待上线后配置。
+
+## Hostdzire 已上线（2026-10-08 UTC）
+
+Hostdzire新站已上线：候选6a96bfcb完整Gate通过，Host原生构建/清空重建完成，0066与六服务/登录/私有OSS验证通过。AI配置留给上线后管理界面，自定义Header可选；AI业务smoke、UAT及人工接受尚未完成。 具体同候选工件、完整Gate、实际state/服务、数据库、认证、OSS、页面与资源恢复见[最终现场证据](./evidence/hostdzire-final-deployment.json)。阶段为PRODUCTION_INITIALIZED，激活声明OSS_MET_AI_PENDING；没有真实AI通过声明。源码候选/镜像/archive/manifest保持不可变，本次执行记录提交仅为治理。旧数据不恢复；新环境的数据备份/恢复尚未现场演练，完整业务smoke与UAT需在用户完成管理界面配置后继续，不提前review/done或Production Go。

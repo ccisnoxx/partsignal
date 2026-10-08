@@ -1,8 +1,8 @@
 # Hostdzire 直接构建与部署执行记录
 
-当前用户再次明确 GitHub Actions 不需要运行，目标为 Hostdzire 现有站点。按既有部署授权直接使用 `hostdzire` SSH 别名交付固定源码并在主机原生构建，不调用 Actions、不重新索取 Git 或清空授权。用户已经批准清空固定 PartSignal 数据；已核对现有本地配置并完成Production runtime受控交付；OSS读写正常；已确认对象私有 ACL 可保持共享 Bucket 全局设置，AI上线后UI配置方式已获选择，owner移交候选688f1ef5完整门禁通过，正在固定私有上传修正的新候选，尚未进入维护、停服、清空和应用安装。
+Hostdzire新站已上线：候选6a96bfcb完整Gate通过，Host原生构建/清空重建完成，0066与六服务/登录/私有OSS验证通过。AI配置留给上线后管理界面，自定义Header可选；AI业务smoke、UAT及人工接受尚未完成。 使用原生hostdzire SSH别名，GitHub Actions本次未触发。当前完整证据见[最终现场记录](./evidence/hostdzire-final-deployment.json)。
 
-## 已完成
+## 852c6d5e 历史构建与验证
 
 - 固定应用源码 `852c6d5ea4bb6da99d4bd843271eb6634d84a3f1`，发布 ID `pilot-20261008-030536-852c6d5e`。在 clean main、HEAD=origin/main 时生成 Git archive 与真实 refs bundle；传输后主机复算摘要、clone 成独立 clean main，并确认 HEAD/origin/main 一致。后续任务记录治理提交不冒充该候选的完整门禁。
 - Hostdzire 原生 linux/amd64 构建后端成功（36.33秒）、前端成功（78.33秒）。前端第一条命令误指定不存在的 `runtime` 阶段，0.41秒退出；查阅实际 Dockerfile 后使用最终匿名阶段完成构建，保留失败记录，没有重建已成功后端或覆盖已存在镜像。
@@ -26,7 +26,7 @@
 
 旧站数据库有1渠道、1模型、0 Header，模型历史状态PASSED且启用；这里只读统计，不读取或输出API Key。AI渠道/Key储存在PostgreSQL，现有env不提供该Key，fresh-init清空会删除它；用户已选择上线后管理界面配置，因此不再要求本轮提供Key或TTY交接。该选择通过[显式部署移交合同](./admin-ui-ai-handoff.md)落实；不伪造bootstrap attempt或真实AI成功。
 
-## 现场状态与下一步
+## 852c6d5e 准备状态与后续义务（历史）
 
 Host工件仍绑定852c6d5e、位于`/root/partsignal/releases/pilot-20261008-030536-852c6d5e`。consumer、Compose和修正配置的真实backend production preflight均通过。上述配置交付没有改变应用源码或镜像，复用852c6d5e的既有Gate；随后用户的UI配置选择需要调整部署owner，正在准备新候选与相应验证。不触发Actions。
 
@@ -38,4 +38,12 @@ runtime已交付，原Nginx未改；Production cutover state仍不存在。未�
 
 AI管理界面移交候选688f1ef5在04:54:53Z–05:32:14Z完整执行原wrapper/make verify，exit0、2241.27秒，前后clean且HEAD=origin/main，env摘要未变，见[完整Gate](./evidence/admin-ui-candidate-full-gate.json)。该SHA的Host原生backend/frontend构建、manifest、生产输入与consumer通过，未切换旧站。
 
-旧应用PUT继承Bucket公开ACL的匿名200失败证据保留。05:33后限定私有对象实验验证同次PUT header设置private、签名200、匿名/到期/未来期限的无效签名403、精确删除，Bucket全局ACL前后相同；无需旧Bucket全局修改批准，CORS在当前同源上传/新窗口下载流程不适用。应用权威storage.put新增该header，现有测试先失败再通过；最终新Host镜像仍须重验真实应用边界。没有改共享Bucket ACL/CORS，也不改已有对象。
+旧应用PUT继承Bucket公开ACL的匿名200失败证据保留。05:30限定私有对象实验验证同次PUT header设置private、签名200、匿名/到期/未来期限的无效签名403、精确删除，Bucket全局ACL前后相同；无需旧Bucket全局修改批准，CORS在当前同源上传/新窗口下载流程不适用。应用权威storage.put新增该header，现有测试先失败再通过；最终新Host镜像仍须重验真实应用边界。没有改共享Bucket ACL/CORS，也不改已有对象。
+
+## 当前在线候选 6a96bfcb
+
+最终固定commit为`6a96bfcb98fc175b6ea8e6f11db9605b396377fc`，release为`pilot-20261008-054601-6a96bfcb`。完整wrapper于05:46:12Z–06:23:49Z exit0，2257.39秒；Host实际backend/frontend构建及consumer/preflight通过。维护503确认后停止精确旧project full IDs，owner reset-data/deploy/defer-ai-configuration/activate均exit0，实际API私有OSS Gate通过后恢复入口200/readiness200。六服务运行、五项定义的healthcheck healthy；Frontend未定义healthcheck，已通过实际HTML/JS/CSS与浏览器检查。
+
+数据库0066、两账号、AI三表空集，ADMIN登录/session/AI列表200、匿名管理API401，探针session已注销。API/Worker/Scheduler配置相同且APP_ENV production；Browser/API Collection关闭、retention dry-run、concurrency1，Beat仅既有8项恢复/清理任务。全局Bucket ACL/CORS未改；上传对象private，签名200/匿名及到期或无效签名403，测试对象删除。固定三个数据目录inode保留、内部runtime/TLS保留；本机仅owned三容器停止，Colima恢复STOPPED，CLI浏览器已关闭。
+
+Hostdzire新站已上线：候选6a96bfcb完整Gate通过，Host原生构建/清空重建完成，0066与六服务/登录/私有OSS验证通过。AI配置留给上线后管理界面，自定义Header可选；AI业务smoke、UAT及人工接受尚未完成。 新数据备份/恢复未现场演练；UAT仍planned，本记录不是生产Go或DEPLOY人工接受。

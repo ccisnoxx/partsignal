@@ -100,3 +100,7 @@ Host只读runtime结构检查及Linux mountinfo解析通过；仅concurrency=1�
 ## AI移交完整Gate通过和权限范围收敛
 
 固定688f1ef5完整wrapper于04:54:53Z–05:32:14Z exit0、工作树与env身份未变，Host原生构建/manifest/preflight通过。对象private原子PUT实验证明签名200、匿名/到期/无效签名403、删除完成且Bucket不变；此前要求修改整个Bucket范围过大，已撤销该前提，不把未答复视为授权。最小应用修正与独立复核正在完成，DEPLOY恢复in_progress。旧站仍运行，尚未清空或切换。
+
+## Hostdzire 已上线（2026-10-08 UTC）
+
+Hostdzire新站已上线：候选6a96bfcb完整Gate通过，Host原生构建/清空重建完成，0066与六服务/登录/私有OSS验证通过。AI配置留给上线后管理界面，自定义Header可选；AI业务smoke、UAT及人工接受尚未完成。 具体同候选工件、完整Gate、实际state/服务、数据库、认证、OSS、页面与资源恢复见[最终现场证据](./evidence/hostdzire-final-deployment.json)。阶段为PRODUCTION_INITIALIZED，激活声明OSS_MET_AI_PENDING；没有真实AI通过声明。源码候选/镜像/archive/manifest保持不可变，本次执行记录提交仅为治理。旧数据不恢复；新环境的数据备份/恢复尚未现场演练，完整业务smoke与UAT需在用户完成管理界面配置后继续，不提前review/done或Production Go。

@@ -1,0 +1,400 @@
+{
+  "candidate": {
+    "release_id": "pilot-20261008-054601-6a96bfcb",
+    "commit": "6a96bfcb98fc175b6ea8e6f11db9605b396377fc",
+    "run_id": "prr_20261008_054601",
+    "frozen_at": "2026-10-08T05:46:01.263585+00:00",
+    "branch": "main",
+    "head_equals_origin_main": true,
+    "working_tree_clean": true,
+    "archive_sha256": "87515638967a5d8f116a591e6d87958abddb569a403f8e0dc4ae383e435f5425",
+    "bundle_sha256": "63b93dc81ad0272180be54fd8343c06cec1ed3bd071d677235c075109e9f92a3",
+    "bundle_base_commit": "688f1ef5c8a76802a4b534e5d8d9900d54effeae",
+    "bundle_base_source": "/root/partsignal/releases/pilot-20261008-045337-688f1ef5/source",
+    "host_release_directory": "/root/partsignal/releases/pilot-20261008-054601-6a96bfcb",
+    "local_artifact_directory": "/Users/sc/.codex/reviews/partsignal/pilot-20261008-054601-6a96bfcb",
+    "schema_head": "0066_geo_manual_evaluation",
+    "recovery_strategy": "fresh-rebuild",
+    "image_delivery_mode": "local",
+    "ai_initialization_mode": "admin-ui",
+    "github_actions_triggered": false
+  },
+  "full_gate": {
+    "commit": "6a96bfcb98fc175b6ea8e6f11db9605b396377fc",
+    "command": [
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "python",
+      ".trellis/tasks/10-05-verify-entrypoint/run-verify.py"
+    ],
+    "started_at": "2026-10-08T05:46:12.121363+00:00",
+    "status": "PASSED",
+    "working_tree_clean_before": true,
+    "head_equals_origin_main_before": true,
+    "development_runtime_sha256_before": "1cb8796de2c2d005f631ce8fb1a9f3308d75702522c3433ab9f0c04572d36748",
+    "exit_code": 0,
+    "completed_at": "2026-10-08T06:23:49.510154+00:00",
+    "elapsed_seconds": 2257.39,
+    "working_tree_clean_after": true,
+    "candidate_commit_unchanged_after": true,
+    "head_equals_origin_main_after": true,
+    "development_runtime_sha256_after": "1cb8796de2c2d005f631ce8fb1a9f3308d75702522c3433ab9f0c04572d36748",
+    "log_sha256": "3c18417e138710905647bf3d6fc99886fb187bfbee375ff52c09a0713e25ac1c"
+  },
+  "host_builds": {
+    "release_id": "pilot-20261008-054601-6a96bfcb",
+    "commit": "6a96bfcb98fc175b6ea8e6f11db9605b396377fc",
+    "source_verified": true,
+    "builds": [
+      {
+        "role": "backend",
+        "reference": "localhost:15000/partsignal/backend-v2:pilot-20261008-054601-6a96bfcb",
+        "exit_code": 0,
+        "elapsed_seconds": 5.99,
+        "image_id": "sha256:d496dd545155f32a598f6e07cd86f3db17ac52bb56299e5abaf8cf7d0d48cc90",
+        "repo_digests": [
+          "localhost:15000/partsignal/backend-v2@sha256:d496dd545155f32a598f6e07cd86f3db17ac52bb56299e5abaf8cf7d0d48cc90"
+        ],
+        "architecture": "amd64"
+      },
+      {
+        "role": "frontend",
+        "reference": "localhost:15000/partsignal/frontend-v2:pilot-20261008-054601-6a96bfcb",
+        "exit_code": 0,
+        "elapsed_seconds": 1.31,
+        "image_id": "sha256:8b13424a341aba77502ced2ec26273d4cbf275c419084d285fd670951b108e8b",
+        "repo_digests": [
+          "localhost:15000/partsignal/frontend-v2@sha256:8b13424a341aba77502ced2ec26273d4cbf275c419084d285fd670951b108e8b"
+        ],
+        "architecture": "amd64"
+      }
+    ],
+    "manifest_sha256": "d5b9c825927847acddf6d95dcd65346540f6aebbbbbacef50b3ffe7baec78500",
+    "manifest_created": true
+  },
+  "host_cutover": {
+    "release_id": "pilot-20261008-054601-6a96bfcb",
+    "commit": "6a96bfcb98fc175b6ea8e6f11db9605b396377fc",
+    "run_id": "prr_20261008_054601",
+    "manifest_sha256": "d5b9c825927847acddf6d95dcd65346540f6aebbbbbacef50b3ffe7baec78500",
+    "started_at": "2026-10-08T06:24:10.762326+00:00",
+    "status": "ONLINE_AI_CONFIGURATION_PENDING",
+    "steps": [
+      {
+        "name": "verify-candidate-images",
+        "exit_code": 0,
+        "completed_at": "2026-10-08T06:24:11.062823+00:00",
+        "log_sha256": "853fe2b313a80ab9178e65b443a4ae2d72a76f96cf9b7745b99191707c966ac8"
+      },
+      {
+        "name": "nginx-reload-partsignal-maintenance.conf.rendered",
+        "exit_code": 0,
+        "completed_at": "2026-10-08T06:24:11.173691+00:00",
+        "log_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+      },
+      {
+        "name": "stop-old-scheduler",
+        "exit_code": 0,
+        "completed_at": "2026-10-08T06:26:44.677927+00:00",
+        "log_sha256": "021396de0ed4d3ca608197ffb761fabe590f1e8170bc863760788bf219cba5ad"
+      },
+      {
+        "name": "stop-old-worker",
+        "exit_code": 0,
+        "completed_at": "2026-10-08T06:26:47.937587+00:00",
+        "log_sha256": "bc06033273a8adb4ec4ba9b8ddb756dce65a5d5d37ae50c04e0e08db60c662c9"
+      },
+      {
+        "name": "stop-old-api",
+        "exit_code": 0,
+        "completed_at": "2026-10-08T06:26:50.392303+00:00",
+        "log_sha256": "9975f4e0fa1e3d69df738b01b99ddd6134f83fdb379b94983e319c501eb26aa4"
+      },
+      {
+        "name": "stop-old-frontend",
+        "exit_code": 0,
+        "completed_at": "2026-10-08T06:26:50.822246+00:00",
+        "log_sha256": "8529642a7d57a3819a9867aa94f8e302f8d4737a57166e6d375ea5b7a7fcd4b0"
+      },
+      {
+        "name": "stop-old-fake-oss",
+        "exit_code": 0,
+        "completed_at": "2026-10-08T06:26:52.364904+00:00",
+        "log_sha256": "19b100fe90e205231ae34296c9d22c9e82d53bcd3afc209cd3bceadde2258873"
+      },
+      {
+        "name": "stop-old-postgres",
+        "exit_code": 0,
+        "completed_at": "2026-10-08T06:26:52.639809+00:00",
+        "log_sha256": "ce55e3652d893d872e60f48c4f8e22229e8b4f8b3cb498ec36ad3254d3694f1a"
+      },
+      {
+        "name": "stop-old-redis",
+        "exit_code": 0,
+        "completed_at": "2026-10-08T06:26:52.936848+00:00",
+        "log_sha256": "e96ac92a27174e76df10205c75228426a24341963bae039b8b445a8ed8eae4c4"
+      },
+      {
+        "name": "reset-data",
+        "exit_code": 0,
+        "completed_at": "2026-10-08T06:27:01.295862+00:00",
+        "log_sha256": "6e4d41d3c3c79c4e0d32a66c9ed9127ccbaa87c16e5516b814af6fc828cb3fc5"
+      },
+      {
+        "name": "deploy-production-prepared",
+        "exit_code": 0,
+        "completed_at": "2026-10-08T06:27:57.766724+00:00",
+        "log_sha256": "896fd308cbf22869a2df3faf8ed5c1e88f83e3949405c7a5a8cdd319f91cc93a"
+      },
+      {
+        "name": "admin-ui-ai-handoff",
+        "exit_code": 0,
+        "completed_at": "2026-10-08T06:27:59.539124+00:00",
+        "log_sha256": "30f9c934a0f5d5f4d6301cf8b1470854c536be7aec2b899a21cacc633c9dc992"
+      },
+      {
+        "name": "activate-oss-met-ai-pending",
+        "exit_code": 0,
+        "completed_at": "2026-10-08T06:30:45.405407+00:00",
+        "log_sha256": "2850aa7614b80d439e3177b4c0ab727e2e7eeaa5955b57830afa41ca2b38c510"
+      },
+      {
+        "name": "nginx-reload-partsignal.conf.rendered",
+        "exit_code": 0,
+        "completed_at": "2026-10-08T06:30:45.468302+00:00",
+        "log_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+      }
+    ],
+    "current_step": "nginx-reload-partsignal.conf.rendered",
+    "active_nginx_sha256": "272aaf2f091cf388af519dc334a4532a0cdc18f32c2bedb215a6b486398f5b73",
+    "failure_type": "AssertionError",
+    "failed_at": "2026-10-08T06:24:11.263052+00:00",
+    "resumed_after_live_503_confirmation": true,
+    "maintenance_live_observation": {
+      "status": 503,
+      "body_sha256": "51b1ec1a29ff782eba43c81e272226fdbb9f943afd7b6f9fbae70a3def0c3b9c"
+    },
+    "maintenance_confirmed_at": "2026-10-08T06:26:41.047318+00:00",
+    "public_maintenance_status": 503,
+    "stopped_existing_container_ids": {
+      "api": "9d5e48b004692a4889c3e59a738b4f436bb8f242cea9ff026b00a0b6e38762b1",
+      "frontend": "80773b42cc4e7e1af0d38b6d8d17898e2d8e8b92a071d3620588419f71a7db46",
+      "worker": "550e2cf52e05623a434cae4e6a1882fc3736970a352d37ecd8d101f6ff302438",
+      "scheduler": "6d0f06ab061ed52f4ba0370c5e257315c2216fdf4ca1d0207b10e987591387ff",
+      "postgres": "a50ec6194cabf8ccffd652afb3a3eee3d10f776bf5bc27f821bd06b2a8b8634e",
+      "fake-oss": "22173dcb1cca1471cda81dccd16a4e580628b8726b86c824d84802d7d98d0c93",
+      "redis": "d82f73f96f3517f54b520ffcd97cf41ccc791b15f21368d005d46a84c5f1e7b9"
+    },
+    "data_reset_completed_at": "2026-10-08T06:27:01.299803+00:00",
+    "running_api_oss_gate": "PASSED",
+    "final_entry_observations": [
+      {
+        "status": 503,
+        "body_sha256": "51b1ec1a29ff782eba43c81e272226fdbb9f943afd7b6f9fbae70a3def0c3b9c"
+      },
+      {
+        "status": 200,
+        "body_sha256": "27e868f6315c19c259188bf877c034fdac61708700be2a96a2fe840f5d8ce6a2"
+      }
+    ],
+    "completed_at": "2026-10-08T06:30:46.651081+00:00",
+    "public_site_status": 200,
+    "public_readiness_status": 200
+  },
+  "initialized_state": {
+    "observed_at": "2026-10-08T06:37:26.007332+00:00",
+    "phase": "PRODUCTION_INITIALIZED",
+    "run_id": "prr_20261008_054601",
+    "ai_configuration_handoff": {
+      "manifest_sha256": "d5b9c825927847acddf6d95dcd65346540f6aebbbbbacef50b3ffe7baec78500",
+      "mode": "admin-ui",
+      "run_id": "prr_20261008_054601"
+    },
+    "data_directory_identity": {
+      "postgres": {
+        "device": 2049,
+        "inode": 1442556,
+        "owner_uid": 70,
+        "directory_identity_preserved": true
+      },
+      "redis": {
+        "device": 2049,
+        "inode": 1442557,
+        "owner_uid": 999,
+        "directory_identity_preserved": true
+      },
+      "objects": {
+        "device": 2049,
+        "inode": 1442555,
+        "owner_uid": 0,
+        "directory_identity_preserved": true
+      }
+    },
+    "nginx_final_sha256": "272aaf2f091cf388af519dc334a4532a0cdc18f32c2bedb215a6b486398f5b73",
+    "runtime_sha256": "9a84ee70df2fc404801716ebd4981754e22874c01c72465f51a232bbe52cbf60",
+    "runtime_mode": "0600",
+    "old_data_restored": false,
+    "previous_v2_required": false,
+    "status": "PASSED"
+  },
+  "actual_running_services": {
+    "observed_at": "2026-10-08T06:32:54.395445+00:00",
+    "release_id": "pilot-20261008-054601-6a96bfcb",
+    "commit": "6a96bfcb98fc175b6ea8e6f11db9605b396377fc",
+    "services": {
+      "worker": {
+        "container_id": "c6084ffd1caee010b9d76b2987e782032435c58b2069d8bd4831a80b1cca297a",
+        "image_id": "sha256:d496dd545155f32a598f6e07cd86f3db17ac52bb56299e5abaf8cf7d0d48cc90",
+        "running": true,
+        "health": "healthy"
+      },
+      "scheduler": {
+        "container_id": "a8bd3bc19c3c2fe5a04c728afcea18746e0a365c36ca75af20880548bad65bea",
+        "image_id": "sha256:d496dd545155f32a598f6e07cd86f3db17ac52bb56299e5abaf8cf7d0d48cc90",
+        "running": true,
+        "health": "healthy"
+      },
+      "api": {
+        "container_id": "d32662b2173fffd6e5ac3daf9158819bf13373350a96b6519fc62c57c5baf30a",
+        "image_id": "sha256:d496dd545155f32a598f6e07cd86f3db17ac52bb56299e5abaf8cf7d0d48cc90",
+        "running": true,
+        "health": "healthy"
+      },
+      "frontend": {
+        "container_id": "9826d25f17c84237ada4dfaa2c44b264e0d02ecf741860f620cfc88e097af3cd",
+        "image_id": "sha256:8b13424a341aba77502ced2ec26273d4cbf275c419084d285fd670951b108e8b",
+        "running": true,
+        "health": "NOT_DEFINED"
+      },
+      "postgres": {
+        "container_id": "52570160605cc101b88c2d35a51e82cf9ad2dca498f7a26d24b4f598b00d146b",
+        "image_id": "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+        "running": true,
+        "health": "healthy"
+      },
+      "redis": {
+        "container_id": "95b63f8f67d5f2ab0697778ca33ac6fc0905bbdc3224952310c7968a3bf82eea",
+        "image_id": "sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99",
+        "running": true,
+        "health": "healthy"
+      }
+    },
+    "runtime_sha256": "9a84ee70df2fc404801716ebd4981754e22874c01c72465f51a232bbe52cbf60",
+    "browser_or_fake_oss_running": false,
+    "passwords_or_keys_changed": false,
+    "api_worker_scheduler_environment_equal": true,
+    "actual_application_probe_exit_code": 0,
+    "actual_application": {
+      "ai_credentials_read": false,
+      "public_base_url": "https://geo.962850.xyz",
+      "schema_head": "0066_geo_manual_evaluation",
+      "initialization_counts": {
+        "users": 2,
+        "ai_channels": 0,
+        "ai_models": 0,
+        "ai_channel_headers": 0
+      },
+      "runtime_flags": {
+        "geo_monitoring_enabled": true,
+        "geo_api_collection_enabled": false,
+        "geo_browser_collection_enabled": false,
+        "geo_opportunity_evaluation_enabled": true,
+        "geo_retention_dry_run": true,
+        "celery_concurrency": 1
+      },
+      "registered_beat_tasks": [
+        "partsignal.cleanup_platform_logo_files",
+        "partsignal.geo_cleanup_artifacts",
+        "partsignal.recover_expired_generation_jobs",
+        "partsignal.recover_expired_geo_analyses",
+        "partsignal.recover_expired_geo_runs",
+        "partsignal.redispatch_pending_generation_jobs",
+        "partsignal.redispatch_pending_geo_analyses",
+        "partsignal.redispatch_pending_geo_runs"
+      ],
+      "anonymous_ai_admin_status": 401,
+      "admin_login_status": 200,
+      "admin_must_change_password": false,
+      "authenticated_session_status": 200,
+      "ai_configuration_page_api_status": 200,
+      "ai_configuration_state": "EMPTY_AWAITING_OWNER_ADMIN_UI",
+      "probe_session_revoked": true,
+      "status": "PASSED_AI_CONFIGURATION_PENDING"
+    },
+    "status": "PASSED"
+  },
+  "actual_running_api_oss_gate": {
+    "observed_at": "2026-10-08T06:29:14.978873+00:00",
+    "release_id": "pilot-20261008-054601-6a96bfcb",
+    "commit": "6a96bfcb98fc175b6ea8e6f11db9605b396377fc",
+    "runtime_sha256": "9a84ee70df2fc404801716ebd4981754e22874c01c72465f51a232bbe52cbf60",
+    "probe_exit_code": 0,
+    "running_api_container_id": "d32662b2173fffd6e5ac3daf9158819bf13373350a96b6519fc62c57c5baf30a",
+    "running_api_image_id": "sha256:d496dd545155f32a598f6e07cd86f3db17ac52bb56299e5abaf8cf7d0d48cc90",
+    "actual_oss": {
+      "object_key_sha256": "54ddf6d76613a58650c8f21a9fcf073875e9efe18ee585c124587fdc57948e37",
+      "ai_key_read": false,
+      "database_writes": false,
+      "bucket_configuration_changed": false,
+      "cors": "NOT_APPLICABLE_CURRENT_APP_FLOWS",
+      "server_put": "PASSED",
+      "head_metadata": "PASSED",
+      "signed_get_status": 200,
+      "signed_read_content": "PASSED",
+      "anonymous_get_status": 403,
+      "expired_signed_get_status": 403,
+      "expiry_rejection": "PASSED",
+      "invalid_signature_get_status": 403,
+      "invalid_signature_rejection": "PASSED",
+      "read_write_expiry": "PASSED",
+      "private_access_control": "PASSED",
+      "test_object_cleanup": "PASSED"
+    },
+    "overall_storage_gate": "PASSED"
+  },
+  "public_ui": {
+    "observed_at": "2026-10-08T06:36:44.276849+00:00",
+    "login_page_status": 200,
+    "html_no_cache": true,
+    "csp_trusted_types_present": true,
+    "assets": [
+      {
+        "extension": ".js",
+        "status": 200,
+        "content_type": "application/javascript",
+        "immutable_cache": true
+      },
+      {
+        "extension": ".css",
+        "status": 200,
+        "content_type": "text/css",
+        "immutable_cache": true
+      }
+    ],
+    "missing_asset_status": 404,
+    "browser_login_form_rendered": true,
+    "anonymous_ai_route_redirected_to_login": true,
+    "browser_console_errors": 0,
+    "browser_console_warnings": 0,
+    "cli_session_closed": true,
+    "credentials_entered_in_browser": false
+  },
+  "local_resource_restoration": {
+    "owned_infrastructure_stopped": true,
+    "owned_container_ids": [
+      "94d7d6be798600271a9a8d964a58797029502a063c3d151fdc5fab8bf6fcee7a",
+      "e9b9bad7a70087b7095fec963df14c391b844caf88a7b81e7662a278e24d34a2",
+      "e12ce66b1e3f72c32b9f75cbd4617719cfc03ff94d7789d4525d6aaf634bccad"
+    ],
+    "other_running_container_count": 0,
+    "colima_restored_stopped": true
+  },
+  "ai_business_smoke": "NOT_RUN_OWNER_ADMIN_UI_CONFIGURATION_PENDING",
+  "manual_uat": "NOT_STARTED",
+  "production_go": false,
+  "old_data_backup_restore": "NOT_REQUIRED_USER_AUTHORIZED_DISCARD",
+  "new_data_backup_restore_on_host": "NOT_RUN",
+  "maintenance_initial_observation": "最初reload后的即时探针未通过，尚未停服/清空即停止；后续实际503/正确body/no-store/Retry-After确认后才继续。原记录保留。"
+}

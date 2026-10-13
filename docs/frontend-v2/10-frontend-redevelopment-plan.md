@@ -79,7 +79,7 @@
 2. **核合同**：列表首屏能否由一个 read model 绘制；Workspace 是否已有一致的 context；业务阶段、主任务和动作是否由服务端返回。缺口按 `OpenAPI/database → backend → generated types → frontend` 处理。
 3. **实现**：遵守 `routes → domains → design-system/shared`；route 负责 URL、权限边界和组合，domain 负责业务展示与命令，Design System 只负责通用交互。Server State 用 Query，URL State 用 Router，Form State 用表单，临时 UI 用局部 state。
 4. **检查真实页面**：覆盖首屏、空态、错误、关键操作与反馈；检查 375、768、1024、1440 宽度以及键盘与焦点。只在相关行为变化时扩展额外场景。
-5. **留下证据**：运行受影响的测试、类型检查与构建；查看 diff，并记录实际通过项、未运行项与剩余问题。下一任务复用仍有效的证据。
+5. **留下证据**：按实际变化选择受影响的测试、静态检查或构建；查看 diff，并记录实际通过项、复用依据、未运行项与剩余问题。下一任务复用仍有效的证据。
 
 每个可交付页面至少满足 `08` 的 Product、Architecture、Contract、Test、Responsive、Accessibility、Production Build 完成标准。Fixture Playwright 证明页面与前端产物；真实栈 E2E 证明跨服务业务闭环，两者在记录中明确区分。
 
@@ -87,7 +87,7 @@
 
 - 页面开发中先用直接覆盖行为的 unit/component 与相关 Playwright；静态检查和受影响 package build 在可审查候选形成时运行。
 - 修改 OpenAPI、后端 read model、权限、状态流或 mutation 时，增加 `make contract-check` 与对应 backend 测试，并验证 generated types 一致。
-- 共享合同、整体结构、接替或发布候选按项目门禁扩大验证；`make verify` 不作为每次低风险页面调整的固定步骤。
+- 共享合同、整体结构或接替变化按 [项目测试策略](../testing.md) 验证实际受影响的边界；发布候选按 [Hostdzire 验证选择合同](../Hostdzire部署上线流程.md#验证选择合同) 复用基线并补充增量证据。任务完成、新 SHA、候选冻结或发布本身不触发 `make verify`；完整门禁仅由当前交付的明确要求或定向证据无法覆盖的具体剩余风险触发。
 - 已通过且输入未变化的结果直接复用。失败先归因，只有代码、环境、依赖或诊断证据变化后才重跑；不因历史 Phase 曾有门禁而重演旧验收。
 - 实际接替与远端发布分别核对当时的部署和授权边界；本规划不把开发阶段检查写成生产门禁已通过。
 

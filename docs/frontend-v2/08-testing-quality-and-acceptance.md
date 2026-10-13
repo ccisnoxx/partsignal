@@ -6,7 +6,11 @@ V2 不允许再次出现：开发环境正常但部署后表格崩坏、按钮�
 
 测试覆盖：Domain behavior、Design System contract、URL/navigation、production build、responsive、accessibility、server action contract。
 
+开发验证选择遵循 [项目测试策略](../testing.md#验证选择与证据复用)，部署遵循 [Hostdzire 验证选择合同](../Hostdzire部署上线流程.md#验证选择合同)。本文的领域覆盖描述测试应保护的行为；历史 Phase 的专项门禁与执行结果保留，不作为每个任务、PR/merge 或发布的全量执行要求。
+
 ## 2. 测试分层
+
+下图列出可用的验证能力；按受影响合同选择直接观察行为的层级，不要求从上到下逐层执行。
 
 ```text
 Unit
@@ -155,7 +159,7 @@ insight anomaly → server revalidate → create optimization task。
 
 ## 13. Production Build
 
-每个 PR/merge：lint、typecheck、unit、component、build。主分支/staging：E2E + production smoke。
+PR/merge 与主分支更新按实际变化选择静态检查、定向测试或构建，复用输入未变的成功证据；这些 Git 动作不自动触发完整前端测试、E2E 或构建。完整用户流程变化运行对应定向 E2E；部署时选择运行身份、健康与受影响路径的 smoke，不重复未受影响的全站验收。
 
 生产构建必须对真实 build artifact 跑 smoke，而不只跑 Vite dev server。
 
@@ -491,6 +495,9 @@ Production frontend 回滚仍只允许切换 manifest 中上一份已验证 V2 i
 ## 19. Definition of Done
 
 一个页面只有同时满足 Product + Architecture + Contract + Test + Responsive + Accessibility + Production Build，才算 canonical frontend 可交付页面。
+
+这些是页面交付应满足的质量合同，不要求每次局部修改重跑全部验证层级、响应式矩阵或生产构建；按实际影响补充证据，输入未变的页面与构建证据可复用，并记录未验证范围。
+
 ## 20. GEO Insights 验收边界
 
 `tests/e2e/geo-insights.spec.ts` 使用 generated-type strict fixture 验证 canonical 七参数映射、direct/refresh/Back/Forward/reset、loading/error/retry/empty/partial/unavailable、三项趋势精确表格、服务端 drill-down、Recommendation 无伪链接、按需 creation-options、优化 POST header/body、409 不自动重放、响应 ID 导航和四档根无溢出。fixture 未声明 API、page error 与非预期 console error 均失败。

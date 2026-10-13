@@ -67,6 +67,8 @@ vite --config vite.config.ts [vite arguments...]
 
 <!-- What level of testing is expected -->
 
+验证选择遵循 [项目测试策略](../../../docs/testing.md)。以下场景定义相关测试应保护的合同与可用入口，按本次变化选择，不是每个前端任务都要执行的清单。完整用户流程变化使用定向 E2E；已通过且输入未变的结果可复用，纯文档或局部文案调整不自动触发全量前端测试、构建或浏览器矩阵。
+
 - 完整前端门禁从仓库根目录运行 `npm --prefix frontend run test`；直接调用 Vitest 时必须以 `frontend/` 为工作目录。记录结果时同时保留通过数、失败数、跳过数和实际耗时；性能上限由具体任务和执行环境约定，不把错误工作目录产生的 jsdom 失败或一次未超限的慢运行写成挂起结论。
 - 从仓库根目录运行 Playwright 时使用 `npm --prefix frontend run e2e -- <测试文件> --project=e2e`，让 npm 脚本以 `frontend/` 为工作目录并加载 `frontend/playwright.config.ts`。不得使用 `npm --prefix frontend exec -- playwright test`；当前 npm 会保留仓库根工作目录，表现为只发现空项目而不是应用测试失败。
 - 单元测试覆盖更多菜单确认链、章节 `aria-current`、dirty/error/save 状态、次级查询局部失败、URL 恢复与历史同步、pathname 焦点和工作台语义 tone；jsdom 不断言 sticky 坐标或具体颜色。
@@ -87,8 +89,9 @@ vite --config vite.config.ts [vite arguments...]
 
 ### 2. 命令签名
 
+根命令形式为 `make <target>`，可选 target 包括 `bootstrap`、`contract-check`、`lint`、`typecheck`、`test-unit`、`build`、`e2e` 和 `verify`；按本次影响选择，不串行执行全部入口。
+
 ```bash
-make bootstrap contract-check lint typecheck test-unit build e2e verify
 npm --prefix frontend run e2e -- [Playwright arguments...]
 ```
 
@@ -123,13 +126,15 @@ npm --prefix frontend run e2e -- [Playwright arguments...]
 
 ### 6. 必需测试
 
+按本次影响选择下列检查：App Shell/导航对应 Foundation，认证对应 auth-session，Products 列表、新建和详情分别对应其业务 spec；共享 build/preview 或测试发现边界变化再选择能覆盖该共享合同的代表用例。未受影响的业务 spec 不因根命令或脚本文案变化而全部重跑。选定 suite 时保留其既有流程、断言和适用 project。
+
 - `npm --prefix frontend run e2e -- tests/e2e/foundation-smoke.spec.ts`：两个 project 均通过。
 - `npm --prefix frontend run e2e -- tests/e2e/auth-session.spec.ts`：两个 project 均通过，并确认密码不进入 trace 或测试产物。
 - `npm --prefix frontend run e2e -- tests/e2e/products-list.spec.ts`：Products route 的 typed fixture、URL 恢复、业务动作、状态、键盘和四档宽度均通过。
 - `npm --prefix frontend run e2e -- tests/e2e/new-product.spec.ts`：新建产品 production artifact 的结构化错误、CSRF/body、pending、DirtyGuard、canonical navigation、列表失效、375/1440 与运行时错误审计均通过。
 - `npm --prefix frontend run e2e -- tests/e2e/product-detail.spec.ts`：单 detail API、summary 有/无、服务端 Activity/action、UPDATE/DELETE、404/403/retry、375/768/1024/1440、keyboard/focus 与运行时错误审计均通过。
-- canonical Frontend 的 `api:check`、lint、typecheck、test 和 build 分别通过。
-- 修改后的根 targets 通过，最后运行 `make verify`。
+- generated API、静态类型、组件行为或构建输入变化时，选择对应 `api:check`、lint、typecheck、定向 test 或 build；输入未变的成功结果复用。
+- 根 target 或 npm script 变化时验证受影响的命令合同与失败传播；静态检查或 dry-run 不算实际 suite 通过。完整 `make verify` 仅在当前交付明确要求完整门禁，或定向证据无法覆盖具体剩余风险时执行，并记录原因。
 
 ### 7. Wrong vs Correct
 

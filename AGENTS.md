@@ -39,6 +39,7 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 - `frontend/AGENTS.md` 只拥有前端目录规则；`docs/frontend-v2/README.md` 路由专项设计文档。迁移计划仅用于迁移、legacy routing、阶段门禁、分支或 Cutover 历史。
 - 当前分支规则有两个记录来源：本文件采用 `main` 单分支，迁移历史记录 V2 临时分支例外。创建分支或提交前依据用户当前指示解析，不自动沿用历史例外。
 - 功能、权限、数据模型、API、配置或部署行为变化时更新对应权威文档；一次性实现过程留在 task 历史，不复制到多个稳定规范。
+- 日常开发按 `docs/testing.md` 选择能直接验证受影响合同的检查；任务完成、功能组收尾或每日收尾不自动触发全量测试、E2E、镜像构建或安全扫描。完整门禁须有当前交付的明确要求，或定向证据无法覆盖的具体剩余风险；高风险边界变化本身不要求测试无关模块。
 
 ## 核心工程原则
 

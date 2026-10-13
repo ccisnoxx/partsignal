@@ -2,6 +2,8 @@
 
 本附录给出 `geo.962850.xyz` 原地转换的命令合同和恢复检查。所有示例都必须先替换为当次已核验的 release、镜像、路径和 checksum，并作为精确授权包交由用户批准；不要直接把示例视为线上写授权。
 
+按当次实际适用路径选择下列命令；验证与证据复用以 [Runbook 的验证选择合同](./Hostdzire部署上线流程.md#验证选择合同) 为准。候选冻结、应用升级或同版本重启不要求串行执行所有示例、完整 `make verify` 或历史首次上线验收。
+
 ## 1. SSH 与敏感信息
 
 只使用本机 OpenSSH alias：`ssh hostdzire '<已批准的精确命令>'` 与 `scp <source> hostdzire:<approved-target>`。`hostdzire` 是应用主机唯一写入目标；`dmit` 仅在公网入口异常时只读诊断。主机密钥冲突必须停止，不能自动接受新 key 或执行 `ssh-keygen -R`。

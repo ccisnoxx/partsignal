@@ -40,15 +40,14 @@ Production 不使用 `/var/www/partsignal-frontend/current`，`/root/partsignal/
 
 ## 3. Repository 与 Candidate
 
-本地至少运行：
+### 验证选择合同
 
-```sh
-node deploy/scripts/check-nginx-security.mjs
-deploy/scripts/test-deploy-staging.sh
-deploy/scripts/test-deploy-production.sh
-uv run --project backend pytest backend/tests/unit/test_cli.py
-git diff --check
-```
+代码验证在开发/修复阶段按 [项目测试策略](./testing.md#验证选择与证据复用) 执行，部署消费其记录。任务完成、功能组或每日收尾、新 commit SHA、release ID、候选冻结、发布和服务器重部署均不是完整 `make verify` 的独立触发条件。先核实目标、数据保留方式、现有 runtime、AI 初始化方式、schema 和外部服务，再集中修复、验证并准备工件，避免每发现一个缺项就启动一轮全量检查。
+
+| 变化 | 源码验证与工件 | 部署现场验证 |
+| --- | --- | --- |
+| 普通前端/后端修改 | 选择直接覆盖受影响合同的静态检查或相关测试；完整用户流程变化加定向 E2E；按构建输入变化重建镜像 | 固定候选的运行身份及受影响业务路径 |
+| 当前交付明确要求完整门禁，或定向证据不足以覆盖具体剩余风险 | 在准备收敛的最终候选执行完整门禁并记录原因；候选形成不是触发原因 | 按实际交付范围验收 |
 
 候选必须来自 clean、已推送的 `main`。默认 `previous-frontend` 恢复策略还冻结 previous V2 镜像；获准清空重建的 `fresh-rebuild` 将该角色记录为不适用。使用 `git archive` 生成不可覆盖源归档，构建 backend 和 Frontend V2 镜像后，通过 `deploy/scripts/create-release-manifest.py` 冻结完整 commit、源归档 SHA-256、backend/migration/current V2 的 image ID 与非空 RepoDigest、schema head、版本化 migration_runtime 指纹，以及固定 14 项 allowlist 中的 Production Compose、状态/部署/激活/输入检查脚本、Production/maintenance Nginx 模板和安全 snippet 校验和。migration 首次默认 backend；严格失败恢复须以 `--migration-image` 保留失败执行的原迁移镜像，并以 `PARTSIGNAL_MIGRATION_IMAGE` 将其完整 reference 传入后续正式命令。完整迁移程序由该镜像全部 rootfs 与执行配置冻结，修复 backend 独立变化。输入检查脚本 `check-production-inputs.py` 和迁移归档与运行时证明模块 `production_upgrade_recovery.py`、`production_migration_runtime.py`，以及部署执行 owner `production_deployment.py`、supervisor `production_maintenance_execution.py` 和清空边界 owner `production_fresh_reset.py` 必须按附录一起传入 tracked files。manifest 采用排他创建；部署和激活会复算 tracked files，并要求 `PARTSIGNAL_VERSION` 精确等于 release ID。不得复用 tag、覆盖文件或从 release 目录名推断 Git 状态。
 

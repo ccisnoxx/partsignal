@@ -56,7 +56,7 @@
 - 静态解析 `.github/workflows/ci.yml`，断言只有 `workflow_dispatch`。
 - 静态断言 `verify` 的前端 cache/install 只包含 `frontend`、独立 Browser 包安装及隔离选项存在，且两路 canonical shard 都保留。
 - 静态断言 `make e2e` step 覆盖 `REDIS_URL=redis://localhost:6379/14`，job 级 backend integration 保持 DB 15。
-- 对实际受影响合同选择检查；应用/测试/依赖输入未变时复用已有 canonical unit/build/E2E 成功证据，不因纯 CI 选择入口变化重复全套。候选收口仍在固定 clean main 执行一次完整 `make verify`；无 push 授权时不声称远端 workflow 已运行。
+- 对实际受影响合同按 [项目测试策略](../../../docs/testing.md#验证选择与证据复用) 选择检查；应用/测试/依赖输入未变时复用已有 canonical unit/build/E2E 成功证据，不因纯 CI 选择入口、文档、治理提交或候选收口重复全套。完整 `make verify` 只在当前交付明确要求完整门禁，或定向证据无法覆盖具体剩余风险时执行；先诊断失败并重验直接受影响范围。无 push 授权时不声称远端 workflow 已运行。
 - 推送后确认没有自动 run；手动触发须记录固定 headSha、分组、run ID 和各 job 状态。`full` 包含 verify 与两路 frontend-test；`delivery` 的 shard 跳过必须明列，不算通过。额外 run 遵守用户当次预算和授权。
 - 两路 Vitest 需记录失败、跳过、超时和实际耗时；两片文件数和测试数之和必须等于未分片全集。runner 偏慢作为已知残余风险，不通过增加 shard、worker 或放宽超时自动修复。
 

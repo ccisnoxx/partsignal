@@ -1,5 +1,9 @@
 # PartSignal GEO API 契约设计
 
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+
+本文 Browser Schema、错误码和模式枚举只描述保留的历史合同，不表示当前支持 Browser 入口；公共 OpenAPI 不在 PSR-005 中移除。
+
 | 项目 | 内容 |
 |---|---|
 | 文档版本 | V1.0 |

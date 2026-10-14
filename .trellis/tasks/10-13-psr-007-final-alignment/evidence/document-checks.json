@@ -1,0 +1,187 @@
+{
+  "introduced_links": [
+    {
+      "file": ".trellis/spec/infra/e2e-isolation.md",
+      "link": "../../../docs/testing.md#手工分层命令",
+      "exists": true
+    },
+    {
+      "file": ".trellis/spec/infra/e2e-isolation.md",
+      "link": "./manual-quality-checks.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "link": "./docs/development-preview.md",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "link": "./docs/testing.md#手工分层命令",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "link": "./docs/architecture.md#外部适配器",
+      "exists": true
+    },
+    {
+      "file": "README.md",
+      "link": "./docs/maintenance/openai-sdk-refactor/README.md",
+      "exists": true
+    },
+    {
+      "file": "docs/GEO系统前后端技术与部署方案.md",
+      "link": "./architecture.md#外部适配器",
+      "exists": true
+    },
+    {
+      "file": "docs/Hostdzire部署上线流程.md",
+      "link": "./testing.md#手工分层命令",
+      "exists": true
+    },
+    {
+      "file": "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+      "link": "../../production-configuration.md",
+      "exists": true
+    },
+    {
+      "file": "docs/geo-monitoring/CHANGELOG.md",
+      "link": "../maintenance/openai-sdk-refactor/README.md",
+      "exists": true
+    },
+    {
+      "file": "docs/geo-monitoring/CHANGELOG.md",
+      "link": "../../.trellis/tasks/10-13-psr-007-final-alignment/implement.md",
+      "exists": true
+    },
+    {
+      "file": "docs/maintenance/openai-sdk-refactor/README.md",
+      "link": "./task-manifest.yaml",
+      "exists": true
+    },
+    {
+      "file": "docs/maintenance/openai-sdk-refactor/README.md",
+      "link": "../../../.trellis/tasks/10-12-psr-001-openai-sdk-adapter/implement.md",
+      "exists": true
+    },
+    {
+      "file": "docs/maintenance/openai-sdk-refactor/README.md",
+      "link": "../../../.trellis/tasks/10-13-psr-002-generation-sdk/implement.md",
+      "exists": true
+    },
+    {
+      "file": "docs/maintenance/openai-sdk-refactor/README.md",
+      "link": "../../../.trellis/tasks/10-13-psr-003-geo-api-sdk/implement.md",
+      "exists": true
+    },
+    {
+      "file": "docs/maintenance/openai-sdk-refactor/README.md",
+      "link": "../../../.trellis/tasks/10-13-psr-004-remove-custom-http/implement.md",
+      "exists": true
+    },
+    {
+      "file": "docs/maintenance/openai-sdk-refactor/README.md",
+      "link": "../../../.trellis/tasks/10-13-psr-005-defer-browser-collector/implement.md",
+      "exists": true
+    },
+    {
+      "file": "docs/maintenance/openai-sdk-refactor/README.md",
+      "link": "../../../.trellis/tasks/10-13-psr-006-layered-manual-checks/implement.md",
+      "exists": true
+    },
+    {
+      "file": "docs/maintenance/openai-sdk-refactor/README.md",
+      "link": "../../../.trellis/tasks/10-13-psr-007-final-alignment/prd.md",
+      "exists": true
+    },
+    {
+      "file": "docs/maintenance/openai-sdk-refactor/README.md",
+      "link": "../../../.trellis/tasks/10-13-psr-007-final-alignment/implement.md",
+      "exists": true
+    },
+    {
+      "file": "docs/maintenance/openai-sdk-refactor/README.md",
+      "link": "../../testing.md#手工分层命令",
+      "exists": true
+    },
+    {
+      "file": "docs/maintenance/openai-sdk-refactor/README.md",
+      "link": "../../Hostdzire部署上线流程.md#验证选择合同",
+      "exists": true
+    },
+    {
+      "file": "docs/testing.md",
+      "link": "../.trellis/spec/infra/manual-quality-checks.md",
+      "exists": true
+    },
+    {
+      "file": ".trellis/tasks/10-13-psr-007-final-alignment/implement.md",
+      "link": "./evidence/changed-files.txt",
+      "exists": true
+    },
+    {
+      "file": ".trellis/tasks/10-13-psr-007-final-alignment/implement.md",
+      "link": "./evidence/changes.patch",
+      "exists": true
+    },
+    {
+      "file": ".trellis/tasks/10-13-psr-007-final-alignment/implement.md",
+      "link": "./evidence/workspace-audit.json",
+      "exists": true
+    },
+    {
+      "file": ".trellis/tasks/10-13-psr-007-final-alignment/implement.md",
+      "link": "./evidence/contracts-migrations.json",
+      "exists": true
+    },
+    {
+      "file": ".trellis/tasks/10-13-psr-007-final-alignment/implement.md",
+      "link": "./evidence/scans.json",
+      "exists": true
+    },
+    {
+      "file": ".trellis/tasks/10-13-psr-007-final-alignment/implement.md",
+      "link": "./evidence/references-before.tsv",
+      "exists": true
+    },
+    {
+      "file": ".trellis/tasks/10-13-psr-007-final-alignment/implement.md",
+      "link": "./evidence/references-after.tsv",
+      "exists": true
+    },
+    {
+      "file": ".trellis/tasks/10-13-psr-007-final-alignment/implement.md",
+      "link": "./evidence/commands.json",
+      "exists": true
+    },
+    {
+      "file": ".trellis/tasks/10-13-psr-007-final-alignment/implement.md",
+      "link": "./evidence/geo-recheck.json",
+      "exists": true
+    },
+    {
+      "file": ".trellis/tasks/10-13-psr-007-final-alignment/implement.md",
+      "link": "./evidence/compose-config.json",
+      "exists": true
+    },
+    {
+      "file": ".trellis/tasks/10-13-psr-007-final-alignment/prd.md",
+      "link": "../../../docs/maintenance/openai-sdk-refactor/task-manifest.yaml",
+      "exists": true
+    },
+    {
+      "file": ".trellis/tasks/10-13-psr-007-final-alignment/prd.md",
+      "link": "./preflight.md",
+      "exists": true
+    }
+  ],
+  "missing_links": [],
+  "markdown_trailing_whitespace": [],
+  "geo_sha256_entries": 138,
+  "template_noncomment_content_unchanged": {
+    ".env.example": true,
+    ".env.production.example": true,
+    ".env.staging.example": true
+  }
+}

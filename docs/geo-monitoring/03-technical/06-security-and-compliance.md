@@ -1,5 +1,7 @@
 # PartSignal GEO 安全与合规设计
 
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+
 | 项目 | 内容 |
 |---|---|
 | 文档版本 | V1.0 |
@@ -61,7 +63,7 @@
 5. API 凭据存在且模型测试通过；
 6. 浏览器会话健康且账号获得授权；
 7. 预算未超限；
-8. 出站 URL、DNS、TLS 和 peer 校验通过；
+8. 出站 URL 输入与 SDK 配置检查通过；
 9. 不包含被规则识别的受限上下文。
 
 任何门禁失败都不创建外部请求。
@@ -80,62 +82,24 @@
 
 ## 5. 网络与 SSRF
 
-API Collector 必须复用或扩展现有 pinned transport：
+PSR-003 的 OpenAI-compatible API Collector 使用官方同步 SDK，不承诺旧 DNS/IP/peer
+固定。只校验 URL 结构，生产 HTTPS，开发/测试显式本机 HTTP；禁止 userinfo/query/fragment、
+重定向、环境代理与 SDK 自动重试。发送授权与预算在 SDK 方法前完成，成功即进入外部窗口；
+之后 timeout/connection/结果不确定为 UNKNOWN，禁止同 attempt 自动重放。内部
+max_response_bytes 用公开 raw-response 字节在接收后检查，不能限制接收内存。
+API Key/敏感 Header 只在单次请求内存；保留字段凭据回显整份失败，日志不含正文或 traceback。
 
-- 只允许 `https` 公网地址；
-- 开发/测试本机 HTTP 需显式开关；
-- URL 禁止 userinfo、query secret 和 fragment；
-- 单次解析完整 A/AAAA；
-- 解析结果含非公网地址时整体拒绝；
-- 连接批准 sockaddr；
-- 发送敏感 Header 前验证实际 peer；
-- TLS SNI、证书 hostname 和 Host 使用原域名；
-- 禁止重定向；
-- 响应体有大小上限；
-- 发送后不切换地址重试；
-- 出站防火墙进一步限制网络。
+GEO Profile 连接诊断同样使用官方 SDK，保留事务外调用及调用后资格/依赖 revision 复核。
+PartSignal 继续负责业务快照、凭据加密、数据分级、严格输出校验、错误映射和作业状态。
+出站网络策略仍由部署环境管理，此次维护不开放额外网络权限。
 
 浏览器 collector 使用独立 egress policy，不因为需要浏览器访问就给数据库、Redis 或 API 容器开放额外公网端口。
 
-## 6. 浏览器会话安全
+## 6. 后续 Browser 安全边界
 
-### 6.1 账号
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
 
-- 使用公司批准的专用观测账号；
-- 不使用员工个人主账号；
-- 最小权限、无支付/敏感业务能力；
-- 明确账号负责人和停用流程；
-- MFA/验证码由人工完成，不自动绕过。
-
-### 6.2 存储
-
-- 会话资料加密；
-- 与普通业务对象存储隔离；
-- 引用使用不可猜测 ID；
-- 只有 browser collector service identity 可读取；
-- 数据库不保存 Cookie 明文；
-- 导出和备份策略单独审批；
-- 撤销/过期后安全删除。
-
-### 6.3 运行隔离
-
-- 每个运行新建临时 context；
-- 使用临时/无记忆会话模式（平台支持时）；
-- 禁止复用用户历史对话；
-- 任务完成清理 localStorage、download 和临时文件；
-- 截图裁剪账号身份和浏览器敏感 UI；
-- 失败截图也要经过敏感区域规则。
-
-### 6.4 合规记录
-
-EngineSurface 保存：
-
-- 审批状态；
-- 审批人和日期（可由审计记录表达）；
-- 允许的采集频率；
-- 允许地区和账号；
-- 停止条件；
-- 条款变化复核日期。
+历史数据的凭据保护、不可变性与生产拒绝边界继续有效；当前不提供会话材料、密钥配置或登录操作教程。
 
 ## 7. Prompt injection 与不可信内容
 
@@ -292,7 +256,7 @@ raw provider response, full citation query containing secrets
 - 非管理员访问配置接口；
 - CSRF 缺失；
 - secret 在 API/审计/日志/cache/screenshot 泄露；
-- SSRF、混合 DNS、peer 越界和重定向；
+- SDK URL 输入、禁重定向、零重试、凭据安全和 UNKNOWN 不重放；
 - 引用 URL XSS/危险 scheme；
 - CSV 公式注入；
 - Prompt injection 分析输出越界；
@@ -302,14 +266,14 @@ raw provider response, full citation query containing secrets
 - 迟到结果覆盖终态；
 - 重试重复外部调用。
 
-## GEO-802 已实现边界
+## GEO-802 历史隔离合同
 
 会话聚合仅保存UUID引用、Profile绑定、密文SHA256、授权期限和健康/撤销/清理事实；AES-GCM与RSA-OAEP封装只保存于独立受保护卷。API仅持公钥，Collector持私钥，任何明文不进入PG、普通OSS、日志、审计、缓存或截图。导入使用SecretStr/writeOnly与固定错误摘要；手工批准账号与Surface合规均须明确，未知资料拒绝。
 
 所有管理命令由ADMIN及CSRF保护，按Profile revision仲裁；专用服务能力只授权密文读取，绑定现有ADMIN并重验当前权限/配置/开关。安全审计只保留session_reference与revision。永久动作 imported、health_checked、revoked、purged、accessed 及其前端消费者须保留以读取既有历史。撤销墓碑先于密文清理，旧引用永不复活；卷故障不能恢复访问，清理待办必须显式显示。
 
-AVAILABLE只证明本地密文完整及授权期限，不证明真实登录、账号条款或Run发送授权。真实consumer及发送前重新授权留给804；已授权释放的内存无法远程追回，消费方必须及时关闭context并在finally清理材料。生产需TLS、受限卷/密钥文件及批准的服务账号；不会因本任务开启真实平台、扩大网络出口或绕过MFA。配置和恢复步骤见部署文档GEO-802章节。
+AVAILABLE只证明本地密文完整及授权期限，不证明真实登录、账号条款或Run发送授权。真实consumer及发送前重新授权留给804；已授权释放的内存无法远程追回，消费方必须及时关闭context并在finally清理材料。这是历史隔离实现的安全合同，不是当前生产部署或材料配置教程；实现与当时验收仅参见 GEO-802 的 Trellis 记录。
 
 ## GEO-901 清理安全边界
 
-新增retention默认dry-run，实际期限未批准/配置时不启用对应新策略；保留所有引用raw/截图与业务历史。终态临时草稿清理使用不可变低敏墓碑、真实PG期限与同事务删除防线，文件存储失败保留DELETING可重试。日志仅稳定ID/计数/状态，不含正文、路径、URL、凭据或底层异常。无权限/CSRF/SSRF/TLS放宽，无真实第三方调用。Browser N/A仅对已核实无部署及材料的环境成立，生产false/无会话仍需904/906实测，现存材料继续802保护/撤销/PURGE责任。
+新增retention默认dry-run，实际期限未批准/配置时不启用对应新策略；保留所有引用raw/截图与业务历史。终态临时草稿清理使用不可变低敏墓碑、真实PG期限与同事务删除防线，文件存储失败保留DELETING可重试。日志仅稳定ID/计数/状态，不含正文、路径、URL、凭据或底层异常。无权限/CSRF/SSRF/TLS放宽，无真实第三方调用。Browser N/A仅对已核实无部署及材料的环境成立，生产false/无会话仍需904/906实测，发现历史材料时保留保护边界并停止，另行授权处置。

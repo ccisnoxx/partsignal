@@ -1,0 +1,14 @@
+{
+  "temporary_databases_remaining": [],
+  "postgres_stop_exit": 0,
+  "storage_supervisor_stopped": true,
+  "ports": {
+    "pg_port": "released",
+    "storage_port": "released"
+  },
+  "postgres_port": 56752,
+  "storage_port": 56753,
+  "compose_resources_created": false,
+  "temporary_directory_removed": true,
+  "retained_artifacts": "PSR-007 evidence; formal human-review deliverables"
+}

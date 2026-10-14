@@ -1,0 +1,60 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend pytest backend/tests/unit
+npm --prefix frontend run lint
+npm --prefix frontend run typecheck
+npm --prefix frontend run test
+make: Nothing to be done for `check-fast'.
+test -n "$PARTSIGNAL_TEST_DATABASE_URL" || { echo 'check-ai 需要显式设置 PARTSIGNAL_TEST_DATABASE_URL（专用测试 PostgreSQL）' >&2; exit 2; }
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend pytest backend/tests/unit/test_ai_provider.py backend/tests/unit/test_ai_boundaries.py backend/tests/unit/test_generation.py backend/tests/unit/test_generation_dispatch.py backend/tests/unit/test_generation_provider.py backend/tests/unit/test_generation_runtime_mode.py
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend pytest backend/tests/integration/test_ai_channel_management.py backend/tests/integration/test_ai_provider_configuration.py backend/tests/integration/test_generation_provider.py
+npm --prefix frontend run test -- src/domains/configuration/ai-channel-list-page.test.tsx src/domains/configuration/ai-channel-list.model.test.ts src/domains/configuration/ai-channel-models-section.test.tsx src/domains/configuration/ai-channel-runtime.api.test.ts src/domains/configuration/ai-channel-workspace-page.test.tsx src/domains/configuration/ai-channel-workspace.model.test.ts src/domains/configuration/prompt-preview.test.tsx src/domains/configuration/prompt-workspace-page.test.tsx src/domains/configuration/prompt-workspace.model.test.ts src/domains/content/content-ai-production.test.tsx
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/check-geo-fixtures.py
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/test-geo-collector-contract.py
+test -n "$PARTSIGNAL_TEST_DATABASE_URL" || { echo 'check-geo 需要显式设置 PARTSIGNAL_TEST_DATABASE_URL（专用测试 PostgreSQL）' >&2; exit 2; }
+test -n "$OBJECT_STORAGE_ENDPOINT" || { echo 'check-geo 需要显式设置 OBJECT_STORAGE_ENDPOINT（已启动的本地开发对象存储）' >&2; exit 2; }
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_analysis.py backend/tests/unit/test_geo_analysis_contract.py backend/tests/unit/test_geo_answer_contract.py backend/tests/unit/test_geo_answer_insights.py backend/tests/unit/test_geo_batch_creation_contract.py backend/tests/unit/test_geo_batch_policy.py backend/tests/unit/test_geo_catalog_contract.py backend/tests/unit/test_geo_catalog_errors.py backend/tests/unit/test_geo_catalog_metadata.py backend/tests/unit/test_geo_catalog_policy.py backend/tests/unit/test_geo_catalog_projection.py backend/tests/unit/test_geo_catalog_schema.py backend/tests/unit/test_geo_citations.py backend/tests/unit/test_geo_claims.py backend/tests/unit/test_geo_collector_contract.py backend/tests/unit/test_geo_collector_registry.py backend/tests/unit/test_geo_configuration.py backend/tests/unit/test_geo_e2e_runtime.py backend/tests/unit/test_geo_fixtures.py backend/tests/unit/test_geo_insight_details.py backend/tests/unit/test_geo_insights.py backend/tests/unit/test_geo_manual_collection_contract.py backend/tests/unit/test_geo_metric_inputs.py backend/tests/unit/test_geo_metric_trends.py backend/tests/unit/test_geo_metrics.py backend/tests/unit/test_geo_monitoring_plan_contract.py backend/tests/unit/test_geo_opportunity_actions.py backend/tests/unit/test_geo_opportunity_baseline.py backend/tests/unit/test_geo_opportunity_policy.py backend/tests/unit/test_geo_opportunity_rules.py backend/tests/unit/test_geo_opportunity_workbench.py backend/tests/unit/test_geo_ops_export.py backend/tests/unit/test_geo_ops_health.py backend/tests/unit/test_geo_ops_metrics.py backend/tests/unit/test_geo_ops_runtime.py backend/tests/unit/test_geo_overview.py backend/tests/unit/test_geo_plan_management.py backend/tests/unit/test_geo_plan_preview_contract.py backend/tests/unit/test_geo_production_boundary.py backend/tests/unit/test_geo_profile_test_policy.py backend/tests/unit/test_geo_prompt_variant_contract.py backend/tests/unit/test_geo_questions_errors.py backend/tests/unit/test_geo_read_contract.py backend/tests/unit/test_geo_recommendations.py backend/tests/unit/test_geo_reports.py backend/tests/unit/test_geo_retention.py backend/tests/unit/test_geo_retest_recovery.py backend/tests/unit/test_geo_review_contract.py backend/tests/unit/test_geo_rules.py backend/tests/unit/test_geo_run_contract.py backend/tests/unit/test_geo_run_matrix.py backend/tests/unit/test_geo_run_policy.py backend/tests/unit/test_geo_run_workflow_contract.py backend/tests/unit/test_geo_surface_contract.py backend/tests/unit/test_geo_surface_management_errors.py backend/tests/unit/test_geo_worker_configuration.py
+PGTZ=UTC OBJECT_STORAGE_BACKEND=development UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend pytest backend/tests/integration/test_geo_sdk_collection.py backend/tests/integration/test_geo_profile_tests.py backend/tests/integration/test_geo_profile_test_races.py backend/tests/integration/test_geo_security_review.py backend/tests/integration/test_geo_at_most_once.py backend/tests/integration/test_geo_manual_collection.py backend/tests/integration/test_geo_manual_collection_boundaries.py backend/tests/integration/test_geo_manual_races.py backend/tests/integration/test_geo_analysis.py
+npm --prefix frontend run test -- src/domains/geo- src/domains/geo/
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python -m app.tools.contract_check contracts/openapi.yaml
+npm --prefix frontend run api:check
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+npm --prefix frontend run lint
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+npm --prefix frontend run typecheck
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend pytest backend/tests/unit
+npm --prefix frontend run test
+# 恢复用例需要回环连接和显式 PG16 工具，在下一条必跑命令中执行。
+docker compose --env-file .env -f deploy/compose.dev.yaml run --rm backend-test pytest tests/integration --ignore=tests/integration/test_geo_recovery.py
+/Library/Developer/CommandLineTools/usr/bin/make test-geo-recovery-integration
+docker compose --env-file .env -f deploy/compose.dev.yaml up -d --wait postgres redis
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/test-geo-recovery-integration.py
+docker compose --env-file .env -f deploy/compose.dev.yaml run --rm -e GEO_PERF_PHASE=candidate -e GEO_PERF_OUTPUT=/app/tests/performance/.results/candidate backend-test pytest -s tests/performance/test_geo_insight_performance.py
+docker build -f frontend/Dockerfile -t partsignal-frontend-v2:test frontend
+docker build -f backend/Dockerfile -t partsignal-backend:test backend
+PARTSIGNAL_E2E_GEO_MODE= PARTSIGNAL_E2E_SPEC= deploy/scripts/e2e-local.sh
+PARTSIGNAL_E2E_SPEC= deploy/scripts/e2e-geo.sh
+npm --prefix frontend run e2e
+deploy/scripts/test-frontend-container.sh
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_recovery_boundaries.py
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check deploy/scripts/geo-recovery.py deploy/scripts/geo_recovery_bundle.py deploy/scripts/geo_recovery_environment.py deploy/scripts/test-geo-recovery-integration.py
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/test-geo-collector-contract.py
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/check-geo-fixtures.py
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/test-geo-configuration.py
+deploy/scripts/test-e2e-run-lifecycle.sh
+deploy/scripts/test-e2e-database-lifecycle.sh
+frontend/tests/helpers/test-secret-artifact-post-run.sh
+deploy/scripts/test-deploy-staging.sh
+deploy/scripts/test-deploy-production-cleanup.sh
+deploy/scripts/test-deploy-production.sh
+/Library/Developer/CommandLineTools/usr/bin/make test-upgrade-recovery
+python3 deploy/scripts/test-upgrade-recovery.py
+python3 deploy/scripts/test-upgrade-failure.py
+python3 deploy/scripts/test-upgrade-runtime-policy.py
+python3 deploy/scripts/test-migration-runtime.py
+python3 deploy/scripts/test-upgrade-cache-policy.py
+python3 deploy/scripts/test-upgrade-registry-order.py
+python3 deploy/scripts/test-upgrade-signal.py
+docker compose --env-file .env -f deploy/compose.dev.yaml config --quiet
+PARTSIGNAL_BACKEND_IMAGE=partsignal-backend PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 PARTSIGNAL_VERSION=test PARTSIGNAL_RUNTIME_ENV_FILE=/Users/sc/PycharmProjects/partsignal/.env PARTSIGNAL_DATA_ROOT=/Users/sc/PycharmProjects/partsignal/data docker compose --env-file .env -f deploy/compose.prod.yaml config --quiet
+make: Nothing to be done for `verify'.

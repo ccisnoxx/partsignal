@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/infra/manual-quality-checks.md", "reason": "手工分层命令的稳定合同"}
+{"file": "docs/architecture.md", "reason": "最终SDK与应用业务边界"}
+{"file": "docs/production-configuration.md", "reason": "当前环境模板与AI配置归属"}
+{"file": ".trellis/tasks/10-13-psr-007-final-alignment/preflight.md", "reason": "已核实的依赖、状态与本轮范围"}

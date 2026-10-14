@@ -1,0 +1,4 @@
+{"file": "docs/testing.md", "reason": "指定快速、领域和发布验证入口"}
+{"file": ".trellis/spec/infra/manual-quality-checks.md", "reason": "实际验收入口的分层合同"}
+{"file": "docs/Hostdzire部署上线流程.md", "reason": "commit与发布身份及验证选择"}
+{"file": ".trellis/tasks/10-13-psr-007-final-alignment/preflight.md", "reason": "初始残留、保护范围与停止条件"}

@@ -127,7 +127,7 @@ def claim_collection_run(run_id: UUID) -> CollectionLease | None:
 
 
 def authorize_send(lease: CollectionLease) -> None:
-    """首个请求字节前重验当前配置与 token，原子持久化 SENT 后立即释放锁。"""
+    """API SDK 方法启动前重验配置与 token，原子持久化 SENT 后立即释放锁。"""
     with SessionLocal.begin() as db:
         lock_configuration(db, lease.request)
         admission.lock_accounting(db)

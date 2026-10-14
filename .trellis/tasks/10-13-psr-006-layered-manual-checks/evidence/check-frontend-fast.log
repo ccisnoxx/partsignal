@@ -1,0 +1,24 @@
+npm --prefix frontend run lint
+
+> partsignal-frontend-v2@0.1.0 lint
+> eslint . --max-warnings 0
+
+npm --prefix frontend run typecheck
+
+> partsignal-frontend-v2@0.1.0 typecheck
+> tsc -b --pretty false
+
+npm --prefix frontend run test
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/sc/PycharmProjects/partsignal/frontend
+
+
+ Test Files  142 passed (142)
+      Tests  1347 passed (1347)
+   Start at  21:54:13
+   Duration  36.02s (transform 11.75s, setup 11.83s, import 55.28s, tests 184.52s, environment 55.69s)
+

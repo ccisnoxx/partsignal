@@ -1,8 +1,5 @@
 name: partsignal-staging
 
-include:
-  - compose.geo-browser.yaml
-
 x-backend: &backend
   image: ${PARTSIGNAL_BACKEND_IMAGE:-partsignal-backend}:${PARTSIGNAL_VERSION:?必须指定 PARTSIGNAL_VERSION}
   build:

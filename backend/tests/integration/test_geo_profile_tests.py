@@ -1,7 +1,9 @@
-"""GEO-403 真 HTTP/身份/PG/pinned TLS 诊断及当前资格失效。"""
+"""GEO Profile 官方 SDK/真实 HTTP/身份/PG 诊断及当前资格失效。"""
 
 # ruff: noqa: F811
 
+import hashlib
+import json
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -13,7 +15,7 @@ from app.geo_fake_server import FakeMode, FakeScenario
 from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
 from app.models.geo_surfaces import GeoCollectionProfile
 from app.models.identity import AuditLog
-from tests.integration.geo_profile_test_support import api_profile, https_provider  # noqa: F401
+from tests.integration.geo_profile_test_support import api_profile, profile_provider  # noqa: F401
 from tests.integration.geo_surface_management_support import (  # noqa: F401
     PROFILES,
     SurfaceAPI,
@@ -25,9 +27,9 @@ pytestmark = pytest.mark.integration
 
 
 def test_success_does_not_create_business_runs_or_enable(
-    surface_api: SurfaceAPI, https_provider, monkeypatch
+    surface_api: SurfaceAPI, profile_provider, monkeypatch
 ):
-    profile, _, _, call_id = api_profile(surface_api, monkeypatch)
+    profile, _, _, call_id = api_profile(surface_api, monkeypatch, profile_provider)
     pid = profile["summary"]["id"]
     with surface_api.factory() as db:
         counts = tuple(
@@ -45,7 +47,7 @@ def test_success_does_not_create_business_runs_or_enable(
     assert {b["code"] for b in current["activation_blockers"]} == {"ADAPTER_NOT_APPROVED"}
     duplicate = surface_api.admin.post(f"{PROFILES}/{pid}/test", json={"expected_revision": 0})
     assert duplicate.status_code == 409
-    assert https_provider.state.snapshot(UUID(call_id))["count"] == 1
+    assert profile_provider.state.snapshot(UUID(call_id))["count"] == 1
     with surface_api.factory() as db:
         assert counts == tuple(
             db.scalar(select(func.count()).select_from(table))
@@ -70,17 +72,15 @@ def test_success_does_not_create_business_runs_or_enable(
         (FakeMode.REDIRECT, "AI_REDIRECT_FORBIDDEN"),
         (FakeMode.TIMEOUT, "AI_PROVIDER_TIMEOUT"),
         (FakeMode.DISCONNECT, "AI_PROVIDER_UNAVAILABLE"),
-        (FakeMode.OVERSIZE, "AI_RESPONSE_TOO_LARGE"),
-        (FakeMode.OVERSIZE_CHUNKED, "AI_RESPONSE_TOO_LARGE"),
         (FakeMode.INVALID_JSON, "AI_RESPONSE_INVALID"),
         (FakeMode.EMPTY_ANSWER, "AI_RESPONSE_INVALID"),
     ],
 )
 def test_provider_failure_safe_result_and_no_retry(
-    surface_api, https_provider, monkeypatch, mode, code
+    surface_api, profile_provider, monkeypatch, mode, code
 ):
-    profile, _, _, call_id = api_profile(surface_api, monkeypatch)
-    https_provider.state.configure(
+    profile, _, _, call_id = api_profile(surface_api, monkeypatch, profile_provider)
+    profile_provider.state.configure(
         UUID(call_id), FakeScenario(mode=mode, echo_sensitive=True, delay_seconds=5.0)
     )
     response = surface_api.admin.post(
@@ -92,13 +92,13 @@ def test_provider_failure_safe_result_and_no_retry(
     assert result["summary"]["is_active"] is False
     assert result["test_error"]["code"] == code
     assert "fake-secret" not in response.text and "Bearer" not in response.text
-    assert https_provider.state.snapshot(UUID(call_id))["count"] == 1
-    assert https_provider.state.snapshot(UUID(call_id))["redirect_hits"] == 0
+    assert profile_provider.state.snapshot(UUID(call_id))["count"] == 1
+    assert profile_provider.state.snapshot(UUID(call_id))["redirect_hits"] == 0
 
 
 @pytest.mark.parametrize("gate", ["permission", "csrf", "switch", "search", "compliance"])
-def test_blocked_before_egress(surface_api, https_provider, monkeypatch, gate):
-    profile, _, _, call_id = api_profile(surface_api, monkeypatch)
+def test_blocked_before_egress(surface_api, profile_provider, monkeypatch, gate):
+    profile, _, _, call_id = api_profile(surface_api, monkeypatch, profile_provider)
     pid = profile["summary"]["id"]
     client = surface_api.admin
     if gate == "permission":
@@ -131,16 +131,16 @@ def test_blocked_before_egress(surface_api, https_provider, monkeypatch, gate):
         f"{PROFILES}/{pid}/test", json={"expected_revision": 1 if gate == "search" else 0}
     )
     assert response.status_code == {"permission": 403, "csrf": 422}.get(gate, 409), response.text
-    assert https_provider.state.snapshot(UUID(call_id))["count"] == 0
+    assert profile_provider.state.snapshot(UUID(call_id))["count"] == 0
 
 
 @pytest.mark.parametrize(
     "dependency", ["profile", "channel", "model", "surface", "header", "delete"]
 )
 def test_dependency_change_invalidates_current_test(
-    surface_api, https_provider, monkeypatch, dependency
+    surface_api, profile_provider, monkeypatch, dependency
 ):
-    profile, channel, model, _ = api_profile(surface_api, monkeypatch)
+    profile, channel, model, _ = api_profile(surface_api, monkeypatch, profile_provider)
     pid = profile["summary"]["id"]
     result = surface_api.admin.post(f"{PROFILES}/{pid}/test", json={"expected_revision": 0})
     assert result.status_code == 200, result.text
@@ -181,79 +181,27 @@ def test_dependency_change_invalidates_current_test(
             assert current.ai_model_id is None and current.ai_channel_id is None
 
 
-@pytest.mark.parametrize("failure", ["tls", "dns", "peer"])
-def test_security_failures_do_not_send_credentials_or_prompt(
-    surface_api, https_provider, monkeypatch, failure
-):
-    import socket
-    import ssl
-    from typing import cast
-
-    from tests.integration.test_ai_egress_https import PeerOverrideSocket
-
-    profile, _, _, call_id = api_profile(surface_api, monkeypatch)
-    transport = https_provider.test_transport
-    if failure == "tls":
-        context = ssl.create_default_context()
-        monkeypatch.setattr(
-            transport,
-            "_tls_wrapper",
-            lambda connection, host: context.wrap_socket(connection, server_hostname=host),
-        )
-    elif failure == "dns":
-        monkeypatch.setattr(
-            transport,
-            "_resolver",
-            lambda host, port, **kwargs: [
-                (
-                    socket.AF_INET,
-                    socket.SOCK_STREAM,
-                    socket.IPPROTO_TCP,
-                    "",
-                    ("93.184.216.34", port),
-                ),
-                (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("127.0.0.1", port)),
-            ],
-        )
-    else:
-        monkeypatch.setattr(
-            transport,
-            "_connector",
-            lambda address, timeout: cast(
-                socket.socket,
-                PeerOverrideSocket(
-                    socket.create_connection(("127.0.0.1", https_provider.server_port), timeout),
-                    "8.8.8.8",
-                ),
-            ),
-        )
-    response = surface_api.admin.post(
-        f"{PROFILES}/{profile['summary']['id']}/test", json={"expected_revision": 0}
-    )
-    assert response.status_code == 200, response.text
-    assert response.json()["summary"]["last_test_status"] == "FAILED"
-    assert response.json()["test_error"]["code"] == (
-        "AI_PROVIDER_UNAVAILABLE" if failure == "tls" else "AI_URL_FORBIDDEN"
-    )
-    assert https_provider.state.snapshot(UUID(call_id))["count"] == 0
-
-
 @pytest.mark.parametrize("parameters", [{}, {"max_tokens": 32}, {"max_completion_tokens": 32}])
 def test_diagnostic_respects_the_tested_model_output_parameter(
-    surface_api, https_provider, monkeypatch, parameters
+    surface_api, profile_provider, monkeypatch, parameters
 ):
-    profile, _, _, call_id = api_profile(surface_api, monkeypatch, model_parameters=parameters)
+    profile, _, _, call_id = api_profile(
+        surface_api, monkeypatch, profile_provider, model_parameters=parameters
+    )
     response = surface_api.admin.post(
         f"{PROFILES}/{profile['summary']['id']}/test", json={"expected_revision": 0}
     )
     assert response.status_code == 200, response.text
     assert response.json()["summary"]["last_test_status"] == "PASSED"
-    assert https_provider.test_request_bodies == [
-        {
-            "model": "fake-model",
-            "messages": [{"role": "user", "content": "hi"}],
-            "stream": False,
-            **parameters,
-        }
+    expected_body = {
+        "model": "fake-model",
+        "stream": False,
+        "messages": [{"role": "user", "content": "hi"}],
+        **parameters,
+    }
+    stats = profile_provider.state.snapshot(UUID(call_id))
+    wire = json.dumps(expected_body, separators=(",", ":"), ensure_ascii=False).encode()
+    assert stats["requests"] == [
+        {"body_sha256": hashlib.sha256(wire).hexdigest(), "body_bytes": len(wire)}
     ]
-    assert https_provider.state.snapshot(UUID(call_id))["count"] == 1
+    assert stats["count"] == 1

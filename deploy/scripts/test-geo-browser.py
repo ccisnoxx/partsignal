@@ -45,6 +45,13 @@ def configuration_checks(owner):
                 "-f", str(deploy / f"compose.{environment}.yaml")]
         default = json.loads(execute(base + ["config", "--format", "json"], env=env))
         assert "browser-collector" not in default["services"]
+        all_default = json.loads(execute(
+            base + ["--profile", "*", "config", "--format", "json"], env=env
+        ))
+        assert "browser-collector" not in all_default["services"]
+        # 实验骨架必须显式提供隔离 overlay，默认 Compose 永远不加载。
+        if environment != "prod":
+            base += ["-f", str(deploy / "compose.geo-browser.yaml")]
         configured = json.loads(execute(
             base + ["--profile", "geo-browser", "config", "--format", "json"], env=env
         ))

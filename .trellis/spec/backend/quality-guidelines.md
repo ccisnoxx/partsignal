@@ -42,7 +42,7 @@ Questions to answer:
 
 ### Starlette TestClient 依赖
 
-- 当前 Starlette TestClient 优先导入 `httpx2`；业务 HTTP 调用继续使用 `httpx`，测试 extra 单独声明 `httpx2>=2,<3`。不得删除业务依赖或用 warning filter 掩盖旧客户端回退。
+- 当前 Starlette TestClient 优先导入 `httpx2`；旧业务 HTTP 调用继续使用 `httpx`；PSR-001 的官方 OpenAI SDK 通过运行时依赖引入 `httpx2`，边界见 [AI 配置规范](./ai-configuration-guidelines.md)。测试 extra 继续显式声明 `httpx2>=2,<3`。不得删除业务依赖或用 warning filter 掩盖旧客户端回退。
 - 修改 TestClient 相关依赖后必须更新 `backend/uv.lock`，重建 `backend-test` 镜像，并运行实际发起请求的轻量测试。
 
 ```bash

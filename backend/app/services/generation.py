@@ -43,8 +43,8 @@ from app.services.ai_configuration import (
     request_credentials,
     require_supported_protocol,
 )
+from app.services.ai_provider import AIProvider, ChatCompletionResult
 from app.services.content_lineage import resolve_content_ai_lineage
-from app.services.openai_client import CompletionResult, OpenAICompatibleClient
 
 logger = logging.getLogger("partsignal.worker")
 GENERATION_CONTRACT_VERSION: Literal["content-markdown-v3"] = "content-markdown-v3"
@@ -278,7 +278,7 @@ def generate_for_job(
     job: GenerationJob,
     generation_input: dict[str, Any],
     generator: ContentGenerator | None,
-) -> tuple[GeneratedDraft, CompletionResult | None]:
+) -> tuple[GeneratedDraft, ChatCompletionResult | None]:
     """按作业冻结的适配器执行，不允许重试时切换生成方式。"""
     _require_test_generator(generator)
     if generator is None:
@@ -319,17 +319,27 @@ def generate_for_job(
         sensitive_header_names,
         current_headers,
     )
-    result = OpenAICompatibleClient(allow_local_http=settings.ai_allow_local_http).complete(
+    result = AIProvider(allow_local_http=settings.ai_allow_local_http).chat_completion(
         base_url=str(snapshot.channel["base_url"]),
         api_key=api_key,
         headers=headers,
         timeout_seconds=int(snapshot.channel["timeout_seconds"]),
         model_id=str(snapshot.model["model_id"]),
         request_parameters=dict(snapshot.model["request_parameters"]),
-        system_message=snapshot.system_message,
-        user_message=snapshot.user_message,
+        messages=[
+            {"role": "system", "content": snapshot.system_message},
+            {"role": "user", "content": snapshot.user_message},
+        ],
     )
-    return result.draft, result
+    try:
+        payload = json.loads(result.content)
+    except json.JSONDecodeError:
+        raise AppError("AI_RESPONSE_INVALID", "模型响应不是单个合法 JSON 对象", 502) from None
+    try:
+        draft = GeneratedDraft.model_validate(payload)
+    except ValidationError:
+        raise AppError("AI_RESPONSE_INVALID", "模型响应不符合严格四字段 Schema", 502) from None
+    return draft, result
 
 
 def generation_timeout_seconds(
@@ -493,18 +503,20 @@ def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None
             )
         except Exception as error:
             db.rollback()
-            failed = db.get(GenerationJob, job_id)
-            if failed is not None:
-                failed.status = "FAILED"
-                failed.error_code = (
-                    error.code if isinstance(error, AppError) else "GENERATION_FAILED"
-                )
-                failed.error_summary = (
-                    error.message if isinstance(error, AppError) else "生成作业执行失败"
-                )[:1000]
-                failed.finished_at = datetime.now(UTC)
-                failed.lease_expires_at = None
-                db.commit()
+            failed = db.scalar(
+                select(GenerationJob).where(GenerationJob.id == job_id).with_for_update()
+            )
+            if failed is None or failed.status != "RUNNING":
+                # 迟到异常和迟到成功遵循同一终态保护，不能覆盖租约回收器的结果。
+                return
+            failed.status = "FAILED"
+            failed.error_code = error.code if isinstance(error, AppError) else "GENERATION_FAILED"
+            failed.error_summary = (
+                error.message if isinstance(error, AppError) else "生成作业执行失败"
+            )[:1000]
+            failed.finished_at = datetime.now(UTC)
+            failed.lease_expires_at = None
+            db.commit()
             logger.error(
                 "AI 作业失败 job_id=%s job_type=%s source_content_version_id=%s "
                 "status=FAILED error_code=%s error_type=%s",

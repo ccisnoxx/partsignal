@@ -1,0 +1,43 @@
+{
+  "id": "psr-007-final-alignment",
+  "name": "psr-007-final-alignment",
+  "title": "PSR-007：最终文档统一、残留扫描与发布前验收",
+  "description": "最终文档统一、残留扫描与发布前验收；整个维护工作流已获人工接受",
+  "status": "completed",
+  "dev_type": "infra",
+  "scope": "最终文档与验收证据",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-13",
+  "completedAt": "2026-10-13",
+  "branch": "docs/PSR-007-final-alignment",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "最终文档统一、残留逐行分类、快速/领域/合同与Dev/Prod Compose配置实测通过；完整verify-release在Docker容器集成阶段环境阻断。保留首轮GEO存储退出失败及成功复验。待人工review，不标done；未提交/推送/部署/真实AI调用。 用户于2026-10-13明确人工审查并接受PSR-007及整个OpenAI SDK替换、Browser延期清理和手工质量验证分层工作流；维护manifest为done、Trellis为completed。原完整verify-release的Docker环境阻断记录保留，不改写为通过。本次仅状态/人工验收记录与diff/残留扫描，不实施后续功能，不提交/推送/部署/归档。",
+  "meta": {
+    "workflow_status": "done",
+    "dependencies": [
+      "PSR-004",
+      "PSR-006"
+    ],
+    "preflight_record": ".trellis/tasks/10-13-psr-007-final-alignment/preflight.md",
+    "validation_record": ".trellis/tasks/10-13-psr-007-final-alignment/implement.md",
+    "release_gate": {
+      "status": "blocked_environment",
+      "command": "make verify-release",
+      "stage": "test-integration",
+      "cause": "Docker daemon socket /var/run/docker.sock 不存在"
+    },
+    "human_acceptance": "accepted",
+    "human_accepted_at": "2026-10-13",
+    "workflow_human_acceptance": "accepted"
+  }
+}

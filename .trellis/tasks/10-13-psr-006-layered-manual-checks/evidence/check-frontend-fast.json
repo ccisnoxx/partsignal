@@ -1,0 +1,8 @@
+{
+  "command": [
+    "make",
+    "check-frontend-fast"
+  ],
+  "exit_code": 0,
+  "seconds": 54.8
+}

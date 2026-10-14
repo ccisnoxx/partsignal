@@ -18,9 +18,9 @@ from app.models.identity import User
 from app.schemas.configuration import AIChannelCreate, AIChannelHeaderCreate, AIModelCreate
 from app.security import hash_password
 from app.services.ai_configuration import bootstrap_production_ai_configuration
+from app.services.ai_provider import validate_header
 from app.services.generation_dispatch import generation_diagnostics
 from app.services.integrity import publication_integrity_issues
-from app.services.openai_client import validate_header
 
 PRODUCTION_AI_BOOTSTRAP_MAX_BYTES = 64 * 1024
 PRODUCTION_AI_BOOTSTRAP_REQUEST_ID = re.compile(

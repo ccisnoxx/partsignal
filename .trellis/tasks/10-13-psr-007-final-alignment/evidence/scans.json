@@ -1,0 +1,111 @@
+[
+  {
+    "phase": "before",
+    "scans": {
+      "transport": {
+        "command": "rg -n \"PinnedHTTPTransport|PinnedTransportError|PinnedResponse|resolve_endpoint|connect_address|wrap_tls\" .",
+        "exit_code": 1,
+        "matches": 0,
+        "classification_counts": {}
+      },
+      "client": {
+        "command": "rg -n \"OpenAICompatibleClient\" backend tests docs deploy",
+        "exit_code": 1,
+        "matches": 0,
+        "classification_counts": {}
+      },
+      "network": {
+        "command": "rg -n \"DNS pin|DNS rebinding|TCP peer|sockaddr|HTTP/1\\.1|手工 TLS|固定.*IP\" README.md docs backend tests deploy",
+        "exit_code": 0,
+        "matches": 7,
+        "classification_counts": {
+          "当前SDK边界声明": 2,
+          "部署输入与真实Gate边界": 1,
+          "当前旧能力描述": 1,
+          "历史验收记录": 1,
+          "威胁描述": 1,
+          "本机测试HTTP服务器": 1
+        }
+      },
+      "browser": {
+        "command": "rg -n \"browser-collector|GEO_BROWSER_|BROWSER_ADAPTER_NOT_IMPLEMENTED|geo-browser|GeoBrowserSession|session_probe\" README.md docs deploy .env*.example Makefile",
+        "exit_code": 0,
+        "matches": 136,
+        "classification_counts": {
+          "显式实验入口": 11,
+          "当前关闭声明": 2,
+          "隔离延期配置": 23,
+          "维护元数据": 1,
+          "默认关闭断言": 1,
+          "显式历史E2E材料": 4,
+          "当前禁用/拒绝断言": 17,
+          "显式隔离/负例测试": 36,
+          "当前延期/禁止声明": 12,
+          "已接受延期决策": 1,
+          "历史交付/审查记录": 21,
+          "显式延期合同测试": 7
+        }
+      },
+      "workflows": {
+        "command": "find .github/workflows -maxdepth 1 -type f 2>/dev/null",
+        "exit_code": 1,
+        "matches": 0,
+        "classification_counts": {}
+      }
+    }
+  },
+  {
+    "phase": "after",
+    "scans": {
+      "transport": {
+        "command": "rg -n \"PinnedHTTPTransport|PinnedTransportError|PinnedResponse|resolve_endpoint|connect_address|wrap_tls\" .",
+        "exit_code": 1,
+        "matches": 0,
+        "classification_counts": {}
+      },
+      "client": {
+        "command": "rg -n \"OpenAICompatibleClient\" backend tests docs deploy",
+        "exit_code": 1,
+        "matches": 0,
+        "classification_counts": {}
+      },
+      "network": {
+        "command": "rg -n \"DNS pin|DNS rebinding|TCP peer|sockaddr|HTTP/1\\.1|手工 TLS|固定.*IP\" README.md docs backend tests deploy",
+        "exit_code": 0,
+        "matches": 7,
+        "classification_counts": {
+          "当前SDK边界声明": 3,
+          "部署输入与真实Gate边界": 1,
+          "威胁描述": 1,
+          "历史验收记录": 1,
+          "本机测试HTTP服务器": 1
+        }
+      },
+      "browser": {
+        "command": "rg -n \"browser-collector|GEO_BROWSER_|BROWSER_ADAPTER_NOT_IMPLEMENTED|geo-browser|GeoBrowserSession|session_probe\" README.md docs deploy .env*.example Makefile",
+        "exit_code": 0,
+        "matches": 137,
+        "classification_counts": {
+          "显式实验入口": 11,
+          "当前关闭声明": 2,
+          "隔离延期配置": 23,
+          "维护元数据": 2,
+          "默认关闭断言": 1,
+          "显式历史E2E材料": 4,
+          "当前禁用/拒绝断言": 17,
+          "显式隔离/负例测试": 36,
+          "当前延期/禁止声明": 12,
+          "已接受延期决策": 1,
+          "历史交付/审查记录": 21,
+          "显式延期合同测试": 7
+        }
+      },
+      "workflows": {
+        "command": "find .github/workflows -maxdepth 1 -type f 2>/dev/null",
+        "exit_code": 1,
+        "matches": 0,
+        "classification_counts": {}
+      }
+    }
+  }
+]

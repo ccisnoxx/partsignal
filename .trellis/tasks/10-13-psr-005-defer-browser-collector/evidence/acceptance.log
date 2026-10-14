@@ -1,0 +1,5 @@
+Make 六个默认目标：零 Browser 专属执行；普通 Playwright/API 合同保留
+Dev Compose 默认/Browser/全部 profile：零 Browser 服务和会话挂载
+当前产品/开发/测试/运维一致性：26 份统一声明，无本轮删除章节的活动引用
+当前核心架构图：零 Browser 服务节点
+GEO 文档 SHA256：138 条目全部匹配

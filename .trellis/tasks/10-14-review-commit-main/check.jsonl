@@ -1,0 +1,3 @@
+{"file":"docs/testing.md","reason":"验证范围、证据复用与完整发布的实际缺口"}
+{"file":".trellis/spec/backend/ai-configuration-guidelines.md","reason":"SDK 外发、凭据、业务资格与并发合同"}
+{"file":".trellis/spec/infra/production-image-delivery.md","reason":"部署候选、runtime、维护与状态边界"}

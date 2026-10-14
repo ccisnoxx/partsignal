@@ -1,0 +1,83 @@
+{
+  "status": "review",
+  "dependency": "PSR-005 done",
+  "baseline_head": "9b588544",
+  "commands": {
+    "check-backend-fast": {
+      "command": [
+        "make",
+        "check-backend-fast"
+      ],
+      "exit_code": 0,
+      "seconds": 92.82
+    },
+    "check-frontend-fast": {
+      "command": [
+        "make",
+        "check-frontend-fast"
+      ],
+      "exit_code": 0,
+      "seconds": 54.8
+    },
+    "check-ai": {
+      "command": [
+        "make",
+        "check-ai"
+      ],
+      "database": "PSR-006临时PostgreSQL17 / loopback:53792",
+      "exit_code": 0,
+      "seconds": 65.53
+    },
+    "check-geo": {
+      "command": [
+        "make",
+        "check-geo"
+      ],
+      "database": "PSR-006临时PostgreSQL17 / loopback:53792",
+      "storage": "PSR-006临时development对象存储 / loopback:55037",
+      "exit_code": 0,
+      "seconds": 80.55
+    }
+  },
+  "release_dry_run_equal_to_baseline": true,
+  "workflow_specific_active_references": 0,
+  "existing_changed_files": [
+    ".github/workflows/ci.yml",
+    ".trellis/spec/infra/ci-execution.md",
+    ".trellis/spec/infra/index.md",
+    "Makefile",
+    "README.md",
+    "deploy/scripts/e2e-geo.sh",
+    "deploy/scripts/test-geo-collector-contract.py",
+    "docs/Hostdzire部署上线流程.md",
+    "docs/development.md",
+    "docs/geo-monitoring/03-technical/07-testing-and-quality.md",
+    "docs/geo-monitoring/CHANGELOG.md",
+    "docs/geo-monitoring/SHA256SUMS",
+    "docs/maintenance/openai-sdk-refactor/README.md",
+    "docs/maintenance/openai-sdk-refactor/task-manifest.yaml",
+    "docs/testing.md"
+  ],
+  "temporary_test_databases_remaining": 0,
+  "temporary_ports_released": [
+    53792,
+    55037
+  ],
+  "not_run": [
+    "verify-release",
+    "full integration",
+    "PG16 recovery",
+    "Docker build/container",
+    "Redis/Celery processes",
+    "Playwright/E2E",
+    "Browser",
+    "remote Actions/deploy"
+  ],
+  "diff_check_exit": 0,
+  "make_seven_target_dry_run_exit": 0,
+  "geo_sha256_entries": 138,
+  "changed_document_links_checked": true,
+  "staged_files": [],
+  "status_checked": true,
+  "temporary_owner_directory_removed": true
+}

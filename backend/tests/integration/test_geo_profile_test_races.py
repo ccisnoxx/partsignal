@@ -10,7 +10,7 @@ from sqlalchemy import text
 
 from app.errors import AppError
 from app.services import geo_profile_tests
-from tests.integration.geo_profile_test_support import api_profile, https_provider  # noqa: F401
+from tests.integration.geo_profile_test_support import api_profile, profile_provider  # noqa: F401
 from tests.integration.geo_surface_management_support import (  # noqa: F401
     PROFILES,
     actor,
@@ -23,29 +23,32 @@ pytestmark = pytest.mark.integration
 
 @pytest.mark.parametrize("interleaving", ["duplicate", "model", "header", "new-test"])
 def test_inflight_completion_cannot_overwrite_current_intent(
-    surface_api, https_provider, monkeypatch, interleaving
+    surface_api, profile_provider, monkeypatch, interleaving
 ):
-    profile, channel, model, call_id = api_profile(surface_api, monkeypatch)
+    profile, channel, model, call_id = api_profile(surface_api, monkeypatch, profile_provider)
     pid = UUID(profile["summary"]["id"])
     received, release = Event(), Event()
-    factory = geo_profile_tests.OpenAICompatibleClient
+    factory = geo_profile_tests.AIProvider
     count_lock = Lock()
     calls = 0
 
     class PausedClient:
+        def __init__(self, **configuration):
+            self.provider = factory(**configuration)
+
         def test_connection(self, **arguments):
             nonlocal calls
             with count_lock:
                 calls += 1
                 first = calls == 1
-            content = factory().test_connection(**arguments)
+            content = self.provider.test_connection(**arguments)
             if first:
                 received.set()
                 assert release.wait(10), "交错测试未释放网络完成"
             return content
 
     monkeypatch.setattr(
-        geo_profile_tests, "OpenAICompatibleClient", lambda **kwargs: PausedClient()
+        geo_profile_tests, "AIProvider", PausedClient
     )
 
     def run():
@@ -61,7 +64,7 @@ def test_inflight_completion_cannot_overwrite_current_intent(
     with ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(run)
         try:
-            assert received.wait(10), "固定诊断没有到达真实 fake HTTPS"
+            assert received.wait(10), "固定诊断没有到达真实 fake HTTP"
             if interleaving == "duplicate":
                 duplicate = surface_api.admin.post(
                     f"{PROFILES}/{pid}/test", json={"expected_revision": 0}
@@ -105,6 +108,6 @@ def test_inflight_completion_cannot_overwrite_current_intent(
     assert current["summary"]["last_test_status"] == (
         "PASSED" if interleaving in {"duplicate", "new-test"} else "UNTESTED"
     )
-    assert https_provider.state.snapshot(UUID(call_id))["count"] == (
+    assert profile_provider.state.snapshot(UUID(call_id))["count"] == (
         2 if interleaving == "new-test" else 1
     )

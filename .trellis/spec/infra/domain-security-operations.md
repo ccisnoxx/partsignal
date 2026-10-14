@@ -189,7 +189,7 @@ Docker bridge 进入宿主机 INPUT 链。所有 Docker 项目需要复用宿主
 
 - 枚举 `docker network inspect`，确认 bridge 项目与接口命名边界。
 - `iptables-restore --test < /etc/iptables/rules.v4` 通过，运行时 `iptables -S INPUT` 存在两条等价规则。
-- 从至少两个不同项目 bridge 无凭据访问目标 HTTPS，5 秒内返回明确 401/403；PartSignal API 容器使用实际固定 DNS 传输做同样检查。
+- 从至少两个不同项目 bridge 无凭据访问目标 HTTPS，5 秒内返回明确 401/403；PartSignal API 容器使用官方 SDK 做同样检查，显式关闭自动重试。
 - 从容器连接宿主机公网 IP 的 22/80 仍失败，443 成功。
 - `nginx -t`、公网 smoke、API ready 和关键容器健康均通过。
 

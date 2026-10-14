@@ -80,6 +80,22 @@ PARTSIGNAL_IMAGE_DELIVERY_MODE=local ./deploy/scripts/deploy.sh
 
 由权威脚本完成候选校验、`--pull never` 和既有状态转换。
 
+## Scenario：Production 日常部署
+
+### Scope 与入口
+
+`redeploy-production.sh` 调用状态 owner 的 `routine-production` 子命令，核心裁决仍在已认证的 `production_deployment.py`。允许 `check`、`prepare`、`activate`、`smoke`、`restart`；构建、上传、Git、源码验证与 Nginx 原子切换沿用 Runbook，不在日常入口隐式执行。验证选择由 [Runbook §3](../../../docs/Hostdzire部署上线流程.md#3-repository-与-candidate) 唯一维护；新候选不自动运行完整门禁。
+
+### 合同
+
+- 新版本 check/prepare 要求 initialized 当前状态、state 冻结的旧 manifest、由各 manifest 摘要认证的旧/新 source archive、相同 Alembic 源码和真实数据库 head。只比较新/旧 schema 名称不足以证明无迁移；缺证明或迁移变化必须转完整 Runbook，不静默降级。
+- 日常 check/prepare/activate/restart 复用完整现用 runtime：标准库输入检查及已认证 API 内 stdin 探针对比全部允许的 runtime 键，任何差异转配置 Runbook。配置值不进入 argv、Docker Env inspect 或输出；prepared 后改动 runtime 不能激活异步服务。实际写命令前必须重新 publish checkpoint，保证维护证明期间收到取消后不继续启动写操作。
+- prepare/activate/restart 在第一个应用变更前确认固定 Production origin `https://geo.962850.xyz` 的维护状态和正文。拒绝其他 origin，避免错误站点充当维护证明或收到会话。check 不能代替 mutation 前的重新核验。所有变更继续使用同一维护锁及 supervisor；嵌套 deploy/activate 不创建平行状态 owner。
+- prepare 固定 local/upgrade；现有配置、完整性、迁移、prepared 和 failure/attempt 合同保留。activate 固定沿用现有外部 Gate 裁决，不接受 AI 待配置代替 upgrade 的 MET。
+- restart 仅接受 state 绑定的 initialized 候选，包括已经初始化的 fresh-rebuild；拒绝另一候选、未知阶段、实际服务镜像或身份漂移。只对应用四服务使用 no-build/pull never/no-deps，不修改状态、数据服务、schema、账号或 bootstrap attempt；原 AI 待配置事实不改变。
+- smoke 从实际容器身份与候选 image ID 证明版本，校验真实 DB head、live/ready、登录页和匿名受保护 API 拒绝。请求必须有限超时，错误不输出凭据/敏感响应；可选业务会话只从受保护文件读取并执行固定只读请求。
+- 用目标 CLI/state 回归验证新资格边界、维护拒绝、同候选重启与服务范围、状态不变、身份漂移、schema/迁移变化、HTTP 失败及既有发布路径。fake Docker 合同证据不冒充真实 Host 部署或时间测量。
+
 ## Scenario：获准丢弃旧数据的清空重建
 
 - 只有用户明确授权PartSignal旧数据不保留时使用fresh-init；不与旧clean-init/upgrade的保留恢复语义混用。操作范围仅固定DATA_ROOT下postgres/redis/objects目录内容，不删除受保护runtime、TLS、其他project或共享OSSbucket。

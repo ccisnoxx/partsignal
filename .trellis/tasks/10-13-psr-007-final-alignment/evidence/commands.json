@@ -1,0 +1,47 @@
+[
+  {
+    "label": "contract-check",
+    "argv": [
+      "make",
+      "contract-check"
+    ],
+    "exit_code": 0,
+    "seconds": 5.1
+  },
+  {
+    "label": "check-fast",
+    "argv": [
+      "make",
+      "check-fast"
+    ],
+    "exit_code": 0,
+    "seconds": 122.36
+  },
+  {
+    "label": "check-ai",
+    "argv": [
+      "make",
+      "check-ai"
+    ],
+    "exit_code": 0,
+    "seconds": 62.31
+  },
+  {
+    "label": "check-geo",
+    "argv": [
+      "make",
+      "check-geo"
+    ],
+    "exit_code": 2,
+    "seconds": 61.48
+  },
+  {
+    "label": "verify-release",
+    "argv": [
+      "make",
+      "verify-release"
+    ],
+    "exit_code": 2,
+    "seconds": 127.36
+  }
+]

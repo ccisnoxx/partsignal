@@ -1,0 +1,848 @@
+[
+  {
+    "path": "deploy/scripts/activate-production.sh",
+    "lines": 123,
+    "sha256": "4ef99816d4a188de85657e8f7079811c76aa21e3b857123afa7699bd4d8085c1",
+    "entrypoints": [
+      "python3 \"$script_dir/check-production-inputs.py\" --deployment-boundary \\",
+      "compose_up_async() {",
+      "docker compose --env-file \"$env_file\" -f \"$compose_file\" config --quiet",
+      "python3 \"$script_dir/prepare-production-data.py\" \\",
+      "docker compose --profile production-async --env-file \"$env_file\" \\"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/backup.sh",
+    "lines": 25,
+    "sha256": "a3f91ae9066cdc8388a6bded2352b3bbaeb72d923ae03f82125fac70be3685c0",
+    "entrypoints": [
+      "exec \"${RECOVERY_PYTHON:-$root/backend/.venv/bin/python}\" \"$root/deploy/scripts/geo-recovery.py\" \"$@\""
+    ],
+    "script_calls": [
+      "geo-recovery.py"
+    ]
+  },
+  {
+    "path": "deploy/scripts/check-geo-fixtures.py",
+    "lines": 39,
+    "sha256": "91fcf441073735235ef8fb5db3cfaffce0aae1d241e7a2913d8cee806900cb43",
+    "entrypoints": [
+      "main"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/check-nginx-security.mjs",
+    "lines": 229,
+    "sha256": "4e7d58c549cab3cdc5c98b53a672d1beabddf02832c6a803bff532f566155704",
+    "entrypoints": [],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/check-production-inputs.py",
+    "lines": 435,
+    "sha256": "c3d43780ac16f743adc186a67a0be14ad69a98ee86f4e987d8e596607c499f07",
+    "entrypoints": [
+      "InputError",
+      "read_private",
+      "parse_runtime",
+      "check_runtime",
+      "check_deployment_boundary",
+      "check_running_runtime",
+      "strict_object",
+      "check_ai",
+      "main"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/create-release-manifest.py",
+    "lines": 222,
+    "sha256": "50e5cc925ffff0719ee9f86c611e33b7ccb6b599462cf8dfd0ededc20ad6266e",
+    "entrypoints": [
+      "sha256",
+      "inspect_image",
+      "parse_args",
+      "verify_release_source",
+      "main"
+    ],
+    "script_calls": [
+      "activate-production.sh",
+      "check-production-inputs.py",
+      "deploy.sh",
+      "prepare-production-data.py",
+      "production_deployment.py",
+      "production_fresh_reset.py",
+      "production_maintenance_execution.py",
+      "production_migration_runtime.py",
+      "production_upgrade_recovery.py",
+      "rollback-production-frontend.sh"
+    ]
+  },
+  {
+    "path": "deploy/scripts/deploy-staging.sh",
+    "lines": 43,
+    "sha256": "dc11584133d2180e8f3caf53cca738fe7d942b8d336f412a1bd7bad9da4a73b3",
+    "entrypoints": [
+      "docker compose --env-file \"$env_file\" -f \"$compose_file\" config --quiet",
+      "docker compose --env-file \"$env_file\" -f \"$compose_file\" build api frontend",
+      "docker compose --env-file \"$env_file\" -f \"$compose_file\" up -d postgres redis fake-oss",
+      "docker compose --env-file \"$env_file\" -f \"$compose_file\" run --rm api \\",
+      "docker compose --env-file \"$env_file\" -f \"$compose_file\" up -d --wait worker scheduler",
+      "docker compose --env-file \"$env_file\" -f \"$compose_file\" up -d --wait api frontend",
+      "docker compose --env-file \"$env_file\" -f \"$compose_file\" ps"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/deploy.sh",
+    "lines": 7,
+    "sha256": "0ad34e3d8a28285a74c23bc0fd261dc37ee2689665af7a719d13629ccf6e5120",
+    "entrypoints": [
+      "python3 \"$script_dir/check-production-inputs.py\" --deployment-boundary \\",
+      "exec python3 \"$script_dir/prepare-production-data.py\" deploy-production \"$@\""
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/e2e-database-lifecycle.sh",
+    "lines": 20,
+    "sha256": "82518b3c5c8d2934c8e763dc1fdc633026089f56de2b43eeee84d8290ce7b072",
+    "entrypoints": [
+      "create_owned_e2e_database() {",
+      "drop_owned_e2e_database() {"
+    ],
+    "script_calls": [
+      "e2e-database.py"
+    ]
+  },
+  {
+    "path": "deploy/scripts/e2e-database.py",
+    "lines": 100,
+    "sha256": "d2bdf681394c43bfc0150187666155aff1978c5542c745c35d014b545919e1d7",
+    "entrypoints": [
+      "database_url",
+      "psycopg_url",
+      "owner_marker",
+      "manage_database",
+      "main"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/e2e-environment.py",
+    "lines": 124,
+    "sha256": "84125e3112680096078637dc28d907c023ec3b71afc12ea9f954707d82c32bfa",
+    "entrypoints": [
+      "redis_client",
+      "assert_exclusive",
+      "service_ports",
+      "assert_ports_released",
+      "preflight",
+      "cleanup",
+      "main"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/e2e-geo.sh",
+    "lines": 13,
+    "sha256": "7ef701294b48abdc91946b7fd89980bb9a274450bf5a0258d3c88ddd4a3c6b17",
+    "entrypoints": [],
+    "script_calls": [
+      "e2e-local.sh"
+    ]
+  },
+  {
+    "path": "deploy/scripts/e2e-local.sh",
+    "lines": 310,
+    "sha256": "dc46ad8a2859d931b3c6a9858aa7eaab56b4a0382838d66a8a284a3265e21dc0",
+    "entrypoints": [
+      ". \"$root/deploy/scripts/e2e-run-lifecycle.sh\"",
+      ". \"$root/deploy/scripts/e2e-database-lifecycle.sh\"",
+      "stop_process() {",
+      "cleanup() {",
+      "restore_e2e_signal_handlers() {",
+      "services_ready() {",
+      "run_playwright() {",
+      "run_secret_scan() {"
+    ],
+    "script_calls": [
+      "e2e-database-lifecycle.sh",
+      "e2e-environment.py",
+      "e2e-process-group.py",
+      "e2e-run-lifecycle.sh"
+    ]
+  },
+  {
+    "path": "deploy/scripts/e2e-process-group.py",
+    "lines": 244,
+    "sha256": "e0727a9acaba2be827db22f7874ef0d85dc29a6fb3da9e83f3dd637e7832325c",
+    "entrypoints": [
+      "normalize_returncode",
+      "process_group_exists",
+      "wait_for_process_group_disappearance",
+      "group_member_pids",
+      "kill_owned_group",
+      "run_group_anchor",
+      "run_supervisor",
+      "parse_args",
+      "main"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/e2e-run-lifecycle.sh",
+    "lines": 60,
+    "sha256": "e87b32d97801aac874edf531c417b03fceb10cf217121cde24fb4adb3aa3c9da",
+    "entrypoints": [
+      "e2e_forward_signal() {",
+      "e2e_wait_for_active_process() {",
+      "run_e2e_playwright_and_scan() {"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/export-geo-metrics.py",
+    "lines": 48,
+    "sha256": "eeff1a89ce8cfda35c1dc7978ab37454504f723ef67b798d3b368c97f7ba1777",
+    "entrypoints": [
+      "export",
+      "main"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/geo-recovery.py",
+    "lines": 441,
+    "sha256": "4d78ea713b240fc94fb57407a83c10dad02ac83b27ac06bd89e4f195a5a4cc16",
+    "entrypoints": [
+      "browser_check",
+      "download_object",
+      "backup",
+      "load_bundle",
+      "restore",
+      "main"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/geo_recovery_bundle.py",
+    "lines": 122,
+    "sha256": "bba21d5956c0310919e36e97c9247480b146c8f3b649941a39c3165bf688186c",
+    "entrypoints": [
+      "RecoveryError",
+      "private_file",
+      "backup_key",
+      "private_directory",
+      "write_private",
+      "file_digest",
+      "seal",
+      "unseal",
+      "_unseal_stream"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/geo_recovery_environment.py",
+    "lines": 192,
+    "sha256": "c88877bd848dff5f1b1b1b25eb12b42b9312ef0fd0f05c48176d85d01beb7260",
+    "entrypoints": [
+      "connection_boundary",
+      "validate_secrets",
+      "secret_proofs",
+      "restored_settings",
+      "RecoveryCleanupError",
+      "cleanup_owned_database",
+      "pg_tool",
+      "restore_archive"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/prepare-preview-env.py",
+    "lines": 126,
+    "sha256": "80a1c52a71d39353b9ee1204b4340a6076b434791ba4de794058a8d843a20d35",
+    "entrypoints": [
+      "InputError",
+      "main"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/prepare-production-data.py",
+    "lines": 1861,
+    "sha256": "ed3822fb2dce414993aed7f157794fffde3e348e20c94af3c8f30af23279506a",
+    "entrypoints": [
+      "DataStateError",
+      "BootstrapResultUnknown",
+      "fsync_directory",
+      "atomic_rename",
+      "configured_path",
+      "configured_roots",
+      "ensure_plain_directory",
+      "atomic_write_state",
+      "read_state",
+      "file_sha256",
+      "candidate_from_manifest",
+      "require_candidate",
+      "verify_candidate_images",
+      "verify_image",
+      "verify_rollback_frontend",
+      "mark_frontend_rollback",
+      "configured_lock_file",
+      "maintenance_lock",
+      "run_locked",
+      "supervised_operation",
+      "read_bootstrap_credential",
+      "_bootstrap_header_specs",
+      "_bootstrap_payload",
+      "_application_code_bind_mount",
+      "running_api_container_id",
+      "_strict_json_object",
+      "_validate_backend_bootstrap_result",
+      "_backend_bootstrap_result",
+      "_request_parameters",
+      "_attempt_status",
+      "require_activation_safe_bootstrap_attempt",
+      "ai_configuration_handoff",
+      "require_empty_ai_configuration",
+      "defer_ai_configuration",
+      "require_activation_safe_ai_configuration",
+      "reject_upgrade_ai_pending_gate",
+      "bootstrap_ai",
+      "ensure_services_stopped",
+      "ensure_same_device",
+      "require_run_id",
+      "target_for",
+      "quarantine",
+      "verify_phase",
+      "begin_clean_init",
+      "transition_candidate",
+      "upgrade_entry_state",
+      "begin_upgrade",
+      "prove_upgrade_runtime",
+      "require_low_sensitive_ref",
+      "persist_upgrade_failure",
+      "record_observed_upgrade_failure",
+      "declare_pre_activation_failure",
+      "prove_upgrade_cache_policy",
+      "transition_upgrade",
+      "verify_upgrade_prepared",
+      "require_upgrade_attempt",
+      "recover_upgrade",
+      "verify_migration_image",
+      "validate_recovery_boundary",
+      "verify_recovery_database",
+      "restore",
+      "parse_args",
+      "main"
+    ],
+    "script_calls": [
+      "activate-production.sh",
+      "check-production-inputs.py",
+      "deploy.sh",
+      "prepare-production-data.py",
+      "production_deployment.py",
+      "production_fresh_reset.py",
+      "production_maintenance_execution.py",
+      "production_migration_runtime.py",
+      "production_upgrade_recovery.py",
+      "rollback-production-frontend.sh"
+    ]
+  },
+  {
+    "path": "deploy/scripts/production_deployment.py",
+    "lines": 471,
+    "sha256": "b32061942038604b158856499e9a5800043de672ad5711c62c8376e260251336",
+    "entrypoints": [
+      "deployment_inputs",
+      "execute",
+      "initialized_state",
+      "runtime_identity",
+      "database_revision",
+      "NoRedirect",
+      "http_get",
+      "response_object",
+      "public_base",
+      "maintenance_guard",
+      "smoke",
+      "routine"
+    ],
+    "script_calls": [
+      "check-production-inputs.py"
+    ]
+  },
+  {
+    "path": "deploy/scripts/production_fresh_reset.py",
+    "lines": 275,
+    "sha256": "c2e2927bd5e47f752a6c55a23b646ccfe1bb005cf4da4148b0aacee98162c67b",
+    "entrypoints": [
+      "identity",
+      "mount_points",
+      "require_fresh_candidate",
+      "data_root",
+      "directory_fd",
+      "check_tree",
+      "verify_directories",
+      "clear_directory",
+      "reset_data",
+      "verify_phase",
+      "begin_fresh_init"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/production_maintenance_execution.py",
+    "lines": 235,
+    "sha256": "3e7d0164ba78ea43a3d4b14fafed7a06f92eecf2ef2f65e45e309b2b78c0d239",
+    "entrypoints": [
+      "ExecutionResult",
+      "exit_code",
+      "wait_group_stopped",
+      "signal_group",
+      "descendant_groups",
+      "supervise"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/production_migration_runtime.py",
+    "lines": 211,
+    "sha256": "172a034739eefaa77c2d6eb13b7bf114b1d643a643f971c39a6856f4988407dd",
+    "entrypoints": [
+      "_json_digest",
+      "files_digest",
+      "validate_fingerprint",
+      "_fingerprint",
+      "canonical_path",
+      "source_files",
+      "checkout_source_files",
+      "source_digest",
+      "_image_configuration",
+      "_export_fingerprint",
+      "_docker",
+      "image_runtime_fingerprint"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/production_upgrade_recovery.py",
+    "lines": 107,
+    "sha256": "77939f095eb1b17d8ffe9ad14b079afa224b3cde83d9558ba695f17904fa3e76",
+    "entrypoints": [
+      "digest",
+      "plain_file",
+      "archive_migrations",
+      "authenticated_archive",
+      "verify_archives"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/redeploy-production.sh",
+    "lines": 6,
+    "sha256": "0e930b38154a38a40f230a4bedf3239016adfcd54afbdf8862ffe62f27da7040",
+    "entrypoints": [
+      "exec python3 \"$script_dir/prepare-production-data.py\" routine-production \"$@\""
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/redeploy-staging-fast.sh",
+    "lines": 220,
+    "sha256": "b64f4e167fa3697b568df08cb2e8bb5500edcd1b8f144fe94d89317f12642652",
+    "entrypoints": [
+      "usage() {",
+      "finish() {",
+      "stage() {",
+      "fail() {",
+      "fail() {",
+      "probe() {"
+    ],
+    "script_calls": [
+      "deploy-staging.sh",
+      "redeploy-staging-fast.sh"
+    ]
+  },
+  {
+    "path": "deploy/scripts/restore-verify.sh",
+    "lines": 15,
+    "sha256": "fc158c38b24051581a65249fe535fa1a32e80d2326850bdba1d62f61930f2839",
+    "entrypoints": [
+      "exec \"${RECOVERY_PYTHON:-$root/backend/.venv/bin/python}\" \"$root/deploy/scripts/geo-recovery.py\" \\"
+    ],
+    "script_calls": [
+      "geo-recovery.py"
+    ]
+  },
+  {
+    "path": "deploy/scripts/rollback-production-frontend.sh",
+    "lines": 56,
+    "sha256": "5c32710d036aebaa8e7a8e923b3d9f5bcdbc3a6bfad12468ad5701c0c73cdae4",
+    "entrypoints": [
+      "python3 \"$script_dir/check-production-inputs.py\" --deployment-boundary \\",
+      "python3 \"$script_dir/prepare-production-data.py\" \\",
+      "python3 \"$script_dir/prepare-production-data.py\" \\"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/smoke.sh",
+    "lines": 7,
+    "sha256": "af4217df8de2c28d8c460e60b31c60e1db47d9cb68b5db7b7e37cff4b18a84f1",
+    "entrypoints": [],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/test-deploy-production-cleanup.sh",
+    "lines": 196,
+    "sha256": "fdddb6852d9cf43110593258c922618d093120b9bc1190a295859167b0eb2309",
+    "entrypoints": [
+      "cleanup_suite() {",
+      "handle_suite_exit() {",
+      "handle_suite_signal() {",
+      "assert_roots_differ() {",
+      "owned_dirs() {",
+      "assert_clean_and_sibling_intact() {",
+      "remove_owned_fixture() {",
+      "run_exit_case() {",
+      "run_cleanup_refusal_case() {",
+      "run_cleanup_failure_case() {",
+      "run_signal_case() {"
+    ],
+    "script_calls": [
+      "test-deploy-production.sh"
+    ]
+  },
+  {
+    "path": "deploy/scripts/test-deploy-production.sh",
+    "lines": 2593,
+    "sha256": "f323e5431e08e4869e9a0d53fe847ab64d1d42dfdfbdc67f7b59ee4da9f0d9a4",
+    "entrypoints": [
+      "cleanup() {",
+      "handle_exit() {",
+      "handle_signal() {",
+      "python3 - \"$root/.env.example\" \"$test_dir/deployment-runtime.env\" \\",
+      "source = \"\\n\".join(line for line in Path(sys.argv[1]).read_text().splitlines()",
+      "source = source.replace(\"APP_ENV=development\", \"APP_ENV=production\") + \"\\n\"",
+      "python3 - \"$test_dir/compose.json\" \"$test_dir/live\" \"$test_dir/compose-runtime.env\" \\",
+      "python3 - \"$root\" \"$test_dir\" <<'PY'",
+      "uv run --offline --no-sync --project \"$root/backend\" python - \"$root\" \"$test_dir\" <<'PY'",
+      "python3 - \"$test_dir/compose-async.json\" <<'PY'",
+      "python3 - \"$root/deploy/scripts/prepare-production-data.py\" <<'PY'",
+      "python3 - \"$root\" \"$test_dir\" <<'PY'",
+      "reset_docker_log()",
+      "reset_docker_log()",
+      "reset_docker_log()",
+      "reset_docker_log()",
+      "python3 \"$root/deploy/scripts/test-production-ai-handoff.py\"",
+      "python3 - \"$test_dir/release-manifest.json\" \"$test_dir/release-manifest-drift.json\" \\",
+      "data_env() {",
+      "python3 - \"$test_dir/live/.partsignal-production-cutover.json\" <<'PY'",
+      "python3 - \"$root\" \"$test_dir\" <<'PY'",
+      "python3 - \"$test_dir/live/.partsignal-production-cutover.json\" <<'PY'",
+      "python3 - \"$test_dir/live/.partsignal-production-cutover.json\" <<'PY'",
+      "python3 - \"$test_dir/release-manifest.json\" <<'PY'",
+      "python3 \"$root/deploy/scripts/test-production-fresh-reset.py\"",
+      "python3 \"$root/deploy/scripts/test-production-fresh-reset-mounts.py\"",
+      "python3 \"$root/deploy/scripts/test-production-bootstrap-headers.py\""
+    ],
+    "script_calls": [
+      "activate-production.sh",
+      "check-production-inputs.py",
+      "create-release-manifest.py",
+      "deploy.sh",
+      "prepare-production-data.py",
+      "production_deployment.py",
+      "production_fresh_reset.py",
+      "production_maintenance_execution.py",
+      "production_migration_runtime.py",
+      "production_upgrade_recovery.py",
+      "rollback-production-frontend.sh",
+      "test-migration-runtime-docker.py",
+      "test-production-ai-handoff.py",
+      "test-production-bootstrap-headers.py",
+      "test-production-fresh-reset-mounts.py",
+      "test-production-fresh-reset.py"
+    ]
+  },
+  {
+    "path": "deploy/scripts/test-deploy-staging.sh",
+    "lines": 228,
+    "sha256": "72870b4b29c8872b2311107554c6545bfca0a6366bcc598ba94981e8e591f60d",
+    "entrypoints": [
+      "cleanup() {",
+      "uv run --offline --no-sync --project \"$root/backend\" python - \"$root\" \"$test_dir\" <<'PY'",
+      "source = (root / \"deploy/scripts/redeploy-staging-fast.sh\").read_text()",
+      "python3 - \"$test_dir/frontend-only-config.json\" <<'PY'"
+    ],
+    "script_calls": [
+      "deploy-staging.sh",
+      "prepare-preview-env.py",
+      "redeploy-staging-fast.sh"
+    ]
+  },
+  {
+    "path": "deploy/scripts/test-e2e-database-lifecycle.sh",
+    "lines": 225,
+    "sha256": "dd442d4f24bf8a7787a9d84d1e5caf1fb3e69cdcd9f73d8fbd4671aac616068f",
+    "entrypoints": [
+      ". \"$E2E_DATABASE_LIFECYCLE_HELPER\"",
+      "cleanup() {",
+      "run_scenario() {",
+      ". \"$E2E_RUN_LIFECYCLE_HELPER\"",
+      "run_playwright() {",
+      "run_secret_scan() {",
+      "restore_e2e_signal_handlers() {"
+    ],
+    "script_calls": [
+      "e2e-database-lifecycle.sh",
+      "e2e-run-lifecycle.sh"
+    ]
+  },
+  {
+    "path": "deploy/scripts/test-e2e-run-lifecycle.sh",
+    "lines": 251,
+    "sha256": "1b6f0a601c95f70b94f94d046eb0f92942d588d8021608a79bf63f8daffb8088",
+    "entrypoints": [
+      "reporter() {",
+      ". \"$E2E_LIFECYCLE_HELPER\"",
+      "cleanup() {",
+      "run_playwright() {",
+      "run_secret_scan() {",
+      "line_count() {",
+      "report_case_failure() {",
+      "assert_case() {"
+    ],
+    "script_calls": [
+      "e2e-process-group.py",
+      "e2e-run-lifecycle.sh"
+    ]
+  },
+  {
+    "path": "deploy/scripts/test-frontend-container.sh",
+    "lines": 65,
+    "sha256": "52b2d9fa4c4d933af7ba6f5515363d567ec1a77badca61eb26c7be7d9401a894",
+    "entrypoints": [
+      "cleanup() {",
+      "docker run -d --name \"$container\" --read-only \\"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/test-geo-browser-contract.py",
+    "lines": 128,
+    "sha256": "42ba0130d2bb7ecc154aa08924dd99d9a717049b485cc5e3481baac670a31898",
+    "entrypoints": [
+      "main"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/test-geo-browser.py",
+    "lines": 214,
+    "sha256": "993e17908dec467827e2d48521b39094b1b879eb92ca45bb3ad3ec8ce17c636e",
+    "entrypoints": [
+      "execute",
+      "configuration_checks",
+      "runtime_checks",
+      "main"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/test-geo-collector-contract.py",
+    "lines": 72,
+    "sha256": "8a3cf2d6294d543e0e57d084a311de083cd56d58efba00ecd614aa328b099078",
+    "entrypoints": [
+      "scan_files",
+      "main"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/test-geo-configuration.py",
+    "lines": 169,
+    "sha256": "ca0124480e46e0e92d8019950a7b1a061d199999c504cd102a21a6062c8eb703",
+    "entrypoints": [
+      "main"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/test-geo-recovery-integration.py",
+    "lines": 77,
+    "sha256": "64e14bd104411438f47298ebd4d625607a9faefc1f26caad119c940fc5cb6790",
+    "entrypoints": [
+      "compose_output",
+      "main"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/test-migration-runtime-docker.py",
+    "lines": 58,
+    "sha256": "2cc6cb22183476428703411433c9190fe8cc473a2f30df0453c38d6dafd63127",
+    "entrypoints": [
+      "main"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/test-migration-runtime.py",
+    "lines": 307,
+    "sha256": "000841208af92b79edc72d41d346a23705a13e23473440b2880eb91bb4c69dbe",
+    "entrypoints": [
+      "MigrationRuntimeTests"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/test-production-ai-handoff.py",
+    "lines": 363,
+    "sha256": "bd202cda83c41775d5c3b5b92b2d75358f401784d0d3ac79364dbedca4c07b69",
+    "entrypoints": [
+      "AIHandoffTests"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/test-production-bootstrap-headers.py",
+    "lines": 311,
+    "sha256": "e6b0805d81356466d10f84b400e889bfe347fe8a6ea0adcd9684881be25f276b",
+    "entrypoints": [
+      "BootstrapHeaderTests"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/test-production-fresh-reset-mounts.py",
+    "lines": 92,
+    "sha256": "5ef7200621deef1ab29592346fda79fb2e93ad71aff2ef45a829ab7f72f94716",
+    "entrypoints": [
+      "FreshRootMountTests"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/test-production-fresh-reset.py",
+    "lines": 485,
+    "sha256": "716e13b1057455bd77ae5a3bdd5a69f3dea5f80bf1dd0242ca1e507eb017c66f",
+    "entrypoints": [
+      "load",
+      "FreshResetTests"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/test-production-routine.py",
+    "lines": 471,
+    "sha256": "63b2566e8e299d9e50a60a62f90b6434f0a0707184a695299bee7ffa0e2931a9",
+    "entrypoints": [
+      "HTTPFixture",
+      "RoutineTests"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/test-upgrade-cache-policy.py",
+    "lines": 88,
+    "sha256": "9a3ce8e2e2a282f75ced4c4ee37225a4740f5fa280c6670f413126ff3b238f0b",
+    "entrypoints": [
+      "CachePolicyTests"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/test-upgrade-failure.py",
+    "lines": 113,
+    "sha256": "9cba6519cae3c8b3d2e35f3d1790ba62b6611b54bbf317caa3dc127ecfd5515e",
+    "entrypoints": [
+      "UpgradeFailureTests"
+    ],
+    "script_calls": [
+      "prepare-production-data.py"
+    ]
+  },
+  {
+    "path": "deploy/scripts/test-upgrade-image-cache.py",
+    "lines": 146,
+    "sha256": "4207a54150e2d241788c7f155c2d1f2c862e84d6dc5f097972a0716ca9b46d79",
+    "entrypoints": [
+      "docker",
+      "main"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/test-upgrade-recovery-compose.py",
+    "lines": 500,
+    "sha256": "d28c30b88dc053172e3ec7b810bc8fc43817f147b3be51b258b7e848823bccec",
+    "entrypoints": [
+      "main"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/test-upgrade-recovery.py",
+    "lines": 524,
+    "sha256": "d4c167eeb070aec5d145bb920e469b555ac18b113d6fbf34df5d74037114f6fc",
+    "entrypoints": [
+      "UpgradeRecoveryTests"
+    ],
+    "script_calls": [
+      "deploy.sh"
+    ]
+  },
+  {
+    "path": "deploy/scripts/test-upgrade-registry-order.py",
+    "lines": 159,
+    "sha256": "b1463f70e6d638fc89175ba159c6dd5b94ca62b5029b948e2f3982c1ad87c635",
+    "entrypoints": [
+      "RegistryUpgradeTests"
+    ],
+    "script_calls": [
+      "deploy.sh"
+    ]
+  },
+  {
+    "path": "deploy/scripts/test-upgrade-runtime-policy.py",
+    "lines": 97,
+    "sha256": "1f72cd03ec16d62e4d25ae5f530dcc4cdb58e71a922f02950935136783adcfe9",
+    "entrypoints": [
+      "RuntimePolicyTests"
+    ],
+    "script_calls": []
+  },
+  {
+    "path": "deploy/scripts/test-upgrade-signal.py",
+    "lines": 193,
+    "sha256": "24ca89dbb0e13b4cc1900a07daadb4d9031664fe0b325d1072022e3f75b691e1",
+    "entrypoints": [
+      "executable",
+      "recovery_entry_signal",
+      "main"
+    ],
+    "script_calls": [
+      "prepare-production-data.py"
+    ]
+  },
+  {
+    "path": "frontend/tests/e2e/run-with-secret-scan.sh",
+    "lines": 67,
+    "sha256": "478b8991dcab72e2711572b06dd0c01f3c87b4e80e5cb888201313c7c9c0c5cb",
+    "script_calls": [
+      "root/deploy/scripts/e2e-run-lifecycle.sh"
+    ]
+  },
+  {
+    "path": "frontend/tests/helpers/test-secret-artifact-post-run.sh",
+    "lines": 48,
+    "sha256": "a74d0ee3640088ebc2ebb57a1a226ea792523e7482825be7e38c4b9f63305e41",
+    "script_calls": [
+      "root/frontend/tests/e2e/run-with-secret-scan.sh"
+    ]
+  }
+]

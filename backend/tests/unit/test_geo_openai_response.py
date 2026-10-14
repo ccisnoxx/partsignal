@@ -8,7 +8,6 @@ import pytest
 from app.collectors.errors import CollectorError, CollectorStage
 from app.collectors.openai_response import parse_response
 from app.schemas.geo_runs import GeoExternalCallState, GeoRunErrorCode
-from app.services.pinned_http import PinnedResponse
 
 
 def completion(**changes):
@@ -20,7 +19,8 @@ def completion(**changes):
 
 def parse(payload, **headers):
     return parse_response(
-        PinnedResponse(200, headers, json.dumps(payload, ensure_ascii=False).encode()),
+        json.dumps(payload, ensure_ascii=False).encode(),
+        provider_request_id=headers.get("x-request-id"),
         duration_ms=1,
     )
 
@@ -172,9 +172,9 @@ def test_partial_cost_stays_unknown(cost):
 )
 def test_malformed_or_incomplete_reported_fields_fail_closed(changes):
     # ensure_ascii 可构造非法 surrogate 金标，由响应边界负责拒绝。
-    response = PinnedResponse(200, {}, json.dumps(completion(**changes)).encode())
+    response = json.dumps(completion(**changes)).encode()
     with pytest.raises(CollectorError) as caught:
-        parse_response(response, duration_ms=1)
+        parse_response(response, provider_request_id=None, duration_ms=1)
     assert caught.value.failure.code == GeoRunErrorCode.PROVIDER_RESPONSE_INVALID
     assert caught.value.failure.stage == CollectorStage.PARSE
     assert caught.value.failure.external_call_state == GeoExternalCallState.COMPLETED
@@ -193,7 +193,7 @@ def test_malformed_or_incomplete_reported_fields_fail_closed(changes):
 )
 def test_invalid_encoding_duplicates_nonfinite_and_excessive_nesting(body):
     with pytest.raises(CollectorError):
-        parse_response(PinnedResponse(200, {}, body), duration_ms=1)
+        parse_response(body, provider_request_id=None, duration_ms=1)
 
 
 def test_request_id_controls_are_rejected_and_debug_cookies_are_discarded():

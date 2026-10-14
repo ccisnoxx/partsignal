@@ -1,0 +1,138 @@
+{
+  "task": "PSR-007",
+  "status": "review",
+  "human_acceptance": "pending",
+  "dependencies": {
+    "PSR-004": "done",
+    "PSR-006": "done"
+  },
+  "all_prior_tasks": {
+    "PSR-001": "done",
+    "PSR-002": "done",
+    "PSR-003": "done",
+    "PSR-004": "done",
+    "PSR-005": "done",
+    "PSR-006": "done"
+  },
+  "candidate": "current dirty working tree; HEAD 9b588544; not a clean release commit",
+  "commands": [
+    {
+      "label": "contract-check",
+      "argv": [
+        "make",
+        "contract-check"
+      ],
+      "exit_code": 0,
+      "seconds": 5.1
+    },
+    {
+      "label": "check-fast",
+      "argv": [
+        "make",
+        "check-fast"
+      ],
+      "exit_code": 0,
+      "seconds": 122.36
+    },
+    {
+      "label": "check-ai",
+      "argv": [
+        "make",
+        "check-ai"
+      ],
+      "exit_code": 0,
+      "seconds": 62.31
+    },
+    {
+      "label": "check-geo",
+      "argv": [
+        "make",
+        "check-geo"
+      ],
+      "exit_code": 2,
+      "seconds": 61.48
+    },
+    {
+      "label": "verify-release",
+      "argv": [
+        "make",
+        "verify-release"
+      ],
+      "exit_code": 2,
+      "seconds": 127.36
+    },
+    {
+      "label": "geo-affected-recheck",
+      "argv": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "pytest",
+        "backend/tests/integration/test_geo_manual_collection.py",
+        "backend/tests/integration/test_geo_manual_collection_boundaries.py",
+        "backend/tests/integration/test_geo_manual_races.py",
+        "--tb=short"
+      ],
+      "exit_code": 0,
+      "seconds": 13.49,
+      "storage_running_after": true
+    },
+    {
+      "label": "check-geo.final",
+      "argv": [
+        "make",
+        "check-geo"
+      ],
+      "exit_code": 0,
+      "seconds": 79.96,
+      "storage_running_after": true
+    }
+  ],
+  "final_successful_make_commands": [
+    "contract-check",
+    "check-fast",
+    "check-ai",
+    "check-geo"
+  ],
+  "release_gate": {
+    "status": "blocked_environment",
+    "exit_code": 2,
+    "stage": "test-integration",
+    "failed_command": "docker compose --env-file .env -f deploy/compose.dev.yaml run --rm backend-test pytest tests/integration --ignore=tests/integration/test_geo_recovery.py",
+    "error": "Docker daemon /var/run/docker.sock: connect: no such file or directory",
+    "passed_before_failure": [
+      "contract-check",
+      "lint",
+      "typecheck",
+      "test-unit"
+    ],
+    "not_executed_after_failure": [
+      "PG16 full integration/recovery",
+      "GEO performance",
+      "Docker builds/container smoke",
+      "Redis/Celery real stack",
+      "complete Playwright/E2E",
+      "release deploy-script suite",
+      "release recipe Compose checks"
+    ]
+  },
+  "compose_config": "Dev/Prod quiet plus default/browser/all profiles exit0; zero Browser services/session mounts; production empty template is not readiness proof",
+  "public_contract_database_alembic_changes": false,
+  "historical_migrations": 66,
+  "alembic_head": "0066_geo_manual_evaluation",
+  "new_functional_fixes": [],
+  "real_external_ai_calls": false,
+  "committed": false,
+  "pushed": false,
+  "deployed": false,
+  "temporary_resources": "PG/storage stopped, zero test databases, both ports released, scratch directory removed",
+  "deleted_by_this_task": [],
+  "document_checks": {
+    "local_links": 35,
+    "geo_sha256_entries": 138,
+    "all_three_templates_noncomment_content_unchanged": true
+  },
+  "git_diff_check_exit": 0,
+  "all_source_changes_are_documents_templates_and_task_records": true
+}

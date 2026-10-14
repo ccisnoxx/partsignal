@@ -1,0 +1,9 @@
+{
+  "command": [
+    "make",
+    "check-ai"
+  ],
+  "database": "PSR-006临时PostgreSQL17 / loopback:53792",
+  "exit_code": 0,
+  "seconds": 65.53
+}

@@ -1,0 +1,17 @@
+.env.example
+.env.production.example
+.env.staging.example
+.trellis/spec/infra/e2e-isolation.md
+README.md
+docs/GEO系统前后端技术与部署方案.md
+docs/Hostdzire部署上线流程.md
+docs/Hostdzire部署附录.md
+docs/architecture.md
+docs/geo-monitoring/03-technical/08-deployment-and-operations.md
+docs/geo-monitoring/CHANGELOG.md
+docs/geo-monitoring/SHA256SUMS
+docs/maintenance/openai-sdk-refactor/README.md
+docs/maintenance/openai-sdk-refactor/task-manifest.yaml
+docs/operations.md
+docs/production-configuration.md
+docs/testing.md

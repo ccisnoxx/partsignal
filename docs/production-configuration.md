@@ -1,5 +1,7 @@
 # 开发与 Production 配置准备
 
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+
 Hostdzire现有站点支持[开发预览](./development-preview.md)与获准的Production安装；本页定义Production运行配置与初始化方式。当前内部试运行按用户授权清空重建，使用既有受保护生产配置。内部密码、系统密钥和初始账号密码由部署准备生成/管理，用户只提供自己拥有的外部服务信息。
 
 ## 1. 应该复制哪个文件
@@ -34,7 +36,7 @@ runtime 文件使用单行 literal `KEY=value`，不使用引号、内联注释�
 
 ## 2. 生产运行时配置项
 
-`.env.production.example` 列出 39 个字段（原有 35 项加 4 项 GEO 开关），不表示已运行的生产文件已更新。技术上必填空值共11项：六个内部secret由首次部署准备生成，`DATABASE_URL`由数据库身份派生，OSS四项由用户提供；不是要求用户手填11项。`VITE_API_BASE_URL` 在同源生产部署中为空。运行参数由部署操作者确认；已有环境复用原值。
+`.env.production.example` 列出 46 个当前字段，并用注释列出可选保留期限与预算，不表示已运行的生产文件已更新。技术上必填空值共11项：六个内部secret由首次部署准备生成，`DATABASE_URL`由数据库身份派生，OSS四项由用户提供；不是要求用户手填11项。`VITE_API_BASE_URL` 在同源生产部署中为空。运行参数由部署操作者确认；已有环境复用原值。
 
 | 字段 | 填写与校验 |
 | --- | --- |
@@ -58,9 +60,14 @@ runtime 文件使用单行 literal `KEY=value`，不使用引号、内联注释�
 | `GENERATION_FINALIZE_GRACE_SECONDS` | 默认 `120`，范围 `1..3600` |
 | `GENERATION_RECOVERY_BATCH_SIZE` | 默认 `100`，范围 `1..1000` |
 | `GENERATION_RECOVERY_SCAN_SECONDS` | 默认 `60`，范围 `5..3600` |
-| `GEO_MONITORING_ENABLED` | 新 GEO 写能力总开关，默认 `false`；R0 只建立配置，不注册业务入口 |
+| `GEO_MONITORING_ENABLED` | GEO 写能力总开关，默认 `false`；当前支持 MANUAL 与已实现 API，开启仍须满足业务资格 |
 | `GEO_API_COLLECTION_ENABLED`、`GEO_OPPORTUNITY_EVALUATION_ENABLED` | 默认 `false`；任一为 `true` 必须同时开启 Monitoring，否则 Settings 启动失败；子开关独立，不互相隐式启用 |
 | `GEO_BROWSER_COLLECTION_ENABLED` | Production 固定 `false`；省略仍为 `false`，显式输入只接受 literal `false`；Monitoring=true 也不能启用 Browser，Settings 和 production preflight 拒绝 true |
+| `GEO_PENDING_REDISPATCH_SECONDS`、`GEO_COLLECTION_FINALIZE_GRACE_SECONDS` | 可省略，默认分别 `120`、`120`；采集补投递/收尾参数，不授予重复外发资格 |
+| `GEO_RECOVERY_SCAN_SECONDS`、`GEO_RECOVERY_BATCH_SIZE` | 可省略，默认 `60`、`100`；采集恢复扫描频率/批量 |
+| `GEO_RETENTION_DRY_RUN`、`GEO_RETENTION_BATCH_SIZE` | 可省略，默认 `true`、`100`；新保留策略先预览 |
+| `GEO_RAW_PAYLOAD_RETENTION_DAYS`、`GEO_TERMINAL_DRAFT_RETENTION_DAYS`、`GEO_UNREFERENCED_FILE_RETENTION_DAYS` | 可省略；期限经数据负责人批准后显式配置，省略不启用对应新策略 |
+| `GEO_DAILY_BUDGET_LIMIT`、`GEO_DAILY_BUDGET_CURRENCY` | limit 可省略表示不限额；currency 模板 `USD`；已配置预算时未知报价阻断采集 |
 | `OBJECT_STORAGE_BACKEND` | 固定 `aliyun_oss` |
 | `UPLOAD_SIGNING_SECRET` | 独立随机生成；保留 storage 配置字段，Aliyun OSS 路径不使用开发签名 |
 | `UPLOAD_INTENT_TTL_SECONDS`、`DOWNLOAD_URL_TTL_SECONDS` | 默认 `600`、`300` |
@@ -69,13 +76,13 @@ runtime 文件使用单行 literal `KEY=value`，不使用引号、内联注释�
 | `OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET` | 真实低权限凭据，权限与实际上传/HEAD/下载流程相符 |
 | `VITE_API_BASE_URL` | 同源构建为空；属于前端构建输入，修改运行时 env 不会改变已构建的前端镜像 |
 
-四项 GEO 是允许旧生产 runtime 省略的新增键；省略时由 `app.config.Settings` 唯一默认关闭，无需补键或轮换任何 secret。其余键仍要求完整，未知键拒绝；显式空值或非法布尔值不按省略处理。开关只控制后续新 GEO 能力，保留现有人工文章观测、洞察、优化命令和历史读取；开关不能替代权限、平台合规、凭据、预算或外发资格。
+四项 GEO 开关及输入检查允许省略的采集恢复、保留策略参数，由 `app.config.Settings` 唯一提供默认值；无需为补键轮换任何 secret。完整可选集合以 `check-production-inputs.py` 为准，其余键仍要求完整，未知键拒绝；显式空值或非法布尔值不按省略处理。开关控制当前 GEO 写能力，保留现有人工文章观测、洞察、优化命令和历史读取；开关不能替代权限、平台合规、凭据、预算或外发资格。
 
 API、Worker、Scheduler 的 Compose backend 定义共享同一 env 文件，固定 `APP_ENV=production`，应用共用 `app.config.settings`，Beat 通过相同 `app.worker:celery_app` 启动。Browser 输入保留原值并明确失败，不覆盖为 false 掩盖错误。开关是进程启动快照，修改 env 文件后必须通过受控部署统一重建三个进程；不是热重载，也不能撤回已发请求。采集任务仍需在外部调用前执行开关与资格门禁。
 
 GEO-1003 的生产部署、激活和前端回滚脚本在取得维护锁、改变部署状态或调用 Compose 前执行 `check-production-inputs.py --deployment-boundary <runtime_file>`。该模式只依赖 Python 标准库，并检查 runtime 与宿主环境：Browser 必须省略或 literal false；拒绝所有 Browser 会话材料；`COMPOSE_PROFILES` 只允许空值或 `production-async`；`COMPOSE_FILE` 只允许权威 `deploy/compose.prod.yaml`，拒绝 Browser/service-session overlay 和多文件组合。runtime 仍须符合普通文件、当前用户所有和 0600 合同。该模式不替代完整输入检查或 backend preflight。
 
-权威 production Compose 不包含 Browser service/profile/session 卷；显式 `geo-browser`、`COMPOSE_PROFILES=geo-browser` 或 `--profile '*'` 展开也不会产生 Browser 服务。两个 Browser Compose 文件仅供非 production，独立 Collector 在 production 身份下先于 Chromium 启动拒绝。禁止通过手工多文件 Compose 绕过权威部署入口；非生产骨架与 GEO-801～803 本地合同继续保留，没有真实 Adapter。release manifest producer/consumer 当前固定14项tracked files，包含输入检查、迁移运行时、部署/supervisor模块与清空边界owner；旧manifest不自动兼容。[ADR-008](./geo-monitoring/05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)将UI完成后新候选的门禁、工件和冻结归属GEO-1010-DEPLOY；目标Browser零服务/零会话材料仍须独立现场证据。
+权威 production Compose 不包含 Browser service/profile/session 卷；显式 `geo-browser`、`COMPOSE_PROFILES=geo-browser` 或 `--profile '*'` 展开也不会产生 Browser 服务。两个 Browser Compose 文件仅作为隔离历史资产保留，不被 Dev/Staging/Prod 默认入口引用。禁止通过手工多文件 Compose 绕过权威部署入口；GEO-801～803 历史源码和合同继续保留，当前不安装、启用或部署。release manifest producer/consumer 当前固定14项tracked files，包含输入检查、迁移运行时、部署/supervisor模块与清空边界owner；旧manifest不自动兼容。[ADR-008](./geo-monitoring/05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)将UI完成后新候选的门禁、工件和冻结归属GEO-1010-DEPLOY；目标Browser零服务/零会话材料仍须独立现场证据。
 
 应用在服务端 PUT 时原子指定对象 ACL 为 private，保护当前安装上传的 INTERNAL/PUBLIC 对象；共享 Bucket 可保留既有全局 ACL，不能以本项目部署为由修改其他项目对象或 Bucket CORS。真实 Gate 必须证明签名读取成功、匿名/到期/无效签名拒绝，并删除本次测试对象。
 
@@ -85,7 +92,7 @@ GEO-1003 的生产部署、激活和前端回滚脚本在取得维护锁、改�
 
 ## 3. AI 信息一次准备齐全
 
-AI 的 provider、模型、API Key、敏感 Header 属于 PostgreSQL 配置，环境文件只保存加密主密钥。往 `.env.production` 添加 `OPENAI_API_KEY`、`OPENAI_BASE_URL` 或 `OPENAI_MODEL` **不会被当前程序读取，也不会完成 AI 配置**。
+AI 使用官方 `openai` Python SDK，继续 OpenAI-compatible Chat Completions，`max_retries=0`。Base URL、模型、API Key 与普通/敏感 Header 属于 PostgreSQL 管理员配置，环境文件保存加密主密钥和运行模式。应用保留业务快照、PUBLIC 门禁、严格输出 Schema、状态机、审计与指标；生产 HTTPS 和 URL 输入校验不代表 DNS/IP/peer 固定保证。SDK 不接受非空进程级 `OPENAI_CUSTOM_HEADERS`，受支持 Header 必须通过管理配置；`X-Stainless-Raw-Response` 控制名明确拒绝。往 `.env.production` 添加 `OPENAI_API_KEY`、`OPENAI_BASE_URL` 或 `OPENAI_MODEL` **不会被当前程序读取，也不会完成 AI 配置**。
 
 新安装可以由用户明确选择**上线后在管理界面配置AI**：部署state owner在`PRODUCTION_PREPARED`下通过`defer-ai-configuration RUN_ID MANIFEST`记录同候选的`admin-ui`移交，核验运行API身份、AI三表空集并拒绝任何已有bootstrap attempt。该模式不要求AI输入清单、Key备妥或TTY交接；真实OSS验证仍必需，激活使用明确`OSS_MET_AI_PENDING`，不把AI Gate写成MET。管理员上线后通过既有ADMIN+CSRF入口保存渠道、可选Header和模型，真实测试通过后手动启用；此前无合格模型，AI生成由现有服务守卫拒绝。未显式选择该方式时，以下true-TTY bootstrap输入与原完整Gate仍适用。精确命令见[部署附录第6节](./Hostdzire部署附录.md#6-clean-init-与-fresh-init)。
 
@@ -138,7 +145,7 @@ uv run --project backend python deploy/scripts/check-production-inputs.py \
 
 该模式返回 `runtime=NOT_CHECKED`，只确认 AI 输入；仍须在未来新候选的维护前复核既有服务器配置身份和状态。
 
-该命令只读显式输入，要求普通文件、当前用户所有与 `0600`；完整模式检查 runtime 的键集合（仅允许省略四项默认关闭的 GEO 键）、重复/未知键、必填项、literal 语法、URL-safe secret、数据库 URL 解码后的身份一致、固定生产值及 OSS endpoint。AI 缺项和确认状态一起报告；在隔离 cwd/environment 中调用真实 backend 配置预检和 AI envelope reader 后，对 Schema 规范化的 URL 拒绝已知非公网 IP/localhost（包含缩写、十六进制等 IPv4 写法）。DNS 与实际网络仍由真实 Gate 检验。不会发现或读取另一份 `.env`，不会执行 Docker/SSH、连接数据库/provider、生成密钥、上传文件或改变状态；输出仅含已知字段名、固定错误码和配置状态。
+该命令只读显式输入，要求普通文件、当前用户所有与 `0600`；完整模式检查 runtime 的键集合（仅允许省略输入检查声明的 GEO 可选键）、重复/未知键、必填项、literal 语法、URL-safe secret、数据库 URL 解码后的身份一致、固定生产值及 OSS endpoint。AI 缺项和确认状态一起报告；在隔离 cwd/environment 中调用真实 backend 配置预检和 AI envelope reader 后，对 Schema 规范化的 URL 拒绝已知非公网 IP/localhost（包含缩写、十六进制等 IPv4 写法）。DNS 与实际网络仍由真实 Gate 检验。不会发现或读取另一份 `.env`，不会执行 Docker/SSH、连接数据库/provider、生成密钥、上传文件或改变状态；输出仅含已知字段名、固定错误码和配置状态。
 
 AI 检查按 Host 真实的 UTF-8、`ensure_ascii=False`、紧凑 JSON 格式计算完整 envelope，并以 owner 声明的 credential 和可选 Header 值 JSON 字节上界预留空间；复用实际 backend 的 **64 KiB** 上限和严格 envelope reader，不放宽 bootstrap 合同。该检查不读取真实值；它依赖 owner 对上界的确认，真实输入大于声明上界时不能使用该准备结果。过大的参数或不留 credential/Header 空间均在本地返回失败；Host 还会在 durable `STARTED` 前检查实际完整输入大小、Header 值字符和无回显读取结果。
 

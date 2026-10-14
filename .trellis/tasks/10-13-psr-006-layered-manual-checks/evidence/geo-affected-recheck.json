@@ -1,0 +1,16 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/integration/test_geo_manual_collection.py",
+    "backend/tests/integration/test_geo_manual_collection_boundaries.py",
+    "backend/tests/integration/test_geo_manual_races.py",
+    "backend/tests/integration/test_geo_analysis.py",
+    "--tb=short"
+  ],
+  "exit_code": 1,
+  "seconds": 7.15
+}

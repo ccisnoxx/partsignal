@@ -149,6 +149,7 @@ def assert_collection_case(
     scenario: FakeScenario,
     *,
     secrets: Sequence[str] = (),
+    failure_cases: Sequence[FailureCase] = FAILURE_CASES,
 ) -> CollectedAnswer | CollectorError:
     """每个 case 用新 run UUID；未来 adapter 测试直接复用该入口。"""
     provider.state.configure(request.run_id, scenario)
@@ -175,7 +176,7 @@ def assert_collection_case(
         "请求必须只有原 user prompt",
     )
     assert_secrets_absent([json.dumps(stats), str(result), repr(result)], secrets)
-    expected = next((c for c in FAILURE_CASES if c.mode == scenario.mode), None)
+    expected = next((c for c in failure_cases if c.mode == scenario.mode), None)
     if expected is not None:
         require(isinstance(result, CollectorError), "故障不能成为成功")
         assert isinstance(result, CollectorError)

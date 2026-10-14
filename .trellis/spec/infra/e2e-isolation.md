@@ -2,7 +2,9 @@
 
 ## 1. Scope / Trigger
 
-本地或 CI 运行根 `make e2e` 时适用。canonical Frontend 的 AI Channel Configuration、Product Facts、Content Editor、AI Production、Content Review、Content Version Detail、Publishing、GEO、Auth 与 System Admin 真实栈 Playwright 使用真实 PostgreSQL、Redis、API、Worker、对象存储和浏览器，每次运行必须拥有独立数据库与临时存储；fixture-based 页面测试继续只验证 production build artifact，不冒充真实业务闭环。对象存储下载 URL 的签名 query 属于临时 capability；真实文件流的 access log、Playwright failure message 和保留产物不得回显该 query。
+开发者手工在本地隔离环境运行根 `make e2e` 时适用；仓库不运行 GitHub Actions。canonical Frontend 的 AI Channel Configuration、Product Facts、Content Editor、AI Production、Content Review、Content Version Detail、Publishing、GEO、Auth 与 System Admin 真实栈 Playwright 使用真实 PostgreSQL、Redis、API、Worker、对象存储和浏览器，每次运行必须拥有独立数据库与临时存储；fixture-based 页面测试继续只验证 production build artifact，不冒充真实业务闭环。对象存储下载 URL 的签名 query 属于临时 capability；真实文件流的 access log、Playwright failure message 和保留产物不得回显该 query。
+
+手工快速/领域/发布入口的选择由 [测试策略](../../../docs/testing.md#手工分层命令) 与 [手工验证规范](./manual-quality-checks.md) 管理；本规范只拥有 E2E 的运行隔离与清理合同。
 
 ## 2. Signatures
 
@@ -19,8 +21,8 @@ backend/.venv/bin/uvicorn app.dev_storage:app --host 127.0.0.1 --port "$PARTSIGN
 ## 3. Contracts
 
 - `DATABASE_URL`、`REDIS_URL` 必填；`PARTSIGNAL_E2E_STORAGE_PORT` 可选，默认 `19009`。
-- `PARTSIGNAL_E2E_SPEC` 未设置时运行完整 canonical real-stack；设置时复用同一隔离数据库、Redis、存储、进程与 cleanup，只运行指定真实栈 spec。定向模式只用于独立诊断，不能替代完整 `make e2e` 或最终门禁。
-- `REDIS_URL` 必须指向启动前为空且本次运行独占的非 0 logical DB；DB 0、同库外部客户端或未知残留键直接失败。CI E2E 固定使用 DB 14，backend integration 继续使用 DB 15。
+- `PARTSIGNAL_E2E_SPEC` 未设置时运行完整 canonical real-stack；设置时复用同一隔离数据库、Redis、存储、进程与 cleanup，只运行指定真实栈 spec。按受影响行为选择验证时，定向模式可作为验收证据；不得将定向通过记作完整 `make e2e` 通过。明确要求全量覆盖的交付仍运行完整入口；日常部署的选择与证据复用遵循 [Hostdzire Runbook §3](../../../docs/Hostdzire部署上线流程.md)。
+- `REDIS_URL` 必须指向启动前为空且本次运行独占的非 0 logical DB；DB 0、同库外部客户端或未知残留键直接失败。手工 E2E 可选择独占 DB 14；backend integration 的容器入口使用 DB 15。
 - 数据库名必须匹配 `^partsignal_e2e_[0-9]{8}_[0-9a-f]{32}$`；日期和 run ID 只接受 ASCII，合法名称固定为 56 字节，不触发 PostgreSQL 标识符截断。32 位十六进制 run ID 由密码学安全随机源生成，不依赖跨容器或 PID namespace 唯一的进程号。创建和删除都拒绝其他名称。业务服务、Alembic 和种子命令只使用本次创建的数据库。
 - 每次运行另生成独立的 32 位十六进制 owner token。创建成功后以 PostgreSQL database comment 写入精确 owner marker；删除前必须从 PostgreSQL 读取并匹配该 marker。尝试创建本身不授予删除权；同名数据库预先存在或 marker 不匹配时显式拒绝删除。成功创建并标记后，即使 create 客户端随后失败，退出清理仍须验证 marker 并强制断开、删除本运行数据库。
 - 对象存储和 Celery beat 文件只写入本次 `mktemp -d` 创建的目录。
@@ -29,14 +31,14 @@ backend/.venv/bin/uvicorn app.dev_storage:app --host 127.0.0.1 --port "$PARTSIGN
 - 退出时无论测试成功、失败或收到信号，都停止并 `wait` 本次进程；只删除枚举后符合 allowlist 的精确 Celery/Kombu 键，并证明 Redis 为空和固定端口释放，再 drop 本次数据库和删除临时目录。
 - 清理输出分别使用数据库 `status=dropped`、存储 `status=removed`、Redis `status=deleted` 与端口 `status=released`；测试成功但任一清理失败时，脚本仍以非零状态退出。禁止 `FLUSHDB`、通配删除、broad kill 或候选路径清理。
 - `e2e-local.sh` 默认开启 `GEO_MONITORING_ENABLED` 与 `GEO_OPPORTUNITY_EVALUATION_ENABLED`，使 MANUAL 页面闭环具备人工配置、计划启停与 ADMIN 显式评估资格，API/Browser 关闭。显式 `PARTSIGNAL_E2E_GEO_MODE=enabled|api-disabled|monitoring-disabled` 时运行独立 GEO-408 阶段，分别使用总/API 开关 true/true、true/false、false/false，并显式关闭机会评估，符合隔离工厂的启动合同。Browser 始终关闭，生产默认值不变；不能把 MANUAL 页面资格无条件传给 GEO-408 工厂。
-- GEO 测试入口只在 `backend/tests/geo_e2e_*` 显式装配；启动验证 APP_ENV=test、随机独占 DB 名和 PostgreSQL owner comment、非 0 Redis 与精确回环 provider `127.0.0.1:19012/v1`。进程内批准和 PUBLIC 仅用于严格 GEO408 虚构输入；生产 registry、INTERNAL 工厂、CSRF/revision/SSRF/TLS/凭据/审计边界保持。GEO 端口与 PID 纳入同一 preflight、readiness 和 cleanup。
+- GEO 测试入口只在 `backend/tests/geo_e2e_*` 显式装配；启动验证 APP_ENV=test、随机独占 DB 名和 PostgreSQL owner comment、非 0 Redis 与精确回环 provider `127.0.0.1:19012/v1`。进程内批准和 PUBLIC 仅用于严格 GEO408 虚构输入；生产 registry、INTERNAL 工厂、CSRF/revision、URL/Header、凭据与审计边界保持；AI 使用官方 SDK，不承诺旧 DNS/IP/peer 固定保证。GEO 端口与 PID 纳入同一 preflight、readiness 和 cleanup。
 - 根 `make e2e` 先运行全部 canonical 真实 flow，精确清理后通过 `e2e-geo.sh` 依次运行上述三个独立 GEO 阶段，再运行 canonical fixture-based 页面 suite；任一阶段失败时根 target 非零。
 - 关闭开关阶段通过真实 Application Service 预先创建/排队 PENDING，然后启动关闭配置的新 API/Worker，并直接观察 PG 安全终态与该 Run 的 fake count=0。测试控制可重复真实 Celery 稳定 ID，不能改 Run 状态、伪造回答或业务成功；diagnostic UUID 与业务 UUID 分开计数。
 - Playwright `webServer` 必须执行 production build 后通过 `vite preview` 服务当前 artifact，不使用 Vite dev server。真实栈 external base URL 模式复用 orchestration 已启动的 4174 preview，不得再启动第二个 `webServer`。
 - 真实栈 spec 只允许测试 API 登录、读取最终投影和前端尚无页面的最小前置配置；已有页面覆盖的业务 mutation 必须通过 UI，禁止 `page.route`、`route.fulfill` 或固定成功状态。既有专项 flow 为建立独立读取或后续状态前置所需的 API mutation不得扩展为第二套业务编排。
 - Playwright config 在 `PARTSIGNAL_E2E_REAL_STACK=1` 时统一关闭 trace；普通 fixture suite 继续 `retain-on-failure`，不得让 credential 进入失败产物。
 - `foundationApi` 只允许 active ADMIN 的原子 `GET /api/v1/auth/session` snapshot；任何其他 API 请求、页面异常、失败请求或失败静态资源使 smoke 失败。匿名、首次改密、自助改密与退出由 `auth-session.spec.ts` 显式验证。
-- dev-storage 必须关闭 Uvicorn access log，避免完整签名 URL 进入终端或 CI 日志；Playwright `requestfailed` 只记录 method 与 pathname。浏览器上传仍严格使用 canonical API base 与 upload intent 相对路径解析出的 URL，但 assertion 只能比较 boolean 或其他不展开 operands 的值。
+- dev-storage 必须关闭 Uvicorn access log，避免完整签名 URL 进入终端或测试日志；Playwright `requestfailed` 只记录 method 与 pathname。浏览器上传仍严格使用 canonical API base 与 upload intent 相对路径解析出的 URL，但 assertion 只能比较 boolean 或其他不展开 operands 的值。
 
 ## 4. Validation & Error Matrix
 
@@ -67,8 +69,10 @@ backend/.venv/bin/uvicorn app.dev_storage:app --host 127.0.0.1 --port "$PARTSIGN
 
 ## 6. Tests Required
 
+以下检查针对本次实际影响的运行隔离合同选择，不要求每次部署或局部修改累加执行。显式选择完整 suite 时保留其全部既定流程与断言。
+
 - `bash -n deploy/scripts/e2e-local.sh`。
-- `PARTSIGNAL_E2E_SPEC=tests/e2e/<目标>-real-stack.spec.ts deploy/scripts/e2e-local.sh` 只运行目标 spec，仍输出 database `status=dropped`、storage `status=removed`、Redis `status=deleted` 与 port `status=released`；完整门禁仍由未设置变量的 `make e2e` 验证。
+- `PARTSIGNAL_E2E_SPEC=tests/e2e/<目标>-real-stack.spec.ts deploy/scripts/e2e-local.sh` 只运行目标 spec，仍输出 database `status=dropped`、storage `status=removed`、Redis `status=deleted` 与 port `status=released`；需要完整覆盖时由未设置变量的 `make e2e` 验证。
 - `python -m py_compile deploy/scripts/e2e-database.py deploy/scripts/e2e-environment.py`。
 - 至少运行一个真实 Playwright 用例，确认 production artifact 壳层按需就绪。
 - 分别验证成功和测试失败路径都输出数据库 `status=dropped`、存储 `status=removed`、Redis `status=deleted` 与端口 `status=released`，且对应资源已不存在。
@@ -76,7 +80,7 @@ backend/.venv/bin/uvicorn app.dev_storage:app --host 127.0.0.1 --port "$PARTSIGN
 - `deploy/scripts/e2e-local.sh` 必须实际运行 `tests/e2e/ai-channel-configuration-real-stack.spec.ts`、`product-facts-real-stack.spec.ts`、`catalog-real-stack.spec.ts`、`questions-real-stack.spec.ts`、`content-ai-real-stack.spec.ts`、`content-review-real-stack.spec.ts`、`content-version-detail-real-stack.spec.ts`、`publication-workspace-real-stack.spec.ts`、`geo-real-stack.spec.ts`、`auth-session-real-stack.spec.ts` 与 `system-admin-real-stack.spec.ts --project=foundation-desktop`。Catalog 用例验收监测身份、竞品字典、唯一冲突和产品事实不变；Questions 用例验收显式点名属性、CRUD/启停、持久化和运行入口占位；不扩展采集或分析能力。
 - `auth-session-real-stack.spec.ts` 必须在真实浏览器原生 Web Locks 下覆盖 transition owner 于 durable `STARTED` 后终止、存活页孤儿回收、全部页面关闭后的重载回收、初始化 STARTED→SETTLED 竞态、丢失 terminal 投递后的 durable 收敛与异常/旧协议 marker fail-closed；每条有效恢复路径精确断言 canonical session read 次数，无效协议断言零次读取，且 harness cleanup 仍证明数据库、存储、Redis 与端口全部释放。
 - 真实 GEO 上传成功后检查 dev-storage 输出和 Playwright 保留产物不含 `signature=`；同时断言浏览器 PUT 的完整 URL 与解析后的应用 API intent URL 完全相等。
-- 最后运行 `make e2e`；完整门禁运行 `make verify`。
+- 收口时运行能直接观察受影响行为的检查；只有具体风险无法由定向证据覆盖，或交付明确要求完整门禁时，才运行完整 `make e2e` / `make verify`。候选 SHA 变化或重新部署本身不触发完整门禁。
 
 ## 7. Wrong vs Correct
 

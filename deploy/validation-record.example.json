@@ -1,0 +1,28 @@
+{
+  "candidate_commit": null,
+  "baseline_commit": null,
+  "changed_paths": [],
+  "checks": [
+    {
+      "command": [],
+      "exit_code": null,
+      "status": "NOT_RUN",
+      "log_path": null
+    }
+  ],
+  "reused_evidence": [
+    {
+      "source_record": null,
+      "scope": [],
+      "unchanged_inputs": [],
+      "reason": null
+    }
+  ],
+  "full_gate": {
+    "status": "NOT_RUN",
+    "reason": null
+  },
+  "unverified_scope": [],
+  "release_id": null,
+  "deployment_performed": false
+}

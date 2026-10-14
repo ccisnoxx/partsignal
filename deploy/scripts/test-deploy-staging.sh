@@ -96,7 +96,7 @@ grep -Fqx '      - 127.0.0.1:19080:80' "$root/deploy/compose.staging.yaml"
 
 # 干净 runner 没有私有 .env.staging；配置探针只使用原文件副本和本次测试环境。
 mkdir "$test_dir/compose"
-cp "$root/deploy/compose.staging.yaml" "$root/deploy/compose.geo-browser.yaml" "$test_dir/compose/"
+cp "$root/deploy/compose.staging.yaml" "$test_dir/compose/"
 cp "$test_dir/preview.env" "$test_dir/.env.staging"
 PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend PARTSIGNAL_VERSION=test \
   docker compose --env-file /dev/null -f "$test_dir/compose/compose.staging.yaml" \

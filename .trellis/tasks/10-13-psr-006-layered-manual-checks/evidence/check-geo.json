@@ -1,0 +1,10 @@
+{
+  "command": [
+    "make",
+    "check-geo"
+  ],
+  "database": "PSR-006临时PostgreSQL17 / loopback:53792",
+  "storage": "PSR-006临时development对象存储 / loopback:55037",
+  "exit_code": 0,
+  "seconds": 80.55
+}

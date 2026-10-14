@@ -1,5 +1,7 @@
 # GEO 系统前后端技术与部署方案
 
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+
 > 文档版本：V1.8
 > 编制日期：2026-08-04
 > 当前阶段：MVP 业务表格主操作与单主线收口实施中
@@ -364,7 +366,7 @@ MVP 的生成过程是确定的流水线：
 
 原始生成请求只包含两条消息：`system.content` 逐字等于当前平台 Prompt，`user.content` 逐字等于批准事实版本 Markdown。系统不附加产品元数据、任务字段、固定前缀或事实 JSON。
 
-使用项目自有的最小同步 HTTP/1.1 传输实现 `ContentGenerator` 适配器：单次解析完整 A/AAAA、只连接批准地址、发送敏感 Header 前校验 peer，并以原 hostname 完成 SNI、证书校验和 Host。不得使用会按 hostname 二次解析的通用默认传输，也不增加 LangChain、Agent 框架或图编排系统。
+使用官方 `openai` Python SDK 的同步薄适配层 `AIProvider`，继续 OpenAI-compatible Chat Completions，显式 `max_retries=0`。支持管理员配置的 Base URL、模型、API Key 与受支持 Header；凭据加密、业务快照、`PUBLIC` 门禁、严格输出 Schema、状态机、审计和指标由应用拥有。URL 做输入结构校验，生产要求 HTTPS；不再实现或承诺自研 DNS pinning、TCP peer、TLS 或 HTTP/1.1。GEO API Collector 使用同一 SDK，内部响应大小在完整接收后检查，未知网络结果不自动重放。当前实现合同见 [实现架构](./architecture.md#外部适配器)，不增加编排框架。
 
 配置中心的“获取模型”通过现有 `GET {base_url}/models` 结果弹窗展示，用户逐个确认后才创建本地模型；已配置 ID 不可重复添加。模型“测试连接”使用独立协议方法调用 `POST {base_url}/chat/completions`，发送唯一用户消息 `hi` 并校验通用响应结构；正式内容生成继续使用独立的严格四字段业务 JSON 解析，两种成功判定不得混用。
 

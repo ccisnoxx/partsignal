@@ -1,0 +1,4 @@
+canonical Frontend Nginx 安全头、Markdown、HTML 与 DOM sink 校验通过
+Preview env preparation: 2 positive / 6 negative; automatic secrets, no overwrite/output, staging boundary passed
+Staging archive env allowlist: 3 public templates allowed / 6 private-or-unknown entries rejected
+预发布 full/fast 与 Production canonical Frontend 边界自检通过

@@ -7,8 +7,8 @@
 | [域名安全运维](./domain-security-operations.md) | DNS、Nginx、证书、HSTS 与 preload | Active |
 | [E2E 运行隔离](./e2e-isolation.md) | Playwright 独立数据库、临时存储与清理结果 | Active |
 | [开发对象存储运行契约](./development-object-storage.md) | 共享开发 Compose 的对象存储启动、端点与真实文件流 | Active |
-| [GitHub Actions 执行契约](./ci-execution.md) | 手动 CI 触发、完整检查与发布边界 | Active |
-| [Production 候选与维护隔离契约](./production-image-delivery.md) | registry/local 候选交付、manifest 身份、V1 拒绝与 Nginx maintenance guard | Active |
+| [手工分层质量验证契约](./manual-quality-checks.md) | 快速、领域、发布验证入口与兼容别名 | Active |
+| [Production 候选与维护隔离契约](./production-image-delivery.md) | 候选交付、日常部署/重启、manifest 身份与维护隔离 | Active |
 
 ## Pre-Development Checklist
 

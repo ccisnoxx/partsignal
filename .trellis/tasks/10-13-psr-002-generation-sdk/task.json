@@ -1,0 +1,40 @@
+{
+  "id": "psr-002-generation-sdk",
+  "name": "psr-002-generation-sdk",
+  "title": "PSR-002：内容生成与自然化迁移官方 OpenAI SDK",
+  "description": "只迁移生成外发边界，保留快照、分级、状态机、幂等与迟到结果保护",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-13",
+  "completedAt": "2026-10-13",
+  "branch": "refactor/PSR-002-generation-sdk",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "backend/app/services/generation.py",
+    "backend/app/services/ai_provider.py",
+    "backend/tests/unit/test_generation_provider.py",
+    "backend/tests/integration/test_generation_provider.py",
+    "docs/maintenance/openai-sdk-refactor/task-manifest.yaml"
+  ],
+  "notes": "",
+  "meta": {
+    "workflow_status": "done",
+    "validation_record": ".trellis/tasks/10-13-psr-002-generation-sdk/implement.md",
+    "review_record": ".trellis/tasks/10-13-psr-002-generation-sdk/review.md",
+    "dependency": "PSR-001",
+    "audit_id": "20261013T094005Z-psr-002-generation-sdk-80db26da",
+    "human_acceptance": "accepted",
+    "human_accepted_at": "2026-10-13"
+  }
+}

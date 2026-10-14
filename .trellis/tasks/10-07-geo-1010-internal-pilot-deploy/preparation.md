@@ -1,5 +1,7 @@
 # GEO-1010-DEPLOY 发布准备与待闭合输入
 
+> 历史准备清单：本页的逐候选完整门禁和 initialized 后必须创建新 release 的重启解释不作为后续日常操作规则。2026-10-08 起，验证复用与同候选重启遵守 [当前 Runbook](../../../docs/Hostdzire部署上线流程.md#41-日常-production-重部署)。原始时间、失败、通过和未执行记录保留。
+
 本记录是 2026-10-07 当前工作树的准备结果与后续操作清单，不是 release manifest、目标写入批准或部署成功记录。执行依据为本任务 [brief](./prd.md)、[父任务设计](../10-07-geo-1010-manual-pilot/design.md)、ADR-008 与现有核心/Production/恢复 runbook。
 
 ## 准备时的现状（历史基线）

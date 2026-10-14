@@ -13,7 +13,7 @@ import pytest
 
 from tests import geo_e2e_environment as boundary
 from tests.geo_e2e_runtime import (
-    _loopback_transport,
+    _diagnostic_provider,
     fictional_input,
     require_provider_url,
     scenario_name,
@@ -150,7 +150,7 @@ def test_transport_refuses_any_other_destination_before_network(url: str) -> Non
     with pytest.raises(ValueError):
         require_provider_url(url)
     with pytest.raises(ValueError):
-        _loopback_transport(uuid4()).request(method="POST", base_url=url)
+        _diagnostic_provider(allow_local_http=True).test_connection(base_url=url)
 
 
 @pytest.mark.parametrize("mode", list(boundary.MODES))

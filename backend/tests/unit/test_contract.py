@@ -23,8 +23,8 @@ from app.routers.planning import _content_task_read_snapshot
 from app.schemas.common import RevisionRequest
 from app.security import hash_token
 from app.services import ai_configuration, file_records
+from app.services.ai_provider import AIProvider
 from app.services.credentials import CredentialCipher
-from app.services.openai_client import OpenAICompatibleClient
 from app.services.storage import StorageUnavailable
 from app.tools.contract_check import check, operation_map, resolve_schema
 
@@ -1748,11 +1748,11 @@ def test_ai_model_provider_failure_is_projected_to_failed_200(
     db.scalar.side_effect = [channel_id, channel, model, channel_id, channel, model]
     db.scalars.return_value = []
 
-    def provider_failure(self: OpenAICompatibleClient, **kwargs: object) -> None:
+    def provider_failure(self: AIProvider, **kwargs: object) -> None:
         del self, kwargs
         raise AppError("AI_PROVIDER_ERROR", f"模拟 provider {provider_status}", provider_status)
 
-    monkeypatch.setattr(OpenAICompatibleClient, "test_connection", provider_failure)
+    monkeypatch.setattr(AIProvider, "test_connection", provider_failure)
 
     result = ai_configuration.test_ai_model(
         db=db,

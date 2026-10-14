@@ -1,5 +1,7 @@
 # PartSignal 实现架构
 
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+
 ## 边界
 
 PartSignal 是前后端分离的模块化单体。HTTP 契约位于 `contracts/openapi.yaml`，数据库所有权和状态机位于 `contracts/database.md`。前端只依赖生成的 OpenAPI 类型，后端运行时 Schema 必须与提交契约一致。
@@ -32,6 +34,8 @@ Content Editor 使用独立 `ContentEditorContext` read model，在同样的一�
 
 ## 外部适配器
 
-内容生成固定接入 OpenAI-compatible Chat Completions，不探测 Responses API 或其他协议。原始生成与可选自然化共用 `generation_jobs`、同一个 Celery task、补投递、租约恢复和指标来源；`job_type` 只选择严格快照和落库关系，不建立第二套队列。原始生成恰好发送两条消息：system 原样使用任务平台的当前 Prompt，user 原样使用绑定 `FactVersion.body_markdown`；缺少 Prompt 或事实分级不是 `PUBLIC` 时明确失败，不增加固定前缀、任务要求或回退。用户也可绕过系统 AI，直接创建 `HUMAN DRAFT` 首稿，后续与 AI 草稿共用审核和发布链。渠道凭据由部署主密钥认证加密；每次请求只解析一次完整地址集合，只连接批准 `sockaddr`，并在发送敏感 Header 前校验实际 TCP peer。TLS SNI、证书身份和 Host 保留原 hostname；禁止重定向、超限响应、生产非公网地址和发送后的地址切换。单个 AI 作业最多调用供应商一次；Celery Beat 只补投递超龄 `PENDING`，过期 `RUNNING` 显式失败，重试创建新作业并复制原 v2 快照，旧 v1 快照不得重试。Redis 仍只承载 UUID 消息，不保存业务状态、正文、Prompt 或数据分级。
+内容生成固定接入 OpenAI-compatible Chat Completions，不探测 Responses API 或其他协议。原始生成与可选自然化共用 `generation_jobs`、同一个 Celery task、补投递、租约恢复和指标来源；`job_type` 只选择严格快照和落库关系，不建立第二套队列。原始生成恰好发送两条消息：system 原样使用任务平台的当前 Prompt，user 原样使用绑定 `FactVersion.body_markdown`；缺少 Prompt 或事实分级不是 `PUBLIC` 时明确失败，不增加固定前缀、任务要求或回退。用户也可绕过系统 AI，直接创建 `HUMAN DRAFT` 首稿，后续与 AI 草稿共用审核和发布链。渠道凭据由部署主密钥认证加密，仅在调用边界解密。生成与自然化通过官方同步 SDK 薄适配层调用，业务服务直接将 `message.content` 校验为严格四字段 `GeneratedDraft`；空白正文、非法 JSON 或 Schema 不符都失败，SDK 成功不能代替业务成功。单个 AI 作业最多调用供应商一次；Celery Beat 只补投递超龄 `PENDING`，过期 `RUNNING` 显式失败，重试创建新作业并复制原快照，旧 v1 快照不得重试。Redis 仍只承载 UUID 消息，不保存业务状态、正文、Prompt 或数据分级。
+
+管理员配置 Base URL、模型、API Key 与受支持 Header；应用负责凭据加密、业务快照、`PUBLIC` 数据门禁、严格输出 Schema、状态机、审计和指标。AI 配置的模型发现、连接测试及正式生成/自然化使用 `app.services.ai_provider.AIProvider` 的官方 `openai` Python SDK 同步薄适配层：Models list 与非流式 Chat Completions，`max_retries=0`，不跟随重定向、不继承环境代理。SDK URL 仅做轻量输入校验，禁止内嵌凭据、query 和 fragment；生产保留 HTTPS，development/test 显式允许本机 HTTP 替身。该路径不执行 DNS/IP 分类、固定 peer 或旧栈的响应字节上限。PSR-003 的 GEO API Collector 使用同一 SDK 的公开 raw-response；在方法前执行发送授权，明确 HTTP 状态为 COMPLETED，授权后网络结果不确定为 UNKNOWN，禁止同 attempt 重放。内部 max_response_bytes 在完整接收后、严格 GEO 业务解析前检查原始字节，不限制接收过程内存。GEO Profile 连接诊断也使用同一 SDK，继续由原业务服务预留测试并在调用后复核资格与依赖 revision。凭据仍在调用边界解密；SDK 错误只映射为安全业务错误，revision、锁序和管理员显式启用合同不变。作业 request ID、duration 与可空 token usage 继续保存在既有字段；SDK 薄层不拥有快照、草稿 Schema 或业务状态机。
 
 AI 渠道的协议类型与供应商品牌是两个独立字段：`protocol_type` 是调用适配器和快照一致性的唯一依据，`provider_brand` 只用于管理端识别、筛选和本地图标。当前仅登记 `openai-compatible-chat-completions`，未知协议或品牌组合明确失败。渠道列表是服务端搜索、筛选、稳定排序和分页的 `AIChannelSummary` 投影，不携带 Header 值或模型数组；使用统计从 `generation_jobs` 实时聚合正式生成与自然化作业，渠道操作日志从 `audit_logs` 投影，不新增汇总表、日志表或前端配置源。

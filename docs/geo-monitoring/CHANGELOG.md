@@ -1,5 +1,24 @@
 # 文档包变更记录
 
+## 2026-10-13 PSR-007 最终文档收敛
+
+- 当前 GEO 运维配置统一人工/API 能力与 Settings 已实现的采集恢复、保留和预算字段，移除过时 R0 未实现说明；Browser 继续延期且不进入默认部署/门禁。
+- SDK 接收后响应大小检查、手工分层验证和 commit SHA 交付边界见 [维护记录](../maintenance/openai-sdk-refactor/README.md)。实际发布前验证与环境限制见 [PSR-007 证据](../../.trellis/tasks/10-13-psr-007-final-alignment/implement.md)，不由文档收敛推定完整发布通过。
+
+## PSR-006 手工分层验证 — 2026-10-13（review 待验收）
+
+- 小任务选择快速层，AI/API 与人工 GEO 切片显式选择领域层，准备部署指定 commit 使用完整 `verify-release`；旧 `verify` 保持直接兼容别名。
+- 删除未使用的 Actions 工作流及专属规范/使用说明；GitHub 只用于备份与服务器拉取，不引入替代 CI。领域检查排除 Browser 专属测试与运行合同，普通 Playwright 保留在完整发布层。
+- 具体范围、实际检查、未运行发布项与环境限制见 [PSR-006 证据](../../.trellis/tasks/10-13-psr-006-layered-manual-checks/implement.md)。
+
+## PSR-005 当前 Browser 范围与默认入口 — 2026-10-13（review 待验收）
+
+- 当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+- 清理当前安装、启动、调试、会话密钥/挂载、登录探针与默认门禁教程，核心架构图移除 Browser 服务；Dev/Staging 默认 Compose 不再 include Browser overlay。
+- 默认 Make 安装/静态检查/单元/E2E/verify 移除 Browser 专属执行；普通 Playwright 和 API Collector 保留，历史 Browser Session 专属用例仅显式选择。
+- 保留历史代码/Schema/数据库/Alembic/隔离资产与 Accepted ADR、交付记录；生产禁止边界保持。GitHub Actions 和质量门禁分层留 PSR-006。
+- 实际验证、引用分类与限制见 [PSR-005 证据](../../.trellis/tasks/10-13-psr-005-defer-browser-collector/implement.md)，未部署、未运行完整 release verify。
+
 ## GEO-1005 / V1.0 CRON Plan 边界 — 2026-10-05（review）
 
 - CRON 新建、MANUAL 改 CRON、全部历史 Plan 写命令与首次 run/PLAN 建批及 scheduled 新窗口返回 409 GEO_PLAN_CRON_UNSUPPORTED；守卫由 Plan policy 统一拥有。

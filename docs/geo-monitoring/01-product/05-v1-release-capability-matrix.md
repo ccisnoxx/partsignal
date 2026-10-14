@@ -1,5 +1,7 @@
 # GEO Core V1.0 发布能力矩阵
 
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+
 - 范围冻结日期：2026-10-05；页面实现状态更新：2026-10-07
 - 范围依据：[Accepted ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md)
 - 实现证据：[GEO-1001 审计](../06-reviews/GEO-1001-release-readiness-audit.md)
@@ -35,7 +37,7 @@
 | 现有 Retest API 与比较/解决 | available | preview/create、冻结基线、可比性门禁及显式解决已实现 | 不可比/未知版本阻断；不承诺因果；可复现的历史基线即使来自 CRON，人工 RETEST 仍按冻结矩阵执行，保留来源且不运行当前 Plan |
 | MANUAL 内部试运行 | manual-only | 本地真实栈有证据，生产试用未执行 | GEO-1010；负责人、范围、时长、反馈需签署 |
 | API Collection 初始试运行 | disabled | 采集/Worker/发送恢复已有实现，生产供应商批准与验收未取得 | 默认 false；后续启用需单独批准与验收 |
-| Browser production Collection/会话 | disabled | GEO-1003 已实现 Settings/预检/部署入口硬拒绝 true 和会话材料；production Compose 无 Browser；实现已接受，现场未知 | GEO-1003 实现已接受＋GEO-1010 零启用/零材料证据 |
+| Browser Collector、会话材料、自动登录与页面采集 | deferred | 当前版本不支持、不开启、不部署；GEO-1003 的生产禁止校验保留 | 后续重新排期和授权；历史源码/合同保留 |
 | Browser 真实界面 Adapter/生产证据采集 | deferred | GEO-804～807 延期；真实 Adapter/证据路径未实现 | ADR-006；801～803 done 保留 |
 | CRON Plan 创建/启用及到期建批 | disabled | GEO-1005：CRON Plan 写命令/首次 run、PLAN 建批及 scheduled 新窗口均 409 GEO_PLAN_CRON_UNSUPPORTED；历史仅 UNSUPPORTED_SCHEDULE 只读，无写动作；Beat 无到期入口 | 实现/本地验证已接受；GEO-1010 核实同候选与现场历史披露，不原地停用/删除 |
 | CRON 生产自动调度交付 | deferred | not implemented：无生产到期入口 | 后续重新排期；V1.0 不以自动执行为门禁 |

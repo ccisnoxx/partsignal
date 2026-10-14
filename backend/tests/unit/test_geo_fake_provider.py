@@ -10,22 +10,18 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from app.errors import AppError
 from app.geo_fake_server import FakeMode, FakeScenario, GeoFakeServer, running_geo_fake
-from app.services.pinned_http import PinnedHTTPTransport
 from tests.geo_collector_contract import assert_secrets_absent, test_secret
 from tests.geo_network_guard import local_geo_network as local_geo_network
 
 
 def send(provider, attempt_id, body=b'{"messages":[]}'):
-    return PinnedHTTPTransport(allow_local_http=True, max_response_bytes=4096).request(
-        method="POST",
-        base_url=provider.base_url + "/v1",
-        suffix="chat/completions",
-        headers={"X-GEO-Attempt-ID": str(attempt_id)},
-        timeout_seconds=1,
-        body=body,
-    )
+    with httpx.Client(timeout=1, trust_env=False, follow_redirects=False) as client:
+        return client.post(
+            provider.base_url + "/v1/chat/completions",
+            headers={"X-GEO-Attempt-ID": str(attempt_id)},
+            content=body,
+        )
 
 
 @pytest.mark.parametrize("mode", [FakeMode.SUCCESS, FakeMode.CITATIONS])
@@ -33,7 +29,7 @@ def test_fake_returns_raw_answer_and_structured_citations(mode):
     with running_geo_fake(FakeScenario(mode=mode)) as provider:
         attempt = uuid4()
         result = send(provider, attempt)
-        payload = json.loads(result.body)
+        payload = json.loads(result.content)
         assert payload["choices"][0]["message"]["content"]
         assert payload["web_search_observed"] is None
         assert "usage" not in payload and "cost" not in payload
@@ -54,7 +50,7 @@ def test_fake_returns_raw_answer_and_structured_citations(mode):
         (FakeMode.REDIRECT, 307),
     ],
 )
-def test_fake_status_and_existing_pinned_transport_never_redirect_or_retry(mode, status):
+def test_fake_status_and_call_count_without_redirect_or_retry(mode, status):
     with running_geo_fake(FakeScenario(mode=mode)) as provider:
         attempt = uuid4()
         response = send(provider, attempt)
@@ -66,21 +62,27 @@ def test_fake_status_and_existing_pinned_transport_never_redirect_or_retry(mode,
 
 
 @pytest.mark.parametrize(
-    "mode,code",
+    "mode,error_type",
     [
-        (FakeMode.TIMEOUT, "AI_PROVIDER_TIMEOUT"),
-        (FakeMode.SLOW_BODY, "AI_PROVIDER_TIMEOUT"),
-        (FakeMode.DISCONNECT, "AI_PROVIDER_UNAVAILABLE"),
-        (FakeMode.OVERSIZE, "AI_RESPONSE_TOO_LARGE"),
-        (FakeMode.OVERSIZE_CHUNKED, "AI_RESPONSE_TOO_LARGE"),
+        (FakeMode.TIMEOUT, httpx.ReadTimeout),
+        (FakeMode.SLOW_BODY, httpx.ReadTimeout),
+        (FakeMode.DISCONNECT, httpx.RemoteProtocolError),
     ],
 )
-def test_real_timeout_drop_and_size_limit_using_existing_pinned_transport(mode, code):
+def test_fake_really_times_out_or_drops_connection(mode, error_type):
     with running_geo_fake(FakeScenario(mode=mode, response_bytes=8193)) as provider:
         attempt = uuid4()
-        with pytest.raises(AppError) as error:
+        with pytest.raises(error_type):
             send(provider, attempt)
-        assert error.value.code == code
+        assert provider.state.snapshot(attempt)["count"] == 1
+
+
+@pytest.mark.parametrize("mode", [FakeMode.OVERSIZE, FakeMode.OVERSIZE_CHUNKED])
+def test_fake_sends_configured_oversize_payload(mode):
+    with running_geo_fake(FakeScenario(mode=mode, response_bytes=8193)) as provider:
+        attempt = uuid4()
+        response = send(provider, attempt)
+        assert len(response.content) == 8193
         assert provider.state.snapshot(attempt)["count"] == 1
 
 
@@ -98,9 +100,9 @@ def test_invalid_response_is_actual_wire_data(mode):
         assert response.status_code == 200
         if mode == FakeMode.INVALID_JSON:
             with pytest.raises(ValueError):
-                json.loads(response.body)
+                json.loads(response.content)
         else:
-            content = json.loads(response.body)["choices"][0]["message"]["content"]
+            content = json.loads(response.content)["choices"][0]["message"]["content"]
             assert not isinstance(content, str) or not content.strip()
 
 

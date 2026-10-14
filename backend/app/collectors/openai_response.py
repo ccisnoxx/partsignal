@@ -19,7 +19,6 @@ from app.collectors.contracts import (
 from app.collectors.errors import CollectorError, CollectorStage
 from app.schemas.geo_monitoring_plans import PlanBudget
 from app.schemas.geo_runs import GeoExternalCallState, GeoRunErrorCode
-from app.services.pinned_http import PinnedResponse
 
 _AMOUNT: TypeAdapter[Decimal] = TypeAdapter(PlanBudget)
 
@@ -148,12 +147,14 @@ def _cost(value: object) -> Money | None:
     return Money(amount=parsed, currency=_text(currency))
 
 
-def parse_response(response: PinnedResponse, *, duration_ms: int) -> CollectedAnswer:
+def parse_response(
+    body: bytes, *, provider_request_id: str | None, duration_ms: int
+) -> CollectedAnswer:
     """只保留允许落库的正文/结构化元数据；所有解析失败转换为无敏感值的固定错误。"""
     try:
         payload = _object(
             json.loads(
-                response.body.decode("utf-8"),
+                body.decode("utf-8"),
                 object_pairs_hook=_unique_object,
                 parse_float=Decimal,
                 parse_constant=_reject_constant,
@@ -191,12 +192,12 @@ def parse_response(response: PinnedResponse, *, duration_ms: int) -> CollectedAn
             source_version=_optional_text(payload.get("source_version")),
             web_search_observed=search,
             citations=_citations(payload, message, answer),
-            provider_request_id=_optional_text(response.headers.get("x-request-id")),
+            provider_request_id=_optional_text(provider_request_id),
             usage=_usage(payload.get("usage")),
             cost=_cost(payload.get("cost")),
             duration_ms=duration_ms,
             raw_payload_summary=RawPayloadSummary(
-                payload_format="JSON", payload_bytes=len(response.body), finish_reason=finish_reason
+                payload_format="JSON", payload_bytes=len(body), finish_reason=finish_reason
             ),
             screenshot_bytes=None,
             raw_payload_bytes=None,

@@ -1,0 +1,1176 @@
+{
+  "date": "2026-10-13",
+  "user_acceptance": "PSR-007及整个OpenAI SDK替换、Browser延期清理和手工质量验证分层工作流已获人工审查并接受",
+  "task_states": {
+    "PSR-001": "done",
+    "PSR-002": "done",
+    "PSR-003": "done",
+    "PSR-004": "done",
+    "PSR-005": "done",
+    "PSR-006": "done",
+    "PSR-007": "done"
+  },
+  "trellis_states": {
+    "psr-001-openai-sdk-adapter": "completed",
+    "psr-002-generation-sdk": "completed",
+    "psr-003-geo-api-sdk": "completed",
+    "psr-004-remove-custom-http": "completed",
+    "psr-005-defer-browser-collector": "completed",
+    "psr-006-layered-manual-checks": "completed",
+    "psr-007-final-alignment": "completed"
+  },
+  "changed_existing_files": [
+    ".trellis/tasks/10-13-psr-007-final-alignment/implement.md",
+    ".trellis/tasks/10-13-psr-007-final-alignment/task.json",
+    "docs/maintenance/openai-sdk-refactor/README.md",
+    "docs/maintenance/openai-sdk-refactor/task-manifest.yaml"
+  ],
+  "new_files": [
+    ".trellis/tasks/10-13-psr-007-final-alignment/evidence/human-acceptance-2026-10-13.json"
+  ],
+  "other_task_states_and_all_unrelated_files_unchanged": true,
+  "scans": [
+    {
+      "scan": "transport",
+      "argv": [
+        "rg",
+        "-n",
+        "PinnedHTTPTransport|PinnedTransportError|PinnedResponse|resolve_endpoint|connect_address|wrap_tls",
+        "."
+      ],
+      "exit_code": 1,
+      "matches": 0,
+      "same_as_accepted_psr007_scan": true,
+      "classification_counts": {},
+      "references": []
+    },
+    {
+      "scan": "client",
+      "argv": [
+        "rg",
+        "-n",
+        "OpenAICompatibleClient",
+        "backend",
+        "tests",
+        "docs",
+        "deploy"
+      ],
+      "exit_code": 1,
+      "matches": 0,
+      "same_as_accepted_psr007_scan": true,
+      "classification_counts": {},
+      "references": []
+    },
+    {
+      "scan": "network",
+      "argv": [
+        "rg",
+        "-n",
+        "DNS pin|DNS rebinding|TCP peer|sockaddr|HTTP/1\\.1|手工 TLS|固定.*IP",
+        "README.md",
+        "docs",
+        "backend",
+        "tests",
+        "deploy"
+      ],
+      "exit_code": 0,
+      "matches": 7,
+      "same_as_accepted_psr007_scan": true,
+      "classification_counts": {
+        "当前SDK边界声明": 3,
+        "部署输入与真实Gate边界": 1,
+        "本机测试HTTP服务器": 1,
+        "威胁描述": 1,
+        "历史验收记录": 1
+      },
+      "references": [
+        {
+          "file": "README.md",
+          "line": "60",
+          "category": "当前SDK边界声明",
+          "disposition": "明确取消旧网络承诺；保留",
+          "source": "HTTP 契约位于 `contracts/openapi.yaml`，数据库和状态机契约位于 `contracts/database.md`。AI 调用使用官方 `openai` Python SDK，继续 OpenAI-compatible Chat Completions，SDK 自动重试关闭（`max_retries=0`）；Base URL、模型、API Key 和受支持 Header 由管理员配置。应用负责凭据加密、业务快照、`PUBLIC` 数据门禁、严格输出 Schema、状态机、审计和指标；不实现自研 DNS pinning、TCP peer、TLS 或 HTTP/1.1 传输。详细边界见 [实现架构](./docs/architecture.md#外部适配器) 和 [SDK 维护记录](./docs/maintenance/openai-sdk-refactor/README.md)。本地测试使用显式替身；真实调用失败不会自动回退。生产 OSS 仍只有在显式配置 `OBJECT_STORAGE_BACKEND=aliyun_oss` 时启用。"
+        },
+        {
+          "file": "docs/maintenance/openai-sdk-refactor/README.md",
+          "line": "25",
+          "category": "当前SDK边界声明",
+          "disposition": "明确取消旧网络承诺；保留",
+          "source": "URL 只校验 HTTP(S) 输入结构、端口及禁止内嵌凭据/query/fragment；生产保持 HTTPS，development/test 显式 `AI_ALLOW_LOCAL_HTTP` 才允许本机 HTTP fake。当前没有自研 DNS pinning、TCP peer、TLS 或 HTTP/1.1 传输，也不承诺 DNS/IP/peer 固定保证。"
+        },
+        {
+          "file": "docs/production-configuration.md",
+          "line": "148",
+          "category": "部署输入与真实Gate边界",
+          "disposition": "静态输入检查/真实网络验收说明；不宣称DNS固定",
+          "source": "该命令只读显式输入，要求普通文件、当前用户所有与 `0600`；完整模式检查 runtime 的键集合（仅允许省略输入检查声明的 GEO 可选键）、重复/未知键、必填项、literal 语法、URL-safe secret、数据库 URL 解码后的身份一致、固定生产值及 OSS endpoint。AI 缺项和确认状态一起报告；在隔离 cwd/environment 中调用真实 backend 配置预检和 AI envelope reader 后，对 Schema 规范化的 URL 拒绝已知非公网 IP/localhost（包含缩写、十六进制等 IPv4 写法）。DNS 与实际网络仍由真实 Gate 检验。不会发现或读取另一份 `.env`，不会执行 Docker/SSH、连接数据库/provider、生成密钥、上传文件或改变状态；输出仅含已知字段名、固定错误码和配置状态。"
+        },
+        {
+          "file": "backend/app/geo_fake_server.py",
+          "line": "125",
+          "category": "本机测试HTTP服务器",
+          "disposition": "HTTP/1.1仅本机fake-server协议，与AI传输实现无关；保留",
+          "source": "    protocol_version = \"HTTP/1.1\""
+        },
+        {
+          "file": "docs/geo-monitoring/03-technical/06-security-and-compliance.md",
+          "line": "28",
+          "category": "威胁描述",
+          "disposition": "DNS rebinding是风险条目，不宣称当前自研防护",
+          "source": "- SSRF、DNS rebinding、重定向导致凭据泄露；"
+        },
+        {
+          "file": "docs/geo-monitoring/04-delivery/11-r8-security-review.md",
+          "line": "22",
+          "category": "历史验收记录",
+          "disposition": "保留当时安全证据原文；当前SDK保证由架构/维护记录定义",
+          "source": "| SEC002 SSRF | `pinned_http.py`完整DNS集合、sockaddr pin/peer、TLS CA/hostname/SNI、无redirect、单次发送及限体；`test_pinned_http.py`、`test_geo_openai_network.py`、PG `test_geo_profile_tests.py`/`test_ai_egress_https.py` | 本地反例及真实本地TLS链通过；没有访问真实平台，未验证生产DNS/TLS/代理运行配置。 |"
+        },
+        {
+          "file": "docs/GEO系统前后端技术与部署方案.md",
+          "line": "369",
+          "category": "当前SDK边界声明",
+          "disposition": "明确不再自研或承诺；不是现行网络能力",
+          "source": "使用官方 `openai` Python SDK 的同步薄适配层 `AIProvider`，继续 OpenAI-compatible Chat Completions，显式 `max_retries=0`。支持管理员配置的 Base URL、模型、API Key 与受支持 Header；凭据加密、业务快照、`PUBLIC` 门禁、严格输出 Schema、状态机、审计和指标由应用拥有。URL 做输入结构校验，生产要求 HTTPS；不再实现或承诺自研 DNS pinning、TCP peer、TLS 或 HTTP/1.1。GEO API Collector 使用同一 SDK，内部响应大小在完整接收后检查，未知网络结果不自动重放。当前实现合同见 [实现架构](./architecture.md#外部适配器)，不增加编排框架。"
+        }
+      ]
+    },
+    {
+      "scan": "browser",
+      "argv": [
+        "rg",
+        "-n",
+        "browser-collector|GEO_BROWSER_|BROWSER_ADAPTER_NOT_IMPLEMENTED|geo-browser|GeoBrowserSession|session_probe",
+        "README.md",
+        "docs",
+        "deploy",
+        ".env.example",
+        ".env.production.example",
+        ".env.staging.example",
+        "Makefile"
+      ],
+      "exit_code": 0,
+      "matches": 137,
+      "same_as_accepted_psr007_scan": true,
+      "classification_counts": {
+        "显式实验入口": 11,
+        "当前关闭声明": 2,
+        "隔离延期配置": 23,
+        "维护元数据": 2,
+        "默认关闭断言": 1,
+        "显式历史E2E材料": 4,
+        "当前禁用/拒绝断言": 17,
+        "显式隔离/负例测试": 36,
+        "当前延期/禁止声明": 12,
+        "已接受延期决策": 1,
+        "历史交付/审查记录": 21,
+        "显式延期合同测试": 7
+      },
+      "references": [
+        {
+          "file": "Makefile",
+          "line": "31",
+          "category": "显式实验入口",
+          "disposition": "只有PHONY声明或独立实验目标；默认依赖图不执行",
+          "source": ".PHONY: bootstrap contract-generate contract-check dev dev-infra migrate initialize-accounts lint typecheck test-unit test-integration e2e build build-frontend verify verify-release check-backend-fast check-frontend-fast check-fast check-ai check-geo test-deploy-scripts test-frontend-container staging-redeploy-fast down test-geo-fixtures test-geo-collector-contract test-geo-performance check-browser-experimental test-geo-browser test-geo-browser-contract test-geo-recovery test-geo-recovery-integration test-geo-capacity test-upgrade-recovery test-upgrade-recovery-compose production-check production-prepare production-activate production-smoke production-restart test-production-routine"
+        },
+        {
+          "file": "Makefile",
+          "line": "133",
+          "category": "显式实验入口",
+          "disposition": "只有PHONY声明或独立实验目标；默认依赖图不执行",
+          "source": "\tnpm --prefix browser-collector ci"
+        },
+        {
+          "file": "Makefile",
+          "line": "134",
+          "category": "显式实验入口",
+          "disposition": "只有PHONY声明或独立实验目标；默认依赖图不执行",
+          "source": "\tnpm --prefix browser-collector run lint"
+        },
+        {
+          "file": "Makefile",
+          "line": "135",
+          "category": "显式实验入口",
+          "disposition": "只有PHONY声明或独立实验目标；默认依赖图不执行",
+          "source": "\tnpm --prefix browser-collector run typecheck"
+        },
+        {
+          "file": "Makefile",
+          "line": "136",
+          "category": "显式实验入口",
+          "disposition": "只有PHONY声明或独立实验目标；默认依赖图不执行",
+          "source": "\tnpm --prefix browser-collector test"
+        },
+        {
+          "file": "Makefile",
+          "line": "137",
+          "category": "显式实验入口",
+          "disposition": "只有PHONY声明或独立实验目标；默认依赖图不执行",
+          "source": "\t$(UV) run --project backend python deploy/scripts/test-geo-browser.py"
+        },
+        {
+          "file": "Makefile",
+          "line": "138",
+          "category": "显式实验入口",
+          "disposition": "只有PHONY声明或独立实验目标；默认依赖图不执行",
+          "source": "\t$(MAKE) test-geo-browser-contract"
+        },
+        {
+          "file": "Makefile",
+          "line": "140",
+          "category": "显式实验入口",
+          "disposition": "只有PHONY声明或独立实验目标；默认依赖图不执行",
+          "source": "test-geo-browser:"
+        },
+        {
+          "file": "Makefile",
+          "line": "141",
+          "category": "显式实验入口",
+          "disposition": "只有PHONY声明或独立实验目标；默认依赖图不执行",
+          "source": "\t$(UV) run --project backend python deploy/scripts/test-geo-browser.py --runtime"
+        },
+        {
+          "file": "Makefile",
+          "line": "143",
+          "category": "显式实验入口",
+          "disposition": "只有PHONY声明或独立实验目标；默认依赖图不执行",
+          "source": "test-geo-browser-contract:"
+        },
+        {
+          "file": "Makefile",
+          "line": "144",
+          "category": "显式实验入口",
+          "disposition": "只有PHONY声明或独立实验目标；默认依赖图不执行",
+          "source": "\t$(UV) run --project backend python deploy/scripts/test-geo-browser-contract.py $(if $(filter 1,$(GEO_BROWSER_CONTRACT_CONTAINER)),--container,)"
+        },
+        {
+          "file": ".env.production.example",
+          "line": "62",
+          "category": "当前关闭声明",
+          "disposition": "模板false；当前版本不启用/不部署",
+          "source": "GEO_BROWSER_COLLECTION_ENABLED=false"
+        },
+        {
+          "file": ".env.example",
+          "line": "53",
+          "category": "当前关闭声明",
+          "disposition": "模板false；当前版本不启用/不部署",
+          "source": "GEO_BROWSER_COLLECTION_ENABLED=false"
+        },
+        {
+          "file": "deploy/compose.geo-browser.yaml",
+          "line": "4",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "  browser-collector:"
+        },
+        {
+          "file": "deploy/compose.geo-browser.yaml",
+          "line": "5",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "    image: ${PARTSIGNAL_BROWSER_COLLECTOR_IMAGE:-partsignal-browser-collector}:${PARTSIGNAL_BROWSER_COLLECTOR_VERSION:-geo801}"
+        },
+        {
+          "file": "deploy/compose.geo-browser.yaml",
+          "line": "7",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "      context: ../browser-collector"
+        },
+        {
+          "file": "deploy/compose.geo-browser.yaml",
+          "line": "8",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "    profiles: [geo-browser]"
+        },
+        {
+          "file": "deploy/compose.geo-browser.yaml",
+          "line": "16",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "      - seccomp=./geo-browser-seccomp.json"
+        },
+        {
+          "file": "deploy/compose.geo-browser.yaml",
+          "line": "20",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "      GEO_BROWSER_COLLECTION_ENABLED: ${GEO_BROWSER_COLLECTION_ENABLED-false}"
+        },
+        {
+          "file": "deploy/compose.geo-browser.yaml",
+          "line": "21",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "      GEO_BROWSER_KILL_SWITCH_FILE: /run/control/STOP"
+        },
+        {
+          "file": "deploy/compose.geo-browser.yaml",
+          "line": "24",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "        source: ${PARTSIGNAL_GEO_BROWSER_CONTROL_DIR:-./geo-browser-control}"
+        },
+        {
+          "file": "docs/maintenance/openai-sdk-refactor/task-manifest.yaml",
+          "line": "27",
+          "category": "维护元数据",
+          "disposition": "前序Task Brief路径；仅状态导航",
+          "source": "    task_brief: .trellis/tasks/10-13-psr-005-defer-browser-collector/prd.md"
+        },
+        {
+          "file": "docs/maintenance/openai-sdk-refactor/README.md",
+          "line": "13",
+          "category": "维护元数据",
+          "disposition": "前序Task Brief路径；仅状态导航",
+          "source": "| PSR-005 | Browser 能力延期，清理当前文档和默认验证/部署入口 | [证据](../../../.trellis/tasks/10-13-psr-005-defer-browser-collector/implement.md) |"
+        },
+        {
+          "file": "deploy/scripts/e2e-local.sh",
+          "line": "18",
+          "category": "默认关闭断言",
+          "disposition": "Browser false，不执行采集",
+          "source": "export GEO_BROWSER_COLLECTION_ENABLED=false"
+        },
+        {
+          "file": "deploy/scripts/e2e-local.sh",
+          "line": "154",
+          "category": "显式历史E2E材料",
+          "disposition": "只在精确选择历史Browser Session spec时准备；默认路径无材料",
+          "source": "  export GEO_BROWSER_SESSION_ROOT=\"$browser_session_dir/cipher\""
+        },
+        {
+          "file": "deploy/scripts/e2e-local.sh",
+          "line": "155",
+          "category": "显式历史E2E材料",
+          "disposition": "只在精确选择历史Browser Session spec时准备；默认路径无材料",
+          "source": "  export GEO_BROWSER_SESSION_PUBLIC_KEY_FILE=\"$browser_session_dir/public.pem\""
+        },
+        {
+          "file": "deploy/scripts/e2e-local.sh",
+          "line": "156",
+          "category": "显式历史E2E材料",
+          "disposition": "只在精确选择历史Browser Session spec时准备；默认路径无材料",
+          "source": "  mkdir -m 700 \"$GEO_BROWSER_SESSION_ROOT\""
+        },
+        {
+          "file": "deploy/scripts/e2e-local.sh",
+          "line": "158",
+          "category": "显式历史E2E材料",
+          "disposition": "只在精确选择历史Browser Session spec时准备；默认路径无材料",
+          "source": "    \"$GEO_BROWSER_SESSION_PUBLIC_KEY_FILE\""
+        },
+        {
+          "file": "deploy/scripts/test-geo-recovery-integration.py",
+          "line": "65",
+          "category": "当前禁用/拒绝断言",
+          "disposition": "关闭/拒绝/零服务和会话断言；不是安装或执行教程",
+          "source": "        \"GEO_BROWSER_COLLECTION_ENABLED\": \"false\","
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "33",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "    for name in (\"dev\", \"staging\", \"prod\", \"geo-browser\"):"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "47",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "        assert \"browser-collector\" not in default[\"services\"]"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "51",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "        assert \"browser-collector\" not in all_default[\"services\"]"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "54",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "            base += [\"-f\", str(deploy / \"compose.geo-browser.yaml\")]"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "56",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "            base + [\"--profile\", \"geo-browser\", \"config\", \"--format\", \"json\"], env=env"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "63",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "            assert \"browser-collector\" not in configured[\"services\"]"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "64",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "            assert \"browser-collector\" not in all_profiles[\"services\"]"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "65",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "            assert \"geo-browser\" not in execute(base + [\"config\", \"--profiles\"], env=env)"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "67",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "                assert all(\"geo-browser\" not in v[\"target\"]"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "69",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "                assert not any(key.startswith(\"GEO_BROWSER_SESSION_\")"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "72",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "        service = configured[\"services\"][\"browser-collector\"]"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "73",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "        assert service[\"profiles\"] == [\"geo-browser\"]"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "85",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "            \"GEO_MONITORING_ENABLED\": \"false\", \"GEO_BROWSER_COLLECTION_ENABLED\": \"false\","
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "86",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "            \"GEO_BROWSER_KILL_SWITCH_FILE\": \"/run/control/STOP\","
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "92",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "            base + [\"--profile\", \"geo-browser\", \"config\", \"--format\", \"json\"],"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "93",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "            env={**env, \"GEO_MONITORING_ENABLED\": \"\", \"GEO_BROWSER_COLLECTION_ENABLED\": \"\"}"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "94",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "        ))[\"services\"][\"browser-collector\"][\"environment\"]"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "95",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "        assert empty[\"GEO_MONITORING_ENABLED\"] == empty[\"GEO_BROWSER_COLLECTION_ENABLED\"] == \"\""
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "105",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "    seccomp = json.loads((ROOT / \"deploy/geo-browser-seccomp.json\").read_text())"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "113",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "    image = f\"partsignal-browser-collector:{project}\""
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "120",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "           \"PARTSIGNAL_GEO_BROWSER_CONTROL_DIR\": str(control)}"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "122",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "            \"-f\", str(ROOT / \"deploy/compose.geo-browser.yaml\")]"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "123",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "    active = base + [\"--profile\", \"geo-browser\"]"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "129",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "        execute([\"docker\", \"build\", \"-t\", image, str(ROOT / \"browser-collector\")], env=env)"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "131",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "        env.update(GEO_MONITORING_ENABLED=\"\", GEO_BROWSER_COLLECTION_ENABLED=\"\")"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "134",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "        logs = execute(active + [\"logs\", \"--no-log-prefix\", \"browser-collector\"], env=env)"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "136",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "        env.update(GEO_MONITORING_ENABLED=\"false\", GEO_BROWSER_COLLECTION_ENABLED=\"false\")"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "139",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "        container = execute(active + [\"ps\", \"-q\", \"browser-collector\"], env=env).strip()"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "149",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "        execute(active + [\"exec\", \"-T\", \"browser-collector\", \"node\", \"-e\","
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "154",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "            return json.loads(execute(active + [\"exec\", \"-T\", \"browser-collector\", \"node\", \"-e\","
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "158",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "            output = subprocess.run(active + [\"exec\", \"-T\", \"browser-collector\", \"node\","
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "175",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "        env.update(GEO_MONITORING_ENABLED=\"true\", GEO_BROWSER_COLLECTION_ENABLED=\"true\")"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "180",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "        admission(\"BROWSER_ADAPTER_NOT_IMPLEMENTED\")"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "181",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "        refused(\"BROWSER_ADAPTER_NOT_IMPLEMENTED\")"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "185",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "        assert health()[\"session_probe\"] == \"NOT_IMPLEMENTED\""
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser.py",
+          "line": "187",
+          "category": "显式隔离/负例测试",
+          "disposition": "独立实验入口的配置或runtime测试；不在默认门禁",
+          "source": "        container = execute(active + [\"ps\", \"--all\", \"-q\", \"browser-collector\"], env=env).strip()"
+        },
+        {
+          "file": "docs/production-configuration.md",
+          "line": "65",
+          "category": "当前延期/禁止声明",
+          "disposition": "产品、技术或运维中明确延期/关闭/错误码/零部署；保留",
+          "source": "| `GEO_BROWSER_COLLECTION_ENABLED` | Production 固定 `false`；省略仍为 `false`，显式输入只接受 literal `false`；Monitoring=true 也不能启用 Browser，Settings 和 production preflight 拒绝 true |"
+        },
+        {
+          "file": "docs/production-configuration.md",
+          "line": "85",
+          "category": "当前延期/禁止声明",
+          "disposition": "产品、技术或运维中明确延期/关闭/错误码/零部署；保留",
+          "source": "权威 production Compose 不包含 Browser service/profile/session 卷；显式 `geo-browser`、`COMPOSE_PROFILES=geo-browser` 或 `--profile '*'` 展开也不会产生 Browser 服务。两个 Browser Compose 文件仅作为隔离历史资产保留，不被 Dev/Staging/Prod 默认入口引用。禁止通过手工多文件 Compose 绕过权威部署入口；GEO-801～803 历史源码和合同继续保留，当前不安装、启用或部署。release manifest producer/consumer 当前固定14项tracked files，包含输入检查、迁移运行时、部署/supervisor模块与清空边界owner；旧manifest不自动兼容。[ADR-008](./geo-monitoring/05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)将UI完成后新候选的门禁、工件和冻结归属GEO-1010-DEPLOY；目标Browser零服务/零会话材料仍须独立现场证据。"
+        },
+        {
+          "file": "deploy/scripts/check-production-inputs.py",
+          "line": "29",
+          "category": "当前禁用/拒绝断言",
+          "disposition": "关闭/拒绝/零服务和会话断言；不是安装或执行教程",
+          "source": "    \"GEO_BROWSER_COLLECTION_ENABLED\","
+        },
+        {
+          "file": "deploy/scripts/check-production-inputs.py",
+          "line": "108",
+          "category": "当前禁用/拒绝断言",
+          "disposition": "关闭/拒绝/零服务和会话断言；不是安装或执行教程",
+          "source": "    if values.get(\"GEO_BROWSER_COLLECTION_ENABLED\", \"false\") != \"false\":"
+        },
+        {
+          "file": "deploy/scripts/check-production-inputs.py",
+          "line": "109",
+          "category": "当前禁用/拒绝断言",
+          "disposition": "关闭/拒绝/零服务和会话断言；不是安装或执行教程",
+          "source": "        raise InputError(\"PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED\")"
+        },
+        {
+          "file": "deploy/scripts/check-production-inputs.py",
+          "line": "178",
+          "category": "当前禁用/拒绝断言",
+          "disposition": "关闭/拒绝/零服务和会话断言；不是安装或执行教程",
+          "source": "        if source.get(\"GEO_BROWSER_COLLECTION_ENABLED\", \"false\") != \"false\":"
+        },
+        {
+          "file": "deploy/scripts/check-production-inputs.py",
+          "line": "179",
+          "category": "当前禁用/拒绝断言",
+          "disposition": "关闭/拒绝/零服务和会话断言；不是安装或执行教程",
+          "source": "            raise InputError(\"PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED\")"
+        },
+        {
+          "file": "deploy/scripts/check-production-inputs.py",
+          "line": "181",
+          "category": "当前禁用/拒绝断言",
+          "disposition": "关闭/拒绝/零服务和会话断言；不是安装或执行教程",
+          "source": "            \"GEO_BROWSER_SESSION_\", \"PARTSIGNAL_GEO_BROWSER_SESSION_\""
+        },
+        {
+          "file": "deploy/scripts/test-geo-configuration.py",
+          "line": "18",
+          "category": "当前禁用/拒绝断言",
+          "disposition": "关闭/拒绝/零服务和会话断言；不是安装或执行教程",
+          "source": "    \"GEO_BROWSER_COLLECTION_ENABLED\","
+        },
+        {
+          "file": "deploy/scripts/test-geo-configuration.py",
+          "line": "115",
+          "category": "当前禁用/拒绝断言",
+          "disposition": "关闭/拒绝/零服务和会话断言；不是安装或执行教程",
+          "source": "                assert \"browser-collector\" not in services"
+        },
+        {
+          "file": "deploy/scripts/test-geo-configuration.py",
+          "line": "131",
+          "category": "当前禁用/拒绝断言",
+          "disposition": "关闭/拒绝/零服务和会话断言；不是安装或执行教程",
+          "source": "                    assert \"生产环境禁止 GEO_BROWSER_COLLECTION_ENABLED=true\" in started.stderr"
+        },
+        {
+          "file": "deploy/scripts/test-geo-configuration.py",
+          "line": "137",
+          "category": "当前禁用/拒绝断言",
+          "disposition": "关闭/拒绝/零服务和会话断言；不是安装或执行教程",
+          "source": "                for profiles in ([], [\"--profile\", \"geo-browser\"], [\"--profile\", \"*\"]):"
+        },
+        {
+          "file": "deploy/scripts/test-geo-configuration.py",
+          "line": "143",
+          "category": "当前禁用/拒绝断言",
+          "disposition": "关闭/拒绝/零服务和会话断言；不是安装或执行教程",
+          "source": "                            \"GEO_BROWSER_COLLECTION_ENABLED\": \"true\","
+        },
+        {
+          "file": "deploy/scripts/test-geo-configuration.py",
+          "line": "144",
+          "category": "当前禁用/拒绝断言",
+          "disposition": "关闭/拒绝/零服务和会话断言；不是安装或执行教程",
+          "source": "                            \"COMPOSE_PROFILES\": \"geo-browser\","
+        },
+        {
+          "file": "deploy/scripts/test-geo-configuration.py",
+          "line": "153",
+          "category": "当前禁用/拒绝断言",
+          "disposition": "关闭/拒绝/零服务和会话断言；不是安装或执行教程",
+          "source": "                    assert \"browser-collector\" not in production[\"services\"]"
+        },
+        {
+          "file": "deploy/scripts/test-geo-configuration.py",
+          "line": "155",
+          "category": "当前禁用/拒绝断言",
+          "disposition": "关闭/拒绝/零服务和会话断言；不是安装或执行教程",
+          "source": "                        assert \"geo-browser\" not in service.get(\"profiles\", [])"
+        },
+        {
+          "file": "deploy/scripts/test-geo-configuration.py",
+          "line": "156",
+          "category": "当前禁用/拒绝断言",
+          "disposition": "关闭/拒绝/零服务和会话断言；不是安装或执行教程",
+          "source": "                        assert not any(\"geo-browser\" in mount[\"target\"]"
+        },
+        {
+          "file": "deploy/scripts/test-geo-configuration.py",
+          "line": "158",
+          "category": "当前禁用/拒绝断言",
+          "disposition": "关闭/拒绝/零服务和会话断言；不是安装或执行教程",
+          "source": "                        assert not any(name.startswith(\"GEO_BROWSER_SESSION_\")"
+        },
+        {
+          "file": "docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md",
+          "line": "22",
+          "category": "已接受延期决策",
+          "disposition": "保持false/零部署合同；恢复条件不等于当前支持",
+          "source": "6. 核心生产必须保持 `GEO_BROWSER_COLLECTION_ENABLED=false`，不启用 `geo-browser` 服务或会话挂载/能力凭据，不存在生产 Browser 会话。GEO-904/906 必须在目标环境核实，不能从仓库默认值推断生产事实。本次仅文档调整，未执行生产检查。"
+        },
+        {
+          "file": "docs/geo-monitoring/README.md",
+          "line": "106",
+          "category": "当前延期/禁止声明",
+          "disposition": "产品、技术或运维中明确延期/关闭/错误码/零部署；保留",
+          "source": "GEO-801、802、803 已人工接受为 done，代码和证据保留。GEO-804～807 为 deferred，release 为 post-core；真实 Adapter 未实施。核心生产必须保持 GEO_BROWSER_COLLECTION_ENABLED=false 且无生产 Browser 会话，实际环境检查留 GEO-904/906，不从默认配置推断已验收上线。"
+        },
+        {
+          "file": "docs/geo-monitoring/06-reviews/GEO-1001-release-readiness-audit.md",
+          "line": "11",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "- **[P1] 生产配置仍接受 `GEO_BROWSER_COLLECTION_ENABLED=true`。**  "
+        },
+        {
+          "file": "docs/geo-monitoring/06-reviews/GEO-1001-release-readiness-audit.md",
+          "line": "182",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "make test-geo-browser-contract"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser-contract.py",
+          "line": "39",
+          "category": "显式延期合同测试",
+          "disposition": "独立Browser合同入口；默认门禁不调用",
+          "source": "        env = {**os.environ, \"GEO_BROWSER_TEST_CANARIES\": json.dumps(canaries),"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser-contract.py",
+          "line": "40",
+          "category": "显式延期合同测试",
+          "disposition": "独立Browser合同入口；默认门禁不调用",
+          "source": "               \"GEO_BROWSER_CONTRACT_OUTPUT\": str(output)}"
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser-contract.py",
+          "line": "47",
+          "category": "显式延期合同测试",
+          "disposition": "独立Browser合同入口；默认门禁不调用",
+          "source": "                \"--security-opt\", f\"seccomp={ROOT / 'deploy/geo-browser-seccomp.json'}\","
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser-contract.py",
+          "line": "51",
+          "category": "显式延期合同测试",
+          "disposition": "独立Browser合同入口；默认门禁不调用",
+          "source": "                \"--mount\", f\"type=bind,source={ROOT / 'browser-collector'},target=/workspace/browser-collector,readonly\","
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser-contract.py",
+          "line": "54",
+          "category": "显式延期合同测试",
+          "disposition": "独立Browser合同入口；默认门禁不调用",
+          "source": "                \"--workdir\", \"/workspace/browser-collector\", \"-e\", \"HOME=/tmp/collector\","
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser-contract.py",
+          "line": "55",
+          "category": "显式延期合同测试",
+          "disposition": "独立Browser合同入口；默认门禁不调用",
+          "source": "                \"-e\", \"GEO_BROWSER_TEST_CANARIES\", \"-e\", \"GEO_BROWSER_CONTRACT_OUTPUT=/results/values.jsonl\","
+        },
+        {
+          "file": "deploy/scripts/test-geo-browser-contract.py",
+          "line": "63",
+          "category": "显式延期合同测试",
+          "disposition": "独立Browser合同入口；默认门禁不调用",
+          "source": "            with subprocess.Popen(command, cwd=ROOT / \"browser-collector\", env=env,"
+        },
+        {
+          "file": "docs/geo-monitoring/03-technical/01-technical-architecture.md",
+          "line": "341",
+          "category": "当前延期/禁止声明",
+          "disposition": "产品、技术或运维中明确延期/关闭/错误码/零部署；保留",
+          "source": "GEO_BROWSER_COLLECTION_ENABLED"
+        },
+        {
+          "file": "deploy/compose.geo-browser-sessions.yaml",
+          "line": "6",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "      GEO_BROWSER_SESSION_ROOT: /run/geo-browser-sessions"
+        },
+        {
+          "file": "deploy/compose.geo-browser-sessions.yaml",
+          "line": "7",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "      GEO_BROWSER_SESSION_PUBLIC_KEY_FILE: /run/geo-browser-session-public.pem"
+        },
+        {
+          "file": "deploy/compose.geo-browser-sessions.yaml",
+          "line": "8",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "      GEO_BROWSER_SESSION_SERVICE_KEY_FILE: /run/geo-browser-service.key"
+        },
+        {
+          "file": "deploy/compose.geo-browser-sessions.yaml",
+          "line": "9",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "      GEO_BROWSER_SESSION_SERVICE_USER_ID: ${PARTSIGNAL_GEO_BROWSER_SESSION_SERVICE_USER_ID:?必须指定已批准ADMIN服务账号}"
+        },
+        {
+          "file": "deploy/compose.geo-browser-sessions.yaml",
+          "line": "12",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_ROOT:?必须指定独立受保护会话目录}"
+        },
+        {
+          "file": "deploy/compose.geo-browser-sessions.yaml",
+          "line": "13",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "        target: /run/geo-browser-sessions"
+        },
+        {
+          "file": "deploy/compose.geo-browser-sessions.yaml",
+          "line": "17",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_PUBLIC_KEY_FILE:?必须指定RSA公钥文件}"
+        },
+        {
+          "file": "deploy/compose.geo-browser-sessions.yaml",
+          "line": "18",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "        target: /run/geo-browser-session-public.pem"
+        },
+        {
+          "file": "deploy/compose.geo-browser-sessions.yaml",
+          "line": "23",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_SERVICE_KEY_FILE:?必须指定服务能力文件}"
+        },
+        {
+          "file": "deploy/compose.geo-browser-sessions.yaml",
+          "line": "24",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "        target: /run/geo-browser-service.key"
+        },
+        {
+          "file": "deploy/compose.geo-browser-sessions.yaml",
+          "line": "28",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "  browser-collector:"
+        },
+        {
+          "file": "deploy/compose.geo-browser-sessions.yaml",
+          "line": "31",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_PRIVATE_KEY_FILE:?必须指定Collector私钥文件}"
+        },
+        {
+          "file": "deploy/compose.geo-browser-sessions.yaml",
+          "line": "32",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "        target: /run/geo-browser-session-private.pem"
+        },
+        {
+          "file": "deploy/compose.geo-browser-sessions.yaml",
+          "line": "37",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_SERVICE_KEY_FILE:?必须指定服务能力文件}"
+        },
+        {
+          "file": "deploy/compose.geo-browser-sessions.yaml",
+          "line": "38",
+          "category": "隔离延期配置",
+          "disposition": "不被Dev/Staging/Prod默认Compose引用；保留后续非生产资产",
+          "source": "        target: /run/geo-browser-service.key"
+        },
+        {
+          "file": "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+          "line": "59",
+          "category": "当前延期/禁止声明",
+          "disposition": "产品、技术或运维中明确延期/关闭/错误码/零部署；保留",
+          "source": "GEO_BROWSER_COLLECTION_ENABLED=false"
+        },
+        {
+          "file": "docs/geo-monitoring/03-technical/08-deployment-and-operations.md",
+          "line": "310",
+          "category": "当前延期/禁止声明",
+          "disposition": "产品、技术或运维中明确延期/关闭/错误码/零部署；保留",
+          "source": "- R7 延期不阻断核心上线；Browser 开关必须 false、geo-browser 服务未启用且无生产会话，并留目标环境证据。后续启用必须另按 ADR-006 恢复和生产授权门禁执行。"
+        },
+        {
+          "file": "docs/geo-monitoring/03-technical/10-core-rollout-runbook.md",
+          "line": "97",
+          "category": "当前延期/禁止声明",
+          "disposition": "产品、技术或运维中明确延期/关闭/错误码/零部署；保留",
+          "source": "| GEO_BROWSER_COLLECTION_ENABLED | **false；production 硬禁止 true** | **false；production 硬禁止 true** |"
+        },
+        {
+          "file": "docs/geo-monitoring/03-technical/10-core-rollout-runbook.md",
+          "line": "111",
+          "category": "当前延期/禁止声明",
+          "disposition": "产品、技术或运维中明确延期/关闭/错误码/零部署；保留",
+          "source": "1. API/Worker/Beat 的实际 GEO_BROWSER_COLLECTION_ENABLED 均为 false。"
+        },
+        {
+          "file": "docs/geo-monitoring/03-technical/10-core-rollout-runbook.md",
+          "line": "112",
+          "category": "当前延期/禁止声明",
+          "disposition": "产品、技术或运维中明确延期/关闭/错误码/零部署；保留",
+          "source": "2. 没有启动 geo-browser service、Browser Compose profile 或 session overlay；没有 Browser 私钥、服务能力或会话卷挂载。"
+        },
+        {
+          "file": "docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md",
+          "line": "60",
+          "category": "当前延期/禁止声明",
+          "disposition": "产品、技术或运维中明确延期/关闭/错误码/零部署；保留",
+          "source": "| GEO_BROWSER_COLLECTION_ENABLED | false | production **硬禁止 true** | GEO-1003 实现/本地验证已接受；现场 GEO-1010 |"
+        },
+        {
+          "file": "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+          "line": "567",
+          "category": "当前延期/禁止声明",
+          "disposition": "产品、技术或运维中明确延期/关闭/错误码/零部署；保留",
+          "source": "GEO_BROWSER_COLLECTION_DISABLED"
+        },
+        {
+          "file": "docs/geo-monitoring/01-product/02-geo-core-prd.md",
+          "line": "1021",
+          "category": "当前延期/禁止声明",
+          "disposition": "产品、技术或运维中明确延期/关闭/错误码/零部署；保留",
+          "source": "以下为延期后的目标设计，按 ADR-006 恢复条件和平台批准实施，不是核心首发已具备能力。核心生产保持 GEO_BROWSER_COLLECTION_ENABLED=false 且无 Browser 会话。"
+        },
+        {
+          "file": "docs/geo-monitoring/CHANGELOG.md",
+          "line": "20",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "- 实际验证、引用分类与限制见 [PSR-005 证据](../../.trellis/tasks/10-13-psr-005-defer-browser-collector/implement.md)，未部署、未运行完整 release verify。"
+        },
+        {
+          "file": "docs/geo-monitoring/CHANGELOG.md",
+          "line": "105",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "- 实际本轮验证、独立只读复核与限制见[治理实施记录](../../.trellis/tasks/10-05-geo-browser-scope-adjustment/implement.md)；不宣称生产开关/会话或R8上线已实测，不提交、发布或归档。"
+        },
+        {
+          "file": "docs/geo-monitoring/CHANGELOG.md",
+          "line": "117",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "- 独立package/锁文件/镜像与三环境共享geo-browser profile，默认关闭并保留默认STOP。"
+        },
+        {
+          "file": "docs/geo-monitoring/CHANGELOG.md",
+          "line": "120",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "- 无新OpenAPI/DDL/Alembic、会话/真实平台/截图/管理UI。实际验证与独立复核见[实施记录](../../.trellis/tasks/10-05-geo-801-browser-collector/implement.md)；仅review等待人工接受，不实施802/803。"
+        },
+        {
+          "file": "docs/geo-monitoring/04-delivery/11-r8-security-review.md",
+          "line": "42",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "| 实际Browser服务、geo-browser profile未启用；DB Browser profile未启用 | 本地Docker未观察Browser容器，仅本地开发范围 | 目标NOT_VERIFIED |"
+        },
+        {
+          "file": "docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md",
+          "line": "136",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "| `GEO-906` | 执行生产渐进上线、最终验收和文档状态更新 | GEO-903, GEO-904, GEO-905 | 核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。 | make verify、生产 smoke、恢复/停止演练。；核心版正式可用；GEO_BROWSER_COLLECTION_ENABLED=false、Browser 服务/profile 未启用且无生产会话；R7 deferred 不阻断，延期项不标已实现，核心与延期证据分别保留。 |"
+        },
+        {
+          "file": "docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md",
+          "line": "145",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "| `GEO-1003` | production Browser Collection 硬禁止 | GEO-1002, GEO-004 | 由配置、启动预检和生产 profile/overlay 边界硬拒绝 Browser=true 或显式 geo-browser 启用；保留非生产隔离骨架和默认 false。 | production Settings 与启动预检开启负例、显式 profile/overlay 启用负例、false 正例、API/Worker/Beat 启动配置一致性；不访问真实平台。 | production 不能接受 Browser=true 或绕过预检启动 Browser；拒绝先于服务/会话/网络副作用，错误原因明确；三进程 false 与后续现场零部署证据分开；独立只读复核通过。 |"
+        },
+        {
+          "file": "docs/geo-monitoring/04-delivery/13-r8-core-release-acceptance.md",
+          "line": "16",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "核心发布要求 GEO_BROWSER_COLLECTION_ENABLED=false、服务/profile 未启用、无生产会话。"
+        },
+        {
+          "file": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+          "line": "1335",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "  trellis_task: .trellis/tasks/10-05-geo-801-browser-collector"
+        },
+        {
+          "file": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+          "line": "1337",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "  review_note: \"2026-10-05：独立Browser package/image/geo-browser profile、非root sandbox与network none/只读/资源限额、真实DOM健康、默认STOP与热kill、稳定UUID显式拒绝和API非API早退完成。lint/typecheck/unit（3 Collector+3660 backend+1266 frontend）/contract/部署/真实runtime通过；19项既有Worker通过，新PG夹具修正后1项边界定向通过。普通production镜像真实探针无浏览器依赖。独立复核空值插值P2已修正并复验，Audit Bundle校验通过。无OpenAPI/DDL/new revision或历史迁移；head0062。仅review等待人工接受，不实现802/803、不提交/上线。文档包原有核心PRD摘要不一致已确认任务前存在，未改业务文档；详情见Trellis implement/evidence。 2026-10-05 本会话用户已人工审查并接受GEO-801的实现与测试证据；本次仅记录验收，manifest=done、Trellis=completed，不修改其他任务状态、不实施后续任务，不提交、推送或归档。\""
+        },
+        {
+          "file": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+          "line": "1639",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "  deliverables: 核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。"
+        },
+        {
+          "file": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+          "line": "1641",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "  acceptance: 核心版正式可用；GEO_BROWSER_COLLECTION_ENABLED=false、Browser 服务/profile 未启用且无生产会话；R7 deferred 不阻断，延期项不标已实现，核心与延期证据分别保留。"
+        },
+        {
+          "file": "docs/geo-monitoring/04-delivery/task-manifest.yaml",
+          "line": "1695",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "  deliverables: 由配置、启动预检和生产 profile/overlay 边界硬拒绝 Browser=true 或显式 geo-browser 启用；保留非生产隔离骨架和默认 false。"
+        },
+        {
+          "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+          "line": "11578",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。"
+        },
+        {
+          "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+          "line": "11624",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "- 核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。"
+        },
+        {
+          "file": "docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md",
+          "line": "11642",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "- 核心版正式可用；GEO_BROWSER_COLLECTION_ENABLED=false、Browser 服务/profile 未启用且无生产会话；R7 deferred 不阻断，延期项不标已实现，核心与延期证据分别保留。"
+        },
+        {
+          "file": "docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-906.md",
+          "line": "36",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。"
+        },
+        {
+          "file": "docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-906.md",
+          "line": "82",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "- 核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。"
+        },
+        {
+          "file": "docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-906.md",
+          "line": "100",
+          "category": "历史交付/审查记录",
+          "disposition": "保留当时要求、限制、接受记录；当前能力已在文档开头/新版记录明确",
+          "source": "- 核心版正式可用；GEO_BROWSER_COLLECTION_ENABLED=false、Browser 服务/profile 未启用且无生产会话；R7 deferred 不阻断，延期项不标已实现，核心与延期证据分别保留。"
+        }
+      ]
+    },
+    {
+      "scan": "workflows",
+      "argv": [
+        "find",
+        ".github/workflows",
+        "-maxdepth",
+        "1",
+        "-type",
+        "f"
+      ],
+      "exit_code": 1,
+      "matches": 0,
+      "same_as_accepted_psr007_scan": true,
+      "classification_counts": {},
+      "references": [],
+      "directory_exists": false
+    }
+  ],
+  "git_diff_check": {
+    "argv": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0
+  },
+  "staged_files": [],
+  "git_status_checked": true,
+  "release_gate_preserved": {
+    "status": "blocked_environment",
+    "command": "make verify-release",
+    "stage": "test-integration",
+    "cause": "Docker daemon socket /var/run/docker.sock 不存在"
+  },
+  "prior_review_evidence_unchanged": true,
+  "implementation_tests_rerun": false,
+  "new_features": false,
+  "committed": false,
+  "pushed": false,
+  "deployed": false,
+  "archived": false,
+  "current_session_task_association": "cleared by task.py finish",
+  "temporary_directory_removed": true,
+  "only_one_new_file_confirmed": true,
+  "acceptance_increment_diff_inspected": true
+}

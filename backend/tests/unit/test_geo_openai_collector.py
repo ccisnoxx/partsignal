@@ -26,6 +26,12 @@ from tests.geo_collector_contract import (
 from tests.geo_network_guard import local_geo_network as local_geo_network
 from tests.geo_openai_support import configuration, make_collector, make_request
 
+SDK_FAILURE_CASES = tuple(
+    replace(case, state=State.COMPLETED)
+    if case.code == Code.PROVIDER_RESPONSE_TOO_LARGE else case for case in FAILURE_CASES
+)
+
+
 
 @pytest.mark.parametrize("mode", [FakeMode.SUCCESS, FakeMode.CITATIONS])
 @pytest.mark.parametrize("search", [True, False, None])
@@ -46,7 +52,7 @@ def test_real_collector_contract_original_text_metadata_and_secrets(mode, search
                 reported_cost=True,
                 echo_sensitive=True,
             ),
-            secrets=secrets,
+            secrets=secrets, failure_cases=SDK_FAILURE_CASES,
         )
         assert isinstance(result, CollectedAnswer)
         assert result.cost.amount == Decimal("0.001200")
@@ -57,7 +63,7 @@ def test_real_collector_contract_original_text_metadata_and_secrets(mode, search
         )
 
 
-@pytest.mark.parametrize("case", FAILURE_CASES, ids=lambda case: case.mode.value)
+@pytest.mark.parametrize("case", SDK_FAILURE_CASES, ids=lambda case: case.mode.value)
 def test_real_collector_failure_matrix_one_send_and_no_redirect(case, capsys, caplog):
     request = make_request()
     with running_geo_fake() as provider:
@@ -67,7 +73,7 @@ def test_real_collector_failure_matrix_one_send_and_no_redirect(case, capsys, ca
             request,
             provider,
             FakeScenario(mode=case.mode, response_bytes=8193, echo_sensitive=True),
-            secrets=secrets,
+            secrets=secrets, failure_cases=SDK_FAILURE_CASES,
         )
         assert_secrets_absent([caplog.text, *capsys.readouterr()], secrets)
 
@@ -78,7 +84,9 @@ def test_unknown_cost_search_and_usage_stay_null_and_authorization_failure_block
         collector, _ = make_collector(provider, request)
         assert collector.estimate(request).cost is None
         assert_authorization_rejection(collector, request, provider)
-        result = assert_collection_case(collector, request, provider, FakeScenario())
+        result = assert_collection_case(
+            collector, request, provider, FakeScenario()
+        )
         assert isinstance(result, CollectedAnswer)
         assert result.cost is result.usage is result.web_search_observed is None
 

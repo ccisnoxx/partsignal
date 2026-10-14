@@ -1,5 +1,7 @@
 # PartSignal GEO 监测平台文档包
 
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+
 | 项目 | 内容 |
 |---|---|
 | 文档包版本 | V1.0 |
@@ -425,23 +427,7 @@ GEO-706 / R6 提供机会干预前后比较、冻结恢复裁决与显式继续/
 GEO-707 / R6 收口 TOPIC_COVERAGE_GAP → ContentTask → RETEST → 显式解决纵向验收，并补首次机会创建审计和已存在复测审计的前端消费者。当前状态以 manifest 为准，交付仅 review，待人工接受。实际验证、页面/API 覆盖边界与限制见 [R6 机会闭环验收](./04-delivery/10-r6-opportunity-acceptance.md)、[Task Brief](../../.trellis/tasks/10-04-geo-707-r6-acceptance/prd.md) 与 [实施证据](../../.trellis/tasks/10-04-geo-707-r6-acceptance/implement.md)。无新 OpenAPI wire shape、Alembic revision、历史回填或生产上线，该次707交付未实施GEO-901/902，后续状态以manifest为准。
 
 
-GEO-801 / R7 提供独立 Browser Collector package/image、三个环境共享的 `geo-browser`
-Compose profile、真实离线 Chromium 健康、资源/网络隔离与默认 STOP kill switch。
-默认不启动，不接 Broker/数据库；UUID 入口在关闭时拒绝，开启后仍显式未实现。
-普通 API Worker 忽略误投非 API Run，普通镜像没有浏览器依赖。运行合同见
-[部署文档](./03-technical/08-deployment-and-operations.md#当前-r7geo-801-独立-browser-骨架)，
-范围与实际验证见 [Task Brief](../../.trellis/tasks/10-05-geo-801-browser-collector/prd.md) 和
-[实施证据](../../.trellis/tasks/10-05-geo-801-browser-collector/implement.md)。
-状态以 manifest 为准；无新 API/数据库迁移，不实现802会话、803模拟站或真实平台采集/生产启用。
-
-GEO-803 / R7 新增完全本地的模拟AI站与Browser Adapter合同套件：streaming/晚到引用、
-登录/过期、selector漂移、挑战页、敏感UI和超时。测试参考Adapter不进入生产Registry；
-结果复用现有Collector类型，CI在仅回环的独立Chromium容器执行，打印前扫描虚构canary。
-协议、运行与接入方法见[模拟站说明](../../tests/browser-fixture/README.md)，
-实际验证及限制见[Task Brief](../../.trellis/tasks/10-05-geo-803-browser-contract/prd.md)与
-[实施证据](../../.trellis/tasks/10-05-geo-803-browser-contract/implement.md)。
-状态以 manifest 为准；GEO-803 已人工接受为 done，未实施 GEO-804 真实平台或 GEO-805 生产证据捕获。804～807 按 ADR-006 延期。
-
+GEO-801～803 为历史隔离资产，已接受的代码、合同和证据保留在对应 Trellis 任务中。当前范围以本文开头及能力矩阵为准，不提供 Browser 运行教程，不列为默认验证门禁。
 
 GEO-901 / R8 已交付限批材料清理、dry-run、引用保护和低敏不可变墓碑，状态为review等待人工接受。0064加法前滚、默认保留策略不启用且新任务只预览；所有指标/Answer历史与引用raw保持。实际验证、Browser开发环境N/A与覆盖边界见[Task Brief](../../.trellis/tasks/10-05-geo-901-retention/prd.md)、[实施证据](../../.trellis/tasks/10-05-geo-901-retention/implement.md)及[运维](./03-technical/08-deployment-and-operations.md)。生产Browser false/无会话由904/906另行实测；903恢复记录见下方。
 

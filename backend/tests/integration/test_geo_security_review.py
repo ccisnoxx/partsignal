@@ -12,8 +12,8 @@ from app.config import settings
 from app.models.geo_analysis import GeoClaimAssessment, GeoRunReview
 from app.models.geo_answers import GeoAnswerSnapshot
 from app.services import geo_analysis_runs
+from app.services.ai_provider import AIProvider
 from app.services.credentials import CredentialCipher
-from app.services.pinned_http import PinnedHTTPTransport
 from tests.integration.geo_analysis_worker_support import analysis_engine as analysis_engine
 from tests.integration.geo_analysis_worker_support import answer_database as answer_database
 from tests.integration.geo_analysis_worker_support import harness as harness
@@ -48,7 +48,9 @@ def test_injected_answer_stays_data_without_tools_secrets_or_review_bypass(
 
     monkeypatch.setattr(settings, "session_secret", canary)
     monkeypatch.setattr(CredentialCipher, "decrypt", reject_capability)
-    monkeypatch.setattr(PinnedHTTPTransport, "request", reject_capability)
+    monkeypatch.setattr(AIProvider, "chat_completion", reject_capability)
+    monkeypatch.setattr(AIProvider, "raw_chat_completion", reject_capability)
+    monkeypatch.setattr(AIProvider, "discover_models", reject_capability)
     monkeypatch.setattr(socket, "create_connection", reject_capability)
     monkeypatch.setattr(socket.socket, "connect", reject_capability)
     monkeypatch.setattr(subprocess, "Popen", reject_capability)

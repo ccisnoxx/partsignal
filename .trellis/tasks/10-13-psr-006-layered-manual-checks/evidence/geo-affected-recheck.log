@@ -1,0 +1,24 @@
+.F...............F...................................                    [100%]
+=================================== FAILURES ===================================
+_____________ test_submit_freezes_all_once_replay_and_no_analysis ______________
+backend/tests/integration/test_geo_manual_collection.py:222: in test_submit_freezes_all_once_replay_and_no_analysis
+    assert submit(api, run, value).json() == receipt
+E   AssertionError: assert {'analysis_di...4+08:00', ...} == {'analysis_di...384014Z', ...}
+E     
+E     Omitting 8 identical items, use -vv to show
+E     Differing items:
+E     {'collected_at': '2026-10-13T21:59:42.384014+08:00'} != {'collected_at': '2026-10-13T13:59:42.384014Z'}
+E     Use -v to get more diff
+_________________ test_concurrent_submit_is_exactly_once[True] _________________
+backend/tests/integration/test_geo_manual_collection.py:369: in test_concurrent_submit_is_exactly_once
+    assert results[0] == results[1]
+E   AssertionError: assert {'analysis_di...3+08:00', ...} == {'analysis_di...034783Z', ...}
+E     
+E     Omitting 8 identical items, use -vv to show
+E     Differing items:
+E     {'collected_at': '2026-10-13T21:59:43.034783+08:00'} != {'collected_at': '2026-10-13T13:59:43.034783Z'}
+E     Use -v to get more diff
+=========================== short test summary info ============================
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_submit_freezes_all_once_replay_and_no_analysis
+FAILED backend/tests/integration/test_geo_manual_collection.py::test_concurrent_submit_is_exactly_once[True]
+2 failed, 51 passed in 6.46s

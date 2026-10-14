@@ -1,0 +1,566 @@
+--- before/.github/workflows/ci.yml
++++ after/.github/workflows/ci.yml
+@@ -1,120 +0,0 @@
+-name: ci
+-
+-on:
+-  workflow_dispatch:
+-    inputs:
+-      checks_group:
+-        description: 'full 全量；delivery 仅构建、部署检查及 E2E，不作为全量通过证明'
+-        type: choice
+-        required: true
+-        default: full
+-        options: [full, delivery]
+-
+-jobs:
+-  verify:
+-    name: verify (${{ inputs.checks_group || 'full' }})
+-    runs-on: ubuntu-latest
+-    services:
+-      postgres:
+-        image: postgres:16-alpine
+-        env:
+-          POSTGRES_DB: partsignal_test
+-          POSTGRES_USER: partsignal
+-          POSTGRES_PASSWORD: partsignal_test
+-        ports:
+-          - 5432:5432
+-        options: >-
+-          --health-cmd "pg_isready -U partsignal -d partsignal_test"
+-          --health-interval 5s
+-          --health-timeout 5s
+-          --health-retries 20
+-      redis:
+-        image: redis:7.4-alpine
+-        ports:
+-          - 6379:6379
+-        options: >-
+-          --health-cmd "redis-cli ping"
+-          --health-interval 5s
+-          --health-timeout 5s
+-          --health-retries 20
+-    env:
+-      APP_ENV: test
+-      DATABASE_URL: postgresql+psycopg://partsignal:partsignal_test@localhost:5432/partsignal_test
+-      REDIS_URL: redis://localhost:6379/15
+-      SESSION_SECRET: ci-session-secret-at-least-32-bytes
+-      # 成功路径使用本地协议替身；关闭模式由专门测试显式覆盖。
+-      CONTENT_GENERATOR: openai-compatible
+-      OBJECT_STORAGE_BACKEND: development
+-      OBJECT_STORAGE_ENDPOINT: http://127.0.0.1:19009
+-      PARTSIGNAL_SEED_ADMIN_PASSWORD: partsignal-admin-dev
+-      PARTSIGNAL_SEED_ENGINEER_PASSWORD: partsignal-engineer-dev
+-      # Browser合同在仅回环的独立容器内运行；下载依赖不属于平台采集。
+-      GEO_BROWSER_CONTRACT_CONTAINER: '1'
+-    steps:
+-      - name: 核对验证范围
+-        env:
+-          CHECKS_GROUP: ${{ inputs.checks_group || 'full' }}
+-        run: |
+-          case "$CHECKS_GROUP" in
+-            full) echo '全量 CI' ;;
+-            delivery) echo '定向 delivery CI；不表示全量检查通过' ;;
+-            *) echo '拒绝未知验证范围' >&2; exit 2 ;;
+-          esac
+-      - uses: actions/checkout@v4
+-      - uses: astral-sh/setup-uv@v6
+-        with:
+-          python-version: '3.12'
+-          enable-cache: true
+-      - uses: actions/setup-node@v4
+-        with:
+-          node-version: '22'
+-          cache: npm
+-          cache-dependency-path: frontend/package-lock.json
+-      - run: uv sync --project backend --all-extras
+-      - run: npm ci --prefix frontend
+-      - run: npm ci --prefix browser-collector
+-      - run: cp .env.example .env
+-      - run: uv run --project backend alembic -c backend/alembic.ini upgrade head
+-      - if: ${{ inputs.checks_group != 'delivery' }}
+-        run: make contract-check
+-      - if: ${{ inputs.checks_group != 'delivery' }}
+-        run: make lint
+-      - if: ${{ inputs.checks_group != 'delivery' }}
+-        run: make typecheck
+-      - if: ${{ inputs.checks_group != 'delivery' }}
+-        run: uv run --project backend pytest backend/tests/unit
+-      - if: ${{ inputs.checks_group != 'delivery' }}
+-        run: npm --prefix frontend run test
+-      # 复用权威入口：容器提供合同挂载和对象存储，恢复测试必跑显式 PG16 工具。
+-      - if: ${{ inputs.checks_group != 'delivery' }}
+-        run: make test-integration
+-      - run: npm --prefix frontend exec -- playwright install --with-deps chromium
+-      - run: make build test-deploy-scripts
+-      - run: make e2e
+-        env:
+-          REDIS_URL: redis://localhost:6379/14
+-      - run: docker compose --env-file .env.example -f deploy/compose.dev.yaml config --quiet
+-      - run: docker compose --env-file .env.example -f deploy/compose.prod.yaml config --quiet
+-        env:
+-          PARTSIGNAL_BACKEND_IMAGE: partsignal-backend
+-          PARTSIGNAL_FRONTEND_IMAGE: partsignal-frontend-v2
+-          PARTSIGNAL_VERSION: test
+-          PARTSIGNAL_RUNTIME_ENV_FILE: ${{ github.workspace }}/.env.example
+-          PARTSIGNAL_DATA_ROOT: ${{ runner.temp }}/partsignal-data
+-
+-  frontend-test:
+-    if: ${{ inputs.checks_group != 'delivery' }}
+-    runs-on: ubuntu-latest
+-    strategy:
+-      matrix:
+-        shard: [1, 2]
+-    steps:
+-      - uses: actions/checkout@v4
+-      - uses: actions/setup-node@v4
+-        with:
+-          node-version: '22'
+-          cache: npm
+-          cache-dependency-path: frontend/package-lock.json
+-      - run: npm ci --prefix frontend
+-      - run: npm exec -- vitest run --shard=${{ matrix.shard }}/2 --maxWorkers=1
+-        working-directory: frontend
+--- before/.trellis/spec/infra/ci-execution.md
++++ after/.trellis/spec/infra/ci-execution.md
+@@ -1,87 +0,0 @@
+-# GitHub Actions 执行契约
+-
+-## 1. Scope / Trigger
+-
+-- 本契约适用于 `.github/workflows/ci.yml` 的事件触发配置。
+-- `push` 只用于同步 GitHub 备份和发布来源；完整 CI 由操作者按需手动执行。
+-
+-## 2. Signatures
+-
+-- workflow：`ci`
+-- event：`workflow_dispatch`；`checks_group` 默认 `full`，另有显式 `delivery` 定向反馈。未知值在首个 step 拒绝。
+-- jobs：`verify`、`frontend-test`；`frontend-test` 使用 `shard: [1, 2]` 矩阵。
+-- npm cache 唯一输入：`frontend/package-lock.json`。
+-- 前端依赖只安装：`npm ci --prefix frontend`。
+-- PSR-005 后根 `bootstrap/lint/typecheck/test-unit/e2e/verify` 不依赖 Browser 专属包或合同；普通前端 Playwright 与 API GEO 验收保留。
+-- 当前 workflow 仍有 Browser 包安装和 `GEO_BROWSER_CONTRACT_CONTAINER=1` 的历史配置，清理由 PSR-006 负责；该值不再使根 `e2e/verify` 执行 Browser 合同，不作为当前默认质量要求。
+-- canonical 前端单元测试：`npm --prefix frontend run test`；根 E2E：`make e2e`。
+-- 前端分片命令：在 `frontend/` 工作目录运行 `npm exec -- vitest run --shard=<1|2>/2 --maxWorkers=1`。
+-- E2E step 覆盖 `REDIS_URL=redis://localhost:6379/14`；backend integration 继续继承 job 级 DB 15。
+-
+-## 3. Contracts
+-
+-- `on` 只声明 `workflow_dispatch`，不得声明 `push` 或 `pull_request`。
+-- 默认 `full` 手动运行必须保留完整质量检查：`verify` 持有合同、lint、typecheck、后端单元/集成、canonical 前端 unit/build/container/E2E 和 Compose/部署脚本检查；`frontend-test` 持有两路 canonical Vitest 集合。
+-- `verify` 的前端缓存与前端依赖安装唯一 owner 为 canonical `frontend/`；依赖安装或任一检查失败时 job 失败，不得静默跳过或恢复第二套前端。
+-- Browser 历史测试资产只允许显式实验选择，不被默认目标依赖；当前不提供 Browser 安装或运行教程。
+-- `make e2e` 必须覆盖 step 级 Redis DB 14，避免清理前序 backend integration 所属的 DB 15；不得退回 DB 0 或共享 logical DB。
+-- 两个 shard 各使用 1 个 worker，测试文件集合并集必须等于本地权威 `npm --prefix frontend run test` 中的 Vitest 集合；不得修改超时、断言或跳过规则换取通过。
+-- 手动 CI 是低频备用质量反馈，不是日常 push 或部署步骤；runner 耗时只记录为运维证据，不自动扩大 shard 数量。
+-- `delivery` 只运行同一套 bootstrap/迁移、镜像构建、部署检查、E2E 和 Compose 配置；job 名与日志明确标为定向，前序单元/集成及两路 shard 跳过不算通过。它不能单独证明完整 CI；可与输入未变的既有证据及增量验证组合用于交付。是否需要完整候选门禁由 [Hostdzire Runbook 的验证选择合同](../../../docs/Hostdzire部署上线流程.md#3-repository-与-candidate) 决定，不由新 SHA 或候选状态决定。
+-- CI 结果不作为 Hostdzire 发布门禁；发布边界以 `docs/Hostdzire部署上线流程.md` 为准。
+-
+-## 4. Validation & Error Matrix
+-
+-| 条件 | 预期结果 |
+-| --- | --- |
+-| push 或 PR 更新 | 不创建 `ci` run |
+-| 手动触发，未指定分组或 `full` | 创建一个完整 `ci` run |
+-| 显式 `delivery` | 仅定向反馈，不宣称全量通过；构建/部署/E2E/配置任一失败仍失败 |
+-| 未知分组 | verify 首步退出 2，不执行其安装/验证 |
+-| canonical 前端依赖安装、质量检查、build 或 E2E 失败 | `verify` job 与 workflow 失败 |
+-| `make e2e` 未覆盖 Redis DB 14 或仍使用 backend integration 的 DB 15 | 静态检查失败，禁止运行会清理共享 DB 的 E2E |
+-| 单 job Vitest 超过 10 分钟或出现 runner 超时 | 使用原生 2 路 shard，每路 1 worker |
+-| 任一 shard 超时、失败或两片未覆盖完整测试集合 | 手动 CI 失败并保留可核对日志 |
+-| 手动 CI 失败 | 显式保留失败结果，但不自动部署或阻断既有发布脚本 |
+-| workflow YAML 无效 | 静态检查失败，禁止提交 |
+-
+-## 5. Good / Base / Bad Cases
+-
+-- Good：需要完整反馈时手动运行 `ci`，`verify` 覆盖唯一 canonical 前端，且两路 `frontend-test` 全部通过。
+-- Base：只 push 备份代码，不产生 Actions 消耗。
+-- Bad：缓存或安装已退役路径、恢复 V1 visual contract、使用 `paths-ignore`、额外 worker 或放宽超时隐藏问题。
+-
+-## 6. Tests Required
+-
+-- 静态解析 `.github/workflows/ci.yml`，断言只有 `workflow_dispatch`。
+-- 静态断言 `verify` 的前端 cache/install 只包含 `frontend`，且两路 canonical shard 都保留。
+-- 静态断言 `make e2e` step 覆盖 `REDIS_URL=redis://localhost:6379/14`，job 级 backend integration 保持 DB 15。
+-- 对实际受影响合同按 [项目测试策略](../../../docs/testing.md#验证选择与证据复用) 选择检查；应用/测试/依赖输入未变时复用已有 canonical unit/build/E2E 成功证据，不因纯 CI 选择入口、文档、治理提交或候选收口重复全套。完整 `make verify` 只在当前交付明确要求完整门禁，或定向证据无法覆盖具体剩余风险时执行；先诊断失败并重验直接受影响范围。无 push 授权时不声称远端 workflow 已运行。
+-- 推送后确认没有自动 run；手动触发须记录固定 headSha、分组、run ID 和各 job 状态。`full` 包含 verify 与两路 frontend-test；`delivery` 的 shard 跳过必须明列，不算通过。额外 run 遵守用户当次预算和授权。
+-- 两路 Vitest 需记录失败、跳过、超时和实际耗时；两片文件数和测试数之和必须等于未分片全集。runner 偏慢作为已知残余风险，不通过增加 shard、worker 或放宽超时自动修复。
+-
+-## 7. Wrong vs Correct
+-
+-```yaml
+-# Wrong：push 和 PR 都会自动运行。
+-on:
+-  workflow_dispatch:
+-  push:
+-  pull_request:
+-
+-# Correct：只允许操作者手动运行。
+-on:
+-  workflow_dispatch:
+-
+-# Wrong：缓存已退役路径或两份 lockfile。
+-cache-dependency-path: |
+-  frontend/package-lock.json
+-  frontend-v2/package-lock.json
+-
+-# Correct：canonical frontend 是唯一依赖 owner。
+-cache-dependency-path: frontend/package-lock.json
+-
+-# Correct：在前端工作目录直接调用 Vitest。
+-- run: npm exec -- vitest run --shard=${{ matrix.shard }}/2 --maxWorkers=1
+-  working-directory: frontend
+-```
+--- before/.trellis/spec/infra/index.md
++++ after/.trellis/spec/infra/index.md
+@@ -7,7 +7,7 @@
+ | [域名安全运维](./domain-security-operations.md) | DNS、Nginx、证书、HSTS 与 preload | Active |
+ | [E2E 运行隔离](./e2e-isolation.md) | Playwright 独立数据库、临时存储与清理结果 | Active |
+ | [开发对象存储运行契约](./development-object-storage.md) | 共享开发 Compose 的对象存储启动、端点与真实文件流 | Active |
+-| [GitHub Actions 执行契约](./ci-execution.md) | 手动 CI 触发、完整检查与发布边界 | Active |
++| [手工分层质量验证契约](./manual-quality-checks.md) | 快速、领域、发布验证入口与兼容别名 | Active |
+ | [Production 候选与维护隔离契约](./production-image-delivery.md) | 候选交付、日常部署/重启、manifest 身份与维护隔离 | Active |
+ 
+ ## Pre-Development Checklist
+--- before/Makefile
++++ after/Makefile
+@@ -3,7 +3,32 @@
+ UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
+ UV := UV_CACHE_DIR=$(UV_CACHE_DIR) uv
+ 
+-.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate initialize-accounts lint typecheck test-unit test-integration e2e build build-frontend verify test-deploy-scripts test-frontend-container staging-redeploy-fast down test-geo-fixtures test-geo-collector-contract test-geo-performance check-browser-experimental test-geo-browser test-geo-browser-contract test-geo-recovery test-geo-recovery-integration test-geo-capacity test-upgrade-recovery test-upgrade-recovery-compose production-check production-prepare production-activate production-smoke production-restart test-production-routine
++# 开发者手工选择领域；本机集成使用显式测试 PostgreSQL 和 HTTP fake provider。
++AI_UNIT_TESTS := backend/tests/unit/test_ai_provider.py backend/tests/unit/test_ai_boundaries.py \
++	$(wildcard backend/tests/unit/test_generation*.py)
++AI_INTEGRATION_TESTS := backend/tests/integration/test_ai_channel_management.py \
++	backend/tests/integration/test_ai_provider_configuration.py \
++	backend/tests/integration/test_generation_provider.py
++AI_FRONTEND_TESTS := $(patsubst frontend/%,%,$(wildcard frontend/src/domains/configuration/ai-*.test.*) \
++	$(wildcard frontend/src/domains/configuration/prompt-*.test.*) \
++	frontend/src/domains/content/content-ai-production.test.tsx)
++# Collector 的五个 HTTP 套件由 test-geo-collector-contract 拥有，避免重复执行。
++GEO_UNIT_TESTS := $(filter-out backend/tests/unit/test_geo_browser_%.py \
++	backend/tests/unit/test_geo_recovery_%.py backend/tests/unit/test_geo_performance_contracts.py \
++	backend/tests/unit/test_geo_fake_provider.py backend/tests/unit/test_geo_collector_suite.py \
++	backend/tests/unit/test_geo_openai_collector.py backend/tests/unit/test_geo_openai_response.py \
++	backend/tests/unit/test_geo_openai_network.py,$(wildcard backend/tests/unit/test_geo_*.py))
++GEO_INTEGRATION_TESTS := backend/tests/integration/test_geo_sdk_collection.py \
++	backend/tests/integration/test_geo_profile_tests.py \
++	backend/tests/integration/test_geo_profile_test_races.py \
++	backend/tests/integration/test_geo_security_review.py \
++	backend/tests/integration/test_geo_at_most_once.py \
++	backend/tests/integration/test_geo_manual_collection.py \
++	backend/tests/integration/test_geo_manual_collection_boundaries.py \
++	backend/tests/integration/test_geo_manual_races.py \
++	backend/tests/integration/test_geo_analysis.py
++
++.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate initialize-accounts lint typecheck test-unit test-integration e2e build build-frontend verify verify-release check-backend-fast check-frontend-fast check-fast check-ai check-geo test-deploy-scripts test-frontend-container staging-redeploy-fast down test-geo-fixtures test-geo-collector-contract test-geo-performance check-browser-experimental test-geo-browser test-geo-browser-contract test-geo-recovery test-geo-recovery-integration test-geo-capacity test-upgrade-recovery test-upgrade-recovery-compose production-check production-prepare production-activate production-smoke production-restart test-production-routine
+ 
+ bootstrap:
+ 	@test -f .env || cp .env.example .env
+@@ -45,6 +70,31 @@
+ 	$(UV) run --project backend pytest backend/tests/unit
+ 	npm --prefix frontend run test
+ 
++check-backend-fast:
++	$(UV) run --project backend ruff check backend
++	$(UV) run --project backend mypy --config-file backend/pyproject.toml backend/app
++	$(UV) run --project backend pytest backend/tests/unit
++
++check-frontend-fast:
++	npm --prefix frontend run lint
++	npm --prefix frontend run typecheck
++	npm --prefix frontend run test
++
++check-fast: check-backend-fast check-frontend-fast
++
++check-ai:
++	@test -n "$$PARTSIGNAL_TEST_DATABASE_URL" || { echo 'check-ai 需要显式设置 PARTSIGNAL_TEST_DATABASE_URL（专用测试 PostgreSQL）' >&2; exit 2; }
++	$(UV) run --project backend pytest $(AI_UNIT_TESTS)
++	$(UV) run --project backend pytest $(AI_INTEGRATION_TESTS)
++	npm --prefix frontend run test -- $(AI_FRONTEND_TESTS)
++
++check-geo: test-geo-fixtures test-geo-collector-contract
++	@test -n "$$PARTSIGNAL_TEST_DATABASE_URL" || { echo 'check-geo 需要显式设置 PARTSIGNAL_TEST_DATABASE_URL（专用测试 PostgreSQL）' >&2; exit 2; }
++	@test -n "$$OBJECT_STORAGE_ENDPOINT" || { echo 'check-geo 需要显式设置 OBJECT_STORAGE_ENDPOINT（已启动的本地开发对象存储）' >&2; exit 2; }
++	$(UV) run --project backend pytest $(GEO_UNIT_TESTS)
++	PGTZ=UTC OBJECT_STORAGE_BACKEND=development $(UV) run --project backend pytest $(GEO_INTEGRATION_TESTS)
++	npm --prefix frontend run test -- src/domains/geo- src/domains/geo/
++
+ test-integration:
+ 	# 恢复用例需要回环连接和显式 PG16 工具，在下一条必跑命令中执行。
+ 	$(COMPOSE) run --rm backend-test pytest tests/integration --ignore=tests/integration/test_geo_recovery.py
+@@ -65,7 +115,10 @@
+ build-frontend:
+ 	docker build -f frontend/Dockerfile -t partsignal-frontend-v2:test frontend
+ 
+-verify: contract-check lint typecheck test-unit test-integration test-geo-performance build e2e test-deploy-scripts
++# 旧入口直接委托完整发布验证，保持已有脚本和使用习惯。
++verify: verify-release
++
++verify-release: contract-check lint typecheck test-unit test-integration test-geo-performance build e2e test-deploy-scripts
+ 	$(COMPOSE) config --quiet
+ 	PARTSIGNAL_BACKEND_IMAGE=partsignal-backend PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 PARTSIGNAL_VERSION=test PARTSIGNAL_RUNTIME_ENV_FILE=$(CURDIR)/.env PARTSIGNAL_DATA_ROOT=$(CURDIR)/data docker compose --env-file .env -f deploy/compose.prod.yaml config --quiet
+ 
+--- before/README.md
++++ after/README.md
+@@ -46,18 +46,16 @@
+ make dev
+ ```
+ 
+-常用质量检查：
++手工分层质量检查：
+ 
+ ```bash
+-make contract-check
+-make lint
+-make typecheck
+-make test-unit
+-make test-integration
+-make e2e
+-make build
+-make verify
++make check-fast          # 小任务；也可只选 check-backend-fast / check-frontend-fast
++make check-ai            # AI 切片；需专用测试 PostgreSQL
++make check-geo           # API/人工 GEO 切片；需专用测试 PostgreSQL
++make verify-release      # 准备部署指定 commit；make verify 是完整兼容别名
+ ```
++
++具体范围、前置条件与其他领域过滤示例见 [测试策略](./docs/testing.md#手工分层命令)。GitHub 只用于代码备份与服务器拉取，仓库不运行 Actions 工作流；已有独立契约、静态、单元、集成、构建和 E2E 入口继续可用。
+ 
+ HTTP 契约位于 `contracts/openapi.yaml`，数据库和状态机契约位于 `contracts/database.md`。生产内容生成固定使用管理员配置的 OpenAI-compatible Chat Completions 渠道；API Key 与敏感 Header 由 `AI_CREDENTIAL_ENCRYPTION_KEY` 加密，作业只保存非敏感快照。本地和自动化测试可以显式使用确定性生成器，但不会在真实调用失败时自动回退。生产 OSS 仍只有在显式配置 `OBJECT_STORAGE_BACKEND=aliyun_oss` 时启用。
+ 
+--- before/deploy/scripts/e2e-geo.sh
++++ after/deploy/scripts/e2e-geo.sh
+@@ -3,8 +3,8 @@
+ 
+ # 每个 phase 复用现有 runner，前一栈精确清理完成后才创建下一随机数据库。
+ root=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
+-: "${REDIS_URL:?必须设置本地或 CI Redis REDIS_URL}"
+-# 本地独占非 0 DB 的归属、空库与并发检查由每个 runner 的统一 preflight 裁决；CI 使用 14。
++: "${REDIS_URL:?必须设置专用测试 Redis REDIS_URL}"
++# 独占非 0 DB 的归属、空库与并发检查由每个 runner 的统一 preflight 裁决。
+ for mode in enabled api-disabled monitoring-disabled; do
+   printf '%s\n' "E2E_GEO phase=$mode status=begin"
+   PARTSIGNAL_E2E_GEO_MODE="$mode" \
+--- before/deploy/scripts/test-geo-collector-contract.py
++++ after/deploy/scripts/test-geo-collector-contract.py
+@@ -1,5 +1,5 @@
+ #!/usr/bin/env python3
+-"""本地 Collector 套件 CI 入口：输出前扫描日志和测试产物，泄漏时非零退出。"""
++"""本地 Collector 合同入口：输出前扫描日志和测试产物，泄漏时非零退出。"""
+ 
+ from __future__ import annotations
+ 
+--- before/docs/Hostdzire部署上线流程.md
++++ after/docs/Hostdzire部署上线流程.md
+@@ -44,7 +44,7 @@
+ 
+ ### 验证选择合同
+ 
+-代码验证在开发/修复阶段按 [项目测试策略](./testing.md#验证选择与证据复用) 执行，部署消费其记录。任务完成、功能组或每日收尾、新 commit SHA、release ID、候选冻结、发布和服务器重部署均不是完整 `make verify` 的独立触发条件。先核实目标、数据保留方式、现有 runtime、AI 初始化方式、schema 和外部服务，再集中修复、验证并准备工件，避免每发现一个缺项就启动一轮全量检查。
++代码验证在开发/修复阶段按 [项目测试策略](./testing.md#验证选择与证据复用) 选择快速/领域检查，部署消费其记录。准备部署指定 commit 时执行完整 `make verify-release`；仅完成任务、形成新 SHA/release ID 或冻结候选不要求日常开发反复全量验证。同一已验证候选重启复用有效证据。先核实目标、数据保留方式、现有 runtime、AI 初始化方式、schema 和外部服务，再集中修复、验证并准备工件，避免每发现一个缺项就启动一轮全量检查。
+ 
+ | 变化 | 源码验证与工件 | 部署现场验证 |
+ | --- | --- | --- |
+@@ -58,7 +58,7 @@
+ 
+ 验证记录可采用 [记录模板](../deploy/validation-record.example.json)，包含 candidate/baseline commit、changed paths、实际命令/结果、复用来源/输入未变依据、未验证范围，以及完整门禁触发原因。记录是操作者的证据索引，不是可信签名或测试执行器。旧 SHA 的全套结果不能直接写成新 SHA 的全套通过；可明确组合旧基线与本次增量证据。代码、依赖、测试配置或环境输入变化时，仅使依赖该输入的证据失效。
+ 
+-日常重部署不自动调用完整测试、全量 E2E、性能测试或 GitHub Actions。保留 Docker 构建缓存和已有依赖；源码、构建配置和依赖未变的镜像可复用其不可变身份。需要新 tag 时由 producer 冻结真实 image ID/RepoDigest，不能伪造身份或覆盖旧 release。
++准备部署指定 commit 的完整手工验证入口为 `make verify-release`，旧 `make verify` 保持相同范围；小任务与功能切片分别选择快速/领域目标，详见 [测试策略](./testing.md#手工分层命令)。GitHub 只用于备份与服务器拉取，没有 Actions 部署步骤。日常部署脚本不隐式调用源码验证；消费有效证据并补充实际变化的现场检查。保留 Docker 构建缓存和已有依赖；源码、构建配置和依赖未变的镜像可复用其不可变身份。需要新 tag 时由 producer 冻结真实 image ID/RepoDigest，不能伪造身份或覆盖旧 release。
+ 
+ 候选必须来自 clean、已推送的 `main`。默认 `previous-frontend` 恢复策略还冻结 previous V2 镜像；获准清空重建的 `fresh-rebuild` 将该角色记录为不适用。使用 `git archive` 生成不可覆盖源归档，构建 backend 和 Frontend V2 镜像后，通过 `deploy/scripts/create-release-manifest.py` 冻结完整 commit、源归档 SHA-256、backend/migration/current V2 的 image ID 与非空 RepoDigest、schema head、版本化 migration_runtime 指纹，以及固定 14 项 allowlist 中的 Production Compose、状态/部署/激活/输入检查脚本、Production/maintenance Nginx 模板和安全 snippet 校验和。migration 首次默认 backend；严格失败恢复须以 `--migration-image` 保留失败执行的原迁移镜像，并以 `PARTSIGNAL_MIGRATION_IMAGE` 将其完整 reference 传入后续正式命令。完整迁移程序由该镜像全部 rootfs 与执行配置冻结，修复 backend 独立变化。输入检查脚本 `check-production-inputs.py` 和迁移归档与运行时证明模块 `production_upgrade_recovery.py`、`production_migration_runtime.py`，以及部署执行 owner `production_deployment.py`、supervisor `production_maintenance_execution.py` 和清空边界 owner `production_fresh_reset.py` 必须按附录一起传入 tracked files。manifest 采用排他创建；部署和激活会复算 tracked files，并要求 `PARTSIGNAL_VERSION` 精确等于 release ID。不得复用 tag、覆盖文件或从 release 目录名推断 Git 状态。
+ 
+--- before/docs/development.md
++++ after/docs/development.md
+@@ -34,3 +34,11 @@
+ Schema 从 `app.schemas.<domain>` 直接导入，ORM 类从 `app.models.<domain>` 直接导入。新增模型仍使用 `app.db.Base` 和字符串外键，并在 `app.models.__init__` 注册所属模块；修改映射后必须检查 mapper 配置、metadata 表集合和 Alembic head，不能为了拆文件生成迁移。canonical `frontend/` 只从 `src/shared/api/generated/schema.d.ts` 使用 OpenAPI 生成类型；query key 由对应 domain/API owner 统一持有，不得复制接口类型、页面内 query key 或客户端业务状态机。
+ 
+ 默认开发 Compose 只包含核心服务；即使选择全部 profile，也不加载 Browser 服务或会话 overlay。历史隔离文件保留，当前版本不提供 Browser 安装、启动或调试教程。
++
++## 手工质量验证
++
++小任务完成执行 `make check-fast`，只改一侧时选择 `make check-backend-fast` 或 `make check-frontend-fast`。快速层包含静态检查和单元测试，不启动完整 Docker、PostgreSQL 集成、Playwright 或镜像构建。
++
++功能切片完成显式选择 `make check-ai`、`make check-geo`，或按内容/发布/认证的真实测试文件过滤。两个领域目标需要专用 `PARTSIGNAL_TEST_DATABASE_URL`，使用随机 PostgreSQL 测试库与本机 HTTP fake；不调用真实 AI，也不运行 Browser Collector。
++
++准备部署指定 commit 时执行完整 `make verify-release`；旧 `make verify` 是相同范围的直接兼容别名。GitHub 只用于代码备份与服务器拉取，质量门禁保持手工执行。具体覆盖、环境准备、其他领域示例及证据复用见 [测试策略](./testing.md#手工分层命令)。
+--- before/docs/geo-monitoring/03-technical/07-testing-and-quality.md
++++ after/docs/geo-monitoring/03-technical/07-testing-and-quality.md
+@@ -193,7 +193,7 @@
+ 
+ GEO-801～803 的源码、模拟站与专属测试保留在隔离资产中，不被当前默认目标依赖。默认 E2E 保留普通前端 Playwright 和 API GEO 三阶段验收，不准备 Browser 会话材料。
+ 
+-GitHub Actions 尚存的 Browser 包安装/环境配置留 PSR-006 处理，本任务未修改 workflow。
++当前使用 [手工分层验证](../../testing.md#手工分层命令)：快速层用于小任务，`make check-geo` 组合现有 API/人工 GEO 测试与本机 fake-provider 合同，准备部署使用 `make verify-release`。领域检查不包含 Browser 专属测试、运行时、性能数据集或恢复集成。
+ 
+ ## 6. Analysis 金标测试
+ 
+--- before/docs/geo-monitoring/CHANGELOG.md
++++ after/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,10 @@
+ # 文档包变更记录
++
++## PSR-006 手工分层验证 — 2026-10-13（review 待验收）
++
++- 小任务选择快速层，AI/API 与人工 GEO 切片显式选择领域层，准备部署指定 commit 使用完整 `verify-release`；旧 `verify` 保持直接兼容别名。
++- 删除未使用的 Actions 工作流及专属规范/使用说明；GitHub 只用于备份与服务器拉取，不引入替代 CI。领域检查排除 Browser 专属测试与运行合同，普通 Playwright 保留在完整发布层。
++- 具体范围、实际检查、未运行发布项与环境限制见 [PSR-006 证据](../../.trellis/tasks/10-13-psr-006-layered-manual-checks/implement.md)。
+ 
+ ## PSR-005 当前 Browser 范围与默认入口 — 2026-10-13（review 待验收）
+ 
+--- before/docs/geo-monitoring/SHA256SUMS
++++ after/docs/geo-monitoring/SHA256SUMS
+@@ -16,7 +16,7 @@
+ c462b7a33a76395a915855cd42aa6b16f842a0dc19bf7e1fc71cd241069771ab  03-technical/04-frontend-architecture.md
+ dcbbf85d89b699d33846b432f5feb09ec49ec283e43834c5039da418b564451c  03-technical/05-worker-and-collector-architecture.md
+ e8ce7a0f794d723c7f59f5b6be0b26af0b8e0d1a8327bd0e9a9562f3d711d393  03-technical/06-security-and-compliance.md
+-9a1d2054949c481740c599b4eec0989ac8e0e39a318b7ad6c1d27cd72ff32304  03-technical/07-testing-and-quality.md
++6180214442014c25b4de6cc28c80a51cb9c5ebca8130f5396643eb92e7d6d812  03-technical/07-testing-and-quality.md
+ ca9dc3fb0ab4e1b9a99a2f85cd3c89443f8485a01b49db4b8dd27feefa3de4c7  03-technical/08-deployment-and-operations.md
+ 65c34d779c23a6ca77c657c859566535463556d4b6765f39e4dea5d832f116c3  03-technical/09-backup-recovery-runbook.md
+ 718a2986917c4bfc48260f13643772cc1f1986d9de6f5b768a3dcd25aacea04e  03-technical/10-core-rollout-runbook.md
+@@ -129,7 +129,7 @@
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  05-decisions/GEO-002-architecture-review.md
+ b949243cf6b9715e2ecad7c36bee3d9e094d76ed9f50dca1bc365da77c956fb3  06-reviews/GEO-1001-release-readiness-audit.md
+ b36012529fce0cbbc4000388c5ac5208ee56dec955d1fd83b075f2c300bd47fe  06-reviews/2026-10-06-v1-post-recovery-blocker-audit.md
+-e04694aa4f6e003e045599dbd95bd82fe13a6a653ee235099c2dfd185dd63172  CHANGELOG.md
++924b131f0512206bdec06b2518207d100e3016d18fef6cb276a29e3ca104187b  CHANGELOG.md
+ a20ea183d9959528348b8a303d96f566d0e825a8c59e493fef9eb80f32a8d388  README.md
+ 9a0e045a854176f9fa12f8da21c58b0432ff4c58d8b900a7328bea7d4ec16e8e  06-reviews/2026-10-06-v1-branch-blocker-remediation.md
+ 39bf5625a0e57f9ae3031daf39808eaad631ccb59dd8950ed25c8e2609c17fc9  06-reviews/2026-10-07-v1-pr-acceptance.md
+--- before/docs/maintenance/openai-sdk-refactor/README.md
++++ after/docs/maintenance/openai-sdk-refactor/README.md
+@@ -34,4 +34,10 @@
+ 
+ 当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+ 
+-根 Make 默认安装/静态检查/单元/E2E/verify 及 Dev/Staging/Prod Compose 不依赖 Browser 专属包、合同或 overlay。普通前端 Playwright 和 API 型 GEO Collector 保留。历史源码、公共 Schema、数据库对象、迁移和隔离非生产资产继续保留；后续实验检查只能显式选择。GitHub Actions 和质量门禁分层留 PSR-006；PSR-005 完成后为 review，等待人工接受。
++根 Make 默认安装/静态检查/单元/E2E/verify 及 Dev/Staging/Prod Compose 不依赖 Browser 专属包、合同或 overlay。普通前端 Playwright 和 API 型 GEO Collector 保留。历史源码、公共 Schema、数据库对象、迁移和隔离非生产资产继续保留；后续实验检查只能显式选择。PSR-005 已人工接受，状态为 done。
++
++## PSR-006 手工分层验证
++
++小任务选择 `check-fast` 或单侧 `check-backend-fast` / `check-frontend-fast`；功能切片显式选择 `check-ai` / `check-geo` 或其他领域的现有文件；准备部署指定 commit 使用完整 `verify-release`。旧 `verify` 直接依赖发布层，原独立入口保持。领域命令要求专用测试 PostgreSQL，不启动完整 Docker 或 Playwright，也不执行 Browser Collector。
++
++删除未使用的 Actions 工作流与仅为它服务的规范/使用说明。GitHub 只用于代码备份和服务器拉取，不增加 CI、required checks、分支保护或 Release/tag 流程。覆盖与前置条件见 [测试策略](../../testing.md#手工分层命令)，实际验证与未运行项见 [PSR-006 证据](../../../.trellis/tasks/10-13-psr-006-layered-manual-checks/implement.md)。完成后进入 review，完整发布执行归 PSR-007。
+--- before/docs/maintenance/openai-sdk-refactor/task-manifest.yaml
++++ after/docs/maintenance/openai-sdk-refactor/task-manifest.yaml
+@@ -26,8 +26,10 @@
+     depends_on: [PSR-004]
+     task_brief: .trellis/tasks/10-13-psr-005-defer-browser-collector/prd.md
+   - id: PSR-006
+-    title: 待定义
+-    status: planned
++    title: 建立手工分层质量验证命令并删除未使用 GitHub Actions
++    status: review
++    depends_on: [PSR-005]
++    task_brief: .trellis/tasks/10-13-psr-006-layered-manual-checks/prd.md
+   - id: PSR-007
+     title: 待定义
+     status: planned
+--- before/docs/testing.md
++++ after/docs/testing.md
+@@ -8,10 +8,10 @@
+ 
+ - 根据实际变化、受影响调用者与合同，选择最低成本且能直接观察或反证风险的检查。文档、文案或样式小改可使用 diff、链接或页面检查；不自动添加全量测试、E2E、镜像构建或安全扫描。
+ - 完整用户流程、认证/授权、导航、跨请求持久化或跨服务行为发生实质变化时，选择对应定向 E2E；迁移、并发、权限等边界选择直接覆盖其保证的数据库、集成或专项验证。高风险边界不自动要求测试所有无关模块。
+-- 任务完成、功能组或每日收尾、新 commit SHA、候选冻结、发布或重部署本身不触发完整 `make verify`。只有当前交付明确要求完整门禁，或定向证据无法覆盖具体剩余风险时才执行；执行前记录触发原因与所覆盖的缺口。历史任务、迁移阶段或首次发布的一次性门禁不自动成为日常要求。
++- 小任务与功能切片按下面的手工分层命令选择检查，不每次执行完整发布验证。准备部署指定 commit 时保留并使用 `make verify-release` 完整入口；部署现场仍按 Hostdzire 合同消费有效证据并验证实际变化，重启同一已验证候选不机械重跑全套。历史一次性门禁不自动成为日常开发要求。
+ - 复用已成功且相关输入未变的证据；代码、测试配置、依赖、构建或环境输入变化，仅使依赖该输入的证据失效。可组合已验证基线与增量验证，但不得把旧 SHA 的全套结果记为新 SHA 已重新全套通过。
+ - 失败先诊断，相关修复或新证据出现后先重跑失败项与直接受影响范围；不因一次失败或生成新候选从头重跑全套。修复导致新的具体风险时再扩大范围。
+-- 镜像按构建输入变化重建；安全专项检查按相关安全合同变化选择。现有明确要求的 CI/交付门禁保留，日常任务不额外启动无关扫描。
++- 镜像按构建输入变化重建；安全专项检查按相关安全合同变化选择。明确要求的交付门禁保留，日常任务不额外启动无关扫描。
+ - 完成记录说明实际变更、已执行命令与结果、复用来源及输入未变依据、有实质意义的未验证范围和残余风险；未执行、跳过或不适用不写成通过。
+ 
+ ## 层级
+@@ -23,11 +23,69 @@
+ - 契约检查比较提交 OpenAPI、FastAPI 运行时 Schema 和前端生成类型。
+ - 结构重构还需比较 ORM metadata 表集合、mapper 数、Alembic head、迁移历史和生产 preflight 输出，证明物理移动未改变数据库语义。
+ 
+-## 命令
++## 手工分层命令
+ 
+ 默认 `bootstrap`、`lint`、`typecheck`、`test-unit`、`e2e`、`verify` 不安装或执行独立 Browser 包/合同。普通前端 Playwright 与 API GEO 验收保留；Browser 专属历史测试保留为隔离资产，只有显式实验入口才执行，不构成当前质量门禁。
+ 
+-以下是独立验证入口，按上述规则选择，不是顺序执行清单。日常检查优先过滤到相关包、测试文件或用例；选用完整入口时保留该入口的全部既定流程和失败语义。手动 CI 的触发与 `full`/`delivery` 含义见 [CI 执行合同](../.trellis/spec/infra/ci-execution.md)，不要求每次提交或部署触发 Actions。
++推荐流程：
++
++```text
++小任务完成 → check-fast 或对应语言快速检查
++功能切片完成 → check-ai / check-geo / 手工选择其他领域测试
++准备部署指定 commit → verify-release
++```
++
++| 层级 | 命令 | 实际范围与成本 |
++| --- | --- | --- |
++| 快速后端 | `make check-backend-fast` | Ruff、全 backend/app mypy、backend/tests/unit；不启动 Docker/PG/Playwright |
++| 快速前端 | `make check-frontend-fast` | canonical frontend lint、typecheck、Vitest；不构建镜像或执行 Playwright |
++| 快速组合 | `make check-fast` | 只组合上面两个目标，不执行 integration/E2E/build |
++| AI 领域 | `make check-ai` | 官方 SDK/凭据边界、生成/自然化/dispatch/运行模式 unit；AI 配置管理与生成本机 HTTP fake + PG 集成；AI 渠道/Prompt/内容 AI 前端 unit |
++| GEO 领域 | `make check-geo` | fixture 校验、Collector HTTP 合同及 secret scan、当前 GEO unit；SDK/Profile/Worker/不可重放/人工录入与分析代表 PG 集成；新 GEO 与原人工观测前端 unit。不执行 Browser、性能数据集、恢复集成或 Playwright |
++| 发布 | `make verify-release` | 原完整合同、lint/typecheck/unit、全部 PG integration、GEO performance、Docker 镜像、真实栈/Playwright、部署脚本与 Dev/Prod Compose 配置检查 |
++
++快速层仍执行现有全后端/全前端单元集合；其中后端历史 Browser 安全边界断言只验证禁用/数据合同，不启动独立 Browser Collector。领域选集以根 Makefile 为权威，开发者显式选择，不自动分析 Git diff。领域检查是代表性回归，不能替代完整发布验证。
++
++GitHub 只用于代码备份与服务器拉取；仓库没有 GitHub Actions 工作流、CI badge、required checks 或分支保护要求，也不提供替代 CI。命令合同见 [手工验证规范](../.trellis/spec/infra/manual-quality-checks.md)。
++
++### 领域检查前置条件
++
++先执行 `make bootstrap` 安装测试依赖。`check-ai` 与 `check-geo` 不隐式启动数据库或完整 Compose；要求显式提供具有 CREATE/DROP DATABASE 权限的专用测试 PostgreSQL。每个现有 fixture 创建随机测试库、执行迁移并清理，不使用 SQLite 或业务库。缺少连接时 Make 明确非零；数据库不可用/权限不足时测试失败，不以 skip 冒充通过。仅使用本机 HTTP fake 和虚构凭据，不需要真实 Provider Key。
++
++例如已有开发 PostgreSQL 监听 55432、开发对象存储监听 19001 时：
++
++```bash
++export PARTSIGNAL_TEST_DATABASE_URL='postgresql://partsignal:partsignal_dev@127.0.0.1:55432/partsignal'
++make check-ai
++export OBJECT_STORAGE_ENDPOINT='http://127.0.0.1:19001'
++make check-geo
++```
++
++没有本地 PostgreSQL 时，可先单独启动开发 Compose 的 postgres 服务。GEO 人工录入集成必须使用实际保存字节并校验 HEAD 的开发对象存储，需显式设置 `OBJECT_STORAGE_ENDPOINT`；Make 固定这些集成使用 development 适配器，缺端点直接非零。可单独启动开发 Compose 的 fake-oss，或在另一个终端复用现有应用入口启动本地服务：
++
++```bash
++psr_geo_storage_dir=$(mktemp -d)
++OBJECT_STORAGE_BACKEND=development OBJECT_STORAGE_PATH="$psr_geo_storage_dir" \
++  uv run --project backend uvicorn app.dev_storage:app --host 127.0.0.1 --port 19001
++```
++
++测试进程与对象存储服务必须使用相同的 `UPLOAD_SIGNING_SECRET`；不传时沿用本地开发配置。结束后停止本次对象存储进程，并精确删除上述临时目录。不得连接生产 Bucket 或清理共享卷；使用共享开发 fake-oss 时按对象归属清理。GEO 集成命令显式设置 `PGTZ=UTC`，保持现有 PG16 容器的时间投影，使提交响应与持久化重放使用相同 UTC 表达，不修改宿主机或数据库全局时区。两个领域选集不依赖 Redis 或 Worker/Beat 进程；AI 不需要对象存储。快速层无这些前置条件。发布层仍使用既有 PG16/Redis/对象存储与完整真实栈约束。
++
++需要容器 `/contracts` 挂载的评估/洞察合同用例留在完整集成入口，GEO 领域层使用可在宿主机执行的已有测试；人工评估的 unit/前端行为仍在选集内。
++
++### 其他领域与旧入口
++
++内容、发布、认证等切片直接选择现有测试文件；以下是独立示例，不要求全部执行。集成示例沿用上面的专用测试连接，涉及完整用户旅程时再选对应 Playwright spec。
++
++```bash
++uv run --project backend pytest backend/tests/integration/test_content_review.py
++uv run --project backend pytest backend/tests/integration/test_publication_workflow.py
++uv run --project backend pytest backend/tests/integration/test_identity_management.py
++npm --prefix frontend run test -- src/domains/content/
++npm --prefix frontend run test -- src/domains/publication/
++```
++
++旧 `verify` 是 `verify-release` 的直接兼容别名，仍执行完整发布集合。现有独立检查继续可用；选用完整入口时保留其全部既定流程和失败语义：
+ 
+ ```bash
+ make contract-check
+@@ -37,7 +95,7 @@
+ make test-integration
+ make e2e
+ make build
+-make verify
++make verify-release  # make verify 保持相同完整范围
+ ```
+ 
+ 测试替身必须显式配置。确定性生成器不得补充输入事实中不存在的参数，GEO API fake provider 通过官方同步 SDK 的固定 Chat Completions 路径及原始字节严格业务解析验证；授权回调失败 SDK 不启动，成功后 timeout/connection 为 UNKNOWN、明确 HTTP 状态为 COMPLETED、同 attempt 不重放，response size 在完整接收后检查；AI 配置管理、正式生成与自然化通过官方同步 SDK 与本机 HTTP fake provider 验证 Models/Chat Completions 路径、Header、参数、零重试、错误脱敏、严格草稿/可空指标和 PostgreSQL 资格/并发复核，Profile 连接诊断同样通过官方 SDK 与本机 HTTP fake 验证权限、错误脱敏、零重试、参数及调用后依赖 revision 复核。开发对象存储必须实际保存上传字节并执行 HEAD 元数据校验。
+@@ -56,7 +114,7 @@
+ 
+ 上线门禁测试在 `0012` 历史 Schema 上运行 `python -m app.cli preflight-integrity`，断言稳定 ID、原因码和非零退出；随后证明 `0013` 迁移本身同样阻断，且不产生部分表或版本前进。合法历史必须按追加式 `VERIFIED` 状态事件识别：发布后来移除时任务仍可保持完成；已显式进入拒绝、移除或验证失败的旧错绑保留历史但不再阻断。
+ 
+-`make e2e` 需要本机已有 PostgreSQL、Redis 和 Playwright Chromium；CI 使用服务容器执行同一脚本。使用开发 Compose 基础设施时先执行 `make dev-infra`，再显式传入宿主机连接：
++`make e2e` 需要本机已有 PostgreSQL、Redis 和 Playwright Chromium。使用开发 Compose 基础设施时先执行 `make dev-infra`，再显式传入宿主机连接：
+ 
+ ```bash
+ DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55432/partsignal \

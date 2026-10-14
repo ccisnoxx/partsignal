@@ -148,13 +148,15 @@ backend/.venv/bin/python deploy/scripts/e2e-environment.py preflight \
 storage_dir=$(mktemp -d "$storage_parent/partsignal-e2e-storage.XXXXXX")
 trap cleanup EXIT
 restore_e2e_signal_handlers
-# GEO-802 的虚构会话密文与普通 fake OSS 使用不同目录；仅 API 持临时公钥。
-browser_session_dir=$(mktemp -d "$browser_session_parent/partsignal-e2e-browser-session.XXXXXX")
-export GEO_BROWSER_SESSION_ROOT="$browser_session_dir/cipher"
-export GEO_BROWSER_SESSION_PUBLIC_KEY_FILE="$browser_session_dir/public.pem"
-mkdir -m 700 "$GEO_BROWSER_SESSION_ROOT"
-node -e "const c=require('node:crypto');const f=require('node:fs');const k=c.generateKeyPairSync('rsa',{modulusLength:3072});f.writeFileSync(process.argv[1],k.publicKey.export({type:'spki',format:'pem'}),{mode:0o600})" \
-  "$GEO_BROWSER_SESSION_PUBLIC_KEY_FILE"
+# 保留历史专属用例的显式选择；默认人工/API E2E 不准备 Browser 会话材料。
+if test "$PARTSIGNAL_E2E_SPEC" = tests/e2e/browser-session-real-stack.spec.ts; then
+  browser_session_dir=$(mktemp -d "$browser_session_parent/partsignal-e2e-browser-session.XXXXXX")
+  export GEO_BROWSER_SESSION_ROOT="$browser_session_dir/cipher"
+  export GEO_BROWSER_SESSION_PUBLIC_KEY_FILE="$browser_session_dir/public.pem"
+  mkdir -m 700 "$GEO_BROWSER_SESSION_ROOT"
+  node -e "const c=require('node:crypto');const f=require('node:fs');const k=c.generateKeyPairSync('rsa',{modulusLength:3072});f.writeFileSync(process.argv[1],k.publicKey.export({type:'spki',format:'pem'}),{mode:0o600})" \
+    "$GEO_BROWSER_SESSION_PUBLIC_KEY_FILE"
+fi
 secret_manifest="$storage_dir/playwright-secret-manifest.jsonl"
 secret_key_file="$storage_dir/playwright-secret-key"
 : >"$secret_manifest"
@@ -273,7 +275,6 @@ run_playwright() {
     tests/e2e/catalog-real-stack.spec.ts \
     tests/e2e/questions-real-stack.spec.ts \
     tests/e2e/surfaces-real-stack.spec.ts \
-    tests/e2e/browser-session-real-stack.spec.ts \
     tests/e2e/plans-real-stack.spec.ts \
     tests/e2e/runs-real-stack.spec.ts \
     tests/e2e/geo-review-real-stack.spec.ts \

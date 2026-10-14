@@ -48,11 +48,11 @@ class GeoCollector(Protocol):
     ) -> CollectedAnswer:
         """一次 attempt 至多发送一个业务请求，失败抛含显式 send state 的 CollectorError。
 
-        完成 URL/DNS/peer/TLS 与当前授权检查后，在首个请求字节前恰好调用一次
-        before_send；回调失败不能发送。发送后不自动 retry/redirect/切换地址，所有
+        API SDK 在方法启动前恰好调用一次 before_send；回调失败不能调用 SDK，
+        成功即进入外部窗口，网络结果不确定为 UNKNOWN。外部窗口不自动 retry/redirect，所有
         资源在成功或失败时释放。输入使用原 prompt，不附加品牌/事实/分析上下文。
         原始 bytes 只接受已清理凭据/账号信息的证据，HTML_TEXT 仅作文本。adapter
-        必须限制传输大小；值对象构造校验失败应在 adapter 边界转为稳定异常。
+        API 在公开 raw-response 完整接收后校验大小；值对象校验失败转为稳定异常。
         结果返回不表示落库成功，事务、文件提交与迟到结果裁决由 Application Service 拥有。
         """
         ...

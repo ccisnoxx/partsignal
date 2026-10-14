@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import math
 import re
-import time
 from base64 import b64encode
 from collections.abc import Mapping
 from types import MappingProxyType
@@ -29,8 +28,7 @@ from app.errors import AppError
 from app.schemas.geo_runs import GeoExternalCallState as State
 from app.schemas.geo_runs import GeoRunDataClassification
 from app.schemas.geo_runs import GeoRunErrorCode as Code
-from app.services.openai_client import validate_header
-from app.services.pinned_http import PinnedHTTPTransport, PinnedResponse, PinnedTransportError
+from app.services.ai_provider import AIProvider, RawChatCompletionResult, validate_header
 
 # 只支持非指令数值配置，不能把模型生成 settings/tools/额外 messages 带进监测问题。
 _NUMERIC_PARAMETERS = {
@@ -101,7 +99,7 @@ class OpenAICompatibleGeoCollector:
         request_parameters: Mapping[str, object] | None = None,
         allow_local_http: bool = False,
         environment: str = "production",
-        transport: PinnedHTTPTransport | None = None,
+        provider: AIProvider | None = None,
     ) -> None:
         self._registration = collector_registry.resolve("openai-compatible-chat")
         if (
@@ -133,8 +131,9 @@ class OpenAICompatibleGeoCollector:
         self._channel_id = channel_id
         self._model_id = model_id
         self._base_url = base_url
+        self._api_key = api_key
         self._provider_model = provider_model
-        self._headers = MappingProxyType({"Authorization": f"Bearer {api_key}", **clean_headers})
+        self._headers = MappingProxyType(clean_headers)
         self._parameters = MappingProxyType(params)
         # 检查允许返回的全部字段，不修改原文；已知凭据回显必须使整个结果失败。
         variants = {
@@ -155,7 +154,7 @@ class OpenAICompatibleGeoCollector:
                 json.dumps(value, ensure_ascii=False)[1:-1],
             )
         )
-        self._transport = transport or PinnedHTTPTransport(allow_local_http=allow_local_http)
+        self._provider = provider or AIProvider(allow_local_http=allow_local_http)
 
     @property
     def registration(self) -> CollectorRegistration:
@@ -200,46 +199,53 @@ class OpenAICompatibleGeoCollector:
             key = "max_completion_tokens" if "max_completion_tokens" in params else "max_tokens"
             params[key] = settings["max_output_tokens"]
         try:
-            body = json.dumps(
-                {
-                    "model": self._provider_model,
-                    "stream": False,
-                    "messages": [{"role": "user", "content": request.prompt_text}],
-                    **params,
-                },
-                ensure_ascii=False,
-                allow_nan=False,
-                separators=(",", ":"),
-            ).encode("utf-8")
+            request.prompt_text.encode("utf-8")
+            params = _parameters(params)
         except (ValueError, UnicodeError):
             raise _configuration_error() from None
-        started = time.monotonic()
         authorizing = False
+        authorized = False
 
         def authorize() -> None:
-            nonlocal authorizing
-            # 回调异常即使同属 PinnedTransportError，也由授权 owner 原样处理。
+            nonlocal authorizing, authorized
             authorizing = True
             before_send()
+            authorized = True
             authorizing = False
 
         try:
-            response = self._transport.request(
-                method="POST",
+            response = self._provider.raw_chat_completion(
                 base_url=self._base_url,
-                suffix="chat/completions",
+                api_key=self._api_key,
                 headers=dict(self._headers),
                 timeout_seconds=request.timeout_seconds,
-                body=body,
+                model_id=self._provider_model,
+                messages=[{"role": "user", "content": request.prompt_text}],
+                request_parameters=params,
                 before_send=authorize,
-                max_response_bytes=request.max_response_bytes,
             )
-        except PinnedTransportError as error:
+        except AppError:
             if authorizing:
                 raise
-            raise _transport_error(error) from None
+            raise CollectorError(
+                (Code.COLLECTOR_UNKNOWN_OUTCOME if authorized
+                 else Code.COLLECTOR_CONFIGURATION_INVALID),
+                stage=CollectorStage.RECEIVE if authorized else CollectorStage.CONFIGURATION,
+                external_call_state=State.UNKNOWN if authorized else State.NOT_STARTED,
+            ) from None
+        # 官方 raw-response 已完整接收；大小上限保护业务解析/落库，不能限制接收内存。
+        if len(response.body) > request.max_response_bytes:
+            raise CollectorError(
+                Code.PROVIDER_RESPONSE_TOO_LARGE,
+                stage=CollectorStage.RECEIVE,
+                external_call_state=State.COMPLETED,
+            )
         _check_status(response)
-        result = parse_response(response, duration_ms=int((time.monotonic() - started) * 1000))
+        result = parse_response(
+            response.body,
+            provider_request_id=response.provider_request_id,
+            duration_ms=response.duration_ms,
+        )
         safe_payload = _percent_encoding(_ANSWER.dump_json(result))
         if any(needle in safe_payload for needle in self._secret_needles):
             raise CollectorError(
@@ -250,28 +256,7 @@ class OpenAICompatibleGeoCollector:
         return result
 
 
-def _transport_error(error: PinnedTransportError) -> CollectorError:
-    stage = CollectorStage(error.stage)
-    state = State.NOT_STARTED
-    if error.code == "AI_URL_FORBIDDEN":
-        code = Code.COLLECTOR_CONFIGURATION_INVALID
-    elif error.code == "AI_RESPONSE_TOO_LARGE":
-        code = Code.PROVIDER_RESPONSE_TOO_LARGE
-        state = State.SENT
-    elif error.code == "AI_RESPONSE_INVALID":
-        code = Code.PROVIDER_RESPONSE_INVALID
-        state = State.SENT
-    elif error.request_started:
-        code = Code.COLLECTOR_UNKNOWN_OUTCOME
-        state = State.UNKNOWN
-    elif error.code == "AI_PROVIDER_TIMEOUT":
-        code = Code.PROVIDER_TIMEOUT
-    else:
-        code = Code.PROVIDER_UNAVAILABLE
-    return CollectorError(code, stage=stage, external_call_state=state)
-
-
-def _check_status(response: PinnedResponse) -> None:
+def _check_status(response: RawChatCompletionResult) -> None:
     status = response.status_code
     if not 100 <= status <= 599:
         raise CollectorError(
@@ -286,9 +271,7 @@ def _check_status(response: PinnedResponse) -> None:
         code = Code.PROVIDER_AUTH_FAILED
     elif status == 429:
         code = Code.PROVIDER_RATE_LIMITED
-        value = response.headers.get("retry-after", "")
-        if value.isascii() and value.isdecimal() and len(value) <= 9:
-            retry_after = int(value)
+        retry_after = response.retry_after_seconds
     elif 500 <= status < 600:
         code = Code.PROVIDER_UNAVAILABLE
     else:

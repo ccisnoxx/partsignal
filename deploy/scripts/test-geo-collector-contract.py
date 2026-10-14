@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""本地 Collector 套件 CI 入口：输出前扫描日志和测试产物，泄漏时非零退出。"""
+"""本地 Collector 合同入口：输出前扫描日志和测试产物，泄漏时非零退出。"""
 
 from __future__ import annotations
 

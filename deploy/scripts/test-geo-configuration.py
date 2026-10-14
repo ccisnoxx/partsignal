@@ -52,10 +52,6 @@ def main() -> None:
         owner = Path(temporary)
         project = owner / "deploy"
         project.mkdir()
-        # --project-directory 决定 include 的相对路径；保留真实共享 profile 来源。
-        (project / "compose.geo-browser.yaml").write_text(
-            (ROOT / "deploy/compose.geo-browser.yaml").read_text()
-        )
         probe = owner / "probe"
         probe.mkdir()  # 启动检查不能额外读取 .env，配置只能来自 Compose 解析结果。
         base = dict(
@@ -116,6 +112,7 @@ def main() -> None:
                 if parsed.returncode:
                     raise AssertionError(f"Compose config 失败：{environment}/{scenario}")
                 services = json.loads(parsed.stdout)["services"]
+                assert "browser-collector" not in services
                 expected = [flags.get(name, "false") == "true" for name in GEO_FLAGS]
                 selected = [
                     {key: services[role]["environment"].get(key) for key in GEO_FLAGS}
@@ -136,36 +133,36 @@ def main() -> None:
                 if started.returncode:
                     raise AssertionError(f"入口启动或 no-egress 检查失败：{environment}/{scenario}")
                 assert json.loads(started.stdout) == expected
-                if environment == "prod":
-                    # shell 环境不能改变生产身份，任何 profile 也不能添加 Browser/会话服务。
-                    for profiles in ([], ["--profile", "geo-browser"], ["--profile", "*"]):
-                        expanded = subprocess.run(
-                            [*command[:2], *profiles, *command[4:]],
-                            env={
-                                "PATH": os.environ["PATH"], "APP_ENV": "test",
-                                "GEO_MONITORING_ENABLED": "true",
-                                "GEO_BROWSER_COLLECTION_ENABLED": "true",
-                                "COMPOSE_PROFILES": "geo-browser",
-                                "PARTSIGNAL_BACKEND_IMAGE": "partsignal-backend",
-                                "PARTSIGNAL_FRONTEND_IMAGE": "partsignal-frontend-v2",
-                                "PARTSIGNAL_VERSION": "geo-config-test",
-                                "PARTSIGNAL_RUNTIME_ENV_FILE": str(runtime),
-                                "PARTSIGNAL_DATA_ROOT": str(owner / "data"),
-                            }, capture_output=True, text=True, check=True,
-                        )
-                        production = json.loads(expanded.stdout)
-                        assert "browser-collector" not in production["services"]
-                        for service in production["services"].values():
-                            assert "geo-browser" not in service.get("profiles", [])
-                            assert not any("geo-browser" in mount["target"]
-                                           for mount in service.get("volumes", []))
-                            assert not any(name.startswith("GEO_BROWSER_SESSION_")
-                                           for name in service.get("environment", {}))
+                # 默认 Compose 不加载实验 overlay，任何 profile 也不能恢复 Browser 服务。
+                for profiles in ([], ["--profile", "geo-browser"], ["--profile", "*"]):
+                    expanded = subprocess.run(
+                        [*command[:-3], *profiles, "config", "--format", "json"],
+                        env={
+                            "PATH": os.environ["PATH"], "APP_ENV": "test",
+                            "GEO_MONITORING_ENABLED": "true",
+                            "GEO_BROWSER_COLLECTION_ENABLED": "true",
+                            "COMPOSE_PROFILES": "geo-browser",
+                            "PARTSIGNAL_BACKEND_IMAGE": "partsignal-backend",
+                            "PARTSIGNAL_FRONTEND_IMAGE": "partsignal-frontend-v2",
+                            "PARTSIGNAL_VERSION": "geo-config-test",
+                            "PARTSIGNAL_RUNTIME_ENV_FILE": str(runtime),
+                            "PARTSIGNAL_DATA_ROOT": str(owner / "data"),
+                        }, capture_output=True, text=True, check=True,
+                    )
+                    production = json.loads(expanded.stdout)
+                    assert "browser-collector" not in production["services"]
+                    for service in production["services"].values():
+                        assert "geo-browser" not in service.get("profiles", [])
+                        assert not any("geo-browser" in mount["target"]
+                                       for mount in service.get("volumes", []))
+                        assert not any(name.startswith("GEO_BROWSER_SESSION_")
+                                       for name in service.get("environment", {}))
+                    if environment == "prod":
                         assert production["services"]["api"]["environment"]["APP_ENV"] == (
                             "production"
                         )
         print("GEO Compose/Settings/API/Worker/Beat：17 组启动一致、production Browser 负例拒绝；"
-              "生产全部 profile/环境覆盖均为零 Browser 服务/会话，启动外部调用为 0")
+              "三环境全部 profile/环境覆盖均为零 Browser 服务/会话，启动外部调用为 0")
 
 
 if __name__ == "__main__":

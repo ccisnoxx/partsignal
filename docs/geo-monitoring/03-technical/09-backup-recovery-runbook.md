@@ -1,5 +1,7 @@
 # GEO-903 一致性集合与隔离恢复 Runbook
 
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+
 当前交付：核心数据库/对象/密钥备份与一次性恢复验证。工具不发布生产、不替换主库，不启动 API、Worker、Beat 或 Browser。当前候选 schema 为 `0066_geo_manual_evaluation`；GEO-1006 新增的不可变管理员评估回执随 PostgreSQL 成套备份/恢复，恢复后同 key 仍重放原回执，不清表重新评估。生产安全与启用验收仍由 GEO-904/906 在目标环境完成。
 
 ## 备份清单
@@ -13,7 +15,7 @@
 | `UPLOAD_SIGNING_SECRET` | 同 secrets JSON；Aliyun OSS 不使用开发签名，仍保留既有配置身份 | 备份核对来源配置；本地对象恢复实际使用包内密钥签名；临时下载 URL 重新签发，不作为业务恢复摘要 |
 | release manifest、生产 runtime env、当前 Nginx 项目配置 | 加密 artifact；生产来源必须提供 runtime/env 和 Nginx 配置 | 解密认证和摘要；不执行 env、不安装配置、不 reload Nginx |
 | Redis/beat 文件 | 不作为业务状态备份；恢复不导入 | 由 PG 批次身份、attempt、lease、发送账本补偿；不重放旧 broker 消息 |
-| Browser 密文卷、RSA 私钥/公钥、能力文件、PG 会话引用 | 只有未部署且确认无材料才 N/A；有材料走下述专用流程 | 不以延期豁免，不能使用核心工具产生 N/A |
+| 历史 Browser 材料 | 当前不部署；发现遗留时停止并另行授权处理 | 保留工具的显式失败，不伪造 N/A |
 | 独立 backup encryption key | Base64 32 随机字节；0400/0600，分开保管 | AES-256-GCM 认证全部文件；该 key 从不写入集合；丢失即无法解密 |
 
 备份密钥不是 AI 主密钥。集合内 dump、秘密清单、对象、release/runtime/Nginx 和 manifest 全部认证加密，AAD 绑定集合 UUID 与逻辑文件名。目录0700，文件0600；`READY`仅代表集合完成写入，**不代表 complete=true**。缺失/损坏对象可以保留不完整集合用于调查，但命令必须非零。没有 READY 的部分集合不用于恢复。源秘密、临时明文和dump不得提交 Git、写入Trellis/普通日志或共享报告。
@@ -96,16 +98,9 @@ deploy/scripts/restore-verify.sh /secure/geo-backups/<本次集合目录>
 
 V1.0 不新增生产 cron 接线，GEO-1005 禁止 CRON 首次窗口；恢复历史 CRON 配置、状态和快照后仍只读披露，不补跑错过窗口。恢复演练从完整人工冻结输入 INSERT 测试专用的升级前历史批次，再调用现有工厂验证同窗口并发只读回执重放且仍恰好一条该窗口 batch，完整 DB 摘要不变；不绕过版本守卫创建新窗口。生产放开任何consumer前须处理源系统是否仍在运行、备份之后已发送请求是否可确认：备份点之后的外发不在dump中，不能仅凭旧NOT_STARTED保证真实平台未接收。结果不明时保持停止并人工对账，不盲目自动发出。
 
-## Browser 条件分支
+## 历史 Browser 材料的停止条件
 
-ADR-006使804～807延期，不免除已有材料。核心工具检测到部署/配置/挂载/PG引用/目录材料时输出`BROWSER_RECOVERY_REQUIRED`并非零，没有N/A集合。
-
-适用时，受保护备份还必须收集：全部PG会话/撤销记录、独立密文卷及未引用临时文件清单、对应RSA私钥/公钥、能力文件和key身份；同一静默窗口核对每个cipher_sha256。私钥/能力文件单独受控加密保管，不能并入普通OSS/Web根或普通诊断日志。保持原权限和owner，已有expired/revoked资料不因恢复复活。
-
-在**另一隔离会话卷**恢复后，按GEO-802相同包络/摘要/AAD校验与现有受控Collector解密入口验证虚构或获准的资料；不测试真实登录、不调用真实平台。备份前已撤销的UUID仍不可访问；撤销后的删除失败仍保持墓碑并按PURGE重试。演练新增的有效会话必须用现有ADMIN+CSRF+revision命令显式REVOKE/PURGE，保留审计、确认内部读取拒绝和密文已移除；数据库记录不删除、不手工改revoked_at。没有适用私钥或该分支实际恢复/撤销证据时，该环境的GEO-903不能宣称通过，需补齐授权输入。
-
-本轮本机开发和新建测试来源没有R7部署或Browser材料，依据见Task evidence；不推广为生产N/A。GEO-904/906仍须在其目标环境核实开关false、服务/profile未启用和无生产会话/会话材料。
-
+Browser 不属于当前支持的备份恢复流程。核心工具检测到历史部署、配置、挂载、PG 引用或目录材料时仍输出 `BROWSER_RECOVERY_REQUIRED` 并非零退出。保留既有数据和保护边界，停止操作并另行取得专门处置授权；不将失败写成 N/A，不提供会话、密钥、导入或登录恢复教程。
 
 ## 可重复的本地演练
 

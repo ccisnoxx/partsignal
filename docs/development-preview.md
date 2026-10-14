@@ -1,6 +1,10 @@
 # 开发阶段：本地开发与服务器预览
 
-当前项目仍在开发阶段，Hostdzire 用于查看页面和验证业务。正式 Production 发布、clean-init 和 observation 暂不执行；部署到服务器并不表示已进入正式生产。
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+
+当前项目仍在开发阶段，Hostdzire 用于内部试运行和业务验证。2026-10-07 的 GEO-1010-DEPLOY 已通过 Production 运行入口清空重建并上线；最新已记录候选为 `6a96bfcb`，详见[现场记录](../.trellis/tasks/10-07-geo-1010-internal-pilot-deploy/hostdzire-direct-build.md)。这不表示完整 UAT、真实 AI 业务验收或正式 Production Go 已完成。
+
+当前 Hostdzire 使用 `.env.production` 和 Production 日常入口，见 [Hostdzire Runbook](./Hostdzire部署上线流程.md#41-日常-production-重部署)。以下 staging 配置、快速入口及第 5 节运行记录用于历史环境和新的明确 staging 目标，不可据此把当前服务器切回 `.env.staging` 或假 OSS。
 
 ## 1. 你需要提供什么
 
@@ -69,7 +73,7 @@ API Key 只在受控管理员表单输入并加密入库，不进入聊天、env
 
 这些字段不改变程序加载方式，也不应成为查看开发界面的前置条件。
 
-## 5. 当前开发预览
+## 5. 历史 staging 开发预览
 
 用户授权清理旧测试数据后，已单独授权首次重新部署。开发预览现在可访问 `https://geo.962850.xyz/`；当前 release 为 `preview-20260930-111500-2f171300`（源码精确 `2f17130055439f59dfc11fed42ada47d066c71cf`）。首次部署走 staging `full` 路径，已完成数据库迁移和 `admin`、`content_editor` 初始化。登录密码由准备工具生成，保存在本机 Git 忽略且权限为 `0600` 的 `.env.staging` 中，分别对应 `PARTSIGNAL_SEED_ADMIN_PASSWORD` 和 `PARTSIGNAL_SEED_ENGINEER_PASSWORD`；请在本机查看，不要将其粘贴到聊天或提交到 Git。修改 env 中的初始密码不会自动修改已经创建的账号密码，后续改密应通过应用流程。
 

@@ -1,0 +1,373 @@
+分类	文件	行	处置	引用
+当前开发/部署/运维教程	.env.production.example	60	当前教程清理；禁用值与拒绝边界保留	GEO_BROWSER_COLLECTION_ENABLED=false
+当前开发/部署/运维教程	.env.example	51	当前教程清理；禁用值与拒绝边界保留	GEO_BROWSER_COLLECTION_ENABLED=false
+隔离源码或历史合同	Makefile	6	显式实验/历史专属选择；不被默认目标调用	.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate initialize-accounts lint typecheck test-unit test-integration e2e build build-frontend verify test-deploy-scripts test-frontend-container staging-redeploy-fast down test-geo-fixtures test-geo-collector-contract test-geo-performance check-browser-experimental test-geo-browser test-geo-browser-contract test-geo-recovery test-geo-recovery-integration test-geo-capacity test-upgrade-recovery test-upgrade-recovery-compose production-check production-prepare production-activate production-smoke production-restart test-production-routine
+隔离源码或历史合同	Makefile	80	显式实验/历史专属选择；不被默认目标调用	"	npm --prefix browser-collector ci"
+隔离源码或历史合同	Makefile	81	显式实验/历史专属选择；不被默认目标调用	"	npm --prefix browser-collector run lint"
+隔离源码或历史合同	Makefile	82	显式实验/历史专属选择；不被默认目标调用	"	npm --prefix browser-collector run typecheck"
+隔离源码或历史合同	Makefile	83	显式实验/历史专属选择；不被默认目标调用	"	npm --prefix browser-collector test"
+隔离源码或历史合同	Makefile	84	显式实验/历史专属选择；不被默认目标调用	"	$(UV) run --project backend python deploy/scripts/test-geo-browser.py"
+隔离源码或历史合同	Makefile	85	显式实验/历史专属选择；不被默认目标调用	"	$(MAKE) test-geo-browser-contract"
+隔离源码或历史合同	Makefile	87	显式实验/历史专属选择；不被默认目标调用	test-geo-browser:
+隔离源码或历史合同	Makefile	88	显式实验/历史专属选择；不被默认目标调用	"	$(UV) run --project backend python deploy/scripts/test-geo-browser.py --runtime"
+隔离源码或历史合同	Makefile	90	显式实验/历史专属选择；不被默认目标调用	test-geo-browser-contract:
+隔离源码或历史合同	Makefile	91	显式实验/历史专属选择；不被默认目标调用	"	$(UV) run --project backend python deploy/scripts/test-geo-browser-contract.py $(if $(filter 1,$(GEO_BROWSER_CONTRACT_CONTAINER)),--container,)"
+隔离源码或历史合同	deploy/compose.geo-browser.yaml	4	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  browser-collector:
+隔离源码或历史合同	deploy/compose.geo-browser.yaml	5	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    image: ${PARTSIGNAL_BROWSER_COLLECTOR_IMAGE:-partsignal-browser-collector}:${PARTSIGNAL_BROWSER_COLLECTOR_VERSION:-geo801}
+隔离源码或历史合同	deploy/compose.geo-browser.yaml	7	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	      context: ../browser-collector
+隔离源码或历史合同	deploy/compose.geo-browser.yaml	8	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    profiles: [geo-browser]
+隔离源码或历史合同	deploy/compose.geo-browser.yaml	16	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	      - seccomp=./geo-browser-seccomp.json
+隔离源码或历史合同	deploy/compose.geo-browser.yaml	20	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	      GEO_BROWSER_COLLECTION_ENABLED: ${GEO_BROWSER_COLLECTION_ENABLED-false}
+隔离源码或历史合同	deploy/compose.geo-browser.yaml	21	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	      GEO_BROWSER_KILL_SWITCH_FILE: /run/control/STOP
+隔离源码或历史合同	deploy/compose.geo-browser.yaml	24	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        source: ${PARTSIGNAL_GEO_BROWSER_CONTROL_DIR:-./geo-browser-control}
+隔离源码或历史合同	docs/maintenance/openai-sdk-refactor/task-manifest.yaml	27	维护Task Brief路径元数据，保留审查导航；不调用Collector	    task_brief: .trellis/tasks/10-13-psr-005-defer-browser-collector/prd.md
+隔离源码或历史合同	browser-collector/src/service.mjs	20	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  const enabled = flag('GEO_BROWSER_COLLECTION_ENABLED');
+隔离源码或历史合同	browser-collector/src/service.mjs	22	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  const controlFile = environment.GEO_BROWSER_KILL_SWITCH_FILE ?? '/run/control/STOP';
+隔离源码或历史合同	browser-collector/src/service.mjs	52	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  return 'BROWSER_ADAPTER_NOT_IMPLEMENTED';
+隔离源码或历史合同	browser-collector/src/service.mjs	84	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        session_probe: 'NOT_IMPLEMENTED',
+隔离源码或历史合同	browser-collector/src/session.mjs	19	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	function failure(code = 'GEO_BROWSER_SESSION_UNREADABLE') {
+隔离源码或历史合同	browser-collector/src/session.mjs	21	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    GEO_BROWSER_SESSION_UNREADABLE: '浏览器会话密文无法解密',
+隔离源码或历史合同	browser-collector/src/session.mjs	22	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    GEO_BROWSER_SESSION_EXPIRED: '浏览器会话已过期',
+隔离源码或历史合同	browser-collector/src/session.mjs	24	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    GEO_BROWSER_SESSION_ACCESS_DENIED: '浏览器会话访问未获授权',
+隔离源码或历史合同	browser-collector/src/session.mjs	25	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    GEO_BROWSER_SESSION_CONSUMPTION_FAILED: '浏览器会话消费失败',
+隔离源码或历史合同	browser-collector/src/session.mjs	132	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    if (expires <= Date.now()) throw failure('GEO_BROWSER_SESSION_EXPIRED');
+隔离源码或历史合同	browser-collector/src/session.mjs	133	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    const aad = `partsignal:geo-browser-session:v1:${expected.reference}:${expected.profileId}:${expected.expiresAt}`;
+隔离源码或历史合同	browser-collector/src/session.mjs	162	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    if (error instanceof Error && 'code' in error && error.code === 'GEO_BROWSER_SESSION_EXPIRED') {
+隔离源码或历史合同	browser-collector/src/session.mjs	163	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	      throw failure('GEO_BROWSER_SESSION_EXPIRED');
+隔离源码或历史合同	browser-collector/src/session.mjs	245	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  catch { throw failure('GEO_BROWSER_SESSION_ACCESS_DENIED'); }
+隔离源码或历史合同	browser-collector/src/session.mjs	251	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    catch { throw failure('GEO_BROWSER_SESSION_CONSUMPTION_FAILED'); }
+隔离源码或历史合同	browser-collector/src/main.mjs	68	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    'COLLECTOR_DISABLED', 'BROWSER_ADAPTER_NOT_IMPLEMENTED'];
+默认验证入口	deploy/scripts/e2e-local.sh	18	移除Browser执行/overlay；保留关闭值、生产拒绝与零服务负例	export GEO_BROWSER_COLLECTION_ENABLED=false
+隔离源码或历史合同	deploy/scripts/e2e-local.sh	154	显式实验/历史专属选择；不被默认目标调用	"  export GEO_BROWSER_SESSION_ROOT=""$browser_session_dir/cipher"""
+隔离源码或历史合同	deploy/scripts/e2e-local.sh	155	显式实验/历史专属选择；不被默认目标调用	"  export GEO_BROWSER_SESSION_PUBLIC_KEY_FILE=""$browser_session_dir/public.pem"""
+隔离源码或历史合同	deploy/scripts/e2e-local.sh	156	显式实验/历史专属选择；不被默认目标调用	"  mkdir -m 700 ""$GEO_BROWSER_SESSION_ROOT"""
+隔离源码或历史合同	deploy/scripts/e2e-local.sh	158	显式实验/历史专属选择；不被默认目标调用	"    ""$GEO_BROWSER_SESSION_PUBLIC_KEY_FILE"""
+隔离源码或历史合同	browser-collector/package.json	2	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"  ""name"": ""partsignal-browser-collector"","
+隔离源码或历史合同	browser-collector/package-lock.json	2	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"  ""name"": ""partsignal-browser-collector"","
+隔离源码或历史合同	browser-collector/package-lock.json	8	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"      ""name"": ""partsignal-browser-collector"","
+隔离源码或历史合同	browser-collector/README.md	11	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	`BROWSER_ADAPTER_NOT_IMPLEMENTED`；非法输入退出 1 / `BROWSER_TASK_INVALID`。
+隔离源码或历史合同	browser-collector/README.md	17	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	采集被停用不影响容器健康。`session_probe=NOT_IMPLEMENTED` 明确区分运行时与会话健康。
+隔离源码或历史合同	browser-collector/README.md	21	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	`make test-geo-browser` 验证三个环境配置及独立真实容器，自动清理本轮随机项目/tag。
+隔离源码或历史合同	browser-collector/README.md	26	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	`make test-geo-browser-contract` 使用真实 Chromium 与回环虚构AI站，覆盖streaming、
+隔离源码或历史合同	browser-collector/README.md	30	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	根 `make e2e` 先运行本套件；CI设置 `GEO_BROWSER_CONTRACT_CONTAINER=1`，使用同版官方
+隔离源码或历史合同	browser-collector/tests/support/adapter-contract.mjs	7	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	export const CANARIES = Object.freeze(JSON.parse(process.env.GEO_BROWSER_TEST_CANARIES ??
+隔离源码或历史合同	browser-collector/tests/support/adapter-contract.mjs	92	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    if (persist && process.env.GEO_BROWSER_CONTRACT_OUTPUT && !deny) {
+隔离源码或历史合同	browser-collector/tests/support/adapter-contract.mjs	93	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	      await appendFile(process.env.GEO_BROWSER_CONTRACT_OUTPUT, JSON.stringify({ mode, result: result ?? null, failure: error?.failure ?? null }) + '\n');
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	3332	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        get: operations[""getGeoBrowserSession""];"
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	3354	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        post: operations[""importGeoBrowserSession""];"
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	3374	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        post: operations[""checkGeoBrowserSessionHealth""];"
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	3394	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        post: operations[""revokeGeoBrowserSession""];"
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	3414	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        post: operations[""purgeGeoBrowserSessions""];"
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	3434	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        post: operations[""accessGeoBrowserSession""];"
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	13520	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        /** GeoBrowserSessionImport */
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	13521	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        GeoBrowserSessionImport: {
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	13540	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        /** GeoBrowserSessionCommand */
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	13541	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        GeoBrowserSessionCommand: {
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	13550	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        /** GeoBrowserSessionPurge */
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	13551	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        GeoBrowserSessionPurge: {
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	13555	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        /** GeoBrowserSessionMetadata */
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	13556	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        GeoBrowserSessionMetadata: {
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	13587	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        /** GeoBrowserSessionContext */
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	13588	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        GeoBrowserSessionContext: {
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	13596	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            session: components[""schemas""][""GeoBrowserSessionMetadata""] | null;"
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	13607	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        /** GeoBrowserSessionAccessRequest */
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	13608	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        GeoBrowserSessionAccessRequest: {
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	13615	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        /** GeoBrowserSessionEnvelope */
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	13616	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        GeoBrowserSessionEnvelope: {
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	22250	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    getGeoBrowserSession: {
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	22270	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                    ""application/json"": components[""schemas""][""GeoBrowserSessionContext""];"
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	22281	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    importGeoBrowserSession: {
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	22295	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                ""application/json"": components[""schemas""][""GeoBrowserSessionImport""];"
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	22306	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                    ""application/json"": components[""schemas""][""GeoBrowserSessionContext""];"
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	22318	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    checkGeoBrowserSessionHealth: {
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	22332	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                ""application/json"": components[""schemas""][""GeoBrowserSessionCommand""];"
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	22343	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                    ""application/json"": components[""schemas""][""GeoBrowserSessionContext""];"
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	22355	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    revokeGeoBrowserSession: {
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	22369	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                ""application/json"": components[""schemas""][""GeoBrowserSessionCommand""];"
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	22380	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                    ""application/json"": components[""schemas""][""GeoBrowserSessionContext""];"
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	22392	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    purgeGeoBrowserSessions: {
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	22406	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                ""application/json"": components[""schemas""][""GeoBrowserSessionPurge""];"
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	22417	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                    ""application/json"": components[""schemas""][""GeoBrowserSessionContext""];"
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	22429	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    accessGeoBrowserSession: {
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	22442	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                ""application/json"": components[""schemas""][""GeoBrowserSessionAccessRequest""];"
+隔离源码或历史合同	frontend/src/shared/api/generated/schema.d.ts	22453	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                    ""application/json"": components[""schemas""][""GeoBrowserSessionEnvelope""];"
+默认验证入口	deploy/scripts/test-geo-configuration.py	18	移除Browser执行/overlay；保留关闭值、生产拒绝与零服务负例	"    ""GEO_BROWSER_COLLECTION_ENABLED"","
+默认验证入口	deploy/scripts/test-geo-configuration.py	115	移除Browser执行/overlay；保留关闭值、生产拒绝与零服务负例	"                assert ""browser-collector"" not in services"
+默认验证入口	deploy/scripts/test-geo-configuration.py	131	移除Browser执行/overlay；保留关闭值、生产拒绝与零服务负例	"                    assert ""生产环境禁止 GEO_BROWSER_COLLECTION_ENABLED=true"" in started.stderr"
+默认验证入口	deploy/scripts/test-geo-configuration.py	137	移除Browser执行/overlay；保留关闭值、生产拒绝与零服务负例	"                for profiles in ([], [""--profile"", ""geo-browser""], [""--profile"", ""*""]):"
+默认验证入口	deploy/scripts/test-geo-configuration.py	143	移除Browser执行/overlay；保留关闭值、生产拒绝与零服务负例	"                            ""GEO_BROWSER_COLLECTION_ENABLED"": ""true"","
+默认验证入口	deploy/scripts/test-geo-configuration.py	144	移除Browser执行/overlay；保留关闭值、生产拒绝与零服务负例	"                            ""COMPOSE_PROFILES"": ""geo-browser"","
+默认验证入口	deploy/scripts/test-geo-configuration.py	153	移除Browser执行/overlay；保留关闭值、生产拒绝与零服务负例	"                    assert ""browser-collector"" not in production[""services""]"
+默认验证入口	deploy/scripts/test-geo-configuration.py	155	移除Browser执行/overlay；保留关闭值、生产拒绝与零服务负例	"                        assert ""geo-browser"" not in service.get(""profiles"", [])"
+默认验证入口	deploy/scripts/test-geo-configuration.py	156	移除Browser执行/overlay；保留关闭值、生产拒绝与零服务负例	"                        assert not any(""geo-browser"" in mount[""target""]"
+默认验证入口	deploy/scripts/test-geo-configuration.py	158	移除Browser执行/overlay；保留关闭值、生产拒绝与零服务负例	"                        assert not any(name.startswith(""GEO_BROWSER_SESSION_"")"
+隔离源码或历史合同	browser-collector/tests/service.test.mjs	15	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        GEO_BROWSER_COLLECTION_ENABLED: enabled,
+隔离源码或历史合同	browser-collector/tests/service.test.mjs	21	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	      APP_ENV, GEO_MONITORING_ENABLED: 'true', GEO_BROWSER_COLLECTION_ENABLED: 'true',
+隔离源码或历史合同	browser-collector/tests/service.test.mjs	32	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  assert.throws(() => readConfiguration({ GEO_BROWSER_COLLECTION_ENABLED: 'true' }),
+隔离源码或历史合同	browser-collector/tests/service.test.mjs	34	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  assert.throws(() => readConfiguration({ GEO_BROWSER_KILL_SWITCH_FILE: 'relative' }),
+隔离源码或历史合同	browser-collector/tests/service.test.mjs	42	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    GEO_MONITORING_ENABLED: 'true', GEO_BROWSER_COLLECTION_ENABLED: 'true',
+隔离源码或历史合同	browser-collector/tests/service.test.mjs	43	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    GEO_BROWSER_KILL_SWITCH_FILE: marker,
+隔离源码或历史合同	browser-collector/tests/service.test.mjs	46	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    assert.throws(() => claimRun(runId, configuration), /BROWSER_ADAPTER_NOT_IMPLEMENTED/);
+隔离源码或历史合同	browser-collector/tests/service.test.mjs	53	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    assert.throws(() => claimRun(runId, configuration), /BROWSER_ADAPTER_NOT_IMPLEMENTED/);
+隔离源码或历史合同	browser-collector/tests/service.test.mjs	75	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    assert.equal(health.session_probe, 'NOT_IMPLEMENTED');
+隔离源码或历史合同	deploy/scripts/test-geo-recovery-integration.py	65	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        ""GEO_BROWSER_COLLECTION_ENABLED"": ""false"","
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	33	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    for name in (""dev"", ""staging"", ""prod"", ""geo-browser""):"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	47	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        assert ""browser-collector"" not in default[""services""]"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	51	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        assert ""browser-collector"" not in all_default[""services""]"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	54	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            base += [""-f"", str(deploy / ""compose.geo-browser.yaml"")]"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	56	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            base + [""--profile"", ""geo-browser"", ""config"", ""--format"", ""json""], env=env"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	63	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            assert ""browser-collector"" not in configured[""services""]"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	64	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            assert ""browser-collector"" not in all_profiles[""services""]"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	65	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            assert ""geo-browser"" not in execute(base + [""config"", ""--profiles""], env=env)"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	67	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                assert all(""geo-browser"" not in v[""target""]"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	69	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                assert not any(key.startswith(""GEO_BROWSER_SESSION_"")"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	72	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        service = configured[""services""][""browser-collector""]"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	73	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        assert service[""profiles""] == [""geo-browser""]"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	85	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            ""GEO_MONITORING_ENABLED"": ""false"", ""GEO_BROWSER_COLLECTION_ENABLED"": ""false"","
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	86	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            ""GEO_BROWSER_KILL_SWITCH_FILE"": ""/run/control/STOP"","
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	92	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            base + [""--profile"", ""geo-browser"", ""config"", ""--format"", ""json""],"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	93	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            env={**env, ""GEO_MONITORING_ENABLED"": """", ""GEO_BROWSER_COLLECTION_ENABLED"": """"}"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	94	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        ))[""services""][""browser-collector""][""environment""]"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	95	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        assert empty[""GEO_MONITORING_ENABLED""] == empty[""GEO_BROWSER_COLLECTION_ENABLED""] == """""
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	105	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    seccomp = json.loads((ROOT / ""deploy/geo-browser-seccomp.json"").read_text())"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	113	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    image = f""partsignal-browser-collector:{project}"""
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	120	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"           ""PARTSIGNAL_GEO_BROWSER_CONTROL_DIR"": str(control)}"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	122	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            ""-f"", str(ROOT / ""deploy/compose.geo-browser.yaml"")]"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	123	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    active = base + [""--profile"", ""geo-browser""]"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	129	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        execute([""docker"", ""build"", ""-t"", image, str(ROOT / ""browser-collector"")], env=env)"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	131	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        env.update(GEO_MONITORING_ENABLED="""", GEO_BROWSER_COLLECTION_ENABLED="""")"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	134	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        logs = execute(active + [""logs"", ""--no-log-prefix"", ""browser-collector""], env=env)"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	136	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        env.update(GEO_MONITORING_ENABLED=""false"", GEO_BROWSER_COLLECTION_ENABLED=""false"")"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	139	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        container = execute(active + [""ps"", ""-q"", ""browser-collector""], env=env).strip()"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	149	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        execute(active + [""exec"", ""-T"", ""browser-collector"", ""node"", ""-e"","
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	154	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            return json.loads(execute(active + [""exec"", ""-T"", ""browser-collector"", ""node"", ""-e"","
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	158	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            output = subprocess.run(active + [""exec"", ""-T"", ""browser-collector"", ""node"","
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	175	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        env.update(GEO_MONITORING_ENABLED=""true"", GEO_BROWSER_COLLECTION_ENABLED=""true"")"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	180	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        admission(""BROWSER_ADAPTER_NOT_IMPLEMENTED"")"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	181	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        refused(""BROWSER_ADAPTER_NOT_IMPLEMENTED"")"
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	185	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        assert health()[""session_probe""] == ""NOT_IMPLEMENTED"""
+隔离源码或历史合同	deploy/scripts/test-geo-browser.py	187	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        container = execute(active + [""ps"", ""--all"", ""-q"", ""browser-collector""], env=env).strip()"
+隔离源码或历史合同	browser-collector/tests/session.test.mjs	34	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  const aad = `partsignal:geo-browser-session:v1:${reference}:${profileId}:${expiresAt}`;
+隔离源码或历史合同	browser-collector/tests/session.test.mjs	72	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  assert.throws(() => decryptSessionEnvelope(input.envelope, wrongPem, input.expected), failure('GEO_BROWSER_SESSION_UNREADABLE'));
+隔离源码或历史合同	browser-collector/tests/session.test.mjs	79	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    assert.throws(() => decryptSessionEnvelope(input.envelope, pem, expected), failure('GEO_BROWSER_SESSION_UNREADABLE'));
+隔离源码或历史合同	browser-collector/tests/session.test.mjs	90	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    assert.throws(() => decryptSessionEnvelope(JSON.stringify(envelope), pem, input.expected), failure('GEO_BROWSER_SESSION_UNREADABLE'));
+隔离源码或历史合同	browser-collector/tests/session.test.mjs	96	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  assert.throws(() => decryptSessionEnvelope(JSON.stringify(envelope), pem, input.expected), failure('GEO_BROWSER_SESSION_UNREADABLE'));
+隔离源码或历史合同	browser-collector/tests/session.test.mjs	98	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  assert.throws(() => decryptSessionEnvelope(JSON.stringify(envelope), pem, input.expected), failure('GEO_BROWSER_SESSION_UNREADABLE'));
+隔离源码或历史合同	browser-collector/tests/session.test.mjs	109	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    assert.throws(() => decryptSessionEnvelope(envelope, pem, input.expected), failure('GEO_BROWSER_SESSION_UNREADABLE'));
+隔离源码或历史合同	browser-collector/tests/session.test.mjs	112	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  assert.throws(() => decryptSessionEnvelope(duplicated, pem, input.expected), failure('GEO_BROWSER_SESSION_UNREADABLE'));
+隔离源码或历史合同	browser-collector/tests/session.test.mjs	113	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"  assert.throws(() => decryptSessionEnvelope(`{""secret"":""${canary}"",`, pem, input.expected), failure('GEO_BROWSER_SESSION_UNREADABLE'));"
+隔离源码或历史合同	browser-collector/tests/session.test.mjs	118	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  assert.throws(() => decryptSessionEnvelope(expired.envelope, pem, expired.expected), failure('GEO_BROWSER_SESSION_EXPIRED'));
+隔离源码或历史合同	browser-collector/tests/session.test.mjs	122	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    assert.throws(() => decryptSessionEnvelope(JSON.stringify(envelope), pem, { ...valid.expected, expiresAt }), failure('GEO_BROWSER_SESSION_UNREADABLE'));
+隔离源码或历史合同	browser-collector/tests/session.test.mjs	127	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  assert.throws(() => decryptSessionEnvelope(badCookie.envelope, pem, badCookie.expected), failure('GEO_BROWSER_SESSION_UNREADABLE'));
+隔离源码或历史合同	browser-collector/tests/session.test.mjs	133	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    assert.throws(() => decryptSessionEnvelope(input.envelope, pem, input.expected), failure('GEO_BROWSER_SESSION_UNREADABLE'));
+隔离源码或历史合同	browser-collector/tests/session.test.mjs	162	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    await assert.rejects(withAuthorizedSession({ authorize, privateKeyFile: keyFile, expected: input.expected, consumer }), failure('GEO_BROWSER_SESSION_ACCESS_DENIED'));
+隔离源码或历史合同	browser-collector/tests/session.test.mjs	180	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    }), failure('GEO_BROWSER_SESSION_CONSUMPTION_FAILED'));
+隔离源码或历史合同	browser-collector/tests/session.test.mjs	227	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    }), failure('GEO_BROWSER_SESSION_UNREADABLE'));
+隔离源码或历史合同	docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md	22	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	6. 核心生产必须保持 `GEO_BROWSER_COLLECTION_ENABLED=false`，不启用 `geo-browser` 服务或会话挂载/能力凭据，不存在生产 Browser 会话。GEO-904/906 必须在目标环境核实，不能从仓库默认值推断生产事实。本次仅文档调整，未执行生产检查。
+当前开发/部署/运维教程	docs/production-configuration.md	65	当前教程清理；禁用值与拒绝边界保留	| `GEO_BROWSER_COLLECTION_ENABLED` | Production 固定 `false`；省略仍为 `false`，显式输入只接受 literal `false`；Monitoring=true 也不能启用 Browser，Settings 和 production preflight 拒绝 true |
+当前开发/部署/运维教程	docs/production-configuration.md	80	当前教程清理；禁用值与拒绝边界保留	权威 production Compose 不包含 Browser service/profile/session 卷；显式 `geo-browser`、`COMPOSE_PROFILES=geo-browser` 或 `--profile '*'` 展开也不会产生 Browser 服务。两个 Browser Compose 文件仅作为隔离历史资产保留，不被 Dev/Staging/Prod 默认入口引用。禁止通过手工多文件 Compose 绕过权威部署入口；GEO-801～803 历史源码和合同继续保留，当前不安装、启用或部署。release manifest producer/consumer 当前固定14项tracked files，包含输入检查、迁移运行时、部署/supervisor模块与清空边界owner；旧manifest不自动兼容。[ADR-008](./geo-monitoring/05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)将UI完成后新候选的门禁、工件和冻结归属GEO-1010-DEPLOY；目标Browser零服务/零会话材料仍须独立现场证据。
+隔离源码或历史合同	deploy/scripts/test-geo-browser-contract.py	39	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        env = {**os.environ, ""GEO_BROWSER_TEST_CANARIES"": json.dumps(canaries),"
+隔离源码或历史合同	deploy/scripts/test-geo-browser-contract.py	40	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"               ""GEO_BROWSER_CONTRACT_OUTPUT"": str(output)}"
+隔离源码或历史合同	deploy/scripts/test-geo-browser-contract.py	47	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                ""--security-opt"", f""seccomp={ROOT / 'deploy/geo-browser-seccomp.json'}"","
+隔离源码或历史合同	deploy/scripts/test-geo-browser-contract.py	51	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                ""--mount"", f""type=bind,source={ROOT / 'browser-collector'},target=/workspace/browser-collector,readonly"","
+隔离源码或历史合同	deploy/scripts/test-geo-browser-contract.py	54	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                ""--workdir"", ""/workspace/browser-collector"", ""-e"", ""HOME=/tmp/collector"","
+隔离源码或历史合同	deploy/scripts/test-geo-browser-contract.py	55	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                ""-e"", ""GEO_BROWSER_TEST_CANARIES"", ""-e"", ""GEO_BROWSER_CONTRACT_OUTPUT=/results/values.jsonl"","
+隔离源码或历史合同	deploy/scripts/test-geo-browser-contract.py	63	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            with subprocess.Popen(command, cwd=ROOT / ""browser-collector"", env=env,"
+隔离源码或历史合同	frontend/tests/e2e/browser-session-real-stack.spec.ts	9	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	type Context = components['schemas']['GeoBrowserSessionContext'];
+隔离源码或历史合同	frontend/tests/e2e/browser-session-real-stack.spec.ts	108	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  const oldHealth = await page.request.post(`${apiBase}${path}/health`, { headers: { 'X-CSRF-Token': login.csrf_token }, data: { expected_revision: canonical.profile_revision, session_reference: originalReference } satisfies components['schemas']['GeoBrowserSessionCommand'] });
+隔离源码或历史合同	frontend/tests/e2e/browser-session-real-stack.spec.ts	110	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  expect((await oldHealth.json()).error.code).toBe('GEO_BROWSER_SESSION_REVOKED');
+当前产品说明	docs/geo-monitoring/README.md	106	Browser延期或不支持说明；不宣称当前功能	GEO-801、802、803 已人工接受为 done，代码和证据保留。GEO-804～807 为 deferred，release 为 post-core；真实 Adapter 未实施。核心生产必须保持 GEO_BROWSER_COLLECTION_ENABLED=false 且无生产 Browser 会话，实际环境检查留 GEO-904/906，不从默认配置推断已验收上线。
+隔离源码或历史合同	docs/geo-monitoring/06-reviews/GEO-1001-release-readiness-audit.md	11	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	- **[P1] 生产配置仍接受 `GEO_BROWSER_COLLECTION_ENABLED=true`。**  
+隔离源码或历史合同	docs/geo-monitoring/06-reviews/GEO-1001-release-readiness-audit.md	182	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	make test-geo-browser-contract
+隔离源码或历史合同	deploy/compose.geo-browser-sessions.yaml	6	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	      GEO_BROWSER_SESSION_ROOT: /run/geo-browser-sessions
+隔离源码或历史合同	deploy/compose.geo-browser-sessions.yaml	7	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	      GEO_BROWSER_SESSION_PUBLIC_KEY_FILE: /run/geo-browser-session-public.pem
+隔离源码或历史合同	deploy/compose.geo-browser-sessions.yaml	8	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	      GEO_BROWSER_SESSION_SERVICE_KEY_FILE: /run/geo-browser-service.key
+隔离源码或历史合同	deploy/compose.geo-browser-sessions.yaml	9	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	      GEO_BROWSER_SESSION_SERVICE_USER_ID: ${PARTSIGNAL_GEO_BROWSER_SESSION_SERVICE_USER_ID:?必须指定已批准ADMIN服务账号}
+隔离源码或历史合同	deploy/compose.geo-browser-sessions.yaml	12	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_ROOT:?必须指定独立受保护会话目录}
+隔离源码或历史合同	deploy/compose.geo-browser-sessions.yaml	13	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        target: /run/geo-browser-sessions
+隔离源码或历史合同	deploy/compose.geo-browser-sessions.yaml	17	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_PUBLIC_KEY_FILE:?必须指定RSA公钥文件}
+隔离源码或历史合同	deploy/compose.geo-browser-sessions.yaml	18	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        target: /run/geo-browser-session-public.pem
+隔离源码或历史合同	deploy/compose.geo-browser-sessions.yaml	23	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_SERVICE_KEY_FILE:?必须指定服务能力文件}
+隔离源码或历史合同	deploy/compose.geo-browser-sessions.yaml	24	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        target: /run/geo-browser-service.key
+隔离源码或历史合同	deploy/compose.geo-browser-sessions.yaml	28	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  browser-collector:
+隔离源码或历史合同	deploy/compose.geo-browser-sessions.yaml	31	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_PRIVATE_KEY_FILE:?必须指定Collector私钥文件}
+隔离源码或历史合同	deploy/compose.geo-browser-sessions.yaml	32	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        target: /run/geo-browser-session-private.pem
+隔离源码或历史合同	deploy/compose.geo-browser-sessions.yaml	37	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_SERVICE_KEY_FILE:?必须指定服务能力文件}
+隔离源码或历史合同	deploy/compose.geo-browser-sessions.yaml	38	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        target: /run/geo-browser-service.key
+隔离源码或历史合同	deploy/scripts/check-production-inputs.py	29	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    ""GEO_BROWSER_COLLECTION_ENABLED"","
+隔离源码或历史合同	deploy/scripts/check-production-inputs.py	108	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    if values.get(""GEO_BROWSER_COLLECTION_ENABLED"", ""false"") != ""false"":"
+隔离源码或历史合同	deploy/scripts/check-production-inputs.py	109	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        raise InputError(""PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED"")"
+隔离源码或历史合同	deploy/scripts/check-production-inputs.py	178	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        if source.get(""GEO_BROWSER_COLLECTION_ENABLED"", ""false"") != ""false"":"
+隔离源码或历史合同	deploy/scripts/check-production-inputs.py	179	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            raise InputError(""PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED"")"
+隔离源码或历史合同	deploy/scripts/check-production-inputs.py	181	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            ""GEO_BROWSER_SESSION_"", ""PARTSIGNAL_GEO_BROWSER_SESSION_"""
+当前产品说明	docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md	60	统一人工/API能力；Browser延期；历史禁用值和目标合同保留	| GEO_BROWSER_COLLECTION_ENABLED | false | production **硬禁止 true** | GEO-1003 实现/本地验证已接受；现场 GEO-1010 |
+当前开发/部署/运维教程	docs/geo-monitoring/03-technical/01-technical-architecture.md	341	当前教程清理；禁用值与拒绝边界保留	GEO_BROWSER_COLLECTION_ENABLED
+当前开发/部署/运维教程	docs/geo-monitoring/03-technical/10-core-rollout-runbook.md	97	当前教程清理；禁用值与拒绝边界保留	| GEO_BROWSER_COLLECTION_ENABLED | **false；production 硬禁止 true** | **false；production 硬禁止 true** |
+当前开发/部署/运维教程	docs/geo-monitoring/03-technical/10-core-rollout-runbook.md	111	当前教程清理；禁用值与拒绝边界保留	1. API/Worker/Beat 的实际 GEO_BROWSER_COLLECTION_ENABLED 均为 false。
+当前开发/部署/运维教程	docs/geo-monitoring/03-technical/10-core-rollout-runbook.md	112	当前教程清理；禁用值与拒绝边界保留	2. 没有启动 geo-browser service、Browser Compose profile 或 session overlay；没有 Browser 私钥、服务能力或会话卷挂载。
+隔离源码或历史合同	docs/geo-monitoring/CHANGELOG.md	9	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	- 实际验证、引用分类与限制见 [PSR-005 证据](../../.trellis/tasks/10-13-psr-005-defer-browser-collector/implement.md)，未部署、未运行完整 release verify。
+隔离源码或历史合同	docs/geo-monitoring/CHANGELOG.md	94	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	- 实际本轮验证、独立只读复核与限制见[治理实施记录](../../.trellis/tasks/10-05-geo-browser-scope-adjustment/implement.md)；不宣称生产开关/会话或R8上线已实测，不提交、发布或归档。
+隔离源码或历史合同	docs/geo-monitoring/CHANGELOG.md	106	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	- 独立package/锁文件/镜像与三环境共享geo-browser profile，默认关闭并保留默认STOP。
+隔离源码或历史合同	docs/geo-monitoring/CHANGELOG.md	109	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	- 无新OpenAPI/DDL/Alembic、会话/真实平台/截图/管理UI。实际验证与独立复核见[实施记录](../../.trellis/tasks/10-05-geo-801-browser-collector/implement.md)；仅review等待人工接受，不实施802/803。
+当前产品说明	docs/geo-monitoring/01-product/02-geo-core-prd.md	1021	统一人工/API能力；Browser延期；历史禁用值和目标合同保留	以下为延期后的目标设计，按 ADR-006 恢复条件和平台批准实施，不是核心首发已具备能力。核心生产保持 GEO_BROWSER_COLLECTION_ENABLED=false 且无 Browser 会话。
+当前开发/部署/运维教程	docs/geo-monitoring/03-technical/03-api-contract-design.md	567	当前教程清理；禁用值与拒绝边界保留	GEO_BROWSER_COLLECTION_DISABLED
+隔离源码或历史合同	frontend/src/domains/geo-catalog/browser-session.api.ts	8	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	type BrowserSessionContext = components['schemas']['GeoBrowserSessionContext'];
+隔离源码或历史合同	frontend/src/domains/geo-catalog/browser-session.api.ts	10	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	type BrowserSessionImport = components['schemas']['GeoBrowserSessionImport'];
+隔离源码或历史合同	frontend/src/domains/geo-catalog/browser-session.api.ts	11	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	type BrowserSessionCommand = components['schemas']['GeoBrowserSessionCommand'];
+隔离源码或历史合同	frontend/src/domains/geo-catalog/browser-session.api.ts	33	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  GEO_BROWSER_PROFILE_REQUIRED: '当前采集配置不再是浏览器模式。',
+隔离源码或历史合同	frontend/src/domains/geo-catalog/browser-session.api.ts	34	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  GEO_BROWSER_SESSION_IMPORT_FORBIDDEN: '当前观测面不允许导入浏览器会话。',
+隔离源码或历史合同	frontend/src/domains/geo-catalog/browser-session.api.ts	35	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  GEO_BROWSER_SESSION_REVOKED: '此会话已撤销，只能通过新导入恢复。',
+隔离源码或历史合同	frontend/src/domains/geo-catalog/browser-session.api.ts	36	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	  GEO_BROWSER_SESSION_INVALID: '会话文件或有效期不符合要求，请检查后重新选择。',
+当前开发/部署/运维教程	docs/geo-monitoring/03-technical/08-deployment-and-operations.md	59	当前教程清理；禁用值与拒绝边界保留	GEO_BROWSER_COLLECTION_ENABLED=false
+当前开发/部署/运维教程	docs/geo-monitoring/03-technical/08-deployment-and-operations.md	308	当前教程清理；禁用值与拒绝边界保留	- R7 延期不阻断核心上线；Browser 开关必须 false、geo-browser 服务未启用且无生产会话，并留目标环境证据。后续启用必须另按 ADR-006 恢复和生产授权门禁执行。
+隔离源码或历史合同	docs/geo-monitoring/04-delivery/11-r8-security-review.md	42	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	| 实际Browser服务、geo-browser profile未启用；DB Browser profile未启用 | 本地Docker未观察Browser容器，仅本地开发范围 | 目标NOT_VERIFIED |
+隔离源码或历史合同	frontend/src/domains/geo-catalog/browser-session.test.tsx	91	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    fetchMock.mockResolvedValueOnce(Response.json({ error: { code: 'GEO_BROWSER_SESSION_INVALID', message: canary, details: { input: storageState }, request_id: canary } }, { status: 422 }));
+隔离源码或历史合同	docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md	136	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	| `GEO-906` | 执行生产渐进上线、最终验收和文档状态更新 | GEO-903, GEO-904, GEO-905 | 核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。 | make verify、生产 smoke、恢复/停止演练。；核心版正式可用；GEO_BROWSER_COLLECTION_ENABLED=false、Browser 服务/profile 未启用且无生产会话；R7 deferred 不阻断，延期项不标已实现，核心与延期证据分别保留。 |
+隔离源码或历史合同	docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md	145	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	| `GEO-1003` | production Browser Collection 硬禁止 | GEO-1002, GEO-004 | 由配置、启动预检和生产 profile/overlay 边界硬拒绝 Browser=true 或显式 geo-browser 启用；保留非生产隔离骨架和默认 false。 | production Settings 与启动预检开启负例、显式 profile/overlay 启用负例、false 正例、API/Worker/Beat 启动配置一致性；不访问真实平台。 | production 不能接受 Browser=true 或绕过预检启动 Browser；拒绝先于服务/会话/网络副作用，错误原因明确；三进程 false 与后续现场零部署证据分开；独立只读复核通过。 |
+隔离源码或历史合同	docs/geo-monitoring/04-delivery/task-manifest.yaml	1335	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	  trellis_task: .trellis/tasks/10-05-geo-801-browser-collector
+隔离源码或历史合同	docs/geo-monitoring/04-delivery/task-manifest.yaml	1337	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	"  review_note: ""2026-10-05：独立Browser package/image/geo-browser profile、非root sandbox与network none/只读/资源限额、真实DOM健康、默认STOP与热kill、稳定UUID显式拒绝和API非API早退完成。lint/typecheck/unit（3 Collector+3660 backend+1266 frontend）/contract/部署/真实runtime通过；19项既有Worker通过，新PG夹具修正后1项边界定向通过。普通production镜像真实探针无浏览器依赖。独立复核空值插值P2已修正并复验，Audit Bundle校验通过。无OpenAPI/DDL/new revision或历史迁移；head0062。仅review等待人工接受，不实现802/803、不提交/上线。文档包原有核心PRD摘要不一致已确认任务前存在，未改业务文档；详情见Trellis implement/evidence。 2026-10-05 本会话用户已人工审查并接受GEO-801的实现与测试证据；本次仅记录验收，manifest=done、Trellis=completed，不修改其他任务状态、不实施后续任务，不提交、推送或归档。"""
+隔离源码或历史合同	docs/geo-monitoring/04-delivery/task-manifest.yaml	1639	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	  deliverables: 核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。
+隔离源码或历史合同	docs/geo-monitoring/04-delivery/task-manifest.yaml	1641	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	  acceptance: 核心版正式可用；GEO_BROWSER_COLLECTION_ENABLED=false、Browser 服务/profile 未启用且无生产会话；R7 deferred 不阻断，延期项不标已实现，核心与延期证据分别保留。
+隔离源码或历史合同	docs/geo-monitoring/04-delivery/task-manifest.yaml	1695	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	  deliverables: 由配置、启动预检和生产 profile/overlay 边界硬拒绝 Browser=true 或显式 geo-browser 启用；保留非生产隔离骨架和默认 false。
+隔离源码或历史合同	backend/app/services/geo_browser_session_vault.py	48	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    return AppError(""GEO_BROWSER_SESSION_UNREADABLE"", ""浏览器会话密文无法读取"", 409)"
+隔离源码或历史合同	backend/app/services/geo_browser_session_vault.py	118	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        f""partsignal:geo-browser-session:v1:{reference}:"""
+隔离源码或历史合同	backend/app/services/geo_browser_session_vault.py	184	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            aad = f""partsignal:geo-browser-session:v1:{reference}:{profile_id}:{expiry}"""
+隔离源码或历史合同	backend/app/services/geo_browser_session_vault.py	249	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                        ""GEO_BROWSER_SESSION_MISSING"", ""浏览器会话密文不存在"", 409"
+隔离源码或历史合同	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md	11578	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。
+隔离源码或历史合同	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md	11624	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	- 核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。
+隔离源码或历史合同	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md	11642	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	- 核心版正式可用；GEO_BROWSER_COLLECTION_ENABLED=false、Browser 服务/profile 未启用且无生产会话；R7 deferred 不阻断，延期项不标已实现，核心与延期证据分别保留。
+隔离源码或历史合同	backend/app/models/geo_browser_sessions.py	14	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	class GeoBrowserSession(Base):
+隔离源码或历史合同	backend/app/services/identity.py	26	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	from app.models.geo_browser_sessions import GeoBrowserSession
+隔离源码或历史合同	backend/app/services/identity.py	113	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        GeoBrowserSession.created_by,
+隔离源码或历史合同	backend/app/services/identity.py	114	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        GeoBrowserSession.revoked_by,
+隔离源码或历史合同	backend/app/schemas/geo_browser_sessions.py	13	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	class GeoBrowserSessionImport(ContractModel):
+隔离源码或历史合同	backend/app/schemas/geo_browser_sessions.py	29	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	class GeoBrowserSessionCommand(ContractModel):
+隔离源码或历史合同	backend/app/schemas/geo_browser_sessions.py	34	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	class GeoBrowserSessionPurge(ContractModel):
+隔离源码或历史合同	backend/app/schemas/geo_browser_sessions.py	42	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	class GeoBrowserSessionMetadata(ContractModel):
+隔离源码或历史合同	backend/app/schemas/geo_browser_sessions.py	52	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	class GeoBrowserSessionContext(ContractModel):
+隔离源码或历史合同	backend/app/schemas/geo_browser_sessions.py	55	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    session: GeoBrowserSessionMetadata | None
+隔离源码或历史合同	backend/app/schemas/geo_browser_sessions.py	61	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	class GeoBrowserSessionAccessRequest(ContractModel):
+隔离源码或历史合同	backend/app/schemas/geo_browser_sessions.py	65	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	class GeoBrowserSessionEnvelope(ContractModel):
+隔离源码或历史合同	backend/app/config.py	174	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        False, validation_alias=AliasChoices(""GEO_BROWSER_COLLECTION_ENABLED"")"
+隔离源码或历史合同	backend/app/config.py	180	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        """", validation_alias=""GEO_BROWSER_SESSION_ROOT"", repr=False"
+隔离源码或历史合同	backend/app/config.py	183	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        """", validation_alias=""GEO_BROWSER_SESSION_PUBLIC_KEY_FILE"", repr=False"
+隔离源码或历史合同	backend/app/config.py	186	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        """", validation_alias=""GEO_BROWSER_SESSION_SERVICE_KEY_FILE"", repr=False"
+隔离源码或历史合同	backend/app/config.py	189	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        None, validation_alias=""GEO_BROWSER_SESSION_SERVICE_USER_ID"""
+隔离源码或历史合同	backend/app/config.py	221	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            raise ValueError(""生产环境禁止 GEO_BROWSER_COLLECTION_ENABLED=true"")"
+隔离源码或历史合同	backend/app/config.py	228	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            raise ValueError(""生产环境禁止配置 GEO_BROWSER_SESSION 会话材料"")"
+隔离源码或历史合同	docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-906.md	36	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。
+隔离源码或历史合同	docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-906.md	82	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	- 核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。
+隔离源码或历史合同	docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-906.md	100	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	- 核心版正式可用；GEO_BROWSER_COLLECTION_ENABLED=false、Browser 服务/profile 未启用且无生产会话；R7 deferred 不阻断，延期项不标已实现，核心与延期证据分别保留。
+隔离源码或历史合同	backend/app/services/geo_surface_queries.py	11	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	from app.models.geo_browser_sessions import GeoBrowserSession
+隔离源码或历史合同	backend/app/services/geo_surface_queries.py	86	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        select(GeoBrowserSession.profile_id, func.count())
+隔离源码或历史合同	backend/app/services/geo_surface_queries.py	87	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        .where(GeoBrowserSession.profile_id.in_(ids)).group_by(GeoBrowserSession.profile_id)
+隔离源码或历史合同	backend/app/services/geo_browser_storage_state.py	18	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    return AppError(""GEO_BROWSER_SESSION_INVALID"", ""浏览器会话资料不符合安全契约"", 422)"
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	12	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    GeoBrowserSessionAccessRequest,
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	13	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    GeoBrowserSessionCommand,
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	14	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    GeoBrowserSessionContext,
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	15	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    GeoBrowserSessionEnvelope,
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	16	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    GeoBrowserSessionImport,
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	17	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    GeoBrowserSessionPurge,
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	26	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"router = APIRouter(tags=[""geo-browser-sessions""], dependencies=[Depends(no_cache)])"
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	34	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    response_model=GeoBrowserSessionContext,
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	35	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    operation_id=""getGeoBrowserSession"","
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	38	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	def get_session(profile_id: UUID, db: DbSession, admin: AdminUser) -> GeoBrowserSessionContext:
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	44	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    response_model=GeoBrowserSessionContext,
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	45	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    operation_id=""importGeoBrowserSession"","
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	50	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    payload: GeoBrowserSessionImport,
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	55	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	) -> GeoBrowserSessionContext:
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	67	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    response_model=GeoBrowserSessionContext,
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	68	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    operation_id=""checkGeoBrowserSessionHealth"","
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	73	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    payload: GeoBrowserSessionCommand,
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	78	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	) -> GeoBrowserSessionContext:
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	91	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    response_model=GeoBrowserSessionContext,
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	92	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    operation_id=""revokeGeoBrowserSession"","
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	97	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    payload: GeoBrowserSessionCommand,
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	102	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	) -> GeoBrowserSessionContext:
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	115	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    response_model=GeoBrowserSessionContext,
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	116	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    operation_id=""purgeGeoBrowserSessions"","
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	121	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    payload: GeoBrowserSessionPurge,
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	126	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	) -> GeoBrowserSessionContext:
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	138	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    response_model=GeoBrowserSessionEnvelope,
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	139	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    operation_id=""accessGeoBrowserSession"","
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	144	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    payload: GeoBrowserSessionAccessRequest,
+隔离源码或历史合同	backend/app/routers/geo_browser_sessions.py	148	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	) -> GeoBrowserSessionEnvelope:
+隔离源码或历史合同	backend/app/services/geo_collector_eligibility.py	191	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            ""GEO_BROWSER_COLLECTION_ENABLED"","
+隔离源码或历史合同	docs/geo-monitoring/04-delivery/13-r8-core-release-acceptance.md	16	历史ADR/交付/接受记录保留；不作为当前教程或默认门禁	核心发布要求 GEO_BROWSER_COLLECTION_ENABLED=false、服务/profile 未启用、无生产会话。
+隔离源码或历史合同	backend/tests/integration/test_geo_browser_sessions.py	17	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	from app.models.geo_browser_sessions import GeoBrowserSession
+隔离源码或历史合同	backend/tests/integration/test_geo_browser_sessions.py	20	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	from app.schemas.geo_browser_sessions import GeoBrowserSessionImport
+隔离源码或历史合同	backend/tests/integration/test_geo_browser_sessions.py	140	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        row = db.scalar(select(GeoBrowserSession).where(GeoBrowserSession.id == UUID(reference)))
+隔离源码或历史合同	backend/tests/integration/test_geo_browser_sessions.py	170	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        and denied.json()[""error""][""code""] == ""GEO_BROWSER_SESSION_REVOKED"""
+隔离源码或历史合同	backend/tests/integration/test_geo_browser_sessions.py	311	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	                    payload=GeoBrowserSessionImport(**body),
+隔离源码或历史合同	backend/tests/integration/test_geo_browser_sessions.py	327	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	            .select_from(GeoBrowserSession)
+隔离源码或历史合同	backend/tests/integration/test_geo_browser_sessions.py	328	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	            .where(GeoBrowserSession.profile_id == profile_id)
+隔离源码或历史合同	backend/tests/integration/test_geo_browser_sessions.py	340	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            payload=GeoBrowserSessionImport(**{**body, ""expected_revision"": 1}),"
+隔离源码或历史合同	backend/tests/integration/test_geo_browser_sessions.py	368	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        old = db.get(GeoBrowserSession, UUID(reference))
+隔离源码或历史合同	backend/tests/integration/test_geo_browser_sessions.py	432	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    assert denied.json()[""error""][""code""] == ""GEO_BROWSER_SESSION_IMPORT_FORBIDDEN"""
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	17	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	from app.models.geo_browser_sessions import GeoBrowserSession
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	23	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    GeoBrowserSessionContext,
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	24	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    GeoBrowserSessionEnvelope,
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	25	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    GeoBrowserSessionImport,
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	26	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    GeoBrowserSessionMetadata,
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	78	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        raise AppError(""GEO_BROWSER_PROFILE_REQUIRED"", ""仅浏览器配置支持会话管理"", 409)"
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	81	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	def _rows(db: Session, profile_id: UUID, *, lock: bool = False) -> list[GeoBrowserSession]:
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	82	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    query = select(GeoBrowserSession).where(GeoBrowserSession.profile_id == profile_id)
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	84	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        query = query.order_by(GeoBrowserSession.id).with_for_update()
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	88	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	def _health(row: GeoBrowserSession, now: datetime) -> BrowserSessionHealth:
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	106	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	def _context(db: Session, profile: GeoCollectionProfile) -> GeoBrowserSessionContext:
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	120	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    return GeoBrowserSessionContext(
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	123	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        session=GeoBrowserSessionMetadata(
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	140	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	def get_context(*, db: Session, profile_id: UUID, actor: User) -> GeoBrowserSessionContext:
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	153	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    *, db: Session, profile_id: UUID, payload: GeoBrowserSessionImport, actor: User, request_id: str
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	154	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	) -> GeoBrowserSessionContext:
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	162	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                ""GEO_BROWSER_SESSION_IMPORT_FORBIDDEN"","
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	181	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	            GeoBrowserSession(
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	199	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	def _target(db: Session, profile: GeoCollectionProfile, reference: UUID) -> GeoBrowserSession:
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	214	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	) -> GeoBrowserSessionContext:
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	220	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            raise AppError(""GEO_BROWSER_SESSION_REVOKED"", ""会话引用已撤销"", 409)"
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	232	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                    ""GEO_BROWSER_SESSION_MISSING"","
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	233	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"                    ""GEO_BROWSER_SESSION_UNREADABLE"","
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	253	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	) -> GeoBrowserSessionContext:
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	269	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	) -> GeoBrowserSessionContext:
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	294	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	) -> GeoBrowserSessionContext:
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	340	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	) -> GeoBrowserSessionEnvelope:
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	362	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            raise AppError(""GEO_BROWSER_SESSION_REVOKED"", ""会话引用已撤销"", 409)"
+隔离源码或历史合同	backend/app/services/geo_browser_sessions.py	369	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	        return GeoBrowserSessionEnvelope(
+隔离源码或历史合同	backend/tests/integration/test_geo_profile_eligibility.py	31	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    GEO_BROWSER_COLLECTION_ENABLED=False,
+隔离源码或历史合同	backend/tests/unit/test_geo_configuration.py	22	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    ""GEO_BROWSER_COLLECTION_ENABLED"","
+隔离源码或历史合同	backend/tests/unit/test_geo_configuration.py	108	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"         ""PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED""),"
+隔离源码或历史合同	backend/tests/unit/test_geo_configuration.py	110	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        ({""GEO_BROWSER_COLLECTION_ENABLED"": ""true""}, ""FAILED"","
+隔离源码或历史合同	backend/tests/unit/test_geo_configuration.py	111	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"         ""PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED""),"
+隔离源码或历史合同	backend/tests/unit/test_geo_configuration.py	112	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        ({""GEO_MONITORING_ENABLED"": ""true"", ""GEO_BROWSER_COLLECTION_ENABLED"": ""true""},"
+隔离源码或历史合同	backend/tests/unit/test_geo_configuration.py	113	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"         ""FAILED"", ""PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED""),"
+隔离源码或历史合同	backend/tests/unit/test_geo_configuration.py	114	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        ({""GEO_BROWSER_COLLECTION_ENABLED"": ""1""}, ""FAILED"","
+隔离源码或历史合同	backend/tests/unit/test_geo_configuration.py	115	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"         ""PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED""),"
+隔离源码或历史合同	backend/tests/unit/test_geo_configuration.py	116	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        ({""GEO_BROWSER_COLLECTION_ENABLED"": """"}, ""FAILED"","
+隔离源码或历史合同	backend/tests/unit/test_geo_configuration.py	117	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"         ""PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED""),"
+隔离源码或历史合同	backend/tests/unit/test_geo_production_boundary.py	20	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    with pytest.raises(ValidationError, match=""生产环境禁止 GEO_BROWSER_COLLECTION_ENABLED=true""):"
+隔离源码或历史合同	backend/tests/unit/test_geo_production_boundary.py	23	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"            ""GEO_MONITORING_ENABLED"": True, ""GEO_BROWSER_COLLECTION_ENABLED"": browser,"
+隔离源码或历史合同	backend/tests/unit/test_geo_production_boundary.py	28	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    ""GEO_BROWSER_SESSION_ROOT"", ""GEO_BROWSER_SESSION_PUBLIC_KEY_FILE"","
+隔离源码或历史合同	backend/tests/unit/test_geo_production_boundary.py	29	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    ""GEO_BROWSER_SESSION_SERVICE_KEY_FILE"", ""GEO_BROWSER_SESSION_SERVICE_USER_ID"","
+隔离源码或历史合同	backend/tests/unit/test_geo_production_boundary.py	33	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    with pytest.raises(ValidationError, match=""生产环境禁止配置 GEO_BROWSER_SESSION""):"
+隔离源码或历史合同	backend/tests/unit/test_geo_production_boundary.py	58	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        ""GEO_BROWSER_COLLECTION_ENABLED"": ""true"", ""PYTHONPATH"": str(ROOT / ""backend""),"
+隔离源码或历史合同	backend/tests/unit/test_geo_production_boundary.py	65	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    if event == 'open' and isinstance(args[0], str) and '/run/geo-browser' in args[0]:
+隔离源码或历史合同	backend/tests/unit/test_geo_production_boundary.py	76	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    assert ""生产环境禁止 GEO_BROWSER_COLLECTION_ENABLED=true"" in output"
+隔离源码或历史合同	backend/tests/unit/test_geo_production_boundary.py	86	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        configuration.pop(""GEO_BROWSER_COLLECTION_ENABLED"")"
+隔离源码或历史合同	backend/tests/unit/test_geo_production_boundary.py	99	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    ({""GEO_MONITORING_ENABLED"": ""true"", ""GEO_BROWSER_COLLECTION_ENABLED"": ""true""}, {},"
+隔离源码或历史合同	backend/tests/unit/test_geo_production_boundary.py	100	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"     ""PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED""),"
+隔离源码或历史合同	backend/tests/unit/test_geo_production_boundary.py	101	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    ({}, {""GEO_BROWSER_COLLECTION_ENABLED"": ""true""},"
+隔离源码或历史合同	backend/tests/unit/test_geo_production_boundary.py	102	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"     ""PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED""),"
+隔离源码或历史合同	backend/tests/unit/test_geo_production_boundary.py	103	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    ({}, {""COMPOSE_PROFILES"": ""production-async,geo-browser""},"
+隔离源码或历史合同	backend/tests/unit/test_geo_production_boundary.py	107	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"      str(ROOT / ""deploy/compose.geo-browser.yaml"")}, ""PRODUCTION_COMPOSE_OVERLAY_FORBIDDEN""),"
+隔离源码或历史合同	backend/tests/unit/test_geo_production_boundary.py	108	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    ({}, {""COMPOSE_FILE"": str(ROOT / ""deploy/compose.geo-browser-sessions.yaml"")},"
+隔离源码或历史合同	backend/tests/unit/test_geo_production_boundary.py	110	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    ({""GEO_BROWSER_SESSION_ROOT"": ""/synthetic""}, {}, ""PRODUCTION_BROWSER_SESSION_FORBIDDEN""),"
+隔离源码或历史合同	backend/tests/unit/test_geo_production_boundary.py	111	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    ({}, {""PARTSIGNAL_GEO_BROWSER_SESSION_PRIVATE_KEY_FILE"": ""/synthetic""},"
+隔离源码或历史合同	backend/tests/unit/test_geo_browser_storage_state.py	81	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    assert captured.value.code == ""GEO_BROWSER_SESSION_INVALID"""
+隔离源码或历史合同	backend/tests/unit/test_geo_browser_session_vault.py	19	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	from app.schemas.geo_browser_sessions import GeoBrowserSessionEnvelope
+隔离源码或历史合同	backend/tests/unit/test_geo_browser_session_vault.py	128	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	    response = GeoBrowserSessionEnvelope(
+隔离源码或历史合同	backend/tests/unit/test_geo_browser_session_vault.py	134	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    module = Path(__file__).resolve().parents[3] / ""browser-collector/src/session.mjs"""
+隔离源码或历史合同	backend/tests/unit/test_geo_browser_session_vault.py	186	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    assert captured.value.code == ""GEO_BROWSER_SESSION_MISSING"""
+隔离源码或历史合同	backend/tests/unit/test_geo_browser_session_vault.py	223	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"    assert captured.value.code == ""GEO_BROWSER_SESSION_UNREADABLE"""
+隔离源码或历史合同	backend/tests/unit/test_contract.py	388	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        ""getGeoBrowserSession"","
+隔离源码或历史合同	backend/tests/unit/test_contract.py	391	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        ""importGeoBrowserSession"", ""checkGeoBrowserSessionHealth"","
+隔离源码或历史合同	backend/tests/unit/test_contract.py	392	源码/Schema/专属测试/隔离Compose保留；生产拒绝校验保留	"        ""revokeGeoBrowserSession"", ""purgeGeoBrowserSessions"", ""accessGeoBrowserSession"","

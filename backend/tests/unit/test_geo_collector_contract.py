@@ -318,14 +318,13 @@ def test_protocol_exposes_single_metadata_owner_and_required_send_boundary() -> 
 
 def test_collector_modules_do_not_depend_on_orm_or_transaction_owner() -> None:
     root = Path(__file__).resolve().parents[2] / "app/collectors"
-    # GEO-404 允许复用无业务状态的传输/Header 边界，不能据此依赖其他服务或生成解析。
-    transport_symbols = {"PinnedHTTPTransport", "PinnedResponse", "PinnedTransportError"}
+    # 只允许依赖无业务状态的 SDK/Header 边界，不能依赖事务或生成解析 owner。
     allowed_services = {
         "openai_compatible.py": {
-            "app.services.pinned_http": transport_symbols,
-            "app.services.openai_client": {"validate_header"},
+            "app.services.ai_provider": {
+                "AIProvider", "RawChatCompletionResult", "validate_header",
+            },
         },
-        "openai_response.py": {"app.services.pinned_http": {"PinnedResponse"}},
     }
     for path in root.glob("*.py"):
         tree = ast.parse(path.read_text())

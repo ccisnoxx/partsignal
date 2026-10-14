@@ -1,0 +1,314 @@
+当前手工/无Actions范围声明	README.md:58	具体范围、前置条件与其他领域过滤示例见 [测试策略](./docs/testing.md#手工分层命令)。GitHub 只用于代码备份与服务器拉取，仓库不运行 Actions 工作流；已有独立契约、静态、单元、集成、构建和 E2E 入口继续可用。
+当前手工/无Actions范围声明	docs/GEO系统前后端技术与部署方案.md:855	短期可在 VPS 上构建，但正式试运行后建议由 CI 构建版本化镜像，VPS 只拉取和运行。镜像仓库可在后续选择阿里云容器镜像服务或现有私有仓库。
+当前手工/无Actions范围声明	docs/GEO系统前后端技术与部署方案.md:1080	前后端虽然独立构建，但在同一仓库中可以统一版本、CI、接口契约和部署文档。当前规模没有拆分多个仓库的收益。
+当前手工/无Actions范围声明	docs/GEO系统前后端技术与部署方案.md:1176	7. CI 平台及自动部署权限范围。
+当前手工/无Actions范围声明	docs/Hostdzire部署上线流程.md:61	准备部署指定 commit 的完整手工验证入口为 `make verify-release`，旧 `make verify` 保持相同范围；小任务与功能切片分别选择快速/领域目标，详见 [测试策略](./testing.md#手工分层命令)。GitHub 只用于备份与服务器拉取，没有 Actions 部署步骤。日常部署脚本不隐式调用源码验证；消费有效证据并补充实际变化的现场检查。保留 Docker 构建缓存和已有依赖；源码、构建配置和依赖未变的镜像可复用其不可变身份。需要新 tag 时由 producer 冻结真实 image ID/RepoDigest，不能伪造身份或覆盖旧 release。
+当前手工/无Actions范围声明	docs/Hostdzire部署上线流程.md:75	附录的 pre-cutover probe 必须先用同一 release 的 manifest consumer 验证 tracked files 和实际镜像 ID/RepoDigest，再以 `run --rm --pull never --no-deps api` 执行；直接 probe 属于 one-off 容器创建授权。出现 network label mismatch 时停止并修复仓库合同，重建 Repository Release Gate；旧冻结 archive/images/manifest 仅为不可覆盖的历史失败证据，新 release 不得复用这些身份。网络修复不得通过手工 relabel/recreate、external、override 或更换 project 绕过 Compose ownership。
+当前手工/无Actions范围声明	docs/Hostdzire部署附录.md:107	不匹配时退回仓库修复和完整 Repository Release Gate，不手工 relabel、删除或重建现存网络，不使用 external network、临时 override、其他 project 或手工容器绕过 ownership。manifest tracked Compose 变化后，旧 release/archive/images/manifest 仅保留为历史失败证据；新 release 必须使用新的 commit、release ID、run ID、archive、image tags 和 manifest，不覆盖、retag、删除或复用旧身份。
+当前手工/无Actions范围声明	docs/development-preview.md:35	首次准备真实生成环境可加 `--generator openai-compatible`；准备文件不会创建数据库渠道或写入 Key。既有 env 不由工具覆盖，须通过独立受控配置更新与服务重载使 API、Worker、Scheduler 加载同一模式。Settings 是各进程启动快照，修改文件不是即时关闭开关。API 关闭模式时返回 `409 AI_GENERATION_DISABLED` 且不写入/提交 Job 或投递 Redis；actions、generation-options 与 Prompt Preview 不提供生成/自然化/retry 动作或真实模型候选。Worker 最终将关闭模式下的 PENDING 标记 `FAILED/AI_GENERATION_DISABLED`，重复投递不改变终态、不调用供应商、不创建新版本。Beat 仍只补投递超龄 PENDING UUID，由 Worker 最终拒绝。
+当前手工/无Actions范围声明	docs/frontend-v2/01-technical-architecture.md:181	复杂 Workspace 可提供专用 context endpoint，例如 review context 一次返回 content、diff、fact snapshot、generation snapshot、quality issues、timeline 和 actions。
+当前手工/无Actions范围声明	docs/frontend-v2/01-technical-architecture.md:219	- [ ] lint / typecheck / unit / e2e / build CI
+当前手工/无Actions范围声明	docs/frontend-v2/03-page-and-workflow-blueprint.md:107	Markdown 是唯一编辑源。保存与提交都发送当前基线的 `expected_revision`；保存成功采用服务端 canonical workspace response，冲突时保留本地内容并提供显式 reload。提交只允许 clean 草稿，服务端从已保存内容创建不可变 `PENDING_REVIEW` snapshot，页面刷新 actions 和摘要但停留当前路由。动作入口只由 `available_actions` 决定；DirtyGuard 覆盖应用内导航与浏览器离开。
+当前手工/无Actions范围声明	docs/frontend-v2/03-page-and-workflow-blueprint.md:375	账号区进入时按平台按需读取，且不重复“平台”列。创建、编辑与启停保留各自既有 baseline；删除条件/确认只保存账号 ID、命令与焦点返回点，并从当前平台独立 Accounts query 实时读取 label、actions、deletion 与 revision。Accounts query 重新聚焦必定刷新，删除 409 不因被动更新解冻或重放。
+当前手工/无Actions范围声明	docs/frontend-v2/03-page-and-workflow-blueprint.md:453	创建、编辑、reset、单项启停和删除均使用短 Dialog。edit/reset/status 保留各自既有 revision baseline；删除 Dialog 只保存 User ID、命令与 focus，并从当前 exact UserList query 派生名称、actions、deletion 与 revision。409 不自动重放；删除冲突即使被动刷新得到新投影也继续冻结，只有显式 reload 成功才解除。创建/reset 的临时密码只存在于已打开的私有 form 与当前请求；Dialog 卸载后不留在 URL、Query key、mutation cache、响应、DOM、日志或 fixture artifact。`USER_BUSINESS_HISTORY` blocker 提供精确 `/system/audit?actorId=<user-id>` 链接；Users 页面本身不读取 Audit。
+当前手工/无Actions范围声明	docs/frontend-v2/04-design-system-and-interaction-spec.md:42	标准：Breadcrumb → Title/Actions → Description/metadata。Page-level Primary 最多一个，例如 `[新建产品]`、`[创建任务]`、`[新建观测]`，其他进入 overflow。
+当前手工/无Actions范围声明	docs/frontend-v2/04-design-system-and-interaction-spec.md:56	├── row-actions.tsx
+当前手工/无Actions范围声明	docs/frontend-v2/04-design-system-and-interaction-spec.md:74	  | "actions"
+当前手工/无Actions范围声明	docs/frontend-v2/04-design-system-and-interaction-spec.md:110	`RowActions` 不知道 domain state，只消费已经解析后的 actions。
+当前手工/无Actions范围声明	docs/frontend-v2/04-design-system-and-interaction-spec.md:157	结构：左侧保存/状态/风险提示，右侧 actions。危险/不可逆动作必须说明后果。
+当前手工/无Actions范围声明	docs/frontend-v2/05-business-actions-state-and-api-contract.md:21	回答：“当前可以尝试哪些具体命令？”适合 overflow、workspace secondary actions、管理员低频命令。Mutation 时服务端必须重新校验。
+当前手工/无Actions范围声明	docs/frontend-v2/05-business-actions-state-and-api-contract.md:33	建立 `domains/<domain>/actions/`：
+当前手工/无Actions范围声明	docs/frontend-v2/05-business-actions-state-and-api-contract.md:80	Design System：`<RowActions actions={resolvedActions} />`。
+当前手工/无Actions范围声明	docs/frontend-v2/05-business-actions-state-and-api-contract.md:157	`SAVE` 与 `SUBMIT_REVIEW` 的入口是否存在只由 `available_actions` 决定；客户端 dirty、pending 与非空校验只影响已返回动作的 enabled 状态。`PUT /facts` 接收 `ProductFactsDraftUpdate.expected_revision` 并返回 canonical `ProductFactsDraft`；客户端只用该响应更新正文、分级、revision 和 cache。`POST /fact-review-submissions` 接收 `FactReviewSubmissionRequest.expected_revision` 与非空 `change_summary`，服务端从当前已保存 workspace 创建不可变 `PENDING_REVIEW` snapshot；成功后客户端重新读取 workspace actions，不跳转尚未实现的 Fact Review。
+当前手工/无Actions范围声明	docs/frontend-v2/05-business-actions-state-and-api-contract.md:360	- 同一响应返回不受当前筛选影响的 readiness summary 和按名称、ID 稳定排序的 `platform_type_options`。普通已认证用户获得 `primary_task=null`、空 actions 与 `deletion=null`；浏览器不得通过管理员 Platform Type endpoint 或当前页反推选项与权限。
+当前手工/无Actions范围声明	docs/frontend-v2/05-business-actions-state-and-api-contract.md:361	- ENABLE、DISABLE 继续提交各自命令 baseline；Platform Profile 删除 Dialog 只保存 ID/命令/focus，并在确认时从当前 exact Platform List query读取名称、actions、deletion 与 revision。DELETE 使用 required `expected_revision` query；确认前不自动 GET。任意删除 409 冻结旧确认，被动刷新只更新显示，显式 reload 成功后才允许再次确认且不自动重放。服务端仍在行锁内重新校验 revision、目标状态、权限与实时 blocker。
+当前手工/无Actions范围声明	docs/frontend-v2/05-business-actions-state-and-api-contract.md:366	- Detail 对所有当前已认证角色开放。ADMIN 的 `profile.primary_task/available_actions/deletion` 复用 Platform List 投影；ENGINEER 得到 `primary_task=null`、空 actions 与 `deletion=null`。写 endpoint 继续由服务端最终校验 ADMIN，浏览器不通过 `isAdmin` 补动作。
+当前手工/无Actions范围声明	docs/frontend-v2/05-business-actions-state-and-api-contract.md:388	- 409 保留表单或删除上下文，不自动 GET/replay。删除 intent 只保存 Type ID/命令/focus，名称、blocker、actions 与 revision 从当前 Types query 派生；被动更新可在 blocker/确认间转换但不解除 409 freeze，显式 reload 成功后才采用当前 projection。成功 mutation 精确失效 Type settings、全部 Platform lists 与全部 Platform details，覆盖 options 和名称消费者，不触碰 Account/Prompt/Content/Publication cache。
+当前手工/无Actions范围声明	docs/frontend-v2/05-business-actions-state-and-api-contract.md:437	- PATCH 与 reset body 继续提交各自 Dialog baseline；DELETE intent 只保存 User ID/命令/focus，并在确认时从当前 exact UserList query取得 actions、deletion 与 revision形成 query。确认前不得自动 GET。reset 成功返回安全 `User` 投影并撤销目标用户会话；响应不得包含临时密码、密码哈希或 session。stale 命令在锁内返回 `REVISION_CONFLICT`，不改状态、revision、session 或 audit。
+当前手工/无Actions范围声明	docs/frontend-v2/06-code-architecture-and-project-structure.md:98	├── actions/
+当前手工/无Actions范围声明	docs/frontend-v2/06-code-architecture-and-project-structure.md:100	│   └── resolve-actions.ts
+当前手工/无Actions范围声明	docs/frontend-v2/06-code-architecture-and-project-structure.md:129	每个 domain 的 `actions/` 负责 token → label/href/command/intent/confirmation，不计算 eligibility。
+当前手工/无Actions范围声明	docs/frontend-v2/06-code-architecture-and-project-structure.md:155	CI 至少阻止：`design-system -> domain`、`shared -> route/domain`、`domain -> route` 的反向依赖。可用 ESLint boundary 或 dependency-cruiser/madge。
+历史交付/当时说明（非workflow使用教程）	docs/frontend-v2/07-migration-plan.md:23	- 服务端动作与 API 契约见 `05-business-actions-state-and-api-contract.md`；
+历史交付/当时说明（非workflow使用教程）	docs/frontend-v2/07-migration-plan.md:423	`frontend-v2-geo-observation-detail` 已注册 `/geo/observations/$observationId`：additive Detail read model 在一个 `REPEATABLE READ` 请求中返回 Legacy 完整事实或 Manual root→tail correction history、Product/Query Topic、Published Articles、direct evidence 与 actor-aware actions；旧 GET/collection/POST 保持兼容。页面支持 List/direct/refresh/Back/Forward、两类只读结果、完整 history、404/403/409/普通错误、retry、DELETE confirmation 和四档响应式；strict generated-type fixture 拒绝浏览器 join。
+历史交付/当时说明（非workflow使用教程）	docs/frontend-v2/07-migration-plan.md:427	`frontend-v2-geo-topics` 已注册 `/geo/topics`：保留旧完整 Query Topic 列表供 V1、New Observation 与 Correction Workspace 使用，新增窄 `list-items` read model 负责服务端搜索、排序、分页、三类批量业务引用和 actor-aware actions。固定五列 Table 支持 URL state、开始观测 handoff、短 Dialog 创建/编辑、revision conflict 显式 reload、服务端允许时删除和 canonical 引用筛选链接；strict generated-type fixture 覆盖状态、键盘焦点及四档宽度。
+历史交付/当时说明（非workflow使用教程）	docs/frontend-v2/07-migration-plan.md:443	`frontend-v2-platform-list` 已交付 Phase 6 的第一个 slice：注册所有已认证用户可见的 `/settings/platforms` 与导航入口，复用并扩展既有 PlatformProfile collection read model，提供服务端 readiness 三态、可用账号数、全局摘要、类型 options、actor-aware actions 和 revision mutation。固定七列表格支持 canonical URL 搜索/筛选/分页、完整状态与四档响应式；Platform Workspace、类型/账号/Prompt/AI 管理与完整真实栈 E2E 仍由后续 Task 完成。
+历史交付/当时说明（非workflow使用教程）	docs/frontend-v2/08-testing-quality-and-acceptance.md:33	`resolve-actions.ts` 必须验证 server primary task 映射、unknown action fallback、danger confirmation，且不从 status 计算资格。
+历史交付/当时说明（非workflow使用教程）	docs/frontend-v2/08-testing-quality-and-acceptance.md:40	Workspace：sticky actions、disabled submit、revision conflict、dirty guard。
+历史交付/当时说明（非workflow使用教程）	docs/frontend-v2/08-testing-quality-and-acceptance.md:87	Observation List 的 required evidence 分为两层：PostgreSQL integration 证明链尾选择、两类观测 compact projection、canonical/Product/platform/accuracy/date filter、稳定排序/分页、证据继承、固定批量查询与 actor-aware actions；generated-type production fixture 证明页面只调用 list-items 与明确 delete，不请求 Product、Query Topic、旧完整列表或 Detail。fixture 覆盖八列、canonical links、无“查看详情”、action gating、loading/empty/filtered-empty/error/retry、URL→API 一一映射、分页、键盘/Dialog 焦点返回，以及 375/768/1024/1440 页面根无横向溢出。
+历史交付/当时说明（非workflow使用教程）	docs/frontend-v2/08-testing-quality-and-acceptance.md:91	Observation Detail required evidence 分为三层：PostgreSQL integration 证明任意 selected node 的 root→tail 顺序、直接 evidence/继承 ID、Legacy/Manual 完整投影、终态文章 snapshot、actor actions 与固定查询次数；API/model/component tests 冻结 generated union、identity/chain assertion、404/403/409/普通错误和 readonly branch；production-artifact strict fixture 只允许 auth、一个 Detail GET 与 token 允许的 DELETE，覆盖 List/direct/refresh/Back/Forward、完整 chain/evidence/articles、New POST ID handoff、Dialog focus 及 375/768/1024/1440 无根级溢出。未声明 API 必须返回 501 并在 teardown 失败。
+历史交付/当时说明（非workflow使用教程）	docs/frontend-v2/08-testing-quality-and-acceptance.md:182	Phase 2.5 的 `/products/$productId/facts` 由 `tests/e2e/fact-workspace.spec.ts` 继续复用 generated-type `products.fixture.ts`。fixture 使用 `ProductFactsDraft`、`ProductFactsDraftUpdate`、`FactReviewSubmissionRequest` 与 `FactVersion`，并拒绝任何未声明 API；测试证明页面只用一个 facts read model，不请求 Product Detail 或自行 join。覆盖 direct/refresh、空 Markdown、loading、404/403/retry、服务端 action token、save canonical response、`expected_revision`/CSRF、Ctrl/Cmd+S、revision conflict 本地保留与显式 reload、提交后停留原路由并刷新 actions、DirtyGuard、键盘焦点、375/768/1024/1440 无横向溢出，以及 console/pageerror/requestfailed 审计。真实 PostgreSQL snapshot 不可变性由 backend integration test 证明；该前端 fixture 不冒充完整业务闭环，也不进入 Fact Review。
+历史交付/当时说明（非workflow使用教程）	docs/frontend-v2/08-testing-quality-and-acceptance.md:248	`tests/e2e/geo-observations.spec.ts` 使用独立 generated-type `geo.fixture.ts`。fixture 只允许认证、`GET /api/v1/geo-observations/list-items` 和有资格行的 DELETE；其他 API 返回 501，并在 teardown 将请求与浏览器运行时错误作为失败。组件与 fixture 同时覆盖 URL canonicalization、server query mapping、八列/长文本/compact indicators、actions、状态、retry、分页、CSRF、单次删除、Dialog cancel focus return 和四档响应式；它只证明 V2 production artifact，不代表 GEO 完整业务闭环。
+历史交付/当时说明（非workflow使用教程）	docs/frontend-v2/08-testing-quality-and-acceptance.md:473	仓库切换必须证明：只有 canonical `frontend/` 被跟踪；根 Makefile 与 CI 不再执行 V1/双前端阶段；dev/staging/prod Compose 静态解析且 Production image identity 不变；部署脚本测试、安全检查、OpenAPI generated check、lint、typecheck、unit、production build和 fixture Playwright 通过。验证不操作远端环境。
+当前手工/无Actions范围声明	docs/frontend-v2/09-architecture-decisions.md:171	**Decision**：`/geo/observations` 只消费新增 `GET /api/v1/geo-observations/list-items`。既有 collection endpoint 保留完整 `GeoObservation` 响应供 V1 使用；新 endpoint 统一 legacy/manual 的列表字段、只返回纠正链尾，并在服务端完成 Product/query search、platform/accuracy/date filter、稳定排序、分页、证据继承和 actor-aware actions。
+当前手工/无Actions范围声明	docs/frontend-v2/09-architecture-decisions.md:195	**Decision**：`/geo/topics` 只消费 additive `GET /api/v1/query-topics/list-items`，由服务端完成 canonical question/variant search、稳定排序、分页、三类业务引用批量摘要和 actor-aware actions。既有 `GET /api/v1/query-topics` 保持完整 `QueryTopicList` 语义，继续服务 V1、New Observation 与 Correction Workspace；不增加 `view=v2`、兼容字段或 Query Topic Detail endpoint。
+当前手工/无Actions范围声明	docs/frontend-v2/09-architecture-decisions.md:215	**Read model ownership**：旧 `configuration_*` 保持 Prompt-only 语义；独立 `readiness_status` 以缺 Prompt、缺启用账号、完整三态表达列表就绪度。账号 total/enabled 在同一次批量查询中聚合，summary 不受当前筛选影响，类型 options 由同一响应稳定提供。普通用户的 Primary/actions/deletion 由服务端归零，浏览器不推导权限或业务状态。
+当前手工/无Actions范围声明	docs/frontend-v2/09-architecture-decisions.md:227	**Scope boundary**：Core 只读展示账号标签、内部标识与状态。账号 CRUD、actor-aware actions、revision delete 与 blocker 属于拆分后的 `frontend-v2-platform-workspace-accounts`；不为将来能力预建通用 Settings Workspace、CRUD registry 或媒体框架。
+当前手工/无Actions范围声明	docs/frontend-v2/09-architecture-decisions.md:322	**Decision**：PartSignal 仍处于业务数据可由 migration 与 seed 重建的开发阶段，因此不再以真实 Production Observation 作为仓库源码退役前置条件。原 `frontend-v2/` 整体提升为唯一 canonical `frontend/`；旧 V1 源码、测试、构建与双前端 CI/Makefile/deploy pipeline 删除。`docs/frontend-v2/` 作为设计与 ADR 历史目录保留，旧 Phase 证据不改写。
+当前手工/无Actions范围声明	docs/frontend-v2/09-architecture-decisions.md:324	**Runtime and release boundary**：该决策只改变仓库源码 owner 和本地/CI 构建路径。Compose service 名、Production frontend image identity、tag/env/manifest 字段、上一份已验证 V2 image 回滚合同和外层 Nginx 运行边界保持不变；不增加 V1 runtime fallback，也不通过目录名迁移触发远端部署。
+当前手工/无Actions范围声明	docs/frontend-v2/09-architecture-decisions.md:328	**Validation and recovery boundary**：切换以单一 canonical source、Makefile/CI/Compose/部署/安全/E2E 引用收敛，以及无需本机隔离容器的结构、静态、合同、单元、构建和 fixture E2E 为本任务 required validation。用户明确不要求本机隔离容器测试，因此 container smoke、隔离 real-stack 与最终聚合 `make verify` 对本任务均为 `CANCELLED_BY_SCOPE_DECISION / NOT_APPLICABLE`，不是 `MET`；相应仓库入口继续保留供未来 CI 或独立任务使用。范围内验证完成后，旧 V1 临时工作树移入 macOS 废纸篓，tracked 历史仍可由 Git 恢复。
+当前手工/无Actions范围声明	docs/frontend-v2/10-frontend-redevelopment-plan.md:27	| 业务动作、read model、错误 | [05 业务动作与 API](./05-business-actions-state-and-api-contract.md) |
+当前手工/无Actions范围声明	docs/frontend-v2/11-frontend-redevelopment-task-list.md:39	来源：[03 第 3 节](./03-page-and-workflow-blueprint.md)、[05 Product 合同](./05-business-actions-state-and-api-contract.md)、[08 Product 验收](./08-testing-quality-and-acceptance.md)。
+当前手工/无Actions范围声明	docs/frontend-v2/11-frontend-redevelopment-task-list.md:54	来源：[03 第 4 节](./03-page-and-workflow-blueprint.md)、[05 Content 合同](./05-business-actions-state-and-api-contract.md)、[08 Content 验收](./08-testing-quality-and-acceptance.md)。
+当前手工/无Actions范围声明	docs/frontend-v2/11-frontend-redevelopment-task-list.md:69	来源：[02 发布路由](./02-information-architecture-and-routing.md)、[03 第 5 节](./03-page-and-workflow-blueprint.md)、[05 发布合同](./05-business-actions-state-and-api-contract.md)。
+当前手工/无Actions范围声明	docs/frontend-v2/11-frontend-redevelopment-task-list.md:83	来源：[03 第 6 节](./03-page-and-workflow-blueprint.md)、[05 GEO 合同](./05-business-actions-state-and-api-contract.md)、[08 GEO 验收](./08-testing-quality-and-acceptance.md)。
+当前手工/无Actions范围声明	docs/frontend-v2/11-frontend-redevelopment-task-list.md:89	| G03 | 观测详情 `/geo/observations/$observationId` | G02 | Legacy/Manual 历史、证据、文章与 actor actions 只读展示；identity、404/403/409、删除确认与四档布局正确。 |
+当前手工/无Actions范围声明	docs/frontend-v2/11-frontend-redevelopment-task-list.md:98	来源：[03 第 7、8 节](./03-page-and-workflow-blueprint.md)、[05 配置与用户合同](./05-business-actions-state-and-api-contract.md)、[08 验收](./08-testing-quality-and-acceptance.md)。配置与 System 可按真实前置条件穿插在业务域之间；表中只写必要依赖。
+当前手工/无Actions范围声明	docs/frontend-v2/11-frontend-redevelopment-task-list.md:126	| I03 | Canonical 源码接替与本地集成 | I02 | 在已确认的源码接替范围内，唯一 `frontend/`、Makefile/CI/Compose/生成类型/构建引用一致，当前工作与回退点受保护；仓库级检查通过。 |
+当前手工/无Actions范围声明	docs/frontend-v2/11-frontend-redevelopment-task-list.md:132	- 页面任务依 [03](./03-page-and-workflow-blueprint.md) 和 [04](./04-design-system-and-interaction-spec.md) 核对真实交互，依 [05](./05-business-actions-state-and-api-contract.md) 核对动作/错误，依 [08](./08-testing-quality-and-acceptance.md) 选择直接证明结果的测试。只有合同、权限、持久化、并发或发布边界受影响时扩大验证。
+当前手工/无Actions范围声明	docs/frontend-v2/README.md:48	| [05-business-actions-state-and-api-contract.md](./05-business-actions-state-and-api-contract.md) | `workflow_stage`、`primary_task`、`available_actions` 与 Action Registry |
+当前手工/无Actions范围声明	docs/geo-monitoring/02-business/03-workflows-and-state-machines.md:264	- 不在 CI 访问真实第三方平台；
+当前手工/无Actions范围声明	docs/geo-monitoring/03-technical/02-data-architecture.md:290	GEO-702当前实现以 actions 追加表保存多个行动，未增加主要链接字段；行动写入/目标归属由704交付，复测关系由705交付。身份、锁序、快照和不可变约束以根 `contracts/database.md` 的GEO-702合同为准；旧设计的SET NULL不能解绑实际历史。
+当前手工/无Actions范围声明	docs/geo-monitoring/03-technical/03-api-contract-design.md:468	| POST | `/geo/opportunities/{id}/actions/content-task` | `createContentTaskFromGeoOpportunity` |
+当前手工/无Actions范围声明	docs/geo-monitoring/03-technical/03-api-contract-design.md:469	| POST | `/geo/opportunities/{id}/actions/publication-repair` | `createPublicationRepairFromGeoOpportunity` |
+当前手工/无Actions范围声明	docs/geo-monitoring/03-technical/03-api-contract-design.md:470	| POST | `/geo/opportunities/{id}/actions/fact-revision` | `startFactRevisionFromGeoOpportunity` |
+当前手工/无Actions范围声明	docs/geo-monitoring/03-technical/03-api-contract-design.md:471	| POST | `/geo/opportunities/{id}/actions/additional-monitoring` | `createMonitoringFromGeoOpportunity` |
+当前手工/无Actions范围声明	docs/geo-monitoring/03-technical/03-api-contract-design.md:683	ADMIN/ENGINEER可读取与处理。确认仅expected_revision；驳回额外要求trim非空resolution_code（1..40）和resolution_comment（1..2000）。这是业务状态机与已接受702合同的关闭原因要求；确认不关闭机会。状态/动作只在服务端投影，命令锁后CAS、账号资格/CSRF重验、原子审计及409语义见根数据库合同。没有新增DDL、actions/retest/resolve HTTP、总览或CSV占位接线、生产开关/Browser实现。
+当前手工/无Actions范围声明	docs/geo-monitoring/03-technical/03-api-contract-design.md:688	三个 `POST /api/v1/geo/opportunities/{opportunity_id}/actions/{fact-revision|content-task|publication-repair}` 使用现有ADMIN/ENGINEER、CSRF和request ID边界，要求`expected_revision`及8–128位可打印ASCII非空白`Idempotency-Key`。事实行动导航至唯一Product Markdown工作区，不复制或修改已批准事实；内容行动明确选择同产品批准事实和活动发布平台，主题由机会提供；发布行动按`OPEN_ISSUE`、`LINK_ISSUE`、`CREATE_REPAIR`判别，调用现有发布服务并保留其Issue revision/唯一修复任务合同。
+当前手工/无Actions范围声明	docs/geo-monitoring/03-technical/04-frontend-architecture.md:34	管理员表单仅提供闭合非敏感配置，不能提交任意 JSON、密钥、Cookie 或浏览器会话。编辑 Profile 后以服务端返回的停用/UNTESTED 投影为准；启停和删除使用当前 revision 与 typed actions，并在确认时再次检查当前详情。页面覆盖加载、空/筛选空、错误/403/404、启用/删除阻断、冲突与完成反馈。真实 API、刷新持久化、工程师摘要及桌面/窄屏证据见 [GEO-205 实施记录](../../../.trellis/tasks/10-02-geo-205-surface-management/implement.md)。
+当前手工/无Actions范围声明	docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md:496	- 不使用真实云端作为 CI 门禁。
+当前手工/无Actions范围声明	docs/geo-monitoring/03-technical/05-worker-and-collector-architecture.md:587	`make test-geo-collector-contract` 在输出前扫描日志和临时产物；CI 只允许本地请求。
+当前手工/无Actions范围声明	docs/geo-monitoring/03-technical/07-testing-and-quality.md:34	| 运维 | 迁移、备份恢复、开关、停止和恢复 | CI/隔离环境 |
+当前手工/无Actions范围声明	docs/geo-monitoring/03-technical/07-testing-and-quality.md:55	- available actions；
+当前手工/无Actions范围声明	docs/geo-monitoring/03-technical/07-testing-and-quality.md:497	CI 入口先扫描再输出，扫描失败非零且不打印值。网络守卫拒绝非回环 DNS/TCP。
+当前手工/无Actions范围声明	docs/geo-monitoring/03-technical/07-testing-and-quality.md:498	`make test-geo-collector-contract` 可独立运行，部署脚本门禁和已有 CI unit 均接入。
+当前手工/无Actions范围声明	docs/geo-monitoring/03-technical/07-testing-and-quality.md:517	测试网络 guard 只允许回环连接；CI 输出和临时产物在打印前扫描凭据 canary。
+当前手工/无Actions范围声明	docs/geo-monitoring/03-technical/08-deployment-and-operations.md:16	| test/CI | 自动测试 | 仅本地 fake provider |
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/01-implementation-roadmap.md:236	- 不在 CI 访问真实平台；
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md:34	| `GEO-101` | 定义 GEO Catalog 公共契约与数据库合同 | GEO-003, GEO-002 | 定义 GeoSubject、Alias、Domain 的请求/响应、枚举、错误码、约束和删除语义。 | Contract schema tests。；契约包含 revision、actions、blockers，OWN_PRODUCT 不复制 Product 事实。 |
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md:36	| `GEO-103` | 实现 GEO Catalog Schema 与领域策略 | GEO-101, GEO-102 | 实现规范化、父子类型、域名、stage/actions/deletion projection。 | 单元测试覆盖别名歧义、IDNA、动作。；未知类型和非法父子关系明确失败，无前端推断。 |
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md:55	| `GEO-302` | 实现 Batch/Run 状态策略与动作投影 | GEO-301 | 合法转换、batch 状态投影、retry/cancel 资格、workflow stage/actions。 | 完整状态机表驱动测试。；前端无需从 status 推断动作；终态不能回退。 |
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md:68	| `GEO-402` | 实现 GEO fake provider 和 Collector 合同套件 | GEO-401, GEO-005 | 成功、引用、429、timeout、disconnect、redirect、oversize、invalid response 模式和调用计数。 | 合同套件自身测试。；CI 可证明每 attempt 调用次数和 secret 脱敏。 |
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md:106	| `GEO-702` | 实现 Opportunity 数据模型、identity 和评估器 | GEO-701, GEO-603, GEO-604 | opportunities/sources/actions、确定性 identity、初始规则、批量评估。 | 并发去重、样本不足、周期更新、状态机。；每个机会含规则、值、阈值、来源运行和不可用原因。 |
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md:121	| `GEO-803` | 建设本地模拟 AI 产品和 Browser Adapter 合同套件 | GEO-801, GEO-402 | streaming DOM、引用卡片、登录态、selector 变化、挑战页和敏感 UI。 | 完全本地 Playwright adapter contract。；CI 不访问真实第三方，适配器失败语义可重复。 |
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md:125	| `GEO-807` | 执行真实平台小规模试点和人工交叉验收 | GEO-806 | 批准账号、低频计划、人工/API/浏览器结果对比、停止和撤销演练。 | 受控人工验收，不作为普通 CI。；合规清单、数据质量、账号安全和试点报告均批准后才可生产启用。 |
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/03-requirement-traceability-matrix.md:53	GEO-101 的公共/数据库合同已被人工接受，状态 done；公共 Schema 正反例见 `backend/tests/unit/test_geo_catalog_contract.py`。GEO-102 已落实三表 ORM、迁移、数据库身份守卫、真实父子约束及活动 OWN_PRODUCT 唯一并发仲裁，验证见 [GEO-102 实施证据](../../../.trellis/tasks/10-01-geo-102-catalog-orm/implement.md)。GEO-103 已实现闭合 Schema、Unicode/IDNA 规范化、真实父子/别名歧义及 stage/actions/deletion/当前 Product 只读投影，定向、声明机器形状与完整验证见 [GEO-103 实施证据](../../../.trellis/tasks/10-01-geo-103-catalog-policy/implement.md)。GEO-104 已实现 CRUD Service/API、当前子 Subject 引用查询、Product/User 删除接入、原子审计、锁后 revision 与精确约束映射，证据见 [GEO-104 实施记录](../../../.trellis/tasks/10-02-geo-104-catalog-api/implement.md)。GEO-105 页面已人工接受；GEO-106 补当前 Catalog 真实 API 纵向验收、产品事实不变和 [使用指南](../01-product/04-catalog-user-guide.md)，证据见 [实施记录](../../../.trellis/tasks/10-02-geo-106-catalog-acceptance/implement.md)。未来计划/运行/分析/机会引用域和运行时冻结字典尚未实施，不能将整项能力标记完成。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/04-codex-execution-guide.md:159	- 状态机和 available actions 来自服务端；
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/04-codex-execution-guide.md:175	- fake provider 才是 CI 权威；
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/04-codex-execution-guide.md:297	涉及公式：增加金标。涉及外部调用：增加调用计数和失败矩阵。涉及文件：增加真实字节和 HEAD/哈希。涉及 Browser：仅本地模拟站进入 CI。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/05-task-template.md:124	- available actions；
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/06-current-geo-baseline.md:160	| `/geo/topics` | QueryTopic CRUD；q/sort/page/pageSize；server references/deletion/actions |
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/08-r3-api-acceptance.md:45	CI E2E 使用 DB 14，后端 integration 使用 DB 15。不得使用共享 Worker 正在消费的库。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:179	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:350	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:517	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:687	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:694	- 契约包含 revision、actions、blockers，OWN_PRODUCT 不复制 Product 事实。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:851	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:970	实现规范化、父子类型、域名、stage/actions/deletion projection。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:1007	- 实现规范化、父子类型、域名、stage/actions/deletion projection。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:1017	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:1183	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:1350	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:1516	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:1687	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:1855	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:2025	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:2192	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:2360	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:2529	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:2696	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:2862	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:3027	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:3198	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:3318	合法转换、batch 状态投影、retry/cancel 资格、workflow stage/actions。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:3356	- 合法转换、batch 状态投影、retry/cancel 资格、workflow stage/actions。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:3366	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:3369	- 前端不得从 status 自行推断动作；所有 actions/stage 由服务端投影。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:3532	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:3702	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:3870	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:4037	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:4203	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:4371	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:4544	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:4712	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:4715	- CI 只使用本地 fake provider，不访问真实外部平台。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:4720	- CI 可证明每 attempt 调用次数和 secret 脱敏。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:4881	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:5049	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:5218	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:5386	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:5555	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:5723	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:5895	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:6063	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:6228	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:6393	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:6559	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:6726	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:6892	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:7060	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:7229	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:7396	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:7560	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:7725	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:7890	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:8057	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:8226	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:8399	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:8520	opportunities/sources/actions、确定性 identity、初始规则、批量评估。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:8560	- opportunities/sources/actions、确定性 identity、初始规则、批量评估。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:8570	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:8739	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:8909	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:9076	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:9243	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:9413	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:9585	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:9751	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:9916	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:9919	- 合同测试必须完全本地，CI 不得访问真实第三方。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:9923	- CI 不访问真实第三方，适配器失败语义可重复。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:10085	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:10255	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:10428	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:10604	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:10607	- 这是一项受控人工试点，不属于普通 CI。没有批准账号、频率、责任人和合规清单时必须停止并标记 blocked。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:10645	任务清单指定测试：受控人工验收，不作为普通 CI。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:10776	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:10946	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:11118	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:11291	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:11460	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:11634	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R0/GEO-003.md:85	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R0/GEO-004.md:85	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R0/GEO-005.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R1/GEO-101.md:83	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R1/GEO-101.md:90	- 契约包含 revision、actions、blockers，OWN_PRODUCT 不复制 Product 事实。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R1/GEO-102.md:83	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R1/GEO-103.md:36	实现规范化、父子类型、域名、stage/actions/deletion projection。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R1/GEO-103.md:73	- 实现规范化、父子类型、域名、stage/actions/deletion projection。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R1/GEO-103.md:83	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R1/GEO-104.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R1/GEO-105.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R1/GEO-106.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R1/GEO-201.md:85	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R1/GEO-202.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R1/GEO-203.md:85	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R1/GEO-204.md:83	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R1/GEO-205.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R1/GEO-206.md:85	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R1/GEO-207.md:83	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R1/GEO-208.md:83	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R1/GEO-209.md:83	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R2/GEO-301.md:86	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R2/GEO-302.md:36	合法转换、batch 状态投影、retry/cancel 资格、workflow stage/actions。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R2/GEO-302.md:74	- 合法转换、batch 状态投影、retry/cancel 资格、workflow stage/actions。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R2/GEO-302.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R2/GEO-302.md:87	- 前端不得从 status 自行推断动作；所有 actions/stage 由服务端投影。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R2/GEO-303.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R2/GEO-304.md:87	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R2/GEO-305.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R2/GEO-306.md:85	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R2/GEO-307.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R2/GEO-308.md:85	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R3/GEO-401.md:86	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R3/GEO-402.md:86	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R3/GEO-402.md:89	- CI 只使用本地 fake provider，不访问真实外部平台。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R3/GEO-402.md:94	- CI 可证明每 attempt 调用次数和 secret 脱敏。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R3/GEO-403.md:86	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R3/GEO-404.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R3/GEO-405.md:86	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R3/GEO-406.md:85	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R3/GEO-407.md:86	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R3/GEO-408.md:86	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R4/GEO-501.md:86	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R4/GEO-502.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R4/GEO-503.md:83	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R4/GEO-504.md:83	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R4/GEO-505.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R4/GEO-506.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R4/GEO-507.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R4/GEO-508.md:85	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R5/GEO-601.md:83	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R5/GEO-602.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R5/GEO-603.md:82	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R5/GEO-604.md:83	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R5/GEO-605.md:83	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R5/GEO-606.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R5/GEO-607.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R6/GEO-701.md:87	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R6/GEO-702.md:36	opportunities/sources/actions、确定性 identity、初始规则、批量评估。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R6/GEO-702.md:76	- opportunities/sources/actions、确定性 identity、初始规则、批量评估。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R6/GEO-702.md:86	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R6/GEO-703.md:86	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R6/GEO-704.md:85	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R6/GEO-705.md:85	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R6/GEO-706.md:85	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R6/GEO-707.md:86	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-801.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-802.md:84	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-803.md:83	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-803.md:86	- 合同测试必须完全本地，CI 不得访问真实第三方。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-803.md:90	- CI 不访问真实第三方，适配器失败语义可重复。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-804.md:89	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-805.md:90	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-806.md:91	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-807.md:91	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-807.md:94	- 这是一项受控人工试点，不属于普通 CI。没有批准账号、频率、责任人和合规清单时必须停止并标记 blocked。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R7/GEO-807.md:132	任务清单指定测试：受控人工验收，不作为普通 CI。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-901.md:91	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-902.md:87	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-903.md:91	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-904.md:91	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-905.md:88	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-906.md:92	- 不使用真实外部 AI 平台作为普通测试；CI 使用 fake provider 或本地模拟站。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/codex-prompts/REVIEW_CHECKLIST.md:16	[ ] 没有使用真实外部平台作为普通 CI 测试
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/geo-003-baseline/validation.md:28	恢复路径：在具备可用 Docker daemon 的开发/CI 环境执行原始 `make verify`。本轮不安装、启动或更换容器基础设施，不读取或复制真实 `.env` 内容。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/geo-003-baseline/validation.md:112	deploy/scripts/e2e-local.sh: line 4: DATABASE_URL: 必须设置本地或 CI PostgreSQL DATABASE_URL
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/04-delivery/geo-003-baseline/validation.md:115	没有启动栈或创建测试资源。缺少必需的本地/CI PostgreSQL `DATABASE_URL`；真实栈还需按原脚本满足 Redis、测试数据库/运行隔离、fake provider 与资源清理资格。未调用真实 AI 平台。
+当前手工/无Actions范围声明	docs/geo-monitoring/05-decisions/ADR-005-staged-collector-rollout.md:33	- CI 只使用本地模拟站，不访问真实平台。
+当前手工/无Actions范围声明	docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md:40	- 不实现、模拟或访问真实平台 Adapter，不使用第三方账号/Cookie，不删除完成基础设施。CI 继续只用 fake provider/本地模拟站。
+当前手工/无Actions范围声明	docs/geo-monitoring/06-reviews/2026-10-06-v1-branch-blocker-remediation.md:18	[CI37525885249](https://github.com/ccisnoxx/partsignal/actions/runs/37525885249)绑定aa SHA，最终FAILURE：集成1193passed/60failed/6errors/45warnings。54失败为未启动对象存储替身，6失败为宿主没有容器专用`/contracts`挂载，6错误为恢复fixture缺显式PG16工具。两个frontend shard与verify前序合同/lint/type/unit/frontend通过；后续步骤跳过。远端只触发一次，未取消；本地watcher自行退出1，没有被终止。
+当前手工/无Actions范围声明	docs/geo-monitoring/06-reviews/2026-10-06-v1-branch-blocker-remediation.md:25	[定向及固定门禁证据](../../../.trellis/tasks/10-06-branch-blocker-remediation/implement.md)、[独立复审](../../../.trellis/tasks/10-06-branch-blocker-remediation/evidence/independent-review-aa7f3db8.md)、[固定完整门禁清单](../../../.trellis/tasks/10-06-branch-blocker-remediation/evidence/fixed-full-verify.json)、[新SHA入口复审](../../../.trellis/tasks/10-06-branch-blocker-remediation/evidence/independent-review-d43695e5.md)与[CI收尾快照](../../../.trellis/tasks/10-06-branch-blocker-remediation/evidence/ci-closeout.json)记录命令、SHA、时间、退出码和日志哈希。原日志受保护保存，治理提交不冒充已重新运行的源码SHA。
+当前手工/无Actions范围声明	docs/geo-monitoring/06-reviews/2026-10-06-v1-post-recovery-blocker-audit.md:13	| 全分支门禁/CI | NOT_RESOLVED | clean d2a本地verify exit2，unit3832pass/33fail；CI37519768532 overallFAILURE，两frontend shardSUCCESS、verifyFAILURE。后续本地integration/performance/build/E2E/deploy集合未到达。 |
+当前手工/无Actions范围声明	docs/geo-monitoring/06-reviews/2026-10-06-v1-post-recovery-blocker-audit.md:29	main执行本地完整门禁和CI。首次本地launcher umask077影响私钥权限夹具（0644请求变0600）已诊断；改日志显式0600/测试umask022，该文件10项pass，再运行完整门禁得到真实33项backend失败。原始失败不覆盖，未降低测试断言。命令、SHA、UTC开始结束、退出码和日志SHA在local-validation.json；CI结构化状态和原日志SHA在remote-ci-final.json，run37519768532原始日志可从GitHub访问。测试的秘密均为夹具，原始本地日志保存在受保护本机审查目录，不新增生产凭据输出。
+当前手工/无Actions范围声明	docs/geo-monitoring/06-reviews/2026-10-06-v1-post-recovery-blocker-audit.md:35	审查详细记录与定位见[全PR审查交付](../../../.trellis/tasks/10-05-geo-1007-upgrade-recovery/evidence/post-acceptance-release-audit/independent-pr-review-d2aefec7.md)、[本地门禁清单](../../../.trellis/tasks/10-05-geo-1007-upgrade-recovery/evidence/post-acceptance-release-audit/local-validation.json)、[CI最终状态](../../../.trellis/tasks/10-05-geo-1007-upgrade-recovery/evidence/post-acceptance-release-audit/remote-ci-final.json)和[GitHub CI run](https://github.com/ccisnoxx/partsignal/actions/runs/37519768532)。新治理提交只保存这些结论与恢复接受状态，不改变受审运行源码；最后运行SHA是d2a，治理SHA不冒充已重新通过门禁。
+当前手工/无Actions范围声明	docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md:7	复用旧整分支审查、aa7f3db8 六项阻断独立复审、d43695e5 CI 入口复审及0b232f2c整PR复核；随后14dd7594治理、28e92111 GNU/分组、00b4eca2 staging环境归属、bd6abde1 Production环境绑定、0b6e5aa0三份E2E时序及b254b58a GEO API历史详情断言均有固定源码fresh只读APPROVE。8fd84347首轮CHANGES_REQUESTED保留，图片空集合/旧URL两项P2在0b6复核RESOLVED；b254仅对最新一行断言APPROVE，不能单独作为整PR审查。各报告及closed/verify审计见任务evidence，主代理整理不另称独立复审。
+当前手工/无Actions范围声明	docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md:11	## CI 与验证事实
+当前手工/无Actions范围声明	docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md:15	| [37572374117 / 0b232f2c](https://github.com/ccisnoxx/partsignal/actions/runs/37572374117) | FAILURE | 合同/lint/type、3865后端单元、1308前端单元、591/717两路shard、1253PG+6真实PG16恢复通过；GNU缓存头自检失败，后序未执行。 |
+当前手工/无Actions范围声明	docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md:16	| [37581493190 / c6b310f5](https://github.com/ccisnoxx/partsignal/actions/runs/37581493190) | FAILURE | GNU修复通过；staging自检缺私有env失败，后序跳过。 |
+当前手工/无Actions范围声明	docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md:17	| [37584298170 / d0f61aaa](https://github.com/ccisnoxx/partsignal/actions/runs/37584298170) | FAILURE | staging和Production cleanup通过；Production自检依赖JSON env_file形态失败，后序跳过。 |
+当前手工/无Actions范围声明	docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md:18	| [37587914372 / 135d801e](https://github.com/ccisnoxx/partsignal/actions/runs/37587914372) | FAILURE | build/all deploy-scripts通过；canonical真实栈29pass/3fail，后序未执行。 |
+当前手工/无Actions范围声明	docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md:19	| [37594203220 / 0475a776](https://github.com/ccisnoxx/partsignal/actions/runs/37594203220) | FAILURE | build/all deploy-scripts及32canonical真实栈通过；GEO enabled历史尝试错误码locator双匹配失败，后续两个关闭模式/fixture/末端Compose跳过。 |
+当前手工/无Actions范围声明	docs/geo-monitoring/06-reviews/2026-10-07-v1-pr-acceptance.md:20	| [37598569164 / 8d2e528c](https://github.com/ccisnoxx/partsignal/actions/runs/37598569164) | SUCCESS | bootstrap/迁移、build/deploy-scripts、完整根E2E和两项Compose通过；实际各阶段计数、时间、退出码及日志hash见sixth-delivery-ci-*。六项前序及frontend shard按delivery跳过，不称单次完整CI。 |
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/CHANGELOG.md:6	- 删除未使用的 Actions 工作流及专属规范/使用说明；GitHub 只用于备份与服务器拉取，不引入替代 CI。领域检查排除 Browser 专属测试与运行合同，普通 Playwright 保留在完整发布层。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/CHANGELOG.md:14	- 保留历史代码/Schema/数据库/Alembic/隔离资产与 Accepted ADR、交付记录；生产禁止边界保持。GitHub Actions 和质量门禁分层留 PSR-006。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/CHANGELOG.md:404	- 无 I/O 的领域策略验证真实父子、自引用和别名候选歧义；显式完整引用计数形成 ADMIN/ENGINEER stage/actions/deletion。OWN_PRODUCT 从当前 Product 投影 identity/revision，不修改 Catalog 名称或 Subject revision。
+历史交付/当时说明（非workflow使用教程）	docs/geo-monitoring/CHANGELOG.md:420	- OWN_PRODUCT 只引用 Product；自有名称由当前 Product 投影，Catalog 不保存第二份产品身份或事实。明确父 revision、规范化、父子类型、活动身份唯一、typed actions/blockers 与聚合删除语义。
+当前手工/无Actions范围声明	docs/geo-monitoring/README.md:32	用户已授权main提交/push/fetch、Hostdzire现有站点清空重建；现有env已核对、正确runtime已交付，6a96bfcb候选已沿fresh-init上线，实际私有对象OSS验证通过，共享Bucket全局设置未修改；AI移交admin-ui完成。具体[Hostdzire执行记录](../../.trellis/tasks/10-07-geo-1010-internal-pilot-deploy/hostdzire-direct-build.md)保留真实阻断和未执行边界；GitHub Actions不是部署前提。DEPLOY已技术上线，完整AI业务smoke与独立验收仍待后续配置，UAT尚未开始。内部Go/No-Go须具名显式人工结论，任务done不代表正式生产Go。完整依赖与验收见[WBS](./04-delivery/02-work-breakdown-structure.md)；父子关系以Trellis为准。
+当前手工/无Actions范围声明	docs/geo-monitoring/README.md:50	GEO-103 / R1 已实现 Catalog 请求/响应 Schema、Unicode/IDNA 规范化、真实父子与别名歧义策略、角色 stage/actions/deletion 及当前 Product 只读投影；已于 2026-10-02 经用户接受，状态为 `done`。公共 Schema 生成声明与根合同一致，具体修改、98 项定向、后端 953/前端 863 项单元及 PostgreSQL 427 项集成证据见 [Task Brief](../../.trellis/tasks/10-01-geo-103-catalog-policy/prd.md) 和 [实施记录](../../.trellis/tasks/10-01-geo-103-catalog-policy/implement.md)。GEO-104 已接线 Catalog 操作，Catalog 页面状态见下文；Batch/Run、采集和指标仍未实施。
+当前手工/无Actions范围声明	docs/geo-monitoring/README.md:312	GEO-302 / R2 已实现 Run 合法边、终态守卫、采集 retry/cancel 资格、每 cell 最新 attempt 的 Batch 状态和独立 typed workflow/actions；非法转换稳定409，缺失矩阵或遗漏已存在后继明确失败。公共组件与 generated 类型同步，无 HTTP/Worker 接线、数据库迁移或新页面。当前状态以 [任务清单](./04-delivery/task-manifest.yaml) 为准；范围和实际验证见 [Task Brief](../../.trellis/tasks/10-02-geo-302-state-policy/prd.md) 与 [实施证据](../../.trellis/tasks/10-02-geo-302-state-policy/implement.md)。
+当前手工/无Actions范围声明	docs/geo-monitoring/README.md:336	合同断言和套件自测。运行、控制协议、故障模式和 CI 脱敏边界见
+当前手工/无Actions范围声明	docs/maintenance/openai-sdk-refactor/README.md:43	删除未使用的 Actions 工作流与仅为它服务的规范/使用说明。GitHub 只用于代码备份和服务器拉取，不增加 CI、required checks、分支保护或 Release/tag 流程。覆盖与前置条件见 [测试策略](../../testing.md#手工分层命令)，实际验证与未运行项见 [PSR-006 证据](../../../.trellis/tasks/10-13-psr-006-layered-manual-checks/implement.md)。完成后进入 review，完整发布执行归 PSR-007。
+当前手工/无Actions范围声明	docs/operations.md:81	纵向业务 E2E 只在本地或 CI 隔离环境执行，并使用真实 PostgreSQL、Redis、Celery 和显式 Mock Provider。公网环境保持 `AI_ALLOW_LOCAL_HTTP=false`，不得为依赖回环 Provider 的测试放宽安全策略。
+当前手工/无Actions范围声明	docs/testing.md:49	GitHub 只用于代码备份与服务器拉取；仓库没有 GitHub Actions 工作流、CI badge、required checks 或分支保护要求，也不提供替代 CI。命令合同见 [手工验证规范](../.trellis/spec/infra/manual-quality-checks.md)。
+当前手工/无Actions范围声明	.trellis/spec/backend/ai-configuration-guidelines.md:65	- Prompt Preview Options 的 context 必须先按当前 Prompt 绑定预筛，再由 `content_tasks_out` 的 `CREATE_GENERATION_JOB` 最终筛选并稳定排序；model 与既有 generation-options 共用 enabled channel + enabled/test `PASSED` 查询。响应只含 Prompt、Task、Product、Platform、Fact version 和 model identity，不得返回 Markdown、actions、Job history、snapshot 或凭据；稀疏/稠密结果必须保持固定查询次数。
+当前手工/无Actions范围声明	.trellis/spec/backend/ai-configuration-guidelines.md:109	- 错误：浏览器分页拉取 ContentTask 后自行过滤 actions，或在 Prompt 更新后用旧 Options 绕过服务端重验。
+当前手工/无Actions范围声明	.trellis/spec/backend/available-actions-contract.md:301	- Production artifact：创建/编辑/启停/删除、375px actions、desktop table、runtime/console audit。
+当前手工/无Actions范围声明	.trellis/spec/backend/database-guidelines.md:927	- 当前完整 `ContentVersion` 自带 quality issues、revision 和 typed actions；锁定 FactVersion 返回 immutable Markdown。generation/source/lineage 只返回绘制 Reference panel 所需摘要。
+当前手工/无Actions范围声明	.trellis/spec/backend/index.md:20	| [资源动作投影合同](./available-actions-contract.md) | typed `available_actions`、服务端最终守卫、前端消费与批量投影边界 | Active |
+当前手工/无Actions范围声明	.trellis/spec/backend/publication-workbench-guidelines.md:373	actions = publication_work_actions(work.status)
+当前手工/无Actions范围声明	.trellis/spec/backend/publication-workbench-guidelines.md:376	actions = publication_work_actions(work.status, latest_event.action)
+当前手工/无Actions范围声明	.trellis/spec/frontend/component-guidelines.md:112	- 可恢复错误使用 `QueryFailure({ error, onRetry?, actions? })`。`actions` 只传入页面已经存在且上下文明确的返回或配置入口，共享组件不得识别业务错误码。
+当前手工/无Actions范围声明	.trellis/spec/frontend/directory-structure.md:50	- 目录迁移后使用限定范围搜索确认 Makefile、CI、Compose、deploy scripts、specs 与现行文档没有活动的旧源码路径。
+当前手工/无Actions范围声明	.trellis/spec/frontend/index.md:24	| [资源动作投影合同](../backend/available-actions-contract.md) | typed `available_actions` 的跨层响应与消费边界 | 有效 |
+当前手工/无Actions范围声明	.trellis/spec/frontend/quality-guidelines.md:9	- 交互密度变更必须保留字段、入口、权限判断、服务端 available actions、确认文案、query key 与 API 载荷。
+当前手工/无Actions范围声明	.trellis/spec/frontend/quality-guidelines.md:115	| Products 页面请求 Facts/Versions/Actions join | `productsApi` 记录为未声明请求并使业务 spec 失败 |
+当前手工/无Actions范围声明	.trellis/spec/frontend/state-management.md:139	- Base：同一 User revision 下新增业务历史引用，Dialog 仍按新的 actions/deletion 转为 blocker；资格不依赖 revision 漂移。
+当前手工/无Actions范围声明	.trellis/spec/frontend/state-management.md:144	- 四个 page component 分别用 exact query key 更新名称、actions、deletion 与 revision，覆盖 ALLOWED↔BLOCKED、目标消失、最新 `expected_revision`、任意删除 409、reload failure/success 和焦点。
+当前手工/无Actions范围声明	.trellis/spec/frontend/state-management.md:145	- 至少一个 component 用相同 revision 只改变 blockers/actions，证明浏览器不以 revision 推导资格。
+当前手工/无Actions范围声明	.trellis/spec/frontend/state-management.md:190	- PUT/POST 都携带当前基线 `expected_revision`。PUT 成功必须以 canonical `ProductFactsDraft` 更新 query cache、表单和 revision；POST 成功后重新读取 workspace actions，且不跳转未实现的审核页面。
+当前手工/无Actions范围声明	.trellis/spec/frontend/state-management.md:238	const actions = resolveFactWorkspaceActions(workspace, actionOptions);
+当前手工/无Actions范围声明	.trellis/spec/frontend/state-management.md:446	- Component 覆盖 section mapping、空摘要、typed actions、404/403/retry、409 和焦点返回。
+当前手工/无Actions范围声明	.trellis/spec/frontend/state-management.md:514	- Contract/backend：task route 与唯一 DTO 生成一致；current pointer、`REPEATABLE READ`、404/409、diff/fact/snapshot/history/actions，以及命令 CSRF/revision/意见校验/不可变输入。
+当前手工/无Actions范围声明	.trellis/spec/frontend/state-management.md:707	- chain 的顺序、完整性、原记录、selected node、当前链尾、证据归属与 tail actions 都由服务端投影。浏览器不得遍历 `supersedes_id`、按时间或 `is_current` 重建链，也不得按角色/status 推导动作。
+当前手工/无Actions范围声明	.trellis/spec/frontend/state-management.md:736	- Contract/backend：冻结 generated discriminator、401/403/404/409/422；PostgreSQL integration 覆盖 Legacy、Manual 任意 selected node、direct evidence、终态文章 snapshot、Admin/Engineer actions、404/409 和固定 SQL statement count。
+当前手工/无Actions范围声明	.trellis/spec/frontend/state-management.md:737	- Component：覆盖 generated union、identity/chain assertions、两类事实边界、tail actions、loading、404/403/409/普通错误、cached refresh、retry 与 DELETE focus/cache。
+当前手工/无Actions范围声明	.trellis/spec/frontend/state-management.md:954	- 响应式只切换同一数据的 TableShell 与 375px 卡片呈现；label、identifier、status、primary/overflow actions 在两个 surface 都必须可达，Dialog 关闭后焦点返回真实触发器。
+当前手工/无Actions范围声明	.trellis/spec/infra/e2e-isolation.md:5	本地或 CI 运行根 `make e2e` 时适用。canonical Frontend 的 AI Channel Configuration、Product Facts、Content Editor、AI Production、Content Review、Content Version Detail、Publishing、GEO、Auth 与 System Admin 真实栈 Playwright 使用真实 PostgreSQL、Redis、API、Worker、对象存储和浏览器，每次运行必须拥有独立数据库与临时存储；fixture-based 页面测试继续只验证 production build artifact，不冒充真实业务闭环。对象存储下载 URL 的签名 query 属于临时 capability；真实文件流的 access log、Playwright failure message 和保留产物不得回显该 query。
+当前手工/无Actions范围声明	.trellis/spec/infra/e2e-isolation.md:23	- `REDIS_URL` 必须指向启动前为空且本次运行独占的非 0 logical DB；DB 0、同库外部客户端或未知残留键直接失败。CI E2E 固定使用 DB 14，backend integration 继续使用 DB 15。
+当前手工/无Actions范围声明	.trellis/spec/infra/e2e-isolation.md:39	- dev-storage 必须关闭 Uvicorn access log，避免完整签名 URL 进入终端或 CI 日志；Playwright `requestfailed` 只记录 method 与 pathname。浏览器上传仍严格使用 canonical API base 与 upload intent 相对路径解析出的 URL，但 assertion 只能比较 boolean 或其他不展开 operands 的值。
+当前手工/无Actions范围声明	.trellis/spec/infra/manual-quality-checks.md:5	根 `Makefile` 拥有命令与测试选集；[项目测试策略](../../../docs/testing.md#手工分层命令) 拥有使用方法、前置条件与证据边界。小任务选择快速检查，功能切片显式选择领域检查，准备部署指定 commit 时使用完整 `verify-release`。GitHub 只用于备份与服务器拉取，不设置自动或手动 Actions 工作流、required checks 或分支保护。

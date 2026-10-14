@@ -1,0 +1,37 @@
+workflow: openai-sdk-refactor
+updated_at: "2026-10-13"
+tasks:
+  - id: PSR-001
+    title: 引入官方 OpenAI SDK 薄适配层并迁移 AI 配置调用
+    status: done
+    task_brief: .trellis/tasks/10-12-psr-001-openai-sdk-adapter/prd.md
+  - id: PSR-002
+    title: 将内容生成与自然化迁移到官方 OpenAI SDK
+    status: done
+    depends_on: [PSR-001]
+    task_brief: .trellis/tasks/10-13-psr-002-generation-sdk/prd.md
+  - id: PSR-003
+    title: 将 OpenAI-compatible GEO API Collector 迁移到官方 SDK
+    status: done
+    depends_on: [PSR-001]
+    task_brief: .trellis/tasks/10-13-psr-003-geo-api-sdk/prd.md
+  - id: PSR-004
+    title: 删除自研 AI 网络栈、旧客户端及专属测试
+    status: done
+    depends_on: [PSR-002, PSR-003]
+    task_brief: .trellis/tasks/10-13-psr-004-remove-custom-http/prd.md
+  - id: PSR-005
+    title: 清理 Browser Collector 当前文档和默认验证入口
+    status: done
+    depends_on: [PSR-004]
+    task_brief: .trellis/tasks/10-13-psr-005-defer-browser-collector/prd.md
+  - id: PSR-006
+    title: 建立手工分层质量验证命令并删除未使用 GitHub Actions
+    status: done
+    depends_on: [PSR-005]
+    task_brief: .trellis/tasks/10-13-psr-006-layered-manual-checks/prd.md
+  - id: PSR-007
+    title: 最终文档统一、残留扫描与发布前验收
+    status: done
+    depends_on: [PSR-004, PSR-006]
+    task_brief: .trellis/tasks/10-13-psr-007-final-alignment/prd.md

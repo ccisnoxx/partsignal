@@ -1,5 +1,7 @@
 # PartSignal GEO 技术架构
 
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+
 | 项目 | 内容 |
 |---|---|
 | 文档版本 | V1.0 |
@@ -36,7 +38,7 @@ GEO 核心版继续使用现有技术栈：
 
 ### V1.0 发布约束
 
-[ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md)与[能力矩阵](../01-product/05-v1-release-capability-matrix.md)冻结首发执行范围。现有 API 采集保留，初始试运行默认关闭；production Browser 必须硬禁止（当前尚缺，GEO-1003），不启动服务/profile/会话。CRON 到期入口和 Opportunity 自动周期评估延期，服务端禁止 CRON 创建/全部历史 Plan 写命令、首次 run/PLAN 建批及 scheduled 新窗口，历史保留原值但投影 UNSUPPORTED_SCHEDULE 只读、明确不调度（GEO-1005），管理员显式评估入口待 GEO-1006。
+[ADR-007](../05-decisions/ADR-007-manual-first-v1-release-scope.md)与[能力矩阵](../01-product/05-v1-release-capability-matrix.md)冻结首发执行范围。现有 API 采集保留，初始试运行默认关闭；production Browser 已由 GEO-1003 硬禁止，不启动服务/profile/会话。CRON 到期入口和 Opportunity 自动周期评估延期，服务端禁止 CRON 创建/全部历史 Plan 写命令、首次 run/PLAN 建批及 scheduled 新窗口，历史保留原值但投影 UNSUPPORTED_SCHEDULE 只读、明确不调度（GEO-1005），管理员显式评估入口待 GEO-1006。
 
 GEO_OPPORTUNITY_EVALUATION_ENABLED 控制评估资格：获批 MANUAL enable 后可 true，但不授权自动调度，不新增虚构的 MANUAL/自动调度环境键。现有确定性分析、租约恢复、补投递及保留扫描继续按资格执行。下面任务名称、容器和监控列表保留完整目标设计，不代表 `partsignal.geo_evaluate_opportunities` 已注册或生产 Scheduler 可创建 CRON 批次。
 
@@ -56,9 +58,6 @@ flowchart LR
     Worker --> PG
     Worker --> OSS
     Worker --> AIAPI[批准的模型/搜索 API]
-    BrowserWorker[可选 Browser Collector] --> PG
-    BrowserWorker --> OSS
-    BrowserWorker --> AIUI[批准的 AI 产品界面]
     Nginx[Edge Nginx] --> Web
     Nginx --> API
 ```
@@ -78,25 +77,11 @@ flowchart LR
 
 API 采集和分析任务运行于现有 Worker，但通过任务名称、路由配置和指标区分。
 
-### 4.2 浏览器试点
+### 4.2 后续 Browser 能力
 
-Browser 目标设计及已完成 GEO-801～803 保留；804～807 延期，R7 不阻断 R8 核心发布。核心生产保持 GEO_BROWSER_COLLECTION_ENABLED=false，不启用 geo-browser 服务、会话挂载或能力凭据，且无生产会话，由 GEO-904/906 实测。
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
 
-浏览器采集不得直接塞入普通 API 容器。恢复试点后使用受 profile 控制的独立服务：
-
-```text
-browser-collector
-```
-
-它应具备：
-
-- 独立镜像和依赖；
-- 独立资源限制；
-- 独立 egress 和代理配置；
-- 只读取运行 ID 和受控会话引用；
-- 不读取数据库中的无关业务数据；
-- 全局 kill switch；
-- 生产 profile 默认关闭。
+历史源码和合同保留；当前核心架构与默认 Compose 不包含 Browser 服务。
 
 ## 5. 后端模块划分
 
@@ -136,8 +121,7 @@ backend/app/
 ├─ collectors/
 │  ├─ base.py
 │  ├─ manual.py
-│  ├─ openai_compatible.py
-│  └─ browser/              # 后续阶段
+│  └─ openai_compatible.py
 └─ worker.py
 ```
 
@@ -358,7 +342,7 @@ GEO_BROWSER_COLLECTION_ENABLED
 GEO_OPPORTUNITY_EVALUATION_ENABLED
 ```
 
-R0 四项在所有环境均默认 `false`；任一子开关开启必须显式开启 `GEO_MONITORING_ENABLED`，否则进程启动失败。API、BROWSER、OPPORTUNITY 子开关独立，开关本身不触发新任务或外部调用。现有人工文章观测、洞察及优化命令不受这些新开关影响。部署与旧 runtime 省略规则见 [配置权威说明](../../production-configuration.md)。
+R0 四项在所有环境均默认 `false`；任一子开关开启必须显式开启 `GEO_MONITORING_ENABLED`，否则进程启动失败。API、OPPORTUNITY 子开关独立；Browser 仅为保留合同的禁用值，当前不启用，开关本身不触发新任务或外部调用。现有人工文章观测、洞察及优化命令不受这些新开关影响。部署与旧 runtime 省略规则见 [配置权威说明](../../production-configuration.md)。
 
 后续能力实施时必须遵循：
 
@@ -380,8 +364,7 @@ R0 四项在所有环境均默认 `false`；任一子开关开启必须显式开
 - opportunity evaluator 延迟；
 - Scheduler 最近成功创建时间；
 - 每日 API 调用数、报告费用和费用覆盖率；
-- 对象存储证据写入失败；
-- 浏览器会话失效数量。
+- 对象存储证据写入失败。
 
 日志只包含 ID、状态、阶段、错误码、耗时和非敏感 provider metadata。
 

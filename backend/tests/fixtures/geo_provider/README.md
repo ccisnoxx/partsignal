@@ -74,8 +74,9 @@ request 伪装为 NOT_STARTED。替身不访问第三方、不抓取引用、不
 套件自测 `tests.geo_reference_collector.ReferenceCollector` 只能使用本地 server 对象，
 只理解本替身协议、以受控字段构造结果，不接收业务配置/URL/ORM，不实现生产 adapter。
 未知费用为 null，Header/debug 不保留，raw bytes 不保存。其存在仅证明套件能运行；
-故意重试、跟随重定向、泄漏异常的驱动必须被套件拒绝。既有 `PinnedHTTPTransport`
-另用真实 TCP 验证 429、timeout、disconnect、redirect、Content-Length/chunked 限额。
+故意重试、跟随重定向、泄漏异常的驱动必须被套件拒绝。生产 SDK Collector 的测试
+验证 429、timeout/disconnect 的 UNKNOWN、禁止重定向及完整接收后的响应大小检查。
+fake provider 自测使用通用 HTTP 客户端验证真实故障、字节数量、计数与实例隔离。
 本任务不证明 Worker 重复消息、SENT 持久化、租约竞争、迟到结果或生产 TLS；这些由
 GEO-403/404/405/406 在真实边界补充，不提前实现。
 

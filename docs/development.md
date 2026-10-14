@@ -1,5 +1,7 @@
 # PartSignal 本地开发
 
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+
 ## 前置条件
 
 - Python 3.12 与 `uv`
@@ -30,3 +32,13 @@ make dev
 新增或调整写路径时，先定位拥有业务不变量的应用服务。Router 不直接提交事务、获取行锁、追加审计或修改 ORM 实体；它只处理 HTTP 输入输出、认证依赖和错误映射。不要为简单查询或单行调用增加只转发参数的 Service、Repository、Helper，也不要在模块间直接写入对方实体。
 
 Schema 从 `app.schemas.<domain>` 直接导入，ORM 类从 `app.models.<domain>` 直接导入。新增模型仍使用 `app.db.Base` 和字符串外键，并在 `app.models.__init__` 注册所属模块；修改映射后必须检查 mapper 配置、metadata 表集合和 Alembic head，不能为了拆文件生成迁移。canonical `frontend/` 只从 `src/shared/api/generated/schema.d.ts` 使用 OpenAPI 生成类型；query key 由对应 domain/API owner 统一持有，不得复制接口类型、页面内 query key 或客户端业务状态机。
+
+默认开发 Compose 只包含核心服务；即使选择全部 profile，也不加载 Browser 服务或会话 overlay。历史隔离文件保留，当前版本不提供 Browser 安装、启动或调试教程。
+
+## 手工质量验证
+
+小任务完成执行 `make check-fast`，只改一侧时选择 `make check-backend-fast` 或 `make check-frontend-fast`。快速层包含静态检查和单元测试，不启动完整 Docker、PostgreSQL 集成、Playwright 或镜像构建。
+
+功能切片完成显式选择 `make check-ai`、`make check-geo`，或按内容/发布/认证的真实测试文件过滤。两个领域目标需要专用 `PARTSIGNAL_TEST_DATABASE_URL`，使用随机 PostgreSQL 测试库与本机 HTTP fake；不调用真实 AI，也不运行 Browser Collector。
+
+准备部署指定 commit 时执行完整 `make verify-release`；旧 `make verify` 是相同范围的直接兼容别名。GitHub 只用于代码备份与服务器拉取，质量门禁保持手工执行。具体覆盖、环境准备、其他领域示例及证据复用见 [测试策略](./testing.md#手工分层命令)。

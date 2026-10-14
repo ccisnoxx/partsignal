@@ -188,6 +188,27 @@ def check_deployment_boundary(values: dict[str, str], environment: dict[str, str
         raise InputError("ENV_KEY_SET_MISMATCH")
 
 
+def check_running_runtime(values: dict[str, str], container: str) -> None:
+    """日常交付只复用现用配置；在已认证 API 内比较，配置不进入 argv 或输出。"""
+    if not re.fullmatch(r"[0-9a-f]{64}", container):
+        raise InputError("RUNTIME_CONTAINER_ID_INVALID")
+    probe = (
+        "import json, os, sys\n"
+        "document = json.load(sys.stdin)\n"
+        "matched = all(os.environ.get(key) == document['values'].get(key) for key in document['keys'])\n"
+        "print('MATCH' if matched else 'MISMATCH')\n"
+    )
+    result = subprocess.run(
+        ["docker", "exec", "-i", container, "python", "-c", probe],
+        input=json.dumps({"values": values, "keys": sorted(PRODUCTION_RUNTIME_KEYS)}),
+        capture_output=True, text=True, timeout=30,
+    )
+    if result.returncode or result.stderr or result.stdout not in {"MATCH\n", "MISMATCH\n"}:
+        raise InputError("RUNNING_RUNTIME_COMPARISON_FAILED")
+    if result.stdout == "MISMATCH\n":
+        raise InputError("RUNNING_RUNTIME_MISMATCH_USE_CONFIGURATION_RUNBOOK")
+
+
 def strict_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
     result: dict[str, object] = {}
     for key, value in pairs:
@@ -327,12 +348,18 @@ def main() -> int:
         "--deployment-boundary", action="store_true",
         help="部署入口在维护锁和状态变更前检查 production Browser/profile/overlay 边界",
     )
+    parser.add_argument("--runtime-contract", action="store_true", help="仅用标准库核对完整 runtime 与已认证 API 现用配置")
+    parser.add_argument("--against-container", help="调用者已认证的当前 API 完整容器 ID")
     parser.add_argument(
         "--ai-only", action="store_true", help="只检查 AI 输入，复用已验证的服务器 runtime 文件"
     )
     args = parser.parse_args()
     if args.deployment_boundary and (args.ai_only or args.ai_inputs is not None):
         parser.error("--deployment-boundary 仅检查 runtime_file，不能组合 AI 检查")
+    if args.runtime_contract and (args.deployment_boundary or args.ai_only or args.ai_inputs is not None):
+        parser.error("--runtime-contract 仅检查 runtime_file，不能组合其他检查模式")
+    if bool(args.against_container) != args.runtime_contract:
+        parser.error("--runtime-contract 与 --against-container 必须一起提供")
     if args.ai_only:
         if args.runtime_file is not None or args.ai_inputs is None:
             parser.error("--ai-only 需要 --ai-inputs，不能同时提供 runtime_file")
@@ -347,6 +374,12 @@ def main() -> int:
             print(json.dumps({"status": "PASSED", "production_browser_boundary": "PASSED"}))
             return 0
         missing_runtime = [] if args.ai_only else check_runtime(values)
+        if args.runtime_contract:
+            if missing_runtime:
+                raise InputError("RUNTIME_REQUIRED_VALUES_MISSING")
+            check_running_runtime(values, args.against_container)
+            print(json.dumps({"status": "PASSED", "runtime_contract": "MATCH"}))
+            return 0
         ai, missing_ai = check_ai(args.ai_inputs) if args.ai_inputs else (None, [])
         if missing_runtime or missing_ai:
             print(

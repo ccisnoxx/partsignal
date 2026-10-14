@@ -1,5 +1,7 @@
 # GEO-1010-DEPLOY：部署 MANUAL GEO 内部试运行环境
 
+> 2026-10-08 执行规则更新：下文完整门禁要求及多轮结果属于首次 MANUAL 交付历史。后续普通修改/重部署按 [当前验证选择合同](../../../docs/Hostdzire部署上线流程.md#3-repository-与-candidate) 复用基线与增量证据，不因新 SHA 自动重跑完整门禁。已上线候选、未完成 UAT/AI 业务验收和人工接受事实不改变。流程改进归属 [日常部署任务](../10-08-hostdzire-routine-deployment/prd.md)。
+
 ## 基本信息与执行门禁
 
 - 展示 ID：GEO-1010-DEPLOY；Trellis ID/slug：`geo-1010-internal-pilot-deploy`。

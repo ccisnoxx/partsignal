@@ -104,8 +104,8 @@ compose_up_async() {
 docker compose --env-file "$env_file" -f "$compose_file" config --quiet
 python3 "$script_dir/prepare-production-data.py" \
   verify-candidate-images "$PARTSIGNAL_RELEASE_MANIFEST"
-curl --fail --silent --show-error http://127.0.0.1:19000/api/health/ready >/dev/null
-curl --fail --silent --show-error http://127.0.0.1:19080/ >/dev/null
+curl --fail --silent --show-error --connect-timeout 5 --max-time 10 http://127.0.0.1:19000/api/health/ready >/dev/null
+curl --fail --silent --show-error --connect-timeout 5 --max-time 10 http://127.0.0.1:19080/ >/dev/null
 compose_up_async -d --wait worker scheduler
 docker compose --profile production-async --env-file "$env_file" \
   -f "$compose_file" ps

@@ -1,5 +1,7 @@
 # GEO-902 运维观测
 
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+
 本目录提供受保护 CLI 的采集方式、Grafana 导入文件、Prometheus 告警和阈值模拟。业务低表现由 Opportunity/Insights 裁决，系统告警不读取品牌提及率、推荐率或统一 GEO 分数。
 
 ## 入口与发布
@@ -52,7 +54,6 @@ python deploy/scripts/export-geo-metrics.py \
 | API 日调用 / 成本 | Reservation UTC budget_day 的所有 sent attempt；重试独立计数，reported amount 分币种 |
 | 成本覆盖率 | 已报告费用的 sent attempt / 全部 sent attempt；本运维日调用比例不替代 Insights 的已验收业务公式 |
 | 日/批预算 | 沿既有 admission：RESERVED/SENT 用估价，SETTLED 用实际费用；UNKNOWN 不补零，不跨币种相加 |
-| 会话 | 现有 PG 材料健康与 expires_at；AVAILABLE 不证明真实登录，login_probe 为 NOT_IMPLEMENTED |
 | operation | 实际函数/循环执行边界完成与异常；正常返回不证明 Run 采集成功或业务计划已调度 |
 
 未观察 operation、没有费用覆盖率分母、无法计算预算利用率时，JSON 是 `null`、指标是 `NaN`；`observed=0` 明确区别于成功计数零。没有费用币种时没有对应金额 series。已报告为 0 的费用仍是明确报告，不能和 UNKNOWN 混淆。
@@ -65,7 +66,7 @@ Worker 每 30 秒观察 Celery 主进程真实 Heart，Beat 每 30 秒观察实�
 
 健康同时要求本机 PID 与小于等于 90 秒本机心跳、PG 最近成功心跳、PG query、Redis ping、Collector registry；Worker 还要求目标 `celery@hostname` control ping。其他副本的 PG 心跳不能掩盖本机失联。当前 Compose 使用默认 Celery 节点名；自定义 nodename 时需同步调整健康目标。
 
-`scheduler_tick` 是 Beat 活跃循环，`scheduler_publish` 是任务消息发布。四种 collection/analysis dispatch/recovery operation 是实际扫描执行。`batch_build` 和 `opportunity_evaluate` 是现有应用服务调用。当前生产计划 cron 扫描和自动 evaluator 未接线，无对应执行时应保持未观察，不能以 tick/ping 冒充完成。Browser 真实登录探针也未实现。
+`scheduler_tick` 是 Beat 活跃循环，`scheduler_publish` 是任务消息发布。四种 collection/analysis dispatch/recovery operation 是实际扫描执行。`batch_build` 和 `opportunity_evaluate` 是现有应用服务调用。当前生产计划 cron 扫描和自动 evaluator 未接线，无对应执行时应保持未观察，不能以 tick/ping 冒充完成。Browser 历史指标/告警资产保留，当前不配置或检查登录探针。
 
 GEO 日志统一 JSON：`schema_version,component,event,stage,status,error_code`，以及明确 UUID、非负数值 `duration_ms,byte_count,citation_count,prompt_tokens,completion_tokens,total_tokens,selected_count,purged_count,retry_count` 和明确报告的 `cost_amount,cost_currency`。错误码只来自固定目录，不接受任意额外 context。
 
@@ -86,7 +87,6 @@ GEO 日志统一 JSON：`schema_version,component,event,stage,status,error_code`
 | ReportedCostUnknown | UTC日未知费用>0，15分钟 | 发送事实、未知金额；不重发调用、不按零清账 |
 | BudgetAnomaly | 超限/未知/币种不匹配/低估>0，1分钟 | 分币金额与有限异常Run/Batch UUID |
 | OperationFailures | 15分钟累计异常增长>0，5分钟 | scheduler publish、storage或扫描稳定事件 |
-| BrowserSessionMetadataUnhealthy | Browser开关开启且现有材料异常>0，5分钟 | PG材料健康；不能把它解释为真实登录结果 |
 
 MANUAL 待录入不告警。相关采集开关关闭时不以未运行自动采集或会话探针告警。品牌低推荐率或低提及率不影响容器健康。复核 backlog 展示供业务负责人处理，不默认把人工工作量分页给系统值班。
 
@@ -101,4 +101,4 @@ docker run --rm -v "$PWD/deploy/observability/geo:/work:ro" -w /work \
   --entrypoint /bin/promtool prom/prometheus:v3.5.0 test rules alerts.test.yaml
 ```
 
-指标、PG、日志 canary、health故障和原子textfile测试见 `backend/tests/*/test_geo_ops_*.py`。真实 provider、真实 Browser 登录、生产监控接入/阈值校准、备份恢复和容量调优分别由既有批准流程或 GEO-903/905 等任务负责。
+指标、PG、日志 canary、health故障和原子textfile测试见 `backend/tests/*/test_geo_ops_*.py`。真实 provider、生产监控接入/阈值校准、备份恢复和容量调优按既有批准流程或 GEO-903/905 任务负责。Browser 历史告警不作为当前健康或验收门禁。

@@ -1,5 +1,7 @@
 # GEO-607 / R5 性能执行门禁
 
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+
 `make test-geo-performance`使用临时PostgreSQL和虚构数据生成100k Run，纳入`make verify`。
 固定30天窗口及紧邻前期，测产品600/全对象8400当前候选；候选数量与实际计划行数必须一致，
 不能用200、响应大小或空数据证明密集性能。认证HTTP预热2次后采20样本，nearest-rank P95≤3s。
@@ -179,31 +181,19 @@ no retry after send
 - provider error body containing fake secret；
 - usage/cost partial。
 
-测试断言 secret 不进入 error/log/audit。
+PSR-003 SDK Collector 保留上述本机 HTTP 矩阵与严格业务解析。测试须区分配置/分级/预算/
+授权失败的零 SDK 调用，与 SDK 启动后 connection/timeout 的 UNKNOWN；明确 HTTP 状态、
+完整超限响应和解析失败为 COMPLETED。大小检查比较实际接收字节，包括 chunked 和中文 UTF-8，
+不再验证接收期截断或精确首字节 hook。真实 PG 验证授权先提交 SENT/账本，UNKNOWN 终态
+不补投递、预算拒绝释放预留、并发重复消息仅一次请求。Profile 连接诊断通过官方 SDK 与本机 HTTP fake 验证权限、错误脱敏和 revision 竞争。测试断言 secret 不进入 error/log/audit。
 
-### 5.2 Browser adapter local site
+### 5.2 后续 Browser 验证
 
-使用本地测试应用模拟：
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
 
-- 登录态；
-- streaming answer；
-- DOM 稳定；
-- citations cards；
-- selector change；
-- bot challenge；
-- timeout；
-- sensitive account menu；
-- temporary chat mode。
+GEO-801～803 的源码、模拟站与专属测试保留在隔离资产中，不被当前默认目标依赖。默认 E2E 保留普通前端 Playwright 和 API GEO 三阶段验收，不准备 Browser 会话材料。
 
-CI 不访问真实 ChatGPT、豆包、DeepSeek 等第三方产品。
-
-GEO-803已提供[本地模拟站与合同](../../../tests/browser-fixture/README.md)。
-`make test-geo-browser-contract`纳入根`make e2e`；CI设置`GEO_BROWSER_CONTRACT_CONTAINER=1`，
-使用与独立Collector同版Playwright/Chromium，network none、非root sandbox、只读与既有seccomp。
-覆盖长流式暂停/提前完成标志/晚到引用、匿名与内存登录隔离、提交前后selector/登录/挑战失败、
-空答案/超时/大小和敏感UI。真实POST次数/原问题哈希证明无重发；故意违规驱动保护套件本身。
-Node结果/failure由既有PythonCollector权威类型校验，输出前扫描日志/临时产物。
-无真实账号/第三方访问、全页截图/trace/video或生产Adapter注册；不代表804/805已实现。
+当前使用 [手工分层验证](../../testing.md#手工分层命令)：快速层用于小任务，`make check-geo` 组合现有 API/人工 GEO 测试与本机 fake-provider 合同，准备部署使用 `make verify-release`。领域检查不包含 Browser 专属测试、运行时、性能数据集或恢复集成。
 
 ## 6. Analysis 金标测试
 
@@ -368,7 +358,7 @@ GEO-005 / R0 已建立共享虚构语料和独立金标。当前格式、版本�
 | 测试 ID | 内容 |
 |---|---|
 | TEST-GEO-SEC-001 | API Key/Header/Cookie 不出现在 API、日志、审计、前端 cache、截图 |
-| TEST-GEO-SEC-002 | SSRF、混合 DNS、peer 越界、redirect、超限 |
+| TEST-GEO-SEC-002 | SDK URL 输入、零重试、禁 redirect、接收后超限、UNKNOWN 不重放 |
 | TEST-GEO-SEC-003 | INTERNAL/RESTRICTED 数据阻断外部分析 |
 | TEST-GEO-SEC-004 | 引用危险 scheme 和 HTML XSS |
 | TEST-GEO-SEC-005 | CSV 公式注入 |
@@ -518,14 +508,13 @@ CI 入口先扫描再输出，扫描失败非零且不打印值。网络守卫�
 独立合同断言和本地 fake provider，而非用生产解析器生成期望值。新增用例为
 `test_geo_openai_collector.py`、`test_geo_openai_response.py`、`test_geo_openai_network.py`。
 覆盖原问题请求哈希、原文保留、实际引用位置、null/部分元数据、费用精度、稳定错误矩阵、
-每 attempt 单次调用、发送回调拒绝、无重定向、SSRF/peer 和各种响应定界大小限制。
+每 attempt 单次调用、SDK 方法前发送授权、无重定向/重试、UNKNOWN 与完整接收后大小检查。
 JSON 金标包括非法 encoding、重复键、NaN、深层嵌套、截断、空/NUL/超长回答及非法
 usage/cost/引用。Profile/模型参数覆盖测试通过实际发送 bytes 检查无额外指令。
 
-真实 TLS 金标使用临时本地 CA、真实 socket 和回环 fake provider，验证受信 CA、
-SNI/Host，以及不受信 CA/错误主机名在回调和 HTTP 首字节前失败。测试专用 connector 将
-已批准公网 sockaddr 路由至本地 listener，不改变生产 TLS/SSRF 校验。所有测试应用
-仅允许回环连接的网络 guard；CI 输出和临时产物在打印前扫描凭据 canary。
+SDK Adapter 与 Collector 使用 MockTransport/回环 HTTP fake 验证实际序列化、错误映射、
+零重试和授权边界。Profile 的 PostgreSQL 测试保留资格、权限与在途 revision 竞争。
+测试网络 guard 只允许回环连接；CI 输出和临时产物在打印前扫描凭据 canary。
 
 此验证只证明同步 Collector/传输边界；不证明未来 Worker 的数据库 SENT、lease、
 重复消息、迟到结果或外部平台可用性，也不构成真实平台采集批准。实际命令、结果和
@@ -597,5 +586,7 @@ CSV通过实际ASGI send逐块消费100000行，不用缓冲全量的TestClient�
 数据形态仍为20个冻结输入、短回答、单引用、365天100k存量，30天当前8400候选；不覆盖30天100k密度、高输入多样性、长回答、多引用或目标VPS资源边界。完整结果和失败分类见[容量记录](../04-delivery/12-r8-capacity-hardening.md)。
 
 ## GEO-1010-UI 验证边界
+
+本节记录首次 UI 与内部部署交付的专项要求；后续日常部署采用 [Hostdzire Runbook §3](../../Hostdzire部署上线流程.md) 的按变更验证与证据复用，不因候选 SHA 改变自动重复完整门禁。
 
 Opportunity 模型/组件验证评估范围窗口与回执、角色入口、原子选项、不可比禁止创建、409 显式重确认、422 字段反馈、未知结果原命令恢复、preview 取消与主体/卸载隔离。既有比较/resolve/continue 覆盖复用。任务要求全前端 unit/typecheck 和目标真实栈 spec；实际结果、早期失败与未验证边界记录在 UI implement/evidence。无新增第三方依赖、OpenAPI/DDL/历史回填。DEPLOY 同候选完整门禁、现场 smoke/恢复及 UAT 真实业务/性能另行验收。

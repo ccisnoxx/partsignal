@@ -1,0 +1,22 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend pytest backend/tests/unit/test_ai_provider.py backend/tests/unit/test_ai_boundaries.py backend/tests/unit/test_generation.py backend/tests/unit/test_generation_dispatch.py backend/tests/unit/test_generation_provider.py backend/tests/unit/test_generation_runtime_mode.py
+........................................................................ [ 46%]
+........................................................................ [ 92%]
+...........                                                              [100%]
+155 passed in 0.93s
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend pytest backend/tests/integration/test_ai_channel_management.py backend/tests/integration/test_ai_provider_configuration.py backend/tests/integration/test_generation_provider.py
+.....................................................                    [100%]
+53 passed in 54.62s
+npm --prefix frontend run test -- src/domains/configuration/ai-channel-list-page.test.tsx src/domains/configuration/ai-channel-list.model.test.ts src/domains/configuration/ai-channel-models-section.test.tsx src/domains/configuration/ai-channel-runtime.api.test.ts src/domains/configuration/ai-channel-workspace-page.test.tsx src/domains/configuration/ai-channel-workspace.model.test.ts src/domains/configuration/prompt-preview.test.tsx src/domains/configuration/prompt-workspace-page.test.tsx src/domains/configuration/prompt-workspace.model.test.ts src/domains/content/content-ai-production.test.tsx
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/configuration/ai-channel-list-page.test.tsx src/domains/configuration/ai-channel-list.model.test.ts src/domains/configuration/ai-channel-models-section.test.tsx src/domains/configuration/ai-channel-runtime.api.test.ts src/domains/configuration/ai-channel-workspace-page.test.tsx src/domains/configuration/ai-channel-workspace.model.test.ts src/domains/configuration/prompt-preview.test.tsx src/domains/configuration/prompt-workspace-page.test.tsx src/domains/configuration/prompt-workspace.model.test.ts src/domains/content/content-ai-production.test.tsx
+
+
+ RUN  v4.1.11 /Users/sc/PycharmProjects/partsignal/frontend
+
+
+ Test Files  10 passed (10)
+      Tests  119 passed (119)
+   Start at  22:46:35
+   Duration  4.94s (transform 3.55s, setup 997ms, import 5.37s, tests 14.92s, environment 3.74s)
+

@@ -1,0 +1,39 @@
+
+> partsignal-frontend-v2@0.1.0 e2e
+> tests/e2e/run-with-secret-scan.sh --list tests/e2e/ai-channel-configuration-real-stack.spec.ts tests/e2e/product-facts-real-stack.spec.ts tests/e2e/catalog-real-stack.spec.ts tests/e2e/questions-real-stack.spec.ts tests/e2e/surfaces-real-stack.spec.ts tests/e2e/plans-real-stack.spec.ts tests/e2e/runs-real-stack.spec.ts tests/e2e/geo-review-real-stack.spec.ts tests/e2e/insights-real-stack.spec.ts tests/e2e/reports-real-stack.spec.ts tests/e2e/opportunities-real-stack.spec.ts tests/e2e/geo-loop-real-stack.spec.ts tests/e2e/content-ai-real-stack.spec.ts tests/e2e/content-review-real-stack.spec.ts tests/e2e/content-version-detail-real-stack.spec.ts tests/e2e/publication-workspace-real-stack.spec.ts tests/e2e/geo-real-stack.spec.ts tests/e2e/auth-session-real-stack.spec.ts tests/e2e/system-admin-real-stack.spec.ts --project=foundation-desktop
+
+Listing tests:
+  [foundation-desktop] › ai-channel-configuration-real-stack.spec.ts:206:1 › AI Channel Configuration 真实栈闭环
+  [foundation-desktop] › auth-session-real-stack.spec.ts:101:1 › 同一 BrowserContext 双页面以 session binding 封闭 A→B→A 的迟到 mutation
+  [foundation-desktop] › auth-session-real-stack.spec.ts:257:1 › 退出已由服务端提交但响应丢失时发送页与同源页各自只做一次 canonical recovery
+  [foundation-desktop] › auth-session-real-stack.spec.ts:333:1 › 跨标签页 owner 终止后由 lease 回收存活页与全页面重载
+  [foundation-desktop] › auth-session-real-stack.spec.ts:445:1 › durable terminal reconciliation 与异常协议 marker 保持 fail-closed
+  [foundation-desktop] › auth-session-real-stack.spec.ts:624:1 › Auth 真实栈完成 login → forced change → admin 403 → logout
+  [foundation-desktop] › catalog-real-stack.spec.ts:50:1 › 从已批准事实的 Product 建立唯一监测身份、竞品和字典，刷新及 ENGINEER 只读
+  [foundation-desktop] › content-ai-real-stack.spec.ts:269:1 › AI Production：成功、自然化、失败详情与 exact snapshot retry
+  [foundation-desktop] › content-review-real-stack.spec.ts:200:1 › Flow A：人工内容批准后进入只读版本并出现发布交接
+  [foundation-desktop] › content-review-real-stack.spec.ts:293:1 › Flow B：退回后创建 HUMAN revision，重新送审批准且历史不串线
+  [foundation-desktop] › content-version-detail-real-stack.spec.ts:135:1 › 独立真实栈：单一 detail GET 读取 HUMAN 当前版本且页面无写入口
+  [foundation-desktop] › geo-loop-real-stack.spec.ts:23:1 › 五次覆盖缺口 → 确认与内容发布 → 五次严格复测恢复 → 人工显式解决 → 历史与审计保留
+  [foundation-desktop] › geo-real-stack.spec.ts:346:1 › Flow A：新建 Observation 后追加 Correction，原记录保持不可变
+  [foundation-desktop] › geo-real-stack.spec.ts:581:1 › Flow B：真实 Insights 复算异常并创建带不可变 GEO 来源的优化任务
+  [foundation-desktop] › geo-review-real-stack.spec.ts:20:1 › 严重声明禁止默认确认；人工确认与修正追加且原文、机器结果和历史可追溯
+  [foundation-desktop] › insights-real-stack.spec.ts:16:1 › 全筛选、真实汇总与明细、URL恢复、表格替代和键盘焦点
+  [foundation-desktop] › opportunities-real-stack.spec.ts:23:1 › 历史回答、事实、复核与签名证据 → 确认 → 忽略 → 刷新和 Back 恢复
+  [foundation-desktop] › plans-real-stack.spec.ts:40:1 › 工程师 MANUAL 八步创建、CRON 不可选、服务端预览、启停修订复制归档与删除持久化
+  [foundation-desktop] › product-facts-real-stack.spec.ts:134:1 › Flow A：批准事实后展示不可变版本并交接 CREATE_CONTENT_TASK
+  [foundation-desktop] › product-facts-real-stack.spec.ts:231:1 › Flow B：退回后修订产生新版本，审核历史严格归属当前 FactVersion
+  [foundation-desktop] › product-facts-real-stack.spec.ts:319:1 › Flow D：过期 revision 真实返回 409，不重放并保留服务端最新状态
+  [foundation-desktop] › product-facts-real-stack.spec.ts:400:1 › Flow C：独立 ContentTask 经人工首稿、保存后提交审核
+  [foundation-desktop] › publication-workspace-real-stack.spec.ts:145:1 › Flow A：V2 UI 从开始发布连续完成成果、修复任务与问题解决
+  [foundation-desktop] › publication-workspace-real-stack.spec.ts:466:1 › Flow B：失败核验经内容修订审批、换版和重登记后完成发布
+  [foundation-desktop] › publication-workspace-real-stack.spec.ts:653:1 › Published Article：真实栈列表进入单请求只读详情
+  [foundation-desktop] › questions-real-stack.spec.ts:31:1 › 工程师创建、筛选、编辑、启停、复制与删除；刷新持久化，运行入口不可用
+  [foundation-desktop] › reports-real-stack.spec.ts:16:1 › 完整筛选报告、打印样式、三类原生CSV、审计与空数据
+  [foundation-desktop] › runs-real-stack.spec.ts:31:1 › 人工批次三次采样、URL、dirty、草稿刷新、截图、引用与不可变详情
+  [foundation-desktop] › surfaces-real-stack.spec.ts:33:1 › 管理员创建、启停和编辑后持久化，工程师仅看摘要，删除尊重真实子配置
+  [foundation-desktop] › system-admin-real-stack.spec.ts:289:1 › 当前管理员自降权与自停用通过同一 BrowserContext principal boundary 收敛双页面
+  [foundation-desktop] › system-admin-real-stack.spec.ts:864:1 › System Admin 真实栈完成用户、权限、会话与审计闭环
+Total: 31 tests in 19 files
+E2E_RESULT playwright=0 secret_scan=1
+Playwright 测试产物目录不存在，拒绝绕过敏感值扫描

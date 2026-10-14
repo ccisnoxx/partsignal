@@ -1,0 +1,182 @@
+[
+  {
+    "target": "check-backend-fast",
+    "fault": "ruff",
+    "make_exit": 2,
+    "tool_exit": 19,
+    "stopped_at_fault": true,
+    "calls": [
+      [
+        "run",
+        "--project",
+        "backend",
+        "ruff",
+        "check",
+        "backend"
+      ]
+    ]
+  },
+  {
+    "target": "check-frontend-fast",
+    "fault": "lint",
+    "make_exit": 2,
+    "tool_exit": 19,
+    "stopped_at_fault": true,
+    "calls": [
+      [
+        "--prefix",
+        "frontend",
+        "run",
+        "lint"
+      ]
+    ]
+  },
+  {
+    "target": "check-ai",
+    "fault": "backend/tests/integration/test_generation_provider.py",
+    "make_exit": 2,
+    "tool_exit": 19,
+    "stopped_at_fault": true,
+    "calls": [
+      [
+        "run",
+        "--project",
+        "backend",
+        "pytest",
+        "backend/tests/unit/test_ai_provider.py",
+        "backend/tests/unit/test_ai_boundaries.py",
+        "backend/tests/unit/test_generation.py",
+        "backend/tests/unit/test_generation_dispatch.py",
+        "backend/tests/unit/test_generation_provider.py",
+        "backend/tests/unit/test_generation_runtime_mode.py"
+      ],
+      [
+        "run",
+        "--project",
+        "backend",
+        "pytest",
+        "backend/tests/integration/test_ai_channel_management.py",
+        "backend/tests/integration/test_ai_provider_configuration.py",
+        "backend/tests/integration/test_generation_provider.py"
+      ]
+    ]
+  },
+  {
+    "target": "check-geo",
+    "fault": "backend/tests/integration/test_geo_sdk_collection.py",
+    "make_exit": 2,
+    "tool_exit": 19,
+    "stopped_at_fault": true,
+    "calls": [
+      [
+        "run",
+        "--project",
+        "backend",
+        "python",
+        "deploy/scripts/check-geo-fixtures.py"
+      ],
+      [
+        "run",
+        "--project",
+        "backend",
+        "python",
+        "deploy/scripts/test-geo-collector-contract.py"
+      ],
+      [
+        "run",
+        "--project",
+        "backend",
+        "pytest",
+        "backend/tests/unit/test_geo_analysis.py",
+        "backend/tests/unit/test_geo_analysis_contract.py",
+        "backend/tests/unit/test_geo_answer_contract.py",
+        "backend/tests/unit/test_geo_answer_insights.py",
+        "backend/tests/unit/test_geo_batch_creation_contract.py",
+        "backend/tests/unit/test_geo_batch_policy.py",
+        "backend/tests/unit/test_geo_catalog_contract.py",
+        "backend/tests/unit/test_geo_catalog_errors.py",
+        "backend/tests/unit/test_geo_catalog_metadata.py",
+        "backend/tests/unit/test_geo_catalog_policy.py",
+        "backend/tests/unit/test_geo_catalog_projection.py",
+        "backend/tests/unit/test_geo_catalog_schema.py",
+        "backend/tests/unit/test_geo_citations.py",
+        "backend/tests/unit/test_geo_claims.py",
+        "backend/tests/unit/test_geo_collector_contract.py",
+        "backend/tests/unit/test_geo_collector_registry.py",
+        "backend/tests/unit/test_geo_configuration.py",
+        "backend/tests/unit/test_geo_e2e_runtime.py",
+        "backend/tests/unit/test_geo_fixtures.py",
+        "backend/tests/unit/test_geo_insight_details.py",
+        "backend/tests/unit/test_geo_insights.py",
+        "backend/tests/unit/test_geo_manual_collection_contract.py",
+        "backend/tests/unit/test_geo_metric_inputs.py",
+        "backend/tests/unit/test_geo_metric_trends.py",
+        "backend/tests/unit/test_geo_metrics.py",
+        "backend/tests/unit/test_geo_monitoring_plan_contract.py",
+        "backend/tests/unit/test_geo_opportunity_actions.py",
+        "backend/tests/unit/test_geo_opportunity_baseline.py",
+        "backend/tests/unit/test_geo_opportunity_policy.py",
+        "backend/tests/unit/test_geo_opportunity_rules.py",
+        "backend/tests/unit/test_geo_opportunity_workbench.py",
+        "backend/tests/unit/test_geo_ops_export.py",
+        "backend/tests/unit/test_geo_ops_health.py",
+        "backend/tests/unit/test_geo_ops_metrics.py",
+        "backend/tests/unit/test_geo_ops_runtime.py",
+        "backend/tests/unit/test_geo_overview.py",
+        "backend/tests/unit/test_geo_plan_management.py",
+        "backend/tests/unit/test_geo_plan_preview_contract.py",
+        "backend/tests/unit/test_geo_production_boundary.py",
+        "backend/tests/unit/test_geo_profile_test_policy.py",
+        "backend/tests/unit/test_geo_prompt_variant_contract.py",
+        "backend/tests/unit/test_geo_questions_errors.py",
+        "backend/tests/unit/test_geo_read_contract.py",
+        "backend/tests/unit/test_geo_recommendations.py",
+        "backend/tests/unit/test_geo_reports.py",
+        "backend/tests/unit/test_geo_retention.py",
+        "backend/tests/unit/test_geo_retest_recovery.py",
+        "backend/tests/unit/test_geo_review_contract.py",
+        "backend/tests/unit/test_geo_rules.py",
+        "backend/tests/unit/test_geo_run_contract.py",
+        "backend/tests/unit/test_geo_run_matrix.py",
+        "backend/tests/unit/test_geo_run_policy.py",
+        "backend/tests/unit/test_geo_run_workflow_contract.py",
+        "backend/tests/unit/test_geo_surface_contract.py",
+        "backend/tests/unit/test_geo_surface_management_errors.py",
+        "backend/tests/unit/test_geo_worker_configuration.py"
+      ],
+      [
+        "run",
+        "--project",
+        "backend",
+        "pytest",
+        "backend/tests/integration/test_geo_sdk_collection.py",
+        "backend/tests/integration/test_geo_profile_tests.py",
+        "backend/tests/integration/test_geo_profile_test_races.py",
+        "backend/tests/integration/test_geo_security_review.py",
+        "backend/tests/integration/test_geo_at_most_once.py",
+        "backend/tests/integration/test_geo_manual_collection.py",
+        "backend/tests/integration/test_geo_manual_collection_boundaries.py",
+        "backend/tests/integration/test_geo_manual_races.py",
+        "backend/tests/integration/test_geo_analysis.py"
+      ]
+    ]
+  },
+  {
+    "target": "check-ai",
+    "fault": "缺失PARTSIGNAL_TEST_DATABASE_URL",
+    "make_exit": 2,
+    "no_pytest": true
+  },
+  {
+    "target": "check-geo",
+    "fault": "缺失PARTSIGNAL_TEST_DATABASE_URL",
+    "make_exit": 2,
+    "no_pytest": true
+  },
+  {
+    "target": "check-geo",
+    "fault": "缺失OBJECT_STORAGE_ENDPOINT",
+    "make_exit": 2,
+    "no_pytest": true
+  }
+]

@@ -108,51 +108,34 @@ def assemble() -> None:
     _assembled = True
 
 
-def _loopback_transport(attempt_id: UUID | None = None) -> Any:
-    from app.services.pinned_http import PinnedHTTPTransport
+def _diagnostic_provider(**configuration: Any) -> Any:
+    from app.services.ai_provider import AIProvider
 
-    class LoopbackTransport(PinnedHTTPTransport):
-        def request(self, **arguments: Any) -> Any:
-            require_provider_url(arguments["base_url"])
-            if arguments["method"] == "POST":
-                if attempt_id is None:
-                    raise ValueError("GEO E2E POST 必须有独立 attempt UUID")
-                headers = {
-                    key: value
-                    for key, value in arguments["headers"].items()
-                    if key.lower() != "x-geo-attempt-id"
-                }
-                arguments["headers"] = {**headers, "X-GEO-Attempt-ID": str(attempt_id)}
-            return super().request(**arguments)
-
-    return LoopbackTransport(allow_local_http=True)
-
-
-def _install_diagnostics() -> None:
-    from app.services import openai_client
-
-    original_client = openai_client.OpenAICompatibleClient
-
-    class DiagnosticClient(original_client):
+    class DiagnosticProvider(AIProvider):
         def test_connection(self, **arguments: Any) -> str:
-            # Profile reservation 指定其真实诊断 ID；模型诊断另生成 UUID。
+            require_provider_url(arguments["base_url"])
             headers = {
                 key: value
                 for key, value in arguments["headers"].items()
                 if key.lower() != "x-geo-attempt-id"
             }
+            # Profile 预留指定真实诊断 ID；模型诊断另生成 UUID。
             attempt = arguments.pop("_geo_e2e_attempt_id", None) or uuid4()
-            self._transport = _loopback_transport(attempt)
-            arguments["headers"] = headers
+            arguments["headers"] = {**headers, "X-GEO-Attempt-ID": str(attempt)}
             return super().test_connection(**arguments)
 
         def discover_models(self, **arguments: Any) -> list[str]:
-            self._transport = _loopback_transport()
+            require_provider_url(arguments["base_url"])
             return super().discover_models(**arguments)
 
-    openai_client.OpenAICompatibleClient = DiagnosticClient
-    from app.services import geo_profile_tests
+    return DiagnosticProvider(**configuration)
 
+
+def _install_diagnostics() -> None:
+    from app.services import ai_configuration, geo_profile_tests
+
+    geo_profile_tests.AIProvider = _diagnostic_provider
+    ai_configuration.AIProvider = _diagnostic_provider
     reserve = geo_profile_tests._reserve
 
     def reserve_diagnostic(*arguments: Any, **keywords: Any) -> Any:
@@ -223,8 +206,11 @@ def _install_collector() -> None:
         if run is None:
             raise ValueError("GEO E2E Run 不存在")
         collector = production_build(db, request)
-        # 只替换实例的传输装配；底层仍是生产 pinned transport 的 DNS/peer/发送实现。
-        collector._transport = _loopback_transport(request.run_id)
+        # SDK 继续使用生产适配层；替身仅要求每个实际 Run 有独立诊断 Header。
+        collector._headers = {
+            **{k: v for k, v in collector._headers.items() if k.lower() != "x-geo-attempt-id"},
+            "X-GEO-Attempt-ID": str(request.run_id),
+        }
         return ControlledCollector(collector, run.attempt_no)
 
     geo_collection_execution.build_collector = build_collector

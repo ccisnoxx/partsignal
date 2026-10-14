@@ -1,0 +1,71 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/check-geo-fixtures.py
+GEO fixture v1 校验通过：{'products': 2, 'questions': 4, 'answers': 13, 'citations': 4}；金标=13；外部调用=0
+GEO-502 提及金标 v1 校验通过：场景=28；外部调用=0
+GEO-503 推荐金标 v1 校验通过：场景=63；外部调用=0
+GEO-505 声明金标 v1 校验通过：场景=47；外部调用=0
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/test-geo-collector-contract.py
+........................................................................ [ 34%]
+........................................................................ [ 69%]
+................................................................         [100%]
+208 passed in 10.55s
+GEO_CONTRACT_RESULT tests=0 secret_scan=0 external_network=blocked
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_analysis.py backend/tests/unit/test_geo_analysis_contract.py backend/tests/unit/test_geo_answer_contract.py backend/tests/unit/test_geo_answer_insights.py backend/tests/unit/test_geo_batch_creation_contract.py backend/tests/unit/test_geo_batch_policy.py backend/tests/unit/test_geo_catalog_contract.py backend/tests/unit/test_geo_catalog_errors.py backend/tests/unit/test_geo_catalog_metadata.py backend/tests/unit/test_geo_catalog_policy.py backend/tests/unit/test_geo_catalog_projection.py backend/tests/unit/test_geo_catalog_schema.py backend/tests/unit/test_geo_citations.py backend/tests/unit/test_geo_claims.py backend/tests/unit/test_geo_collector_contract.py backend/tests/unit/test_geo_collector_registry.py backend/tests/unit/test_geo_configuration.py backend/tests/unit/test_geo_e2e_runtime.py backend/tests/unit/test_geo_fixtures.py backend/tests/unit/test_geo_insight_details.py backend/tests/unit/test_geo_insights.py backend/tests/unit/test_geo_manual_collection_contract.py backend/tests/unit/test_geo_metric_inputs.py backend/tests/unit/test_geo_metric_trends.py backend/tests/unit/test_geo_metrics.py backend/tests/unit/test_geo_monitoring_plan_contract.py backend/tests/unit/test_geo_opportunity_actions.py backend/tests/unit/test_geo_opportunity_baseline.py backend/tests/unit/test_geo_opportunity_policy.py backend/tests/unit/test_geo_opportunity_rules.py backend/tests/unit/test_geo_opportunity_workbench.py backend/tests/unit/test_geo_ops_export.py backend/tests/unit/test_geo_ops_health.py backend/tests/unit/test_geo_ops_metrics.py backend/tests/unit/test_geo_ops_runtime.py backend/tests/unit/test_geo_overview.py backend/tests/unit/test_geo_plan_management.py backend/tests/unit/test_geo_plan_preview_contract.py backend/tests/unit/test_geo_production_boundary.py backend/tests/unit/test_geo_profile_test_policy.py backend/tests/unit/test_geo_prompt_variant_contract.py backend/tests/unit/test_geo_questions_errors.py backend/tests/unit/test_geo_read_contract.py backend/tests/unit/test_geo_recommendations.py backend/tests/unit/test_geo_reports.py backend/tests/unit/test_geo_retention.py backend/tests/unit/test_geo_retest_recovery.py backend/tests/unit/test_geo_review_contract.py backend/tests/unit/test_geo_rules.py backend/tests/unit/test_geo_run_contract.py backend/tests/unit/test_geo_run_matrix.py backend/tests/unit/test_geo_run_policy.py backend/tests/unit/test_geo_run_workflow_contract.py backend/tests/unit/test_geo_surface_contract.py backend/tests/unit/test_geo_surface_management_errors.py backend/tests/unit/test_geo_worker_configuration.py
+........................................................................ [  2%]
+........................................................................ [  5%]
+........................................................................ [  7%]
+........................................................................ [ 10%]
+........................................................................ [ 12%]
+........................................................................ [ 15%]
+........................................................................ [ 17%]
+........................................................................ [ 20%]
+........................................................................ [ 22%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 30%]
+........................................................................ [ 33%]
+........................................................................ [ 35%]
+........................................................................ [ 38%]
+........................................................................ [ 40%]
+........................................................................ [ 43%]
+........................................................................ [ 45%]
+........................................................................ [ 48%]
+........................................................................ [ 50%]
+........................................................................ [ 53%]
+........................................................................ [ 55%]
+........................................................................ [ 58%]
+........................................................................ [ 61%]
+........................................................................ [ 63%]
+........................................................................ [ 66%]
+........................................................................ [ 68%]
+........................................................................ [ 71%]
+........................................................................ [ 73%]
+........................................................................ [ 76%]
+........................................................................ [ 78%]
+........................................................................ [ 81%]
+........................................................................ [ 83%]
+........................................................................ [ 86%]
+........................................................................ [ 89%]
+........................................................................ [ 91%]
+........................................................................ [ 94%]
+........................................................................ [ 96%]
+........................................................................ [ 99%]
+......................                                                   [100%]
+2830 passed in 31.51s
+PGTZ=UTC OBJECT_STORAGE_BACKEND=development UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend pytest backend/tests/integration/test_geo_sdk_collection.py backend/tests/integration/test_geo_profile_tests.py backend/tests/integration/test_geo_profile_test_races.py backend/tests/integration/test_geo_security_review.py backend/tests/integration/test_geo_at_most_once.py backend/tests/integration/test_geo_manual_collection.py backend/tests/integration/test_geo_manual_collection_boundaries.py backend/tests/integration/test_geo_manual_races.py backend/tests/integration/test_geo_analysis.py
+........................................................................ [ 69%]
+................................                                         [100%]
+104 passed in 18.24s
+npm --prefix frontend run test -- src/domains/geo- src/domains/geo/
+
+> partsignal-frontend-v2@0.1.0 test
+> vitest run src/domains/geo- src/domains/geo/
+
+
+ RUN  v4.1.11 /Users/sc/PycharmProjects/partsignal/frontend
+
+
+ Test Files  63 passed (63)
+      Tests  564 passed (564)
+   Start at  22:02:44
+   Duration  17.20s (transform 11.43s, setup 4.96s, import 32.26s, tests 84.13s, environment 25.55s)
+

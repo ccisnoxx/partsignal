@@ -16,3 +16,29 @@
 .trellis/tasks/09-27-frontend-i04-1r-bootstrap-provenance/evidence/creator-tool-call.txt whitespace=-blank-at-eof
 .trellis/tasks/09-27-frontend-i04-1r-bootstrap-provenance/evidence/validator-tool-call.txt whitespace=-blank-at-eof
 .trellis/tasks/09-27-frontend-i04-1r-bootstrap-provenance/evidence/secret-scan-tool-call.txt whitespace=-blank-at-eof
+
+# 已接受的原始 patch、扫描表和日志保留字节；仅豁免这些文件实际包含的证据格式空白。
+# 源码和维护文档继续使用默认检查，不对整个 evidence 目录放宽规则。
+.trellis/tasks/10-13-psr-004-remove-custom-http/evidence/references-after.tsv whitespace=-blank-at-eol
+.trellis/tasks/10-13-psr-004-remove-custom-http/evidence/references-before.tsv whitespace=-blank-at-eol
+.trellis/tasks/10-13-psr-005-defer-browser-collector/evidence/changes.patch whitespace=-blank-at-eof,-space-before-tab,-blank-at-eol
+.trellis/tasks/10-13-psr-005-defer-browser-collector/evidence/frontend-unit.log whitespace=-blank-at-eof
+.trellis/tasks/10-13-psr-005-defer-browser-collector/evidence/lint.log whitespace=-blank-at-eof
+.trellis/tasks/10-13-psr-005-defer-browser-collector/evidence/references-after.tsv whitespace=-blank-at-eol
+.trellis/tasks/10-13-psr-005-defer-browser-collector/evidence/references-before.tsv whitespace=-blank-at-eol
+.trellis/tasks/10-13-psr-005-defer-browser-collector/evidence/typecheck.log whitespace=-blank-at-eof
+.trellis/tasks/10-13-psr-006-layered-manual-checks/evidence/changes.patch whitespace=-space-before-tab,-blank-at-eol
+.trellis/tasks/10-13-psr-006-layered-manual-checks/evidence/check-ai.log whitespace=-blank-at-eof
+.trellis/tasks/10-13-psr-006-layered-manual-checks/evidence/check-frontend-fast.log whitespace=-blank-at-eof
+.trellis/tasks/10-13-psr-006-layered-manual-checks/evidence/check-geo.initial.log whitespace=-blank-at-eol
+.trellis/tasks/10-13-psr-006-layered-manual-checks/evidence/check-geo.log whitespace=-blank-at-eof
+.trellis/tasks/10-13-psr-006-layered-manual-checks/evidence/geo-affected-recheck.log whitespace=-blank-at-eol
+.trellis/tasks/10-13-psr-007-final-alignment/evidence/browser-after.txt whitespace=-blank-at-eol
+.trellis/tasks/10-13-psr-007-final-alignment/evidence/browser-before.txt whitespace=-blank-at-eol
+.trellis/tasks/10-13-psr-007-final-alignment/evidence/changes.patch whitespace=-blank-at-eof,-blank-at-eol
+.trellis/tasks/10-13-psr-007-final-alignment/evidence/check-ai.log whitespace=-blank-at-eof
+.trellis/tasks/10-13-psr-007-final-alignment/evidence/check-fast.log whitespace=-blank-at-eof
+.trellis/tasks/10-13-psr-007-final-alignment/evidence/check-geo.final.log whitespace=-blank-at-eof
+.trellis/tasks/10-13-psr-007-final-alignment/evidence/check-geo.log whitespace=-blank-at-eol
+.trellis/tasks/10-13-psr-007-final-alignment/evidence/references-after.tsv whitespace=-blank-at-eol
+.trellis/tasks/10-13-psr-007-final-alignment/evidence/references-before.tsv whitespace=-blank-at-eol

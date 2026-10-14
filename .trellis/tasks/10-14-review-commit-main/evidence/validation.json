@@ -1,0 +1,252 @@
+{
+  "date": "2026-10-14",
+  "candidate_parent": "9b58854480867e473b537a8c617257060ea74aae",
+  "checks": [
+    {
+      "label": "ruff",
+      "argv": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "ruff",
+        "check",
+        "backend",
+        "deploy/scripts/production_deployment.py",
+        "deploy/scripts/check-production-inputs.py",
+        "deploy/scripts/prepare-production-data.py",
+        "deploy/scripts/test-production-routine.py"
+      ],
+      "exit_code": 0,
+      "seconds": 0.11
+    },
+    {
+      "label": "mypy",
+      "argv": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "mypy",
+        "--config-file",
+        "backend/pyproject.toml",
+        "backend/app"
+      ],
+      "exit_code": 0,
+      "seconds": 0.61
+    },
+    {
+      "label": "sdk-unit",
+      "argv": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "pytest",
+        "backend/tests/unit/test_ai_provider.py",
+        "backend/tests/unit/test_ai_boundaries.py",
+        "backend/tests/unit/test_generation.py",
+        "backend/tests/unit/test_generation_dispatch.py",
+        "backend/tests/unit/test_generation_provider.py",
+        "backend/tests/unit/test_generation_runtime_mode.py",
+        "backend/tests/unit/test_geo_fake_provider.py",
+        "backend/tests/unit/test_geo_collector_suite.py",
+        "backend/tests/unit/test_geo_openai_collector.py",
+        "backend/tests/unit/test_geo_openai_response.py",
+        "backend/tests/unit/test_geo_openai_network.py",
+        "backend/tests/unit/test_geo_e2e_runtime.py",
+        "backend/tests/unit/test_geo_collector_contract.py",
+        "backend/tests/unit/test_contract.py",
+        "--tb=short"
+      ],
+      "exit_code": 0,
+      "seconds": 36.39
+    },
+    {
+      "label": "sdk-integration",
+      "argv": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "pytest",
+        "backend/tests/integration/test_ai_channel_management.py",
+        "backend/tests/integration/test_ai_provider_configuration.py",
+        "backend/tests/integration/test_generation_provider.py",
+        "backend/tests/integration/test_geo_sdk_collection.py",
+        "backend/tests/integration/test_geo_profile_tests.py",
+        "backend/tests/integration/test_geo_profile_test_races.py",
+        "backend/tests/integration/test_geo_at_most_once.py",
+        "backend/tests/integration/test_geo_security_review.py",
+        "--tb=short"
+      ],
+      "exit_code": 0,
+      "seconds": 65.99,
+      "postgres_major": 17,
+      "fake_provider": "loopback HTTP only"
+    },
+    {
+      "label": "production-routine",
+      "argv": [
+        "python3",
+        "deploy/scripts/test-production-routine.py"
+      ],
+      "env_overrides": {},
+      "exit_code": 0,
+      "seconds": 23.84
+    },
+    {
+      "label": "production-ai-handoff",
+      "argv": [
+        "python3",
+        "deploy/scripts/test-production-ai-handoff.py"
+      ],
+      "env_overrides": {},
+      "exit_code": 0,
+      "seconds": 6.76
+    },
+    {
+      "label": "upgrade-runtime-policy",
+      "argv": [
+        "python3",
+        "deploy/scripts/test-upgrade-runtime-policy.py"
+      ],
+      "env_overrides": {},
+      "exit_code": 0,
+      "seconds": 0.13
+    },
+    {
+      "label": "upgrade-registry-order",
+      "argv": [
+        "python3",
+        "deploy/scripts/test-upgrade-registry-order.py"
+      ],
+      "env_overrides": {},
+      "exit_code": 0,
+      "seconds": 14.76
+    },
+    {
+      "label": "production-harness-scripts",
+      "argv": [
+        "deploy/scripts/test-deploy-production.sh"
+      ],
+      "env_overrides": {
+        "PARTSIGNAL_PRODUCTION_HARNESS_TEST_MODE": "scripts"
+      },
+      "exit_code": 0,
+      "seconds": 36.54
+    },
+    {
+      "label": "geo-configuration",
+      "argv": [
+        "uv",
+        "run",
+        "--project",
+        "backend",
+        "python",
+        "deploy/scripts/test-geo-configuration.py"
+      ],
+      "env_overrides": {},
+      "exit_code": 0,
+      "seconds": 23.19
+    }
+  ],
+  "additional_checks": [
+    {
+      "argv": [
+        "make",
+        "contract-check"
+      ],
+      "exit_code": 0,
+      "result": "FastAPI完整合同和前端生成类型一致"
+    },
+    {
+      "argv": [
+        "sh",
+        "-n",
+        "deploy/scripts/activate-production.sh",
+        "deploy/scripts/redeploy-production.sh",
+        "deploy/scripts/e2e-local.sh",
+        "deploy/scripts/e2e-geo.sh",
+        "deploy/scripts/test-deploy-staging.sh"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "make",
+        "-n",
+        "verify"
+      ],
+      "exit_code": 0,
+      "equal_to_verify_release": true
+    },
+    {
+      "argv": [
+        "make",
+        "-n",
+        "verify-release"
+      ],
+      "exit_code": 0,
+      "actual_release_execution": false
+    }
+  ],
+  "counts": {
+    "sdk_unit_passed": 532,
+    "sdk_pg_integration_passed": 104,
+    "production_routine_passed": 13,
+    "production_ai_handoff_passed": 9,
+    "upgrade_runtime_policy_passed": 7,
+    "upgrade_registry_order_passed": 4,
+    "geo_startup_configuration_groups": 17,
+    "independent_sdk_probe_cases": 12,
+    "markdown_links_existing": 532,
+    "geo_sha256_entries_matching": 138,
+    "protected_contract_migration_fingerprints_matching": 71
+  },
+  "independent_review": {
+    "audit_id": "20261014T051535Z-review-commit-main-9fa7d219",
+    "audit_verify": "passed",
+    "accepted": 2,
+    "confirmed_blockers": 0
+  },
+  "reused_evidence": {
+    "source": ".trellis/tasks/10-13-psr-007-final-alignment/implement.md",
+    "frontend_static_and_unit": {
+      "tests_passed": 1347,
+      "basis": "frontend 源码、依赖及公共合同相对 HEAD 均无改动"
+    }
+  },
+  "not_run": [
+    "完整 verify-release",
+    "PG16 容器/恢复",
+    "Linux 镜像",
+    "完整真实 Redis/Celery/Playwright E2E",
+    "Hostdzire 与真实 AI/OSS"
+  ],
+  "previous_release_gate": "Docker daemon 环境阻断，未表述为通过",
+  "cleanup": {
+    "database_query_exit": 0,
+    "test_databases_remaining": [],
+    "postgres_stopped": true,
+    "port_released": true,
+    "scratch_removed": true
+  },
+  "external_ai_requests": 0,
+  "deployment_performed": false,
+  "artifact_whitespace": {
+    "initial_cached_diff_check_exit": 2,
+    "classified_formal_evidence_files": 23,
+    "treatment": "精确 gitattributes，仅关闭各文件已确认的格式标志；历史证据字节不变",
+    "current_task_document_blank_at_eof": "removed",
+    "final_cached_diff_check_exit": 0
+  }
+}

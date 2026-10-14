@@ -1,0 +1,206 @@
+[
+  {
+    "environment": "dev",
+    "argv": [
+      "docker",
+      "compose",
+      "--env-file",
+      ".env.example",
+      "-f",
+      "deploy/compose.dev.yaml",
+      "config",
+      "--quiet"
+    ],
+    "exit_code": 0,
+    "stderr": "",
+    "kind": "configuration-only",
+    "runtime_env_source": "existing dev env_file; no values printed"
+  },
+  {
+    "environment": "dev",
+    "profile_selection": "default",
+    "argv": [
+      "docker",
+      "compose",
+      "--env-file",
+      ".env.example",
+      "-f",
+      "deploy/compose.dev.yaml",
+      "config",
+      "--format",
+      "json"
+    ],
+    "exit_code": 0,
+    "services": [
+      "api",
+      "fake-oss",
+      "frontend",
+      "migrate",
+      "postgres",
+      "redis",
+      "scheduler",
+      "worker"
+    ],
+    "browser_services": [],
+    "session_inputs_or_mounts": 0
+  },
+  {
+    "environment": "dev",
+    "profile_selection": "explicit-browser",
+    "argv": [
+      "docker",
+      "compose",
+      "--env-file",
+      ".env.example",
+      "-f",
+      "deploy/compose.dev.yaml",
+      "--profile",
+      "geo-browser",
+      "config",
+      "--format",
+      "json"
+    ],
+    "exit_code": 0,
+    "services": [
+      "api",
+      "fake-oss",
+      "frontend",
+      "migrate",
+      "postgres",
+      "redis",
+      "scheduler",
+      "worker"
+    ],
+    "browser_services": [],
+    "session_inputs_or_mounts": 0
+  },
+  {
+    "environment": "dev",
+    "profile_selection": "all-profiles",
+    "argv": [
+      "docker",
+      "compose",
+      "--env-file",
+      ".env.example",
+      "-f",
+      "deploy/compose.dev.yaml",
+      "--profile",
+      "*",
+      "config",
+      "--format",
+      "json"
+    ],
+    "exit_code": 0,
+    "services": [
+      "api",
+      "backend-test",
+      "fake-oss",
+      "frontend",
+      "migrate",
+      "postgres",
+      "redis",
+      "scheduler",
+      "worker"
+    ],
+    "browser_services": [],
+    "session_inputs_or_mounts": 0
+  },
+  {
+    "environment": "prod",
+    "argv": [
+      "docker",
+      "compose",
+      "--env-file",
+      ".env.production.example",
+      "-f",
+      "deploy/compose.prod.yaml",
+      "config",
+      "--quiet"
+    ],
+    "exit_code": 0,
+    "stderr": "",
+    "kind": "configuration-only",
+    "runtime_env_source": "example/empty production template"
+  },
+  {
+    "environment": "prod",
+    "profile_selection": "default",
+    "argv": [
+      "docker",
+      "compose",
+      "--env-file",
+      ".env.production.example",
+      "-f",
+      "deploy/compose.prod.yaml",
+      "config",
+      "--format",
+      "json"
+    ],
+    "exit_code": 0,
+    "services": [
+      "api",
+      "frontend",
+      "migrate",
+      "postgres",
+      "redis"
+    ],
+    "browser_services": [],
+    "session_inputs_or_mounts": 0
+  },
+  {
+    "environment": "prod",
+    "profile_selection": "explicit-browser",
+    "argv": [
+      "docker",
+      "compose",
+      "--env-file",
+      ".env.production.example",
+      "-f",
+      "deploy/compose.prod.yaml",
+      "--profile",
+      "geo-browser",
+      "config",
+      "--format",
+      "json"
+    ],
+    "exit_code": 0,
+    "services": [
+      "api",
+      "frontend",
+      "migrate",
+      "postgres",
+      "redis"
+    ],
+    "browser_services": [],
+    "session_inputs_or_mounts": 0
+  },
+  {
+    "environment": "prod",
+    "profile_selection": "all-profiles",
+    "argv": [
+      "docker",
+      "compose",
+      "--env-file",
+      ".env.production.example",
+      "-f",
+      "deploy/compose.prod.yaml",
+      "--profile",
+      "*",
+      "config",
+      "--format",
+      "json"
+    ],
+    "exit_code": 0,
+    "services": [
+      "api",
+      "frontend",
+      "migrate",
+      "postgres",
+      "redis",
+      "scheduler",
+      "worker"
+    ],
+    "browser_services": [],
+    "session_inputs_or_mounts": 0
+  }
+]

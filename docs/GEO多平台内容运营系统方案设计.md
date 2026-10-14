@@ -1,5 +1,7 @@
 # 多平台 GEO 内容运营系统方案设计
 
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+
 > 文档版本：V2.3
 > 编制日期：2026-08-04
 > 当前阶段：MVP 业务表格主操作与单主线收口实施中
@@ -806,7 +808,7 @@ modules/
 ### 14.3 依赖方向
 
 - 领域规则不得依赖具体大模型 SDK、Web 框架或数据库实现。
-- 生产 AI 调用由聚焦的 `OpenAICompatibleClient` 承担，只支持 `/models` 和非流式 `/chat/completions`；确定性 `ContentGenerator` 仅用于本地单元测试和明确开发场景。
+- 生产 AI 调用由官方 `openai` Python SDK 的薄适配层 `AIProvider` 承担，只支持 Models list 和非流式 Chat Completions，显式 `max_retries=0`；PartSignal 负责业务快照、凭据加密、数据分级、严格输出校验、错误映射和作业状态；确定性 `ContentGenerator` 仅用于本地单元测试和明确开发场景。
 - 文件存储通过既有对象存储服务接入。
 - 未来自动发布通过 `Publisher` 端口接入。
 - 平台发布适配器只能读取已批准内容并推进标准 `PublicationWork`；它不能绕过首次核验直接创建成果。

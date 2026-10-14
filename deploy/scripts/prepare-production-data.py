@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from production_deployment import execute as execute_deployment
+from production_deployment import execute as execute_deployment, routine as routine_deployment
 import production_fresh_reset as fresh_reset
 from production_maintenance_execution import ExecutionResult, exit_code, supervise
 from production_upgrade_recovery import verify_archives
@@ -461,7 +461,7 @@ def supervised_operation(operation: Callable[[Callable[[dict[str, Any]], None]],
             if isinstance(error.cmd, list) and error.cmd[:3] == ["docker", "image", "inspect"]:
                 print(f"Production 镜像身份检查失败：{error.cmd[-1]}", file=sys.stderr)
             else:
-                print("Production 维护命令失败；保留未初始化状态。", file=sys.stderr)
+                print("Production 维护命令失败；未自动恢复流量，请核对当前阶段。", file=sys.stderr)
             return exit_code(error.returncode)
         except (DataStateError, OSError, ValueError) as error:
             print(f"Production 数据状态操作失败：{error}", file=sys.stderr)
@@ -1750,6 +1750,13 @@ def parse_args() -> argparse.Namespace:
         help="可选敏感 Header 名，可重复指定；值随后从无回显 TTY 输入并加密保存",
     )
     subparsers.add_parser("deploy-production")
+    routine_parser = subparsers.add_parser("routine-production", help="消费冻结候选的 Production 日常入口")
+    routine_parser.add_argument("action", choices=("check", "prepare", "activate", "smoke", "restart"))
+    routine_parser.add_argument("--current-manifest", help="当前 initialized 候选的原始 manifest")
+    routine_parser.add_argument("--current-source-archive", help="当前候选 manifest 冻结的源码归档")
+    routine_parser.add_argument("--source-archive", help="新候选 manifest 冻结的源码归档")
+    routine_parser.add_argument("--public-url", help="固定生产 HTTPS 根地址；prepare/activate/restart 必须验证 maintenance")
+    routine_parser.add_argument("--session-file", help="当前用户 0600 文件中的既有管理员会话 Cookie name=value")
     locked_parser = subparsers.add_parser("run-locked")
     locked_parser.add_argument("child_command", nargs=argparse.REMAINDER)
     return parser.parse_args()
@@ -1761,7 +1768,7 @@ def main() -> None:
     try:
         if args.command == "run-locked":
             raise SystemExit(run_locked(args.child_command))
-        with maintenance_lock():
+        with maintenance_lock() as descriptor:
             if args.command == "quarantine":
                 quarantine(require_run_id(args.run_id))
             elif args.command == "reset-data":
@@ -1813,6 +1820,9 @@ def main() -> None:
                     # 身份已由本次 worker 冻结在 state；父级依据私有 pipe 的 attempt 关联。
                     candidate = read_state(data_root)["candidate"]
                     record_observed_upgrade_failure(candidate, result)
+                raise SystemExit(result.exit_code)
+            elif args.command == "routine-production":
+                result = supervised_operation(lambda publish: routine_deployment(sys.modules[__name__], args, publish, descriptor))
                 raise SystemExit(result.exit_code)
             elif args.command == "declare-pre-activation-failure":
                 declare_pre_activation_failure(candidate_from_manifest(args.manifest), args)

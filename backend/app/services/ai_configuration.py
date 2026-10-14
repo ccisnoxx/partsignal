@@ -46,9 +46,9 @@ from app.schemas.configuration import (
     AIProviderBrand,
     AIUsagePeriod,
 )
+from app.services.ai_provider import AIProvider, validate_base_url, validate_header
 from app.services.audit_logs import project_audit_log
 from app.services.credentials import CredentialCipher
-from app.services.openai_client import OpenAICompatibleClient, validate_base_url, validate_header
 
 SUPPORTED_BRAND_PROTOCOLS = frozenset(
     (AIProtocolType.OPENAI_COMPATIBLE_CHAT_COMPLETIONS, brand) for brand in AIProviderBrand
@@ -1197,7 +1197,7 @@ def test_ai_model(
     request_parameters = dict(model.request_parameters)
     db.commit()
     try:
-        OpenAICompatibleClient(allow_local_http=settings.ai_allow_local_http).test_connection(
+        AIProvider(allow_local_http=settings.ai_allow_local_http).test_connection(
             base_url=base_url,
             api_key=api_key,
             headers=headers,
@@ -1246,7 +1246,7 @@ def discover_ai_channel_models(
     timeout_seconds = channel.timeout_seconds
     db.commit()
     try:
-        model_ids = OpenAICompatibleClient(
+        model_ids = AIProvider(
             allow_local_http=settings.ai_allow_local_http
         ).discover_models(
             base_url=base_url,

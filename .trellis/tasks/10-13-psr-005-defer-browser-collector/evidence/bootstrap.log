@@ -1,0 +1,9 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv sync --project backend --all-extras
+Resolved 92 packages in 8ms
+Checked 89 packages in 16ms
+npm --prefix frontend ci
+
+added 729 packages in 5s
+
+280 packages are looking for funding
+  run `npm fund` for details

@@ -1,0 +1,3 @@
+verify = verify-release = PSR-006开始时verify：独立dry-run全文相同
+check-fast无Docker/integration/build/E2E；check-geo无Browser/performance/E2E
+全部显式测试路径存在

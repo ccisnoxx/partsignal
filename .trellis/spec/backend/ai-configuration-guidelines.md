@@ -31,7 +31,10 @@
 - Worker 锁行并吸收非 PENDING 后先检查模式，早于已有内容回收路径：所有关闭模式 PENDING 进入 FAILED/AI_GENERATION_DISABLED，设置 finished_at/清 lease、保留 attempt_count/started_at，不调用 provider、不插入 Version/成功 metadata 或审计，既存内容历史不改。openai-compatible 仍保留已有结果恢复路径。真实外发边界再次执行相同 guard。
 - 只有 APP_ENV=test 下显式 ContentGenerator 注入可绕过业务模式；快照/PUBLIC/context 校验仍执行。Celery 与 eager 正式 UUID 入口不提供注入。未知模式继续 Settings 显式失败，不添加 fallback。
 - Settings 为进程启动快照，各 API/Worker/Scheduler 必须加载同一配置；文件更新不是热重载。已有 RUNNING 不因模式变化重放或撤回请求，执行者继续租约/迟到结果合同，收尾不增加模式复验。
-- `AI_ALLOW_LOCAL_HTTP=true` 只允许 `development`/`test` 的回环 HTTP 地址；公网仍使用 HTTPS，私网、链路本地和混合解析结果均拒绝。
+- `AI_ALLOW_LOCAL_HTTP=true` 只允许 `development`/`test` 的本机 HTTP 地址；生产保持 HTTPS。模型发现/连接测试/生成/自然化/Profile 诊断由 `ai_provider.AIProvider` 使用官方同步 OpenAI SDK，只做 URL 输入校验（禁止内嵌凭据/query/fragment），本机 HTTP 名称限定 `localhost`、`127.0.0.1`、`::1`；不解析 DNS、不分类 IP。GEO API Collector 通过同一 SDK raw-response 调用；GEO Profile 连接诊断也使用 AIProvider.test_connection，保留测试预留、事务外调用和调用后资格/依赖 revision 复核。
+- Header token/保留名/Latin-1 值校验由 ai_provider.validate_header 统一拥有，配置、CLI 与 Collector 直接复用。SDK 配置边界禁止管理员普通/敏感 Header 覆盖 `X-Stainless-Raw-Response` 控制值（大小写等价）；在授权和 SDK 方法启动前明确 `INVALID_HEADER`，不静默忽略。其他受支持 Header 继续转发。
+- SDK 不接受进程级非空 `OPENAI_CUSTOM_HEADERS`，在零发送边界返回 `INVALID_HEADER`；不得通过修改全局环境规避 SDK 行为。API Key/Header 保持既有 Latin-1 字符范围，公开 HTTP hook 负责实际 Header 转发，非法 UTF-8 响应必须映射 `AI_RESPONSE_INVALID` 并保持测试失败/停用与 revision 优先级。
+- SDK 调用使用公开 Models list / Chat Completions API，`max_retries=0`，不跟随重定向、不继承环境代理。适配层只创建并关闭同步客户端、转发已校验 Header/参数、映射固定 AppError 并投影文本/request ID/duration/可空 usage；GEO raw 入口仅在内存返回原始字节、HTTP 状态、request ID、安全 Retry-After 与 duration；不拥有数据库、revision、审计、业务草稿解析或 DNS/Socket/TLS/HTTP 协议。SDK/传输日志不传播到业务日志，原始供应商异常不得进入响应或模型错误摘要。
 - API Key 和敏感 Header 使用 AES-256-GCM 密文保存，关联数据绑定记录 ID；响应、日志、审计和作业快照不得包含明文。
 - Production bootstrap 的 credential 与可选 Header 值只能从真实交互式 no-echo TTY 经 stdin pipe 进入 backend；不得使用 argv、environment、文件、shell history、日志、Docker metadata 或网络管理入口。严格 envelope 的可选 `headers` 省略或 `[]` 都表示无 Header；每项恰好 `name/value/is_sensitive`，名称限定 1–160 个合法 token 字符以匹配既有数据库列容量，拒绝保留名、非法值与大小写重复名称，复用既有 Header Schema/加密/审计。输出只允许固定状态、request ID、UUID、revision、test status 和 enabled/configured 布尔值，不得包含名称、URL、model ID、参数、credential 长度/摘要/片段、Header 值、provider body 或原始异常。
 - Production bootstrap 的 fresh 条件是迁移、账号初始化已经完成，且全局 `ai_channels`、`ai_models`、`ai_channel_headers` 为空；任一已有配置都拒绝，不按名称或 model ID 覆盖。固定 `username=admin` 必须存在、为 active ADMIN 且状态安全；它是 Host root maintenance 操作的审计归属，不表示浏览器认证。
@@ -42,17 +45,17 @@
 - 使用统计只聚合该渠道正式 `GENERATE`/`HUMANIZE` 作业，默认最近 30 天；连接测试只回写模型最近测试状态，模型发现只返回当次远端结果，两者都不计入业务作业或永久审计。业务作业数为时间窗内全部正式作业，成功/失败只计对应终态；成功率分母为成功加失败，平均耗时只聚合非空耗时，Token 只求和已报告值，完全未报告时返回 `null` 而非 `0`。
 - 渠道操作日志继续读取 `audit_logs`。模型 CRUD 和启停事件通过脱敏 `channel_id` 建立渠道投影；不得复制日志表，也不得为历史缺失关联的已删除模型猜测渠道。
 - 作业快照冻结普通 Header、敏感 Header 名称、模型参数、平台身份、事实版本身份和最终 system/user message；执行或重试时只读取快照所列敏感 Header 的当前值。后来新增的敏感 Header 不得进入旧作业，快照所列 Header 已删除或改为普通 Header 时必须失败。
-- Chat Completions 正文必须直接解析为仅含 `title`、`summary`、`body_markdown`、`tags` 的非空 JSON 对象，不做提取、修复或补值。
+- 生成服务拥有 SDK `message.content` 的 GeneratedDraft 业务校验，request ID/duration/可空 tokens 只在有效草稿提交成功时写入既有字段。Chat Completions 正文必须直接解析为仅含 `title`、`summary`、`body_markdown`、`tags` 的非空 JSON 对象，不做提取、修复或补值。
 - 模型“测试连接”与正式生成必须使用不同解析边界：测试请求只发送一条内容为 `hi` 的用户消息，并仅验证标准 `choices[0].message.content` 字符串；不得用业务草稿四字段 Schema 判断连接是否可用。
 - 模型写操作按“渠道行 -> 模型行”顺序加锁。模型测试在读取配置后释放行锁，外部调用结束再按渠道和模型修订号回写；测试期间配置变化返回 `REVISION_CONFLICT`。
 - Header 名在同一渠道内以 `(channel_id, casefold(name))` 唯一，Model ID 以 `(channel_id, trim(model_id))` 且大小写敏感地唯一。预检和 PostgreSQL 竞态路径必须共用稳定错误合同：`uq_ai_channel_headers_channel_id -> AI_CHANNEL_HEADER_NAME_EXISTS/body.name`、`uq_ai_models_channel_id -> AI_MODEL_ID_EXISTS/body.model_id`。只有 `sqlstate=23505` 与精确 constraint 同时命中才可映射 409；其他 `IntegrityError` 继续原抛。
 - Header/Model update 必须先校验 revision，再检查 identity。可能失败的 flush 必须先于模型失效、状态清理与 SUCCESS audit；duplicate 或未知约束失败不得留下第二行、revision/test-state 漂移或成功审计。
 - 渠道 DELETE 必须提交 non-negative `expected_revision` query；Header DELETE 必须提交 non-negative `expected_channel_revision` query。两者锁定真实目标后比较所属渠道 revision，过期返回 `REVISION_CONFLICT`。渠道启停也在 revision 后拒绝同态目标并返回 `INVALID_STATE_TRANSITION`，且只返回安全 `AIChannelSummary`。渠道与 Header 物理删除必须先以 `SELECT ... FOR UPDATE` 锁定删除目标，再追加成功审计和执行副作用。同一目标的两个并发 DELETE 必须分别返回 `204`、`404`；只能产生一条成功审计，Header 删除引起的渠道/模型失效和 revision 递增也只能执行一次。
 - API 提交 Job 后的 Broker 故障不得把业务作业改为失败；Beat 只补投递超龄 `PENDING`，Worker 只有完成原子 `PENDING -> RUNNING` 声明后才能调用供应商。
-- `RUNNING` 租约必须按冻结快照的 `timeout_seconds + GENERATION_FINALIZE_GRACE_SECONDS` 计算；租约过期形成 `FAILED/WORKER_LOST`，不得自动再次调用供应商。
-- 每次真实请求只解析一次完整 A/AAAA 集合并整体校验，只连接该集合中的 `sockaddr`；实际 TCP peer 必须在发送 Authorization 或敏感 Header 前属于批准集合。HTTPS 始终用原 hostname 完成 SNI、证书身份和 Host。
-- 同一次请求开始发送 HTTP 字节后不得切换地址或自动重试；响应正文必须受固定大小上限保护。不得恢复“先校验 URL、再由通用客户端按 hostname 二次解析”的 TOCTOU 路径。
-- 渠道和生成页面统一展示 `AT_MOST_ONCE + 显式手动重试`。发送前可在同次已批准地址集合内建立连接；开始发送后不自动重放。用户重试必须创建带 `retry_of_id` 的新作业并复制原快照，不能增加“重试次数”渠道字段。
+- `RUNNING` 租约必须按冻结快照的 `timeout_seconds + GENERATION_FINALIZE_GRACE_SECONDS` 计算；租约过期形成 `FAILED/WORKER_LOST`，不得自动再次调用供应商。迟到成功和异常收尾都必须重新锁定 Job 并确认仍为 `RUNNING`，不得覆盖已提交终态。
+- GEO API before_send 在 SDK 方法启动前执行；失败原样交给授权 owner，SDK 不启动。成功后进入外部窗口，timeout/connection/不确定故障为 UNKNOWN；明确 HTTP 状态为 COMPLETED。geo_runs 仍在授权事务持久化 SENT、重验 lease/token/revision/预算并释放锁，UNKNOWN 不自动重放。
+- GEO 内部 max_response_bytes 使用 openai 3.29.0 公开 with_raw_response.content 在完整接收后、业务解析前检查原始字节；不保证接收内存上限。严格 JSON/重复键/Decimal/引用/Pydantic 及全保留字段凭据回显拒绝仍由 Collector 拥有。升级 SDK 时须验证公开字节接口，不能重建流式读取或自研 Transport。
+- 渠道和生成页面统一展示 `AT_MOST_ONCE + 显式手动重试`。SDK 使用 `max_retries=0`，各运行时调用方均不自动重放。用户重试必须创建带 `retry_of_id` 的新作业并复制原快照，不能增加“重试次数”渠道字段。
 - 只有绑定 `FactVersion.classification=PUBLIC` 且 Markdown 正文非空时才能调用第三方模型；任务不保存第二份分级、用户 Prompt 或结构化事实副本。
 - 平台 Prompt 是可复用模板库：`GET/POST /api/v1/platform-prompts` 与 `GET/PUT/DELETE /api/v1/platform-prompts/{platform_prompt_id}`。一个平台通过可空 `platform_prompt_id` 最多绑定一份当前模板，一份模板可绑定多个平台；不得恢复类型级 Prompt、双读、默认 Prompt 或兼容回退。
 - Prompt 名称全局唯一。PUT 与 DELETE 都必须携带当前 `expected_revision`；服务锁定模板行后比较修订号，过期命令返回 `REVISION_CONFLICT`。Prompt 删除与平台换绑复用同一个事务 advisory lock；删除会原子解绑全部当前平台并递增平台 revision，平台删除仍不级联删除模板。
@@ -68,15 +71,13 @@
 
 ### 4. 校验与错误矩阵
 
-- 非公网 HTTPS 或非回环 HTTP -> `AI_URL_FORBIDDEN`。
+- SDK 调用的非法 URL 部件、非 HTTPS 且非显式允许本机 HTTP -> `AI_URL_FORBIDDEN`。
 - HTTP 重定向 -> `AI_REDIRECT_FORBIDDEN`，不得跟随。
-- 实际 TCP peer 不在本次批准集合 -> `AI_URL_FORBIDDEN`，且敏感 Header 尚未发送。
 - 绑定事实版本不是 `PUBLIC` -> `AI_DATA_CLASSIFICATION_FORBIDDEN`。
 - 具体平台没有当前 Prompt -> `PLATFORM_PROMPT_MISSING`；不得回退到平台类型或其他平台 Prompt。
 - Preview Options 非 ADMIN -> `403`；Prompt 不存在 -> `404`。Options 过期不授予生成资格，原始生成命令仍按当前绑定、revision、动作与模型状态重新校验并显式失败。
 - 全局自然化 Prompt 未配置 -> `HUMANIZATION_PROMPT_MISSING`；不得使用文档建议模板或代码常量代替。
 - 自然化源不是 `OPEN` 任务中的 `AI DRAFT | CHANGES_REQUESTED`，或冻结身份/哈希失效 -> `HUMANIZATION_SOURCE_INVALID`；同源已有活动作业 -> `HUMANIZATION_ALREADY_ACTIVE`。
-- 响应超过固定上限 -> `AI_RESPONSE_TOO_LARGE`，不得继续读取或改走其他地址。
 - 保留 Header、非法 token 或控制字符 -> `INVALID_HEADER`。
 - 密钥、密文格式或关联数据错误 -> `CREDENTIAL_DECRYPTION_FAILED`。
 - `model`、`messages`、`stream` 出现在自定义参数 -> 请求校验失败。
@@ -110,7 +111,7 @@
 
 ### 6. 必需测试
 
-- 单元测试：凭据关联数据/错误密钥、Header 注入、保留字段、SSRF 地址、重定向、严格 JSON 和可空用量。
+- 单元测试：凭据关联数据/错误密钥、Header 注入、保留字段、SDK URL 输入、重定向、严格 JSON 和可空用量。
 - 单元测试：连接测试请求必须只有一条 `hi` 用户消息；连接响应只校验通用 Chat Completions 结构，正式生成仍覆盖严格业务 JSON。
 - 迁移测试：`0008_files -> head` 账号映射、旧权限表删除、新配置表/约束/触发器和有损回滚策略。
 - 契约测试：`make contract-check` 验证 FastAPI/OpenAPI 语义和前端生成类型无漂移。
@@ -125,7 +126,6 @@
 - 全局自然化 Prompt 必须覆盖首次创建、missing、current update 与 stale 四状态，并断言 missing/stale 无行、revision 或成功审计副作用。
 - 删除并发断言：使用隔离 PostgreSQL、独立请求会话和同步屏障同时删除同一渠道及同一 Header；分别断言状态码为 `[204, 404]`、成功审计恰好一条、级联最终状态正确，且 Header 删除只递增一次渠道和模型 revision。
 - 快照 Header 断言：只发送快照锁定的普通 Header 和敏感 Header 名称；敏感值取当前配置，新增名称被忽略，缺失名称返回 `AI_CONFIGURATION_DELETED`。
-- 固定地址断言：混合公网/私网解析整体拒绝；连接只能使用首次解析集合；peer 越界时零 HTTP 字节；真实本地 CA/HTTPS 替身验证 SNI、证书 hostname 和 Host。
 - 事实断言：第三方创建和 Worker 执行都拒绝非 `PUBLIC` 或空白事实；legacy 快照重试明确返回 `LEGACY_GENERATION_RETRY_FORBIDDEN`。
 - 渠道管理断言：迁移把旧渠道协议回填为当前协议、品牌回填 `CUSTOM` 而不猜测，运行时无数据库默认；安全列表字段、名称/描述搜索、筛选/稳定排序/分页/分类数量、最近测试、固定三查询、配置状态、启停同态拒绝、DELETE revision、统计可空口径和审计归属均由契约与 PostgreSQL 集成测试覆盖。
 - 安全断言：普通用户读取返回 403，写请求缺少 CSRF 被拒绝；创建、换 Key、敏感 Header 表单关闭后 React Query mutation state 不保留明文，读取/审计/复制/浏览器存储均无明文。
@@ -147,8 +147,8 @@ except Exception:
 
 ```python
 # 供应商失败直接形成显式失败作业，重试创建新作业并复用原快照。
-result = client.complete(...)
-draft = result.draft
+result = provider.chat_completion(...)
+draft = GeneratedDraft.model_validate(json.loads(result.content))
 ```
 
 ```python

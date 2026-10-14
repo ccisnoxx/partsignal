@@ -1,5 +1,7 @@
 # Hostdzire Production 部署附录
 
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+
 本附录给出 `geo.962850.xyz` 原地转换的命令合同和恢复检查。所有示例都必须先替换为当次已核验的 release、镜像、路径和 checksum，并作为精确授权包交由用户批准；不要直接把示例视为线上写授权。
 
 按当次实际适用路径选择下列命令；验证与证据复用以 [Runbook 的验证选择合同](./Hostdzire部署上线流程.md#验证选择合同) 为准。候选冻结、应用升级或同版本重启不要求串行执行所有示例、完整 `make verify` 或历史首次上线验收。
@@ -11,6 +13,8 @@
 禁止读取或输出私钥。Production env、数据库密码、会话密钥、账号密码、OSS/AI 凭据不得进入仓库、发布包、manifest、普通日志、对话或无受控权限的临时文件。完整 runtime env 仅可存放于明确批准、权限受限的配置文件和原子安装暂存；AI API Key 仍禁止写入任何文件，遵守第 6 节 true-TTY 合同。
 
 ## 2. Candidate manifest
+
+发布源码按完整 commit SHA 追踪，无 GitHub Release 或 Git tag 前提。GitHub 只用于备份和服务器拉取；完整本地质量验证在准备部署目标 commit 时通过 `make verify-release` 手工执行，不依赖 Actions。下面的 release ID、Docker 镜像标签及 manifest 是不可变交付身份，仍须遵守现有核验与排他创建合同。
 
 先确认本地已更新远端引用；在 clean `main`、`HEAD == origin/main` 的状态下，把 `git archive --format=tar.gz <commit>` 输出到仓库外，再运行：
 
@@ -319,3 +323,52 @@ PARTSIGNAL_QUARANTINE_ROOT=/root/partsignal-data-quarantine \
 首次 initialized→upgrade 在迁移之前由状态所有者验证 runtime/host 与冻结镜像默认环境不指定非空 PYTHONPYCACHEPREFIX，原子记录与完整 candidate 绑定的 DEFAULT_PYTHON_CACHE_V1 执行策略。恢复必须验证失败执行的既有策略；仅当前配置正常不足以证明历史。历史缺失、unknown 或候选错配均拒绝，不能在同候选重入或恢复时补造历史证明；保留 maintenance，另行设计显式备份 abort/recover。成功恢复绑定新策略，回执保留旧策略。历史 runtime 清除反例已用真实 Docker loader 与接管前状态测试验证。
 
 upgrade 镜像交付顺序：verify-upgrade-entry 通过完整 manifest consumer 并只读判定 phase/candidate → Compose config → registry pull（local不pull）→ frozen image ID/RepoDigest验证 → begin-upgrade 原子证明cache policy与绑定candidate → run/up。入场判定与begin共用状态所有者规则；错误manifest/另一候选在pull前拒绝，registry未缓存镜像不能要求先inspect；pull/identity/policy失败均不开始首次upgrade。clean-init时序保持原合同。
+
+## 日常 Production 入口
+
+本节用于已经准备好不可变工件的 Host release。源码验证、证据复用和适用范围见 [Runbook §3](./Hostdzire部署上线流程.md#3-repository-与-candidate)。入口不上传、不构建、不运行源码测试；构建与源归档/manifest 准备沿本附录第 2 节。日常操作仍需既有 Host 写授权；本地实现/验证入口不表示已获本次远端发布批准。
+
+在对应 release 根目录设置非 secret 的候选身份，runtime 只传受保护路径，不能 source 文件或打印其值：
+
+```sh
+export ENV_FILE=/root/partsignal/shared/.env.production
+export PARTSIGNAL_RUNTIME_ENV_FILE="$ENV_FILE"
+export PARTSIGNAL_DATA_ROOT=/root/partsignal-data
+export PARTSIGNAL_VERSION="$release_id"
+export PARTSIGNAL_BACKEND_IMAGE="$backend_repository"
+export PARTSIGNAL_FRONTEND_IMAGE="$frontend_v2_repository"
+export PARTSIGNAL_MIGRATION_IMAGE="$migration_image_reference"
+export PARTSIGNAL_RELEASE_MANIFEST="$manifest_path"
+export PARTSIGNAL_IMAGE_DELIVERY_MODE=local
+```
+
+以上变量必须取自当次 manifest；不填写默认值冒充身份。日常路径复用现用 runtime，完整输入校验和当前 API 内配置比较有任一差异就停止，转配置 Runbook；不能靠当前 API 的旧配置健康来批准待消费的新配置。新版本与当前版本的 schema 和迁移源码必须一致，旧 manifest 须与当前 state 冻结的摘要一致。三个 proof 参数用于认证旧/新归档和当前 checkout，缺失或变化均要求完整 Runbook：
+
+```sh
+./deploy/scripts/redeploy-production.sh check \
+  --current-manifest "$current_manifest" \
+  --current-source-archive "$current_source_archive" \
+  --source-archive "$source_archive"
+```
+
+进入维护并确认原子安装/reload 的精确结果后：
+
+```sh
+./deploy/scripts/redeploy-production.sh prepare \
+  --public-url https://geo.962850.xyz \
+  --current-manifest "$current_manifest" \
+  --current-source-archive "$current_source_archive" \
+  --source-archive "$source_archive"
+```
+
+仅在真实 AI/OSS 证据满足既有 upgrade Gate 后设置 `PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET`；未验证/AI 待配置不允许这么设置。随后保持 Nginx 维护，执行 `redeploy-production.sh activate --public-url https://geo.962850.xyz`。激活成功且回环 smoke 通过后，独立执行本附录第 8 节的入口恢复，再运行：
+
+```sh
+./deploy/scripts/redeploy-production.sh smoke --public-url https://geo.962850.xyz
+```
+
+需要现有管理员只读业务 smoke 时，追加 `--session-file "$protected_session_file"`。该文件必须为当前用户拥有的 `0600` 普通文件，内容仅为现有 Cookie 的 `name=value`（可带一个结尾换行），不能在命令中直接传会话值。入口只访问固定用户列表，不输出响应正文；不会创建账号、重新登录或宣称整个业务流程已通过。
+
+同一版本重启使用原 manifest 与原 identity 环境变量，先执行 `check`（无需旧/新 archive 参数），进入维护后执行 `redeploy-production.sh restart --public-url https://geo.962850.xyz`。它仅重建应用四服务、做回环 smoke并保持 initialized 状态；之后独立恢复入口并运行公网 smoke。即使原候选使用 fresh-rebuild，重启也不清空数据或重做 fresh-init。
+
+对应 Make 入口为 `production-check`、`production-prepare`、`production-activate`、`production-restart`、`production-smoke`，参数经 `PRODUCTION_ARGS` 显式传入。不使用 shell `eval`，路径含空格时直接调用脚本。普通 `smoke.sh` 保留旧 live/ready 签名，不能替代本节的候选/版本/业务边界检查。

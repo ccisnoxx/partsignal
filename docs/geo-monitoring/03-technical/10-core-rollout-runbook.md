@@ -1,6 +1,8 @@
 # GEO Core V1.0：人工优先渐进发布 Runbook（GEO-906 历史 / R9A）
 
-> 后续开发按 [项目测试策略](../../testing.md) 选择验证，日常 Production 重部署、同版本重启与验证选择以 [Hostdzire Runbook §3](../../Hostdzire部署上线流程.md#验证选择合同) 为准；下表及正文中的同候选完整门禁属于原首次交付要求，不因引用本文、新 SHA、候选冻结或日常发布再次触发。
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+
+> 本文保留首次 V1.0 发布与 GEO-1010 验收的历史阶段、候选门禁和现场缺口。2026-10-08 起，后续开发按 [项目测试策略](../../testing.md) 选择验证，日常 Production 重部署、同版本重启与验证选择以 [Hostdzire Runbook §3 / §4.1](../../Hostdzire部署上线流程.md) 为准；下表及正文中的同候选完整门禁属于原首次交付要求，不因引用本文、新 SHA、候选冻结或日常发布再次触发。首次发布的真实业务验收、外部服务、安全、备份/恢复及最终 Go 条件仍须按其实际范围满足。
 
 本文是 GEO R8 的执行与验收补充。生产发布所有者仍为[Production Runbook](../../Hostdzire部署上线流程.md)、[部署附录](../../Hostdzire部署附录.md)及仓库 `deploy/scripts/deploy.sh`、`activate-production.sh`、`prepare-production-data.py`。本文不授权远端操作，不另建发布执行器。当前生产阶段 **NOT_STARTED**；缺目标、固定候选及人工批准时停止在发布准备。
 

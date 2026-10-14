@@ -1,0 +1,32 @@
+{
+  "id": "psr-001-openai-sdk-adapter",
+  "name": "psr-001-openai-sdk-adapter",
+  "title": "PSR-001：官方 OpenAI SDK 薄适配层与 AI 配置迁移",
+  "description": "PSR-001：仅迁移 AI 配置模型发现与连接测试，保留 revision/锁/加密与旧生成/GEO 栈",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-12",
+  "completedAt": "2026-10-12",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {
+    "workflow_status": "done",
+    "validation_record": ".trellis/tasks/10-12-psr-001-openai-sdk-adapter/implement.md",
+    "review_record": ".trellis/tasks/10-12-psr-001-openai-sdk-adapter/review.md",
+    "human_acceptance": "accepted",
+    "human_accepted_at": "2026-10-12"
+  }
+}

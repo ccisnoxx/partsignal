@@ -1,12 +1,15 @@
 # PartSignal 部署与运维
 
-当前开发阶段与服务器预览的输入归属、自动生成配置和AI字段说明见[开发预览说明](./development-preview.md)。Production runbook保留正式发布合同，不是当前界面验收的前置流程。
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
 
-本文件只记录跨环境稳定原则，不承载任何环境的可执行部署步骤。Hostdzire 预发布的日常决策、停止条件、验收和回滚摘要见 [Hostdzire 部署上线 Runbook](./Hostdzire部署上线流程.md)；首次初始化、完整手工发布、备份恢复、Nginx 和排障命令见 [Hostdzire 部署附录](./Hostdzire部署附录.md)。
+开发阶段与历史 staging 预览的输入归属、自动生成配置和 AI 字段说明见[开发预览说明](./development-preview.md)。Hostdzire 内部试运行现使用 Production 运行入口；这不表示正式产品验收或 Production Go 已完成。
+
+本文件只记录跨环境稳定原则，不承载任何环境的可执行部署步骤。Hostdzire 内部试运行的日常决策、停止条件、验收和回滚摘要见 [Hostdzire 部署上线 Runbook](./Hostdzire部署上线流程.md)；首次初始化、完整手工发布、备份恢复、Nginx 和排障命令见 [Hostdzire 部署附录](./Hostdzire部署附录.md)。
 
 ## 发布与配置原则
 
-- 部署行为以 `deploy/` 中当前 Compose、脚本和环境模板为事实源，只发布干净、已推送且与远端权威提交一致的版本。
+- 部署行为以 `deploy/` 中当前 Compose、脚本和环境模板为事实源，只发布干净、已推送且与远端权威提交一致的版本。GitHub 只用于代码备份和服务器拉取，不运行 Actions；Docker 交付追踪 commit SHA，不要求 GitHub Release 或 Git tag，release ID/镜像标签与 manifest 身份仍须一致。
+- 日常代码验证与部署交付分开，验证选择、证据复用和 Production 日常入口统一由 [Hostdzire Runbook](./Hostdzire部署上线流程.md#3-repository-与-candidate) 定义；新 SHA 和重部署不自动要求完整门禁。迁移、恢复和正式验收按实际变化或交付要求执行。
 - release 不可覆盖。真实配置、密钥和持久数据必须独立于 release；环境文件、AccessKey、模型密钥、账号密码和私钥不得进入仓库、发布包、普通日志或对话。
 - 开发 `.env` 与生产 `.env.production` 使用独立模板；完整字段、AI 初始化清单和本地准备/受控交付见[配置准备说明](./production-configuration.md)。普通发布复用固定生产文件与数据库中的 AI 配置；不会自动上传 env，也不随 release 重生成 secret。已知输入缺项必须在冻结候选和维护前集中确认。
 - 发布失败必须保留可观察的错误、容器状态和数据现场，不用固定成功响应、静默回退、隐藏 allowlist 或放宽安全配置掩盖故障。
@@ -39,9 +42,11 @@
 
 该 bootstrap 是单次 fail-closed 状态机：T1 原子创建停用 channel/model，T2 在数据库事务外进行至多一次真实连接测试，T3 仅在 `PASSED` 时原子启用二者。provider 失败、revision 冲突、host/容器结果未知或任何已有 AI 配置/attempt 都禁止自动重试和 credential 覆盖；数据库事实与 operator 确认必须分开处理。bootstrap connection test 不替代真实正式生成、OSS 或浏览器 External Services Gate。
 
-AI 请求只连接经过校验的公网地址，TLS 身份与 Host 使用渠道原 hostname。连接兼容故障、peer 越界、重定向或响应超限必须显式失败；不得关闭证书校验、恢复不受控的二次 DNS 解析或在请求发送后自动重试。
+GEO Profile 连接诊断使用官方 `openai` Python SDK，发送最小 `hi` 消息，保留凭据加密、调用边界解密、测试预留与调用后资格/revision 复核。诊断结果不创建业务 Run、不启用 Profile，失败只保存安全错误摘要。
 
-只有作业输入完整且绑定事实快照的全部 Evidence 均为 `PUBLIC` 时才允许出站。供应商已接收但 Worker 丢失的作业只标记失败，不自动再次调用。
+AI 配置管理的模型发现/连接测试、正式生成/自然化、GEO Profile 连接诊断及 GEO API Collector 使用官方同步 SDK，显式关闭自动重试、重定向与环境代理；生产保持 HTTPS，只做 URL 输入结构校验，不承诺旧栈的 DNS/IP/peer 固定或传输期间响应字节上限。GEO API 在 SDK 方法前执行授权/预算回调，成功即持久化 SENT 并进入外部窗口；明确 HTTP 状态按 COMPLETED，方法开始后的 timeout/connection 按 UNKNOWN，不能自动重放同 attempt。max_response_bytes 使用公开 raw-response 原始字节做接收后检查，不能限制接收内存。SDK/HTTP 传输日志不传播到应用日志；业务响应和持久化摘要只包含固定错误信息，不含供应商错误正文、API Key 或 Header 值。`CredentialCipher` 保留；配置管理的事务外模型测试、revision 复核与测试后停用模型合同保留，生成/自然化仍按 Job lease 和调用后任务/事实/源资格复核收尾。迁移范围见 [SDK 维护工作流](./maintenance/openai-sdk-refactor/README.md)。
+
+只有作业输入完整且绑定 `FactVersion` 与作业事实快照均明确为 `PUBLIC` 时才允许出站。供应商已接收但 Worker 丢失的作业只标记失败，不自动再次调用。
 
 生产文件存储必须显式使用 `OBJECT_STORAGE_BACKEND=aliyun_oss` 并注入受控凭据。首次接入、上传/下载实现或相关配置/权限变化时，必须验证同站点后端上传、服务端 OSS PUT、HEAD complete 和短期下载 URL；浏览器跨域读取下载字节时才核对所需 GET CORS。日常发布按 [Hostdzire 验证选择合同](./Hostdzire部署上线流程.md#验证选择合同) 复用输入未变的有效证据并验证受影响路径，不自动重复整套 OSS 写入验收。所有 Aliyun OSS 对象在 PUT 同次写入 `x-oss-object-acl: private`，不继承共享 Bucket 的公开 ACL；`PUBLIC` 文件分类表示业务使用资格，预览和下载仍走限时签名。应用上传不要求 Bucket 全局 ACL/CORS 管理权限；配置错误不得回退到开发存储。
 
@@ -73,4 +78,4 @@ Nginx 回滚必须把站点模板和 PartSignal 项目安全 snippet 恢复到�
 
 健康端点、命令行探针和容器健康不能替代真实浏览器对渲染、认证路由和控制台的检查。浏览器验收只从本机通过真实入口执行，不在服务器或容器安装浏览器环境，也不把凭据输出或持久化。
 
-纵向业务 E2E 只在本地或 CI 隔离环境执行，并使用真实 PostgreSQL、Redis、Celery 和显式 Mock Provider。公网环境保持 `AI_ALLOW_LOCAL_HTTP=false`，不得为依赖回环 Provider 的测试放宽安全策略。
+纵向业务 E2E 由开发者在本地隔离环境手工执行，并使用真实 PostgreSQL、Redis、Celery 和显式 Mock Provider。公网环境保持 `AI_ALLOW_LOCAL_HTTP=false`，不得为依赖回环 Provider 的测试放宽安全策略。

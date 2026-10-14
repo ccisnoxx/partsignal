@@ -1,0 +1,29 @@
+[
+  {
+    "label": "geo-affected-recheck",
+    "argv": [
+      "uv",
+      "run",
+      "--project",
+      "backend",
+      "pytest",
+      "backend/tests/integration/test_geo_manual_collection.py",
+      "backend/tests/integration/test_geo_manual_collection_boundaries.py",
+      "backend/tests/integration/test_geo_manual_races.py",
+      "--tb=short"
+    ],
+    "exit_code": 0,
+    "seconds": 13.49,
+    "storage_running_after": true
+  },
+  {
+    "label": "check-geo.final",
+    "argv": [
+      "make",
+      "check-geo"
+    ],
+    "exit_code": 0,
+    "seconds": 79.96,
+    "storage_running_after": true
+  }
+]

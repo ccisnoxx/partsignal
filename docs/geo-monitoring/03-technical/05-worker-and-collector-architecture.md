@@ -1,5 +1,7 @@
 # PartSignal GEO Worker 与采集器架构
 
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+
 | 项目 | 内容 |
 |---|---|
 | 文档版本 | V1.0 |
@@ -30,9 +32,7 @@ flowchart LR
     CollectWorker --> Registry[Collector Registry]
     Registry --> APICollector[API Collectors]
     Registry --> ManualCollector[Manual Placeholder]
-    Registry --> BrowserCollector[Browser Collector Service]
     APICollector --> Provider[External Provider]
-    BrowserCollector --> UI[External AI UI]
     CollectWorker --> PG
     CollectWorker --> OSS[(Object Storage)]
     PG --> Redis
@@ -68,7 +68,7 @@ GEO-403 起 AI 删除先清除 Profile 当前资格并停用再成对解绑，�
 不缓存或持久化资格。未来 Worker 必须在实际执行/发送边界重读当前事实及进程开关。
 
 此结果只覆盖配置资格，不能替代权限、数据分级、预算、Browser session、lease 或
-URL/DNS/peer/TLS 防线。当前不接线 Plan/Worker，不执行 provider 请求，不修改现有文章关系
+SDK URL 输入与调用边界。当前不接线 Plan/Worker，不执行 provider 请求，不修改现有文章关系
 GEO、历史读取或已提交的人工证据。范围、实际验证和状态见
 [GEO-204 任务记录](../../../.trellis/tasks/10-02-geo-204-collector-registry/implement.md)。
 
@@ -80,8 +80,6 @@ Collector 通过稳定 `adapter_key` 注册：
 manual
 openai-compatible-chat
 provider-x-search-api
-browser-chatgpt
-browser-deepseek
 ...
 ```
 
@@ -233,7 +231,7 @@ Worker 收到 run ID 后：
 8. 释放数据库连接；
 9. 执行外部调用。
 
-外部调用前尽可能晚地将 `external_call_state=SENT` 持久化。对于单请求 transport，可以在发送前用短事务更新 SENT，再发送。这样 Worker 丢失后可区分：
+外部调用前尽可能晚地将 `external_call_state=SENT` 持久化。当前 API Collector 在 SDK 方法启动前用短事务更新 SENT，再调用 SDK。这样 Worker 丢失后可区分：
 
 - NOT_STARTED：允许安全恢复；
 - SENT/UNKNOWN：禁止自动重发；
@@ -245,20 +243,10 @@ Worker 收到 run ID 后：
 
 一个 run attempt 最多向外部 provider 发送一次业务请求。
 
-允许在发送前：
-
-- 尝试多个已批准 DNS 地址；
-- 获取连接；
-- 验证 TCP peer；
-- 建立 TLS；
-
-一旦发送任何请求字节：
-
-- 不自动换地址；
-- 不自动 provider retry；
-- 不自动创建第二 attempt；
-- 超时或 Worker 丢失标记 UNKNOWN_OUTCOME；
-- 由用户或规则显式创建新 attempt。
+官方 `openai` Python SDK 显式设置 `max_retries=0`。在 SDK 方法启动前用短事务持久化
+SENT/预算授权；回调失败不启动 SDK。方法启动后不能按原始 Socket 阶段推断未发送：
+timeout/connection/无法确认结果的故障采用 UNKNOWN，不自动重放同一 attempt。
+明确 HTTP 状态为 COMPLETED；需要重试时显式创建新 attempt。
 
 ### 9.2 Provider 429
 
@@ -273,8 +261,8 @@ Worker 收到 run ID 后：
 - `CredentialCipher`；
 - AIChannel/AIModel；
 - Header 校验；
-- pinned HTTP transport；
-- SSRF、TLS、peer 和响应大小防线。
+- 官方同步 OpenAI SDK 薄适配层；
+- SDK URL/Header 输入校验、零重试、禁重定向和公开 raw-response。
 
 不得复用：
 
@@ -427,44 +415,11 @@ MANUAL 不由 Worker 调用外部服务。Batch 创建时 run 保持 PENDING 并
 
 人工模式 profile 定义是否强制截图、引用和来源模型字段。
 
-## 12. Browser Collector
+## 12. 后续 Browser 能力
 
-### 12.1 独立执行面
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
 
-浏览器 collector 推荐作为独立容器或受控主机代理，不与普通 API/Worker 镜像共享完整浏览器依赖。
-
-### 12.2 Adapter 接口
-
-浏览器 adapter 除通用 collect 外需要：
-
-- `session_health()`；
-- `login_probe()`；
-- `open_temporary_chat()`；
-- `submit_prompt()`；
-- `wait_for_stable_answer()`；
-- `extract_answer()`；
-- `extract_citations()`；
-- `capture_evidence()`；
-- `cleanup_context()`。
-
-### 12.3 稳定等待
-
-不能仅使用固定 sleep。至少组合：
-
-- 页面指定完成信号；
-- 文本长度/DOM 在一段时间内不变化；
-- loading indicator 消失；
-- 最大超时；
-- 截图前二次确认。
-
-### 12.4 会话
-
-- 使用专用测试账号；
-- profile 只保存加密会话引用和健康状态；
-- Cookie/profile bytes 存受控加密位置；
-- 不进入数据库普通 JSON、对象存储 public bucket、日志和截图；
-- 过期返回 `PROFILE_NEEDS_REAUTH`；
-- 不自动输入账号密码绕过 MFA/验证码。
+历史隔离源码/合同保留，恢复实施须另立任务；当前 Worker 不接线 Browser 采集。
 
 ## 13. Analysis Worker
 
@@ -540,7 +495,7 @@ external_call_state: Literal['NOT_STARTED', 'SENT', 'UNKNOWN', 'COMPLETED']
 - 能证明每 attempt 至多一次调用；
 - 不使用真实云端作为 CI 门禁。
 
-Browser adapter 使用本地静态测试站和受控 DOM 变化，不访问真实平台。
+Browser 历史模拟站仅为隔离测试资产，不进入当前默认 Collector 验证。
 
 ## 18. 运维操作
 
@@ -605,9 +560,9 @@ retry_after_seconds 仅用于完整 429，不能解释为同 attempt 自动等�
 COMPLETED 只表示外部结果已完整接收，不能解释为业务成功、回答有效或已提交数据库。
 
 `collect(request, *, before_send)` 必须接收 `SendAuthorization` 回调。未来 Worker 的回调
-在首次请求字节前，按当前 lease/token/状态/授权执行短事务并原子持久化 SENT；Collector
+在 SDK 方法启动前，按当前 lease/token/状态/授权执行短事务并原子持久化 SENT；Collector
 不获得 Session 或提交能力。回调失败不能发送；返回后不执行无关等待；一次调用至多发送
-一次，不自动 redirect/retry/发送后切换地址。若回调已保存 SENT 但实际字节未发出，仍按
+一次，不自动 redirect/retry。若回调已保存 SENT 但 SDK 尚未发出请求，仍按
 数据库保守恢复，不能只用 Collector 的 NOT_STARTED 撤销持久化标记。
 
 GEO-401 只定义协议和值/错误边界，不实现回调、网络 adapter、假 provider、调用计数、
@@ -626,8 +581,7 @@ UUID 脚本化，统计只保留次数、请求 SHA256 和长度；重复请求�
 控制协议和完整模式见 [测试说明](../../../backend/tests/fixtures/geo_provider/README.md)。
 
 `tests.geo_collector_contract` 可供后续 adapter 复用，检查发送回调、请求哈希、单次调用、
-无 retry/redirect、原始结果和稳定错误。当前只用测试专用驱动自测，并独立验证已有
-pinned transport 的真实网络故障；GEO-402 当时默认 Registry 只有 manual；GEO-403 后诊断登记见上节。本测试基础设施不新增业务命令、
+无 retry/redirect、原始结果和稳定错误。当前只用测试专用驱动自测，并通过通用测试 HTTP 客户端验证 fake 的真实故障和计数；GEO-402 当时默认 Registry 只有 manual；GEO-403 后诊断登记见上节。本测试基础设施不新增业务命令、
 Profile 测试、Worker、数据库或 Browser 能力。生产发送隔离和恢复仍由后续任务证明。
 
 `make test-geo-collector-contract` 在输出前扫描日志和临时产物；CI 只允许本地请求。
@@ -650,13 +604,12 @@ frequency_penalty、max_tokens、max_completion_tokens、seed、n；拒绝未知
 Profile 的 temperature/max_output_tokens 显式覆盖相应模型参数。当前没有非 PUBLIC
 数据外发授权合同，INTERNAL/RESTRICTED 在任何网络请求前失败；PUBLIC 仍需 `before_send`。
 
-复用 pinned transport 的完整 DNS 集合审批、固定 sockaddr、peer、原始主机名 SNI/Host
-和证书验证。开发回环 HTTP 仅允许 development/test 的受控装配。全部请求 bytes 和
-TLS/peer 检查完成后、首个 HTTP 字节前调用一次 `before_send`；失败原样传播并关闭连接。
-发送后不自动重试、跳转或切换地址。响应 byte 限制取 transport 的既有 2 MiB 上限与
-请求上限的较小值，覆盖 Content-Length、chunked 和 EOF 定界；拒绝声明长度不完整的结果。
-发送前连接故障为 NOT_STARTED，发送/读取中断为 UNKNOWN_OUTCOME/UNKNOWN；超限为 SENT，
-只在完整接收后报告 provider_status/COMPLETED。429 Retry-After 仅保留数值秒元数据。
+通过 AIProvider 调用官方同步 SDK 的非流式 Chat Completions，显式关闭自动重试、
+重定向和环境代理。生产 HTTPS，开发/测试显式本机 HTTP；只校验 URL 输入结构。
+SDK 方法启动前调用一次 `before_send`，失败原样返回 owner；成功进入外部窗口。
+明确 HTTP 状态为 COMPLETED，之后 timeout/connection/不确定网络故障为 UNKNOWN。
+内部 max_response_bytes 在完整接收后、严格业务解析前检查 raw-response 原始字节；
+不能限制接收时内存。429 Retry-After 仅保留安全数值秒元数据，不自动重试。
 
 `collectors/openai_response.py` 独立解析 choices 中的单个完整 string 回答；不调用
 GeneratedDraft 解析器。严格拒绝重复 JSON 键、NaN、非法 UTF-8、孤立 surrogate、空/NUL/
@@ -694,8 +647,8 @@ Broker 失败或接收后丢失确认不会撤销已接受的 Batch；PENDING �
 `geo_runs` 在短事务中依序锁 Channel → Model → Surface → Profile → Batch → Run，
 使用当前总/子开关、registry 批准、合规与测试资格和冻结 Profile revision/绑定裁决 claim。
 凭据只在执行内存解密；lease 为当前 Channel timeout + finalize grace，唯一 token 与
-数据库 expiry 联合守卫。连接/peer/TLS 成功后、首个请求字节前，重新锁定并校验当前资格与
-依赖 revision，持久化 SENT；provider 在事务外调用，无自动 retry/redirect。
+数据库 expiry 联合守卫。SDK 方法启动前，重新锁定并校验当前资格与依赖 revision，
+持久化 SENT；provider 在事务外调用，无自动 retry/redirect。
 
 GEO-405采集服务只推进到COLLECTED，基本答案与状态原子提交；GEO-506由Celery入口提交后
 投递分析，并用数据库扫描补偿人工提交与投递崩溃窗口，采集服务本身不伪造分析完成。
@@ -721,7 +674,7 @@ Profile 资格锁使用 FOR NO KEY UPDATE，继续排斥修改/删除而允许�
 ## 当前 R3：GEO-406 at-most-once 恢复
 
 `external_call_state` 是 PostgreSQL 持久化发送事实：NOT_STARTED → SENT → UNKNOWN/COMPLETED，
-数据库禁止外发事实倒退，当前服务只接受有效 SENT 租约的成功提交；终态无出边。首字节前的 SENT 提交
+数据库禁止外发事实倒退，当前服务只接受有效 SENT 租约的成功提交；终态无出边。SDK 方法启动前的 SENT 提交
 与过期扫描以 Batch → Run 为串行点，不以 transport 的局部 NOT_STARTED 覆盖持久化 SENT。
 
 `recover_expired_collection_runs` 锁内重验 RUNNING/expiry：NOT_STARTED 且无答案可撤销旧 lease、
@@ -837,3 +790,30 @@ PENDING 补投递和过期失败扫描。采集服务提交后仍是 COLLECTED�
 表/触发器、完整输入身份、错误和安全停止以[数据库合同](../../../contracts/database.md#geo-506-analysis-worker--revision-生命周期r4)为权威。
 0055先于新Worker/beat部署，无历史回填、不删除证据；停新分析后前向修复。GEO-507的HTTP分析/复核/
 current读取、指标、Opportunity evaluation和Browser均未接入，不投递未实现的机会任务。
+
+
+## 当前维护边界：PSR-003 官方 SDK API Collector
+
+OpenAI-compatible API Collector → AIProvider.raw_chat_completion → 官方同步
+chat.completions.with_raw_response.create（openai 3.29.0）。SDK 客户端配置完成后、方法启动前
+调用 before_send；授权异常原样交给 geo_runs，SDK 不启动。成功后进入外部窗口，沿用
+geo_runs 的短事务 SENT、lease/token/revision/预算复核与锁序。网络调用无数据库事务。
+明确 HTTP 状态为 COMPLETED；timeout、connection error 或不确定网络结果为 UNKNOWN。
+SENT/UNKNOWN 租约恢复、迟到结果拒绝和显式新 attempt 仍由原生命周期 owner 裁决；
+SDK max_retries=0、禁止重定向，无同 attempt 自动重放。
+
+max_response_bytes 只属于内部 CollectionRequest，不存在于公共 OpenAPI、数据库快照或
+历史迁移；保留字段并在公开 raw-response.content 完整接收后、解析前检查原始字节。
+这是接收后业务检查，无法限制接收过程内存；不恢复流式读取、自研 HTTP Transport 或
+精确字节发送阶段。明确完成的超限响应为 PROVIDER_RESPONSE_TOO_LARGE/COMPLETED。
+
+401/403 → PROVIDER_AUTH_FAILED，429 → PROVIDER_RATE_LIMITED 并仅接受不超过9位的
+ASCII 非负整数 Retry-After，5xx → PROVIDER_UNAVAILABLE，其余非成功状态/非法答案
+明确失败。原始字节继续进入原 JSON/重复键/Decimal/引用/证据/Pydantic 规则；全部保留字段
+继续检查已知凭据原值与编码变体，命中整份失败，不修改答案原文。原始字节与错误正文仅驻留
+请求内存，不保存或打印。SDK 调试日志不传播到应用日志。
+
+Profile/Surface/Channel/Model/adapter 资格、PUBLIC、CredentialCipher、预算账本/限速、
+原始答案不可变和分析指标均不改。SDK 只做 URL 输入校验与生产 HTTPS，不承诺旧 DNS/IP/peer
+固定；Profile 连接诊断同样使用 SDK，Browser 不属于此次维护。OpenAPI/数据库/Alembic 与历史输入
+不变；实现与精确证据见 [PSR-003](../../../.trellis/tasks/10-13-psr-003-geo-api-sdk/prd.md)。

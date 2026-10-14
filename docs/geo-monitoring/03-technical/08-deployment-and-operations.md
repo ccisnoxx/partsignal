@@ -1,5 +1,7 @@
 # PartSignal GEO 部署与运维设计
 
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
+
 | 项目 | 内容 |
 |---|---|
 | 文档版本 | V1.0 |
@@ -11,8 +13,8 @@
 | 环境 | 用途 | 外部调用 |
 |---|---|---|
 | development | 本地开发 | 默认 fake provider / development storage |
-| test/CI | 自动测试 | 仅本地 fake provider 和本地 browser site |
-| staging/preview | 内部验收 | 可选受控真实 API smoke；浏览器试点需批准 |
+| test | 手工本地隔离测试 | 仅本地 fake provider |
+| staging/preview | 内部验收 | 可选受控真实 API smoke |
 | production | 公司正式使用 | 仅批准 profile 和真实 OSS |
 
 ## 2. 服务拓扑
@@ -41,31 +43,15 @@ geo_maintenance
 
 如果单容器启动多个 queue，仍需分别暴露指标。负载增长后可以使用同一镜像部署多个 Worker 实例。
 
-### 2.2 R7 Browser Pilot
+### 2.2 后续 Browser 能力
 
-按[ADR-006](../05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md)延期为 post-core 可选扩展。核心上线不启用 geo-browser 服务或会话 overlay，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false；GEO-904/906 检查无生产 Browser 会话、会话密钥/能力挂载。现存材料仍须保护、撤销/清理，不能用延期豁免；部署/材料均不存在时 GEO-901 清理与 GEO-903 会话恢复记录 N/A。已完成 801～803 不删除，以下目标拓扑保留供恢复评估。
+当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
 
-恢复后使用 profile 服务：
-
-```text
-browser-collector
-```
-
-要求：
-
-- 独立 Compose profile：`geo-browser`；
-- 默认不开启；
-- 独立 volume 保存加密会话；
-- 独立 tmpfs；
-- 独立 egress；
-- 不连接 frontend edge；
-- 最小数据库账号/应用 API；
-- 资源限制；
-- 健康检查包含 browser runtime 和 session probe 摘要。
+GEO-801～803 历史代码/合同和隔离非生产 Compose 保留；不被默认 Compose 引用，不提供当前部署教程。
 
 ## 3. 配置项
 
-GEO-004 / R0 已实现四项开关、启动校验及默认关闭（review）；其余数值项仍是后续任务的目标配置，不在 R0 加入 Settings：
+当前四项开关由 Settings 管理，默认关闭；当前支持人工录入和已实现 API 采集。开关不替代 Profile/平台批准、PUBLIC、预算和发送授权。Browser 延期，生产硬禁止开启。
 
 ```dotenv
 GEO_MONITORING_ENABLED=false
@@ -74,29 +60,24 @@ GEO_BROWSER_COLLECTION_ENABLED=false
 GEO_OPPORTUNITY_EVALUATION_ENABLED=false
 ```
 
-旧生产 runtime 可省略四项，Settings 默认关闭；显式空值/非法布尔值拒绝。任一子开关 true 要求总开关 true，API/BROWSER/OPPORTUNITY 互相独立。API、Worker、Beat 共享配置源，需统一重建才生效；配置不授予平台或外发资格。详见 [Production 配置说明](../../production-configuration.md)。R0 无 Collector、GEO 调度或机会任务，以下参数尚未实现：
+旧 runtime 可按输入检查合同省略可选 GEO 键，由 Settings 提供默认；显式空值/非法值拒绝。API/OPPORTUNITY 子开关 true 要求总开关 true，二者独立。API、Worker、Beat 共享配置源，必须统一重建才生效。现有人工文章观测保持原合同；当前 MANUAL 批次与 API 采集按各自业务门禁执行。
+
+已实现的采集恢复与保留参数如下；默认值、范围、预算和可省略规则以 [Production 配置说明](../../production-configuration.md) 和 Settings 为准：
 
 ```dotenv
 GEO_PENDING_REDISPATCH_SECONDS=120
 GEO_COLLECTION_FINALIZE_GRACE_SECONDS=120
-GEO_ANALYSIS_FINALIZE_GRACE_SECONDS=120
 GEO_RECOVERY_SCAN_SECONDS=60
 GEO_RECOVERY_BATCH_SIZE=100
-GEO_MAX_RUNS_PER_BATCH=1000
-GEO_MAX_RESPONSE_BYTES=2097152
-GEO_MAX_ANSWER_CHARS=200000
-GEO_DEFAULT_REPEAT_COUNT=3
-GEO_DAILY_BUDGET_LIMIT=
+GEO_RETENTION_DRY_RUN=true
+GEO_RETENTION_BATCH_SIZE=100
+GEO_DAILY_BUDGET_CURRENCY=USD
+# GEO_DAILY_BUDGET_LIMIT=100.000000
 ```
 
-Browser 后续配置：
+保留期限须经数据负责人批准后显式配置，省略不启用对应新策略；预算 limit 省略表示不限额，已配置预算且报价未知时阻断。分析 lease、批次规模、响应/回答限制等由其内部合同或代码 owner 管理，不能把目标设计名称当作已支持环境变量。内部 `max_response_bytes` 是 SDK 完整接收后、严格业务解析前的检查，不保证接收内存上限；不新增公共字段或环境配置。
 
-```dotenv
-GEO_BROWSER_SESSION_ROOT=
-GEO_BROWSER_ARTIFACT_TMP=
-GEO_BROWSER_PROXY_URL=
-GEO_BROWSER_MAX_CONCURRENCY=1
-```
+Browser 的会话、密钥和代理配置不属于当前环境模板。
 
 敏感值不放 `.env.example` 实际内容，只保留空模板和说明。
 
@@ -157,7 +138,6 @@ GEO_BROWSER_MAX_CONCURRENCY=1
 
 - API collection concurrency 小步配置；
 - analysis concurrency 可高于 collection；
-- browser concurrency 默认 1；
 - 每 profile 支持独立 rate limit；
 - provider 429 后不自动重试同 attempt。
 
@@ -165,7 +145,7 @@ GEO_BROWSER_MAX_CONCURRENCY=1
 
 需要停止外部调用时：
 
-1. 关闭 API/BROWSER 功能开关并部署或停止相应 queue；
+1. 关闭 API 功能开关并部署或停止相应 queue；
 2. 停 Scheduler；
 3. 等待当前 RUNNING 到终态或超时；
 4. 不批量把 RUNNING 改回 PENDING；
@@ -192,7 +172,6 @@ GEO_BROWSER_MAX_CONCURRENCY=1
 - oldest pending；
 - collector config errors；
 - scheduler last scan；
-- browser session health；
 - object storage evidence write check（不应每次 readiness 实际写对象）。
 
 ### Worker
@@ -204,7 +183,6 @@ PID 不足以证明健康。应提供：
 - 最近任务 heartbeat；
 - queue backlog；
 - collector registry load；
-- browser runtime/version（试点）。
 
 ## 8. 指标和告警
 
@@ -221,7 +199,6 @@ PID 不足以证明健康。应提供：
 | `geo_batch_build_failure` | 任意失败 |
 | `geo_reported_cost_daily` | 接近预算 |
 | `geo_cost_coverage_rate` | 长期过低 |
-| `geo_browser_session_unhealthy` | >0 |
 | `geo_storage_write_failure` | 任意连续失败 |
 
 ### 8.2 业务告警与系统告警分离
@@ -241,12 +218,11 @@ partsignal.worker
 partsignal.geo.collector
 partsignal.geo.analysis
 partsignal.geo.scheduler
-partsignal.geo.browser
 ```
 
 字段：request/run/batch/profile、stage、status、error code、duration、byte count、citation count、reported usage/cost。禁止正文和 secret。
 
-日志轮转沿用 json-file 限制；Browser video/trace 默认关闭，只有受控排障会话开启并进行敏感审查。
+日志轮转沿用 json-file 限制；诊断产物不得包含凭据或敏感正文。
 
 ## 10. 备份
 
@@ -255,7 +231,6 @@ partsignal.geo.browser
 - PostgreSQL；
 - OSS 中 GEO screenshot/raw payload；
 - AI encryption key；
-- Browser session key/material（若启用）；
 - 生产 env 和 release manifest；
 - Nginx 配置。
 
@@ -296,25 +271,9 @@ partsignal.geo.browser
 
 每个任务限批、可观察、幂等，并有 dry-run/测试。
 
-## 12. Browser Pilot Runbook 门禁
+## 12. 后续 Browser 验收
 
-上线一个真实平台前：
-
-```text
-[ ] ADR-005 已接受
-[ ] 合规批准
-[ ] 专用账号和负责人
-[ ] 登录/撤销流程演练
-[ ] 本地 DOM contract tests
-[ ] kill switch
-[ ] 每日/每小时频率上限
-[ ] 代理和地区确认
-[ ] 敏感截图测试
-[ ] 失败不保存空成功
-[ ] 会话过期告警
-[ ] 不在 CI 使用真实平台
-[ ] 小样本人工交叉核验
-```
+Browser 专属合同、登录探针、容量和恢复不属于当前默认质量门禁。后续功能需单独排期、批准和验收。
 
 ## 13. 回滚
 
@@ -413,74 +372,9 @@ API Profile max_concurrency 默认1，requests_per_minute默认60；旧配置继
 本地 fake 验收不授予生产 adapter 批准或 INTERNAL 外发授权，不代表生产发布完成。
 
 
-## 当前 R7：GEO-801 独立 Browser 骨架
+## R7 历史资产
 
-`browser-collector/` 拥有独立 package、lockfile 与 Dockerfile，固定 Playwright 1.61.1；
-API/Worker/Scheduler 继续使用原 backend 镜像。dev/staging/prod Compose 通过
-`compose.geo-browser.yaml` include 共享 `geo-browser` profile，默认服务集合不包含该服务。
-GEO-801 不接 Broker/数据库、不注册可用 Browser adapter；普通 API Worker 对非 API Run
-在资格、锁和写入前返回，不把误投 Browser UUID 改成 API 失败。
-
-仅启动本地骨架（保留两个业务开关关闭和默认 STOP）：
-
-```bash
-docker compose -f deploy/compose.geo-browser.yaml --profile geo-browser up --build -d --wait
-docker compose -f deploy/compose.geo-browser.yaml --profile geo-browser exec -T browser-collector node src/healthcheck.mjs
-docker compose -f deploy/compose.geo-browser.yaml --profile geo-browser down
-```
-
-已有环境使用对应 Compose 加 `--profile geo-browser`；服务不依赖核心服务。
-默认镜像 `partsignal-browser-collector:geo801`，可分别覆盖
-`PARTSIGNAL_BROWSER_COLLECTOR_IMAGE` / `PARTSIGNAL_BROWSER_COLLECTOR_VERSION`。
-这是独立构建交付，尚未纳入生产发布镜像推送或批准真实平台运行。
-
-两个采集开关由 Compose shell / `--env-file` 插值读取，默认 false；不加载后端的
-`PARTSIGNAL_RUNTIME_ENV_FILE` 或通用 `env_file`，避免数据库、AI、会话凭据进入浏览器容器。
-不要以“后端 runtime 文件已开启”推断 Browser 当前进程配置。显式空值/非法值、
-Browser 开启但 monitoring 关闭均启动失败。开关变化需 recreate；profile 只是启动选择。
-
-只读控制目录默认 `deploy/geo-browser-control`，其中默认存在 `STOP`。
-需要临时控制目录时设置 `PARTSIGNAL_GEO_BROWSER_CONTROL_DIR` 为已存在目录的绝对路径；
-缺目录不自动创建。安全热停止是在宿主控制目录创建 `STOP`，每次内部入口与健康探测
-重新检查；任意类型的 STOP（含断开的 symlink）、目录缺失或访问错误均拒绝。
-移除 STOP 也仅得到 `BROWSER_ADAPTER_NOT_IMPLEMENTED`，不获得会话/平台/采集授权。
-容器只读挂载该目录；没有业务凭据、会话卷或 socket。紧急进程停止用上述 `down`
-（需带 profile），SIGTERM 关闭上下文/浏览器，10秒容器停止期限，无自动重启。
-
-资源：1 CPU、1 GiB 内存、128 PID、128 MiB `/tmp` tmpfs 与128 MiB shm；
-非 root `pwuser`、init、只读根、cap_drop ALL、no-new-privileges，
-`network_mode: none`，无端口、业务网络、外部 DNS/代理/egress。
-健康只访问容器回环，真实 Chromium 在 offline context 内完成内存 DOM 探测；
-采集关闭仍可健康，会话探测明确 `NOT_IMPLEMENTED`。日志仅固定 code，无 SDK异常、正文、secret。
-
-`deploy/geo-browser-seccomp.json` 来源是
-[官方 Playwright v1.61.1 seccomp](https://github.com/microsoft/playwright/blob/v1.61.1/utils/docker/seccomp_profile.json)，
-默认 syscall 拒绝。保留官方 user namespace 的 clone/setns/unshare 放行，并允许 chroot
-进入 syscall 的内核权限检查：cap_drop ALL 时官方基于初始 CAP_SYS_CHROOT 的条件规则
-会阻止 Chromium 子命名空间的 sandbox chroot。服务不获得宿主 CAP_SYS_CHROOT/SYS_ADMIN，
-内核仍要求调用者在所属 user namespace 拥有对应能力；Chromium sandbox 显式开启。
-该规则已在本地 Docker Linux runtime 验证；不以 privileged、unconfined 或关闭 sandbox
-替代。这里只渲染可信内存页，后续真实平台需要其任务建立批准网络、会话和安全验收。
-
-`make test-geo-browser` 运行三环境 Compose、默认 up 零容器、实际健康/隔离、
-开关/热 STOP/未实现拒绝和停止清理。GEO-801 骨架没有新增 OpenAPI/DDL/Alembic 或历史回填；
-GEO-802 的独立会话管理见下文。模拟站 adapter suite、真实平台采集和截图由后续任务实现。
-
-## GEO-802：受保护会话卷与人工撤销
-
-GEO-802 只交付会话管理。配置 key `browser-session` 的采集能力为空，未批准且不支持连接测试；不能启用、执行 collect 或产生 PASSED。health 的 AVAILABLE 只代表密文可读、摘要完整和人工授权期限未到，`login_probe=NOT_IMPLEMENTED`，不代表真实平台仍然登录。
-
-0063 增加 geo_browser_sessions 与 Profile 内部 session_revision 默认0；无历史回填。先前滚迁移，再部署 API/UI；回退关闭会话入口、保持撤销历史，采用前向修复。导入要求 ADMIN、CSRF、Profile 当前 revision、AUTHENTICATED、HTTPS 网站、APPROVED 合规和明确 approved_account=true。导出资料只允许该 Surface 同一 HTTPS origin/domain，最长30日并不得超过任一持久Cookie有效期。
-
-默认无密钥/卷配置时导入返回 DEPENDENCY_UNAVAILABLE。部署方须在容器运行UID下预先建立独立受保护目录（推荐0700；不允许other访问），不能位于普通 OBJECT_STORAGE_PATH、OSS、Web静态目录或截图/备份公开目录。对象0600，文件与目录fsync后才发布引用。API仅持RSA至少3072位公钥，Collector独占对应私钥；服务能力凭据为32至512字节独立随机值，仅文件注入，不放环境变量正文。私钥及服务能力文件为0400/0600、无group/other权限、可被容器用户读取。不要把key或导出的storage_state放入仓库、命令行参数、终端输出或日志。
-
-显式启用安全挂载时，在所用基础Compose后追加 `-f deploy/compose.geo-browser-sessions.yaml`，并设置部署侧路径 `PARTSIGNAL_GEO_BROWSER_SESSION_ROOT`、`PARTSIGNAL_GEO_BROWSER_SESSION_PUBLIC_KEY_FILE`、`PARTSIGNAL_GEO_BROWSER_SESSION_PRIVATE_KEY_FILE`、`PARTSIGNAL_GEO_BROWSER_SESSION_SERVICE_KEY_FILE` 与已批准现有ADMIN服务账号 `PARTSIGNAL_GEO_BROWSER_SESSION_SERVICE_USER_ID`。overlay只给API挂密文卷/公钥/能力文件，Collector挂私钥/能力文件；所有路径须预先存在，禁止自动建立空凭据。Browser仍network none、默认STOP、开关false；此overlay不授权或接线任何网络consumer。804必须单独建立批准egress与发送前授权。
-
-管理员在观测面配置的Browser Profile详情选择人工登录导出的文件、输入授权到期时间并确认账号已批准。前端不回显文件内容，秘密仅经当前请求传输，不进入query/mutation缓存、URL、浏览器持久存储。冲突需显式刷新并重新确认，不自动重放导入。导入/替换清除测试事实并停用；撤销先提交数据库墓碑和审计，再删除密文。清理失败显示待办数量，可显式重试PURGE；缺失文件视为已删除，撤销历史永不删除。恢复需要新人工登录/新导入，生成新UUID，不能复活旧引用。
-
-内部读取仅接受X-GEO-Browser-Service-Key，绑定现有启用ADMIN；每次重新验证总/Browser开关、活动且合规Surface、活动且AUTHENTICATED Profile、归属、撤销、过期及密文摘要。访问审计提交后才返回密文，不授权Run SEND。Collector withAuthorizedSession 每次调用注入authorize，私钥/解密Buffer及state在finally清理；consumer负责关闭临时BrowserContext。JavaScript字符串和已释放内存无法保证物理抹除或远程追回，故不得缓存、打印或截图。
-
-卷和数据库不共事务：导入崩溃可能遗留无法通过API访问的未引用密文，撤销崩溃可能留下已失效待清理密文。以PG引用/撤销为准，保存证据并人工安全清理；自动保留清理与完整灾难恢复仍属后续任务。轮换密钥前必须安排人工重新导入或保留必要的受控旧私钥；本任务不实现多密钥回退。不得在已撤销引用上修改摘要/有效期/身份，或downgrade删除历史。
+GEO-801～803 已接受的历史实现与验证保留在 Trellis 任务记录中；当前版本不安装、启动、调试或部署 Browser Collector，不配置 Browser 会话材料。
 
 ## GEO-901 / R8 retention 运维
 
@@ -498,7 +392,7 @@ GEO-802 只交付会话管理。配置 key `browser-session` 的采集能力为�
 
 停止：恢复新任务dry-run或停Beat/Worker；保留0064表和墓碑、前向修复，不执行破坏性downgrade。已清理临时数据恢复/备份演练属于GEO-903，本任务不实施。
 
-本轮开发环境检查：Browser=false、无Browser运行服务、无会话root/公钥/能力配置、开发库没有会话表，因此Browser临时数据清理N/A；依据见[GEO-901证据](../../../.trellis/tasks/10-05-geo-901-retention/evidence/browser-materials.json)。不代表生产或其他环境；有部署/材料时仍按802保护、撤销和PURGE处理并重新检查，不从默认值推断安全。904/906必须实际核实生产false和无会话，903会话恢复条件验收保留。
+本轮开发环境检查：Browser=false、无Browser运行服务、无会话root/公钥/能力配置、开发库没有会话表，因此Browser临时数据清理N/A；依据见[GEO-901证据](../../../.trellis/tasks/10-05-geo-901-retention/evidence/browser-materials.json)。不代表生产或其他环境；发现历史部署/材料时停止并交由独立授权的处置任务处理，不从默认值推断安全。904/906必须实际核实生产false和无会话，当前不执行 Browser 会话恢复验收；工具发现历史材料时明确失败。
 
 
 ## 当前 R8：GEO-902 可观察性（本地验证后交付 review）
@@ -511,8 +405,7 @@ GEO-802 只交付会话管理。配置 key `browser-session` 的采集能力为�
 
 Worker本机心跳、目标Celery ping，Scheduler真实tick/publish、PG/Redis/registry联合检查；
 三环境Compose替换PID-only检查。四种恢复扫描执行时间与tick分开；尚未接线的生产计划
-cron和自动机会评估不伪造成功，不由902补功能。Browser仅现有PG会话材料元数据，
-真实登录探针仍NOT_IMPLEMENTED，ADR-006延期不变。
+cron和自动机会评估不伪造成功，不由902补功能。Browser 的历史元数据不证明当前支持会话管理或真实登录；当前版本不提供探针教程。
 
 稳定GEO JSON字段、有限指标标签、NULL/NaN、原子textfile采集、dashboard/rules导入、
 告警起始阈值与排障步骤以[运维资产说明](../../../deploy/observability/geo/README.md)为当前实现入口。
@@ -523,7 +416,7 @@ cron和自动机会评估不伪造成功，不由902补功能。Browser仅现有
 
 ## 当前 R8：GEO-903 一致性集合和隔离恢复
 
-备份清单、静默窗口、认证加密、一次性owner数据库/对象树、Run Detail/指标/凭据对账、历史调度窗口及PENDING/RUNNING处置以[恢复Runbook](./09-backup-recovery-runbook.md)为当前操作入口。OpenAPI/schema/head不变；不启动consumer，不对生产OSS写入。Browser N/A须有实际部署、配置、PG与材料依据，存在材料转入802专用保护/恢复/撤销分支，不能因延期豁免。生产904/906检查和灾难切换不由本地演练代替。
+备份清单、静默窗口、认证加密、一次性owner数据库/对象树、Run Detail/指标/凭据对账、历史调度窗口及PENDING/RUNNING处置以[恢复Runbook](./09-backup-recovery-runbook.md)为当前操作入口。OpenAPI/schema/head不变；不启动consumer，不对生产OSS写入。Browser N/A须有实际部署、配置、PG与材料依据，发现历史材料时工具明确失败，保持现场并另行授权处理。生产904/906检查和灾难切换不由本地演练代替。
 
 
 ## GEO-905 Worker容量配置

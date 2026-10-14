@@ -1,0 +1,137 @@
+Makefile:31:.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate initialize-accounts lint typecheck test-unit test-integration e2e build build-frontend verify verify-release check-backend-fast check-frontend-fast check-fast check-ai check-geo test-deploy-scripts test-frontend-container staging-redeploy-fast down test-geo-fixtures test-geo-collector-contract test-geo-performance check-browser-experimental test-geo-browser test-geo-browser-contract test-geo-recovery test-geo-recovery-integration test-geo-capacity test-upgrade-recovery test-upgrade-recovery-compose production-check production-prepare production-activate production-smoke production-restart test-production-routine
+Makefile:133:	npm --prefix browser-collector ci
+Makefile:134:	npm --prefix browser-collector run lint
+Makefile:135:	npm --prefix browser-collector run typecheck
+Makefile:136:	npm --prefix browser-collector test
+Makefile:137:	$(UV) run --project backend python deploy/scripts/test-geo-browser.py
+Makefile:138:	$(MAKE) test-geo-browser-contract
+Makefile:140:test-geo-browser:
+Makefile:141:	$(UV) run --project backend python deploy/scripts/test-geo-browser.py --runtime
+Makefile:143:test-geo-browser-contract:
+Makefile:144:	$(UV) run --project backend python deploy/scripts/test-geo-browser-contract.py $(if $(filter 1,$(GEO_BROWSER_CONTRACT_CONTAINER)),--container,)
+.env.example:53:GEO_BROWSER_COLLECTION_ENABLED=false
+.env.production.example:62:GEO_BROWSER_COLLECTION_ENABLED=false
+deploy/compose.geo-browser.yaml:4:  browser-collector:
+deploy/compose.geo-browser.yaml:5:    image: ${PARTSIGNAL_BROWSER_COLLECTOR_IMAGE:-partsignal-browser-collector}:${PARTSIGNAL_BROWSER_COLLECTOR_VERSION:-geo801}
+deploy/compose.geo-browser.yaml:7:      context: ../browser-collector
+deploy/compose.geo-browser.yaml:8:    profiles: [geo-browser]
+deploy/compose.geo-browser.yaml:16:      - seccomp=./geo-browser-seccomp.json
+deploy/compose.geo-browser.yaml:20:      GEO_BROWSER_COLLECTION_ENABLED: ${GEO_BROWSER_COLLECTION_ENABLED-false}
+deploy/compose.geo-browser.yaml:21:      GEO_BROWSER_KILL_SWITCH_FILE: /run/control/STOP
+deploy/compose.geo-browser.yaml:24:        source: ${PARTSIGNAL_GEO_BROWSER_CONTROL_DIR:-./geo-browser-control}
+docs/maintenance/openai-sdk-refactor/task-manifest.yaml:27:    task_brief: .trellis/tasks/10-13-psr-005-defer-browser-collector/prd.md
+docs/maintenance/openai-sdk-refactor/README.md:13:| PSR-005 | Browser 能力延期，清理当前文档和默认验证/部署入口 | [证据](../../../.trellis/tasks/10-13-psr-005-defer-browser-collector/implement.md) |
+deploy/scripts/e2e-local.sh:18:export GEO_BROWSER_COLLECTION_ENABLED=false
+deploy/scripts/e2e-local.sh:154:  export GEO_BROWSER_SESSION_ROOT="$browser_session_dir/cipher"
+deploy/scripts/e2e-local.sh:155:  export GEO_BROWSER_SESSION_PUBLIC_KEY_FILE="$browser_session_dir/public.pem"
+deploy/scripts/e2e-local.sh:156:  mkdir -m 700 "$GEO_BROWSER_SESSION_ROOT"
+deploy/scripts/e2e-local.sh:158:    "$GEO_BROWSER_SESSION_PUBLIC_KEY_FILE"
+deploy/scripts/test-geo-recovery-integration.py:65:        "GEO_BROWSER_COLLECTION_ENABLED": "false",
+deploy/scripts/test-geo-browser.py:33:    for name in ("dev", "staging", "prod", "geo-browser"):
+deploy/scripts/test-geo-browser.py:47:        assert "browser-collector" not in default["services"]
+deploy/scripts/test-geo-browser.py:51:        assert "browser-collector" not in all_default["services"]
+deploy/scripts/test-geo-browser.py:54:            base += ["-f", str(deploy / "compose.geo-browser.yaml")]
+deploy/scripts/test-geo-browser.py:56:            base + ["--profile", "geo-browser", "config", "--format", "json"], env=env
+deploy/scripts/test-geo-browser.py:63:            assert "browser-collector" not in configured["services"]
+deploy/scripts/test-geo-browser.py:64:            assert "browser-collector" not in all_profiles["services"]
+deploy/scripts/test-geo-browser.py:65:            assert "geo-browser" not in execute(base + ["config", "--profiles"], env=env)
+deploy/scripts/test-geo-browser.py:67:                assert all("geo-browser" not in v["target"]
+deploy/scripts/test-geo-browser.py:69:                assert not any(key.startswith("GEO_BROWSER_SESSION_")
+deploy/scripts/test-geo-browser.py:72:        service = configured["services"]["browser-collector"]
+deploy/scripts/test-geo-browser.py:73:        assert service["profiles"] == ["geo-browser"]
+deploy/scripts/test-geo-browser.py:85:            "GEO_MONITORING_ENABLED": "false", "GEO_BROWSER_COLLECTION_ENABLED": "false",
+deploy/scripts/test-geo-browser.py:86:            "GEO_BROWSER_KILL_SWITCH_FILE": "/run/control/STOP",
+deploy/scripts/test-geo-browser.py:92:            base + ["--profile", "geo-browser", "config", "--format", "json"],
+deploy/scripts/test-geo-browser.py:93:            env={**env, "GEO_MONITORING_ENABLED": "", "GEO_BROWSER_COLLECTION_ENABLED": ""}
+deploy/scripts/test-geo-browser.py:94:        ))["services"]["browser-collector"]["environment"]
+deploy/scripts/test-geo-browser.py:95:        assert empty["GEO_MONITORING_ENABLED"] == empty["GEO_BROWSER_COLLECTION_ENABLED"] == ""
+deploy/scripts/test-geo-browser.py:105:    seccomp = json.loads((ROOT / "deploy/geo-browser-seccomp.json").read_text())
+deploy/scripts/test-geo-browser.py:113:    image = f"partsignal-browser-collector:{project}"
+deploy/scripts/test-geo-browser.py:120:           "PARTSIGNAL_GEO_BROWSER_CONTROL_DIR": str(control)}
+deploy/scripts/test-geo-browser.py:122:            "-f", str(ROOT / "deploy/compose.geo-browser.yaml")]
+deploy/scripts/test-geo-browser.py:123:    active = base + ["--profile", "geo-browser"]
+deploy/scripts/test-geo-browser.py:129:        execute(["docker", "build", "-t", image, str(ROOT / "browser-collector")], env=env)
+deploy/scripts/test-geo-browser.py:131:        env.update(GEO_MONITORING_ENABLED="", GEO_BROWSER_COLLECTION_ENABLED="")
+deploy/scripts/test-geo-browser.py:134:        logs = execute(active + ["logs", "--no-log-prefix", "browser-collector"], env=env)
+deploy/scripts/test-geo-browser.py:136:        env.update(GEO_MONITORING_ENABLED="false", GEO_BROWSER_COLLECTION_ENABLED="false")
+deploy/scripts/test-geo-browser.py:139:        container = execute(active + ["ps", "-q", "browser-collector"], env=env).strip()
+deploy/scripts/test-geo-browser.py:149:        execute(active + ["exec", "-T", "browser-collector", "node", "-e",
+deploy/scripts/test-geo-browser.py:154:            return json.loads(execute(active + ["exec", "-T", "browser-collector", "node", "-e",
+deploy/scripts/test-geo-browser.py:158:            output = subprocess.run(active + ["exec", "-T", "browser-collector", "node",
+deploy/scripts/test-geo-browser.py:175:        env.update(GEO_MONITORING_ENABLED="true", GEO_BROWSER_COLLECTION_ENABLED="true")
+deploy/scripts/test-geo-browser.py:180:        admission("BROWSER_ADAPTER_NOT_IMPLEMENTED")
+deploy/scripts/test-geo-browser.py:181:        refused("BROWSER_ADAPTER_NOT_IMPLEMENTED")
+deploy/scripts/test-geo-browser.py:185:        assert health()["session_probe"] == "NOT_IMPLEMENTED"
+deploy/scripts/test-geo-browser.py:187:        container = execute(active + ["ps", "--all", "-q", "browser-collector"], env=env).strip()
+docs/production-configuration.md:65:| `GEO_BROWSER_COLLECTION_ENABLED` | Production 固定 `false`；省略仍为 `false`，显式输入只接受 literal `false`；Monitoring=true 也不能启用 Browser，Settings 和 production preflight 拒绝 true |
+docs/production-configuration.md:85:权威 production Compose 不包含 Browser service/profile/session 卷；显式 `geo-browser`、`COMPOSE_PROFILES=geo-browser` 或 `--profile '*'` 展开也不会产生 Browser 服务。两个 Browser Compose 文件仅作为隔离历史资产保留，不被 Dev/Staging/Prod 默认入口引用。禁止通过手工多文件 Compose 绕过权威部署入口；GEO-801～803 历史源码和合同继续保留，当前不安装、启用或部署。release manifest producer/consumer 当前固定14项tracked files，包含输入检查、迁移运行时、部署/supervisor模块与清空边界owner；旧manifest不自动兼容。[ADR-008](./geo-monitoring/05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)将UI完成后新候选的门禁、工件和冻结归属GEO-1010-DEPLOY；目标Browser零服务/零会话材料仍须独立现场证据。
+deploy/scripts/check-production-inputs.py:29:    "GEO_BROWSER_COLLECTION_ENABLED",
+deploy/scripts/check-production-inputs.py:108:    if values.get("GEO_BROWSER_COLLECTION_ENABLED", "false") != "false":
+deploy/scripts/check-production-inputs.py:109:        raise InputError("PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED")
+deploy/scripts/check-production-inputs.py:178:        if source.get("GEO_BROWSER_COLLECTION_ENABLED", "false") != "false":
+deploy/scripts/check-production-inputs.py:179:            raise InputError("PRODUCTION_FIXED_VALUE_REQUIRED:GEO_BROWSER_COLLECTION_ENABLED")
+deploy/scripts/check-production-inputs.py:181:            "GEO_BROWSER_SESSION_", "PARTSIGNAL_GEO_BROWSER_SESSION_"
+docs/geo-monitoring/05-decisions/ADR-006-defer-browser-collection-and-adopt-manual-first-core.md:22:6. 核心生产必须保持 `GEO_BROWSER_COLLECTION_ENABLED=false`，不启用 `geo-browser` 服务或会话挂载/能力凭据，不存在生产 Browser 会话。GEO-904/906 必须在目标环境核实，不能从仓库默认值推断生产事实。本次仅文档调整，未执行生产检查。
+deploy/scripts/test-geo-configuration.py:18:    "GEO_BROWSER_COLLECTION_ENABLED",
+deploy/scripts/test-geo-configuration.py:115:                assert "browser-collector" not in services
+deploy/scripts/test-geo-configuration.py:131:                    assert "生产环境禁止 GEO_BROWSER_COLLECTION_ENABLED=true" in started.stderr
+deploy/scripts/test-geo-configuration.py:137:                for profiles in ([], ["--profile", "geo-browser"], ["--profile", "*"]):
+deploy/scripts/test-geo-configuration.py:143:                            "GEO_BROWSER_COLLECTION_ENABLED": "true",
+deploy/scripts/test-geo-configuration.py:144:                            "COMPOSE_PROFILES": "geo-browser",
+deploy/scripts/test-geo-configuration.py:153:                    assert "browser-collector" not in production["services"]
+deploy/scripts/test-geo-configuration.py:155:                        assert "geo-browser" not in service.get("profiles", [])
+deploy/scripts/test-geo-configuration.py:156:                        assert not any("geo-browser" in mount["target"]
+deploy/scripts/test-geo-configuration.py:158:                        assert not any(name.startswith("GEO_BROWSER_SESSION_")
+docs/geo-monitoring/README.md:106:GEO-801、802、803 已人工接受为 done，代码和证据保留。GEO-804～807 为 deferred，release 为 post-core；真实 Adapter 未实施。核心生产必须保持 GEO_BROWSER_COLLECTION_ENABLED=false 且无生产 Browser 会话，实际环境检查留 GEO-904/906，不从默认配置推断已验收上线。
+docs/geo-monitoring/06-reviews/GEO-1001-release-readiness-audit.md:11:- **[P1] 生产配置仍接受 `GEO_BROWSER_COLLECTION_ENABLED=true`。**  
+docs/geo-monitoring/06-reviews/GEO-1001-release-readiness-audit.md:182:make test-geo-browser-contract
+deploy/scripts/test-geo-browser-contract.py:39:        env = {**os.environ, "GEO_BROWSER_TEST_CANARIES": json.dumps(canaries),
+deploy/scripts/test-geo-browser-contract.py:40:               "GEO_BROWSER_CONTRACT_OUTPUT": str(output)}
+deploy/scripts/test-geo-browser-contract.py:47:                "--security-opt", f"seccomp={ROOT / 'deploy/geo-browser-seccomp.json'}",
+deploy/scripts/test-geo-browser-contract.py:51:                "--mount", f"type=bind,source={ROOT / 'browser-collector'},target=/workspace/browser-collector,readonly",
+deploy/scripts/test-geo-browser-contract.py:54:                "--workdir", "/workspace/browser-collector", "-e", "HOME=/tmp/collector",
+deploy/scripts/test-geo-browser-contract.py:55:                "-e", "GEO_BROWSER_TEST_CANARIES", "-e", "GEO_BROWSER_CONTRACT_OUTPUT=/results/values.jsonl",
+deploy/scripts/test-geo-browser-contract.py:63:            with subprocess.Popen(command, cwd=ROOT / "browser-collector", env=env,
+docs/geo-monitoring/01-product/05-v1-release-capability-matrix.md:60:| GEO_BROWSER_COLLECTION_ENABLED | false | production **硬禁止 true** | GEO-1003 实现/本地验证已接受；现场 GEO-1010 |
+deploy/compose.geo-browser-sessions.yaml:6:      GEO_BROWSER_SESSION_ROOT: /run/geo-browser-sessions
+deploy/compose.geo-browser-sessions.yaml:7:      GEO_BROWSER_SESSION_PUBLIC_KEY_FILE: /run/geo-browser-session-public.pem
+deploy/compose.geo-browser-sessions.yaml:8:      GEO_BROWSER_SESSION_SERVICE_KEY_FILE: /run/geo-browser-service.key
+deploy/compose.geo-browser-sessions.yaml:9:      GEO_BROWSER_SESSION_SERVICE_USER_ID: ${PARTSIGNAL_GEO_BROWSER_SESSION_SERVICE_USER_ID:?必须指定已批准ADMIN服务账号}
+deploy/compose.geo-browser-sessions.yaml:12:        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_ROOT:?必须指定独立受保护会话目录}
+deploy/compose.geo-browser-sessions.yaml:13:        target: /run/geo-browser-sessions
+deploy/compose.geo-browser-sessions.yaml:17:        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_PUBLIC_KEY_FILE:?必须指定RSA公钥文件}
+deploy/compose.geo-browser-sessions.yaml:18:        target: /run/geo-browser-session-public.pem
+deploy/compose.geo-browser-sessions.yaml:23:        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_SERVICE_KEY_FILE:?必须指定服务能力文件}
+deploy/compose.geo-browser-sessions.yaml:24:        target: /run/geo-browser-service.key
+deploy/compose.geo-browser-sessions.yaml:28:  browser-collector:
+deploy/compose.geo-browser-sessions.yaml:31:        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_PRIVATE_KEY_FILE:?必须指定Collector私钥文件}
+deploy/compose.geo-browser-sessions.yaml:32:        target: /run/geo-browser-session-private.pem
+deploy/compose.geo-browser-sessions.yaml:37:        source: ${PARTSIGNAL_GEO_BROWSER_SESSION_SERVICE_KEY_FILE:?必须指定服务能力文件}
+deploy/compose.geo-browser-sessions.yaml:38:        target: /run/geo-browser-service.key
+docs/geo-monitoring/01-product/02-geo-core-prd.md:1021:以下为延期后的目标设计，按 ADR-006 恢复条件和平台批准实施，不是核心首发已具备能力。核心生产保持 GEO_BROWSER_COLLECTION_ENABLED=false 且无 Browser 会话。
+docs/geo-monitoring/CHANGELOG.md:20:- 实际验证、引用分类与限制见 [PSR-005 证据](../../.trellis/tasks/10-13-psr-005-defer-browser-collector/implement.md)，未部署、未运行完整 release verify。
+docs/geo-monitoring/CHANGELOG.md:105:- 实际本轮验证、独立只读复核与限制见[治理实施记录](../../.trellis/tasks/10-05-geo-browser-scope-adjustment/implement.md)；不宣称生产开关/会话或R8上线已实测，不提交、发布或归档。
+docs/geo-monitoring/CHANGELOG.md:117:- 独立package/锁文件/镜像与三环境共享geo-browser profile，默认关闭并保留默认STOP。
+docs/geo-monitoring/CHANGELOG.md:120:- 无新OpenAPI/DDL/Alembic、会话/真实平台/截图/管理UI。实际验证与独立复核见[实施记录](../../.trellis/tasks/10-05-geo-801-browser-collector/implement.md)；仅review等待人工接受，不实施802/803。
+docs/geo-monitoring/03-technical/01-technical-architecture.md:341:GEO_BROWSER_COLLECTION_ENABLED
+docs/geo-monitoring/03-technical/08-deployment-and-operations.md:59:GEO_BROWSER_COLLECTION_ENABLED=false
+docs/geo-monitoring/03-technical/08-deployment-and-operations.md:310:- R7 延期不阻断核心上线；Browser 开关必须 false、geo-browser 服务未启用且无生产会话，并留目标环境证据。后续启用必须另按 ADR-006 恢复和生产授权门禁执行。
+docs/geo-monitoring/03-technical/10-core-rollout-runbook.md:97:| GEO_BROWSER_COLLECTION_ENABLED | **false；production 硬禁止 true** | **false；production 硬禁止 true** |
+docs/geo-monitoring/03-technical/10-core-rollout-runbook.md:111:1. API/Worker/Beat 的实际 GEO_BROWSER_COLLECTION_ENABLED 均为 false。
+docs/geo-monitoring/03-technical/10-core-rollout-runbook.md:112:2. 没有启动 geo-browser service、Browser Compose profile 或 session overlay；没有 Browser 私钥、服务能力或会话卷挂载。
+docs/geo-monitoring/03-technical/03-api-contract-design.md:567:GEO_BROWSER_COLLECTION_DISABLED
+docs/geo-monitoring/04-delivery/task-manifest.yaml:1335:  trellis_task: .trellis/tasks/10-05-geo-801-browser-collector
+docs/geo-monitoring/04-delivery/task-manifest.yaml:1337:  review_note: "2026-10-05：独立Browser package/image/geo-browser profile、非root sandbox与network none/只读/资源限额、真实DOM健康、默认STOP与热kill、稳定UUID显式拒绝和API非API早退完成。lint/typecheck/unit（3 Collector+3660 backend+1266 frontend）/contract/部署/真实runtime通过；19项既有Worker通过，新PG夹具修正后1项边界定向通过。普通production镜像真实探针无浏览器依赖。独立复核空值插值P2已修正并复验，Audit Bundle校验通过。无OpenAPI/DDL/new revision或历史迁移；head0062。仅review等待人工接受，不实现802/803、不提交/上线。文档包原有核心PRD摘要不一致已确认任务前存在，未改业务文档；详情见Trellis implement/evidence。 2026-10-05 本会话用户已人工审查并接受GEO-801的实现与测试证据；本次仅记录验收，manifest=done、Trellis=completed，不修改其他任务状态、不实施后续任务，不提交、推送或归档。"
+docs/geo-monitoring/04-delivery/task-manifest.yaml:1639:  deliverables: 核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。
+docs/geo-monitoring/04-delivery/task-manifest.yaml:1641:  acceptance: 核心版正式可用；GEO_BROWSER_COLLECTION_ENABLED=false、Browser 服务/profile 未启用且无生产会话；R7 deferred 不阻断，延期项不标已实现，核心与延期证据分别保留。
+docs/geo-monitoring/04-delivery/task-manifest.yaml:1695:  deliverables: 由配置、启动预检和生产 profile/overlay 边界硬拒绝 Browser=true 或显式 geo-browser 启用；保留非生产隔离骨架和默认 false。
+docs/geo-monitoring/04-delivery/11-r8-security-review.md:42:| 实际Browser服务、geo-browser profile未启用；DB Browser profile未启用 | 本地Docker未观察Browser容器，仅本地开发范围 | 目标NOT_VERIFIED |
+docs/geo-monitoring/04-delivery/13-r8-core-release-acceptance.md:16:核心发布要求 GEO_BROWSER_COLLECTION_ENABLED=false、服务/profile 未启用、无生产会话。
+docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md:136:| `GEO-906` | 执行生产渐进上线、最终验收和文档状态更新 | GEO-903, GEO-904, GEO-905 | 核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。 | make verify、生产 smoke、恢复/停止演练。；核心版正式可用；GEO_BROWSER_COLLECTION_ENABLED=false、Browser 服务/profile 未启用且无生产会话；R7 deferred 不阻断，延期项不标已实现，核心与延期证据分别保留。 |
+docs/geo-monitoring/04-delivery/02-work-breakdown-structure.md:145:| `GEO-1003` | production Browser Collection 硬禁止 | GEO-1002, GEO-004 | 由配置、启动预检和生产 profile/overlay 边界硬拒绝 Browser=true 或显式 geo-browser 启用；保留非生产隔离骨架和默认 false。 | production Settings 与启动预检开启负例、显式 profile/overlay 启用负例、false 正例、API/Worker/Beat 启动配置一致性；不访问真实平台。 | production 不能接受 Browser=true 或绕过预检启动 Browser；拒绝先于服务/会话/网络副作用，错误原因明确；三进程 false 与后续现场零部署证据分开；独立只读复核通过。 |
+docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-906.md:36:核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。
+docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-906.md:82:- 核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。
+docs/geo-monitoring/04-delivery/codex-prompts/R8/GEO-906.md:100:- 核心版正式可用；GEO_BROWSER_COLLECTION_ENABLED=false、Browser 服务/profile 未启用且无生产会话；R7 deferred 不阻断，延期项不标已实现，核心与延期证据分别保留。
+docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:11578:核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。
+docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:11624:- 核心范围 expand/deploy/enable、MANUAL 正式闭环、内部试用、监控/回滚和文档验收；R7 延期不阻断核心上线，GEO_BROWSER_COLLECTION_ENABLED 必须保持 false。
+docs/geo-monitoring/04-delivery/codex-prompts/ALL_PROMPTS.md:11642:- 核心版正式可用；GEO_BROWSER_COLLECTION_ENABLED=false、Browser 服务/profile 未启用且无生产会话；R7 deferred 不阻断，延期项不标已实现，核心与延期证据分别保留。

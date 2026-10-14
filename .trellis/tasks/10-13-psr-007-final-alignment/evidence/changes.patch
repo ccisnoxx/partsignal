@@ -1,0 +1,454 @@
+--- a/.env.example
++++ b/.env.example
+@@ -30,7 +30,9 @@
+ 
+ # CELERY_CONCURRENCY 在进程启动时生效，范围1–10；提升前须验证内存与Profile准入容量。
+ # AI 运行时。供应商、模型、API Key 属于数据库配置，不由 env 加载。
+-# Production clean-init 首次录入使用受控 TTY bootstrap；后续由 AI Channel 管理。
++# AI 调用使用官方 openai Python SDK 的 Chat Completions，max_retries=0。
++# Base URL、模型、Key 与受支持 Header 由管理员配置；不使用进程级 OPENAI_CUSTOM_HEADERS。
++# Production 新安装按所选 admin-ui 或受控 TTY bootstrap 初始化；后续由 AI Channel 管理。
+ # deterministic 兼容值关闭正式生成/自然化/重试，不产生假 AI 内容；真实业务需 openai-compatible。
+ # 管理员显式模型测试/发现仍独立允许；模式在进程启动时读取。
+ CONTENT_GENERATOR=deterministic
+@@ -44,7 +46,7 @@
+ 
+ # 新 GEO 能力渐进启用：全部默认关闭；子开关为 true 时总开关必须为 true。
+ # API/Worker/Scheduler 共同加载；修改后需统一重载，不影响现有人工 GEO。
+-# R0 只提供配置，启用不代表 Collector、平台合规或数据外发已获批准。
++# 当前支持人工录入与已实现 API 采集；开关不替代平台批准、PUBLIC、预算和发送授权。
+ GEO_MONITORING_ENABLED=false
+ GEO_API_COLLECTION_ENABLED=false
+ # 后续功能，当前版本固定关闭，不配置会话材料或部署 Collector。
+--- a/.env.production.example
++++ b/.env.production.example
+@@ -1,4 +1,4 @@
+-# Production 运行时完整模板（39 项）。复制到本地 .env.production，权限 0600。
++# Production 运行时完整模板（46 个当前字段，另列可选项注释）。复制到本地 .env.production，权限 0600。
+ # 内部密码/密钥由部署准备生成，DATABASE_URL派生；用户仅提供外部服务信息。
+ # 空值由负责方补齐并校验；这份模板不能直接部署，也不能覆盖已配置的服务器文件。
+ # 开发 .env 与生产 .env.production 分别维护，禁止把开发默认值复制到生产。
+@@ -39,7 +39,9 @@
+ # Worker进程启动时读取，范围1–10；默认1，目标环境容量验证后再提高。
+ CELERY_CONCURRENCY=1
+ 
+-# AI provider/model/API Key 不放入这个文件，详见 AI 初始化模板。
++# AI 使用官方 openai Python SDK / Chat Completions，max_retries=0。
++# Base URL、模型、API Key 与受支持 Header 属于数据库管理员配置，不放入这个文件。
++# 不使用进程级 OPENAI_CUSTOM_HEADERS；AI 初始化方式见 docs/production-configuration.md。
+ # Production 必须 openai-compatible；deterministic 会在 Settings 启动校验时明确失败。
+ CONTENT_GENERATOR=openai-compatible
+ # 独立随机 32 字节经 Base64 编码。必须与数据库备份成对保管；不能随发布重生成。
+@@ -53,12 +55,12 @@
+ 
+ # 新 GEO 能力全部默认关闭；旧 runtime 可省略这四项，Settings 仍为 false。
+ # API/Opportunity 子开关为 true 时总开关必须为 true；更新后需统一重建 API/Worker/Scheduler。
+-# 配置不替代平台合规、权限或数据外发批准；R0 不接入 Collector。
++# 当前支持人工录入与已实现 API 采集；配置不替代平台批准、PUBLIC、预算和发送授权。
+ GEO_MONITORING_ENABLED=false
+ GEO_API_COLLECTION_ENABLED=false
+ # Production 固定 false；即使 Monitoring=true 也禁止 Browser=true，输入检查和启动均失败。
+ GEO_BROWSER_COLLECTION_ENABLED=false
+-# 后续功能，当前版本不配置 Browser 会话材料或部署 Collector。
++# 当前版本不配置 Browser 会话材料或部署 Collector。
+ GEO_OPPORTUNITY_EVALUATION_ENABLED=false
+ # GEO-405：采集 lease 与补投递；不授予外发/adapter 批准权限。
+ GEO_PENDING_REDISPATCH_SECONDS=120
+--- a/.env.staging.example
++++ b/.env.staging.example
+@@ -30,6 +30,9 @@
+ CELERY_CONCURRENCY=1
+ # deterministic 是业务 no-egress 兼容值，不是固定成功的 AI 适配器。
+ # 真实生成/自然化/重试需要 openai-compatible；管理员模型测试/发现独立允许。
++# 使用官方 openai Python SDK / Chat Completions，max_retries=0。
++# Base URL、模型、Key 与受支持 Header 由管理员在数据库配置；不使用 OPENAI_CUSTOM_HEADERS。
++# GEO 开关省略时由 Settings 默认关闭；当前支持人工/API，Browser 和会话材料延期不部署。
+ CONTENT_GENERATOR=deterministic
+ # 自动生成/派生：不需要用户提供。
+ AI_CREDENTIAL_ENCRYPTION_KEY=
+--- a/.trellis/spec/infra/e2e-isolation.md
++++ b/.trellis/spec/infra/e2e-isolation.md
+@@ -2,7 +2,9 @@
+ 
+ ## 1. Scope / Trigger
+ 
+-本地或 CI 运行根 `make e2e` 时适用。canonical Frontend 的 AI Channel Configuration、Product Facts、Content Editor、AI Production、Content Review、Content Version Detail、Publishing、GEO、Auth 与 System Admin 真实栈 Playwright 使用真实 PostgreSQL、Redis、API、Worker、对象存储和浏览器，每次运行必须拥有独立数据库与临时存储；fixture-based 页面测试继续只验证 production build artifact，不冒充真实业务闭环。对象存储下载 URL 的签名 query 属于临时 capability；真实文件流的 access log、Playwright failure message 和保留产物不得回显该 query。
++开发者手工在本地隔离环境运行根 `make e2e` 时适用；仓库不运行 GitHub Actions。canonical Frontend 的 AI Channel Configuration、Product Facts、Content Editor、AI Production、Content Review、Content Version Detail、Publishing、GEO、Auth 与 System Admin 真实栈 Playwright 使用真实 PostgreSQL、Redis、API、Worker、对象存储和浏览器，每次运行必须拥有独立数据库与临时存储；fixture-based 页面测试继续只验证 production build artifact，不冒充真实业务闭环。对象存储下载 URL 的签名 query 属于临时 capability；真实文件流的 access log、Playwright failure message 和保留产物不得回显该 query。
++
++手工快速/领域/发布入口的选择由 [测试策略](../../../docs/testing.md#手工分层命令) 与 [手工验证规范](./manual-quality-checks.md) 管理；本规范只拥有 E2E 的运行隔离与清理合同。
+ 
+ ## 2. Signatures
+ 
+@@ -20,7 +22,7 @@
+ 
+ - `DATABASE_URL`、`REDIS_URL` 必填；`PARTSIGNAL_E2E_STORAGE_PORT` 可选，默认 `19009`。
+ - `PARTSIGNAL_E2E_SPEC` 未设置时运行完整 canonical real-stack；设置时复用同一隔离数据库、Redis、存储、进程与 cleanup，只运行指定真实栈 spec。按受影响行为选择验证时，定向模式可作为验收证据；不得将定向通过记作完整 `make e2e` 通过。明确要求全量覆盖的交付仍运行完整入口；日常部署的选择与证据复用遵循 [Hostdzire Runbook §3](../../../docs/Hostdzire部署上线流程.md)。
+-- `REDIS_URL` 必须指向启动前为空且本次运行独占的非 0 logical DB；DB 0、同库外部客户端或未知残留键直接失败。CI E2E 固定使用 DB 14，backend integration 继续使用 DB 15。
++- `REDIS_URL` 必须指向启动前为空且本次运行独占的非 0 logical DB；DB 0、同库外部客户端或未知残留键直接失败。手工 E2E 可选择独占 DB 14；backend integration 的容器入口使用 DB 15。
+ - 数据库名必须匹配 `^partsignal_e2e_[0-9]{8}_[0-9a-f]{32}$`；日期和 run ID 只接受 ASCII，合法名称固定为 56 字节，不触发 PostgreSQL 标识符截断。32 位十六进制 run ID 由密码学安全随机源生成，不依赖跨容器或 PID namespace 唯一的进程号。创建和删除都拒绝其他名称。业务服务、Alembic 和种子命令只使用本次创建的数据库。
+ - 每次运行另生成独立的 32 位十六进制 owner token。创建成功后以 PostgreSQL database comment 写入精确 owner marker；删除前必须从 PostgreSQL 读取并匹配该 marker。尝试创建本身不授予删除权；同名数据库预先存在或 marker 不匹配时显式拒绝删除。成功创建并标记后，即使 create 客户端随后失败，退出清理仍须验证 marker 并强制断开、删除本运行数据库。
+ - 对象存储和 Celery beat 文件只写入本次 `mktemp -d` 创建的目录。
+@@ -29,14 +31,14 @@
+ - 退出时无论测试成功、失败或收到信号，都停止并 `wait` 本次进程；只删除枚举后符合 allowlist 的精确 Celery/Kombu 键，并证明 Redis 为空和固定端口释放，再 drop 本次数据库和删除临时目录。
+ - 清理输出分别使用数据库 `status=dropped`、存储 `status=removed`、Redis `status=deleted` 与端口 `status=released`；测试成功但任一清理失败时，脚本仍以非零状态退出。禁止 `FLUSHDB`、通配删除、broad kill 或候选路径清理。
+ - `e2e-local.sh` 默认开启 `GEO_MONITORING_ENABLED` 与 `GEO_OPPORTUNITY_EVALUATION_ENABLED`，使 MANUAL 页面闭环具备人工配置、计划启停与 ADMIN 显式评估资格，API/Browser 关闭。显式 `PARTSIGNAL_E2E_GEO_MODE=enabled|api-disabled|monitoring-disabled` 时运行独立 GEO-408 阶段，分别使用总/API 开关 true/true、true/false、false/false，并显式关闭机会评估，符合隔离工厂的启动合同。Browser 始终关闭，生产默认值不变；不能把 MANUAL 页面资格无条件传给 GEO-408 工厂。
+-- GEO 测试入口只在 `backend/tests/geo_e2e_*` 显式装配；启动验证 APP_ENV=test、随机独占 DB 名和 PostgreSQL owner comment、非 0 Redis 与精确回环 provider `127.0.0.1:19012/v1`。进程内批准和 PUBLIC 仅用于严格 GEO408 虚构输入；生产 registry、INTERNAL 工厂、CSRF/revision/SSRF/TLS/凭据/审计边界保持。GEO 端口与 PID 纳入同一 preflight、readiness 和 cleanup。
++- GEO 测试入口只在 `backend/tests/geo_e2e_*` 显式装配；启动验证 APP_ENV=test、随机独占 DB 名和 PostgreSQL owner comment、非 0 Redis 与精确回环 provider `127.0.0.1:19012/v1`。进程内批准和 PUBLIC 仅用于严格 GEO408 虚构输入；生产 registry、INTERNAL 工厂、CSRF/revision、URL/Header、凭据与审计边界保持；AI 使用官方 SDK，不承诺旧 DNS/IP/peer 固定保证。GEO 端口与 PID 纳入同一 preflight、readiness 和 cleanup。
+ - 根 `make e2e` 先运行全部 canonical 真实 flow，精确清理后通过 `e2e-geo.sh` 依次运行上述三个独立 GEO 阶段，再运行 canonical fixture-based 页面 suite；任一阶段失败时根 target 非零。
+ - 关闭开关阶段通过真实 Application Service 预先创建/排队 PENDING，然后启动关闭配置的新 API/Worker，并直接观察 PG 安全终态与该 Run 的 fake count=0。测试控制可重复真实 Celery 稳定 ID，不能改 Run 状态、伪造回答或业务成功；diagnostic UUID 与业务 UUID 分开计数。
+ - Playwright `webServer` 必须执行 production build 后通过 `vite preview` 服务当前 artifact，不使用 Vite dev server。真实栈 external base URL 模式复用 orchestration 已启动的 4174 preview，不得再启动第二个 `webServer`。
+ - 真实栈 spec 只允许测试 API 登录、读取最终投影和前端尚无页面的最小前置配置；已有页面覆盖的业务 mutation 必须通过 UI，禁止 `page.route`、`route.fulfill` 或固定成功状态。既有专项 flow 为建立独立读取或后续状态前置所需的 API mutation不得扩展为第二套业务编排。
+ - Playwright config 在 `PARTSIGNAL_E2E_REAL_STACK=1` 时统一关闭 trace；普通 fixture suite 继续 `retain-on-failure`，不得让 credential 进入失败产物。
+ - `foundationApi` 只允许 active ADMIN 的原子 `GET /api/v1/auth/session` snapshot；任何其他 API 请求、页面异常、失败请求或失败静态资源使 smoke 失败。匿名、首次改密、自助改密与退出由 `auth-session.spec.ts` 显式验证。
+-- dev-storage 必须关闭 Uvicorn access log，避免完整签名 URL 进入终端或 CI 日志；Playwright `requestfailed` 只记录 method 与 pathname。浏览器上传仍严格使用 canonical API base 与 upload intent 相对路径解析出的 URL，但 assertion 只能比较 boolean 或其他不展开 operands 的值。
++- dev-storage 必须关闭 Uvicorn access log，避免完整签名 URL 进入终端或测试日志；Playwright `requestfailed` 只记录 method 与 pathname。浏览器上传仍严格使用 canonical API base 与 upload intent 相对路径解析出的 URL，但 assertion 只能比较 boolean 或其他不展开 operands 的值。
+ 
+ ## 4. Validation & Error Matrix
+ 
+--- a/README.md
++++ b/README.md
+@@ -37,7 +37,7 @@
+ 
+ ## 状态
+ 
+-MVP 纵向闭环已实现，采用契约优先的前后端并行开发。默认开发配置只使用虚构数据、确定性生成器和独立开发对象存储；真实模型、生产 OSS、生产 VPS 与跨平台自动发布均未启用。
++MVP 纵向闭环已实现，采用契约优先的前后端开发。默认开发配置使用虚构数据和独立开发对象存储；`CONTENT_GENERATOR=deterministic` 关闭正式生成、自然化和重试，不产生假 AI 内容。真实生成需要管理员配置合格的渠道/模型，并显式使用 `openai-compatible`。Hostdzire 已有 Production 内部试运行记录，现场状态与未完成验收见 [开发预览说明](./docs/development-preview.md)；仓库默认值不能证明线上能力已启用。跨平台自动发布仍属后续范围。
+ 
+ ## 开发入口
+ 
+@@ -55,8 +55,8 @@
+ make verify-release      # 准备部署指定 commit；make verify 是完整兼容别名
+ ```
+ 
+-具体范围、前置条件与其他领域过滤示例见 [测试策略](./docs/testing.md#手工分层命令)。GitHub 只用于代码备份与服务器拉取，仓库不运行 Actions 工作流；已有独立契约、静态、单元、集成、构建和 E2E 入口继续可用。
++具体范围、前置条件与其他领域过滤示例见 [测试策略](./docs/testing.md#手工分层命令)。GitHub 只用于代码备份与服务器拉取，仓库不运行 Actions 工作流；Docker 交付可按 commit SHA 追踪，不要求 GitHub Release 或 Git tag。已有独立契约、静态、单元、集成、构建和 E2E 入口继续可用。
+ 
+-HTTP 契约位于 `contracts/openapi.yaml`，数据库和状态机契约位于 `contracts/database.md`。生产内容生成固定使用管理员配置的 OpenAI-compatible Chat Completions 渠道；API Key 与敏感 Header 由 `AI_CREDENTIAL_ENCRYPTION_KEY` 加密，作业只保存非敏感快照。本地和自动化测试可以显式使用确定性生成器，但不会在真实调用失败时自动回退。生产 OSS 仍只有在显式配置 `OBJECT_STORAGE_BACKEND=aliyun_oss` 时启用。
++HTTP 契约位于 `contracts/openapi.yaml`，数据库和状态机契约位于 `contracts/database.md`。AI 调用使用官方 `openai` Python SDK，继续 OpenAI-compatible Chat Completions，SDK 自动重试关闭（`max_retries=0`）；Base URL、模型、API Key 和受支持 Header 由管理员配置。应用负责凭据加密、业务快照、`PUBLIC` 数据门禁、严格输出 Schema、状态机、审计和指标；不实现自研 DNS pinning、TCP peer、TLS 或 HTTP/1.1 传输。详细边界见 [实现架构](./docs/architecture.md#外部适配器) 和 [SDK 维护记录](./docs/maintenance/openai-sdk-refactor/README.md)。本地测试使用显式替身；真实调用失败不会自动回退。生产 OSS 仍只有在显式配置 `OBJECT_STORAGE_BACKEND=aliyun_oss` 时启用。
+ 
+ 当前仍处于开发阶段。2026-08-29 起，原 Frontend V2 已提升为 canonical `frontend/`，旧 V1 源码与双前端构建/测试入口已退役；Production 发布、Hostdzire 流量切换和生产观察不由这次仓库切换触发。
+--- a/docs/GEO系统前后端技术与部署方案.md
++++ b/docs/GEO系统前后端技术与部署方案.md
+@@ -366,7 +366,7 @@
+ 
+ 原始生成请求只包含两条消息：`system.content` 逐字等于当前平台 Prompt，`user.content` 逐字等于批准事实版本 Markdown。系统不附加产品元数据、任务字段、固定前缀或事实 JSON。
+ 
+-使用项目自有的最小同步 HTTP/1.1 传输实现 `ContentGenerator` 适配器：单次解析完整 A/AAAA、只连接批准地址、发送敏感 Header 前校验 peer，并以原 hostname 完成 SNI、证书校验和 Host。不得使用会按 hostname 二次解析的通用默认传输，也不增加 LangChain、Agent 框架或图编排系统。
++使用官方 `openai` Python SDK 的同步薄适配层 `AIProvider`，继续 OpenAI-compatible Chat Completions，显式 `max_retries=0`。支持管理员配置的 Base URL、模型、API Key 与受支持 Header；凭据加密、业务快照、`PUBLIC` 门禁、严格输出 Schema、状态机、审计和指标由应用拥有。URL 做输入结构校验，生产要求 HTTPS；不再实现或承诺自研 DNS pinning、TCP peer、TLS 或 HTTP/1.1。GEO API Collector 使用同一 SDK，内部响应大小在完整接收后检查，未知网络结果不自动重放。当前实现合同见 [实现架构](./architecture.md#外部适配器)，不增加编排框架。
+ 
+ 配置中心的“获取模型”通过现有 `GET {base_url}/models` 结果弹窗展示，用户逐个确认后才创建本地模型；已配置 ID 不可重复添加。模型“测试连接”使用独立协议方法调用 `POST {base_url}/chat/completions`，发送唯一用户消息 `hi` 并校验通用响应结构；正式内容生成继续使用独立的严格四字段业务 JSON 解析，两种成功判定不得混用。
+ 
+--- a/docs/Hostdzire部署上线流程.md
++++ b/docs/Hostdzire部署上线流程.md
+@@ -58,7 +58,7 @@
+ 
+ 验证记录可采用 [记录模板](../deploy/validation-record.example.json)，包含 candidate/baseline commit、changed paths、实际命令/结果、复用来源/输入未变依据、未验证范围，以及完整门禁触发原因。记录是操作者的证据索引，不是可信签名或测试执行器。旧 SHA 的全套结果不能直接写成新 SHA 的全套通过；可明确组合旧基线与本次增量证据。代码、依赖、测试配置或环境输入变化时，仅使依赖该输入的证据失效。
+ 
+-准备部署指定 commit 的完整手工验证入口为 `make verify-release`，旧 `make verify` 保持相同范围；小任务与功能切片分别选择快速/领域目标，详见 [测试策略](./testing.md#手工分层命令)。GitHub 只用于备份与服务器拉取，没有 Actions 部署步骤。日常部署脚本不隐式调用源码验证；消费有效证据并补充实际变化的现场检查。保留 Docker 构建缓存和已有依赖；源码、构建配置和依赖未变的镜像可复用其不可变身份。需要新 tag 时由 producer 冻结真实 image ID/RepoDigest，不能伪造身份或覆盖旧 release。
++准备部署指定 commit 的完整手工验证入口为 `make verify-release`，旧 `make verify` 保持相同范围；小任务与功能切片分别选择快速/领域目标，详见 [测试策略](./testing.md#手工分层命令)。GitHub 只用于备份与服务器拉取，没有 Actions 部署步骤。Docker 部署可以使用 commit SHA 追踪源码；不要求 GitHub Release 或 Git tag。这里的 release ID 与镜像 tag 是既有不可变工件身份，继续绑定完整 commit、image ID/RepoDigest 和 manifest，不能省略或覆盖。日常部署脚本不隐式调用源码验证；消费有效证据并补充实际变化的现场检查。保留 Docker 构建缓存和已有依赖；源码、构建配置和依赖未变的镜像可复用其不可变身份。需要新 tag 时由 producer 冻结真实 image ID/RepoDigest，不能伪造身份或覆盖旧 release。
+ 
+ 候选必须来自 clean、已推送的 `main`。默认 `previous-frontend` 恢复策略还冻结 previous V2 镜像；获准清空重建的 `fresh-rebuild` 将该角色记录为不适用。使用 `git archive` 生成不可覆盖源归档，构建 backend 和 Frontend V2 镜像后，通过 `deploy/scripts/create-release-manifest.py` 冻结完整 commit、源归档 SHA-256、backend/migration/current V2 的 image ID 与非空 RepoDigest、schema head、版本化 migration_runtime 指纹，以及固定 14 项 allowlist 中的 Production Compose、状态/部署/激活/输入检查脚本、Production/maintenance Nginx 模板和安全 snippet 校验和。migration 首次默认 backend；严格失败恢复须以 `--migration-image` 保留失败执行的原迁移镜像，并以 `PARTSIGNAL_MIGRATION_IMAGE` 将其完整 reference 传入后续正式命令。完整迁移程序由该镜像全部 rootfs 与执行配置冻结，修复 backend 独立变化。输入检查脚本 `check-production-inputs.py` 和迁移归档与运行时证明模块 `production_upgrade_recovery.py`、`production_migration_runtime.py`，以及部署执行 owner `production_deployment.py`、supervisor `production_maintenance_execution.py` 和清空边界 owner `production_fresh_reset.py` 必须按附录一起传入 tracked files。manifest 采用排他创建；部署和激活会复算 tracked files，并要求 `PARTSIGNAL_VERSION` 精确等于 release ID。不得复用 tag、覆盖文件或从 release 目录名推断 Git 状态。
+ 
+--- a/docs/Hostdzire部署附录.md
++++ b/docs/Hostdzire部署附录.md
+@@ -13,6 +13,8 @@
+ 禁止读取或输出私钥。Production env、数据库密码、会话密钥、账号密码、OSS/AI 凭据不得进入仓库、发布包、manifest、普通日志、对话或无受控权限的临时文件。完整 runtime env 仅可存放于明确批准、权限受限的配置文件和原子安装暂存；AI API Key 仍禁止写入任何文件，遵守第 6 节 true-TTY 合同。
+ 
+ ## 2. Candidate manifest
++
++发布源码按完整 commit SHA 追踪，无 GitHub Release 或 Git tag 前提。GitHub 只用于备份和服务器拉取；完整本地质量验证在准备部署目标 commit 时通过 `make verify-release` 手工执行，不依赖 Actions。下面的 release ID、Docker 镜像标签及 manifest 是不可变交付身份，仍须遵守现有核验与排他创建合同。
+ 
+ 先确认本地已更新远端引用；在 clean `main`、`HEAD == origin/main` 的状态下，把 `git archive --format=tar.gz <commit>` 输出到仓库外，再运行：
+ 
+--- a/docs/architecture.md
++++ b/docs/architecture.md
+@@ -36,6 +36,6 @@
+ 
+ 内容生成固定接入 OpenAI-compatible Chat Completions，不探测 Responses API 或其他协议。原始生成与可选自然化共用 `generation_jobs`、同一个 Celery task、补投递、租约恢复和指标来源；`job_type` 只选择严格快照和落库关系，不建立第二套队列。原始生成恰好发送两条消息：system 原样使用任务平台的当前 Prompt，user 原样使用绑定 `FactVersion.body_markdown`；缺少 Prompt 或事实分级不是 `PUBLIC` 时明确失败，不增加固定前缀、任务要求或回退。用户也可绕过系统 AI，直接创建 `HUMAN DRAFT` 首稿，后续与 AI 草稿共用审核和发布链。渠道凭据由部署主密钥认证加密，仅在调用边界解密。生成与自然化通过官方同步 SDK 薄适配层调用，业务服务直接将 `message.content` 校验为严格四字段 `GeneratedDraft`；空白正文、非法 JSON 或 Schema 不符都失败，SDK 成功不能代替业务成功。单个 AI 作业最多调用供应商一次；Celery Beat 只补投递超龄 `PENDING`，过期 `RUNNING` 显式失败，重试创建新作业并复制原快照，旧 v1 快照不得重试。Redis 仍只承载 UUID 消息，不保存业务状态、正文、Prompt 或数据分级。
+ 
+-AI 配置的模型发现、连接测试及正式生成/自然化使用 `app.services.ai_provider.AIProvider` 的官方同步 OpenAI SDK 薄适配层：Models list 与非流式 Chat Completions，`max_retries=0`，不跟随重定向、不继承环境代理。SDK URL 仅做轻量输入校验，禁止内嵌凭据、query 和 fragment；生产保留 HTTPS，development/test 显式允许本机 HTTP 替身。该路径不执行 DNS/IP 分类、固定 peer 或旧栈的响应字节上限。PSR-003 的 GEO API Collector 使用同一 SDK 的公开 raw-response；在方法前执行发送授权，明确 HTTP 状态为 COMPLETED，授权后网络结果不确定为 UNKNOWN，禁止同 attempt 重放。内部 max_response_bytes 在完整接收后、严格 GEO 业务解析前检查原始字节，不限制接收过程内存。GEO Profile 连接诊断也使用同一 SDK，继续由原业务服务预留测试并在调用后复核资格与依赖 revision。凭据仍在调用边界解密；SDK 错误只映射为安全业务错误，revision、锁序和管理员显式启用合同不变。作业 request ID、duration 与可空 token usage 继续保存在既有字段；SDK 薄层不拥有快照、草稿 Schema 或业务状态机。
++管理员配置 Base URL、模型、API Key 与受支持 Header；应用负责凭据加密、业务快照、`PUBLIC` 数据门禁、严格输出 Schema、状态机、审计和指标。AI 配置的模型发现、连接测试及正式生成/自然化使用 `app.services.ai_provider.AIProvider` 的官方 `openai` Python SDK 同步薄适配层：Models list 与非流式 Chat Completions，`max_retries=0`，不跟随重定向、不继承环境代理。SDK URL 仅做轻量输入校验，禁止内嵌凭据、query 和 fragment；生产保留 HTTPS，development/test 显式允许本机 HTTP 替身。该路径不执行 DNS/IP 分类、固定 peer 或旧栈的响应字节上限。PSR-003 的 GEO API Collector 使用同一 SDK 的公开 raw-response；在方法前执行发送授权，明确 HTTP 状态为 COMPLETED，授权后网络结果不确定为 UNKNOWN，禁止同 attempt 重放。内部 max_response_bytes 在完整接收后、严格 GEO 业务解析前检查原始字节，不限制接收过程内存。GEO Profile 连接诊断也使用同一 SDK，继续由原业务服务预留测试并在调用后复核资格与依赖 revision。凭据仍在调用边界解密；SDK 错误只映射为安全业务错误，revision、锁序和管理员显式启用合同不变。作业 request ID、duration 与可空 token usage 继续保存在既有字段；SDK 薄层不拥有快照、草稿 Schema 或业务状态机。
+ 
+ AI 渠道的协议类型与供应商品牌是两个独立字段：`protocol_type` 是调用适配器和快照一致性的唯一依据，`provider_brand` 只用于管理端识别、筛选和本地图标。当前仅登记 `openai-compatible-chat-completions`，未知协议或品牌组合明确失败。渠道列表是服务端搜索、筛选、稳定排序和分页的 `AIChannelSummary` 投影，不携带 Header 值或模型数组；使用统计从 `generation_jobs` 实时聚合正式生成与自然化作业，渠道操作日志从 `audit_logs` 投影，不新增汇总表、日志表或前端配置源。
+--- a/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
++++ b/docs/geo-monitoring/03-technical/08-deployment-and-operations.md
+@@ -13,7 +13,7 @@
+ | 环境 | 用途 | 外部调用 |
+ |---|---|---|
+ | development | 本地开发 | 默认 fake provider / development storage |
+-| test/CI | 自动测试 | 仅本地 fake provider |
++| test | 手工本地隔离测试 | 仅本地 fake provider |
+ | staging/preview | 内部验收 | 可选受控真实 API smoke |
+ | production | 公司正式使用 | 仅批准 profile 和真实 OSS |
+ 
+@@ -51,7 +51,7 @@
+ 
+ ## 3. 配置项
+ 
+-GEO-004 / R0 已实现四项开关、启动校验及默认关闭（review）；其余数值项仍是后续任务的目标配置，不在 R0 加入 Settings：
++当前四项开关由 Settings 管理，默认关闭；当前支持人工录入和已实现 API 采集。开关不替代 Profile/平台批准、PUBLIC、预算和发送授权。Browser 延期，生产硬禁止开启。
+ 
+ ```dotenv
+ GEO_MONITORING_ENABLED=false
+@@ -60,20 +60,22 @@
+ GEO_OPPORTUNITY_EVALUATION_ENABLED=false
+ ```
+ 
+-旧生产 runtime 可省略四项，Settings 默认关闭；显式空值/非法布尔值拒绝。任一子开关 true 要求总开关 true，API/OPPORTUNITY 互相独立；Browser 保留 false，不启用。API、Worker、Beat 共享配置源，需统一重建才生效；配置不授予平台或外发资格。详见 [Production 配置说明](../../production-configuration.md)。R0 无 Collector、GEO 调度或机会任务，以下参数尚未实现：
++旧 runtime 可按输入检查合同省略可选 GEO 键，由 Settings 提供默认；显式空值/非法值拒绝。API/OPPORTUNITY 子开关 true 要求总开关 true，二者独立。API、Worker、Beat 共享配置源，必须统一重建才生效。现有人工文章观测保持原合同；当前 MANUAL 批次与 API 采集按各自业务门禁执行。
++
++已实现的采集恢复与保留参数如下；默认值、范围、预算和可省略规则以 [Production 配置说明](../../production-configuration.md) 和 Settings 为准：
+ 
+ ```dotenv
+ GEO_PENDING_REDISPATCH_SECONDS=120
+ GEO_COLLECTION_FINALIZE_GRACE_SECONDS=120
+-GEO_ANALYSIS_FINALIZE_GRACE_SECONDS=120
+ GEO_RECOVERY_SCAN_SECONDS=60
+ GEO_RECOVERY_BATCH_SIZE=100
+-GEO_MAX_RUNS_PER_BATCH=1000
+-GEO_MAX_RESPONSE_BYTES=2097152
+-GEO_MAX_ANSWER_CHARS=200000
+-GEO_DEFAULT_REPEAT_COUNT=3
+-GEO_DAILY_BUDGET_LIMIT=
++GEO_RETENTION_DRY_RUN=true
++GEO_RETENTION_BATCH_SIZE=100
++GEO_DAILY_BUDGET_CURRENCY=USD
++# GEO_DAILY_BUDGET_LIMIT=100.000000
+ ```
++
++保留期限须经数据负责人批准后显式配置，省略不启用对应新策略；预算 limit 省略表示不限额，已配置预算且报价未知时阻断。分析 lease、批次规模、响应/回答限制等由其内部合同或代码 owner 管理，不能把目标设计名称当作已支持环境变量。内部 `max_response_bytes` 是 SDK 完整接收后、严格业务解析前的检查，不保证接收内存上限；不新增公共字段或环境配置。
+ 
+ Browser 的会话、密钥和代理配置不属于当前环境模板。
+ 
+--- a/docs/geo-monitoring/CHANGELOG.md
++++ b/docs/geo-monitoring/CHANGELOG.md
+@@ -1,4 +1,9 @@
+ # 文档包变更记录
++
++## 2026-10-13 PSR-007 最终文档收敛
++
++- 当前 GEO 运维配置统一人工/API 能力与 Settings 已实现的采集恢复、保留和预算字段，移除过时 R0 未实现说明；Browser 继续延期且不进入默认部署/门禁。
++- SDK 接收后响应大小检查、手工分层验证和 commit SHA 交付边界见 [维护记录](../maintenance/openai-sdk-refactor/README.md)。实际发布前验证与环境限制见 [PSR-007 证据](../../.trellis/tasks/10-13-psr-007-final-alignment/implement.md)，不由文档收敛推定完整发布通过。
+ 
+ ## PSR-006 手工分层验证 — 2026-10-13（review 待验收）
+ 
+--- a/docs/geo-monitoring/SHA256SUMS
++++ b/docs/geo-monitoring/SHA256SUMS
+@@ -17,7 +17,7 @@
+ dcbbf85d89b699d33846b432f5feb09ec49ec283e43834c5039da418b564451c  03-technical/05-worker-and-collector-architecture.md
+ e8ce7a0f794d723c7f59f5b6be0b26af0b8e0d1a8327bd0e9a9562f3d711d393  03-technical/06-security-and-compliance.md
+ 6180214442014c25b4de6cc28c80a51cb9c5ebca8130f5396643eb92e7d6d812  03-technical/07-testing-and-quality.md
+-ca9dc3fb0ab4e1b9a99a2f85cd3c89443f8485a01b49db4b8dd27feefa3de4c7  03-technical/08-deployment-and-operations.md
++b838ecd83cb19b71141b99b0c7b6ce509a3bb6bf675b9a891bbdbac350e27d62  03-technical/08-deployment-and-operations.md
+ 65c34d779c23a6ca77c657c859566535463556d4b6765f39e4dea5d832f116c3  03-technical/09-backup-recovery-runbook.md
+ 718a2986917c4bfc48260f13643772cc1f1986d9de6f5b768a3dcd25aacea04e  03-technical/10-core-rollout-runbook.md
+ 3a54a56d09d76342b86743342ecfd2625b0f40072f2e5378740bf3e6c551339f  04-delivery/01-implementation-roadmap.md
+@@ -129,7 +129,7 @@
+ c3e9f23a90bd7fc9b47760d53c56fd6f09f73065dff5b19c1040ee5fd608a560  05-decisions/GEO-002-architecture-review.md
+ b949243cf6b9715e2ecad7c36bee3d9e094d76ed9f50dca1bc365da77c956fb3  06-reviews/GEO-1001-release-readiness-audit.md
+ b36012529fce0cbbc4000388c5ac5208ee56dec955d1fd83b075f2c300bd47fe  06-reviews/2026-10-06-v1-post-recovery-blocker-audit.md
+-924b131f0512206bdec06b2518207d100e3016d18fef6cb276a29e3ca104187b  CHANGELOG.md
++3da8eca08fcf92c5736819d1ec5ae2b7cd649f61477fde5de54e2522c93dc72e  CHANGELOG.md
+ a20ea183d9959528348b8a303d96f566d0e825a8c59e493fef9eb80f32a8d388  README.md
+ 9a0e045a854176f9fa12f8da21c58b0432ff4c58d8b900a7328bea7d4ec16e8e  06-reviews/2026-10-06-v1-branch-blocker-remediation.md
+ 39bf5625a0e57f9ae3031daf39808eaad631ccb59dd8950ed25c8e2609c17fc9  06-reviews/2026-10-07-v1-pr-acceptance.md
+--- a/docs/maintenance/openai-sdk-refactor/README.md
++++ b/docs/maintenance/openai-sdk-refactor/README.md
+@@ -1,43 +1,51 @@
+ # OpenAI SDK 维护工作流
+ 
+-## 已确认决策
++## 当前状态与验收入口
+ 
+-- PSR-001 只迁移管理员 AI 渠道的模型发现和模型连接测试；使用官方同步 `OpenAI`、Models list 与 Chat Completions，显式 `max_retries=0`。
+-- 适配层只拥有 SDK 生命周期、调用、安全错误映射和非敏感结果投影。不实现 DNS/IP 分类、Socket、peer、TLS、HTTP 报文或自定义重试。
+-- 配置输入仅校验 HTTP(S) URL 结构、端口及禁止内嵌凭据/query/fragment；生产保留 HTTPS，development/test 显式开启 `AI_ALLOW_LOCAL_HTTP` 时允许本机 HTTP fake provider。
+-- SDK 调用不再承诺 DNS/IP/peer 固定或旧传输的响应字节上限；PSR-002 将生成/自然化纳入 SDK 边界，PSR-003 将已实现的 API 型 GEO Collector 纳入 SDK。PSR-004 将 GEO Profile 连接诊断接入同一 SDK 并删除旧客户端/传输和专属测试。这是此次明确授权的边界调整，不得把 SDK 路径描述为 SSRF 固定 IP 传输。
+-- SDK 配置边界禁止管理员普通/敏感 Header 覆盖 `X-Stainless-Raw-Response` 控制值（大小写等价）；在授权和 SDK 方法启动前明确 `INVALID_HEADER`，不静默忽略。其他受支持 Header 继续转发。
+-- 不接受 SDK 的进程级 `OPENAI_CUSTOM_HEADERS`；出现非空配置时在零发送边界返回 `INVALID_HEADER`，不临时修改全局环境。API Key 与 Header 保持既有可打印 Latin-1 范围，实际 Authorization 和管理员 Header 通过公开 HTTP hook 转发。非法 UTF-8 响应映射为 `AI_RESPONSE_INVALID`，仍进入 revision 复核与 FAILED/停用回写。
+-- API Key 与敏感 Header 继续由 `CredentialCipher` 加密，只在调用边界解密。响应、日志和审计不得包含凭据、Header 值、供应商错误正文或原始异常。
+-- 保留 channel/model revision、channel → model 锁序和事务外调用；测试结束复核后仅写测试状态，模型保持停用，等待管理员显式启用。现有 maintenance bootstrap 的显式 T3 启用合同不变。
+-- 不改变公共 OpenAPI、数据库合同、ORM、Alembic 或业务状态机。只用虚构凭据与本地替身验证。
++状态权威为 [task manifest](./task-manifest.yaml)。PSR-001～006 已经人工审查并接受，均为 `done`；它们的 Task Brief、实现、历史限制和人工接受记录保留原文。PSR-007 负责最终文档统一、残留分类与发布前验证，交付状态为 `review`，等待人工验收；完整门禁结果单独记录，不能由任务状态推定发布通过。
+ 
+-## 范围外
++| 任务 | 最终范围 | 已接受记录 |
++| --- | --- | --- |
++| PSR-001 | 官方 SDK 薄适配层、AI 模型发现与连接测试 | [证据](../../../.trellis/tasks/10-12-psr-001-openai-sdk-adapter/implement.md) |
++| PSR-002 | 正式生成与自然化迁移 SDK、迟到失败终态保护 | [证据](../../../.trellis/tasks/10-13-psr-002-generation-sdk/implement.md) |
++| PSR-003 | GEO API Collector、授权窗口与严格原始字节解析 | [证据](../../../.trellis/tasks/10-13-psr-003-geo-api-sdk/implement.md) |
++| PSR-004 | Profile 诊断迁移，删除旧网络栈、客户端及专属测试 | [证据](../../../.trellis/tasks/10-13-psr-004-remove-custom-http/implement.md) |
++| PSR-005 | Browser 能力延期，清理当前文档和默认验证/部署入口 | [证据](../../../.trellis/tasks/10-13-psr-005-defer-browser-collector/implement.md) |
++| PSR-006 | 手工快速/领域/发布验证，删除未使用 Actions | [证据](../../../.trellis/tasks/10-13-psr-006-layered-manual-checks/implement.md) |
++| PSR-007 | 最终一致性和发布前证据 | [Brief](../../../.trellis/tasks/10-13-psr-007-final-alignment/prd.md)、[验收记录](../../../.trellis/tasks/10-13-psr-007-final-alignment/implement.md) |
+ 
+-内容生成、自然化、GEO Collector、Responses API、异步 SDK、旧 `openai_client.py`/`pinned_http.py` 删除、部署和真实 Provider 验收均不属于 PSR-001。
++前序记录中的阶段范围、当时未执行项与旧实现名称属于历史事实；当前能力以下文与权威架构/测试/部署文档为准。
+ 
+-PSR-001、PSR-002、PSR-003 已人工接受，状态为 done。PSR-003 仅迁移 GEO API Collector：SDK 方法前调用发送授权，授权成功视为进入外部窗口；明确 HTTP 状态为 COMPLETED，之后 timeout/connection/结果不确定为 UNKNOWN，不自动重放。Profile/Surface/Channel/Model/adapter、PUBLIC、预算、凭据与业务解析仍由原 owner 裁决。内部 max_response_bytes 保留，使用公开 raw-response.content 在完整接收后、解析前检查原始字节；不能限制接收过程内存。不修改公共 OpenAPI/数据库/Alembic，不改历史迁移。
++## 官方 SDK 与应用责任
+ 
+-Browser、Responses API、流式/异步 SDK、旧客户端/传输删除、部署和真实 Provider 均不属于 PSR-003。状态权威为 [task manifest](./task-manifest.yaml)；PSR-004 完成后进入 review，等待人工接受，不直接标记 done。
++AI 配置的模型发现/连接测试、正式生成/自然化、GEO Profile 连接诊断及已实现的 GEO API Collector，统一使用官方 `openai` Python SDK。继续使用 OpenAI-compatible Chat Completions；模型发现使用 Models list。同步非流式调用显式 `max_retries=0`，不跟随重定向、不继承环境代理。管理员配置 Base URL、模型、API Key 和受支持 Header；品牌只用于识别，不切换协议。
+ 
+-## SDK 依据
++适配层只拥有 SDK 生命周期、调用、固定安全错误映射及结果投影。应用继续负责 `CredentialCipher` 加密、边界解密、业务快照、PUBLIC 数据门禁、严格输出 Schema、资格/revision/lease/状态机、预算、审计和指标。生成正文必须直接满足四字段 `GeneratedDraft`；GEO 原始 JSON、重复键、Decimal、引用/证据和凭据回显拒绝由 Collector 拥有。未知事实、usage、cost 不猜测或补零。
+ 
+-PSR-001 选择 `openai>=3.29,<4`，锁文件解析为 `3.29.0`。该版本使用 `httpx2`；项目继续保留对象存储、平台 Logo 与测试使用的 `httpx`。依据为安装版本的公开类型签名与 [官方 Python SDK 文档](https://developers.openai.com/api/reference/python)、[Models API](https://developers.openai.com/api/reference/python/resources/models)、[Chat Completions API](https://developers.openai.com/api/reference/python/resources/chat/subresources/completions/methods/create)。仅使用公开接口，不使用 SDK 私有协议、模块或属性。
++URL 只校验 HTTP(S) 输入结构、端口及禁止内嵌凭据/query/fragment；生产保持 HTTPS，development/test 显式 `AI_ALLOW_LOCAL_HTTP` 才允许本机 HTTP fake。当前没有自研 DNS pinning、TCP peer、TLS 或 HTTP/1.1 传输，也不承诺 DNS/IP/peer 固定保证。
+ 
+-## PSR-004 删除边界
++SDK 不接受非空进程级 `OPENAI_CUSTOM_HEADERS`，零发送边界返回 `INVALID_HEADER`；管理员普通/敏感 Header 不能覆盖 `X-Stainless-Raw-Response` 控制名（大小写等价）。其他受支持 Header 保持转发，Key/Header 保持既有可打印 Latin-1 合同。非法 UTF-8 响应安全失败。响应、日志和审计不包含凭据、Header 值、供应商错误正文或原始异常。
+ 
+-运行时 AI 配置、生成/自然化、GEO API Collector 和 Profile 连接诊断统一使用官方 `openai` Python SDK，显式关闭自动重试。PartSignal 负责业务快照、凭据加密、数据分级、严格输出校验、错误映射和作业状态。API GEO Collector 在调用后无法确认结果的网络故障采用保守 UNKNOWN 语义，不自动重放。
++配置管理和 Profile 诊断保留预留、事务外测试、调用后资格/revision 复核；管理员测试后模型保持停用，等待显式启用。既有 maintenance bootstrap 的 T3 启用合同继续独立适用。生成/自然化由 Job owner 声明 RUNNING、按租约和调用后业务资格复核提交；迟到结果不能覆盖已经确认的失败终态。
+ 
+-删除旧 AI 网络栈、协议客户端、其专属 DNS/peer/TLS/HTTP 字节测试与 fake；保留业务测试并将必要装配接入 SDK 或通用测试 HTTP 客户端。历史实施/审查记录及历史 Alembic 保留原文，它们描述当时证据，不是当前网络保证。没有自研 DNS、Socket、TLS 或 HTTP/1.1 客户端；Collector 的内部响应大小合同是完整接收后的业务检查。Browser Collector 由 PSR-005 处理，Makefile 分层由 PSR-006 处理，本任务不调整依赖、协议、出口网络设施、公共 OpenAPI 或数据库。
++GEO API 在 SDK 方法前执行原发送授权/预算回调；失败不启动 SDK，成功持久化 SENT 并进入外部窗口。明确 HTTP 状态为 COMPLETED，之后 timeout/connection/不确定网络结果为 UNKNOWN，不自动重放同 attempt。内部 `max_response_bytes` 保留，使用公开 raw-response.content 在完整接收后、业务解析前检查字节；不能限制接收期内存。该字段不属于公共 OpenAPI/数据库合同。
+ 
+-## PSR-005 当前能力与默认入口
++## GEO 当前能力与 Browser 延期
+ 
+-当前支持人工 GEO 数据录入和已经实现的 API 型采集。Browser Collector、浏览器会话材料、自动登录和浏览器页面采集属于后续功能，当前版本不支持、不开启、不部署。
++当前支持人工录入和已经实现的 API 型采集。Browser Collector、自动登录、浏览器会话材料和页面采集属于后续能力，当前不启用、不部署、不作为默认验证门禁。
+ 
+-根 Make 默认安装/静态检查/单元/E2E/verify 及 Dev/Staging/Prod Compose 不依赖 Browser 专属包、合同或 overlay。普通前端 Playwright 和 API 型 GEO Collector 保留。历史源码、公共 Schema、数据库对象、迁移和隔离非生产资产继续保留；后续实验检查只能显式选择。PSR-005 已人工接受，状态为 done。
++历史源码、公共 Schema、数据库对象、Alembic 与隔离非生产资产继续保留。默认安装、静态/单元、领域、E2E、发布验证与 Dev/Staging/Prod Compose 不依赖 Browser 专属包、合同或 overlay。显式实验入口只服务延期资产，不能证明当前产品支持浏览器采集；普通前端 Playwright 与 API GEO 验收继续保留。生产 Browser 禁止与历史材料失败边界保持。
+ 
+-## PSR-006 手工分层验证
++## 手工分层验证与部署
+ 
+-小任务选择 `check-fast` 或单侧 `check-backend-fast` / `check-frontend-fast`；功能切片显式选择 `check-ai` / `check-geo` 或其他领域的现有文件；准备部署指定 commit 使用完整 `verify-release`。旧 `verify` 直接依赖发布层，原独立入口保持。领域命令要求专用测试 PostgreSQL，不启动完整 Docker 或 Playwright，也不执行 Browser Collector。
++小任务使用 `check-fast` 或单侧快速命令；功能切片使用 `check-ai`、`check-geo` 或现有领域文件。领域命令要求专用测试 PostgreSQL，GEO 人工文件流还要求本地 development 对象存储；只使用虚构凭据与本机 HTTP fake，不调用真实 AI。范围、前置条件、有效证据与未运行项见 [测试策略](../../testing.md#手工分层命令)。
+ 
+-删除未使用的 Actions 工作流与仅为它服务的规范/使用说明。GitHub 只用于代码备份和服务器拉取，不增加 CI、required checks、分支保护或 Release/tag 流程。覆盖与前置条件见 [测试策略](../../testing.md#手工分层命令)，实际验证与未运行项见 [PSR-006 证据](../../../.trellis/tasks/10-13-psr-006-layered-manual-checks/implement.md)。完成后进入 review，完整发布执行归 PSR-007。
++完整 `verify-release` 只在准备部署目标 commit 或当前交付明确要求时执行；旧 `verify` 是直接兼容别名。GitHub 只作代码备份和服务器拉取，无 Actions、required checks 或分支保护前提。Docker 部署可按 commit SHA 追踪，无 GitHub Release/Git tag 要求；release ID、镜像 tag、image ID/RepoDigest 与不可变 manifest 仍按 [Hostdzire Runbook](../../Hostdzire部署上线流程.md#验证选择合同) 核验。
++
++PSR 工作流未改变公共 OpenAPI、数据库合同、ORM 或 Alembic，未删除/重写历史迁移。PSR-007 的命令结果、逐行残留分类、合同比较、Compose 与清理证据保存在本任务记录中；环境阻断不能记作发布门禁通过。
++
++## SDK 依据与后续范围
++
++运行时依赖 `openai>=3.29,<4`，锁定 `3.29.0`，通过安装版本公开类型/实现验证。该版本使用 `httpx2`；项目保留文件存储、平台 Logo 与测试使用的 `httpx`。公开 API 参考：[官方 Python SDK](https://developers.openai.com/api/reference/python)、[Models](https://developers.openai.com/api/reference/python/resources/models)、[Chat Completions](https://developers.openai.com/api/reference/python/resources/chat/subresources/completions/methods/create)。不使用 SDK 私有协议、模块或属性。
++
++Responses API、流式/异步 SDK、新编排架构、Browser 实现、真实供应商验收和远端部署均不属于本次维护收敛；后续需求须另行定义和授权。
+--- a/docs/maintenance/openai-sdk-refactor/task-manifest.yaml
++++ b/docs/maintenance/openai-sdk-refactor/task-manifest.yaml
+@@ -31,5 +31,7 @@
+     depends_on: [PSR-005]
+     task_brief: .trellis/tasks/10-13-psr-006-layered-manual-checks/prd.md
+   - id: PSR-007
+-    title: 待定义
+-    status: planned
++    title: 最终文档统一、残留扫描与发布前验收
++    status: review
++    depends_on: [PSR-004, PSR-006]
++    task_brief: .trellis/tasks/10-13-psr-007-final-alignment/prd.md
+--- a/docs/operations.md
++++ b/docs/operations.md
+@@ -8,7 +8,7 @@
+ 
+ ## 发布与配置原则
+ 
+-- 部署行为以 `deploy/` 中当前 Compose、脚本和环境模板为事实源，只发布干净、已推送且与远端权威提交一致的版本。
++- 部署行为以 `deploy/` 中当前 Compose、脚本和环境模板为事实源，只发布干净、已推送且与远端权威提交一致的版本。GitHub 只用于代码备份和服务器拉取，不运行 Actions；Docker 交付追踪 commit SHA，不要求 GitHub Release 或 Git tag，release ID/镜像标签与 manifest 身份仍须一致。
+ - 日常代码验证与部署交付分开，验证选择、证据复用和 Production 日常入口统一由 [Hostdzire Runbook](./Hostdzire部署上线流程.md#3-repository-与-candidate) 定义；新 SHA 和重部署不自动要求完整门禁。迁移、恢复和正式验收按实际变化或交付要求执行。
+ - release 不可覆盖。真实配置、密钥和持久数据必须独立于 release；环境文件、AccessKey、模型密钥、账号密码和私钥不得进入仓库、发布包、普通日志或对话。
+ - 开发 `.env` 与生产 `.env.production` 使用独立模板；完整字段、AI 初始化清单和本地准备/受控交付见[配置准备说明](./production-configuration.md)。普通发布复用固定生产文件与数据库中的 AI 配置；不会自动上传 env，也不随 release 重生成 secret。已知输入缺项必须在冻结候选和维护前集中确认。
+@@ -78,4 +78,4 @@
+ 
+ 健康端点、命令行探针和容器健康不能替代真实浏览器对渲染、认证路由和控制台的检查。浏览器验收只从本机通过真实入口执行，不在服务器或容器安装浏览器环境，也不把凭据输出或持久化。
+ 
+-纵向业务 E2E 只在本地或 CI 隔离环境执行，并使用真实 PostgreSQL、Redis、Celery 和显式 Mock Provider。公网环境保持 `AI_ALLOW_LOCAL_HTTP=false`，不得为依赖回环 Provider 的测试放宽安全策略。
++纵向业务 E2E 由开发者在本地隔离环境手工执行，并使用真实 PostgreSQL、Redis、Celery 和显式 Mock Provider。公网环境保持 `AI_ALLOW_LOCAL_HTTP=false`，不得为依赖回环 Provider 的测试放宽安全策略。
+--- a/docs/production-configuration.md
++++ b/docs/production-configuration.md
+@@ -36,7 +36,7 @@
+ 
+ ## 2. 生产运行时配置项
+ 
+-`.env.production.example` 列出 39 个字段（原有 35 项加 4 项 GEO 开关），不表示已运行的生产文件已更新。技术上必填空值共11项：六个内部secret由首次部署准备生成，`DATABASE_URL`由数据库身份派生，OSS四项由用户提供；不是要求用户手填11项。`VITE_API_BASE_URL` 在同源生产部署中为空。运行参数由部署操作者确认；已有环境复用原值。
++`.env.production.example` 列出 46 个当前字段，并用注释列出可选保留期限与预算，不表示已运行的生产文件已更新。技术上必填空值共11项：六个内部secret由首次部署准备生成，`DATABASE_URL`由数据库身份派生，OSS四项由用户提供；不是要求用户手填11项。`VITE_API_BASE_URL` 在同源生产部署中为空。运行参数由部署操作者确认；已有环境复用原值。
+ 
+ | 字段 | 填写与校验 |
+ | --- | --- |
+@@ -60,9 +60,14 @@
+ | `GENERATION_FINALIZE_GRACE_SECONDS` | 默认 `120`，范围 `1..3600` |
+ | `GENERATION_RECOVERY_BATCH_SIZE` | 默认 `100`，范围 `1..1000` |
+ | `GENERATION_RECOVERY_SCAN_SECONDS` | 默认 `60`，范围 `5..3600` |
+-| `GEO_MONITORING_ENABLED` | 新 GEO 写能力总开关，默认 `false`；R0 只建立配置，不注册业务入口 |
++| `GEO_MONITORING_ENABLED` | GEO 写能力总开关，默认 `false`；当前支持 MANUAL 与已实现 API，开启仍须满足业务资格 |
+ | `GEO_API_COLLECTION_ENABLED`、`GEO_OPPORTUNITY_EVALUATION_ENABLED` | 默认 `false`；任一为 `true` 必须同时开启 Monitoring，否则 Settings 启动失败；子开关独立，不互相隐式启用 |
+ | `GEO_BROWSER_COLLECTION_ENABLED` | Production 固定 `false`；省略仍为 `false`，显式输入只接受 literal `false`；Monitoring=true 也不能启用 Browser，Settings 和 production preflight 拒绝 true |
++| `GEO_PENDING_REDISPATCH_SECONDS`、`GEO_COLLECTION_FINALIZE_GRACE_SECONDS` | 可省略，默认分别 `120`、`120`；采集补投递/收尾参数，不授予重复外发资格 |
++| `GEO_RECOVERY_SCAN_SECONDS`、`GEO_RECOVERY_BATCH_SIZE` | 可省略，默认 `60`、`100`；采集恢复扫描频率/批量 |
++| `GEO_RETENTION_DRY_RUN`、`GEO_RETENTION_BATCH_SIZE` | 可省略，默认 `true`、`100`；新保留策略先预览 |
++| `GEO_RAW_PAYLOAD_RETENTION_DAYS`、`GEO_TERMINAL_DRAFT_RETENTION_DAYS`、`GEO_UNREFERENCED_FILE_RETENTION_DAYS` | 可省略；期限经数据负责人批准后显式配置，省略不启用对应新策略 |
++| `GEO_DAILY_BUDGET_LIMIT`、`GEO_DAILY_BUDGET_CURRENCY` | limit 可省略表示不限额；currency 模板 `USD`；已配置预算时未知报价阻断采集 |
+ | `OBJECT_STORAGE_BACKEND` | 固定 `aliyun_oss` |
+ | `UPLOAD_SIGNING_SECRET` | 独立随机生成；保留 storage 配置字段，Aliyun OSS 路径不使用开发签名 |
+ | `UPLOAD_INTENT_TTL_SECONDS`、`DOWNLOAD_URL_TTL_SECONDS` | 默认 `600`、`300` |
+@@ -71,7 +76,7 @@
+ | `OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET` | 真实低权限凭据，权限与实际上传/HEAD/下载流程相符 |
+ | `VITE_API_BASE_URL` | 同源构建为空；属于前端构建输入，修改运行时 env 不会改变已构建的前端镜像 |
+ 
+-四项 GEO 是允许旧生产 runtime 省略的新增键；省略时由 `app.config.Settings` 唯一默认关闭，无需补键或轮换任何 secret。其余键仍要求完整，未知键拒绝；显式空值或非法布尔值不按省略处理。开关只控制后续新 GEO 能力，保留现有人工文章观测、洞察、优化命令和历史读取；开关不能替代权限、平台合规、凭据、预算或外发资格。
++四项 GEO 开关及输入检查允许省略的采集恢复、保留策略参数，由 `app.config.Settings` 唯一提供默认值；无需为补键轮换任何 secret。完整可选集合以 `check-production-inputs.py` 为准，其余键仍要求完整，未知键拒绝；显式空值或非法布尔值不按省略处理。开关控制当前 GEO 写能力，保留现有人工文章观测、洞察、优化命令和历史读取；开关不能替代权限、平台合规、凭据、预算或外发资格。
+ 
+ API、Worker、Scheduler 的 Compose backend 定义共享同一 env 文件，固定 `APP_ENV=production`，应用共用 `app.config.settings`，Beat 通过相同 `app.worker:celery_app` 启动。Browser 输入保留原值并明确失败，不覆盖为 false 掩盖错误。开关是进程启动快照，修改 env 文件后必须通过受控部署统一重建三个进程；不是热重载，也不能撤回已发请求。采集任务仍需在外部调用前执行开关与资格门禁。
+ 
+@@ -87,7 +92,7 @@
+ 
+ ## 3. AI 信息一次准备齐全
+ 
+-AI 的 provider、模型、API Key、敏感 Header 属于 PostgreSQL 配置，环境文件只保存加密主密钥。往 `.env.production` 添加 `OPENAI_API_KEY`、`OPENAI_BASE_URL` 或 `OPENAI_MODEL` **不会被当前程序读取，也不会完成 AI 配置**。
++AI 使用官方 `openai` Python SDK，继续 OpenAI-compatible Chat Completions，`max_retries=0`。Base URL、模型、API Key 与普通/敏感 Header 属于 PostgreSQL 管理员配置，环境文件保存加密主密钥和运行模式。应用保留业务快照、PUBLIC 门禁、严格输出 Schema、状态机、审计与指标；生产 HTTPS 和 URL 输入校验不代表 DNS/IP/peer 固定保证。SDK 不接受非空进程级 `OPENAI_CUSTOM_HEADERS`，受支持 Header 必须通过管理配置；`X-Stainless-Raw-Response` 控制名明确拒绝。往 `.env.production` 添加 `OPENAI_API_KEY`、`OPENAI_BASE_URL` 或 `OPENAI_MODEL` **不会被当前程序读取，也不会完成 AI 配置**。
+ 
+ 新安装可以由用户明确选择**上线后在管理界面配置AI**：部署state owner在`PRODUCTION_PREPARED`下通过`defer-ai-configuration RUN_ID MANIFEST`记录同候选的`admin-ui`移交，核验运行API身份、AI三表空集并拒绝任何已有bootstrap attempt。该模式不要求AI输入清单、Key备妥或TTY交接；真实OSS验证仍必需，激活使用明确`OSS_MET_AI_PENDING`，不把AI Gate写成MET。管理员上线后通过既有ADMIN+CSRF入口保存渠道、可选Header和模型，真实测试通过后手动启用；此前无合格模型，AI生成由现有服务守卫拒绝。未显式选择该方式时，以下true-TTY bootstrap输入与原完整Gate仍适用。精确命令见[部署附录第6节](./Hostdzire部署附录.md#6-clean-init-与-fresh-init)。
+ 
+@@ -140,7 +145,7 @@
+ 
+ 该模式返回 `runtime=NOT_CHECKED`，只确认 AI 输入；仍须在未来新候选的维护前复核既有服务器配置身份和状态。
+ 
+-该命令只读显式输入，要求普通文件、当前用户所有与 `0600`；完整模式检查 runtime 的键集合（仅允许省略四项默认关闭的 GEO 键）、重复/未知键、必填项、literal 语法、URL-safe secret、数据库 URL 解码后的身份一致、固定生产值及 OSS endpoint。AI 缺项和确认状态一起报告；在隔离 cwd/environment 中调用真实 backend 配置预检和 AI envelope reader 后，对 Schema 规范化的 URL 拒绝已知非公网 IP/localhost（包含缩写、十六进制等 IPv4 写法）。DNS 与实际网络仍由真实 Gate 检验。不会发现或读取另一份 `.env`，不会执行 Docker/SSH、连接数据库/provider、生成密钥、上传文件或改变状态；输出仅含已知字段名、固定错误码和配置状态。
++该命令只读显式输入，要求普通文件、当前用户所有与 `0600`；完整模式检查 runtime 的键集合（仅允许省略输入检查声明的 GEO 可选键）、重复/未知键、必填项、literal 语法、URL-safe secret、数据库 URL 解码后的身份一致、固定生产值及 OSS endpoint。AI 缺项和确认状态一起报告；在隔离 cwd/environment 中调用真实 backend 配置预检和 AI envelope reader 后，对 Schema 规范化的 URL 拒绝已知非公网 IP/localhost（包含缩写、十六进制等 IPv4 写法）。DNS 与实际网络仍由真实 Gate 检验。不会发现或读取另一份 `.env`，不会执行 Docker/SSH、连接数据库/provider、生成密钥、上传文件或改变状态；输出仅含已知字段名、固定错误码和配置状态。
+ 
+ AI 检查按 Host 真实的 UTF-8、`ensure_ascii=False`、紧凑 JSON 格式计算完整 envelope，并以 owner 声明的 credential 和可选 Header 值 JSON 字节上界预留空间；复用实际 backend 的 **64 KiB** 上限和严格 envelope reader，不放宽 bootstrap 合同。该检查不读取真实值；它依赖 owner 对上界的确认，真实输入大于声明上界时不能使用该准备结果。过大的参数或不留 credential/Header 空间均在本地返回失败；Host 还会在 durable `STARTED` 前检查实际完整输入大小、Header 值字符和无回显读取结果。
+ 
+--- a/docs/testing.md
++++ b/docs/testing.md
+@@ -16,7 +16,7 @@
+ 
+ ## 层级
+ 
+-- 后端单元测试覆盖状态机、账号类型、凭据加密、SSRF/Header 边界、严格模型响应、快照、生成质量规则、指标和文件校验。
++- 后端单元测试覆盖状态机、账号类型、凭据加密、URL/Header 输入边界、严格模型响应、快照、生成质量规则、指标和文件校验。
+ - 后端集成测试使用 PostgreSQL 和 Redis，不使用 SQLite 替代数据库约束。
+ - 前端使用 Vitest 和 Testing Library 覆盖表单、权限、错误和状态交互。
+ - Playwright 覆盖批准事实到发布登记、GEO 观测、GEO 分析洞察和 AI 渠道管理主流程，并通过 Redis、真实 Celery Worker 与本机 OpenAI-compatible HTTP 替身执行生成。AI 渠道页面在 1572×999 桌面视口保存三栏验收产物，覆盖创建/编辑、换 Key、Header、模型发现、成功与失败测试、启停、筛选排序分页、统计审计、复制脱敏和删除；GEO 主流程在 1582×995 保存观测列表、详情和分析洞察产物，洞察还覆盖筛选折叠、趋势 Tooltip 与携带同一筛选的打印视图。不得用 `page.route` 固定响应替代真实 API。
+@@ -25,7 +25,7 @@
+ 
+ ## 手工分层命令
+ 
+-默认 `bootstrap`、`lint`、`typecheck`、`test-unit`、`e2e`、`verify` 不安装或执行独立 Browser 包/合同。普通前端 Playwright 与 API GEO 验收保留；Browser 专属历史测试保留为隔离资产，只有显式实验入口才执行，不构成当前质量门禁。
++默认 `bootstrap`、`lint`、`typecheck`、`test-unit`、`e2e`、`verify-release`/`verify` 不安装或执行独立 Browser 包/合同。普通前端 Playwright 与 API GEO 验收保留；Browser 专属历史测试保留为隔离资产，只有显式实验入口才执行，不构成当前质量门禁。
+ 
+ 推荐流程：
+ 
+@@ -46,7 +46,7 @@
+ 
+ 快速层仍执行现有全后端/全前端单元集合；其中后端历史 Browser 安全边界断言只验证禁用/数据合同，不启动独立 Browser Collector。领域选集以根 Makefile 为权威，开发者显式选择，不自动分析 Git diff。领域检查是代表性回归，不能替代完整发布验证。
+ 
+-GitHub 只用于代码备份与服务器拉取；仓库没有 GitHub Actions 工作流、CI badge、required checks 或分支保护要求，也不提供替代 CI。命令合同见 [手工验证规范](../.trellis/spec/infra/manual-quality-checks.md)。
++GitHub 只用于代码备份与服务器拉取；仓库没有 GitHub Actions 工作流、CI badge、required checks 或分支保护要求，也不提供替代 CI。Docker 交付可用 commit SHA 追踪，不要求 GitHub Release 或 Git tag；镜像标签、image ID、RepoDigest 与 manifest 的不可变身份仍按部署合同核对。命令合同见 [手工验证规范](../.trellis/spec/infra/manual-quality-checks.md)。
+ 
+ ### 领域检查前置条件
+ 
+@@ -98,7 +98,7 @@
+ make verify-release  # make verify 保持相同完整范围
+ ```
+ 
+-测试替身必须显式配置。确定性生成器不得补充输入事实中不存在的参数，GEO API fake provider 通过官方同步 SDK 的固定 Chat Completions 路径及原始字节严格业务解析验证；授权回调失败 SDK 不启动，成功后 timeout/connection 为 UNKNOWN、明确 HTTP 状态为 COMPLETED、同 attempt 不重放，response size 在完整接收后检查；AI 配置管理、正式生成与自然化通过官方同步 SDK 与本机 HTTP fake provider 验证 Models/Chat Completions 路径、Header、参数、零重试、错误脱敏、严格草稿/可空指标和 PostgreSQL 资格/并发复核，Profile 连接诊断同样通过官方 SDK 与本机 HTTP fake 验证权限、错误脱敏、零重试、参数及调用后依赖 revision 复核。开发对象存储必须实际保存上传字节并执行 HEAD 元数据校验。
++测试替身必须显式配置，不能补充输入事实中不存在的参数。`deterministic` 关闭正式 AI 业务，不提供成功替身；需验证生成成功时使用本机 HTTP fake 与虚构凭据。GEO API fake provider 通过官方同步 SDK 的固定 Chat Completions 路径及原始字节严格业务解析验证；授权回调失败 SDK 不启动，成功后 timeout/connection 为 UNKNOWN、明确 HTTP 状态为 COMPLETED、同 attempt 不重放，response size 在完整接收后检查；AI 配置管理、正式生成与自然化通过官方同步 SDK 与本机 HTTP fake provider 验证 Models/Chat Completions 路径、Header、参数、零重试、错误脱敏、严格草稿/可空指标和 PostgreSQL 资格/并发复核，Profile 连接诊断同样通过官方 SDK 与本机 HTTP fake 验证权限、错误脱敏、零重试、参数及调用后依赖 revision 复核。开发对象存储必须实际保存上传字节并执行 HEAD 元数据校验。
+ 
+ AI 渠道管理测试必须区分协议和品牌：当前所有受控品牌都只允许登记 OpenAI-compatible 协议，品牌不能改变请求路径。PostgreSQL 集成测试覆盖旧渠道回填 `CUSTOM`、品牌—协议组合校验、服务端列表与分类数量、最近测试、正式业务作业统计和渠道审计；API Key 与敏感 Header 必须在响应、审计、复制结果、React Query mutation state、浏览器存储和截图中均不可恢复。连接测试发送后不自动重试，成功或失败都使具体模型保持停用并由管理员显式重新启用。
+ 

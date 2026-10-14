@@ -1,0 +1,6 @@
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python deploy/scripts/test-geo-collector-contract.py
+........................................................................ [ 34%]
+........................................................................ [ 69%]
+................................................................         [100%]
+208 passed in 10.67s
+GEO_CONTRACT_RESULT tests=0 secret_scan=0 external_network=blocked

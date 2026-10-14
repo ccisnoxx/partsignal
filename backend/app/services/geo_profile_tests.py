@@ -18,10 +18,10 @@ from app.models.identity import User
 from app.schemas.common import AccountType
 from app.schemas.geo_surface_management import GeoCollectionProfileRead
 from app.services.ai_configuration import request_credentials
+from app.services.ai_provider import AIProvider
 from app.services.geo_collection_profiles import load_profile_facts
 from app.services.geo_surface_locks import command, lock_profile, revision_conflict
 from app.services.geo_surface_queries import profiles_read
-from app.services.openai_client import OpenAICompatibleClient
 
 # 禁止拼接 provider 正文、URL、Header 或 exception message。
 ERROR_SUMMARIES = {
@@ -30,7 +30,6 @@ ERROR_SUMMARIES = {
     "AI_PROVIDER_TIMEOUT": "连接测试超时，请检查服务状态后重新测试",
     "AI_PROVIDER_UNAVAILABLE": "网络连接或 TLS 验证失败",
     "AI_PROVIDER_ERROR": "服务拒绝了诊断请求，请检查模型和凭据配置",
-    "AI_RESPONSE_TOO_LARGE": "服务响应超过允许大小",
     "AI_RESPONSE_INVALID": "服务未返回有效的非空回答正文",
     "AI_CREDENTIAL_INVALID": "渠道凭据格式无效",
     "CREDENTIAL_DECRYPTION_FAILED": "渠道凭据无法读取，请重新配置",
@@ -146,7 +145,7 @@ def test_profile(
     error_code = reservation.credential_error
     if error_code is None:
         try:
-            content = OpenAICompatibleClient(
+            content = AIProvider(
                 allow_local_http=settings.ai_allow_local_http
             ).test_connection(**reservation.arguments)
             if not content.strip() or "\x00" in content:

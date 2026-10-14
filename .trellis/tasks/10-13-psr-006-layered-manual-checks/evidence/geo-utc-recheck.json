@@ -1,0 +1,15 @@
+{
+  "command": [
+    "uv",
+    "run",
+    "--project",
+    "backend",
+    "pytest",
+    "backend/tests/integration/test_geo_manual_collection.py::test_submit_freezes_all_once_replay_and_no_analysis",
+    "backend/tests/integration/test_geo_manual_collection.py::test_concurrent_submit_is_exactly_once",
+    "--tb=short"
+  ],
+  "PGTZ": "UTC",
+  "exit_code": 0,
+  "seconds": 2.69
+}

@@ -17,6 +17,7 @@ from threading import Barrier, Event
 from types import SimpleNamespace
 from urllib.parse import urlsplit, urlunsplit
 
+import httpx2
 import psycopg
 import pytest
 from fastapi.testclient import TestClient
@@ -53,9 +54,8 @@ from app.services.ai_configuration import (
     list_ai_channel_audit_logs,
     list_ai_channels,
 )
+from app.services.ai_provider import AIProvider
 from app.services.credentials import CredentialCipher
-from app.services.openai_client import OpenAICompatibleClient
-from app.services.pinned_http import PinnedResponse
 
 
 def _psycopg_url(value: str) -> str:
@@ -704,7 +704,7 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
                 raise AppError("AI_UPSTREAM_FAILURE", "第三方原始异常不应进入审计", 502)
 
             monkeypatch.setattr(
-                "app.services.ai_configuration.OpenAICompatibleClient.discover_models",
+                "app.services.ai_configuration.AIProvider.discover_models",
                 fail_model_discovery,
             )
             failed_discovery = client.post(
@@ -1041,7 +1041,7 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
                 return ["stale-model"]
 
             monkeypatch.setattr(
-                "app.services.ai_configuration.OpenAICompatibleClient.discover_models",
+                "app.services.ai_configuration.AIProvider.discover_models",
                 change_channel_during_discovery,
             )
             conflicted_discovery = client.post(
@@ -1176,7 +1176,7 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
                     concurrent_db.commit()
 
             monkeypatch.setattr(
-                "app.services.ai_configuration.OpenAICompatibleClient.test_connection",
+                "app.services.ai_configuration.AIProvider.test_connection",
                 change_model_during_test,
             )
             conflicted_test = client.post(
@@ -1866,50 +1866,37 @@ def test_production_ai_bootstrap_commits_three_phases_and_sends_optional_headers
         channel_payload, model_payload = _production_bootstrap_payloads()
         provider_calls: list[dict[str, object]] = []
 
-        class BootstrapTransport:
-            def request(
-                self,
-                *,
-                method: str,
-                base_url: str,
-                suffix: str,
-                headers: dict[str, str],
-                timeout_seconds: int,
-                body: bytes | None,
-            ) -> PinnedResponse:
-                assert db.in_transaction() is False
-                with Session(engine) as committed_db:
-                    committed_channel = committed_db.scalar(select(AIChannel))
-                    committed_model = committed_db.scalar(select(AIModel))
-                    assert committed_channel is not None and not committed_channel.is_enabled
-                    assert committed_channel.revision == len(header_payloads or ())
-                    assert committed_model is not None and not committed_model.is_enabled
-                    assert committed_model.test_status == "UNTESTED"
-                    assert committed_model.revision == 0
-                provider_calls.append(
-                    {
-                        "method": method,
-                        "base_url": base_url,
-                        "suffix": suffix,
-                        "headers": headers,
-                        "timeout_seconds": timeout_seconds,
-                        "body": body,
-                    }
-                )
-                return PinnedResponse(
-                    status_code=200,
-                    headers={},
-                    body=b'{"choices":[{"message":{"content":"hi"}}]}',
-                )
+        def bootstrap_response(request: httpx2.Request) -> httpx2.Response:
+            assert db.in_transaction() is False
+            with Session(engine) as committed_db:
+                committed_channel = committed_db.scalar(select(AIChannel))
+                committed_model = committed_db.scalar(select(AIModel))
+                assert committed_channel is not None and not committed_channel.is_enabled
+                assert committed_channel.revision == len(header_payloads or ())
+                assert committed_model is not None and not committed_model.is_enabled
+                assert committed_model.test_status == "UNTESTED"
+                assert committed_model.revision == 0
+            provider_calls.append(
+                {
+                    "method": request.method,
+                    "path": request.url.path,
+                    "headers": request.headers,
+                    "body": request.content,
+                }
+            )
+            return httpx2.Response(
+                200, json={"choices": [{"message": {"content": "hi"}}]}
+            )
 
-        def bootstrap_client(*, allow_local_http: bool) -> OpenAICompatibleClient:
-            return OpenAICompatibleClient(
-                allow_local_http=allow_local_http, transport=BootstrapTransport()
+        def bootstrap_client(*, allow_local_http: bool) -> AIProvider:
+            return AIProvider(
+                allow_local_http=allow_local_http,
+                transport=httpx2.MockTransport(bootstrap_response),
             )
 
         monkeypatch.setattr(
             ai_configuration_service,
-            "OpenAICompatibleClient",
+            "AIProvider",
             bootstrap_client,
         )
         request_id = f"production-bootstrap-{uuid.uuid4()}"
@@ -1932,11 +1919,12 @@ def test_production_ai_bootstrap_commits_three_phases_and_sends_optional_headers
             assert len(provider_calls) == 1
             request = provider_calls[0]
             assert request["method"] == "POST"
-            assert request["suffix"] == "chat/completions"
-            assert request["headers"] == {
-                "Authorization": "Bearer bootstrap-secret-must-not-leak",
-                **{item.name: item.value for item in header_payloads or ()},
-            }
+            assert str(request["path"]).endswith("/chat/completions")
+            sent_headers = request["headers"]
+            assert isinstance(sent_headers, httpx2.Headers)
+            assert sent_headers["Authorization"] == "Bearer bootstrap-secret-must-not-leak"
+            for item in header_payloads or ():
+                assert sent_headers[item.name] == item.value
             assert json.loads(request["body"]) == {
                 "model": "bootstrap-model-exact",
                 "messages": [{"role": "user", "content": "hi"}],
@@ -2019,7 +2007,7 @@ def test_production_ai_bootstrap_provider_failure_is_disabled_and_at_most_once(
             raise AppError("AI_PROVIDER_ERROR", "provider body must not escape", 502)
 
         monkeypatch.setattr(
-            ai_configuration_service.OpenAICompatibleClient,
+            ai_configuration_service.AIProvider,
             "test_connection",
             fail_connection,
         )
@@ -2110,7 +2098,7 @@ def test_production_ai_bootstrap_rejects_post_test_revision_drift(
             return tested_model
 
         monkeypatch.setattr(
-            ai_configuration_service.OpenAICompatibleClient,
+            ai_configuration_service.AIProvider,
             "test_connection",
             pass_connection,
         )
@@ -2241,7 +2229,7 @@ def test_production_ai_bootstrap_refreshes_locked_rows_after_stale_provenance_re
             )
 
         monkeypatch.setattr(
-            ai_configuration_service.OpenAICompatibleClient,
+            ai_configuration_service.AIProvider,
             "test_connection",
             pass_connection,
         )
@@ -2305,7 +2293,7 @@ def test_production_ai_bootstrap_holds_fresh_locks_through_t3_commit(
             return original_enable_model(**values)
 
         monkeypatch.setattr(
-            ai_configuration_service.OpenAICompatibleClient,
+            ai_configuration_service.AIProvider,
             "test_connection",
             lambda _client, **_request: None,
         )
@@ -2421,7 +2409,7 @@ def test_production_ai_bootstrap_t1_and_t3_failures_roll_back_atomically(
             provider_calls += 1
 
         monkeypatch.setattr(
-            ai_configuration_service.OpenAICompatibleClient,
+            ai_configuration_service.AIProvider,
             "test_connection",
             pass_connection,
         )
@@ -2507,7 +2495,7 @@ def test_production_ai_bootstrap_rejects_existing_config_and_concurrent_reentry(
             provider_calls.append("called")
 
         monkeypatch.setattr(
-            ai_configuration_service.OpenAICompatibleClient,
+            ai_configuration_service.AIProvider,
             "test_connection",
             pass_connection,
         )

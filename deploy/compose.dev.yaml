@@ -1,8 +1,5 @@
 name: partsignal-dev
 
-include:
-  - compose.geo-browser.yaml
-
 x-backend: &backend
   build:
     context: ../backend

@@ -7,6 +7,8 @@ import { Input } from '@/design-system/primitives/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/design-system/primitives/select';
 import { Textarea } from '@/design-system/primitives/textarea';
 import type { ManualContext, ManualDraft, ManualValues } from './manual.model';
+import { CitationObservationFields, CitationObservationSummary } from './citation-observation';
+import { FrozenPromptCopy } from './frozen-prompt-copy';
 import { RunRequestError } from './runs.api';
 
 // 表单控件、只读上下文和错误呈现归此模块；修订号与异步命令由编辑器拥有。
@@ -202,12 +204,30 @@ function ScreenshotValue({ disabled }: { disabled: boolean }) {
     </div>
   );
 }
-function CitationFields() {
+function RawTextValue({ disabled }: { disabled: boolean }) {
+  const { control, setValue, formState } = useFormContext<ManualValues>();
+  const id = useWatch({ control, name: 'raw_payload_file_id' });
+  return (
+    <div className="space-y-2">
+      <p aria-live="polite" className="break-all text-sm" role="status">
+        {id ? `已校验原始文本证据：${id}` : '尚未关联原始文本证据'}
+      </p>
+      {id && <Button disabled={disabled} onClick={() => setValue('raw_payload_file_id', null, { shouldDirty: true, shouldValidate: true })} type="button" variant="outline">
+        移除原始文本证据关联
+      </Button>}
+      {formState.errors.raw_payload_file_id && <p className="text-sm text-danger" id="manual-raw_payload_file_id-error" role="alert">
+        {formState.errors.raw_payload_file_id.message}
+      </p>}
+    </div>
+  );
+}
+function CitationFields({ disabled }: { disabled: boolean }) {
   const { control, getValues } = useFormContext<ManualValues>();
   const { fields, append, remove } = useFieldArray({ control, name: 'citations' });
   return (
     <FormSection description="填写原始引用与其实际位置。URL 规范化和重复引用合并由服务端完成。" title="引用">
       {fields.length === 0 && <p className="text-sm text-text-secondary">没有引用；不会根据回答猜测来源。</p>}
+      <CitationObservationFields disabled={disabled} />
       {fields.map((citation, index) => (
         <div
           className="grid min-w-0 gap-3 border-b border-border-subtle pb-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_6rem_auto]"
@@ -294,6 +314,7 @@ function FrozenInput({ context }: { context: ManualContext }) {
       <h3 className="font-medium">冻结问题与环境 · 只读</h3>
       <p className="whitespace-pre-wrap break-words text-sm">{prompt.canonical_question}</p>
       <pre className="whitespace-pre-wrap break-words font-sans text-sm">{prompt.prompt_text}</pre>
+      <FrozenPromptCopy key={context.run_id} promptText={prompt.prompt_text} />
       <dl className="grid gap-x-4 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
         <dt>采集配置</dt>
         <dd className="break-words">
@@ -332,6 +353,7 @@ function DraftComparison({ draft }: { draft?: ManualDraft | null }) {
           {draft.screenshot_file_id ?? '无'} / {draft.raw_payload_file_id ?? '无'}
         </dd>
       </dl>
+      <CitationObservationSummary observation={draft.citation_observation} />
       <ol className="space-y-1">
         {draft.citations?.map((citation) => (
           <li className="break-all" key={citation.position}>
@@ -374,6 +396,7 @@ export {
   ManualFields,
   ManualReadState,
   ScreenshotValue,
+  RawTextValue,
   CitationFields,
   FrozenInput,
   DraftComparison,

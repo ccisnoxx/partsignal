@@ -100,15 +100,15 @@ describe('回答洞察组件与异步边界', () => {
     renderPage(); expect(await screen.findByRole('alert')).toHaveTextContent('当前资源不可访问');
     expect(screen.queryByRole('button', { name: '重试读取' })).not.toBeInTheDocument();
   });
-  it('总览明确空样本与本页计数缺口，提供现有机会工作台路径', async () => {
+  it('总览显示真实空样本和零机会，保留来源范围导航', async () => {
     const data = overview(); data.metric_cells = []; data.key_products = []; data.data_quality.candidate_run_count = 0;
     data.cards = [{ ...data.cards[0]!, value: null, sample_level: 'NONE', unavailable_reason: 'NO_DENOMINATOR', numerator: 0, denominator: 0 }];
     vi.spyOn(api, 'GET').mockResolvedValue(response(data)); renderPage(search, 'overview');
     expect(await screen.findByText(/当前筛选没有运行样本/)).toBeInTheDocument();
     expect(screen.getByText('不可计算 · 无可用样本')).toBeInTheDocument();
-    expect(screen.getByText(/当前没有可用的机会计数/)).toBeInTheDocument();
-    expect(screen.getByText(/本页面尚未整合机会计数（NOT_IMPLEMENTED）/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'GEO 机会工作台' })).toHaveAttribute('href', '/geo/opportunities');
+    expect(screen.getByText('待处理机会：0')).toBeInTheDocument();
+    expect(screen.getByText('当前来源范围没有待处理机会。')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '查看该范围的待处理机会' })).toHaveAttribute('href', expect.stringContaining('/geo/opportunities?source_scope='));
     expect(screen.queryByText(/机会行动闭环尚未实现/)).not.toBeInTheDocument();
   });
   it('回答洞察限定本页动作集成缺口，说明工作台与现有 Action/Retest API', async () => {

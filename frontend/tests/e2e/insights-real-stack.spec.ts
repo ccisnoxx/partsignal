@@ -31,7 +31,7 @@ test('全筛选、真实汇总与明细、URL恢复、表格替代和键盘焦�
   const answer = `${graph.partNumber} 的供电电压为 5 V。\n<script>window.__geo605Unsafe=true</script>`;
   // 虚构观测使用 PG 返回的合法时间；宿主机与容器时钟不能作为同一时间源。
   const submitted = await page.request.post(`${api}${runs}/${run.id}/manual-submit`, {
-    headers: { ...headers, 'Idempotency-Key': randomUUID() }, data: { answer_text: answer, answer_format: 'TEXT', source_product: '虚构人工观测', screenshot_file_id: file.id, collected_at: run.created_at, expected_draft_revision: input.draft_revision, citations: [{ original_url: 'https://geo-fixture-owned.test/spec', title: '虚构来源', position: 1, extraction_source: 'MANUAL' }] } satisfies Schema['GeoManualObservationSubmit'],
+    headers: { ...headers, 'Idempotency-Key': randomUUID() }, data: { citation_observation: { status: 'COMPLETE', missing_reason: null }, answer_text: answer, answer_format: 'TEXT', source_product: '虚构人工观测', screenshot_file_id: file.id, collected_at: run.created_at, expected_draft_revision: input.draft_revision, citations: [{ original_url: 'https://geo-fixture-owned.test/spec', title: '虚构来源', position: 1, extraction_source: 'MANUAL' }] } satisfies Schema['GeoManualObservationSubmit'],
   });
   if (submitted.status() !== 201) {
     const failure = await submitted.json() as Schema['ErrorEnvelope'];

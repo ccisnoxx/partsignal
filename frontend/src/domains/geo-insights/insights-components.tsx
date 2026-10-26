@@ -1,8 +1,9 @@
+import { metricLabels, exclusionLabels } from '@/shared/lib/geo-metric-labels';
 import type { ReactNode } from 'react';
 import type { components } from '@/shared/api/generated/schema';
 import { Button } from '@/design-system/primitives/button';
 import { TableShell } from '@/design-system/data-table/table-shell';
-import { exclusionLabels, formatRate, metricLabels, modeLabels, sampleLabels, type Metric, type OnDrilldown } from './insights.model';
+import { formatRate, modeLabels, sampleLabels, type Metric, type OnDrilldown } from './insights.model';
 import { InsightRequestError } from './insights.api';
 
 export function InsightSection({ id, title, children }: { id: string; title: string; children: ReactNode }) {

@@ -206,7 +206,9 @@ def _eligibility(
         if fact is None or fact.rank is None:
             reasons.append(MetricExclusion.TARGET_RANK_UNAVAILABLE)
     if metric in CITATION_METRICS:
-        if not run.citations and not run.citation_absence_observable:
+        if run.citation_observation_status in {"PARTIAL", "UNKNOWN"} or (
+            not run.citations and not run.citation_absence_observable
+        ):
             reasons.append(MetricExclusion.CITATION_OBSERVATION_UNAVAILABLE)
         if not run.citation_classification_complete:
             reasons.append(MetricExclusion.CITATION_CLASSIFICATION_INCOMPLETE)

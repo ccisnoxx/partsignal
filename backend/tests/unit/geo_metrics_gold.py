@@ -74,6 +74,7 @@ def observation(index=1, **patch):
         subjects=(),
         citations=(),
         claims=(),
+        citation_observation_status=None,
         citation_absence_observable=True,
         citation_classification_complete=True,
     )

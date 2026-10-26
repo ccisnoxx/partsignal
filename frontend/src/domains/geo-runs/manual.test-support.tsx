@@ -27,6 +27,7 @@ const initialDraft: ManualDraft = {
   screenshot_file_id: screenshotId,
   raw_payload_file_id: '10000000-0000-4000-8000-000000000004',
   raw_payload_summary: { schema_version: 1, payload_format: 'TEXT', payload_bytes: 12, finish_reason: null },
+  citation_observation: { status: 'NONE', missing_reason: null },
   citations: [],
   collected_at: '2026-10-02T10:30:00+08:00',
 };

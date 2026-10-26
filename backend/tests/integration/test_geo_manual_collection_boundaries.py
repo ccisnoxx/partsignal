@@ -70,6 +70,10 @@ def test_nonmanual_read_draft_and_submit_rejected(plans_api, mode):
         api.api.engineer.get(prefix(run) + "/manual-entry"),
         save(api, run, {}),
         submit(api, run, payload(run)),
+        api.api.engineer.post(
+            prefix(run) + "/manual-cancel",
+            json={"expected_revision": 0, "expected_draft_revision": 0, "reason": "拒绝非人工取消"},
+        ),
     ]
     assert all(
         r.status_code == 409 and r.json()["error"]["code"] == "GEO_MANUAL_MODE_REQUIRED"

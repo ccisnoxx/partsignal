@@ -227,6 +227,8 @@ test('人工批次三次采样、URL、dirty、草稿刷新、截图、引用与
     const answer = `人工回答 ${index + 1} ${suffix}\n<script>window.__geoUnsafe = true</script>`;
     await page.getByRole('textbox', { name: '回答原文', exact: true }).fill(answer);
     await page.getByRole('textbox', { name: '实际采集时间', exact: true }).fill(new Date().toISOString());
+    await page.getByRole('combobox', { name: '引用观察状态', exact: true }).click();
+    await page.getByRole('option', { name: index === 0 ? '已完整记录引用' : '确认无引用', exact: true }).click();
     if (index === 0) {
       await page.getByRole('button', { name: '添加引用', exact: true }).click();
       await page.getByRole('textbox', { name: '引用 1 URL', exact: true }).fill('https://EXAMPLE.test/spec#first');

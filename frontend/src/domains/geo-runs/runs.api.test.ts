@@ -15,7 +15,7 @@ import {
 import type { components } from '@/shared/api/generated/schema';
 import { reviewReceipt } from './analysis.test-support';
 import { analysisId } from './analysis.test-support';
-import { runId } from './runs.test-support';
+import { detail, runId } from './runs.test-support';
 afterEach(() => vi.restoreAllMocks());
 function poll(options: ReturnType<typeof runListOptions>, stages: components['schemas']['GeoRunWorkflowStage'][]) {
   const data = {
@@ -44,7 +44,7 @@ describe('读取频率与请求边界', () => {
     focusManager.setFocused(false);
     const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
     let release!: (value: never) => void;
-    const data = { run: { workflow_stage: 'QUEUED' } };
+    const data = detail(); data.run.id = 'one'; data.analysis.selection.run_id = 'one'; data.run.workflow_stage = 'QUEUED';
     const result = { data, response: Response.json(data) } as never;
     const get = vi.spyOn(api, 'GET').mockResolvedValue(result);
     get.mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));

@@ -166,6 +166,7 @@ export async function submitLoopBatch(page: Page, batchId: string, partNumber: s
     await page.getByRole('textbox', { name: '来源模型', exact: true }).fill(sourceEnvironment.source_model);
     await page.getByRole('textbox', { name: '来源版本', exact: true }).fill(sourceEnvironment.source_version);
     await choose(page, '实际观察到联网搜索', '否');
+    await choose(page, '引用观察状态', '确认无引用');
     await page.getByRole('textbox', { name: '实际采集时间', exact: true }).fill(new Date().toISOString());
     // 本地虚构回答的真实 PNG 字节走 canonical 上传、摘要和 complete 校验。
     const screenshot = await text.screenshot({ animations: 'disabled' });

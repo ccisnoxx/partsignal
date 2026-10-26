@@ -1043,4 +1043,4 @@ const test = base.extend<PublicationFixtures>({
   }, { auto: true }],
 });
 
-export { expect, publicationIds, publishedArticle, test };
+export { createIssue, createRepairContext, expect, publicationIds, publishedArticle, repairTask, test };

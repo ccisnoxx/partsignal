@@ -20,7 +20,6 @@ from app.schemas.geo_insights import (
     GeoOverviewDrilldown,
     GeoOverviewExclusion,
     GeoOverviewFilters,
-    GeoOverviewOpportunityPlaceholder,
     GeoOverviewRisk,
     GeoOverviewRunPage,
     GeoOverviewRunSample,
@@ -30,6 +29,7 @@ from app.schemas.geo_insights import (
 from app.services.geo_metric_inputs import metric_scope_from_snapshot
 from app.services.geo_metric_types import MetricCode, MetricDimensions, MetricExclusion
 from app.services.geo_metrics import DEFAULT_SAMPLE_POLICY, calculate_metric, metric_eligibility
+from app.services.geo_opportunity_summary import get_opportunity_summary
 from app.services.geo_overview_queries import OverviewInput, load_inputs, selected_subjects
 
 BUSINESS_CODES = (
@@ -75,7 +75,7 @@ def _drill(
     )
 
 
-def _generic_reasons(
+def generic_exclusion_reasons(
     source: OverviewInput, filters: GeoOverviewFilters
 ) -> tuple[MetricExclusion, ...]:
     identity = min(selected_subjects(source.snapshot, filters))
@@ -95,7 +95,7 @@ def _quality(
     values: dict[OverviewMetric, list[Contribution]] = {code: [] for code in QUALITY_CODES}
     for source in inputs:
         run = source.metric
-        reasons = _generic_reasons(source, filters)
+        reasons = generic_exclusion_reasons(source, filters)
         completed = run.status == "COMPLETED"
         collected = run.answer_present
         # 用户2026-10-03裁决三态终态分母；预算阻断单独显示，不猜成FAILED。
@@ -276,7 +276,7 @@ def get_overview(db: Session, filters: GeoOverviewFilters) -> GeoOverview:
             )
             for identity, sources in recent
         ],
-        open_opportunities=GeoOverviewOpportunityPlaceholder(filters=filters),
+        open_opportunities=get_opportunity_summary(db, filters, as_of=as_of),
         data_quality=GeoOverviewDataQuality(
             candidate_run_count=len(inputs),
             eligible_run_count=generic.numerator,
@@ -286,7 +286,7 @@ def get_overview(db: Session, filters: GeoOverviewFilters) -> GeoOverview:
             dimension_count=len({source.metric.dimensions for source in inputs}),
             cards=quality_cards,
         ),
-        unavailable_sections=["TRENDS", "COMPETITOR_SOV", "INSIGHT_DETAILS", "OPPORTUNITIES"],
+        unavailable_sections=["TRENDS", "COMPETITOR_SOV", "INSIGHT_DETAILS"],
     )
 
 

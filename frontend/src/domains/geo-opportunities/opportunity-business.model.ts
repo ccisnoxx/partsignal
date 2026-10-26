@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { components } from '@/shared/api/generated/schema';
+import type { components, paths } from '@/shared/api/generated/schema';
 import { canonicalUuidSchema } from '@/shared/lib/canonical-uuid';
 import { OpportunityRequestError } from './opportunities.api';
 import type { OpportunityDetail } from './opportunities.model';
@@ -14,10 +14,14 @@ export const opportunityRetestFormSchema = z.object({ baseline_batch_id: canonic
 export type OpportunityRetestValues = z.infer<typeof opportunityRetestFormSchema>;
 export type ContentCommand = components['schemas']['GeoOpportunityContentTaskRequest'];
 export type RetestCommand = components['schemas']['GeoRetestRequest'];
+export type RepairCommand = paths['/api/v1/geo/opportunities/{opportunity_id}/actions/publication-repair']['post']['requestBody']['content']['application/json'];
+export type FactRevisionCommand = components['schemas']['GeoOpportunityFactRevisionRequest'];
+export const opportunityFactRevisionFormSchema = z.object({ product_id: canonicalUuidSchema });
+export type OpportunityFactRevisionValues = z.infer<typeof opportunityFactRevisionFormSchema>;
 export type BusinessRequest<T> = { body: T; key: string; signature: string };
 
 // 同一请求的恢复继承完整载荷和 key；修订号也是载荷的一部分。
-export function businessRequest<T extends ContentCommand | RetestCommand>(body: T, previous?: BusinessRequest<T>): BusinessRequest<T> {
+export function businessRequest<T extends ContentCommand | RetestCommand | FactRevisionCommand | RepairCommand>(body: T, previous?: BusinessRequest<T>): BusinessRequest<T> {
   const signature = JSON.stringify(body);
   return previous?.signature === signature ? previous : { body, signature, key: crypto.randomUUID() };
 }

@@ -13,7 +13,6 @@ from app.audit import append_audit
 from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.errors import AppError, not_found
 from app.models.geo_opportunities import GeoOpportunity, GeoOpportunityAction, GeoOpportunitySource
-from app.models.geo_runs import GeoObservationRun
 from app.models.identity import User
 from app.schemas.content import ContentTaskCreate
 from app.schemas.geo_opportunities import (
@@ -36,11 +35,11 @@ from app.schemas.geo_opportunity_actions import (
 )
 from app.schemas.geo_opportunity_workbench import GeoOpportunityActionResult
 from app.schemas.geo_rules import GeoRuleCode
-from app.schemas.geo_runs import GeoRunInputSnapshot
 from app.schemas.publication import PublishedContentIssueCreate, PublishedContentRepairTaskCreate
 from app.services import content_planning, product_facts, publication
 from app.services.geo_opportunity_action_views import action_records
 from app.services.geo_opportunity_policy import action_types, assert_transition
+from app.services.geo_opportunity_product_scope import saved_own_product_ids
 from app.services.geo_plan_locks import command
 
 type ActionRequest = (
@@ -78,24 +77,7 @@ def _check(
 
 def _product_scope(db: Session, opportunity: GeoOpportunity, product_id: UUID) -> None:
     """只能选择保存来源的自有产品；不按当前名称或客户端归属声明匹配。"""
-    frozen = [
-        GeoRunInputSnapshot.model_validate(s)
-        for s in db.scalars(
-            select(GeoObservationRun.input_snapshot)
-            .join(GeoOpportunitySource, GeoOpportunitySource.run_id == GeoObservationRun.id)
-            .where(GeoOpportunitySource.opportunity_id == opportunity.id)
-        )
-    ]
-    subjects = [s for run in frozen for s in run.subjects]
-    scoped = [
-        s for s in subjects if s.id == opportunity.subject_id and s.subject_type == "OWN_PRODUCT"
-    ]
-    eligible = (
-        any(s.product_id == product_id for s in scoped)
-        if scoped
-        else any(s.subject_type == "OWN_PRODUCT" and s.product_id == product_id for s in subjects)
-    )
-    if not eligible:
+    if product_id not in saved_own_product_ids(db, opportunity):
         raise AppError("VALIDATION_ERROR", "所选产品不属于机会保存的自有产品来源", 422)
 
 

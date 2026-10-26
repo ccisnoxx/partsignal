@@ -11,12 +11,15 @@ import app.models.geo_browser_sessions  # noqa: F401
 import app.models.geo_catalog  # noqa: F401
 import app.models.geo_collection_admission  # noqa: F401
 import app.models.geo_files  # noqa: F401
+import app.models.geo_manual_cancellation  # noqa: F401
 import app.models.geo_manual_collection  # noqa: F401
 import app.models.geo_monitoring_plans  # noqa: F401
 import app.models.geo_observability  # noqa: F401
 import app.models.geo_opportunities  # noqa: F401
 import app.models.geo_opportunity_decisions  # noqa: F401
 import app.models.geo_opportunity_evaluation  # noqa: F401
+import app.models.geo_opportunity_schedule  # noqa: F401
+import app.models.geo_plan_schedules  # noqa: F401
 import app.models.geo_prompt_variants  # noqa: F401
 import app.models.geo_retention  # noqa: F401
 import app.models.geo_retests  # noqa: F401

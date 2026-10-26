@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from datetime import datetime
+from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -30,6 +31,45 @@ OriginalText = Annotated[
     str, StringConstraints(min_length=1, max_length=1048576), AfterValidator(_nonblank)
 ]
 Position = Annotated[int, Field(strict=True, ge=1, le=1000)]
+
+
+class GeoCitationObservationStatus(StrEnum):
+    COMPLETE = "COMPLETE"
+    NONE = "NONE"
+    PARTIAL = "PARTIAL"
+    UNKNOWN = "UNKNOWN"
+
+
+class GeoCitationObservation(ContractModel):
+    """采集者声明来源观察是否完整；与分析分类完整性相互独立。"""
+
+    status: GeoCitationObservationStatus
+    missing_reason: str | None = Field(default=None, max_length=2000)
+
+    @model_validator(mode="after")
+    def valid_reason(self) -> GeoCitationObservation:
+        if self.status in {
+            GeoCitationObservationStatus.PARTIAL,
+            GeoCitationObservationStatus.UNKNOWN,
+        }:
+            if (
+                self.missing_reason is None
+                or not self.missing_reason.strip()
+                or "\x00" in self.missing_reason
+            ):
+                raise ValueError("部分缺失或无法判断时必须填写非空缺失原因")
+        elif self.missing_reason is not None:
+            raise ValueError("完整记录或确认无引用不能填写缺失原因")
+        return self
+
+    def validate_citation_count(self, count: int) -> None:
+        if self.status == GeoCitationObservationStatus.COMPLETE and count == 0:
+            raise ValueError("完整记录必须包含引用；确认无引用请显式选择 NONE")
+        if (
+            self.status in {GeoCitationObservationStatus.NONE, GeoCitationObservationStatus.UNKNOWN}
+            and count
+        ):
+            raise ValueError("确认无引用或无法判断不能包含已录入引用；部分已知请选 PARTIAL")
 
 
 class GeoRawPayloadSummary(ContractModel):
@@ -104,11 +144,14 @@ class GeoAnswerSnapshotOut(ContractModel):
     raw_payload_file_id: UUID | None
     screenshot_file_id: UUID | None
     citation_count: int = Field(ge=0, le=1000)
+    citation_observation: GeoCitationObservation | None
     collected_at: datetime
     created_at: datetime
 
     @model_validator(mode="after")
     def original_digest(self) -> GeoAnswerSnapshotOut:
+        if self.citation_observation is not None:
+            self.citation_observation.validate_citation_count(self.citation_count)
         if self.answer_sha256 != hashlib.sha256(self.answer_text.encode("utf-8")).hexdigest():
             raise ValueError("回答哈希与原始 UTF-8 正文不一致")
         return self

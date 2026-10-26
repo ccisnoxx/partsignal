@@ -6,7 +6,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Request
 
 from app.deps import CsrfProtected, DbSession, EngineerUser
-from app.errors import error_responses
+from app.errors import AppError, error_responses
+from app.schemas.geo_manual_cancellation import (
+    GeoManualRunCancellationOut,
+    GeoManualRunCancelRequest,
+)
 from app.schemas.geo_manual_collection import (
     GeoManualDraftOut,
     GeoManualDraftSave,
@@ -15,6 +19,7 @@ from app.schemas.geo_manual_collection import (
     GeoManualObservationSubmitted,
 )
 from app.services import geo_manual_collection as service
+from app.services.geo_manual_cancellation import cancel_manual_run
 from app.services.geo_plan_queries import read_snapshot
 
 router = APIRouter(prefix="/api/v1/geo/observation-runs", tags=["geo-manual-collection"])
@@ -77,3 +82,28 @@ def submit_manual_observation(
         idempotency_key=idempotency_key,
         request_id=request.state.request_id,
     )
+
+
+@router.post(
+    "/{run_id}/manual-cancel",
+    response_model=GeoManualRunCancellationOut,
+    operation_id="cancelGeoManualObservationRun",
+    responses=error_responses(401, 403, 404, 409, 422),
+)
+def cancel_manual_observation(
+    run_id: UUID,
+    payload: GeoManualRunCancelRequest,
+    request: Request,
+    db: DbSession,
+    user: EngineerUser,
+    _csrf: CsrfProtected,
+) -> GeoManualRunCancellationOut:
+    try:
+        return cancel_manual_run(
+            db, run_id=run_id, payload=payload, actor=user, request_id=request.state.request_id
+        )
+    except AppError:
+        raise
+    except Exception:
+        failure = RuntimeError("人工取消失败，请按请求ID重读运行详情核对")
+    raise failure

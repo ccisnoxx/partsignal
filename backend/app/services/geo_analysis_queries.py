@@ -1,11 +1,12 @@
 """Run 详情同一快照内批量读取机器历史、复核历史和当前有效结果。"""
 
-from typing import cast
+from typing import Literal, cast
 from uuid import UUID
 
 from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.geo_analysis import (
     GeoAnalysisRevision,
     GeoClaimAssessment,
@@ -32,6 +33,7 @@ from app.schemas.geo_reviews import (
     GeoRunAnalysisDetail,
 )
 from app.services.geo_read_projections import incomplete
+from app.services.geo_reanalysis_policy import reanalyzable
 from app.services.geo_review_projection import reviewed_results
 
 
@@ -40,6 +42,7 @@ def analysis_detail(
     *,
     run_id: UUID,
     run_status: str,
+    collected: bool,
     current_analysis_id: UUID | None,
     answer_id: UUID | None,
     citation_count: int,
@@ -88,6 +91,16 @@ def analysis_detail(
         and not actor.must_change_password
         and actor.account_type in {"ADMIN", "ENGINEER"}
     )
+    actions: list[Literal["REVIEW", "REANALYZE"]] = ["REVIEW"] if can_review else []
+    if (
+        settings.geo_monitoring_enabled
+        and actor.is_active
+        and not actor.must_change_password
+        and actor.account_type == "ADMIN"
+        and answer_id is not None
+        and reanalyzable(run_status, collected=collected)
+    ):
+        actions.append("REANALYZE")
     return GeoRunAnalysisDetail(
         selection=GeoAnalysisSelection(
             run_id=run_id,
@@ -106,7 +119,7 @@ def analysis_detail(
         else None,
         review_required=required,
         review_gate_passed=current is not None and not required,
-        available_actions=["REVIEW"] if can_review else [],
+        available_actions=actions,
     )
 
 

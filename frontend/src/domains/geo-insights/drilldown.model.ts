@@ -1,7 +1,8 @@
+import { metricLabels } from '@/shared/lib/geo-metric-labels';
 import { z } from 'zod';
 import type { components, operations } from '@/shared/api/generated/schema';
 import { canonicalUuidSchema } from '@/shared/lib/canonical-uuid';
-import { baseFromFilters, cleanRecord, metricLabels, normalizeBase, type BaseSearch, type Drilldown } from './insights.model';
+import { baseFromFilters, cleanRecord, normalizeBase, type BaseSearch, type Drilldown } from './insights.model';
 
 type Schema = components['schemas'];
 type Query<Op extends keyof operations> = operations[Op] extends { parameters: { query: infer Q } } ? Q : never;

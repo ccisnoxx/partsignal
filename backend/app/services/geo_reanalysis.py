@@ -1,6 +1,5 @@
-"""管理员单 Run 重分析应用命令；公共 HTTP 和复核操作由 GEO-507 接入。"""
+"""管理员单 Run 重分析应用命令；CORE-06 公共入口复用该冻结/审计/派发流程。"""
 
-from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy.exc import DBAPIError
@@ -11,18 +10,13 @@ from app.config import settings
 from app.db import SessionLocal
 from app.errors import AppError, not_found
 from app.models.identity import User
+from app.schemas.geo_reanalysis import ReanalysisReason
 from app.services.geo_analysis_dispatch import AnalysisSender, dispatch_revision
 from app.services.geo_analysis_inputs import prepare_revision
 from app.services.geo_ops_logging import OpsError, geo_event
+from app.services.geo_reanalysis_policy import reanalyzable
 from app.services.geo_run_lifecycle import lock_run
 from app.services.geo_surface_locks import command
-
-
-class ReanalysisReason(StrEnum):
-    RULES_UPDATED = "RULES_UPDATED"
-    DICTIONARY_UPDATED = "DICTIONARY_UPDATED"
-    FACTS_UPDATED = "FACTS_UPDATED"
-    RETRY_FAILED = "RETRY_FAILED"
 
 
 def reanalyze_run(
@@ -49,11 +43,7 @@ def reanalyze_run(
             _, run = locked
             if run.revision != expected_revision:
                 raise AppError("REVISION_CONFLICT", "运行已变更，请重新读取", 409)
-            if run.collected_at is None or run.status not in {
-                "COMPLETED",
-                "NEEDS_REVIEW",
-                "FAILED",
-            }:
+            if not reanalyzable(run.status, collected=run.collected_at is not None):
                 raise AppError(
                     "INVALID_STATE_TRANSITION",
                     "只有已结束首次分析且保有原始回答的运行可重新分析",

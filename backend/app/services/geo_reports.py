@@ -1,6 +1,7 @@
 """实时报告应用边界：一致读取、首条预取和交付前独立成功审计。"""
 
 import json
+from collections.abc import Callable, Generator
 from datetime import datetime
 from hashlib import sha256
 from typing import Literal
@@ -13,9 +14,12 @@ from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.errors import AppError
 from app.models.identity import User
 from app.schemas.geo_insights import GeoOverviewFilters
+from app.schemas.geo_opportunity_workbench import GeoOpportunityFilters
 from app.schemas.geo_reports import ExportKind, GeoReportExport, GeoReportPreview
 from app.services.geo_answer_insights import get_insights
-from app.services.geo_report_csv import COLUMNS, CsvKind, CsvStream, GeoCsvResponse, iter_rows
+from app.services.geo_opportunity_csv import iter_rows as iter_opportunity_rows
+from app.services.geo_opportunity_summary import get_opportunity_summary
+from app.services.geo_report_csv import BATCH_SIZE, COLUMNS, CsvStream, GeoCsvResponse, iter_rows
 from app.services.geo_report_formulas import METHOD_NOTES, report_formulas
 
 EXPORT_KINDS: tuple[ExportKind, ...] = ("runs", "citations", "claims", "opportunities")
@@ -28,7 +32,7 @@ def _factory(db: Session) -> sessionmaker[Session]:
     return sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
-def filter_sha256(filters: GeoOverviewFilters) -> str:
+def filter_sha256(filters: GeoOverviewFilters | GeoOpportunityFilters) -> str:
     canonical = json.dumps(
         filters.model_dump(mode="json"), sort_keys=True, ensure_ascii=False, separators=(",", ":")
     )
@@ -38,7 +42,7 @@ def filter_sha256(filters: GeoOverviewFilters) -> str:
 def _audit_prepared(
     db: Session,
     actor: User,
-    filters: GeoOverviewFilters,
+    filters: GeoOverviewFilters | GeoOpportunityFilters,
     as_of: datetime,
     export_type: str,
     request_id: str,
@@ -98,13 +102,14 @@ def get_preview(db: Session, filters: GeoOverviewFilters) -> GeoReportPreview:
         available=reason is None,
         unavailable_reason=reason,
         insights=insights,
+        open_opportunities=get_opportunity_summary(db, filters, as_of=insights.as_of),
         formulas=report_formulas(),
         method_notes=METHOD_NOTES,
         exports=[
             GeoReportExport(
                 kind=kind,
-                available=kind != "opportunities",
-                unavailable_reason="NOT_IMPLEMENTED" if kind == "opportunities" else None,
+                available=True,
+                unavailable_reason=None,
             )
             for kind in EXPORT_KINDS
         ],
@@ -126,12 +131,53 @@ def prepare_csv(
     db: Session, actor: User, filters: GeoOverviewFilters, kind: ExportKind, request_id: str
 ) -> GeoCsvResponse:
     if kind == "opportunities":
-        raise AppError("NOT_IMPLEMENTED", "当前未实施机会导出", 501)
-    return _prepare_csv(db, actor, filters, kind, request_id)
+        scope = GeoOpportunityFilters.model_validate(
+            {"source_scope": filters.model_dump_json(), "open_only": True}
+        )
+        return _prepare_csv(
+            db,
+            actor,
+            filters,
+            kind,
+            request_id,
+            lambda read_db, as_of: iter_opportunity_rows(
+                read_db, scope, actor, as_of, batch_size=BATCH_SIZE
+            ),
+        )
+    return _prepare_csv(
+        db,
+        actor,
+        filters,
+        kind,
+        request_id,
+        lambda read_db, as_of: iter_rows(read_db, filters, kind, as_of),
+    )
+
+
+def prepare_opportunities_csv(
+    db: Session, actor: User, filters: GeoOpportunityFilters, request_id: str
+) -> GeoCsvResponse:
+    # 页码不是导出范围；归一化后审计同一完整匹配集合，不把分页变成过滤条件。
+    scope = filters.model_copy(update={"page": 1, "page_size": 20})
+    return _prepare_csv(
+        db,
+        actor,
+        scope,
+        "opportunities",
+        request_id,
+        lambda read_db, as_of: iter_opportunity_rows(
+            read_db, scope, actor, as_of, batch_size=BATCH_SIZE
+        ),
+    )
 
 
 def _prepare_csv(
-    db: Session, actor: User, filters: GeoOverviewFilters, kind: CsvKind, request_id: str
+    db: Session,
+    actor: User,
+    filters: GeoOverviewFilters | GeoOpportunityFilters,
+    kind: ExportKind,
+    request_id: str,
+    row_factory: Callable[[Session, datetime], Generator[dict[str, object], None, None]],
 ) -> GeoCsvResponse:
     read_db = _factory(db)()
     rows = None
@@ -140,7 +186,7 @@ def _prepare_csv(
         read_db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
         as_of = read_db.scalar(select(func.now()))
         assert as_of is not None
-        rows = iter_rows(read_db, filters, kind, as_of)
+        rows = row_factory(read_db, as_of)
         try:
             first = next(rows)
         except StopIteration as error:

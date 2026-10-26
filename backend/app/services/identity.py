@@ -26,6 +26,7 @@ from app.models.geo_analysis import GeoRunReview
 from app.models.geo_browser_sessions import GeoBrowserSession
 from app.models.geo_catalog import GeoSubject
 from app.models.geo_files import FileRecord, GeoObservation
+from app.models.geo_manual_cancellation import GeoManualRunCancellation
 from app.models.geo_manual_collection import GeoManualDraft, GeoManualSubmission
 from app.models.geo_monitoring_plans import GeoMonitoringPlan
 from app.models.geo_opportunities import (
@@ -35,6 +36,7 @@ from app.models.geo_opportunities import (
 )
 from app.models.geo_opportunity_decisions import GeoOpportunityDecision
 from app.models.geo_opportunity_evaluation import GeoOpportunityEvaluationRun
+from app.models.geo_opportunity_schedule import GeoOpportunitySchedule
 from app.models.geo_prompt_variants import GeoPromptVariant
 from app.models.geo_retests import GeoRetestBaseline, GeoRetestRequest
 from app.models.geo_rules import GeoRuleSetRevision
@@ -117,6 +119,7 @@ def _user_business_reference_counts(
         GeoObservationBatch.created_by,
         GeoManualDraft.updated_by,
         GeoManualSubmission.submitted_by,
+        GeoManualRunCancellation.cancelled_by,
         GeoRunReview.reviewer_id,
         GeoRuleSetRevision.created_by,
         GeoOpportunity.acknowledged_by,
@@ -124,6 +127,7 @@ def _user_business_reference_counts(
         GeoOpportunityAction.created_by,
         GeoOpportunityEvaluation.created_by,
         GeoOpportunityEvaluationRun.created_by,
+        GeoOpportunitySchedule.authorizer_id,
         GeoRetestBaseline.created_by,
         GeoRetestRequest.created_by,
         GeoOpportunityDecision.created_by,

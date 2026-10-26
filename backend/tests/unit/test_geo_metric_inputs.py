@@ -44,6 +44,7 @@ def case():
         raw_payload_file_id=None,
         screenshot_file_id=None,
         citation_count=0,
+        citation_observation=None,
         collected_at=timestamp,
         created_at=timestamp,
     )

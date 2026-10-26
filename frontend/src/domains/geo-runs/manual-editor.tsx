@@ -23,6 +23,7 @@ import {
   ManualFields,
   ManualReadState,
   ScreenshotValue,
+  RawTextValue,
   CitationFields,
   FrozenInput,
   DraftComparison,
@@ -31,6 +32,7 @@ import {
   formIssues,
 } from './manual-editor-view';
 import { RunUpload } from './run-upload';
+import { RawTextUpload } from './raw-text-upload';
 
 type ManualEditorProps = {
   runId: string;
@@ -90,7 +92,9 @@ function ManualEditorForm({
   const [readFailure, setReadFailure] = useState<unknown>(readError);
   const [error, setError] = useState<unknown>();
   const [operation, setOperation] = useState<'save' | 'submit' | 'reload'>();
-  const [uploadBlocking, setUploadBlocking] = useState(false);
+  const [screenshotBlocking, setScreenshotBlocking] = useState(false);
+  const [rawTextBlocking, setRawTextBlocking] = useState(false);
+  const uploadBlocking = screenshotBlocking || rawTextBlocking;
   const [request, setRequest] = useState<SubmitRequest>();
   const [saved, setSaved] = useState(false);
   const [completed, setCompleted] = useState(false);
@@ -249,7 +253,7 @@ function ManualEditorForm({
     try {
       continuation = capturePrincipalContinuation(client);
       if (!recovery) {
-        const issues = manualSubmissionIssues(values, context.require_screenshot, retained);
+        const issues = manualSubmissionIssues(values, context.require_screenshot);
         const first = issues[0];
         if (first) {
           issues.forEach((issue) => form.setError(issue.field, { message: issue.message }));
@@ -354,7 +358,7 @@ function ManualEditorForm({
           unknown
             ? '提交结果尚未确认。离开会丢失本地同键恢复信息，请优先安全重试确认结果。'
             : uploadBlocking
-              ? '截图尚未确认完成。离开会丢失待校验上传和未保存的修改。'
+              ? '证据尚未确认完成。离开会丢失本地截图整理、待校验上传和未保存的修改。'
               : undefined
         }
         shouldBlockNavigation={({ current, next }) => shouldBlockManualNavigation(current, next)}
@@ -394,14 +398,11 @@ function ManualEditorForm({
             description={
               context.require_screenshot
                 ? '冻结的采集配置要求截图证据。上传只有校验成功后才关联到草稿。'
-                : '正式提交需要截图或已有原始证据。'
+                : '正式提交需要截图或原始文本证据。'
             }
             title="截图与原始证据"
           >
             <ScreenshotValue disabled={fieldsDisabled || uploadBlocking} />
-            {retained?.raw_payload_file_id && (
-              <p className="break-all text-sm">已有原始证据：{retained.raw_payload_file_id}（保留）</p>
-            )}
             <RunUpload
               csrfToken={csrfToken}
               disabled={fieldsDisabled}
@@ -409,7 +410,7 @@ function ManualEditorForm({
               inputId="manual-screenshot_file_id"
               describedBy={errors.screenshot_file_id ? 'manual-screenshot_file_id-error' : undefined}
               invalid={Boolean(errors.screenshot_file_id)}
-              onBlockingChange={setUploadBlocking}
+              onBlockingChange={setScreenshotBlocking}
               onUploaded={(file) => {
                 if (mounted.current) {
                   form.setValue('screenshot_file_id', file.id, { shouldDirty: true, shouldValidate: true });
@@ -417,9 +418,25 @@ function ManualEditorForm({
                 }
               }}
             />
+            <RawTextValue disabled={fieldsDisabled || uploadBlocking} />
+            <RawTextUpload
+              csrfToken={csrfToken}
+              disabled={fieldsDisabled}
+              recoveryDisabled={busy || unknown || completed}
+              inputId="manual-raw_payload_file_id"
+              describedBy={errors.raw_payload_file_id ? 'manual-raw_payload_file_id-error' : undefined}
+              invalid={Boolean(errors.raw_payload_file_id)}
+              onBlockingChange={setRawTextBlocking}
+              onUploaded={(file) => {
+                if (mounted.current) {
+                  form.setValue('raw_payload_file_id', file.id, { shouldDirty: true, shouldValidate: true });
+                  setSaved(false);
+                }
+              }}
+            />
           </FormSection>
           <fieldset disabled={fieldsDisabled}>
-            <CitationFields />
+            <CitationFields disabled={fieldsDisabled} />
           </fieldset>
         </div>
         <ErrorSummary errors={issues} />

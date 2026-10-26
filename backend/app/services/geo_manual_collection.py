@@ -59,6 +59,9 @@ def submission_identity(actor_id: UUID, key: str) -> str:
 
 def canonical_draft(value: GeoManualObservationDraft) -> dict[str, Any]:
     data = value.model_dump(mode="json", exclude={"expected_draft_revision"})
+    # 旧草稿与真实历史请求的 canonical bytes 必须保持不变。
+    if value.citation_observation is None:
+        data.pop("citation_observation")
     data["citations"] = sorted(data["citations"], key=lambda v: v["position"])
     if value.collected_at is not None:
         data["collected_at"] = value.collected_at.astimezone(UTC).isoformat(timespec="microseconds")
@@ -126,7 +129,7 @@ def manual_entry_context(db: Session, *, run_id: UUID, actor: User) -> GeoManual
         actor_type=AccountType(actor.account_type),
         actor_active=actor.is_active,
         collection_eligible=eligibility.eligible,
-        commands=RunCommandAvailability(manual_entry=True, cancel=False, retry=False),
+        commands=RunCommandAvailability(manual_entry=True, cancel=True, retry=False),
     )
     snapshot = GeoRunInputSnapshot.model_validate(run.input_snapshot)
     return GeoManualEntryContext(
@@ -343,6 +346,8 @@ def submit_manual_observation(
             result = _receipt(db, previous)
             db.rollback()
             return result
+        if payload.citation_observation is None:
+            raise AppError("VALIDATION_ERROR", "正式提交必须显式记录引用观察状态", 422)
         run, batch = _lock_entry(db, run_id)
         draft = _draft(db, run_id, lock=True)
         _check_revision(draft, payload.expected_draft_revision)
@@ -381,6 +386,7 @@ def submit_manual_observation(
             raw_payload_file_id=payload.raw_payload_file_id,
             screenshot_file_id=payload.screenshot_file_id,
             citation_count=len(citations),
+            citation_observation=payload.citation_observation.model_dump(mode="json"),
             collected_at=collected,
         )
         db.add(answer)

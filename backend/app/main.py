@@ -33,6 +33,7 @@ from app.routers.geo_catalog import router as geo_catalog_router
 from app.routers.geo_manual_collection import router as geo_manual_collection_router
 from app.routers.geo_monitoring_plans import router as geo_monitoring_plans_router
 from app.routers.geo_opportunities import router as geo_opportunities_router
+from app.routers.geo_opportunity_schedule import router as geo_opportunity_schedule_router
 from app.routers.geo_overview import router as geo_overview_router
 from app.routers.geo_questions import router as geo_questions_router
 from app.routers.geo_reads import router as geo_reads_router
@@ -51,6 +52,7 @@ from app.routers.publication import router as publication_router
 from app.routers.workbench import router as workbench_router
 from app.schemas.common import HealthResponse
 from app.schemas.geo_answers import GeoAnswerCitationOut, GeoRawPayloadSummary
+from app.schemas.geo_insights import GeoOverviewFilters
 from app.schemas.geo_rules import GeoRuleConfiguration
 from app.schemas.geo_runs import GeoBatchPlanSnapshot
 from app.schemas.geo_surfaces import GeoApiSettings
@@ -352,6 +354,7 @@ app.include_router(geo_run_commands_router)
 app.include_router(geo_reviews_router)
 app.include_router(geo_reports_router)
 app.include_router(geo_rules_router)
+app.include_router(geo_opportunity_schedule_router)
 app.include_router(geo_opportunities_router)
 app.include_router(geo_retests_router)
 app.include_router(geo_manual_collection_router)
@@ -381,6 +384,7 @@ def _custom_openapi() -> dict[str, Any]:
         for name in ("payload_format", "payload_bytes", "finish_reason"):
             summary[name]["default"] = GeoRawPayloadSummary.model_fields[name].default
         for model, names in (
+            (GeoOverviewFilters, ("mention_mode",)),
             (GeoBatchPlanSnapshot, ("description", "budget_limit", "cron_expression")),
             (GeoAnswerCitationOut, ("title",)),
             (

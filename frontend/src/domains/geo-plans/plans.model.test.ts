@@ -25,14 +25,12 @@ describe('计划 URL 与 generated 配置边界', () => {
     expect(planFormSchema.safeParse({ ...values, prompt_variant_ids: [...values.prompt_variant_ids, ...values.prompt_variant_ids] }).success).toBe(false);
     for (const budget_limit of ['1e3', '-1', '100000000', '0.0000001']) expect(planFormSchema.safeParse({ ...values, budget_limit }).success).toBe(false);
   });
-  it('CRON 保留读取值，但不能通过表单或创建、更新载荷转换提交，也不静默改成手动', () => {
+  it('新CRON表单保留表达式，缺少五字段拒绝；MANUAL仍输出null', () => {
     const values = planValues(plan({ schedule_kind: 'CRON', cron_expression: '0 9 * * *' }));
-    expect(values).toMatchObject({ schedule_kind: 'CRON', cron_expression: '0 9 * * *' });
-    const result = planFormSchema.safeParse(values);
-    expect(result.success).toBe(false);
-    if (!result.success) expect(result.error.issues).toContainEqual(expect.objectContaining({ path: ['schedule_kind'], message: expect.stringContaining('V1.0') }));
-    expect(() => planCreate(values)).toThrow();
-    expect(() => planUpdate(values, 7)).toThrow();
+    expect(planCreate(values)).toMatchObject({ schedule_kind: 'CRON', cron_expression: '0 9 * * *', timezone: 'Asia/Shanghai' });
+    expect(planUpdate(values, 7).expected_revision).toBe(7);
+    expect(planFormSchema.safeParse({ ...values, cron_expression: '' }).success).toBe(false);
+    expect(planCreate({ ...values, schedule_kind: 'MANUAL_ONLY' }).cron_expression).toBeNull();
   });
   it('动作只来自服务端，归档仅提供 COPY，缺少 ACTIVATE 时主动作禁用', () => {
     const archived = plan({ status: 'ARCHIVED', workflow_stage: 'ARCHIVED', primary_task: 'VIEW_HISTORY', available_actions: ['COPY'], deletion: { blockers: ['ARCHIVED'] } });

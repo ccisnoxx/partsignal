@@ -60,17 +60,33 @@ function expectRuntimeProjectionFailure(value: unknown, requestedLogId: string =
 }
 
 describe('系统审计 model', () => {
+  it('人工取消只展示安全状态与版本，原因不进入审计投影', () => {
+    const value = parseAuditLogDetailResponse(runtimeDetail({
+      business_module: 'GEO_OBSERVATION', action: 'geo_manual_observation.cancelled',
+      target_type: 'GeoObservationRun', changes: [],
+      related_entry: { status: 'UNSUPPORTED', kind: null, parent_id: null },
+      facts: { status: 'CANCELLED', revision: 1, draft_revision: 2 },
+    }), runtimeLog.id);
+    expect(auditActionLabel(value.action)).toBe('取消未提交人工运行');
+    expectRuntimeProjectionFailure(runtimeDetail({
+      business_module: 'GEO_OBSERVATION', action: 'geo_manual_observation.cancelled',
+      facts: { reason: 'audit-runtime-secret-sentinel' },
+    }));
+  });
+
   it('管理员机会评估安全回执可展示，未知对象不生成导航', () => {
     const evaluated = parseAuditLogDetailResponse(runtimeDetail({
       business_module: 'GEO_OBSERVATION', action: 'geo_opportunity.evaluated',
       target_type: 'GeoOpportunityEvaluationRun', changes: [],
       related_entry: { status: 'UNSUPPORTED', kind: null, parent_id: null },
-      facts: { scope: 'FILTERED', evaluated_cells: 10, created: 1, existing_reused: 0,
+      facts: { trigger_type: 'SCHEDULED', scope: 'FILTERED', evaluated_cells: 10, created: 1, existing_reused: 0,
         skipped: 9, unavailable_reasons: ['INSUFFICIENT_SAMPLE'], revision: 1,
         as_of: '2026-10-05T08:00:00Z', filter_sha256: 'a'.repeat(64) },
     }), runtimeLog.id);
-    expect(auditActionLabel(evaluated.action)).toBe('管理员评估 GEO 机会');
+    expect(auditActionLabel(evaluated.action)).toBe('评估 GEO 机会');
     expect(projectAuditFacts(evaluated.facts).map((item) => item.label)).toContain('评估结果数');
+    expect(projectAuditFacts(evaluated.facts).map((item) => item.label)).toContain('触发方式');
+    expect(auditActionLabel('geo_opportunity_schedule.activated')).toBe('启用机会周期评估');
     expect(resolveAuditRelatedLink(evaluated)).toBeUndefined();
     expectRuntimeProjectionFailure(runtimeDetail({
       business_module: 'GEO_OBSERVATION', action: 'geo_opportunity.evaluated',

@@ -326,7 +326,7 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
 
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
-            assert cursor.fetchone() == ("0066_geo_manual_evaluation",)
+            assert cursor.fetchone() == ("0070_geo_citation_observation",)
             cursor.execute(
                 "SELECT tablename FROM pg_tables "
                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
@@ -484,10 +484,10 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
             text=True,
         )
         assert downgrade.returncode != 0
-        assert "0066 管理员评估回执须保留" in downgrade.stdout + downgrade.stderr
+        assert "0070引用观察事实须保留" in downgrade.stdout + downgrade.stderr
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
-            assert cursor.fetchone() == ("0066_geo_manual_evaluation",)
+            assert cursor.fetchone() == ("0070_geo_citation_observation",)
 
 
 @pytest.mark.integration

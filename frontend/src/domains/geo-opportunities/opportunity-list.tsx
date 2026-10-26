@@ -1,3 +1,4 @@
+import { statusLabels, priorityLabels } from '@/shared/lib/geo-opportunity-labels';
 import { createColumnHelper, metaHelper, rowPaginationFeature, tableFeatures, useTable } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import { ColumnHeader } from '@/design-system/data-table/column-header';
@@ -8,7 +9,7 @@ import type { ColumnRole, OverflowRowAction } from '@/design-system/data-table/t
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
 import type { components } from '@/shared/api/generated/schema';
-import { actionLabels, formatTime, formatValue, primaryLabels, priorityLabels, ruleLabels, stageLabels, statusLabels, type Opportunity } from './opportunities.model';
+import { actionLabels, formatTime, formatValue, primaryLabels, ruleLabels, stageLabels, type Opportunity } from './opportunities.model';
 
 const features = tableFeatures({ rowPaginationFeature, columnMeta: metaHelper<{ role: ColumnRole }>() });
 type Action = components['schemas']['GeoOpportunityAction'];

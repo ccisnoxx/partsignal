@@ -30,8 +30,16 @@ export function overview(): Overview {
   const data = answerInsights(); const c = cell();
   const overviewCell = { cell_key: c.cell_key, subject_id: c.subject_id, product_id: c.product_id, display_name: c.display_name, dimensions: c.dimensions, cards: [{ ...card(), drilldown: { ...card().drilldown, cell_key: c.cell_key } }] };
   return { as_of: data.as_of, filters, cards: [card()], metric_cells: [overviewCell], key_products: [overviewCell], risks: [], recent_batches: [], data_quality: data.data_quality.overview,
-    open_opportunities: { available: false, reason_code: 'NOT_IMPLEMENTED', open_count: null, numerator: null, denominator: null, filters }, unavailable_sections: ['OPPORTUNITIES', 'TRENDS', 'COMPETITOR_SOV', 'INSIGHT_DETAILS'] };
+    open_opportunities: opportunitySummary(), unavailable_sections: ['TRENDS', 'COMPETITOR_SOV', 'INSIGHT_DETAILS'] };
 }
 export function runSample(): Schema['GeoOverviewRunSample'] {
   return { run_id: id, batch_id: secondId, created_at: filters.date_from, status: 'COMPLETED', analysis_revision_id: secondId, review_id: null, numerator: 1, denominator: 1, exclusion_reasons: [] };
+}
+
+export function opportunitySummary(): Schema['GeoOpportunitySummary'] {
+  const drilldown = { source_scope: filters, open_only: true as const, status: null, priority: null };
+  return { as_of: filters.date_to, open_count: 0, drilldown,
+    by_status: (['OPEN', 'ACKNOWLEDGED', 'IN_PROGRESS'] as const).map((status) => ({ status, count: 0, drilldown: { ...drilldown, status } })),
+    by_priority: (['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map((priority) => ({ priority, count: 0, drilldown: { ...drilldown, priority } })),
+  };
 }

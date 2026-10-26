@@ -41,6 +41,8 @@ from app.services.geo_plan_queries import (
     plan_detail,
     previews,
 )
+from app.services.geo_schedule_management import registered, synchronize
+from app.services.geo_schedule_queries import runtimes
 
 
 def _flush_business(db: Session) -> None:
@@ -135,9 +137,17 @@ def _finish(
 ) -> GeoMonitoringPlanDetail:
     if action is not None:
         _flush_business(db)
+        synchronize(db, plan, value, creating=action in {"created", "copied"})
+        db.flush()
         _audit(db, plan, actor, request_id, action)
     db.flush()
-    result = plan_detail(plan, value, preview, plan_batch_counts(db, [plan.id]).get(plan.id, 0))
+    result = plan_detail(
+        plan,
+        value,
+        preview,
+        plan_batch_counts(db, [plan.id]).get(plan.id, 0),
+        runtimes(db, [plan.id]).get(plan.id),
+    )
     db.commit()
     return result
 
@@ -151,7 +161,7 @@ def _changed(plan: GeoMonitoringPlan, actor: User) -> None:
 def _create(
     db: Session, value: GeoMonitoringPlanConfiguration, actor: User, request_id: str, action: str
 ) -> GeoMonitoringPlanDetail:
-    require_supported_schedule(value.schedule_kind)
+    require_supported_schedule(value.schedule_kind, registered=True)
     preview = previews(db, [value])[0]
     require_references(preview)
     plan = GeoMonitoringPlan(
@@ -173,7 +183,7 @@ def create_plan(
 ) -> GeoMonitoringPlanDetail:
     with command(db, actor) as current:
         value = canonical_configuration(payload)
-        require_supported_schedule(value.schedule_kind)
+        require_supported_schedule(value.schedule_kind, registered=True)
         lock_resources(db, [value])
         return _create(db, value, current, request_id, "created")
 
@@ -184,8 +194,10 @@ def update_plan(
     with command(db, actor) as current:
         value = canonical_configuration(payload)
         plan, before = lock_plan(db, plan_id, payload.expected_revision, value)
-        require_supported_schedule(before.schedule_kind)
-        require_supported_schedule(value.schedule_kind)
+        require_supported_schedule(before.schedule_kind, registered=registered(db, plan.id))
+        require_supported_schedule(value.schedule_kind, registered=registered(db, plan.id))
+        if value.schedule_kind != before.schedule_kind:
+            raise AppError("INVALID_STATE_TRANSITION", "调度方式创建后不可变，请新建计划", 409)
         require_mutable(Status(plan.status))
         preview = previews(db, [value])[0]
         require_references(preview)
@@ -223,7 +235,7 @@ def change_status(
 ) -> GeoMonitoringPlanDetail:
     with command(db, actor) as current:
         plan, value = lock_plan(db, plan_id, expected_revision)
-        require_supported_schedule(value.schedule_kind)
+        require_supported_schedule(value.schedule_kind, registered=registered(db, plan.id))
         target = transition(Status(plan.status), operation)
         preview = previews(db, [value])[0]
         if target == Status.ACTIVE:
@@ -247,7 +259,8 @@ def copy_plan(
     *, db: Session, plan_id: UUID, payload: GeoMonitoringPlanCopy, actor: User, request_id: str
 ) -> GeoMonitoringPlanDetail:
     with command(db, actor) as current:
-        _, source = lock_plan(db, plan_id, payload.expected_revision)
+        plan, source = lock_plan(db, plan_id, payload.expected_revision)
+        require_supported_schedule(source.schedule_kind, registered=registered(db, plan.id))
         value = GeoMonitoringPlanConfiguration.model_validate(
             source.model_dump() | {"name": payload.name}
         )
@@ -259,7 +272,7 @@ def delete_plan(
 ) -> None:
     with command(db, actor) as current:
         plan, value = lock_plan(db, plan_id, expected_revision)
-        require_supported_schedule(value.schedule_kind)
+        require_supported_schedule(value.schedule_kind, registered=registered(db, plan.id))
         require_mutable(Status(plan.status))
         if plan.status != Status.DISABLED:
             raise AppError(

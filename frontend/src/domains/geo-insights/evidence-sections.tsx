@@ -1,11 +1,9 @@
+import { metricLabels, exclusionLabels } from '@/shared/lib/geo-metric-labels';
 import type { ReactNode } from 'react';
 import type { components } from '@/shared/api/generated/schema';
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { Button } from '@/design-system/primitives/button';
-import {
-  exclusionLabels, formatRate, formatTime, metricLabels, sampleLabels,
-  type AnswerInsights, type Drilldown, type OnDrilldown,
-} from './insights.model';
+import { formatRate, formatTime, sampleLabels, type AnswerInsights, type Drilldown, type OnDrilldown } from './insights.model';
 import { CellIdentity, InsightSection, safeCitationUrl } from './insights-components';
 
 type Schema = components['schemas'];

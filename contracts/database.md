@@ -14,15 +14,13 @@
 
 `0047_geo_monitoring_plans` 从 `0046_geo_surfaces_profiles` 仅新增四表、完整性/归档守卫和时区目录函数。不回填旧 QueryTopic/GeoObservation，不创建 Batch/Run，不执行调度或外部采集。公司内部单租户共享配置，created_by/updated_by 是服务端追溯，不是用户私有归属。GEO-208 已接线 Plan 命令、权限/CAS/审计；矩阵、当前资源活动和运行资格复用 GEO-207。无新表/列/Alembic revision。
 
-### V1.0 调度边界（GEO-1005）
+### 人工入口和历史CRON边界（GEO-1005 / AUTO-01）
 
-V1.0 仅允许 MANUAL_ONLY Plan 配置写入；从当前 Plan 首次人工建批仅接受 MANUAL_ONLY。CRON 枚举、表达式 Schema、存储状态及不可变快照结构保留，供升级前历史读取；它们不构成运行授权，不新增数据库状态或迁移。
+AUTO-01扩展新CRON的显式配置/启停与到期建批。0067不回填：仅新建/复制已登记CRON通过新流程登记geo_plan_schedules，创建仍DISABLED。旧CRON没有登记，保留原配置、关系、status/revision、历史与审计，仍UNSUPPORTED_SCHEDULE/VIEW_HISTORY/空动作和SCHEDULE_UNSUPPORTED；不能编辑、启停、复制、删除或原地转MANUAL。
 
-`geo_plan_policy.require_supported_schedule` 是版本边界的唯一 owner。经过身份重验和既有 Plan 锁/CAS 的新建、更新、activate/resume/pause/archive/copy/delete、首次 `/run` 或 PLAN Batch 创建，以及内部 scheduled factory 首次窗口，均对 CRON 返回 `409 GEO_PLAN_CRON_UNSUPPORTED`，message 为“V1.0 不支持 CRON 计划；历史计划只读，请新建人工计划或人工批次”，details={}。MANUAL→CRON 与历史 CRON→MANUAL 更新同样拒绝。格式不合法仍是 422 VALIDATION_ERROR，过期 revision 仍为 REVISION_CONFLICT；鉴权/CSRF 边界保持。
+require_supported_schedule要求CRON在对应入口显式登记。计划模式创建后不互转；MANUAL→CRON更新仍拒绝。人工/run、PLAN与AD_HOC首次创建只接受MANUAL_ONLY；CRON由内部到期入口执行，无客户端scheduled_for或系统身份入口。既有手工幂等回执与scheduled同窗口回执继续只读重放，不重验当前资格、不建数据、不派发Redis。鉴权/CSRF/CAS和格式422边界不变；未登记CRON拒绝GEO_PLAN_CRON_UNSUPPORTED。
 
-历史 CRON 的配置、关系、status（包括旧 ACTIVE）、revision、追溯、Batch/Run/快照和审计不变、不删除。列表/详情投影 `workflow_stage=UNSUPPORTED_SCHEDULE`、`primary_task=VIEW_HISTORY`、`available_actions=[]`、deletion blocker `SCHEDULE_UNSUPPORTED`、run reason `GEO_PLAN_CRON_UNSUPPORTED`；存储 ACTIVE 仅是历史生命周期，UI 明确当前版本不调度、不运行。不能原地停用或默认为 MANUAL。
-
-拒绝在任何业务 flush、规则冻结、引用锁存、Batch/Run/幂等记录/成功审计或提交后投递之前发生，事务 owner 回滚。MANUAL create/activate/run 及 AD_HOC 人工 Batch 正常。已提交手工幂等回执或 scheduled 同窗口回执仍可只读重放，返回原 batch，不重验当前资格、不建数据、不重投 Redis；这不构成新的 CRON 执行入口。Beat 不注册到期建批任务，现有分析/租约恢复/补投递继续独立工作。未来接入生产 Scheduler 须另行交付与验收后解除本边界。
+现有Beat新增create-due-geo-plan-batches，复用geo_recovery_scan_seconds与geo_recovery_batch_size和geo_monitoring_enabled；只扫描已登记next_run_at到期行，不改变分析/租约/补投递任务。仅仓库代码接线，线上启用与部署不属于本次本地交付。
 
 现有 Retest 是人工调用的独立 Batch 命令：从已提交、不可变的基线 Batch 复制严格矩阵，创建 trigger_type=RETEST 的批次。原 plan_id 和 CRON 快照仅作来源追溯，不读取或执行当前 CRON Plan、不改写原计划或快照，不伪装成 SCHEDULED；既有可比性、权限及外发门禁继续裁决。这不属于当前 Plan 的执行入口；详见 GEO-705 冻结基线合同。
 
@@ -43,6 +41,22 @@ V1.0 仅允许 MANUAL_ONLY Plan 配置写入；从当前 Plan 首次人工建批
 | created_at / updated_at | timestamptz now() | 创建追溯不可变，UTC |
 
 CHECK 前缀 `ck_geo_monitoring_plans_`：name/status/repeat/schedule/timezone/budget/revision/rule_revision。索引 `ix_geo_monitoring_plans_status_updated(status,updated_at,id)`、creator(created_by)、updater(updated_by)。无 next_run_at、last_batch、run_count、费用消费、lease、dispatch、成功率或答案列。Cron 在 Schema 完整匹配各字段词法后，复用已安装 Celery 校验数值/范围/步长；数据库只保证结构和调度组合，不构造第二个解析器或执行器。预算 JSON 输入/输出仅十进制字符串或 NULL：非负、最多8位整数/6位小数，无前导零、符号、指数或尾随字符；内部用 Decimal 并保留精度。Schema拒绝不符合此语法/精度的输入，数据库numeric自身可能舍入旁路SQL的超精度输入，正常writer须经过Schema。
+
+### AUTO-01调度游标与窗口（0067）
+
+geo_plan_schedules：plan_id UUID PK/FK→Plan CASCADE，registered_at timestamptz now()身份不可变，next_run_at nullable timestamptz；索引(next_run_at,plan_id)。Plan继续拥有配置/状态/revision，游标推进不增加Plan revision。显式新建CRON登记；未登记历史不迁移、不接管。提交约束对已登记计划强制CRON且ACTIVE ⇔ next_run_at非空；允许配置命令同事务内的中间态，不允许静默空游标ACTIVE。
+
+geo_plan_schedule_windows：PK(plan_id,scheduled_for)，FK plan_id→schedule RESTRICT；plan_revision>=0、status为CREATED/FAILED/MISSED、batch_id nullable FK→Batch RESTRICT、error_code varchar100、covered_until nullable、created_at timestamptz now()。CREATED必须有batch且无error/range，数据库核对批次plan_id/UTC窗口/触发类型及冻结Plan revision；FAILED必须无batch、有error_code、无range；MISSED必须无batch、LATE_WINDOW/PLAN_CHANGED及非空且晚于scheduled_for的covered_until。MISSED表示[scheduled_for,covered_until)覆盖区间，不伪造错过单窗口数。窗口禁止UPDATE/DELETE/TRUNCATE。
+
+计划命令沿User→资源→Plan→cursor锁序，最新账号/权限/CAS重验不变；状态/配置/游标/成功审计同事务。激活、恢复和实际修订从数据库clock_timestamp后的未来窗口开始；暂停/归档清空游标，已到期旧游标记录PLAN_CHANGED错过区间，不补跑旧配置。已处理窗口及MISSED右端点前1us建立计算下限，数据库时钟回拨也不重新选择已处理区间。无配置变化的no-op不重置游标。
+
+内部到期系统命令沿资源→Plan→cursor，锁后重读配置/revision/状态和窗口；同计划窗口由Plan锁与窗口PK、原Batch窗口/identity唯一约束保护。复用freeze_batch的规则/矩阵/输入冻结；系统batch.created_by=NULL，窗口指向真实批次，不冒充配置操作者。窗口、批次和下一游标同事务，commit后派发；旧回执重放不派发。MANUAL只创建待录入Run，API仍由既有资格/外发规则裁决。
+
+每次扫描每计划最多建一批；5分钟容许延迟内处理首个到期窗口，其余已到期未执行窗口同事务合并LATE_WINDOW区间，再推进未来游标，不能静默遗漏。晚于5分钟则整段记录LATE_WINDOW、推进未来，不密集补建。已知资格失败用savepoint撤销建批副作用，记录FAILED并推进未来窗口，不自动重试同窗口；未知SQL/程序异常整笔回滚，保留游标并记录低敏ID/异常类型，不能假装终态已提交。commit后Broker故障保留真实CREATED及游标，由既有PENDING恢复处理。
+
+Cron词法和数值集合沿已安装Celery；日/月/周同时满足，按IANA日历查找严格未来UTC分钟，最多一个400年Gregorian周期；不可达日期422。DST不存在分钟跳过、重复墙钟只选fold=0。无新依赖、通用调度框架或环境参数。
+
+0067仅加两表/索引/守卫，无旧表数据更新；不安全downgrade以55000停止。回退应用前停新扫描并保留表/窗口/批次，采用前向修复或迁移前备份，不删除已产生历史。
 
 ### 三种显式关系
 
@@ -1145,11 +1159,15 @@ collection任务commit后仅实际COLLECTED发送Run UUID。数据库扫描覆�
 之后发布Broker；确认丢失允许重复消息，claim保证幂等。SKIPPED与Broker不可用分开，后者停止该轮发布。
 扫描大小/周期/节流复用既有GEO recovery参数，总开关关闭不新claim/派发，仍允许过期安全终结。
 
-内部`reanalyze_run`先锁最新User（NO KEY UPDATE）验证active、改密门禁、ADMIN，再锁Batch/Run并校验
+CORE-06公共管理员HTTP入口复用`reanalyze_run`，先锁最新User（NO KEY UPDATE）验证active、改密门禁、ADMIN，再锁Batch/Run并校验
 expected_revision与已结束首次分析/保有Answer。新输入追加；同hash复用，不改采集终态。成功接受记录
 `geo_observation_run.reanalyzed`审计，仅run_id、analysis_revision_id、闭合reason_code：
 RULES_UPDATED/DICTIONARY_UPDATED/FACTS_UPDATED/RETRY_FAILED；不保存自由文本/答案/事实。
-创建和审计同事务，commit后派发故障不撤销已接受ID，由PENDING扫描恢复。GEO-507接入公共命令/读取。
+创建和审计同事务，commit后派发故障不撤销已接受ID，由PENDING扫描恢复。
+公共POST仅接收Run expected_revision与闭合reason，返回实际run_id/analysis_revision_id及诊断request_id。
+详情通过analysis.available_actions投影REANALYZE；不改变采集动作或统计资格，不新增表/列/迁移。
+无HTTP幂等键；同输入复用不等于网络重放安全。未知结果页面只重读历史人工核对，不借审计或版本差集推测命令接受。
+GEO-507的人工复核公共命令/读取保持原合同。
 
 0055先迁移再部署新Worker/beat；本地只验证隔离数据库，不操作生产。downgrade显式55000安全停止，
 停新Worker/beat、保留表和历史并前向修复；无破坏性数据迁移。
@@ -1205,11 +1223,13 @@ CONFIRMED 无修正；CORRECTED 有说明及至少一项闭合四栏修正。Sub
 
 本任务不新增表、列或 Alembic revision，也不回填历史数据；迁移 head 保持 `0056_geo_run_review`。报告预览和打印复用回答洞察的一次 REPEATABLE READ，`as_of` 与内嵌洞察相同，`generated_at` 使用数据库时钟。当前候选为零或没有合格运行时明确返回不可用及真实质量，不能用零值拼成功报告。本版是实时报告，不保存归档快照；不得把重新读取后的当前分析/复核称为历史冻结报告。
 
-CSV 每个下载使用专有只读 REPEATABLE READ 会话，按 `(created_at DESC, id ASC)` keyset 分批读取 100 个候选，筛选、链尾尝试、冻结绑定、当前成功分析和有效复核均复用现有权威读取。不会写 Run、Batch、Analysis、Review 或其 revision；不获取业务行锁，不新增状态机或幂等记录。首条可导出记录在 HTTP 200 前取得；无记录返回 409 `GEO_REPORT_EMPTY`。发送成功、断连和迭代异常均释放游标/生成器和会话，后续断流不能伪装为完整传输。
+CSV 每个下载使用专有只读 REPEATABLE READ 会话，runs/citations/claims 按 `(created_at DESC, id ASC)` keyset 分批读取 100 个候选，筛选、链尾尝试、冻结绑定、当前成功分析和有效复核均复用现有权威读取。不会写 Run、Batch、Analysis、Review 或其 revision；不获取业务行锁，不新增状态机或幂等记录。首条可导出记录在 HTTP 200 前取得；无记录返回 409 `GEO_REPORT_EMPTY`。发送成功、断连和迭代异常均释放游标/生成器和会话，后续断流不能伪装为完整传输。
 
-固定字段白名单：runs 包含稳定 ID、时间、冻结维度/版本、状态、资格与排除、费用覆盖；citations 包含稳定 ID、URL SHA-256、域名、标题、位置、类别和归属，不导出 original/normalized URL，避免任意签名 query 外带；claims 包含稳定 ID、对象/事实绑定、声明类型/文本、结论和严重度，不导出事实正文或解释。所有种类均排除完整回答、raw payload、内部配置、文件下载地址和凭据。传输层 CSV 防公式注入，原业务文本不修改。机会模型尚未交付，opportunities CSV 明确 501 `NOT_IMPLEMENTED`，不能生成空成功文件。
+固定字段白名单：runs 包含稳定 ID、时间、冻结维度/版本、状态、资格与排除、费用覆盖；citations 包含稳定 ID、URL SHA-256、域名、标题、位置、类别和归属，不导出 original/normalized URL，避免任意签名 query 外带；claims 包含稳定 ID、对象/事实绑定、声明类型/文本、结论和严重度，不导出事实正文或解释。所有种类均排除完整回答、raw payload、内部配置、文件下载地址和凭据。传输层 CSV 防公式注入，原业务文本不修改。CORE-05 机会CSV复用同一编码/流/审计生命周期，以机会读模型的固定低敏字段导出；不包含说明/关闭备注、来源/行动快照和URL，不能生成空成功文件。
 
-审计仍写现有 append-only `audit_logs`，沿用 `GEO_OBSERVATION` 安全投影：新增 `geo_report.export_started` / `geo_report.print_prepared`；`target_type=GeoReport`、`target_id=NULL`，不关联伪造持久实体。facts 仅允许 `export_type`、`as_of`、完整规范筛选的 `filter_sha256`，不得保存筛选原文、答案、声明、URL 或凭据。审计在应用服务独立事务中重验账号启用/角色/改密门禁，提交后才交付成功响应，不提交读取请求 heartbeat。`export_started` 仅证明授权、首条准备完成和开始发送，不证明客户端完整接收；`print_prepared` 仅证明打印数据准备，不证明操作系统实际打印。空或不可用数据不写成功审计。审计失败使交付明确失败，不能吞错继续下载。
+CORE-05 不新增数据库对象。报告 opportunities.csv 使用原 GeoOverviewFilters 映射 source_scope + open_only=true，与报告待处理摘要共用 selector；工作台 `/api/v1/geo/opportunities/export.csv` 使用完整 GeoOpportunityFilters，可选关闭状态，忽略分页。列表与导出共用机会排序列：PRIORITY_DESC 为优先级等级/created_at/id降序，CREATED_DESC 为created_at/id降序，LAST_SEEN_DESC 为last_seen_at/created_at/id降序；以SQL实际排序值及唯一ID组成keyset，每批100条，完整读取不截断。每行一个机会，不按来源/行动重复，不写机会/来源/行动/评估及revision。名称为读取时的当前元数据，保存来源范围仍按冻结输入及历史review判定，不作为归档历史回放。
+
+审计仍写现有 append-only `audit_logs`，沿用 `GEO_OBSERVATION` 安全投影：新增 `geo_report.export_started` / `geo_report.print_prepared`；`target_type=GeoReport`、`target_id=NULL`，不关联伪造持久实体。facts 仅允许 `export_type`、`as_of`、完整规范筛选的 `filter_sha256`，不得保存筛选原文、答案、声明、URL 或凭据。CORE-05工作台审计先将页码/页大小归一化为默认值，不将UI分页变成集合身份；报告导出仍摘要原GeoOverviewFilters。审计在应用服务独立事务中重验账号启用/角色/改密门禁，提交后才交付成功响应，不提交读取请求 heartbeat。`export_started` 仅证明授权、首条准备完成和开始发送，不证明客户端完整接收；`print_prepared` 仅证明打印数据准备，不证明操作系统实际打印。空或不可用数据不写成功审计。审计失败使交付明确失败，不能吞错继续下载。
 
 ## GEO-607 洞察访问路径与R5性能（R5）
 
@@ -1389,7 +1409,7 @@ ADR-006的Browser条件单独适用：本轮本机开关false、无服务/配置
 
 ## GEO-1006 管理员手动机会评估（0066）
 
-`POST /api/v1/geo/opportunities/evaluate` 是唯一生产显式入口，ADMIN 会话 + CSRF + Idempotency-Key；领域服务锁内重验 ADMIN、启用、改密与当前会话。ENGINEER 不得评估。总开关/评估开关关闭时首次和重放均拒绝。无自动 Action、Retest、周期调度/Beat/CRON。
+`POST /api/v1/geo/opportunities/evaluate` 是唯一生产显式入口，ADMIN 会话 + CSRF + Idempotency-Key；领域服务锁内重验 ADMIN、启用、改密与当前会话。ENGINEER 不得评估。总开关/评估开关关闭时首次和重放均拒绝。无自动 Action 或 Retest；AUTO-02另有显式启用的周期入口，复用同一评估服务。
 
 - `geo_opportunity_evaluation_runs`：UUID PK；created_by users FK RESTRICT；`(created_by, request_key_sha256)` 唯一；request_sha256/request_key_sha256 为 SHA256；rule_set_revision 关联不可变规则 FK RESTRICT；request_snapshot 保存 UTC 窗口/ALL 或 FILTERED 范围/排序去重过滤/模式/revision；receipt 保存冻结完整摘要和 as_of；created_at。原始幂等键不保存。
 - ALL 不带实体过滤，FILTERED 至少指定 Subject/Surface/Profile 一类；窗口 UTC 半开且不超过31天，每类最多50 ID；模式不选表示全部历史模式。沿用 Overview 的冻结来源与资格/治理分母；未知或没有候选不猜测。明确 revision 可引用历史合法配置，不存在 404，不依赖 current 指针。
@@ -1397,3 +1417,37 @@ ADR-006的Browser条件单独适用：本轮本机开关false、无服务/配置
 - User SHARE→Session SHARE→请求 advisory lock→既有 Product/Subject/排序 identity/Opportunity 锁；READ COMMITTED 写事务与独立 REPEATABLE READ 捕获一次规则和证据。回执、机会/来源/evaluations、opened 及 evaluated 审计同事务提交或回滚。请求 key 去重按用户隔离；重复规范输入返回原回执和原 as_of，replayed=true，不再读证据/追加审计；变参 409 IDEMPOTENCY_CONFLICT。新 key 显式重评仍复用既有机会 identity/评估指纹。
 - 新回执禁止 UPDATE/DELETE/TRUNCATE，用户历史引用计数包含回执。0066 只加表和守卫，不回填；DDL lock_timeout=5s、statement_timeout=120s；失败事务回滚。downgrade 以55000安全停止，采用前向修复或迁移前成套备份恢复，不删幂等/审计事实。
 - 成功 `geo_opportunity.evaluated` target 为 GeoOpportunityEvaluationRun，只保存 scope、规则 revision、计数、原因代码、as_of 和 canonical 请求 SHA。无 Cookie/正文/URL/原始 key；重放不重复。运维 `opportunity_evaluate` 的观测边界为最终管理入口提交，不能在摘要/审计失败前记成功。
+
+
+## AUTO-02 机会周期评估（0068）
+
+`geo_opportunity_schedule`是内部单租户共享的单份管理员配置，整数主键固定1，不属于MonitoringPlan。配置拥有者为机会领域，管理员只有显式保存/启停才能修改。configuration JSONB保存ALL/FILTERED、Subject/Surface/Profile/Mode和interval_hours（1～168）/lookback_days（1～31）；rule_set_revision独立FK不可变规则表、authorizer_id FK users RESTRICT并接入用户引用计数。status为DISABLED/ACTIVE/PAUSED、revision≥1、next_run_at/created_at/updated_at为timestamptz。首次只能DISABLED/revision1；ACTIVE当且仅当next非空。配置/规则/授权/状态实变必须revision+1，时间不倒退；运行只推进next，不改配置revision/updated_at。同人同配置保存不重设周期。
+
+`geo_opportunity_schedule_windows`以(schedule_id,scheduled_for)为主键，保存configuration_revision、configuration_snapshot、rule_set_revision FK、status、evaluation_run_id FK回执、error_code、covered_until和created_at。COMPLETED必须引用与当前配置、规则、授权人及UTC窗口完全一致的真实冻结回执；FAILED必须无回执且有错误码；MISSED保存SUPERSEDED或SKIPPED_OLDER_WINDOWS半开区间。三种结果形状互斥，窗口禁止UPDATE/DELETE/TRUNCATE。配置快照不重复存规则revision，协议装配时显式合并。
+
+写命令锁序User SHARE→当前HTTP Session SHARE→单份配置advisory→配置FOR UPDATE，锁后CAS；后台User SHARE→配置FOR UPDATE，重读revision/authorizer/next。后台不继承原HTTP会话，但每次必须重验授权人当前启用、ADMIN及改密门禁。总开关/评估开关关闭不执行也不推进。评估复用原服务的RR捕获、规则、资格、去重及来源写入；后台幂等SHA使用不可能来自HTTP可打印key的独立命名空间，手动不能占用周期身份。成功机会/来源/评估、回执/审计、COMPLETED及next同一事务。
+
+固定UTC间隔；窗口为[scheduled_for-lookback_days,scheduled_for)。迟到仅选最近一个到期时点，旧due到该时点记MISSED，不集中追赶。暂停/实变配置把已到期未处理游标至变更时点记SUPERSEDED；启用/恢复/实变配置从max(DB时钟、已处理时点/错过区间终点)+interval开始，回拨不能重选历史。异常先整笔rollback，再重锁；仅原revision/授权/next仍待处理且无已完成窗口时，另事务写FAILED和推进。暂停、修订、另一成功或commit确认丢失先赢时，不覆盖真实状态。未知失败只存EVALUATION_FAILED并记安全类型，不保存原SQL/正文；不自动重试同一失败窗口。
+
+管理员配置审计登记configured/activated/paused/resumed四动作；周期geo_opportunity.evaluated以trigger_type=SCHEDULED及真实中文说明区分，手动旧事实不变。审计只保存版本、范围枚举、摘要和统计。0068仅新增两表/守卫，不回填、不自动启用、不改旧历史。降级55000安全停止；回退先暂停新增扫描，保留窗口/机会/回执，以前向修复或成套备份恢复处理。
+
+## MAN-01 未提交人工运行取消（0069）
+
+`geo_manual_run_cancellations`是一Run一条不可变原因记录：run_id PK/FK→geo_observation_runs RESTRICT、cancelled_by FK→users RESTRICT、cancelled_at timestamptz、reason（trim非空、最长2000字符）、run_revision≥1、draft_revision≥0。记录接入用户业务历史引用计数。0069仅新增表/索引/守卫，无历史回填；既有CANCELLED没有记录时只读返回null，不补造取消人、时间或原因。UPDATE/DELETE/TRUNCATE均55000；降级以55000停止，保留历史采用前向修复或迁移前备份恢复。
+
+POST `/api/v1/geo/observation-runs/{run_id}/manual-cancel`由Run生命周期服务拥有，ADMIN/ENGINEER+CSRF；current_actor_command锁内重验账号、角色、改密及当前HTTP Session，之后Batch→Run→Draft。只允许冻结MANUAL且符合既有cancellable（PENDING/NOT_STARTED/无回答）；API/Browser及已提交运行拒绝。不依赖当前Profile、总开关或采集资格，因为不出网、不产生回答，配置失效时仍可结束待办。expected_revision与expected_draft_revision双CAS，草稿没有记录按revision0；不改变草稿版本或内容。
+
+取消复用run_transition及完整Batch统计，Run.status=CANCELLED、finished_at/revision、原因记录、Batch投影和审计同事务。与保存/正式提交共享Batch/Run锁：提交先赢则取消409，取消先赢则旧保存/提交409；审计失败整笔回滚。插入记录的数据库守卫核对MANUAL/CANCELLED/NOT_STARTED、无回答、Run版本/完成时间及草稿版本；新增人工取消的Run延迟约束要求提交时存在匹配原因记录，不能只改状态。批次整批取消与非人工模式不开放。
+
+取消不删除或改写GeoManualDraft，不解除文件引用、不安排文件清理；已提交Answer/Citation/证据及其他Run历史不受影响。取消后的临时草稿继续原0064终态保留/墓碑清理政策，不因新增原因表延长或缩短保留期。新表不复制草稿/文件，不引入第二套证据权威。
+
+GET Run详情新增required nullable cancellation，返回真实reason/操作者/时间/运行及草稿版本；新增一次固定查询，列表无逐行原因读取。manual-entry复用既有RR一致快照，为取消提供双版本，即使采集资格失效仍投影CANCEL；普通列表/详情仅MANUAL接通CANCEL，Batch CANCEL仍关闭。审计geo_manual_observation.cancelled target=GeoObservationRun，仅status、revision、draft_revision；原始原因不进入低敏审计、日志或外部请求。
+
+
+## MAN-02：引用观察事实（0070）
+
+`geo_answer_snapshots.citation_observation` 为 nullable JSONB，无 DEFAULT；0070 不回填或修改原始记录。NULL 表示未记录声明，不能由 citation_count、搜索信号、Profile 能力或分类结果推测。非空值严格为 `{status, missing_reason}`：COMPLETE 至少有一个规范引用，NONE 为确认无引用且数量为0，PARTIAL 为部分缺失可保留已知 URL，UNKNOWN 为无法判断且数量为0。PARTIAL/UNKNOWN 原因必须非空、最长2000字符；COMPLETE/NONE 原因为 JSON null。CHECK 使用 geo_citation_observation_valid，原0050的不可变守卫同时保护新字段。
+
+人工草稿沿既有 JSON、修订锁与文件生命周期，校验扩展为允许可选声明；空声明不写入 canonical JSON，使旧草稿 no-op 和真实旧请求 hash 保持原样。新正式提交在查验原有幂等回执后必须显式声明，缺失422；声明、原文、引用、证据与Run状态同事务冻结。既有回执不补声明，API/历史记录允许 NULL。缺失原因不写入低敏审计或AI输入。
+
+指标输入只提取状态；PARTIAL/UNKNOWN 使用 CITATION_OBSERVATION_UNAVAILABLE 排除三个引用指标，其他资格不变。NONE 提供可观察无引用依据，但分类/分析/复核/文件完整性仍按既有门禁；自有来源覆盖/域名覆盖可为0/1，零引用份额分母仍为0、value=null。COMPLETE 与 NULL 历史样本保留原有分类与资格计算，NULL 不被标为完整，不追溯修订历史报表。0070降级明确55000拒绝丢失已冻结事实；恢复使用前向修复或迁移前备份。

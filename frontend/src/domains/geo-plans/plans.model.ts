@@ -47,10 +47,13 @@ const planFormSchema = z.object({
   subjects: z.array(z.object({ subject_id: canonicalUuidSchema, role: z.enum(['PRIMARY', 'COMPETITOR', 'REFERENCE']) })).min(1, '请选择监测对象').refine((items) => items.some((item) => item.role === 'PRIMARY'), '请至少选择一个主要监测对象').refine((items) => new Set(items.map((item) => item.subject_id)).size === items.length, '监测对象不能重复'),
   prompt_variant_ids: idsSchema, collection_profile_ids: idsSchema,
   repeat_count: z.number().int('重复次数必须为整数').min(1, '至少重复 1 次').max(10, '最多重复 10 次'),
-  schedule_kind: schedules.refine((value) => value === 'MANUAL_ONLY', 'V1.0 不支持定时调度，请使用手动触发'), cron_expression: z.string().max(120, 'Cron 最多 120 字符'),
+  schedule_kind: schedules, cron_expression: z.string().max(120, 'Cron 最多 120 字符'),
   timezone: z.string().min(1, '请填写 IANA 时区').max(64, '时区最多 64 字符'),
   budget_limit: z.string().refine((value) => value === '' || /^(?:0|[1-9][0-9]{0,7})(?:\.[0-9]{1,6})?$/.test(value), '预算为非负十进制，最多 8 位整数、6 位小数'),
   rule_set_revision: z.number().int().min(1),
+}).superRefine((value, context) => {
+  if (value.schedule_kind === 'CRON' && (value.cron_expression.split(' ').length !== 5 || value.cron_expression.split(' ').some((part) => !part)))
+    context.addIssue({ code: 'custom', path: ['cron_expression'], message: '请填写五字段Cron，例如 0 9 * * *；详细规则由服务端验证' });
 });
 type PlanValues = z.input<typeof planFormSchema>;
 function planValues(plan?: PlanDetail): PlanValues { return plan ? {
@@ -58,7 +61,7 @@ function planValues(plan?: PlanDetail): PlanValues { return plan ? {
 } : { name: '', description: '', subjects: [], prompt_variant_ids: [], collection_profile_ids: [], repeat_count: 3, schedule_kind: 'MANUAL_ONLY', cron_expression: '', timezone: 'Asia/Shanghai', budget_limit: '', rule_set_revision: 1 }; }
 function planCreate(values: PlanValues): PlanCreate {
   const configuration = planFormSchema.parse(values);
-  return { ...configuration, cron_expression: null, budget_limit: configuration.budget_limit === '' ? null : configuration.budget_limit };
+  return { ...configuration, cron_expression: configuration.schedule_kind === 'CRON' ? configuration.cron_expression : null, budget_limit: configuration.budget_limit === '' ? null : configuration.budget_limit };
 }
 function planUpdate(values: PlanValues, revision: number): components['schemas']['GeoMonitoringPlanUpdate'] { return { ...planCreate(values), expected_revision: revision }; }
 function assertNever(value: never): never { throw new Error(`计划返回未知合同值：${String(value)}`); }

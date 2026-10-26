@@ -2,6 +2,7 @@
 
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -92,7 +93,7 @@ def run_item(
         actor_type=AccountType(actor.account_type),
         actor_active=actor.is_active,
         collection_eligible=eligible,
-        commands=COMMANDS,
+        commands=replace(COMMANDS, cancel=row["collection_mode"] == "MANUAL"),
     )
     if row["analysis_needs_review"]:
         workflow = workflow.model_copy(

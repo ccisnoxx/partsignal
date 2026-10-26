@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
+import { CitationObservationSummary } from './citation-observation';
 import type { components } from '@/shared/api/generated/schema';
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
 import { batchStatusLabels, modeLabels, runCost, runPrimaryLabels, runStatusLabels, timestamp } from './runs.model';
 import { RunAnalysis } from './run-analysis';
+import { RunQuality } from './run-quality';
+import { FrozenPromptCopy } from './frozen-prompt-copy';
 
 type Detail = components['schemas']['GeoRunDetail'];
 function BatchSummary({ summary }: { summary: components['schemas']['GeoBatchSummary'] }) {
@@ -68,6 +71,7 @@ function RunDetail({
   onEdit,
   onRefreshEvidence,
   retryControl,
+  cancelControl,
   reviewControl,
   blocked = false,
 }: {
@@ -76,10 +80,11 @@ function RunDetail({
   onEdit: () => void;
   onRefreshEvidence: () => void;
   retryControl?: React.ReactNode;
+  cancelControl?: React.ReactNode;
   reviewControl?: React.ReactNode;
   blocked?: boolean;
 }) {
-  const { run, answer, data_quality: quality } = detail;
+  const { run, answer } = detail;
   const input = run.input_snapshot;
   const heading = useRef<HTMLHeadingElement>(null);
   const [copyMessage, setCopyMessage] = useState('');
@@ -147,9 +152,11 @@ function RunDetail({
       </dl>
       <p className="text-sm text-text-secondary">费用未知不计为零；三项 token 用量独立报告，缺失时不推算。发送后失败不会自动再次调用。</p>
       {retryControl}
+      {cancelControl}
       <section className="space-y-2">
         <h3 className="type-section-title">冻结问题全文</h3>
         <pre className="whitespace-pre-wrap break-words text-sm">{input.prompt.prompt_text}</pre>
+        <FrozenPromptCopy key={run.id} promptText={input.prompt.prompt_text} />
       </section>
       {run.error_code && (
         <div className="space-y-1 text-sm text-danger" role="alert">
@@ -209,6 +216,7 @@ function RunDetail({
       </section>
       <section className="space-y-2">
         <h3 className="type-section-title">原始引用</h3>
+        {answer && <CitationObservationSummary observation={answer.citation_observation} />}
         <p className="text-sm text-text-secondary">按原始位置展示；来源分类见下方机器与有效结果。链接在新标签页打开。</p>
         {detail.citations.length ? (
           <TableShell regionLabel="原始引用列表">
@@ -242,7 +250,7 @@ function RunDetail({
             </tbody>
           </TableShell>
         ) : (
-          <p className="text-sm text-text-secondary">没有原始引用。</p>
+          <p className="text-sm text-text-secondary">未录入原始引用；是否确认无引用以上述采集声明为准。</p>
         )}
       </section>
       <section className="space-y-3">
@@ -254,13 +262,7 @@ function RunDetail({
         {!detail.evidence_files.length && <p className="text-sm text-text-secondary">尚无正式提交的证据文件。</p>}
       </section>
       <RunAnalysis detail={detail} reviewControl={reviewControl} />
-      <section className="space-y-2 border-t border-border-subtle pt-4">
-        <h3 className="type-section-title">数据质量与后续能力</h3>
-        <p className="text-sm text-text-secondary">评估：{quality.assessment}；指标资格尚未实现。</p>
-        <p className="text-sm">
-          尚未实现：{quality.unavailable_sections.join('、')}。原始采集成功不表示已完成分析或复核。
-        </p>
-      </section>
+      <RunQuality detail={detail} />
       <section className="space-y-2">
         <h3 className="type-section-title">尝试链</h3>
         <ul className="space-y-2">

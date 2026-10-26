@@ -62,6 +62,9 @@ CSV_RESPONSES: dict[int | str, dict[str, Any]] = error_responses(401, 403, 409, 
 }
 
 
+OPPORTUNITY_CSV_RESPONSES = {key: value for key, value in CSV_RESPONSES.items() if key != 501}
+
+
 @router.get(
     "/runs.csv",
     operation_id="exportGeoRunsCsv",
@@ -111,7 +114,7 @@ def claims_csv(
     "/opportunities.csv",
     operation_id="exportGeoOpportunitiesCsv",
     response_class=Response,
-    responses=CSV_RESPONSES,
+    responses=OPPORTUNITY_CSV_RESPONSES,
 )
 def opportunities_csv(
     request: Request,

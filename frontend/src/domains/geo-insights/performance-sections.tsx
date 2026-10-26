@@ -1,7 +1,8 @@
+import { metricLabels } from '@/shared/lib/geo-metric-labels';
 import type { components } from '@/shared/api/generated/schema';
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { CellIdentity, InsightSection, MetricReadout } from './insights-components';
-import { formatPoints, formatRate, formatTime, metricLabels, type AnswerInsights, type OnDrilldown } from './insights.model';
+import { formatPoints, formatRate, formatTime, type AnswerInsights, type OnDrilldown } from './insights.model';
 
 type Cell = components['schemas']['GeoAnswerInsightCell'];
 type MetricCode = components['schemas']['GeoAnswerInsightMetric']['metric_code'];

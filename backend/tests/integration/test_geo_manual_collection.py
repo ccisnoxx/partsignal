@@ -94,6 +94,10 @@ def prefix(run):
 
 def payload(run, *, revision=0, **values):
     return {
+        "citation_observation": {
+            "status": "COMPLETE" if values.get("citations") else "NONE",
+            "missing_reason": None,
+        },
         "expected_draft_revision": revision,
         "answer_text": "  虚构原始回答\n",
         "answer_format": "MARKDOWN",
@@ -143,7 +147,7 @@ def test_entry_draft_revision_noop_conflict_and_file_retention(plans_api):
     context = api.api.engineer.get(prefix(run) + "/manual-entry")
     assert context.status_code == 200, context.text
     assert context.json()["draft_revision"] == 0 and context.json()["draft"] is None
-    assert context.json()["available_actions"] == ["ENTER_MANUAL_OBSERVATION"]
+    assert context.json()["available_actions"] == ["ENTER_MANUAL_OBSERVATION", "CANCEL"]
     f, _ = evidence(api)
     result = save(api, run, {"answer_text": "半成品", "screenshot_file_id": str(f)})
     assert result.status_code == 200, result.text
@@ -309,7 +313,8 @@ def test_disabled_configuration_is_readable_but_not_writable(plans_api):
         db.commit()
     context = api.api.engineer.get(prefix(run) + "/manual-entry")
     assert context.status_code == 200 and context.json()["draft_revision"] == 1
-    assert context.json()["available_actions"] == [] and context.json()["collection_blockers"]
+    assert context.json()["available_actions"] == ["CANCEL"]
+    assert context.json()["collection_blockers"]
     assert save(api, run, {"answer_text": "禁止"}, 1).status_code == 422
 
 

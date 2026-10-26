@@ -93,8 +93,8 @@ def test_detail_one_request_evidence_timeline_and_frozen_context(plans_api, monk
     assert value["answer"]["answer_sha256"] == receipt["answer_sha256"]
     assert value["answer"]["answer_text"] == "  虚构原始回答\n"
     assert value["citations"][0]["occurrences"] == [1, 3]
-    assert value["data_quality"]["metric_eligible"] is None
-    assert value["data_quality"]["assessment"] == "NOT_IMPLEMENTED"
+    assert value["data_quality"]["metric_eligible"] is False
+    assert value["data_quality"]["assessment"] == "EXCLUDED"
     assert [a["id"] for a in value["attempts"]] == [str(run.id)]
     assert [e["event"] for e in value["timeline"]] == ["CREATED", "STARTED", "COLLECTED"]
     assert {f["id"] for f in value["evidence_files"]} == {str(screenshot), str(raw)}

@@ -19,10 +19,12 @@ from starlette.types import Receive, Scope, Send
 
 from app.models.geo_runs import GeoObservationRun as Run
 from app.schemas.geo_insights import GeoOverviewFilters
+from app.schemas.geo_reports import ExportKind
 from app.services.geo_answer_insights import _cells
 from app.services.geo_insight_details import citation_events, claim_events
 from app.services.geo_metrics import FORMULA_VERSION
-from app.services.geo_overview import QUALITY_VERSION, _generic_reasons
+from app.services.geo_opportunity_csv import COLUMNS as OPPORTUNITY_COLUMNS
+from app.services.geo_overview import QUALITY_VERSION, generic_exclusion_reasons
 from app.services.geo_overview_queries import (
     OverviewInput,
     candidate_query,
@@ -64,6 +66,7 @@ COMMON_COLUMNS = (
     "quality_formula_version",
 )
 COLUMNS = {
+    "opportunities": OPPORTUNITY_COLUMNS,
     "runs": COMMON_COLUMNS
     + (
         "repeat_index",
@@ -179,7 +182,7 @@ def export_rows(
         for source in inputs:
             run = source.metric
             subjects = selected_subjects(source.snapshot, filters)
-            reasons = _generic_reasons(source, filters)
+            reasons = generic_exclusion_reasons(source, filters)
             yield _common(source, as_of) | dict(
                 repeat_index=run.repeat_index,
                 selected_subject_ids=_json(sorted(subjects)),
@@ -315,7 +318,7 @@ class CsvStream(Iterator[bytes]):
 class GeoCsvResponse(StreamingResponse):
     """ASGI取消/断开/发送或生成失败均释放流，不依赖仅成功时执行的background。"""
 
-    def __init__(self, stream: CsvStream, *, as_of: datetime, kind: CsvKind) -> None:
+    def __init__(self, stream: CsvStream, *, as_of: datetime, kind: ExportKind) -> None:
         self.stream = stream
         filename = f"geo-{kind}-{as_of.astimezone(UTC):%Y%m%d-%H%M%SZ}.csv"
         super().__init__(

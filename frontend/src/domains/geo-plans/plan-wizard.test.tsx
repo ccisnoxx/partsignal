@@ -22,7 +22,7 @@ function preview(runCount = 91): PlanPreview {
   return { prompt_count: 1, profile_count: 1, repeat_count: 3, run_count: runCount, manual_run_count: runCount, api_run_count: 0, browser_run_count: 0, unresolved_run_count: 0, estimated_cost: { value: null, currency: null, coverage: 'NONE', known_run_count: 0, unknown_run_count: runCount, known_costs: [] }, blockers: [], warnings: [{ code: 'COST_UNKNOWN', field: 'estimated_cost', resource_id: null, related_resource_id: null }] };
 }
 function plan(overrides: Partial<PlanDetail> = {}): PlanDetail {
-  return { id, name: '原始计划', description: '原始说明', subjects: [{ subject_id: subjectId, role: 'PRIMARY' }], prompt_variant_ids: [promptId], collection_profile_ids: [profileId], repeat_count: 3, schedule_kind: 'MANUAL_ONLY', cron_expression: null, timezone: 'Asia/Shanghai', budget_limit: null, rule_set_revision: 1, status: 'DISABLED', revision: 7, created_by: id, updated_by: id, created_at: time, updated_at: time, preview: preview(), workflow_stage: 'READY', primary_task: 'ACTIVATE', available_actions: ['UPDATE', 'PREVIEW', 'ACTIVATE'], deletion: { blockers: [] }, run_entry: { available: false, reason_code: 'UI_NOT_IMPLEMENTED' }, ...overrides };
+  return { schedule: null, id, name: '原始计划', description: '原始说明', subjects: [{ subject_id: subjectId, role: 'PRIMARY' }], prompt_variant_ids: [promptId], collection_profile_ids: [profileId], repeat_count: 3, schedule_kind: 'MANUAL_ONLY', cron_expression: null, timezone: 'Asia/Shanghai', budget_limit: null, rule_set_revision: 1, status: 'DISABLED', revision: 7, created_by: id, updated_by: id, created_at: time, updated_at: time, preview: preview(), workflow_stage: 'READY', primary_task: 'ACTIVATE', available_actions: ['UPDATE', 'PREVIEW', 'ACTIVATE'], deletion: { blockers: [] }, run_entry: { available: false, reason_code: 'UI_NOT_IMPLEMENTED' }, ...overrides };
 }
 function subject(subject_id = subjectId, label = '监测品牌'): components['schemas']['GeoSubjectOut'] {
   return { id: subject_id, subject_type: 'OWN_BRAND', product_id: null, product: null, parent_subject_id: null, parent: null, canonical_name: label, display_name: label, description: '', is_active: true, aliases: [], domains: [], references: { child_subject_count: 0, monitoring_plan_count: 0, observation_run_count: 0, analysis_count: 0, opportunity_count: 0 }, workflow_stage: 'ACTIVE', primary_task: 'MANAGE_SUBJECT', available_actions: [], deletion: null, revision: 1, created_by: id, created_at: time, updated_at: time };
@@ -94,7 +94,7 @@ describe('八步计划向导', () => {
     await user.click(screen.getByRole('button', { name: '下一步' }));
     await user.click(screen.getByRole('button', { name: '下一步' }));
     await user.click(screen.getByRole('combobox', { name: '调度方式' }));
-    expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual(['手动触发']);
+    expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual(['手动触发', '定时配置']);
     await user.click(screen.getByRole('option', { name: '手动触发' }));
     expect(screen.queryByRole('textbox', { name: 'Cron 表达式' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '下一步' }));
@@ -109,16 +109,32 @@ describe('八步计划向导', () => {
     expect(create.body).toMatchObject({ name: '新监测计划', subjects: [{ subject_id: subjectId, role: 'PRIMARY' }], prompt_variant_ids: [promptId], collection_profile_ids: [profileId], repeat_count: 3, schedule_kind: 'MANUAL_ONLY', cron_expression: null, budget_limit: null });
     expect(create.params.header['X-CSRF-Token']).toBe('wizard-csrf');
   });
-  it('MANUAL 编辑仅有手动触发选项且没有 Cron 输入，不能切换到定时调度', async () => {
+  it('新定时计划显式提交Cron/时区，经预览保存后不自动启用', async () => {
+    reads();
+    const post = vi.spyOn(api, 'POST').mockImplementation(async (path, options) => path === '/api/v1/geo/monitoring-plans/preview' ? response(preview()) : response(plan({ ...(options as {body: components['schemas']['GeoMonitoringPlanCreate']}).body, schedule: {next_run_at: null, latest_window: null}, revision: 0 })));
+    const { onSaved } = renderWizard({ creating: true }); const user = userEvent.setup();
+    await fillCreation(user);
+    await user.click(screen.getByRole('button', { name: '6. 调度' }));
+    await user.click(screen.getByRole('combobox', { name: '调度方式' }));
+    await user.click(await screen.findByRole('option', { name: '定时配置' }));
+    await user.type(screen.getByRole('textbox', { name: 'Cron执行时间' }), '0 9 * * *');
+    await user.clear(screen.getByRole('textbox', { name: '时区' }));
+    await user.type(screen.getByRole('textbox', { name: '时区' }), 'America/New_York');
+    await serverPreview(user);
+    await user.click(screen.getByRole('button', { name: '8. 保存' }));
+    await user.click(screen.getByRole('button', { name: '创建监测计划' }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+    expect(post.mock.calls.map((call) => call[0])).toEqual(['/api/v1/geo/monitoring-plans/preview', '/api/v1/geo/monitoring-plans']);
+    expect((post.mock.calls[1]![1] as {body: components['schemas']['GeoMonitoringPlanCreate']}).body).toMatchObject({ schedule_kind: 'CRON', cron_expression: '0 9 * * *', timezone: 'America/New_York' });
+    expect(onSaved.mock.calls[0]![0]).toMatchObject({ status: 'DISABLED', schedule: { next_run_at: null } });
+  });
+  it('已创建计划的调度方式锁定，MANUAL没有Cron输入', async () => {
     const post = vi.spyOn(api, 'POST'); const patch = vi.spyOn(api, 'PATCH');
-    renderWizard({ initialStep: 5 }); const user = userEvent.setup();
+    renderWizard({ initialStep: 5 });
     const schedule = await screen.findByRole('combobox', { name: '调度方式' });
+    expect(schedule).toBeDisabled();
     expect(schedule).toHaveTextContent('手动触发');
-    await user.click(schedule);
-    expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual(['手动触发']);
-    await user.click(screen.getByRole('option', { name: '手动触发' }));
-    expect(screen.queryByRole('textbox', { name: 'Cron 表达式' })).not.toBeInTheDocument();
-    expect(screen.getByText('V1.0 只支持手动触发，定时调度尚未开放。')).toBeVisible();
+    expect(screen.queryByRole('textbox', { name: 'Cron执行时间' })).not.toBeInTheDocument();
     expect(post).not.toHaveBeenCalled(); expect(patch).not.toHaveBeenCalled();
   });
   it('409 保留全部输入与 preview，显式重读只更新 revision，必须重新预览且无自动重放', async () => {

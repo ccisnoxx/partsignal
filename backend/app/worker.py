@@ -24,7 +24,9 @@ from app.services.geo_dispatch import (
     recover_expired_collection_runs,
     redispatch_pending_collection_runs,
 )
+from app.services.geo_opportunity_scheduler import evaluate_due_opportunities
 from app.services.geo_ops_runtime import observe
+from app.services.geo_plan_scheduler import create_due_plan_batches
 from app.services.geo_retention import cleanup_geo_artifacts
 from app.services.geo_runs import process_collection_run
 
@@ -40,6 +42,14 @@ celery_app.conf.update(
     beat_scheduler="app.geo_ops_health:GeoHealthScheduler",
     beat_max_loop_interval=30,
     beat_schedule={
+        "evaluate-due-geo-opportunities": {
+            "task": "partsignal.evaluate_due_geo_opportunities",
+            "schedule": float(settings.geo_recovery_scan_seconds),
+        },
+        "create-due-geo-plan-batches": {
+            "task": "partsignal.create_due_geo_plan_batches",
+            "schedule": float(settings.geo_recovery_scan_seconds),
+        },
         "redispatch-pending-geo-analyses": {
             "task": "partsignal.redispatch_pending_geo_analyses",
             "schedule": float(settings.geo_recovery_scan_seconds),
@@ -149,3 +159,15 @@ def recover_expired_geo_runs() -> None:
 def cleanup_geo_materials() -> None:
     """只触发限批 PG 扫描，Redis 不携带正文、文件路径或策略参数。"""
     cleanup_geo_artifacts()
+
+
+@celery_app.task(name="partsignal.create_due_geo_plan_batches")  # type: ignore[untyped-decorator]
+def create_due_geo_plan_batches() -> None:
+    """数据库登记和窗口是权威；重复beat消息不重复创建批次。"""
+    create_due_plan_batches()
+
+
+@celery_app.task(name="partsignal.evaluate_due_geo_opportunities")  # type: ignore[untyped-decorator]
+def evaluate_due_geo_opportunities() -> None:
+    """读取数据库授权和周期窗口，最多执行最近一个到期评估。"""
+    evaluate_due_opportunities()

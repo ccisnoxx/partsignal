@@ -12,10 +12,12 @@ from sqlalchemy.orm import Session, aliased
 from app.errors import not_found
 from app.models.geo_answers import GeoAnswerCitation, GeoAnswerSnapshot
 from app.models.geo_batch_creation import GeoBatchSubject
+from app.models.geo_manual_cancellation import GeoManualRunCancellation
 from app.models.geo_runs import GeoObservationBatch as Batch
 from app.models.geo_runs import GeoObservationRun as Run
 from app.models.identity import User
 from app.schemas.geo_answers import GeoAnswerCitationOut, GeoAnswerSnapshotOut
+from app.schemas.geo_manual_cancellation import GeoManualRunCancellationOut
 from app.schemas.geo_read_filters import (
     GeoBatchFilters,
     GeoGlobalRunFilters,
@@ -26,7 +28,6 @@ from app.schemas.geo_read_models import (
     GeoBatchDetail,
     GeoBatchListPage,
     GeoRunAttemptSummary,
-    GeoRunDataQuality,
     GeoRunDetail,
     GeoRunListPage,
     GeoRunTimelineEvent,
@@ -37,6 +38,7 @@ from app.services.geo_analysis_queries import analysis_detail, review_required_e
 from app.services.geo_answer_evidence import answer_evidence_files
 from app.services.geo_batch_policy import BATCH_STATUS_RULES
 from app.services.geo_collection_profiles import ProfileFacts, load_profile_facts
+from app.services.geo_run_quality import quality_and_navigation
 
 _FACT_FIELDS = (
     "id",
@@ -354,13 +356,23 @@ def get_run(db: Session, *, run_id: UUID, actor: User) -> GeoRunDetail:
         run_id=run_id,
         current_analysis_id=row["current_analysis_revision_id"],
         run_status=row["status"],
+        collected=row["collected_at"] is not None,
         answer_id=answer.id if answer else None,
         citation_count=answer.citation_count if answer else 0,
         actor=actor,
     )
     evidence = answer_evidence_files(db, [answer] if answer else [], as_of)
+    run_value = projection.run_item(dict(row), profiles, actor)
+    quality, navigation = quality_and_navigation(
+        db, run_id=run_id, created_at=row["created_at"],
+        is_latest_attempt=run_value.is_latest_attempt,
+    )
+    cancellation = db.get(GeoManualRunCancellation, run_id)
     return GeoRunDetail(
-        run=projection.run_item(dict(row), profiles, actor),
+        cancellation=(
+            GeoManualRunCancellationOut.model_validate(cancellation) if cancellation else None
+        ),
+        run=run_value,
         batch=batch_value,
         answer=GeoAnswerSnapshotOut.model_validate(answer) if answer else None,
         citations=[GeoAnswerCitationOut.model_validate(c) for c in citations],
@@ -368,13 +380,7 @@ def get_run(db: Session, *, run_id: UUID, actor: User) -> GeoRunDetail:
         attempts=attempts,
         timeline=timeline,
         analysis=analysis,
-        data_quality=GeoRunDataQuality(
-            assessment="NOT_IMPLEMENTED",
-            metric_eligible=False if analysis.review_required else None,
-            reason_code="GEO_REVIEW_REQUIRED"
-            if analysis.review_required
-            else "METRIC_ELIGIBILITY_NOT_IMPLEMENTED",
-            unavailable_sections=["METRICS", "OPPORTUNITIES", "RETEST"],
-        ),
+        data_quality=quality,
+        navigation=navigation,
         as_of=as_of,
     )

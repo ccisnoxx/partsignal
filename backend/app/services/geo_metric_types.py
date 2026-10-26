@@ -6,6 +6,7 @@ from uuid import UUID
 
 from app.schemas.configuration import IntentType
 from app.schemas.geo_analysis import GeoClaimSeverity, GeoClaimVerdict, GeoRecommendationKind
+from app.schemas.geo_answers import GeoCitationObservationStatus
 from app.schemas.geo_metric_values import MetricExclusion as MetricExclusion
 from app.schemas.geo_metric_values import SampleLevel as SampleLevel
 from app.schemas.geo_runs import GeoRunStatus
@@ -116,6 +117,7 @@ class MetricRun:
     subjects: tuple[MetricSubject, ...]
     citations: tuple[MetricCitation, ...]
     claims: tuple[MetricClaim, ...]
+    citation_observation_status: GeoCitationObservationStatus | None
     citation_absence_observable: bool
     citation_classification_complete: bool
 

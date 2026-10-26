@@ -14,6 +14,23 @@ async function action(label: string) {
   return driver;
 }
 describe('计划真实路由与状态工作区', () => {
+  it('已登记定时计划呈现下一窗口和真实批次导航，暂停后游标清空', async () => {
+    let current = plan({ schedule_kind: 'CRON', cron_expression: '0 9 * * *', status: 'ACTIVE', workflow_stage: 'ACTIVE', primary_task: 'VIEW_RUNTIME', available_actions: ['PAUSE', 'PREVIEW', 'CREATE_REVISION'], schedule: { next_run_at: '2026-10-03T01:00:00Z', latest_window: { scheduled_for: '2026-10-02T01:00:00Z', plan_revision: 6, status: 'CREATED', batch_id: planId, error_code: null, covered_until: null, created_at: '2026-10-02T01:00:01Z' } } });
+    mockReads(() => current);
+    const post = vi.spyOn(api, 'POST').mockImplementation(async () => {
+      current = { ...current, revision: 8, status: 'PAUSED', workflow_stage: 'PAUSED', primary_task: 'RESUME', available_actions: ['RESUME', 'UPDATE'], schedule: { ...current.schedule!, next_run_at: null } };
+      return response(current);
+    });
+    renderPlans();
+    const section = await screen.findByRole('region', { name: '定时运行进展' });
+    expect(section).toHaveTextContent('Asia/Shanghai');
+    expect(within(section).getByRole('link', { name: '查看本次批次' })).toHaveAttribute('href', expect.stringContaining(`batch_id=${planId}`));
+    const driver = await action('暂停计划');
+    await driver.click(await screen.findByRole('button', { name: '确认操作' }));
+    await waitFor(() => expect(section).toHaveTextContent('尚未启用、已暂停或已归档'));
+    expect(post).toHaveBeenCalledOnce();
+  });
+
   it.each([['DISABLED', '未启用'], ['ACTIVE', '已启用'], ['PAUSED', '已暂停'], ['ARCHIVED', '已归档']] as const)('历史 CRON %s 只读，保留配置与真实历史状态且不发送写请求', async (status, label) => {
     const historical = unsupportedPlan({ status });
     mockReads(() => historical);
@@ -74,7 +91,7 @@ describe('计划真实路由与状态工作区', () => {
     const get = mockReads(() => plan({ preview: { ...plan().preview, run_count: 97 } }));
     const { router } = renderPlans(`/geo/plans?selected=${planId}&q=原始&status=DISABLED&schedule_kind=MANUAL_ONLY&page=2&page_size=10&sort=NAME_ASC`);
     const workspace = await screen.findByRole('region', { name: '监测计划详情' });
-    expect(within(workspace).getByText(/UI_NOT_IMPLEMENTED/)).toBeVisible();
+    expect(within(workspace).getByRole('link', { name: '运行中心' })).toHaveAttribute('href', `/geo/runs?plan_id=${planId}&create=1`);
     expect(within(workspace).getByText('97')).toBeVisible();
     expect(get).toHaveBeenCalledWith('/api/v1/geo/monitoring-plans', expect.objectContaining({ params: { query: { q: '原始', status: 'DISABLED', schedule_kind: 'MANUAL_ONLY', page: 2, page_size: 10, sort: 'NAME_ASC' } } }));
     await userEvent.setup().click(screen.getByRole('button', { name: '关闭' }));

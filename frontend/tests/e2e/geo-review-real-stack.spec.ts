@@ -48,6 +48,7 @@ test('严重声明禁止默认确认；人工确认与修正追加且原文、�
   await page.getByRole('textbox', { name: '引用 1 标题', exact: true }).fill('虚构参数来源');
   await page.getByLabel('上传人工采集截图', { exact: true }).setInputFiles({ name: 'r4-manual.png', mimeType: 'image/png', buffer: png });
   await expect(page.getByText(/^已校验截图：/)).toBeVisible();
+  await choose(page, '引用观察状态', '已完整记录引用');
   const savedDraft = page.waitForResponse((response) => response.request().method() === 'PUT' && new URL(response.url()).pathname === `${runs}/${runId}/manual-draft`);
   await page.getByRole('button', { name: '保存人工草稿', exact: true }).click();
   await body(await savedDraft);

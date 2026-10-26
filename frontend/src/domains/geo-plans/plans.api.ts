@@ -27,7 +27,10 @@ function planDetailOptions(id: string, enabled = true) {
     const result = await api.GET('/api/v1/geo/monitoring-plans/{plan_id}', { params: { path: { plan_id: id } }, signal });
     if (!result.data) throw requestError('读取监测计划详情', result);
     return result.data as PlanDetail;
-  }, retry: false, retryOnMount: false, staleTime: 30_000 });
+  }, retry: false, retryOnMount: false, staleTime: 30_000,
+    refetchIntervalInBackground: false,
+    refetchInterval: (query) => !query.state.error && query.state.data?.status === 'ACTIVE' && query.state.data.schedule?.next_run_at ? 15_000 : false,
+  });
 }
 async function previewPlan(body: PlanCreate, csrfToken: string | null, signal?: AbortSignal) {
   const result = await api.POST('/api/v1/geo/monitoring-plans/preview', { body, signal, params: { header: { 'X-CSRF-Token': csrf(csrfToken) } } });

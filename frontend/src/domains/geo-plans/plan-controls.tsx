@@ -11,7 +11,7 @@ function PlanSelect({ label, value, choices, onChange, disabled, id, describedBy
 function PlanNotice({ children, error = false }: { children: ReactNode; error?: boolean }) { return <div className={`space-y-2 rounded-lg border p-3 text-sm ${error ? 'border-danger/30 bg-danger/5 text-danger' : 'border-border-default bg-surface-raised text-text-secondary'}`} role={error ? 'alert' : 'status'}>{children}</div>; }
 function UnsupportedPlanNotice({ plan }: { plan: PlanDetail }) {
   return <PlanNotice>
-    <p>V1.0 不支持定时调度（CRON）。此历史计划只读，不能编辑、复制、删除或运行，不会自动创建批次（Batch）。</p>
+    <p>历史CRON未登记到期调度。此历史计划只读，不能编辑、复制、删除或运行，不会自动创建批次（Batch）。</p>
     <p>历史状态：{statusLabels[plan.status]}（{plan.status}）。原配置与历史记录保留；历史状态不表示当前正在调度。</p>
     <p>运行入口不可用（{plan.run_entry.reason_code}）。<Link className="text-interaction-primary underline" to="/geo/runs" search={{ plan_id: plan.id }}>查看批次历史</Link></p>
   </PlanNotice>;

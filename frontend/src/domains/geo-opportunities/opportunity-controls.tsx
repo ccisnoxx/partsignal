@@ -3,8 +3,8 @@ import { Button } from '@/design-system/primitives/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/design-system/primitives/select';
 import { OpportunityRequestError } from './opportunities.api';
 
-export function OpportunitySelect({ label, value, choices, onChange, id }: { label: string; value: string; choices: readonly { value: string; label: string }[]; onChange: (value: string) => void; id?: string }) {
-  return <Select items={choices} value={value} onValueChange={(next) => { if (next !== null) onChange(next); }}><SelectTrigger className="w-full min-w-0" aria-label={label} id={id}><SelectValue /></SelectTrigger><SelectContent>{choices.map((item) => <SelectItem value={item.value} key={item.value}>{item.label}</SelectItem>)}</SelectContent></Select>;
+export function OpportunitySelect({ label, value, choices, onChange, id, describedBy, invalid, required }: { label: string; value: string; choices: readonly { value: string; label: string }[]; onChange: (value: string) => void; id?: string; describedBy?: string; invalid?: boolean; required?: boolean }) {
+  return <Select items={choices} value={value} onValueChange={(next) => { if (next !== null) onChange(next); }}><SelectTrigger className="w-full min-w-0" aria-label={label} aria-describedby={describedBy} aria-invalid={invalid} aria-required={required} id={id}><SelectValue /></SelectTrigger><SelectContent>{choices.map((item) => <SelectItem value={item.value} key={item.value}>{item.label}</SelectItem>)}</SelectContent></Select>;
 }
 export function OpportunityNotice({ children, error = false }: { children: ReactNode; error?: boolean }) { return <div role={error ? 'alert' : 'status'} className={`min-w-0 space-y-2 rounded-lg border p-3 text-sm ${error ? 'border-danger/30 bg-danger/5 text-danger' : 'border-border-default bg-surface-raised text-text-secondary'}`}>{children}</div>; }
 export function canShowOpportunitySnapshot(error: unknown) { return !(error instanceof OpportunityRequestError) || ![401, 403, 404, 409, 400, 422].includes(error.status ?? 0); }

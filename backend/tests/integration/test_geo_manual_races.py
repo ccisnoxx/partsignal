@@ -74,6 +74,11 @@ def cancel_storage_writer(db, run):
         ),
         {"id": run.id},
     )
+    db.execute(text("""INSERT INTO geo_manual_run_cancellations
+        (run_id,cancelled_by,cancelled_at,reason,run_revision,draft_revision)
+        SELECT r.id,(SELECT id FROM users WHERE account_type='ENGINEER' LIMIT 1),
+        r.finished_at,'存储边界取消夹具',r.revision,0
+        FROM geo_observation_runs r WHERE r.id=:id"""), {"id": run.id})
     db.commit()
     return "CANCELLED"
 
@@ -266,4 +271,8 @@ def test_saved_revision_commits_before_waiting_submit(plans_api, monkeypatch):
     assert (current.status, current.revision) == ("PENDING", 0)
     assert not answers and not submissions and len(logs) == 1
     assert logs[0].action == "geo_manual_draft.saved"
-    assert draft.draft == saved.draft.model_dump(mode="json") and draft.draft_revision == 1
+    # 未记录声明不进入旧草稿 canonical JSON，回执仍按 nullable 协议表示。
+    assert saved.draft.citation_observation is None
+    assert "citation_observation" not in draft.draft
+    assert draft.draft == saved.draft.model_dump(mode="json", exclude={"citation_observation"})
+    assert draft.draft_revision == 1

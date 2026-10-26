@@ -186,7 +186,13 @@ def metric_run_from_snapshot(
         )
         if results
         else (),
-        citation_absence_observable=citation_absence_observable,
+        citation_observation_status=answer.citation_observation.status
+        if answer and answer.citation_observation
+        else None,
+        citation_absence_observable=citation_absence_observable
+        or bool(
+            answer and answer.citation_observation and answer.citation_observation.status == "NONE"
+        ),
         citation_classification_complete=complete,
     )
 

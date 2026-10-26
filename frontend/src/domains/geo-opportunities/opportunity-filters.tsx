@@ -1,8 +1,9 @@
+import { statusLabels, priorityLabels } from '@/shared/lib/geo-opportunity-labels';
 import { useForm, useWatch } from 'react-hook-form';
 import { Button } from '@/design-system/primitives/button';
 import { Input } from '@/design-system/primitives/input';
 import type { components } from '@/shared/api/generated/schema';
-import { fromUtcInput, modeLabels, opportunitySearchSchema, priorityLabels, ruleLabels, sortLabels, statusLabels, toUtcInput, type OpportunitySearch } from './opportunities.model';
+import { fromUtcInput, modeLabels, opportunitySearchSchema, ruleLabels, sortLabels, toUtcInput, type OpportunitySearch } from './opportunities.model';
 import { OpportunitySelect } from './opportunity-controls';
 
 const dimensions = [
@@ -14,6 +15,7 @@ const filterNames = ['q', 'status', 'priority', 'rule_code', 'subject_id', 'prod
 type FilterValues = Record<typeof filterNames[number], string>;
 const choices = (labels: Record<string, string>) => [{ value: '', label: '全部' }, ...Object.entries(labels).map(([value, label]) => ({ value, label }))];
 export function OpportunityFilters({ search, options, onChange }: { search: OpportunitySearch; options?: components['schemas']['GeoOpportunityFilterOptions']; onChange: (search: OpportunitySearch) => void }) {
+  const sourceScope = search.source_scope;
   const form = useForm<FilterValues>({ defaultValues: Object.fromEntries(filterNames.map((key) => [key, key === 'created_from' || key === 'created_to' ? toUtcInput(search[key]) : key === 'sort' ? search.sort ?? 'PRIORITY_DESC' : search[key] ?? ''])) as FilterValues });
   const values = useWatch({ control: form.control }) as FilterValues;
   const select = (key: keyof FilterValues, label: string, items: { value: string; label: string }[]) => <div className="min-w-0 space-y-1" key={key}><label className="type-label" htmlFor={`opportunity-filter-${key}`}>{label}</label><OpportunitySelect choices={items} id={`opportunity-filter-${key}`} label={label} onChange={(value) => form.setValue(key, value)} value={values[key]} /></div>;
@@ -25,6 +27,15 @@ export function OpportunityFilters({ search, options, onChange }: { search: Oppo
     onChange(opportunitySearchSchema.parse({ ...search, ...values, created_from: from, created_to: to, page: undefined }));
   }
   return <form aria-label="GEO 机会筛选" className="min-w-0 space-y-3 rounded-lg border border-border-subtle bg-surface-panel p-4" onSubmit={(event) => void form.handleSubmit(apply)(event)}>
+    {(sourceScope || search.open_only) && <section aria-label="汇总来源范围" className="min-w-0 space-y-2 border-b border-border-subtle pb-3 text-sm">
+      <h2 className="type-label">来自总览或报告的筛选范围</h2>
+      {search.open_only && <p>仅待处理：待确认、已确认、处理中；状态与优先级筛选会进一步收窄。</p>}
+      {sourceScope && <>
+        <p className="text-text-secondary">以下日期按关联来源运行的创建时间筛选，包含历史及复测来源；与下方机会创建时间独立。</p>
+        <dl className="grid min-w-0 gap-2 sm:grid-cols-2">{Object.entries(sourceScope).map(([key, value]) => <div className="min-w-0 break-words" key={key}><dt className="text-text-muted">{key}</dt><dd className="break-all">{value === null || Array.isArray(value) && !value.length ? '全部 / 未限定' : Array.isArray(value) ? value.join('、') : String(value)}</dd></div>)}</dl>
+      </>}
+      <Button type="button" variant="outline" onClick={() => onChange(opportunitySearchSchema.parse({ ...search, source_scope: undefined, open_only: undefined, page: undefined }))}>清除汇总来源范围</Button>
+    </section>}
     <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <div className="min-w-0 space-y-1"><label className="type-label" htmlFor="opportunity-filter-q">搜索机会</label><Input id="opportunity-filter-q" maxLength={200} placeholder="标题、规则或当前维度名称" aria-invalid={Boolean(form.formState.errors.q)} aria-describedby={form.formState.errors.q ? 'opportunity-q-error' : undefined} {...form.register('q')} />{form.formState.errors.q && <p id="opportunity-q-error" className="text-xs text-danger" role="alert">{form.formState.errors.q.message}</p>}</div>
       {select('status', '机会状态', choices(statusLabels))}{select('priority', '机会优先级', choices(priorityLabels))}{select('rule_code', '触发规则', choices(ruleLabels))}

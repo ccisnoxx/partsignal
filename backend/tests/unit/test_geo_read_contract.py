@@ -27,16 +27,17 @@ def test_read_components_match_authority(contract, model):
         )
 
 
-def test_quality_placeholder_does_not_claim_metric_eligibility(contract):
+def test_quality_cannot_claim_eligibility_with_exclusions(contract):
     value = {
-        "assessment": "NOT_IMPLEMENTED",
-        "metric_eligible": None,
-        "reason_code": "METRIC_ELIGIBILITY_NOT_IMPLEMENTED",
-        "unavailable_sections": ["ANALYSIS", "REVIEW", "METRICS", "OPPORTUNITIES", "RETEST"],
+        "assessment": "EXCLUDED", "metric_eligible": False,
+        "exclusion_reasons": ["CURRENT_ANALYSIS_UNAVAILABLE"],
+        "current_analysis_status": "UNAVAILABLE", "review_status": "NOT_READY",
+        "evidence_complete": False, "cost_recorded": False,
+        "model_version_known": False, "subjects": [],
     }
     parsed = read.GeoRunDataQuality.model_validate(value)
     validate(contract, "GeoRunDataQuality", parsed.model_dump(mode="json"))
-    for patch in ({"metric_eligible": False}, {"assessment": "PASSED"}, {"eligible_count": 0}):
+    for patch in ({"metric_eligible": True}, {"assessment": "ELIGIBLE"}, {"metric_eligible": None}):
         with pytest.raises(ValidationError):
             read.GeoRunDataQuality.model_validate(value | patch)
 

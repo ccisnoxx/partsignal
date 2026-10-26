@@ -3,18 +3,21 @@ import type { components } from '@/shared/api/generated/schema';
 import { canonicalUuidSchema } from '@/shared/lib/canonical-uuid';
 
 const identities = z.array(canonicalUuidSchema).max(50, '每类最多选择 50 个对象');
-export const evaluationFormSchema = z.object({
+export const evaluationScopeSchema = z.object({
   scope: z.enum(['ALL', 'FILTERED']),
-  date_from: z.iso.datetime({ offset: true, message: '请输入带时区的 ISO 时间' }),
-  date_to: z.iso.datetime({ offset: true, message: '请输入带时区的 ISO 时间' }),
-  rule_set_revision: z.number().int().min(1, '规则修订号必须是正整数'),
   subject_ids: identities, engine_surface_ids: identities, collection_profile_ids: identities,
   collection_modes: z.array(z.enum(['MANUAL', 'API', 'BROWSER'])).max(3),
 }).superRefine((value, ctx) => {
-  const duration = Date.parse(value.date_to) - Date.parse(value.date_from);
-  if (!(duration > 0 && duration <= 31 * 86400000)) ctx.addIssue({ code: 'custom', path: ['date_to'], message: '结束必须晚于开始，窗口最长 31 天' });
   const filtered = Boolean(value.subject_ids.length || value.engine_surface_ids.length || value.collection_profile_ids.length);
   if (filtered !== (value.scope === 'FILTERED')) ctx.addIssue({ code: 'custom', path: ['scope'], message: '全部范围不允许对象过滤；筛选范围至少选择一类 Subject、Surface 或 Profile' });
+});
+export const evaluationFormSchema = evaluationScopeSchema.safeExtend({
+  date_from: z.iso.datetime({ offset: true, message: '请输入带时区的 ISO 时间' }),
+  date_to: z.iso.datetime({ offset: true, message: '请输入带时区的 ISO 时间' }),
+  rule_set_revision: z.number().int().min(1, '规则修订号必须是正整数'),
+}).superRefine((value, ctx) => {
+  const duration = Date.parse(value.date_to) - Date.parse(value.date_from);
+  if (!(duration > 0 && duration <= 31 * 86400000)) ctx.addIssue({ code: 'custom', path: ['date_to'], message: '结束必须晚于开始，窗口最长 31 天' });
 });
 export type EvaluationValues = z.infer<typeof evaluationFormSchema>;
 export function evaluationRequest(values: EvaluationValues): components['schemas']['GeoOpportunityEvaluationRequest'] {

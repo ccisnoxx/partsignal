@@ -580,7 +580,7 @@ Overview 的候选是 Run.created_at 半开窗口内每逻辑 cell 的最新 att
 
 上述操作质量可按当前筛选汇总；业务表现始终按cell分栏。预算阻断保留独立状态，不偷换为FAILED。eligible_runs的eligible_run_count为资格通过数，其他质量卡为分母运行数；sample_level基于此数。排除原因可重叠，excluded_run_count按运行去重。无分母null；费用未知不补零、不换币、不在602计算均价。维度差异显式分栏并返回dimension_count，不把已正确分栏数据当作错误排除。
 
-存在引用时按601资格计算；当前未保存独立的“可观察无引用”事实，因此无引用回答排除 CITATION_OBSERVATION_UNAVAILABLE，不能从能力或web_search_observed推断。完整性读取仅证明PG证据元数据与引用完整，不声称对象存储当前可下载；不在GET中进行外部I/O。LENGTH/CONTENT_FILTER回答不进入业务指标。没有独立实质描述事实，不推出branded_answer。
+MAN-02 新人工观测保存独立引用声明：COMPLETE 完整记录仍按601分类资格计算；NONE 明确已观察无引用，在其他门禁通过时可进入覆盖率分母，零引用份额仍为null；PARTIAL/UNKNOWN 不论已录入多少URL均排除 CITATION_OBSERVATION_UNAVAILABLE。历史/API 未记录声明的null样本保持原资格（存在引用仍按601，无引用且无独立事实则排除），不推断/回填完整性，不能从能力或web_search_observed推测。完整性读取仅证明PG证据元数据与引用完整，不声称对象存储当前可下载；不在GET中进行外部I/O。LENGTH/CONTENT_FILTER回答不进入业务指标。没有独立实质描述事实，不推出branded_answer。
 
 每卡片drilldown带规范filters、metric_code、cell_key、cohort和可空batch_id。DENOMINATOR/NUMERATOR/CANDIDATE/EXCLUDED均由同一服务路径计算；下钻响应每运行提供稳定ID、current analysis/review身份、事件分子分母与排除原因，能跳到既有Run Detail。实时下钻重新取得RR快照，不承诺跨请求冻结；数据变动时as_of不同，失效cell返回404，不回退另一cell。机会尚未实现，available=false/NOT_IMPLEMENTED且数量和分母null，不伪装0。最近批次只统计同筛选候选，最多5批，不能把该筛选子集当作整个Batch状态。
 

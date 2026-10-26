@@ -10,6 +10,7 @@ from app.geo_prompt_variants import GeoPromptMentionMode
 from app.schemas.base import ContractModel
 from app.schemas.configuration import IntentType
 from app.schemas.geo_metric_values import MetricExclusion, SampleLevel
+from app.schemas.geo_opportunities import GeoOpportunityPriority, GeoOpportunityStatus
 from app.schemas.geo_prompt_variants import PromptLanguage, PromptRegion
 from app.schemas.geo_runs import GeoRunStatus
 from app.schemas.geo_surfaces import GeoCollectionMode, GeoProfileLoginState
@@ -162,13 +163,33 @@ class GeoOverviewBatch(ContractModel):
     drilldown: GeoOverviewDrilldown
 
 
-class GeoOverviewOpportunityPlaceholder(ContractModel):
-    available: Literal[False] = False
-    reason_code: Literal["NOT_IMPLEMENTED"] = "NOT_IMPLEMENTED"
-    open_count: None = None
-    numerator: None = None
-    denominator: None = None
-    filters: GeoOverviewFilters
+class GeoOpportunitySummaryDrilldown(ContractModel):
+    source_scope: GeoOverviewFilters
+    open_only: Literal[True] = True
+    status: GeoOpportunityStatus | None
+    priority: GeoOpportunityPriority | None
+
+
+class GeoOpportunityStatusSummary(ContractModel):
+    status: Literal["OPEN", "ACKNOWLEDGED", "IN_PROGRESS"]
+    count: int = Field(ge=0)
+    drilldown: GeoOpportunitySummaryDrilldown
+
+
+class GeoOpportunityPrioritySummary(ContractModel):
+    priority: GeoOpportunityPriority
+    count: int = Field(ge=0)
+    drilldown: GeoOpportunitySummaryDrilldown
+
+
+class GeoOpportunitySummary(ContractModel):
+    """来源窗口内关联机会的当前待处理状态；不是机会创建窗口或历史状态回放。"""
+
+    as_of: AwareDatetime
+    open_count: int = Field(ge=0)
+    by_status: list[GeoOpportunityStatusSummary]
+    by_priority: list[GeoOpportunityPrioritySummary]
+    drilldown: GeoOpportunitySummaryDrilldown
 
 
 class GeoOverviewDataQuality(ContractModel):
@@ -189,11 +210,9 @@ class GeoOverview(ContractModel):
     key_products: list[GeoOverviewCell]
     risks: list[GeoOverviewRisk]
     recent_batches: list[GeoOverviewBatch]
-    open_opportunities: GeoOverviewOpportunityPlaceholder
+    open_opportunities: GeoOpportunitySummary
     data_quality: GeoOverviewDataQuality
-    unavailable_sections: list[
-        Literal["TRENDS", "COMPETITOR_SOV", "INSIGHT_DETAILS", "OPPORTUNITIES"]
-    ]
+    unavailable_sections: list[Literal["TRENDS", "COMPETITOR_SOV", "INSIGHT_DETAILS"]]
 
 
 class GeoOverviewRunSample(ContractModel):

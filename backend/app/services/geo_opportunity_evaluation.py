@@ -1,9 +1,10 @@
-"""手动评估事务 owner：请求去重、领域服务调用、冻结摘要与安全审计。"""
+"""机会评估共享核：请求去重、冻结摘要及手动/周期提交边界。"""
 
 import json
 import re
 from collections import Counter
 from hashlib import sha256
+from typing import Literal
 from uuid import uuid4
 
 from sqlalchemy import select, text
@@ -26,19 +27,22 @@ from app.services.geo_opportunities import ensure_evaluation_enabled, evaluate_o
 from app.services.geo_ops_runtime import observe
 
 
-@observe("opportunity_evaluate", "OPPORTUNITY")
-def run_evaluation(
+def _run_evaluation(
     db: Session,
     payload: GeoOpportunityEvaluationRequest,
     *,
     actor: User,
     request_id: str,
     idempotency_key: str,
+    commit: bool,
+    trigger_type: Literal["MANUAL", "SCHEDULED"],
 ) -> GeoOpportunityEvaluationReceipt:
     if re.fullmatch(r"[\x21-\x7e]{8,128}", idempotency_key) is None:
         raise AppError("VALIDATION_ERROR", "幂等键必须为8至128个可打印ASCII非空白字符", 422)
     snapshot = payload.model_dump(mode="json")
-    key_hash = sha256(idempotency_key.encode()).hexdigest()
+    # NUL不属于HTTP幂等键字符集，后台身份不会被手动请求占用。
+    namespace = b"\x00scheduled:" if trigger_type == "SCHEDULED" else b""
+    key_hash = sha256(namespace + idempotency_key.encode()).hexdigest()
     request_hash = sha256(
         json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
@@ -62,7 +66,8 @@ def run_evaluation(
             if previous.request_sha256 != request_hash:
                 raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一机会评估请求", 409)
             receipt = GeoOpportunityEvaluationReceipt.model_validate(previous.receipt)
-            db.commit()
+            if commit:
+                db.commit()
             return receipt.model_copy(update={"replayed": True})
         filters = GeoOverviewFilters(
             date_from=payload.date_from,
@@ -124,7 +129,11 @@ def run_evaluation(
                 target_id=receipt.evaluation_run_id,
                 request_id=request_id,
                 outcome=AuditOutcome.SUCCESS,
-                result_message="管理员已显式完成一次机会评估",
+                result_message=(
+                    "自动周期机会评估已完成"
+                    if trigger_type == "SCHEDULED"
+                    else "管理员已显式完成一次机会评估"
+                ),
                 details={
                     "facts": {
                         "scope": payload.scope,
@@ -136,9 +145,54 @@ def run_evaluation(
                         "unavailable_reasons": sorted(reasons),
                         "as_of": receipt.as_of.isoformat(),
                         "filter_sha256": request_hash,
+                        **({"trigger_type": "SCHEDULED"} if trigger_type == "SCHEDULED" else {}),
                     }
                 },
             ),
         )
-        db.commit()
+        if commit:
+            db.commit()
+        else:
+            db.flush()
         return receipt
+
+
+@observe("opportunity_evaluate", "OPPORTUNITY")
+def run_evaluation(
+    db: Session,
+    payload: GeoOpportunityEvaluationRequest,
+    *,
+    actor: User,
+    request_id: str,
+    idempotency_key: str,
+) -> GeoOpportunityEvaluationReceipt:
+    """手动入口仍在本服务提交，保留原HTTP/幂等/审计语义。"""
+    return _run_evaluation(
+        db,
+        payload,
+        actor=actor,
+        request_id=request_id,
+        idempotency_key=idempotency_key,
+        commit=True,
+        trigger_type="MANUAL",
+    )
+
+
+def run_scheduled_evaluation(
+    db: Session,
+    payload: GeoOpportunityEvaluationRequest,
+    *,
+    actor: User,
+    request_id: str,
+    idempotency_key: str,
+) -> GeoOpportunityEvaluationReceipt:
+    """周期事务提交者同时拥有窗口和回执；失败沿既有身份边界rollback整笔事务。"""
+    return _run_evaluation(
+        db,
+        payload,
+        actor=actor,
+        request_id=request_id,
+        idempotency_key=idempotency_key,
+        commit=False,
+        trigger_type="SCHEDULED",
+    )

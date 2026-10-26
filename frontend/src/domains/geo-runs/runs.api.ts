@@ -99,10 +99,16 @@ function runDetailOptions(id: string, enabled = true) {
         cache: 'no-store',
       });
       if (!result.data) throw requestError('读取运行详情', result);
+      if (result.data.run.id !== id || result.data.analysis.selection.run_id !== id)
+        throw new RunRequestError('运行详情身份与请求不一致');
       return result.data as components['schemas']['GeoRunDetail'];
     },
     refetchInterval: (query) =>
-      !query.state.error && query.state.data ? runPollInterval(query.state.data.run.workflow_stage) : false,
+      !query.state.error && query.state.data
+        ? query.state.data.analysis.revisions.some((row) => row.analysis.status === 'PENDING')
+          ? 5000
+          : runPollInterval(query.state.data.run.workflow_stage)
+        : false,
   });
 }
 function manualEntryOptions(id: string, enabled = true) {
@@ -205,26 +211,26 @@ async function createRunUploadIntent(body: components['schemas']['UploadIntentCr
     body,
     params: { header: { 'X-CSRF-Token': csrf(csrfToken) } },
   });
-  if (!result.data) throw requestError('创建截图上传', result);
+  if (!result.data) throw requestError('创建证据上传', result);
   return result.data as components['schemas']['UploadIntent'];
 }
 async function completeRunUpload(id: string, csrfToken: string | null) {
   const result = await api.POST('/api/v1/files/{file_id}/complete', {
     params: { path: { file_id: id }, header: { 'X-CSRF-Token': csrf(csrfToken) } },
   });
-  if (!result.data) throw requestError('校验截图', result);
+  if (!result.data) throw requestError('校验证据', result);
   return result.data as components['schemas']['FileRecord'];
 }
 async function readRunUpload(id: string) {
   const result = await api.GET('/api/v1/files/{file_id}', { params: { path: { file_id: id } }, cache: 'no-store' });
-  if (!result.data) throw requestError('读取截图状态', result);
+  if (!result.data) throw requestError('读取证据状态', result);
   return result.data as components['schemas']['FileRecord'];
 }
 async function abortRunUpload(id: string, csrfToken: string | null) {
   const result = await api.POST('/api/v1/files/{file_id}/abort', {
     params: { path: { file_id: id }, header: { 'X-CSRF-Token': csrf(csrfToken) } },
   });
-  if (!result.data) throw requestError('放弃截图上传', result);
+  if (!result.data) throw requestError('放弃证据上传', result);
   return result.data as components['schemas']['FileRecord'];
 }
 function csrf(value: string | null) {

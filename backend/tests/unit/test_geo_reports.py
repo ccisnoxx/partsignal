@@ -12,7 +12,6 @@ import anyio
 import pytest
 from starlette.requests import ClientDisconnect
 
-from app.errors import AppError
 from app.schemas.geo_answer_insights import GeoAnswerInsights, GeoInsightWindow
 from app.services import geo_reports
 from app.services.geo_answer_insights import BUSINESS_METRICS, SOV_METRICS
@@ -308,18 +307,25 @@ def test_preview_preserves_as_of_quality_and_explicit_unavailability(monkeypatch
         def scalar(self, query):
             return as_of.replace(hour=1)
 
+    from app.schemas.geo_insights import GeoOpportunitySummary
+
+    monkeypatch.setattr(
+        geo_reports,
+        "get_opportunity_summary",
+        lambda db, scope, *, as_of: GeoOpportunitySummary(
+            as_of=as_of,
+            open_count=0,
+            drilldown={"source_scope": scope, "open_only": True, "status": None, "priority": None},
+            by_status=[],
+            by_priority=[],
+        ),
+    )
     report = geo_reports.get_preview(Clock(), query)
     assert report.as_of == report.insights.as_of == as_of
     assert report.generated_at == as_of.replace(hour=1)
     assert report.unavailable_reason == reason and report.available == (reason is None)
     assert report.insights.data_quality.overview.candidate_run_count == len(inputs)
-    assert report.exports[-1].unavailable_reason == "NOT_IMPLEMENTED"
-
-
-def test_opportunities_fails_before_opening_database_or_writing_audit():
-    with pytest.raises(AppError) as error:
-        geo_reports.prepare_csv(None, None, filters(), "opportunities", "test")
-    assert error.value.status_code == 501 and error.value.code == "NOT_IMPLEMENTED"
+    assert report.exports[-1].available and report.exports[-1].unavailable_reason is None
 
 
 def test_filter_digest_normalizes_all_filter_sets_without_storing_plaintext():

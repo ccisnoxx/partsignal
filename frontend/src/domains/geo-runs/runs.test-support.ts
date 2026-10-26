@@ -156,6 +156,7 @@ function detail(): components['schemas']['GeoRunDetail'] {
     primary_task: 'VIEW_EXECUTION_PROGRESS',
   });
   return {
+    cancellation: null,
     run: current,
     batch: batch(),
     answer: {
@@ -173,6 +174,7 @@ function detail(): components['schemas']['GeoRunDetail'] {
       raw_payload_file_id: null,
       screenshot_file_id: batchId,
       citation_count: 1,
+      citation_observation: null,
       collected_at: asOf,
       created_at: asOf,
     },
@@ -230,11 +232,14 @@ function detail(): components['schemas']['GeoRunDetail'] {
       available_actions: [],
     },
     data_quality: {
-      assessment: 'NOT_IMPLEMENTED',
-      metric_eligible: null,
-      reason_code: 'METRIC_ELIGIBILITY_NOT_IMPLEMENTED',
-      unavailable_sections: ['METRICS', 'OPPORTUNITIES', 'RETEST'],
+      assessment: 'EXCLUDED',
+      metric_eligible: false,
+      exclusion_reasons: ['RUN_NOT_COMPLETED', 'CURRENT_ANALYSIS_UNAVAILABLE'],
+      current_analysis_status: 'UNAVAILABLE', review_status: 'NOT_READY',
+      evidence_complete: true, cost_recorded: false, model_version_known: false,
+      subjects: [],
     },
+    navigation: { insights: null, insights_unavailable_reason: 'SUPERSEDED_ATTEMPT', opportunities: [], retests: [] },
     as_of: asOf,
   };
 }

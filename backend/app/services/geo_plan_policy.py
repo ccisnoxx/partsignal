@@ -22,12 +22,14 @@ from app.schemas.geo_plan_preview import GeoMonitoringPlanPreview
 type PlanTransition = Literal["activate", "pause", "resume", "archive"]
 
 
-def require_supported_schedule(schedule_kind: GeoPlanScheduleKind) -> None:
-    """V1.0 无生产到期入口；保留历史 CRON，但禁止写入和首次执行。"""
-    if schedule_kind == GeoPlanScheduleKind.CRON:
+def require_supported_schedule(
+    schedule_kind: GeoPlanScheduleKind, *, registered: bool = False
+) -> None:
+    """只有新流程显式登记的CRON可管理；历史计划不自动接管。"""
+    if schedule_kind == GeoPlanScheduleKind.CRON and not registered:
         raise AppError(
             "GEO_PLAN_CRON_UNSUPPORTED",
-            "V1.0 不支持 CRON 计划；历史计划只读，请新建人工计划或人工批次",
+            "此入口不支持未登记的CRON计划；历史计划只读，请显式新建定时计划",
             409,
         )
 
@@ -56,8 +58,9 @@ def projection(
     *,
     eligible: bool,
     schedule_kind: GeoPlanScheduleKind = GeoPlanScheduleKind.MANUAL_ONLY,
+    registered: bool = False,
 ) -> tuple[Stage, Task, list[Action], GeoPlanDeletion]:
-    if schedule_kind == GeoPlanScheduleKind.CRON:
+    if schedule_kind == GeoPlanScheduleKind.CRON and not registered:
         return (
             Stage.UNSUPPORTED_SCHEDULE,
             Task.VIEW_HISTORY,

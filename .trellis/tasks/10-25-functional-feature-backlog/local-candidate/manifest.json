@@ -1,0 +1,3422 @@
+{
+  "format_version": 1,
+  "date": "2026-10-26",
+  "kind": "local_scoped_candidate_not_release_manifest",
+  "base_commit": "a4f9bbd581aa558cb3567d6da1f0c5509998bfd0",
+  "schema_head": "0070_geo_citation_observation",
+  "features": [
+    "CORE-01",
+    "CORE-02",
+    "CORE-03",
+    "CORE-04",
+    "CORE-05",
+    "CORE-06",
+    "AUTO-01",
+    "AUTO-02",
+    "MAN-01",
+    "MAN-02",
+    "MAN-03",
+    "MAN-04",
+    "MAN-05",
+    "MAN-06"
+  ],
+  "payload_file_count": 229,
+  "payload_counts": {
+    "added": 93,
+    "modified": 136
+  },
+  "payload_area_counts": {
+    "backend": 107,
+    "contracts": 2,
+    "deploy": 1,
+    "docs": 4,
+    "frontend": 115
+  },
+  "payload_sha256": "1ec49d1aba20ee232e371e8995a395b23fc3b19b6994354058ddea38e54c59d0",
+  "payload_fingerprint_algorithm": "SHA256 of sorted UTF-8 path + NUL + lowercase file SHA256 + LF",
+  "patch": {
+    "path": "local-candidate/candidate.patch",
+    "sha256": "5a28582d588dd72622412f134c43ddf4dbfa49742e35f64f874fbf70f1ff98e9",
+    "applies_to": "a4f9bbd581aa558cb3567d6da1f0c5509998bfd0",
+    "staging_required": false
+  },
+  "payload_files": [
+    {
+      "path": "backend/alembic/sql/0070_geo_citation_observation.sql",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "368fd76b10e807f31c16613e693e5fd25dfd0fd85d9815be463c95485cb4d858",
+      "worktree_sha256": "368fd76b10e807f31c16613e693e5fd25dfd0fd85d9815be463c95485cb4d858",
+      "base_sha256": null,
+      "change": "added",
+      "size": 5553,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/alembic/versions/0067_geo_plan_schedules.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "14a2a125609cc214ae445720b499a96bd57df18cf0dd3781189d3556de11990e",
+      "worktree_sha256": "14a2a125609cc214ae445720b499a96bd57df18cf0dd3781189d3556de11990e",
+      "base_sha256": null,
+      "change": "added",
+      "size": 5472,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/alembic/versions/0068_geo_opportunity_schedule.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "fee29e25c1264c686ccbdae726d890883a975517e3ee9e4423d7e624be535af8",
+      "worktree_sha256": "fee29e25c1264c686ccbdae726d890883a975517e3ee9e4423d7e624be535af8",
+      "base_sha256": null,
+      "change": "added",
+      "size": 6712,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/alembic/versions/0069_geo_manual_cancellation.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "2ef249194deef21eb7414d46861c538077f645907deb300874228bc6ae669eeb",
+      "worktree_sha256": "2ef249194deef21eb7414d46861c538077f645907deb300874228bc6ae669eeb",
+      "base_sha256": null,
+      "change": "added",
+      "size": 3813,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/alembic/versions/0070_geo_citation_observation.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "7feb98ae3ff9f366ea96f69ca27fa289b92023ba1716d97f12d8d10ce1b77412",
+      "worktree_sha256": "7feb98ae3ff9f366ea96f69ca27fa289b92023ba1716d97f12d8d10ce1b77412",
+      "base_sha256": null,
+      "change": "added",
+      "size": 674,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/audit_types.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation",
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "e362ddee249ce9ea594d914d7f3f7a18c51785d7cbf216a6bebb2426eed299e8",
+      "worktree_sha256": "e362ddee249ce9ea594d914d7f3f7a18c51785d7cbf216a6bebb2426eed299e8",
+      "base_sha256": "95aa904b686b6d7ec5eaaa1515b337dde260b9d25aa5e04ec11b0beeb6490887",
+      "change": "modified",
+      "size": 10156,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/main.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation",
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "b9dbe42c0efe4f1df763725c2b15561c650de444a677d510be2af32daa41090e",
+      "worktree_sha256": "b9dbe42c0efe4f1df763725c2b15561c650de444a677d510be2af32daa41090e",
+      "base_sha256": "27bcf6cc6a410d47be4f7b90628cfe3921044a337f22627785114d02bd82f44e",
+      "change": "modified",
+      "size": 16906,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/models/__init__.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring",
+        "10-25-auto-02-periodic-opportunity-evaluation",
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "47e6b9c9101074cfd7feace0b4ddf8c007d4075a2de96840bc5c0d9bf59e6e1d",
+      "worktree_sha256": "47e6b9c9101074cfd7feace0b4ddf8c007d4075a2de96840bc5c0d9bf59e6e1d",
+      "base_sha256": "cb19ced2012a4e8b4645cef21adac4427440dac4dbeee6b3149d3dc24e2e80a7",
+      "change": "modified",
+      "size": 1477,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/models/geo_answers.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "4349368f9079f0c8580b4bc0da6a40b8a9d13855dc5d3e48ae3270a05857cd31",
+      "worktree_sha256": "4349368f9079f0c8580b4bc0da6a40b8a9d13855dc5d3e48ae3270a05857cd31",
+      "base_sha256": "5aa14d4baf5c03cdf7b19765a392930d4dfa49575f9f18ea60f888acacbc5751",
+      "change": "modified",
+      "size": 5811,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/models/geo_manual_cancellation.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "1b07d97daa4effce6f35574b60e48cbb4805952a0dc41f5ae004d70d9f82ce15",
+      "worktree_sha256": "1b07d97daa4effce6f35574b60e48cbb4805952a0dc41f5ae004d70d9f82ce15",
+      "base_sha256": null,
+      "change": "added",
+      "size": 1321,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/models/geo_opportunity_schedule.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "d84999cfa8d984c4827b9c78644b83cdda923b75cb41514898ddd2901547a3cd",
+      "worktree_sha256": "d84999cfa8d984c4827b9c78644b83cdda923b75cb41514898ddd2901547a3cd",
+      "base_sha256": null,
+      "change": "added",
+      "size": 4135,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/models/geo_plan_schedules.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "a598527fc4681d23affb69a9d07c23a15151fda9b4e17f96b0cc291f8d1b4ccc",
+      "worktree_sha256": "a598527fc4681d23affb69a9d07c23a15151fda9b4e17f96b0cc291f8d1b4ccc",
+      "base_sha256": null,
+      "change": "added",
+      "size": 2445,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/routers/geo_manual_collection.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "4eda8989007afe7497485ad99221f9f45e9521ce98f4b5c397b9a7b623825a1b",
+      "worktree_sha256": "4eda8989007afe7497485ad99221f9f45e9521ce98f4b5c397b9a7b623825a1b",
+      "base_sha256": "16033517872f74fb06824132b6e145a8e00a94f7cadfde96e647f4e6000b6279",
+      "change": "modified",
+      "size": 3331,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/routers/geo_opportunities.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-03-opportunity-fact-revision",
+        "10-25-core-04-opportunity-publication-repair",
+        "10-25-core-05-opportunity-csv"
+      ],
+      "sha256": "715cdf6355f4e3656f3eab3905ce2f313d0ae811b0e97cde368d3e33caf8e57d",
+      "worktree_sha256": "715cdf6355f4e3656f3eab3905ce2f313d0ae811b0e97cde368d3e33caf8e57d",
+      "base_sha256": "9cfc46392907067db3aba8eda28ff7a23fc0b9594a1ce045cec5a352608c2185",
+      "change": "modified",
+      "size": 9380,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/routers/geo_opportunity_schedule.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "66c47aaf3f0e982734996ff9e48aba90c5bf1f481da2932f14834dae6f0ea80d",
+      "worktree_sha256": "66c47aaf3f0e982734996ff9e48aba90c5bf1f481da2932f14834dae6f0ea80d",
+      "base_sha256": null,
+      "change": "added",
+      "size": 3660,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/routers/geo_reports.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-05-opportunity-csv"
+      ],
+      "sha256": "7253583eb160f220a85b2e49f7ee521648ba1319eb1f9ddd4a09f3292d6e431c",
+      "worktree_sha256": "7253583eb160f220a85b2e49f7ee521648ba1319eb1f9ddd4a09f3292d6e431c",
+      "base_sha256": "fefa1ffc631aa5ec60e1dbb54550059e16d1cdd75ec6dd66c5a498283cfe7b19",
+      "change": "modified",
+      "size": 3623,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/routers/geo_run_commands.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-06-admin-reanalysis"
+      ],
+      "sha256": "d63ae7dc82a0bf0a3cb72b1f089deb8a7bd2feb43a42a951ca22b1e92cead45e",
+      "worktree_sha256": "d63ae7dc82a0bf0a3cb72b1f089deb8a7bd2feb43a42a951ca22b1e92cead45e",
+      "base_sha256": "33faf8fb450f735357337e731616971a9b43ea2b77689976deec204d259f68fb",
+      "change": "modified",
+      "size": 2306,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/schemas/geo_answers.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "71b6af74e6d1ca3b5bc6f39848f96dafc1741fd70242b15c06a7c547ff6d0199",
+      "worktree_sha256": "71b6af74e6d1ca3b5bc6f39848f96dafc1741fd70242b15c06a7c547ff6d0199",
+      "base_sha256": "147fafca64bfb01b92beea83c403cb19604256b7998d6b3c114889feceb76973",
+      "change": "modified",
+      "size": 5862,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/schemas/geo_insights.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary"
+      ],
+      "sha256": "f1c7d65391770d1a1a63cf42ac33fc67c04591d78ec1af8b7e5d733bf4fbb803",
+      "worktree_sha256": "f1c7d65391770d1a1a63cf42ac33fc67c04591d78ec1af8b7e5d733bf4fbb803",
+      "base_sha256": "5ab8a9b2262ffa0c217436945dff350cdea247c8720adbe5a4d566e4dba10249",
+      "change": "modified",
+      "size": 7812,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/schemas/geo_manual_cancellation.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "b91a764efebfa7a71e3e7de1afdf82e42397b8fc22aa1d843951c0a17efe6edd",
+      "worktree_sha256": "b91a764efebfa7a71e3e7de1afdf82e42397b8fc22aa1d843951c0a17efe6edd",
+      "base_sha256": null,
+      "change": "added",
+      "size": 948,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/schemas/geo_manual_collection.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "0a9206cd615b559ba6670701b0f98715c8822c007d52db433b7656d70667d9db",
+      "worktree_sha256": "0a9206cd615b559ba6670701b0f98715c8822c007d52db433b7656d70667d9db",
+      "base_sha256": "cd7d58043767b23e405681ca95d338f841dc21957405cdcb47cd9d95d0e76618",
+      "change": "modified",
+      "size": 3651,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/schemas/geo_opportunity_actions.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-03-opportunity-fact-revision",
+        "10-25-core-04-opportunity-publication-repair"
+      ],
+      "sha256": "8faa8a68d344b4b374617273c86e5d4496d0b0f96141f50e5a1b8cb98f84035a",
+      "worktree_sha256": "8faa8a68d344b4b374617273c86e5d4496d0b0f96141f50e5a1b8cb98f84035a",
+      "base_sha256": "14bc495ef2dfaa4b628887d05756f8f2b3a34fd89654d0315225d90afe664545",
+      "change": "modified",
+      "size": 3636,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/schemas/geo_opportunity_evaluation.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "18ce285b552bf376ed1904662eb593aa4fc1e68b8a63b7e0fd2ca1beee2a9aa2",
+      "worktree_sha256": "18ce285b552bf376ed1904662eb593aa4fc1e68b8a63b7e0fd2ca1beee2a9aa2",
+      "base_sha256": "cd9952dfd756ca885f58c307b50332b6a703585aa5b565921d4b554fe04aa503",
+      "change": "modified",
+      "size": 2439,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/schemas/geo_opportunity_schedule.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "d863de43b90a6725f8e7537df537b02edcb2494124eb486eae9918390aaa17e6",
+      "worktree_sha256": "d863de43b90a6725f8e7537df537b02edcb2494124eb486eae9918390aaa17e6",
+      "base_sha256": null,
+      "change": "added",
+      "size": 1904,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/schemas/geo_opportunity_workbench.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary"
+      ],
+      "sha256": "a0e0b184a02bafbf889a692485aaef4c79de4ecd235c2e2bb6be3e7c646e3c0e",
+      "worktree_sha256": "a0e0b184a02bafbf889a692485aaef4c79de4ecd235c2e2bb6be3e7c646e3c0e",
+      "base_sha256": "ba33c84b9e1bb709c3914d814f32ae3abdd144d07392f48629ded669d7334d35",
+      "change": "modified",
+      "size": 7982,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/schemas/geo_plan_management.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "1363119ed1e2ae69a5c510e5721507666a8d297cbd9a9f7a94cd644c30344ad8",
+      "worktree_sha256": "1363119ed1e2ae69a5c510e5721507666a8d297cbd9a9f7a94cd644c30344ad8",
+      "base_sha256": "701117460f65e48eb9fd3a1c1f734c928aa16b697eaab7144eeca22d6e3734a3",
+      "change": "modified",
+      "size": 2079,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/schemas/geo_plan_schedules.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "f85390d7551e1ef1cf9bed8bc95d0c1df010e40e102b2eefe8902c4311886c8d",
+      "worktree_sha256": "f85390d7551e1ef1cf9bed8bc95d0c1df010e40e102b2eefe8902c4311886c8d",
+      "base_sha256": null,
+      "change": "added",
+      "size": 597,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/schemas/geo_read_models.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation",
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "7e8937f538742ac084ac593722c3af0cc0576932d24970263644018f8841aa15",
+      "worktree_sha256": "7e8937f538742ac084ac593722c3af0cc0576932d24970263644018f8841aa15",
+      "base_sha256": "477a8a8add176d1b6d501f23f3e12f37281fbda543229aa340e35c0f77541f36",
+      "change": "modified",
+      "size": 6661,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/schemas/geo_reanalysis.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-06-admin-reanalysis"
+      ],
+      "sha256": "691f9eeb8ccd5f1fdd067bc713fb4d077d0e9d8420c639d2a45f2f0a1c4957c8",
+      "worktree_sha256": "691f9eeb8ccd5f1fdd067bc713fb4d077d0e9d8420c639d2a45f2f0a1c4957c8",
+      "base_sha256": null,
+      "change": "added",
+      "size": 714,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/schemas/geo_reports.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary"
+      ],
+      "sha256": "03cb6701533f35a900ea99a217648fd236f399da25bf6c3e74c61fc3e2ed2537",
+      "worktree_sha256": "03cb6701533f35a900ea99a217648fd236f399da25bf6c3e74c61fc3e2ed2537",
+      "base_sha256": "c3948a13120f307401cbfcaa16e45ea9ade8b98a7ff051cc632ec52df5f741c3",
+      "change": "modified",
+      "size": 1195,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/schemas/geo_reviews.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-06-admin-reanalysis"
+      ],
+      "sha256": "26760d8bc44b47d5b8e2c64a91e3943f9d7616d900777a95965fb7ab62bd9069",
+      "worktree_sha256": "26760d8bc44b47d5b8e2c64a91e3943f9d7616d900777a95965fb7ab62bd9069",
+      "base_sha256": "e7a5181271a8ef1f4c982a45d8858118f56ceedc7276af4d1d46511949d513ef",
+      "change": "modified",
+      "size": 2464,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_analysis_queries.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-06-admin-reanalysis"
+      ],
+      "sha256": "cce5d54df1bd91d9390771fb126308a751aafdeba43a4e6c20bc9ef55859a9a9",
+      "worktree_sha256": "cce5d54df1bd91d9390771fb126308a751aafdeba43a4e6c20bc9ef55859a9a9",
+      "base_sha256": "f4c920819f2a7c0abf4f75a39e653e769e23f8edb0ebc59e0d85dabc88e37523",
+      "change": "modified",
+      "size": 7086,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_batches.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "336a0be8d72cff634aae8dca15d5e9b0989a0520a1dd9e245246fd0f11435091",
+      "worktree_sha256": "336a0be8d72cff634aae8dca15d5e9b0989a0520a1dd9e245246fd0f11435091",
+      "base_sha256": "da783e4c4b07cfaa73009479f2d3ff864131c76daf9182cfd07afc25de5de006",
+      "change": "modified",
+      "size": 11399,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_insight_quality.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "f89e6acfd851943a4fcca2babbd45b9ee6187c73572adbb4295979c3478b3335",
+      "worktree_sha256": "f89e6acfd851943a4fcca2babbd45b9ee6187c73572adbb4295979c3478b3335",
+      "base_sha256": "e924e31675f894c536787851e87f8e020a9e7a9e258e1a2053e75e81a8558c8a",
+      "change": "modified",
+      "size": 9481,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_manual_cancellation.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "3af31cd87499252af710a182d5bd4eb7faeb3e72f9e1aeca9d69f80ed3d32841",
+      "worktree_sha256": "3af31cd87499252af710a182d5bd4eb7faeb3e72f9e1aeca9d69f80ed3d32841",
+      "base_sha256": null,
+      "change": "added",
+      "size": 3771,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_manual_collection.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-01-manual-run-cancellation",
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "f1724b8ccf19bdd2df88f4985df97b81ae107a861b62d6f4fd806bf98f1a315f",
+      "worktree_sha256": "f1724b8ccf19bdd2df88f4985df97b81ae107a861b62d6f4fd806bf98f1a315f",
+      "base_sha256": "f37913f0bd0ce6473b47ae812ec571ad3d881de6497a7fc811a866889d3d6aa2",
+      "change": "modified",
+      "size": 17337,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_metric_inputs.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "b152ecb85c008fe290d4c6e9161d9e04817b1ceb07670948540cdf64fc2c516e",
+      "worktree_sha256": "b152ecb85c008fe290d4c6e9161d9e04817b1ceb07670948540cdf64fc2c516e",
+      "base_sha256": "5dc0b8f0fa6308f086791da2a66228eeeab5342837e83161aaf9a7dbfd39f291",
+      "change": "modified",
+      "size": 8853,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_metric_types.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "8c27f5f4e2a614d1f77466b3eb9b8f731aced50418abc71c6cf52801070ffef8",
+      "worktree_sha256": "8c27f5f4e2a614d1f77466b3eb9b8f731aced50418abc71c6cf52801070ffef8",
+      "base_sha256": "082be4b8dde3393a70dd0747df8bb7e5d268ebfdee8b7bfcf6c6262a39a0d2ec",
+      "change": "modified",
+      "size": 6118,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_metrics.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "5c487966d9d5a130d718476aeedc657671dd294b1c2fb02eb6f4ba955a83eed9",
+      "worktree_sha256": "5c487966d9d5a130d718476aeedc657671dd294b1c2fb02eb6f4ba955a83eed9",
+      "base_sha256": "f5c07f1287e6f16171c5b1bb8c9a73c4f10ad17904ab7e9d1186ab472986dcd7",
+      "change": "modified",
+      "size": 17506,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_opportunity_actions.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-03-opportunity-fact-revision"
+      ],
+      "sha256": "0859671f0d914065c8b14f95fa59a9e3075201121eb178bc161afd5cbc4fb2a1",
+      "worktree_sha256": "0859671f0d914065c8b14f95fa59a9e3075201121eb178bc161afd5cbc4fb2a1",
+      "base_sha256": "77ea0159be76549f714637f11c2b1790d0dd8fc540fc3fb287fda32f9a5f7adc",
+      "change": "modified",
+      "size": 12645,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_opportunity_csv.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-05-opportunity-csv"
+      ],
+      "sha256": "08c6f7479767c95686fc615e622462e7b9b5ddf19f4739456142a6c341822c29",
+      "worktree_sha256": "08c6f7479767c95686fc615e622462e7b9b5ddf19f4739456142a6c341822c29",
+      "base_sha256": null,
+      "change": "added",
+      "size": 2408,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_opportunity_evaluation.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "2cc4b7c07259f5537827c47465e5e0ade6cb563e39d732eaac0a0a457285667c",
+      "worktree_sha256": "2cc4b7c07259f5537827c47465e5e0ade6cb563e39d732eaac0a0a457285667c",
+      "base_sha256": "980bd7871a231823803b7241546a783897a73147d12fb6f460756692cda7c11f",
+      "change": "modified",
+      "size": 7695,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_opportunity_fact_options.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-03-opportunity-fact-revision"
+      ],
+      "sha256": "7df5dc4bd249a9545983eea5b4cd143530d1a5f58940a7a359b8a18f59f583ea",
+      "worktree_sha256": "7df5dc4bd249a9545983eea5b4cd143530d1a5f58940a7a359b8a18f59f583ea",
+      "base_sha256": null,
+      "change": "added",
+      "size": 2197,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_opportunity_product_scope.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-03-opportunity-fact-revision"
+      ],
+      "sha256": "cfb7281d32712777c29848f5f52f98eae20f06bd1fdf751ac79f3495b8c55165",
+      "worktree_sha256": "cfb7281d32712777c29848f5f52f98eae20f06bd1fdf751ac79f3495b8c55165",
+      "base_sha256": null,
+      "change": "added",
+      "size": 1276,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_opportunity_publication_options.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-04-opportunity-publication-repair"
+      ],
+      "sha256": "ec5222b8c15dfe72062afe0570189e18a68c65d2ce4c7997e87bbafc52ce71e8",
+      "worktree_sha256": "ec5222b8c15dfe72062afe0570189e18a68c65d2ce4c7997e87bbafc52ce71e8",
+      "base_sha256": null,
+      "change": "added",
+      "size": 4808,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_opportunity_queries.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary",
+        "10-25-core-05-opportunity-csv"
+      ],
+      "sha256": "312bdd0ddce0a6afcdd247baacc8890dd6608ed46f7cc494247d69213518af7c",
+      "worktree_sha256": "312bdd0ddce0a6afcdd247baacc8890dd6608ed46f7cc494247d69213518af7c",
+      "base_sha256": "cb2d9278ec8fd9f715bc154c3ed2eff4a09745d3544c7631462cb9b8a31313b5",
+      "change": "modified",
+      "size": 15409,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_opportunity_schedule_commands.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "98b5f4df805d63afdf48770b3528642820fe5606d01f375d807b65c11f7ad720",
+      "worktree_sha256": "98b5f4df805d63afdf48770b3528642820fe5606d01f375d807b65c11f7ad720",
+      "base_sha256": null,
+      "change": "added",
+      "size": 6065,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_opportunity_schedule_state.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "5fbe0e0d15a47a74b53d24063c7cabf57891bc92ae683d1f9f6a12c2ee7ef5b1",
+      "worktree_sha256": "5fbe0e0d15a47a74b53d24063c7cabf57891bc92ae683d1f9f6a12c2ee7ef5b1",
+      "base_sha256": null,
+      "change": "added",
+      "size": 3681,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_opportunity_scheduler.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "3717c68c47754b2d6c0197a777da262794d5855b8256ff601dd49fbd3708c6c9",
+      "worktree_sha256": "3717c68c47754b2d6c0197a777da262794d5855b8256ff601dd49fbd3708c6c9",
+      "base_sha256": null,
+      "change": "added",
+      "size": 6551,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_opportunity_summary.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary"
+      ],
+      "sha256": "cad5009778a13c812d25a682614b3036bae4bc32a29ccb8fefda762d13268f81",
+      "worktree_sha256": "cad5009778a13c812d25a682614b3036bae4bc32a29ccb8fefda762d13268f81",
+      "base_sha256": null,
+      "change": "added",
+      "size": 2758,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_overview.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation",
+        "10-25-core-02-opportunity-summary"
+      ],
+      "sha256": "3769a19802fcf66f7643c93b3c2e1dd1d7403be17b25af3d9b72c508be3dcf80",
+      "worktree_sha256": "3769a19802fcf66f7643c93b3c2e1dd1d7403be17b25af3d9b72c508be3dcf80",
+      "base_sha256": "b2b3b7443fdecca0ec1648aff77313a3de3e99fa83d12e7082bfb62ec2875d71",
+      "change": "modified",
+      "size": 13989,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_overview_queries.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation",
+        "10-25-core-02-opportunity-summary",
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "eb637eed28a48c38a474cb14fc6dee2a4a3b54c9f68898ea3031bd57f6711d2e",
+      "worktree_sha256": "eb637eed28a48c38a474cb14fc6dee2a4a3b54c9f68898ea3031bd57f6711d2e",
+      "base_sha256": "f51e9e03dad79850ecc4db2e165f8ea6305d7bbbf113147e9bc5d9a9e25043bb",
+      "change": "modified",
+      "size": 17815,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_plan_commands.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "522c233ab6a2b4746bf858b81f5af0db723944d41321962c714cef9277870608",
+      "worktree_sha256": "522c233ab6a2b4746bf858b81f5af0db723944d41321962c714cef9277870608",
+      "base_sha256": "67589c05df909540478d44fd8cdfbb0aa7423b77022a0962aa9a16bee88c4378",
+      "change": "modified",
+      "size": 10606,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_plan_policy.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "30c14aa8ccdaaf974a1431f9ba3338d67510e878b66b388de3152d36b390e6ee",
+      "worktree_sha256": "30c14aa8ccdaaf974a1431f9ba3338d67510e878b66b388de3152d36b390e6ee",
+      "base_sha256": "79b10944cdf0737a8296afc731ab350326bca10aac5d34fa94a813740d4eaff0",
+      "change": "modified",
+      "size": 4476,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_plan_queries.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "a4017a8e771312813de0726d5256c06cdd87cf26e341906b60634f3f1cbf152a",
+      "worktree_sha256": "a4017a8e771312813de0726d5256c06cdd87cf26e341906b60634f3f1cbf152a",
+      "base_sha256": "47331216b36a885a8f88df075da3d5f8aca5e5d468c1216f1bcebbf3bbc4be63",
+      "change": "modified",
+      "size": 8405,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_plan_scheduler.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "e7873fbab5d8df45d70c854a32f15ccc5c686cf6b64e5d487c1ec42dab28c9cb",
+      "worktree_sha256": "e7873fbab5d8df45d70c854a32f15ccc5c686cf6b64e5d487c1ec42dab28c9cb",
+      "base_sha256": null,
+      "change": "added",
+      "size": 7130,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_read_projections.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "f36bce166754928623f630cf8825e546b534b1b847c2d430e0ee8f268522ddd6",
+      "worktree_sha256": "f36bce166754928623f630cf8825e546b534b1b847c2d430e0ee8f268522ddd6",
+      "base_sha256": "4ad6e82a3253cae945fc00d9f64fbbcef3244ec3a1ec58c689c381313858d684",
+      "change": "modified",
+      "size": 8110,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_read_queries.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation",
+        "10-25-core-06-admin-reanalysis",
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "ddd9d166e3d9f9d6df7ccea25d1e691c2ca23668c4957e6a1cd7355649e7fb0b",
+      "worktree_sha256": "ddd9d166e3d9f9d6df7ccea25d1e691c2ca23668c4957e6a1cd7355649e7fb0b",
+      "base_sha256": "6e5653005f55657bcf610b0bb8f595018691533d6edf99b604b763830ab027b3",
+      "change": "modified",
+      "size": 14815,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_reanalysis.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-06-admin-reanalysis"
+      ],
+      "sha256": "e30a191cd5b1359f0083b55eea9cccd401b7b7fdd36828b58d3df19660283ce3",
+      "worktree_sha256": "e30a191cd5b1359f0083b55eea9cccd401b7b7fdd36828b58d3df19660283ce3",
+      "base_sha256": "89c568181dd8a4096864f87e7baf986dd9daa9694fcc6810ef3733469b7e464f",
+      "change": "modified",
+      "size": 3645,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_reanalysis_policy.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-06-admin-reanalysis"
+      ],
+      "sha256": "010bb76dc7a8f62ff41189af2db5a2bad6ce546334e27a745029dbd68ad75b86",
+      "worktree_sha256": "010bb76dc7a8f62ff41189af2db5a2bad6ce546334e27a745029dbd68ad75b86",
+      "base_sha256": null,
+      "change": "added",
+      "size": 233,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_report_csv.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation",
+        "10-25-core-05-opportunity-csv"
+      ],
+      "sha256": "c59c4f15ab4f7d9b77dabf8ba230fcff102ece8a8aedc0fb9cae4bf6af18a1b5",
+      "worktree_sha256": "c59c4f15ab4f7d9b77dabf8ba230fcff102ece8a8aedc0fb9cae4bf6af18a1b5",
+      "base_sha256": "13e0c5c002d62a6d894556363b7084123a7ea80fbea89eebb19f503a2f4608d2",
+      "change": "modified",
+      "size": 12246,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_report_formulas.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary"
+      ],
+      "sha256": "43a24b62fb48aec1c9149641e956d94ee06b66cac40adb431fbd8a820cddf07a",
+      "worktree_sha256": "43a24b62fb48aec1c9149641e956d94ee06b66cac40adb431fbd8a820cddf07a",
+      "base_sha256": "bdf0460a2fc5811a0ab489008c038c315242054dac30680060d491c2cf0ce44d",
+      "change": "modified",
+      "size": 4871,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_reports.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary",
+        "10-25-core-05-opportunity-csv"
+      ],
+      "sha256": "a5d4f4910afac909178cffa475614b801272e6c83978f5bc89005061f0207798",
+      "worktree_sha256": "a5d4f4910afac909178cffa475614b801272e6c83978f5bc89005061f0207798",
+      "base_sha256": "1bc2d5c3b12b7f99b9bd82b8e03fc2b7f823c13dd1da6d048096a2d3214d23e2",
+      "change": "modified",
+      "size": 7618,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_run_quality.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "d63855b55ee97f448437402c29a9081de6d8b54a3506370370ae24678051c6f4",
+      "worktree_sha256": "d63855b55ee97f448437402c29a9081de6d8b54a3506370370ae24678051c6f4",
+      "base_sha256": null,
+      "change": "added",
+      "size": 5280,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_schedule_clock.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "7616f2ed6d824b1b200feced7d1cbc4616547e5927c721664165adc534fbe872",
+      "worktree_sha256": "7616f2ed6d824b1b200feced7d1cbc4616547e5927c721664165adc534fbe872",
+      "base_sha256": null,
+      "change": "added",
+      "size": 1878,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_schedule_management.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "4a0d9220cbfd5a30c22224e6535d8c23d94bb5bf69ce95833f37d935a8ff547f",
+      "worktree_sha256": "4a0d9220cbfd5a30c22224e6535d8c23d94bb5bf69ce95833f37d935a8ff547f",
+      "base_sha256": null,
+      "change": "added",
+      "size": 3035,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/geo_schedule_queries.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "4bd290ce97da92f41821a015d1f0b3708307c46ddba7331dfc7764047fc7d43c",
+      "worktree_sha256": "4bd290ce97da92f41821a015d1f0b3708307c46ddba7331dfc7764047fc7d43c",
+      "base_sha256": null,
+      "change": "added",
+      "size": 1162,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/identity.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation",
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "baeea3c40b9eb3c750395c95c30bf248db650ad35b605e62569df91740a6ee12",
+      "worktree_sha256": "baeea3c40b9eb3c750395c95c30bf248db650ad35b605e62569df91740a6ee12",
+      "base_sha256": "d3668cab4c453026fd78962e0939a98a4e18cda8be4f701ed163cae220a9689f",
+      "change": "modified",
+      "size": 25887,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/services/publication_queries.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-04-opportunity-publication-repair"
+      ],
+      "sha256": "350705e2c4d954692e0c2ff1281b41d08c4780fbe02b124b3ddc10cea30a79c1",
+      "worktree_sha256": "350705e2c4d954692e0c2ff1281b41d08c4780fbe02b124b3ddc10cea30a79c1",
+      "base_sha256": "f75d1a825497ccadef01db7f71290f52721cef232b6ac5ea1493db445714fc92",
+      "change": "modified",
+      "size": 50135,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/app/worker.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring",
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "0e0e54e5ef7740fbed1b9245bd65fb40b78d2750b943c6333a5fc8bbe0cf876f",
+      "worktree_sha256": "0e0e54e5ef7740fbed1b9245bd65fb40b78d2750b943c6333a5fc8bbe0cf876f",
+      "base_sha256": "00dbef12cb90987a88532de95a06fbe5910b01f982615d18567fe34bc9465d9a",
+      "change": "modified",
+      "size": 7334,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/geo_opportunity_schedule_support.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "a1400b686e5d9b47935f65b2dcf76ccf9365eb8064aedaf06246563ffb0004b8",
+      "worktree_sha256": "a1400b686e5d9b47935f65b2dcf76ccf9365eb8064aedaf06246563ffb0004b8",
+      "base_sha256": null,
+      "change": "added",
+      "size": 4829,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_batch_creation.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "f368ce3519f39cb3ffd201d6c26158b2565ac3a53fe6c873931da3090c6bd382",
+      "worktree_sha256": "f368ce3519f39cb3ffd201d6c26158b2565ac3a53fe6c873931da3090c6bd382",
+      "base_sha256": "e627ee21ba5b00be8c7748cc72d47bbb74e25d13f25f4f47d03338710aed94b7",
+      "change": "modified",
+      "size": 17440,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_citation_observation.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "6cea08d12a88a39a7454d5135c79bee64297c21e39b151045f4a0844840ad9e7",
+      "worktree_sha256": "6cea08d12a88a39a7454d5135c79bee64297c21e39b151045f4a0844840ad9e7",
+      "base_sha256": null,
+      "change": "added",
+      "size": 7263,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_citation_observation_migration.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "cd6f5935f60aa5b3633feccaade6384d1f4d253a663bbfc9c3e19fabd67b46b3",
+      "worktree_sha256": "cd6f5935f60aa5b3633feccaade6384d1f4d253a663bbfc9c3e19fabd67b46b3",
+      "base_sha256": null,
+      "change": "added",
+      "size": 5526,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_cron_boundary.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "1bf07bff62162b836c90be3a6fcc61ad33e6875d286c4f20df99ea045ad99fbd",
+      "worktree_sha256": "1bf07bff62162b836c90be3a6fcc61ad33e6875d286c4f20df99ea045ad99fbd",
+      "base_sha256": "4e86bba6dc3e20b2a565390e0f43ef8058ce2fb7ad8b97427bfbde1b9afaab43",
+      "change": "modified",
+      "size": 7955,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_fact_revision_options.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-03-opportunity-fact-revision"
+      ],
+      "sha256": "219eeed773913b5f1e289f6867549bec29ea7efda485e034dc56ff74b3afd80d",
+      "worktree_sha256": "219eeed773913b5f1e289f6867549bec29ea7efda485e034dc56ff74b3afd80d",
+      "base_sha256": null,
+      "change": "added",
+      "size": 11195,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_manual_cancellation.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "0d2d6baa1157cd5702bd76cd8ac0572cf4845d4a62589d7578c4aecc7393ba02",
+      "worktree_sha256": "0d2d6baa1157cd5702bd76cd8ac0572cf4845d4a62589d7578c4aecc7393ba02",
+      "base_sha256": null,
+      "change": "added",
+      "size": 12873,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_manual_cancellation_migration.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-01-manual-run-cancellation",
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "e5b01847ffab217bf9a14062c2fe8e7c3e2eeb65624d47b44b6da052ba5b87c7",
+      "worktree_sha256": "e5b01847ffab217bf9a14062c2fe8e7c3e2eeb65624d47b44b6da052ba5b87c7",
+      "base_sha256": null,
+      "change": "added",
+      "size": 1843,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_manual_collection.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-01-manual-run-cancellation",
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "f027d34f11bfaec274805ffe51e2d51d33f052d01e0a3d07d51aeb13b95d0ca3",
+      "worktree_sha256": "f027d34f11bfaec274805ffe51e2d51d33f052d01e0a3d07d51aeb13b95d0ca3",
+      "base_sha256": "422e5120a2ac4769ec69f160465da1a76669ffd9eaf27a7e603803665bb17c01",
+      "change": "modified",
+      "size": 17150,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_manual_collection_boundaries.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "c277569770193a7f8f0a1ac92c47ef3fccffcb1310d0c62daf6a54ce3f929aa2",
+      "worktree_sha256": "c277569770193a7f8f0a1ac92c47ef3fccffcb1310d0c62daf6a54ce3f929aa2",
+      "base_sha256": "4cd6b649fa023f63b8854923aa9280443d13aa4598e2c4ef5e2a8364c2a5e4df",
+      "change": "modified",
+      "size": 11750,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_manual_evaluation_migration.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation",
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "819134a0c466faf275b3acaa477fe0574233bb284e2741fa52f5252a7a1f5d70",
+      "worktree_sha256": "819134a0c466faf275b3acaa477fe0574233bb284e2741fa52f5252a7a1f5d70",
+      "base_sha256": "f0f7b1a78c9921dc20d5854a5e438d5a13bb153ba3d33c3e4c675497e10924b8",
+      "change": "modified",
+      "size": 2969,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_manual_opportunity_evaluation.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "c4322f4e227e43b4694d540b6d2f597802487331d64dae9a25d5a8b75eae46fa",
+      "worktree_sha256": "c4322f4e227e43b4694d540b6d2f597802487331d64dae9a25d5a8b75eae46fa",
+      "base_sha256": "44d21d00be88c533ff9e763942ee0339a7fd5279d2dde56900e70e98e93de15d",
+      "change": "modified",
+      "size": 17055,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_manual_races.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "959c9dc1b68bb136e46de68a92b6262daf79bbca1ffebd5ff6c9782b349f89d8",
+      "worktree_sha256": "959c9dc1b68bb136e46de68a92b6262daf79bbca1ffebd5ff6c9782b349f89d8",
+      "base_sha256": "07be82010a3797da9c2b6469a79a61af092c3668df28741b7cb36b7b1812d956",
+      "change": "modified",
+      "size": 11165,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_opportunity_csv.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-05-opportunity-csv"
+      ],
+      "sha256": "ba58d90a506f09243731ef279db844f240a5be4a33253cf139ad27cc66647ea7",
+      "worktree_sha256": "ba58d90a506f09243731ef279db844f240a5be4a33253cf139ad27cc66647ea7",
+      "base_sha256": null,
+      "change": "added",
+      "size": 10264,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_opportunity_schedule.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "1f9c808a5f0a8e0b0b35886e3878a710e4ba4050b4ebd68755306d3a13cc6e7e",
+      "worktree_sha256": "1f9c808a5f0a8e0b0b35886e3878a710e4ba4050b4ebd68755306d3a13cc6e7e",
+      "base_sha256": null,
+      "change": "added",
+      "size": 11007,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_opportunity_schedule_concurrency.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "52331143ad230af605d9e4b16e8c459556ea1bb1b9df12922a6d271da1a14ce5",
+      "worktree_sha256": "52331143ad230af605d9e4b16e8c459556ea1bb1b9df12922a6d271da1a14ce5",
+      "base_sha256": null,
+      "change": "added",
+      "size": 7405,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_opportunity_schedule_migration.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation",
+        "10-25-man-01-manual-run-cancellation",
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "bdd734e2d3f01ca973354e971c6db1eb072874883c70518bf9a370b03fa5f40c",
+      "worktree_sha256": "bdd734e2d3f01ca973354e971c6db1eb072874883c70518bf9a370b03fa5f40c",
+      "base_sha256": null,
+      "change": "added",
+      "size": 2460,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_opportunity_summary.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary"
+      ],
+      "sha256": "f9ee87c1668d7b0e9beeee696781468699f35e337c6cafef35086d3c0a2e7e4f",
+      "worktree_sha256": "f9ee87c1668d7b0e9beeee696781468699f35e337c6cafef35086d3c0a2e7e4f",
+      "base_sha256": null,
+      "change": "added",
+      "size": 8820,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_overview.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary"
+      ],
+      "sha256": "7e6617ef934c64c0733d8283e572bd100afb1a5c6156214884d415146fa0145d",
+      "worktree_sha256": "7e6617ef934c64c0733d8283e572bd100afb1a5c6156214884d415146fa0145d",
+      "base_sha256": "aed45c65200f1fb8a5fd9c7c168f425d2f355d4558a2f39ad85a9f33faf534f5",
+      "change": "modified",
+      "size": 14674,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_plan_scheduler.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring",
+        "10-25-auto-02-periodic-opportunity-evaluation",
+        "10-25-man-01-manual-run-cancellation",
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "f6c98606b2d2639d1a736e6a90b055f2d586f28b17f7e81687c45b96f3668e40",
+      "worktree_sha256": "f6c98606b2d2639d1a736e6a90b055f2d586f28b17f7e81687c45b96f3668e40",
+      "base_sha256": null,
+      "change": "added",
+      "size": 14800,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_publication_repair_options.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-04-opportunity-publication-repair"
+      ],
+      "sha256": "79f0186352fd4daeb0f9e7cf27996c9c1db2985addb5c8ab3ecbb23cd71be609",
+      "worktree_sha256": "79f0186352fd4daeb0f9e7cf27996c9c1db2985addb5c8ab3ecbb23cd71be609",
+      "base_sha256": null,
+      "change": "added",
+      "size": 10805,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_r4_acceptance.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "b3352604de216e75b6ed76a414945d5388485d8dda76762e79644e722951d17a",
+      "worktree_sha256": "b3352604de216e75b6ed76a414945d5388485d8dda76762e79644e722951d17a",
+      "base_sha256": "4e948865e30e7935ac5691b09f869f9b0d1205448582794a817a5f5ab797b8c0",
+      "change": "modified",
+      "size": 3790,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_read_models.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "290f4c2b760ba274cc3d698da586d1a6e304fb6e70aa61b7266f6d7fccb57dfe",
+      "worktree_sha256": "290f4c2b760ba274cc3d698da586d1a6e304fb6e70aa61b7266f6d7fccb57dfe",
+      "base_sha256": "102c2e7cfac1e1037f97c14c2fa3e24f2bc0e048ef84406b94e725b78c60a93e",
+      "change": "modified",
+      "size": 14495,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_reanalysis_api.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-06-admin-reanalysis"
+      ],
+      "sha256": "236b803cd15087e6741c61fc5722f167d4a16a115e5f3c589ef589946918aaae",
+      "worktree_sha256": "236b803cd15087e6741c61fc5722f167d4a16a115e5f3c589ef589946918aaae",
+      "base_sha256": null,
+      "change": "added",
+      "size": 8682,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_recovery.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "5af625d95e5d6b8dcb91d18e81945612e2f84d233165530ea06519fc52ba24c1",
+      "worktree_sha256": "5af625d95e5d6b8dcb91d18e81945612e2f84d233165530ea06519fc52ba24c1",
+      "base_sha256": "01c292a7b994981f94b4c931faa1e26597230c394e617c380c827ca8e58b2d1e",
+      "change": "modified",
+      "size": 12345,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_reports.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-05-opportunity-csv"
+      ],
+      "sha256": "a97cff769b4c187036a363eff820fe7e26c0ee4095027a927c3c168830e9c308",
+      "worktree_sha256": "a97cff769b4c187036a363eff820fe7e26c0ee4095027a927c3c168830e9c308",
+      "base_sha256": "4985cf0fab1c3a8fe96a68a13e122cf3c62eb7bfc594bac81263b05d0598dbf9",
+      "change": "modified",
+      "size": 17464,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_retention.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-01-manual-run-cancellation",
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "0c1b3b115a7b46ef21262274c11577a8472deb816a2f12c46b17ec078ceb3386",
+      "worktree_sha256": "0c1b3b115a7b46ef21262274c11577a8472deb816a2f12c46b17ec078ceb3386",
+      "base_sha256": "f34fee1473953e1034a08498f132efb9473eadca2de95533c52fb3af5e863b75",
+      "change": "modified",
+      "size": 17999,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_reviews.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "f1f2bf43e6342037486147351f6d7b057dd82fc98285196ebbb0730bc2b546a8",
+      "worktree_sha256": "f1f2bf43e6342037486147351f6d7b057dd82fc98285196ebbb0730bc2b546a8",
+      "base_sha256": "89d2d430745bde682f200022d459172082d03aef4aecd8ffeca55ebc1f663a38",
+      "change": "modified",
+      "size": 13014,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_geo_run_quality.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "2919a93bc8eefe8eafaeb87859cffd390dc910d009d16149bcc5644b59517223",
+      "worktree_sha256": "2919a93bc8eefe8eafaeb87859cffd390dc910d009d16149bcc5644b59517223",
+      "base_sha256": null,
+      "change": "added",
+      "size": 7355,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/integration/test_migrations.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring",
+        "10-25-auto-02-periodic-opportunity-evaluation",
+        "10-25-man-01-manual-run-cancellation",
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "f7d984b1a3cb463601537a5ed6ea94b15bad6e53b363060d9609263d8bfc656a",
+      "worktree_sha256": "f7d984b1a3cb463601537a5ed6ea94b15bad6e53b363060d9609263d8bfc656a",
+      "base_sha256": "1ef0d072407a10bd49b88a5fc2761b2ef130b8b174947faa800aa196ee2e0a0d",
+      "change": "modified",
+      "size": 184788,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/unit/geo_metrics_gold.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "8b14c1ec0e7ae971d88809aaba64720afe45032a86187d09e0df2826f1741146",
+      "worktree_sha256": "8b14c1ec0e7ae971d88809aaba64720afe45032a86187d09e0df2826f1741146",
+      "base_sha256": "1f61e237e5628fdd47fbd785237933796964c1aaa94a3690e9d06d3c1abc45d3",
+      "change": "modified",
+      "size": 5065,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/unit/test_geo_citation_observation.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "07404d894d83c2af32fe121a17e6e87ca1918b84e1e7cf77c1bc6cef7c987bc6",
+      "worktree_sha256": "07404d894d83c2af32fe121a17e6e87ca1918b84e1e7cf77c1bc6cef7c987bc6",
+      "base_sha256": null,
+      "change": "added",
+      "size": 4935,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/unit/test_geo_metric_inputs.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "f26d6c0f7e526395414ad496a3c12fab07eaa74a2c7f7547c600d0619a09ca78",
+      "worktree_sha256": "f26d6c0f7e526395414ad496a3c12fab07eaa74a2c7f7547c600d0619a09ca78",
+      "base_sha256": "e739c5b09a42ddf3d5177ef4ae22c86eb99e92d979bf77bc2c5c6255afe47f38",
+      "change": "modified",
+      "size": 9994,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/unit/test_geo_opportunity_schedule_wiring.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "b5a55fe89b83c8a3161669204d551a02193897b3af809d760bc69fc2614ff968",
+      "worktree_sha256": "b5a55fe89b83c8a3161669204d551a02193897b3af809d760bc69fc2614ff968",
+      "base_sha256": null,
+      "change": "added",
+      "size": 497,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/unit/test_geo_read_contract.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "e3f49dea1bddf00a43b3b3fefc998fc44732dd4ed253bd0baae9049bc9f3befa",
+      "worktree_sha256": "e3f49dea1bddf00a43b3b3fefc998fc44732dd4ed253bd0baae9049bc9f3befa",
+      "base_sha256": "6f264729876cc94288c0bd982a938f45ebe70352722f44976f878ff7821af5a1",
+      "change": "modified",
+      "size": 2930,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/unit/test_geo_reports.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-05-opportunity-csv"
+      ],
+      "sha256": "c02a5cdd258e94985207208d7a1f183fa39ed15d5c550914e4e5e7562aba7a02",
+      "worktree_sha256": "c02a5cdd258e94985207208d7a1f183fa39ed15d5c550914e4e5e7562aba7a02",
+      "base_sha256": "c7c05e48f0a742e68fb275c05d41b29c2dccb22d3d6c79b03c12bd6096f8242c",
+      "change": "modified",
+      "size": 13379,
+      "mode": "0o644"
+    },
+    {
+      "path": "backend/tests/unit/test_geo_schedule_clock.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "73c4c01e2dbbb293aba148407f767a141912c7651ef55898bc2636c50eb78191",
+      "worktree_sha256": "73c4c01e2dbbb293aba148407f767a141912c7651ef55898bc2636c50eb78191",
+      "base_sha256": null,
+      "change": "added",
+      "size": 2210,
+      "mode": "0o644"
+    },
+    {
+      "path": "contracts/database.md",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-05-opportunity-csv",
+        "10-25-core-06-admin-reanalysis",
+        "10-25-auto-01-scheduled-monitoring",
+        "10-25-auto-02-periodic-opportunity-evaluation",
+        "10-25-man-01-manual-run-cancellation",
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "7317800fd5d637a9a682274a464ca5d45850ea4e715350fe40dba620a25e837c",
+      "worktree_sha256": "7317800fd5d637a9a682274a464ca5d45850ea4e715350fe40dba620a25e837c",
+      "base_sha256": "dddfc30752216bad7d2984bf3cf3bba2334b9b1f0f2fe86dddc685db3fe38488",
+      "change": "modified",
+      "size": 253338,
+      "mode": "0o644"
+    },
+    {
+      "path": "contracts/openapi.yaml",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation",
+        "10-25-core-02-opportunity-summary",
+        "10-25-core-03-opportunity-fact-revision",
+        "10-25-core-04-opportunity-publication-repair",
+        "10-25-core-05-opportunity-csv",
+        "10-25-core-06-admin-reanalysis",
+        "10-25-auto-01-scheduled-monitoring",
+        "10-25-auto-02-periodic-opportunity-evaluation",
+        "10-25-man-01-manual-run-cancellation",
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "530ab303a7c0fc551cf8a43cc278dc3226b366cbc1096d5408f4af97a1fff64a",
+      "worktree_sha256": "530ab303a7c0fc551cf8a43cc278dc3226b366cbc1096d5408f4af97a1fff64a",
+      "base_sha256": "0d74e2badfea27cc8b28f5f773522b7db1fc0f6abd1c85b995c5a1df44acf945",
+      "change": "modified",
+      "size": 1075298,
+      "mode": "0o644"
+    },
+    {
+      "path": "deploy/scripts/test-upgrade-recovery-compose.py",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring",
+        "10-25-auto-02-periodic-opportunity-evaluation",
+        "10-25-man-01-manual-run-cancellation",
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "407676c082d422504065161c8852b06f5b639f264ea7fd22d345feabe7dff82b",
+      "worktree_sha256": "407676c082d422504065161c8852b06f5b639f264ea7fd22d345feabe7dff82b",
+      "base_sha256": "d28c30b88dc053172e3ec7b810bc8fc43817f147b3be51b258b7e848823bccec",
+      "change": "modified",
+      "size": 18854,
+      "mode": "0o644"
+    },
+    {
+      "path": "docs/geo-monitoring/02-business/04-monitoring-methodology-and-metrics.md",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "87a38afc5cbb2da3579ec89b2f0af7ea8223131cac1f23d3caca046aae7db9ca",
+      "worktree_sha256": "87a38afc5cbb2da3579ec89b2f0af7ea8223131cac1f23d3caca046aae7db9ca",
+      "base_sha256": "aeec9d65d22cc1f2640c46968e1923d328ed842bbc086f18e5dc4bd376a4bb02",
+      "change": "modified",
+      "size": 35010,
+      "mode": "0o644"
+    },
+    {
+      "path": "docs/geo-monitoring/02-business/05-manual-geo-observation-sop.md",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-01-manual-run-cancellation",
+        "10-25-man-02-citation-observation",
+        "10-25-man-03-plan-batch-context",
+        "10-25-man-04-frozen-prompt-copy",
+        "10-25-man-05-screenshot-composition",
+        "10-25-man-06-raw-text-evidence"
+      ],
+      "sha256": "dcf74e19efe3a37328a2112678bb1773c531e5ddcad1c16996216a1cfd37f93d",
+      "worktree_sha256": "dcf74e19efe3a37328a2112678bb1773c531e5ddcad1c16996216a1cfd37f93d",
+      "base_sha256": "0ae0c5cc0a4f3e6b0aedc06bb48d92f221f14b9c43e217fc2ca06d06aa9dd315",
+      "change": "modified",
+      "size": 13478,
+      "mode": "0o644"
+    },
+    {
+      "path": "docs/geo-monitoring/03-technical/03-api-contract-design.md",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation",
+        "10-25-core-02-opportunity-summary",
+        "10-25-core-03-opportunity-fact-revision",
+        "10-25-core-04-opportunity-publication-repair",
+        "10-25-core-05-opportunity-csv",
+        "10-25-core-06-admin-reanalysis",
+        "10-25-auto-01-scheduled-monitoring",
+        "10-25-auto-02-periodic-opportunity-evaluation",
+        "10-25-man-01-manual-run-cancellation",
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "6abee6fe69999baaf46f8e359f030d749d67b6041c04ddf8a304f9b07e7c8d17",
+      "worktree_sha256": "6abee6fe69999baaf46f8e359f030d749d67b6041c04ddf8a304f9b07e7c8d17",
+      "base_sha256": "dd45e0d8d44eabd6b5032d4dde3829f8ac6668f4037712bc7f9c868f70cf4d8c",
+      "change": "modified",
+      "size": 73975,
+      "mode": "0o644"
+    },
+    {
+      "path": "docs/geo-monitoring/SHA256SUMS",
+      "selection": "scoped_hunks",
+      "owners": [
+        "10-25-core-03-opportunity-fact-revision",
+        "10-25-core-04-opportunity-publication-repair",
+        "10-25-core-05-opportunity-csv",
+        "10-25-core-06-admin-reanalysis",
+        "10-25-auto-01-scheduled-monitoring",
+        "10-25-auto-02-periodic-opportunity-evaluation",
+        "10-25-man-01-manual-run-cancellation",
+        "10-25-man-02-citation-observation",
+        "10-25-man-03-plan-batch-context",
+        "10-25-man-04-frozen-prompt-copy",
+        "10-25-man-05-screenshot-composition",
+        "10-25-man-06-raw-text-evidence"
+      ],
+      "sha256": "f40dd55751305aae8bb4bdd1b2de2e4b37223e62057878da9c31f8f5ac647da4",
+      "worktree_sha256": "f7cf0adddb5494d6e47e3586aa861cab062c6ab193dfded849b05195ce42eb11",
+      "base_sha256": "587b200f2c08dc8c3c0563f88330b9b0899efe5b493148dc934864eb6ba9baf7",
+      "change": "modified",
+      "size": 14868,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/audit/audit.model.test.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation",
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "4d69ac266add3ca474d14c6723903a028622387d78334782ffcff101e9f4699c",
+      "worktree_sha256": "4d69ac266add3ca474d14c6723903a028622387d78334782ffcff101e9f4699c",
+      "base_sha256": "e4a99e0832f08a6570239b1eef874f1df50ca5552a7b8914dcadfdef9403298d",
+      "change": "modified",
+      "size": 26612,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/audit/audit.model.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation",
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "b4b5a540dfe57fc5c32ab89c4ddb094652ea4b18d90c41bf4ea57f4c4195043e",
+      "worktree_sha256": "b4b5a540dfe57fc5c32ab89c4ddb094652ea4b18d90c41bf4ea57f4c4195043e",
+      "base_sha256": "3bb784b6f8b5f55a68ee16d96e51721378d2623eab36382e2d8cc29b6fb5edf6",
+      "change": "modified",
+      "size": 35683,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-insights/drilldown.model.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "c4383085495885f4fe895113512e3cc10e5bc7d02ad83286d03407fd7c31b5ba",
+      "worktree_sha256": "c4383085495885f4fe895113512e3cc10e5bc7d02ad83286d03407fd7c31b5ba",
+      "base_sha256": "2ebaa38c4fda013562ba97f9c81ceac78fd77473ba170544d8082b6b2fd817bd",
+      "change": "modified",
+      "size": 8634,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-insights/evidence-sections.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "a7697e97cf172df4c5360ade23930a4c400e5cc4c8e3b8cd2175bf75b169b72d",
+      "worktree_sha256": "a7697e97cf172df4c5360ade23930a4c400e5cc4c8e3b8cd2175bf75b169b72d",
+      "base_sha256": "a96f6d47c9358165aeae05f52306646219f76b379c12f954128fb63f462cf6bb",
+      "change": "modified",
+      "size": 19078,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-insights/insight-drilldown.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "b14e66f4bb9653cf7fe7e996c07e1260e48789385906526dfdfacb947df19d63",
+      "worktree_sha256": "b14e66f4bb9653cf7fe7e996c07e1260e48789385906526dfdfacb947df19d63",
+      "base_sha256": "04bb33a657e04827b614dec99db40d165604f8040fee5427ee4c76b375ea94ae",
+      "change": "modified",
+      "size": 4592,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-insights/insight-sample-tables.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "2405fd88d6aaddf2d725b070fd5230d57086408e3f87953f735279704bfa8216",
+      "worktree_sha256": "2405fd88d6aaddf2d725b070fd5230d57086408e3f87953f735279704bfa8216",
+      "base_sha256": "53ab2dbea4ee2e5d05c3d2cc9c23d699fc6f07b70272b288b4f445a82e05bce4",
+      "change": "modified",
+      "size": 5654,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-insights/insights-components.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "b3e086a87a6be73452ac8fa877417c3621b8ea5a497a932adb5c62e2573725b5",
+      "worktree_sha256": "b3e086a87a6be73452ac8fa877417c3621b8ea5a497a932adb5c62e2573725b5",
+      "base_sha256": "ac76185bac8a70e691ded2ddc6671dcd06946b89d1e8c1a0d1f4b6927ae9a116",
+      "change": "modified",
+      "size": 6065,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-insights/insights-page.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary"
+      ],
+      "sha256": "41d0019ee3b9eb89117fea58e9a1115eb7b09f1ba711ea8d3c792c01f53c50f5",
+      "worktree_sha256": "41d0019ee3b9eb89117fea58e9a1115eb7b09f1ba711ea8d3c792c01f53c50f5",
+      "base_sha256": "e9db8ca5a2b351e4c85e60c90d1c506e69a7155110a0d92543a1c10197d8feee",
+      "change": "modified",
+      "size": 11753,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-insights/insights.model.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "76b02de28790472501e2a842c8ef5c3b900bfebb14f878e9c612f6381ac164a8",
+      "worktree_sha256": "76b02de28790472501e2a842c8ef5c3b900bfebb14f878e9c612f6381ac164a8",
+      "base_sha256": "7bf6757003a105ad1e3e027b7636cae9614a6b1f7ecbdaa052eb81c1a72d4afd",
+      "change": "modified",
+      "size": 6064,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-insights/insights.test-support.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary"
+      ],
+      "sha256": "ce89de14dfdce61c055a224cab04bc442b1e43f65a612f0dfcc5bc4681be9a6c",
+      "worktree_sha256": "ce89de14dfdce61c055a224cab04bc442b1e43f65a612f0dfcc5bc4681be9a6c",
+      "base_sha256": "13b2163e53f1e98e680378a66ca1de4935afb692c23b07db84961cd2a5fa1e18",
+      "change": "modified",
+      "size": 6249,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-insights/overview-page.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary"
+      ],
+      "sha256": "4933c139a7700dab108a61262d337296f1cfbc24e707e8f12df6c2e8a1bc749e",
+      "worktree_sha256": "4933c139a7700dab108a61262d337296f1cfbc24e707e8f12df6c2e8a1bc749e",
+      "base_sha256": "4567df4756f7f45221b3f93ff499d86d21f45436c819392f922efdd3bd78a80f",
+      "change": "modified",
+      "size": 4889,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-insights/performance-sections.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "1b8fb05cc8a9ecb5e9629db7c75a0e34f9fc7ee863fc3a446ee81a5af3eb6efc",
+      "worktree_sha256": "1b8fb05cc8a9ecb5e9629db7c75a0e34f9fc7ee863fc3a446ee81a5af3eb6efc",
+      "base_sha256": "31640948ba30379b474d0859ef235628c2fbc2471c84c2bb44eaca4f66f660f4",
+      "change": "modified",
+      "size": 10503,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunities-page.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-05-opportunity-csv"
+      ],
+      "sha256": "95b91bd61a6a71684976968fea956ead1ff8919ade15754e78dbce246f3319a6",
+      "worktree_sha256": "95b91bd61a6a71684976968fea956ead1ff8919ade15754e78dbce246f3319a6",
+      "base_sha256": "45a08edcea674ace739af43a8e02bca9b9c57461d74452a5158faf6e2b6d11f7",
+      "change": "modified",
+      "size": 18814,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunities-page.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-05-opportunity-csv",
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "3ce79e1aa9bb8237b0e21f56b6d37d8cf1055ca53a6ca30cab5bf62ac289dfc4",
+      "worktree_sha256": "3ce79e1aa9bb8237b0e21f56b6d37d8cf1055ca53a6ca30cab5bf62ac289dfc4",
+      "base_sha256": "4e91f132829b4ea58545a1dca17f38a45fd60122750129f342fc32c7d230fa39",
+      "change": "modified",
+      "size": 5052,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunities.model.test.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-05-opportunity-csv"
+      ],
+      "sha256": "9a0f02c88b70579fce3f37f6aa548fb3d55eb75b4739cd329ba40236047f8b14",
+      "worktree_sha256": "9a0f02c88b70579fce3f37f6aa548fb3d55eb75b4739cd329ba40236047f8b14",
+      "base_sha256": "55c4137d11a805cfac4e1536fa3930138420e955764cd4980d3d5a5ad788555e",
+      "change": "modified",
+      "size": 5596,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunities.model.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary",
+        "10-25-core-05-opportunity-csv"
+      ],
+      "sha256": "ed23885ebaacf985297327a10a14591dd5ac1c3cdedf0749df73d59b6b0737af",
+      "worktree_sha256": "ed23885ebaacf985297327a10a14591dd5ac1c3cdedf0749df73d59b6b0737af",
+      "base_sha256": "d7d1f05139c8dc5eafba34f9206990bda4907b5b27bb49d1405d33f98432f7f1",
+      "change": "modified",
+      "size": 10435,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunity-business.model.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-03-opportunity-fact-revision",
+        "10-25-core-04-opportunity-publication-repair"
+      ],
+      "sha256": "e529e7c1bbd24f41cb5b2a126cf5f79413437a9840bf47f6cc8f72fea64f64a1",
+      "worktree_sha256": "e529e7c1bbd24f41cb5b2a126cf5f79413437a9840bf47f6cc8f72fea64f64a1",
+      "base_sha256": "5a405f22c17d4e98726d18038f980b04d8330dde0f18c0367983a49b12c05242",
+      "change": "modified",
+      "size": 3592,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunity-controls.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-03-opportunity-fact-revision",
+        "10-25-core-04-opportunity-publication-repair"
+      ],
+      "sha256": "fdce736a2317d7570f475a461b6c29e98303ea47743a7ecdebe1b9c1235d3dba",
+      "worktree_sha256": "fdce736a2317d7570f475a461b6c29e98303ea47743a7ecdebe1b9c1235d3dba",
+      "base_sha256": "7ff14f8f9afdece94c19ced6a92042f048ae5be7892b52dfa1a7d3b7e511e291",
+      "change": "modified",
+      "size": 3078,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunity-detail.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary",
+        "10-25-core-03-opportunity-fact-revision",
+        "10-25-core-04-opportunity-publication-repair"
+      ],
+      "sha256": "6ebab7d5144776aea08b1e42c3671d0107e92616ecf49fa93ff23ffbd2aecaa7",
+      "worktree_sha256": "6ebab7d5144776aea08b1e42c3671d0107e92616ecf49fa93ff23ffbd2aecaa7",
+      "base_sha256": "5f40afd304c54b5a3cbbe80d345274fc508a27f1676ff946b385e1b39b6e4e11",
+      "change": "modified",
+      "size": 14947,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunity-evaluation.model.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "d140ba6849483b21937f311b198e83a0ba45f6a13f010466e362690f5ec8791a",
+      "worktree_sha256": "d140ba6849483b21937f311b198e83a0ba45f6a13f010466e362690f5ec8791a",
+      "base_sha256": "869b283aa15d7dfa0d4785f2f539a3bd133150451c6786f6f92a60c7adcf2084",
+      "change": "modified",
+      "size": 2680,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunity-fact-revision.api.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-03-opportunity-fact-revision"
+      ],
+      "sha256": "df3aa3be8ef08d2a47871bff0ace6f2cb6e297a60037f7f3c0f91eb0208be122",
+      "worktree_sha256": "df3aa3be8ef08d2a47871bff0ace6f2cb6e297a60037f7f3c0f91eb0208be122",
+      "base_sha256": null,
+      "change": "added",
+      "size": 3499,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunity-fact-revision.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-03-opportunity-fact-revision"
+      ],
+      "sha256": "53674ee44e13e49b7798683e6ab801af220f0738217455e1585a04a5f9213f0f",
+      "worktree_sha256": "53674ee44e13e49b7798683e6ab801af220f0738217455e1585a04a5f9213f0f",
+      "base_sha256": null,
+      "change": "added",
+      "size": 17652,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunity-fact-revision.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-03-opportunity-fact-revision"
+      ],
+      "sha256": "7226f72ec02291ef0c2c674fd643f2cdde8658fb2800ad2ac0dc8aa39d1f85b8",
+      "worktree_sha256": "7226f72ec02291ef0c2c674fd643f2cdde8658fb2800ad2ac0dc8aa39d1f85b8",
+      "base_sha256": null,
+      "change": "added",
+      "size": 12565,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunity-filters.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary"
+      ],
+      "sha256": "69f106127d0f845f36fe5af2f837e4005d8027b7689ecbeb44d0cdbec06f022d",
+      "worktree_sha256": "69f106127d0f845f36fe5af2f837e4005d8027b7689ecbeb44d0cdbec06f022d",
+      "base_sha256": "b40430213b6fa88c33cfdc32ec069aa3a4aae91585deb15680f25c3be51473ed",
+      "change": "modified",
+      "size": 7364,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunity-list.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary"
+      ],
+      "sha256": "ae80f99a7739ccc8d19b03f17e577e5731021a9f3d2e440eafc297868c2b80e0",
+      "worktree_sha256": "ae80f99a7739ccc8d19b03f17e577e5731021a9f3d2e440eafc297868c2b80e0",
+      "base_sha256": "719294735501fd7888b2f41cd079dccc051fcd1dd2167c04b709107631a6457f",
+      "change": "modified",
+      "size": 5371,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunity-publication-repair.api.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-04-opportunity-publication-repair"
+      ],
+      "sha256": "7bfc6b88b8fd6b3b6a4f51b078594c268bfeea78d2e69001c42e80443f960099",
+      "worktree_sha256": "7bfc6b88b8fd6b3b6a4f51b078594c268bfeea78d2e69001c42e80443f960099",
+      "base_sha256": null,
+      "change": "added",
+      "size": 4695,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunity-publication-repair.model.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-04-opportunity-publication-repair"
+      ],
+      "sha256": "5395aa1e2bd7b785512bb422394b9cfcb47b471c15931b1f7bd3b51f839f51c3",
+      "worktree_sha256": "5395aa1e2bd7b785512bb422394b9cfcb47b471c15931b1f7bd3b51f839f51c3",
+      "base_sha256": null,
+      "change": "added",
+      "size": 2188,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunity-publication-repair.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-04-opportunity-publication-repair"
+      ],
+      "sha256": "3c7a5fd084ccc2e23704334d88f4ee2f7f4fcb01ea41602899cb5264c8c52bd1",
+      "worktree_sha256": "3c7a5fd084ccc2e23704334d88f4ee2f7f4fcb01ea41602899cb5264c8c52bd1",
+      "base_sha256": null,
+      "change": "added",
+      "size": 18522,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunity-publication-repair.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-04-opportunity-publication-repair"
+      ],
+      "sha256": "d29f002d2d1b292aa19d26ad8fa07cbcd60c122421334fc1278011da40552d2b",
+      "worktree_sha256": "d29f002d2d1b292aa19d26ad8fa07cbcd60c122421334fc1278011da40552d2b",
+      "base_sha256": null,
+      "change": "added",
+      "size": 17697,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunity-schedule-fields.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "9ab876a25a2e6f4a6f2a407618216f9d8fdbf70dd6fe08b5c4f9264e8ae8b99d",
+      "worktree_sha256": "9ab876a25a2e6f4a6f2a407618216f9d8fdbf70dd6fe08b5c4f9264e8ae8b99d",
+      "base_sha256": null,
+      "change": "added",
+      "size": 5068,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunity-schedule-runtime.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "cadf0f44cffb0b6263fb4d1082f4ce8ccd26544ba330ccda96d033d3a99cc165",
+      "worktree_sha256": "cadf0f44cffb0b6263fb4d1082f4ce8ccd26544ba330ccda96d033d3a99cc165",
+      "base_sha256": null,
+      "change": "added",
+      "size": 4168,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunity-schedule.api.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "a60a0bd5bad75ae295eee0c06de997ceb300f8bdd7a1f27adbfc5ab0aa1277d9",
+      "worktree_sha256": "a60a0bd5bad75ae295eee0c06de997ceb300f8bdd7a1f27adbfc5ab0aa1277d9",
+      "base_sha256": null,
+      "change": "added",
+      "size": 4974,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunity-schedule.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "818fb32c318519b2fd97e4708c9cf46138e35d2ceb319463bd0d69a857b841d7",
+      "worktree_sha256": "818fb32c318519b2fd97e4708c9cf46138e35d2ceb319463bd0d69a857b841d7",
+      "base_sha256": null,
+      "change": "added",
+      "size": 9315,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-opportunities/opportunity-schedule.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "38187cc68b44286e188a4e4e6b9368a772d6e80a6375e0c2a35ad772db048d87",
+      "worktree_sha256": "38187cc68b44286e188a4e4e6b9368a772d6e80a6375e0c2a35ad772db048d87",
+      "base_sha256": null,
+      "change": "added",
+      "size": 15404,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-plans/plan-controls.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "564846d5da1fbe75a1ebf512d659a6dd7bfc54db8d34da6064520cb8685c588f",
+      "worktree_sha256": "564846d5da1fbe75a1ebf512d659a6dd7bfc54db8d34da6064520cb8685c588f",
+      "base_sha256": "854eb775fdc82d303b595d0ccc8e3f52211ebe9d05b6e300f2f69874de5d3830",
+      "change": "modified",
+      "size": 2194,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-plans/plan-detail.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring",
+        "10-25-man-03-plan-batch-context"
+      ],
+      "sha256": "bb31782be073cd1954b150c1a95ed74d7467fcf0341575df1e9104c3acd54f95",
+      "worktree_sha256": "bb31782be073cd1954b150c1a95ed74d7467fcf0341575df1e9104c3acd54f95",
+      "base_sha256": "d802ccd1076528691af4648bb00bb7d6bce0cc5b51ca9ff8ae8e53a79690c7e4",
+      "change": "modified",
+      "size": 14578,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-plans/plan-schedule.test.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "2ef0b8cdad9487aac2244cd5a74474f6f0d5778294856cd9c84e72c23a739c82",
+      "worktree_sha256": "2ef0b8cdad9487aac2244cd5a74474f6f0d5778294856cd9c84e72c23a739c82",
+      "base_sha256": null,
+      "change": "added",
+      "size": 520,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-plans/plan-schedule.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "32a442768f4045b8b19ebd05c66e7bee615160771d91cdc7e040c776d37aa014",
+      "worktree_sha256": "32a442768f4045b8b19ebd05c66e7bee615160771d91cdc7e040c776d37aa014",
+      "base_sha256": null,
+      "change": "added",
+      "size": 2884,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-plans/plan-wizard-steps.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "f3eedb38a7fc0513de99ea02dd2bab81b03b9a5b84d7a636dfb1984fb5129b4c",
+      "worktree_sha256": "f3eedb38a7fc0513de99ea02dd2bab81b03b9a5b84d7a636dfb1984fb5129b4c",
+      "base_sha256": "f7065142ab287bcebb5988316d0e327e9baad4249a85c9b77ba58519e6dd35dd",
+      "change": "modified",
+      "size": 6888,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-plans/plan-wizard.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "3723a04ea12b650da0c3ab90cc1e1372710ae010f761d6f8288a31d2f9dd3fb5",
+      "worktree_sha256": "3723a04ea12b650da0c3ab90cc1e1372710ae010f761d6f8288a31d2f9dd3fb5",
+      "base_sha256": "0649611498a5aefbe874397df3b05a9f836705e1cb4805251af9fe1e860d79ca",
+      "change": "modified",
+      "size": 30311,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-plans/plan-wizard.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "8ad883a9bf8eba0e8a53c17b845b62ffc1a6acaa7a84596fb76bdbd633bf4287",
+      "worktree_sha256": "8ad883a9bf8eba0e8a53c17b845b62ffc1a6acaa7a84596fb76bdbd633bf4287",
+      "base_sha256": "883ce8c64c4d218331d4f582059f767bbedc13e5ca050867cde64706192d766b",
+      "change": "modified",
+      "size": 17735,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-plans/plans-page.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring",
+        "10-25-man-03-plan-batch-context"
+      ],
+      "sha256": "27392e94d2ac03a7b8ed37ef2d5f7472d54fedf70659353f0561731550f0f10e",
+      "worktree_sha256": "27392e94d2ac03a7b8ed37ef2d5f7472d54fedf70659353f0561731550f0f10e",
+      "base_sha256": "aaab9f8f03fc9bfe902bf07b38a51e61fb536d951db0f6ca1b542bc7fd54bc93",
+      "change": "modified",
+      "size": 15550,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-plans/plans.api.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "e1589334fb6e59bfde33b1e0a3870fcee48011db2f1ae03088c14143fa2885a3",
+      "worktree_sha256": "e1589334fb6e59bfde33b1e0a3870fcee48011db2f1ae03088c14143fa2885a3",
+      "base_sha256": "b933d8bff6477ad613c5da84a06ec88a26ea4ba126332e007feaeea1ad6ab9de",
+      "change": "modified",
+      "size": 6188,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-plans/plans.model.test.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "e2fc582047ffdd339342cd785f6cbb3b8337a655bbc47e5434b2343de14d52b0",
+      "worktree_sha256": "e2fc582047ffdd339342cd785f6cbb3b8337a655bbc47e5434b2343de14d52b0",
+      "base_sha256": "37ae57b35f32192d84b0f34ec766abfd1388c1f3c1f742554fc095f0e61b6cc4",
+      "change": "modified",
+      "size": 4266,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-plans/plans.model.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "127088a8303aecb0b556a6c4cea63bab7149eff03b71f19e19acffa93e7057d4",
+      "worktree_sha256": "127088a8303aecb0b556a6c4cea63bab7149eff03b71f19e19acffa93e7057d4",
+      "base_sha256": "589ace2d3ac2153f96e32c3ec48960e87f2d4704f05e25c222b3c96c86300537",
+      "change": "modified",
+      "size": 7868,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-plans/plans.test-support.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "ad8dd8cefe4cf60069c4a747f2284f837457c0211bec527ddd7eff325c80c0af",
+      "worktree_sha256": "ad8dd8cefe4cf60069c4a747f2284f837457c0211bec527ddd7eff325c80c0af",
+      "base_sha256": "869be0dd88555016cbbb6276f610998e3761b6a6feba60ddb9e5b43d5089e849",
+      "change": "modified",
+      "size": 5042,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-reports/report-content.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation",
+        "10-25-core-02-opportunity-summary"
+      ],
+      "sha256": "b42439a6af7e7b1c2eb4b8b7b16b272a5fda048d12fe5b59112762e396a5f365",
+      "worktree_sha256": "b42439a6af7e7b1c2eb4b8b7b16b272a5fda048d12fe5b59112762e396a5f365",
+      "base_sha256": "1841bfcbce6c522f3a8cef008692a8a07784732eef7442caa7b004423132191b",
+      "change": "modified",
+      "size": 9653,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-reports/report-page.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-05-opportunity-csv"
+      ],
+      "sha256": "fe77217ede8ed4edb034e2b12912156f98261a0131f47dfba6e3fe4b4d333cbe",
+      "worktree_sha256": "fe77217ede8ed4edb034e2b12912156f98261a0131f47dfba6e3fe4b4d333cbe",
+      "base_sha256": "0006f90e30a7cdac6510b464dc1d8d798a869e611b953d04fc8ee40fd95c3885",
+      "change": "modified",
+      "size": 4131,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-reports/reports.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary",
+        "10-25-core-05-opportunity-csv"
+      ],
+      "sha256": "8ec393afb277be66f88aa58a74e61273725ea6215586ef46a43c2f664138a3fd",
+      "worktree_sha256": "8ec393afb277be66f88aa58a74e61273725ea6215586ef46a43c2f664138a3fd",
+      "base_sha256": "5df7a9de4ed1f546d4a2f66331012002a1ab9744d717fddeb3e4c8d587c77aa5",
+      "change": "modified",
+      "size": 6669,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/batch-create.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-03-plan-batch-context"
+      ],
+      "sha256": "31f69aca4b97a993ab56d8621b68196f6e3541bdf272468454cfaac5a1df842b",
+      "worktree_sha256": "31f69aca4b97a993ab56d8621b68196f6e3541bdf272468454cfaac5a1df842b",
+      "base_sha256": "f506b1414d867603125b554cc3ed8311ca62af072da8c2cf11f1c139aa53f9e8",
+      "change": "modified",
+      "size": 14161,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/batch-create.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-03-plan-batch-context"
+      ],
+      "sha256": "19767678c497a67d798013d5040fe1efcc20dc0fc658c83070a14a7ae97f465b",
+      "worktree_sha256": "19767678c497a67d798013d5040fe1efcc20dc0fc658c83070a14a7ae97f465b",
+      "base_sha256": "b5d719f9870dc2e3c25df6fe6eb2861a94408525b564c439320b5b70ab7a3777",
+      "change": "modified",
+      "size": 10395,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/citation-observation.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "b9d96ffc1415dafba2adccb143a852432c62fd63832852d65835538d6cd6ae77",
+      "worktree_sha256": "b9d96ffc1415dafba2adccb143a852432c62fd63832852d65835538d6cd6ae77",
+      "base_sha256": null,
+      "change": "added",
+      "size": 3578,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/citation-observation.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "a2b3c3a2329af2ee051874baa64aa6ded707b24026fec161b364810ed6362039",
+      "worktree_sha256": "a2b3c3a2329af2ee051874baa64aa6ded707b24026fec161b364810ed6362039",
+      "base_sha256": null,
+      "change": "added",
+      "size": 3417,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/frozen-prompt-copy.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-04-frozen-prompt-copy"
+      ],
+      "sha256": "0c89c52dd3b14ca97eba99e156c1a9df2f5448cf0ec64707ce133c3cf9d57548",
+      "worktree_sha256": "0c89c52dd3b14ca97eba99e156c1a9df2f5448cf0ec64707ce133c3cf9d57548",
+      "base_sha256": null,
+      "change": "added",
+      "size": 4898,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/frozen-prompt-copy.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-04-frozen-prompt-copy"
+      ],
+      "sha256": "df321ba88ebab5871719fd24be2580d89739d0383dea6b6045473992bde5da5a",
+      "worktree_sha256": "df321ba88ebab5871719fd24be2580d89739d0383dea6b6045473992bde5da5a",
+      "base_sha256": null,
+      "change": "added",
+      "size": 1039,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/manual-editor-view.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation",
+        "10-25-man-04-frozen-prompt-copy",
+        "10-25-man-06-raw-text-evidence"
+      ],
+      "sha256": "068e9b61b8db12f01d97a5ea7e7618067b96189e12fcf490a7c5b05ea593b118",
+      "worktree_sha256": "068e9b61b8db12f01d97a5ea7e7618067b96189e12fcf490a7c5b05ea593b118",
+      "base_sha256": "e8c55ba9c68ec82c13acf7051c83828c26a29c2b960724e558b62d06a0a6a18d",
+      "change": "modified",
+      "size": 14737,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/manual-editor.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-04-frozen-prompt-copy",
+        "10-25-man-05-screenshot-composition",
+        "10-25-man-06-raw-text-evidence"
+      ],
+      "sha256": "f672670ddffece7cca30b06031382b489b9f3e4d76fffead2dc8d338cde57ded",
+      "worktree_sha256": "f672670ddffece7cca30b06031382b489b9f3e4d76fffead2dc8d338cde57ded",
+      "base_sha256": "cc0aed07fdd546ccea72dce35b095ab625e141a21c0ac579a2ad3f4007482527",
+      "change": "modified",
+      "size": 26038,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/manual-editor.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation",
+        "10-25-man-05-screenshot-composition",
+        "10-25-man-06-raw-text-evidence"
+      ],
+      "sha256": "733813fa8d472434e73e16b2f88dd4559fced722859133d8a16ea9b6792680ec",
+      "worktree_sha256": "733813fa8d472434e73e16b2f88dd4559fced722859133d8a16ea9b6792680ec",
+      "base_sha256": "0c489e74cfacb745260937e85a0a015c40d4c3404299e3529f0126fb69fae139",
+      "change": "modified",
+      "size": 20441,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/manual-file-upload.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-06-raw-text-evidence"
+      ],
+      "sha256": "f6dd0c3b812ed7d01d49029caf157a4aa4bcb68fe9147436ae1ebdee2a8d3c2b",
+      "worktree_sha256": "f6dd0c3b812ed7d01d49029caf157a4aa4bcb68fe9147436ae1ebdee2a8d3c2b",
+      "base_sha256": null,
+      "change": "added",
+      "size": 9557,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/manual-raw-evidence.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-06-raw-text-evidence"
+      ],
+      "sha256": "9f4490d8479d8447b274afb98e7b2528a20abee1ecfc01fdefa89a33aa20dd70",
+      "worktree_sha256": "9f4490d8479d8447b274afb98e7b2528a20abee1ecfc01fdefa89a33aa20dd70",
+      "base_sha256": null,
+      "change": "added",
+      "size": 12104,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/manual.model.test.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation",
+        "10-25-man-06-raw-text-evidence"
+      ],
+      "sha256": "d8d1428c9046341a51f8d2633d8112184d0aeabdb87aecb07331fb77103796e1",
+      "worktree_sha256": "d8d1428c9046341a51f8d2633d8112184d0aeabdb87aecb07331fb77103796e1",
+      "base_sha256": "b8a44b13c08af4e274789187a33aa4c3a66bad52d9aaa1265c956ea2ba0e9038",
+      "change": "modified",
+      "size": 7785,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/manual.model.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation",
+        "10-25-man-06-raw-text-evidence"
+      ],
+      "sha256": "5007b8a7740f1f85ff871f26db3fe02e34538de451de490cc1cb6e2a2655ad1f",
+      "worktree_sha256": "5007b8a7740f1f85ff871f26db3fe02e34538de451de490cc1cb6e2a2655ad1f",
+      "base_sha256": "be22826d8827ebcd8adbcc795a501409b0bb8794855a3fc401ae2f8a3d32f2a8",
+      "change": "modified",
+      "size": 7922,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/manual.test-support.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "33b57dec8aa5740a18be079c0bbfbb03361e5736e3a4e87d6565e17d03518e4c",
+      "worktree_sha256": "33b57dec8aa5740a18be079c0bbfbb03361e5736e3a4e87d6565e17d03518e4c",
+      "base_sha256": "837873ada6827ddb74fc98f4add32871f3bfa9c170d3e60ef025d9797d653c59",
+      "change": "modified",
+      "size": 5372,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/raw-text-upload.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-06-raw-text-evidence"
+      ],
+      "sha256": "b7e8ead762095fc93b1b3143d3f75acdcb2d63b463573e96c2fb47e417d0b891",
+      "worktree_sha256": "b7e8ead762095fc93b1b3143d3f75acdcb2d63b463573e96c2fb47e417d0b891",
+      "base_sha256": null,
+      "change": "added",
+      "size": 9107,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/raw-text-upload.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-06-raw-text-evidence"
+      ],
+      "sha256": "e058d710a878b8b1e47937623f794767edcdd9aa2aa312b2dc5ca6174199a25c",
+      "worktree_sha256": "e058d710a878b8b1e47937623f794767edcdd9aa2aa312b2dc5ca6174199a25c",
+      "base_sha256": null,
+      "change": "added",
+      "size": 1337,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/reanalysis-receipt.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-06-admin-reanalysis"
+      ],
+      "sha256": "b9bd91dd04ab1b5dd4847379bce0da453f95abc3281f39efa2f94eef53ab25a4",
+      "worktree_sha256": "b9bd91dd04ab1b5dd4847379bce0da453f95abc3281f39efa2f94eef53ab25a4",
+      "base_sha256": null,
+      "change": "added",
+      "size": 1715,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/reanalysis.api.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-06-admin-reanalysis"
+      ],
+      "sha256": "25992d67697dce7904285cc39f389ef616a43e7c7daf2465f005b88bef3674aa",
+      "worktree_sha256": "25992d67697dce7904285cc39f389ef616a43e7c7daf2465f005b88bef3674aa",
+      "base_sha256": null,
+      "change": "added",
+      "size": 4234,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/run-analysis.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-06-admin-reanalysis"
+      ],
+      "sha256": "d6a1b3f47abb67a3eeb7489b8540ae1dc85ea3b2a1436d369a7dc56aad387812",
+      "worktree_sha256": "d6a1b3f47abb67a3eeb7489b8540ae1dc85ea3b2a1436d369a7dc56aad387812",
+      "base_sha256": "da8831e529bc3250085d9ce79d08aaadd97316bbdc919cf3af7c39aa8431d44e",
+      "change": "modified",
+      "size": 10502,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/run-cancel.api.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "a37d7faa0302236a984197d3ed09385144633840664e8f1cf5d6f7ee7c8265fe",
+      "worktree_sha256": "a37d7faa0302236a984197d3ed09385144633840664e8f1cf5d6f7ee7c8265fe",
+      "base_sha256": null,
+      "change": "added",
+      "size": 1689,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/run-cancel.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "68e6f3136f20e3b5ae29d17f628a3d23d163c974f75970f749c686abf7e73f52",
+      "worktree_sha256": "68e6f3136f20e3b5ae29d17f628a3d23d163c974f75970f749c686abf7e73f52",
+      "base_sha256": null,
+      "change": "added",
+      "size": 9742,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/run-cancel.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-01-manual-run-cancellation"
+      ],
+      "sha256": "8f07ac4f273fecb83126e6bacc634d4bdd9a53b53f0db6eef65fdc479dcaabcf",
+      "worktree_sha256": "8f07ac4f273fecb83126e6bacc634d4bdd9a53b53f0db6eef65fdc479dcaabcf",
+      "base_sha256": null,
+      "change": "added",
+      "size": 10997,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/run-detail.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "ee401d4e15438e0bb22651b2829c478f91c0364cc34bac28326a608939ff9df7",
+      "worktree_sha256": "ee401d4e15438e0bb22651b2829c478f91c0364cc34bac28326a608939ff9df7",
+      "base_sha256": "904aee307e87fc1ebde57b81065ef72e58eb26be2f67793ee8b9a54d436a0491",
+      "change": "modified",
+      "size": 2886,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/run-detail.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation",
+        "10-25-man-01-manual-run-cancellation",
+        "10-25-man-02-citation-observation",
+        "10-25-man-04-frozen-prompt-copy"
+      ],
+      "sha256": "6739ca28c76755d300297284d733dac28099d4dab0a162284b99d683687df3a1",
+      "worktree_sha256": "6739ca28c76755d300297284d733dac28099d4dab0a162284b99d683687df3a1",
+      "base_sha256": "2d752b3f317865fac1443482a321e1fcff0e78a7f44bcd8ebf9503ab6d4e6376",
+      "change": "modified",
+      "size": 15717,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/run-quality.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "2299e57414d58361a7df5efcb8733db1e8fe042e2dce84ee50095e0472377eec",
+      "worktree_sha256": "2299e57414d58361a7df5efcb8733db1e8fe042e2dce84ee50095e0472377eec",
+      "base_sha256": null,
+      "change": "added",
+      "size": 4409,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/run-quality.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "bb6121399b0450bd3efb11f43e2dd460d47071eeaa3a843ed9e2c0ee6c03a5ac",
+      "worktree_sha256": "bb6121399b0450bd3efb11f43e2dd460d47071eeaa3a843ed9e2c0ee6c03a5ac",
+      "base_sha256": null,
+      "change": "added",
+      "size": 5646,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/run-reanalysis.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-06-admin-reanalysis"
+      ],
+      "sha256": "f68e7774f58b66829bc43444a206819bc958a32490485ff040380cec4a3cfcda",
+      "worktree_sha256": "f68e7774f58b66829bc43444a206819bc958a32490485ff040380cec4a3cfcda",
+      "base_sha256": null,
+      "change": "added",
+      "size": 15633,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/run-reanalysis.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-06-admin-reanalysis"
+      ],
+      "sha256": "1ab0ebf904554f9632e6900114719ba7e847ac82893daee64d166405ebf21851",
+      "worktree_sha256": "1ab0ebf904554f9632e6900114719ba7e847ac82893daee64d166405ebf21851",
+      "base_sha256": null,
+      "change": "added",
+      "size": 16493,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/run-upload.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-05-screenshot-composition"
+      ],
+      "sha256": "9d1e2d235fa082af0d137afed8dc09648b6b8c063483674ce31a939077188102",
+      "worktree_sha256": "9d1e2d235fa082af0d137afed8dc09648b6b8c063483674ce31a939077188102",
+      "base_sha256": "c188d20f94748c7bf2a163e04ae5995bb768df72d7a40c59613b21ea2a0e0cb4",
+      "change": "modified",
+      "size": 13897,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/run-upload.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-05-screenshot-composition",
+        "10-25-man-06-raw-text-evidence"
+      ],
+      "sha256": "ba1cd38ca1dd6e22a9753eb12fd27223b1011f38e1d7d75cb40e5aae7af327b4",
+      "worktree_sha256": "ba1cd38ca1dd6e22a9753eb12fd27223b1011f38e1d7d75cb40e5aae7af327b4",
+      "base_sha256": "a442889fbca13dd467354adbf43b2665783d265dd47ef8d41e503682f9462b68",
+      "change": "modified",
+      "size": 1708,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/runs-page.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-03-plan-batch-context"
+      ],
+      "sha256": "93c099b14f3cf979fb7d6538ce07ffb9bea0635aebe2cd259c09955ffc3f07e9",
+      "worktree_sha256": "93c099b14f3cf979fb7d6538ce07ffb9bea0635aebe2cd259c09955ffc3f07e9",
+      "base_sha256": "5e6528103aebbe83dd1a00ad79f5eded455c502818461cc49437b0c8434defe8",
+      "change": "modified",
+      "size": 9871,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/runs-page.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-06-admin-reanalysis",
+        "10-25-man-01-manual-run-cancellation",
+        "10-25-man-03-plan-batch-context"
+      ],
+      "sha256": "2fc56dec37f43e4eec06ea9dd81b8acca0314a87cd6431edf94776d84a5e1f76",
+      "worktree_sha256": "2fc56dec37f43e4eec06ea9dd81b8acca0314a87cd6431edf94776d84a5e1f76",
+      "base_sha256": "17157718e312f5608704aa04f0b333c9bd9e504444ccffa2e1426370b3b3e3fc",
+      "change": "modified",
+      "size": 11334,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/runs.api.test.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-06-admin-reanalysis"
+      ],
+      "sha256": "aa23acde153fa326a5176c7e169192b7ee6e4261cf6b75473e9a5bca70b17785",
+      "worktree_sha256": "aa23acde153fa326a5176c7e169192b7ee6e4261cf6b75473e9a5bca70b17785",
+      "base_sha256": "4f67ec2666db1c930c15a7350802ade8415546b917de0a10219b24a3dbcf226c",
+      "change": "modified",
+      "size": 11688,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/runs.api.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-06-admin-reanalysis",
+        "10-25-man-06-raw-text-evidence"
+      ],
+      "sha256": "66a950af374fd4e5544326b86c071c9d6acf05a57292ecfc50dd13f9f596eafa",
+      "worktree_sha256": "66a950af374fd4e5544326b86c071c9d6acf05a57292ecfc50dd13f9f596eafa",
+      "base_sha256": "38188b8ef22b5b9e195f5757ca5b4428f3e56ed5e2d3578f5f766e9ecfb6aa2d",
+      "change": "modified",
+      "size": 12004,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/runs.test-support.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation",
+        "10-25-man-01-manual-run-cancellation",
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "596d4ee9d56920dec591351c2fab4d365ed4e287458b241dbb64955f48c5a0a3",
+      "worktree_sha256": "596d4ee9d56920dec591351c2fab4d365ed4e287458b241dbb64955f48c5a0a3",
+      "base_sha256": "1694a4c4b9503e5bccacf563949774d9826d1179e845778bb7e4d74f1cb5567f",
+      "change": "modified",
+      "size": 7143,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/screenshot-composition.test.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-05-screenshot-composition"
+      ],
+      "sha256": "1054abe29b4d2d207f13fcefafcb73d20e4f9dde63b6cc850d4aca3ba573ab17",
+      "worktree_sha256": "1054abe29b4d2d207f13fcefafcb73d20e4f9dde63b6cc850d4aca3ba573ab17",
+      "base_sha256": null,
+      "change": "added",
+      "size": 6489,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/screenshot-composition.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-05-screenshot-composition"
+      ],
+      "sha256": "d494859fefada1869d080ad8071349c1a16519333019bbea905bbc5bb4a4c368",
+      "worktree_sha256": "d494859fefada1869d080ad8071349c1a16519333019bbea905bbc5bb4a4c368",
+      "base_sha256": null,
+      "change": "added",
+      "size": 2307,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/screenshot-preparation.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-05-screenshot-composition"
+      ],
+      "sha256": "e9fda9ebe77360b341ceebcc8984a79cd5a905174b48bb606c908399bf4b7340",
+      "worktree_sha256": "e9fda9ebe77360b341ceebcc8984a79cd5a905174b48bb606c908399bf4b7340",
+      "base_sha256": null,
+      "change": "added",
+      "size": 8404,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/domains/geo-runs/screenshot-preparation.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-05-screenshot-composition"
+      ],
+      "sha256": "83c894e11ee2e932bb6f11fac77c5c0ae9def2201befb61e5488c9a24e48aa4c",
+      "worktree_sha256": "83c894e11ee2e932bb6f11fac77c5c0ae9def2201befb61e5488c9a24e48aa4c",
+      "base_sha256": null,
+      "change": "added",
+      "size": 9002,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/routes/_app/content/tasks/$taskId.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-04-opportunity-publication-repair"
+      ],
+      "sha256": "11e14088ba9e424a439ae119ea01fb80151cbb4e30d926ecb2bf63b28b656424",
+      "worktree_sha256": "11e14088ba9e424a439ae119ea01fb80151cbb4e30d926ecb2bf63b28b656424",
+      "base_sha256": "a9b19978e2244ef03605eb21e22d7cef1aaaf30ec7fcd78a5096a24b4a508453",
+      "change": "modified",
+      "size": 2091,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/routes/_app/products/$productId_.facts.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-03-opportunity-fact-revision"
+      ],
+      "sha256": "fb675ca0e120850285ba9ffd91ed3105d9fe93436b80b3a30338218a16e1c0ce",
+      "worktree_sha256": "fb675ca0e120850285ba9ffd91ed3105d9fe93436b80b3a30338218a16e1c0ce",
+      "base_sha256": "ca9c8d6f365c499f4d260910fdacf553cfffc249a269a600f8bed2a117521d6d",
+      "change": "modified",
+      "size": 2178,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/routes/_app/publishing/issues/$issueId.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-04-opportunity-publication-repair"
+      ],
+      "sha256": "568af7735ffd2f2d5fc272c5d6dd3047cfd61a97332dacd9b5dadef4932be165",
+      "worktree_sha256": "568af7735ffd2f2d5fc272c5d6dd3047cfd61a97332dacd9b5dadef4932be165",
+      "base_sha256": "0bb427d8b6b93567e382aee7923174eef7e0a4d33e74f0f33d56d5fc455cffae",
+      "change": "modified",
+      "size": 3204,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/shared/api/generated/schema.d.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation",
+        "10-25-core-02-opportunity-summary",
+        "10-25-core-03-opportunity-fact-revision",
+        "10-25-core-04-opportunity-publication-repair",
+        "10-25-core-05-opportunity-csv",
+        "10-25-core-06-admin-reanalysis",
+        "10-25-auto-01-scheduled-monitoring",
+        "10-25-auto-02-periodic-opportunity-evaluation",
+        "10-25-man-01-manual-run-cancellation",
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "39b1f096a63cb470c2916aa530f4943fe0ce544b7aad7e2e0b3815c99f8f0daf",
+      "worktree_sha256": "39b1f096a63cb470c2916aa530f4943fe0ce544b7aad7e2e0b3815c99f8f0daf",
+      "base_sha256": "e31118767bea5b3b8aef8765edf6fc3862414959c7607c8bd214083fa8c78d39",
+      "change": "modified",
+      "size": 850768,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/shared/geo/opportunity-summary.test.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary"
+      ],
+      "sha256": "86161a51f3208c51597edf662fdd2517a4b8bf6ddcfcc4ae87c19d39f2843c94",
+      "worktree_sha256": "86161a51f3208c51597edf662fdd2517a4b8bf6ddcfcc4ae87c19d39f2843c94",
+      "base_sha256": null,
+      "change": "added",
+      "size": 5762,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/shared/geo/opportunity-summary.tsx",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary"
+      ],
+      "sha256": "436cfe102199064df7b8545a6af64445ab775633dd9dd8f006378829d224f71a",
+      "worktree_sha256": "436cfe102199064df7b8545a6af64445ab775633dd9dd8f006378829d224f71a",
+      "base_sha256": null,
+      "change": "added",
+      "size": 3060,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/shared/lib/geo-metric-labels.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "c43e6e09ac6697e952fbb1a9f6e85be1874f617987553112188269bb706af173",
+      "worktree_sha256": "c43e6e09ac6697e952fbb1a9f6e85be1874f617987553112188269bb706af173",
+      "base_sha256": null,
+      "change": "added",
+      "size": 1997,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/src/shared/lib/geo-opportunity-labels.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary",
+        "10-25-core-03-opportunity-fact-revision"
+      ],
+      "sha256": "96a8d50ad59069f5ac4051e4dc0503fc833239d2249ba2e5e9812a6d2d30538e",
+      "worktree_sha256": "96a8d50ad59069f5ac4051e4dc0503fc833239d2249ba2e5e9812a6d2d30538e",
+      "base_sha256": null,
+      "change": "added",
+      "size": 744,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/tests/e2e/fixtures/publication.fixture.ts",
+      "selection": "scoped_hunks",
+      "owners": [
+        "10-25-core-04-opportunity-publication-repair"
+      ],
+      "sha256": "57404ffd348076a57cd7438f924ca6c3325ed4d199757a5bff7e3de15e93c0c4",
+      "worktree_sha256": "2fe05f108b5f7dc057ce056fe4f07197024eb51cdb5ba6036b4fd0c0cd418ea3",
+      "base_sha256": "a90f88f42f58ed537dae06c00615bf068e1e06b164d96fb9cc1bb644f5f7727b",
+      "change": "modified",
+      "size": 41973,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/tests/e2e/geo-api-real-stack.spec.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "a8029e1bbf28d9dea3f6d4429b51d836c02438e84a9a532194f05a39df9474f9",
+      "worktree_sha256": "a8029e1bbf28d9dea3f6d4429b51d836c02438e84a9a532194f05a39df9474f9",
+      "base_sha256": "9a5c702cc6a4988633abbb33f8eb6dd4ce7cecf7d75164f78a2e8924d541b6ba",
+      "change": "modified",
+      "size": 11094,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/tests/e2e/geo-comparison-real-stack.spec.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "f2b6f0550bbc1b872aedfd512f00df1dda697f50c81b797fa37c89e5e6e9307a",
+      "worktree_sha256": "f2b6f0550bbc1b872aedfd512f00df1dda697f50c81b797fa37c89e5e6e9307a",
+      "base_sha256": "cc32bf73ebd05712b8c14d9d2ed73603e932d408d3b4e0d573fb591c34a7ca1f",
+      "change": "modified",
+      "size": 9964,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/tests/e2e/geo-fact-revision.spec.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-03-opportunity-fact-revision"
+      ],
+      "sha256": "9ed559ecdd10574df16ccbf6812b8ec4f7910259a8a46df1eab82d32922a02c4",
+      "worktree_sha256": "9ed559ecdd10574df16ccbf6812b8ec4f7910259a8a46df1eab82d32922a02c4",
+      "base_sha256": null,
+      "change": "added",
+      "size": 9385,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/tests/e2e/geo-loop-support.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "57a8a3792e435eb14f0d5d1538d9df3fc9c6ca0e5e9c8a88d43eb710a6204e83",
+      "worktree_sha256": "57a8a3792e435eb14f0d5d1538d9df3fc9c6ca0e5e9c8a88d43eb710a6204e83",
+      "base_sha256": "e606ecf38f3e621ca7290a1ec212eaf4d95671bedcc20de9b8de73c8914a20f1",
+      "change": "modified",
+      "size": 22931,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/tests/e2e/geo-opportunity-csv.spec.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-05-opportunity-csv"
+      ],
+      "sha256": "23508210fc4712e756e4c2793ee461b7ffc6a99f125279fb049ac40d60e61bb2",
+      "worktree_sha256": "23508210fc4712e756e4c2793ee461b7ffc6a99f125279fb049ac40d60e61bb2",
+      "base_sha256": null,
+      "change": "added",
+      "size": 8583,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/tests/e2e/geo-opportunity-schedule.spec.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-02-periodic-opportunity-evaluation"
+      ],
+      "sha256": "6c464bbbdc5dd7bf600be7751ba5d93d4f5c133c6b913da9e69ce9f5e24c8270",
+      "worktree_sha256": "6c464bbbdc5dd7bf600be7751ba5d93d4f5c133c6b913da9e69ce9f5e24c8270",
+      "base_sha256": null,
+      "change": "added",
+      "size": 5396,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/tests/e2e/geo-opportunity-summary.spec.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-02-opportunity-summary"
+      ],
+      "sha256": "c618169932fc14fcf43847cb55a7659df8ff29383df74f3726c459142c1d2eec",
+      "worktree_sha256": "c618169932fc14fcf43847cb55a7659df8ff29383df74f3726c459142c1d2eec",
+      "base_sha256": null,
+      "change": "added",
+      "size": 6587,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/tests/e2e/geo-plan-schedule.spec.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "bdd3783b2b10713275e6e8af14e9fae51b7f21c159498fd1605fc2b17d596971",
+      "worktree_sha256": "bdd3783b2b10713275e6e8af14e9fae51b7f21c159498fd1605fc2b17d596971",
+      "base_sha256": null,
+      "change": "added",
+      "size": 5891,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/tests/e2e/geo-publication-repair.spec.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-04-opportunity-publication-repair"
+      ],
+      "sha256": "1278814448a75cec14cc4a4f7fa75867b9456599ec8218b40002bf8f3a3aae87",
+      "worktree_sha256": "1278814448a75cec14cc4a4f7fa75867b9456599ec8218b40002bf8f3a3aae87",
+      "base_sha256": null,
+      "change": "added",
+      "size": 12769,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/tests/e2e/geo-reanalysis.spec.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-06-admin-reanalysis"
+      ],
+      "sha256": "ac8b91bbf799293dc2d95a4bdd0ecb7c7f9f1ad85d473214adc47509b1035c58",
+      "worktree_sha256": "ac8b91bbf799293dc2d95a4bdd0ecb7c7f9f1ad85d473214adc47509b1035c58",
+      "base_sha256": null,
+      "change": "added",
+      "size": 6725,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/tests/e2e/geo-review-real-stack.spec.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "9418ab7a868927c9ddc5b9c9435f4944370e139f41ed5c3e8134711700a0900b",
+      "worktree_sha256": "9418ab7a868927c9ddc5b9c9435f4944370e139f41ed5c3e8134711700a0900b",
+      "base_sha256": "2e815ed5e5d6f4ea149a60e786c24adf1993e09268227774e13e9171c354fbd0",
+      "change": "modified",
+      "size": 10268,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/tests/e2e/geo-run-quality.spec.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "1d9bcf9b9a4fd6822685ed7e3fc6b30d8c6eff0d13d322a074208c5d324aae99",
+      "worktree_sha256": "1d9bcf9b9a4fd6822685ed7e3fc6b30d8c6eff0d13d322a074208c5d324aae99",
+      "base_sha256": null,
+      "change": "added",
+      "size": 4645,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/tests/e2e/insights-real-stack.spec.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "045b62a2a39bdb09f33951b45449033969e7086bff59ecfe634eef9f9b40b4f6",
+      "worktree_sha256": "045b62a2a39bdb09f33951b45449033969e7086bff59ecfe634eef9f9b40b4f6",
+      "base_sha256": "8617d13066719100e066996011d625be891844aa63ea242599081609a36808ee",
+      "change": "modified",
+      "size": 10207,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/tests/e2e/opportunities-real-stack.spec.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "d7dd90b73acbfc96ac6e74da8b71ff4dbe8caade56066dda30d8f4f276f53671",
+      "worktree_sha256": "d7dd90b73acbfc96ac6e74da8b71ff4dbe8caade56066dda30d8f4f276f53671",
+      "base_sha256": "f753b6956bfc1932f672cb70d410c09d5f2c7d5a7cc0861e93581e7281d8028c",
+      "change": "modified",
+      "size": 14729,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/tests/e2e/plans-real-stack.spec.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-auto-01-scheduled-monitoring"
+      ],
+      "sha256": "6230c9974807f00358c606ba0ed002063e6c27a297637d5ba57ff771a18fa6ad",
+      "worktree_sha256": "6230c9974807f00358c606ba0ed002063e6c27a297637d5ba57ff771a18fa6ad",
+      "base_sha256": "59de36de24ade1cc54b70370b18757a00af6321067ea83a79b875893be28e79e",
+      "change": "modified",
+      "size": 19499,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/tests/e2e/reports-real-stack.spec.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "8bc08cc0e13373f89bb347b3b2e5fc829f1fdc1cb6d2daced2132bbc7031abec",
+      "worktree_sha256": "8bc08cc0e13373f89bb347b3b2e5fc829f1fdc1cb6d2daced2132bbc7031abec",
+      "base_sha256": "84272af68553bd13a57b7e6619c9c3ca447fdb5b22a154684b04d11ef76a8b90",
+      "change": "modified",
+      "size": 9937,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/tests/e2e/runs-real-stack.spec.ts",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-man-02-citation-observation"
+      ],
+      "sha256": "3383f1d40db52f572d65d1d3f7a25e11a94e85e22ef74561c324f2ea8993f534",
+      "worktree_sha256": "3383f1d40db52f572d65d1d3f7a25e11a94e85e22ef74561c324f2ea8993f534",
+      "base_sha256": "6b605b6ec86015dae1783d3b3703e0b0545520c0af4ff72581834e653edc5350",
+      "change": "modified",
+      "size": 16889,
+      "mode": "0o644"
+    },
+    {
+      "path": "frontend/tsconfig.node.json",
+      "selection": "whole_file",
+      "owners": [
+        "10-25-core-01-run-quality-navigation"
+      ],
+      "sha256": "fbbd90666bd00acceecead5834b83d5281383ed3456fa05ec28cfe5be35ca9e9",
+      "worktree_sha256": "fbbd90666bd00acceecead5834b83d5281383ed3456fa05ec28cfe5be35ca9e9",
+      "base_sha256": "a843f73a6939b389864232cf551010bd0971e0397c4844e86fea7ca257a1da3c",
+      "change": "modified",
+      "size": 489,
+      "mode": "0o644"
+    }
+  ],
+  "partial_selection_rules": {
+    "frontend/tests/e2e/fixtures/publication.fixture.ts": "只取CORE-04公开fixture导出，其余T6-P控制器/状态/分支/错误码改动全部排除",
+    "docs/geo-monitoring/SHA256SUMS": "只更新本期方法说明、人工SOP、API设计3条hash；保留HEAD的task-manifest条目"
+  },
+  "supporting_record_count": 60,
+  "supporting_records": [
+    {
+      "path": ".trellis/tasks/10-25-functional-feature-backlog/prd.md",
+      "sha256": "519e922a69279b7f48f5f784c79321c27696006efc34251270deee349947d806"
+    },
+    {
+      "path": ".trellis/tasks/10-25-functional-feature-backlog/task.json",
+      "sha256": "bfb25e999ae2775c945727808a8e66200f5d363d69d9cdcdf713dd49a038152e"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-01-run-quality-navigation/design.md",
+      "sha256": "a538fa62f405af5c2ce2968a3636efd9034df02cf1ce9f9ba0bc9d2a2905620a"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-01-run-quality-navigation/implement.md",
+      "sha256": "1cb8b3f50db39d785588d519906f80394d177064a6fe4502b2c047d2430ad9ca"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-01-run-quality-navigation/prd.md",
+      "sha256": "891f16e79feab93141dbdfc21857545f5826b271a79dad486bcec9dbec2603ee"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-01-run-quality-navigation/task.json",
+      "sha256": "ba0d44315e13e7c5ece48d5a8b9a2234d57578a1cd6f21f778ca11daa47365df"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-02-opportunity-summary/design.md",
+      "sha256": "e0d50e87028b39ad26a42132db227e42791feedfa6b53363910c1c8d90ec944c"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-02-opportunity-summary/implement.md",
+      "sha256": "69e7c75599ee561e924f994928270f2b1f039dd0e2397cfbfc310a103c90d854"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-02-opportunity-summary/prd.md",
+      "sha256": "71a798df1051c4ee5e73ac0133bfbed1f2d3534c2e7f8a39a4b0ea02821b2fcc"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-02-opportunity-summary/task.json",
+      "sha256": "e6c335b3be0e4722475e607aeb3e5b5890056558b4e94827a2daa4d6e9ac93c2"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-03-opportunity-fact-revision/design.md",
+      "sha256": "41530b1b2c507460536bc70bd664a215249daa1e4c81817218125fbedc94207a"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-03-opportunity-fact-revision/implement.md",
+      "sha256": "98884cbfbc3d9bce2c3f6fb92124a568edb9ccaa8c7f7cf14d4e987111bbe167"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-03-opportunity-fact-revision/prd.md",
+      "sha256": "8f5139599b6ff73eca14356ea0aeeb3ec687c7fbc1669a31157dd84323f3548e"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-03-opportunity-fact-revision/task.json",
+      "sha256": "c211e055ad115fba4166abc17dbe7e4114793a2201ff19c694f2be85ded2588f"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-04-opportunity-publication-repair/design.md",
+      "sha256": "a708309a52ad8b0c94967dceb07fc8735c7d92eae6f8c6558fd2b5a37a989d5c"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-04-opportunity-publication-repair/implement.md",
+      "sha256": "7438c5e12168e80248b719d57aadc73c2a23f50879a84d2dd3cc90d927143924"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-04-opportunity-publication-repair/prd.md",
+      "sha256": "b541f1f100f0b4f0182b49df174e879712fc83912054b7d1880934ae7b6db314"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-04-opportunity-publication-repair/task.json",
+      "sha256": "86ee550961ba6c943474203d8c28b81ee24a7511c25dc8e5560add511b4d6070"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-05-opportunity-csv/design.md",
+      "sha256": "e9b40501c7db9a1ccd7fed6e54e8af3b8a91048ec700d72bbe1c88be8e290d38"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-05-opportunity-csv/implement.md",
+      "sha256": "6fc59b52d55478249184d4cea756b896801ad4c718d4161d8f764be97f39fac5"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-05-opportunity-csv/prd.md",
+      "sha256": "75d9b3a29d4b5a74142e21c1b8d5f7bf553784301713184af52f10113197dbae"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-05-opportunity-csv/task.json",
+      "sha256": "0812eca88792384f336146b2d02f2092ea55651c60f53bf6683bdea867561f54"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-06-admin-reanalysis/design.md",
+      "sha256": "b0fd2912832cede16784c30248e2aedf390bb94428c1dea4c0ec74da4bc2b3e6"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-06-admin-reanalysis/implement.md",
+      "sha256": "1dcda05ca4f10bfe993d111bfb4bb6a2e4bcd2b855a22c73fc3805de6b2fb8d5"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-06-admin-reanalysis/prd.md",
+      "sha256": "83a62bd30adee82e1d00cc6e2c97fde29ddda620c6e604a4fa67ec922336470d"
+    },
+    {
+      "path": ".trellis/tasks/10-25-core-06-admin-reanalysis/task.json",
+      "sha256": "fe18af08c8a5161dcba32982113d39845fa57ed08b0e79520b5d9e86992fac83"
+    },
+    {
+      "path": ".trellis/tasks/10-25-auto-01-scheduled-monitoring/design.md",
+      "sha256": "221053b3c53055adb632d2433ab3c430c88bb26e6b639dd061fa4cf3283b3a88"
+    },
+    {
+      "path": ".trellis/tasks/10-25-auto-01-scheduled-monitoring/implement.md",
+      "sha256": "306616b241db684227af0ee9e03bf6417f30d7eb9680a8a78102b6f4c98f24fc"
+    },
+    {
+      "path": ".trellis/tasks/10-25-auto-01-scheduled-monitoring/prd.md",
+      "sha256": "749de408f8bb980972ed8f739a4760fb263dd2e1590d75f24b0016b618b962b7"
+    },
+    {
+      "path": ".trellis/tasks/10-25-auto-01-scheduled-monitoring/task.json",
+      "sha256": "13bf0ba1dc82b8fba041e6f46a94850ddda04212f556901452aac3e1d500a6f3"
+    },
+    {
+      "path": ".trellis/tasks/10-25-auto-02-periodic-opportunity-evaluation/check.jsonl",
+      "sha256": "40dabff4b3e0949c79f6dbbbec55ba4d8eb31ab989ba5c77786bf2c951c88b92"
+    },
+    {
+      "path": ".trellis/tasks/10-25-auto-02-periodic-opportunity-evaluation/design.md",
+      "sha256": "7fa5e148397c86c72261f370a5aec4bd1b9a16a630b2b712397d7deff38d5b1f"
+    },
+    {
+      "path": ".trellis/tasks/10-25-auto-02-periodic-opportunity-evaluation/implement.jsonl",
+      "sha256": "40dabff4b3e0949c79f6dbbbec55ba4d8eb31ab989ba5c77786bf2c951c88b92"
+    },
+    {
+      "path": ".trellis/tasks/10-25-auto-02-periodic-opportunity-evaluation/implement.md",
+      "sha256": "7f5430b9c2208367ecb0a079cf11ebe6aecdfa145f0dbf33fba3fc68c25b11ed"
+    },
+    {
+      "path": ".trellis/tasks/10-25-auto-02-periodic-opportunity-evaluation/prd.md",
+      "sha256": "83f6b813377103f9c50b2630749ad4c8be6b59a52f1a9c2f110765bc4c906291"
+    },
+    {
+      "path": ".trellis/tasks/10-25-auto-02-periodic-opportunity-evaluation/task.json",
+      "sha256": "ebfe625682c2a22e5e9698b55efc35810909cdefbd2d4655c35222ac33edba55"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-01-manual-run-cancellation/check.jsonl",
+      "sha256": "40dabff4b3e0949c79f6dbbbec55ba4d8eb31ab989ba5c77786bf2c951c88b92"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-01-manual-run-cancellation/design.md",
+      "sha256": "6e7d3a89f4ea884c85b930249d593ad9f551fad92ae49f5f449cf56d7d701e97"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-01-manual-run-cancellation/implement.jsonl",
+      "sha256": "40dabff4b3e0949c79f6dbbbec55ba4d8eb31ab989ba5c77786bf2c951c88b92"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-01-manual-run-cancellation/implement.md",
+      "sha256": "02c7805d5af8a660c2103ca0faf1e40ae76b735df343fe3571ee18789208d88a"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-01-manual-run-cancellation/prd.md",
+      "sha256": "ed4b7580cbbec1961e25857ce98cfaa2e81ae6db7fda29094d34fbc075915034"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-01-manual-run-cancellation/task.json",
+      "sha256": "3bff2d38ef70de7b7067296ca89eafee3085afe9e019ffad84987863070b41b8"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-02-citation-observation/design.md",
+      "sha256": "0086aac52241070d07b4b84edfca5d11d0eeaaa3417431d5429c080759b86501"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-02-citation-observation/implement.md",
+      "sha256": "b27eca43eec587db0b132b502eca92330c02f9d78fabca693c0a41afb454884f"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-02-citation-observation/prd.md",
+      "sha256": "dd05bbc7bf88e6d5044df318b91f27a992f55b4106c61f716f6e07be4aa174f6"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-02-citation-observation/task.json",
+      "sha256": "bf0eae2424d2024e2c28389a38463e002bff0663f1b2974d4711ab0071878140"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-03-plan-batch-context/implement.md",
+      "sha256": "533ae3f284e2c3a384b8aca803740aad78f388405d284a661f4978685f4d368c"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-03-plan-batch-context/prd.md",
+      "sha256": "6d97c58fd2dde689c938dcd452cebfdd4c5f6e68adb067bcdc070744fe6f7719"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-03-plan-batch-context/task.json",
+      "sha256": "49bd686f92950f9ebc84abd96677c84a4ec7084eacc5fcd95c9c06e10cd27788"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-04-frozen-prompt-copy/implement.md",
+      "sha256": "a5f84f3526b4c7ac371740b3ea568fb6b9aabc4d3d51a5a9c0e9ad5250a30fac"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-04-frozen-prompt-copy/prd.md",
+      "sha256": "f544b5ced4ae619378fe3ea4b049d8c1bad27a4641429b55b3eeb6db6360d57b"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-04-frozen-prompt-copy/task.json",
+      "sha256": "8beedd803b7f0224fdd4573f41c682f4e160f4c872bf705fa68b8ca8e10a415b"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-05-screenshot-composition/design.md",
+      "sha256": "208adc856c7e8e53b3b1cb1384c899a392238f8be17312c6b9d5b0263a9e8448"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-05-screenshot-composition/implement.md",
+      "sha256": "d40e9808f9c04a7474c9e2b2df17d3f0eb377a4513cee8e485b295b3b0a81237"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-05-screenshot-composition/prd.md",
+      "sha256": "98fe08b62ca4eb135099e75188108dfd22622cdd99f94264b6a09b64ddb91cda"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-05-screenshot-composition/task.json",
+      "sha256": "13988c9ba3d2e37edb71c54fb40ac3e949ea7ebc7b0133371a665e88d0f97f58"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-06-raw-text-evidence/design.md",
+      "sha256": "864e8ad671d865d3b550637fe3335e74f5d1ddacdd7fd6f83a35d7753e03312f"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-06-raw-text-evidence/implement.md",
+      "sha256": "037304d8d7f22a2c4b9836d535e5301dbd3e6d71af22106a7b74a524f6c51162"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-06-raw-text-evidence/prd.md",
+      "sha256": "5e2481f38d127bd9fecd2b4912d33df07d7337e03aee69f96e62d5154d5da198"
+    },
+    {
+      "path": ".trellis/tasks/10-25-man-06-raw-text-evidence/task.json",
+      "sha256": "1a1f74e9db31172fe71286f4fb538e16247f27ed3d525ee4a6055dc2665f5ab6"
+    }
+  ],
+  "supporting_records_in_patch": false,
+  "candidate_artifacts": [
+    {
+      "path": "local-candidate/candidate.patch",
+      "sha256": "5a28582d588dd72622412f134c43ddf4dbfa49742e35f64f874fbf70f1ff98e9"
+    },
+    {
+      "path": "local-candidate/evidence/0070-races-initial.log",
+      "sha256": "d89f2994877cfa5964119b6db7005acf1c00dc6367c150dcb585438882f19af5"
+    },
+    {
+      "path": "local-candidate/evidence/0070-races-recheck.log",
+      "sha256": "1d6c3167169db3573eb9f3bc35bbead03f7ae838d8b6355aa2d12c0fa317d60a"
+    },
+    {
+      "path": "local-candidate/evidence/candidate_race_probe.py",
+      "sha256": "239539776502bfbf8120a893ca3d3496fa413917c245dff92732f1754f6211d3"
+    },
+    {
+      "path": "local-candidate/scope-review.md",
+      "sha256": "8118ebf564f12a561ab426395ef8d4fd97ea2953fe41a4f4d936a21c14a99e9a"
+    },
+    {
+      "path": "local-candidate/verification.json",
+      "sha256": "101440889f475b0bacadd1d6708c848241c45cd31ef2d337842af3f6df7ccc4c"
+    }
+  ],
+  "candidate_sidecars_in_patch": false,
+  "excluded_scope": [
+    "原74项暂存删除（补丁不含删除）",
+    "T6-C/T6-P内容删除和错误恢复验收",
+    "通用表格焦点回调修改",
+    "部署Compose内存调整和Production配置",
+    "范围外任务状态/OSS跟进记录",
+    "AI工作流、Skills等工作区治理修改"
+  ],
+  "automatic_scheduling_enabled": false,
+  "browser_upload_gap": "NOT_RUN_NO_EXISTING_PLATFORM",
+  "deployed": false,
+  "user_acceptance_recorded": false,
+  "preservation_record": "local-candidate/preservation.json"
+}

@@ -228,7 +228,7 @@ def main():
             "--rollback-frontend-image",
             "partsignal-frontend-v2:test",
             "--schema-head",
-            "0066_geo_manual_evaluation",
+            "0070_geo_citation_observation",
             "--output",
             str(path),
         ]
@@ -353,7 +353,7 @@ def main():
         assert state()["phase"] == "UPGRADE_DEPLOYING"
         assert (
             sql("SELECT version_num FROM alembic_version")
-            == "0066_geo_manual_evaluation"
+            == "0070_geo_citation_observation"
         )
         assert data_hashes(list(before)) == before, [table for table in before if data_hashes([table]) != {table: before[table]}]
         print(
@@ -429,7 +429,7 @@ def main():
         # PostgreSQL 16 真实反例：保留 head 和所有行/OID，临时移走核心表名。
         run([*compose, "up", "--pull", "never", "-d", "--wait", "postgres", "redis"])
         sql("ALTER TABLE published_articles RENAME TO geo1007_saved_published_articles")
-        assert sql("SELECT version_num FROM alembic_version") == "0066_geo_manual_evaluation"
+        assert sql("SELECT version_num FROM alembic_version") == "0070_geo_citation_observation"
         assert sql("SELECT to_regclass('public.published_articles') IS NULL") == "t"
         result = run([str(SCRIPTS / "deploy.sh")], expected=1)
         assert "REQUIRED_TABLE_MISSING" in result.stdout and "published_articles" in result.stdout

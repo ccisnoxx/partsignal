@@ -208,7 +208,7 @@ function PlanWizard({ plan, csrfToken, onSaved, onReload, onCancel, readBlocked 
       <h2 className="type-section-title" id="plan-step-heading" tabIndex={-1}>{step + 1}. {planStepLabels[step]}</h2>
       {!allowed && <PlanNotice error>当前计划只读或读取权限已变化，已阻止提交。本地草稿保留，请先核对资源或会话权限。</PlanNotice>}
       <fieldset className="min-w-0 space-y-4" disabled={saveMutation.isPending || refreshing || !allowed}>
-        <PlanWizardStep disabled={saveMutation.isPending || refreshing || !allowed} step={step} />
+        <PlanWizardStep scheduleLocked={Boolean(baseline ?? plan)} disabled={saveMutation.isPending || refreshing || !allowed} step={step} />
         {step === 6 && <><p className="text-sm text-text-secondary">预览当前完整草稿。任何字段或选择变化后都必须重新预览。</p><Button className="min-h-11 sm:min-h-8" disabled={previewPending || !csrfToken} type="submit">{previewPending ? '服务端预览中…' : '预览当前配置'}</Button>{currentPreview ? <PlanPreviewPanel onFix={fix} preview={currentPreview.result} /> : <PlanNotice>当前草稿尚无有效服务端预览。</PlanNotice>}</>}
         {step === 7 && <><PlanConfigurationSummary values={values} />{currentPreview ? <PlanPreviewPanel onFix={fix} preview={currentPreview.result} /> : <PlanNotice>请返回“服务端预览”，预览当前草稿后保存。</PlanNotice>}<PlanNotice>保存仅提交完整配置。新计划保存后为未启用；请在详情明确确认启用。运行阻断不会阻止结构完整的未启用或已暂停计划保存，已启用计划的修改由服务端重新裁决。</PlanNotice></>}
       </fieldset>

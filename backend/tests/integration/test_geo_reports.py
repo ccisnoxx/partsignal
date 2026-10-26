@@ -68,7 +68,7 @@ def audits(api, request_id=None):
         return list(db.scalars(query.order_by(AuditLog.created_at, AuditLog.id)))
 
 
-def test_empty_report_closed_contract_auth_validation_and_unimplemented_export(overview_api):
+def test_empty_report_closed_contract_auth_validation_and_empty_exports(overview_api):
     api = overview_api
     query = params(api, subject_ids=str(uuid4()))
     before = len(audits(api))
@@ -83,13 +83,11 @@ def test_empty_report_closed_contract_auth_validation_and_unimplemented_export(o
         validate(document, "GeoReportPreview", report)
     response = api.engineer.get(PATH + "/print", params=query)
     assert response.status_code == 200 and response.json()["available"] is False
-    for kind in ("runs", "citations", "claims"):
+    for kind in ("runs", "citations", "claims", "opportunities"):
         response = api.engineer.get(PATH + f"/{kind}.csv", params=query)
         assert response.status_code == 409
         assert response.json()["error"]["code"] == "GEO_REPORT_EMPTY"
         assert response.json()["error"]["request_id"] == response.headers["X-Request-ID"]
-    response = api.engineer.get(PATH + "/opportunities.csv", params=query)
-    assert response.status_code == 501 and response.json()["error"]["code"] == "NOT_IMPLEMENTED"
     assert len(audits(api)) == before
     for endpoint in (
         "/preview",

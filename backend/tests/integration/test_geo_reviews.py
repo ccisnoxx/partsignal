@@ -87,8 +87,8 @@ def test_confirm_completes_first_review_without_mutating_machine(review_api, con
     assert current["batch"]["status"] == "COMPLETED"
     assert current["analysis"]["selection"]["current_review_id"] == receipt["review"]["id"]
     assert current["analysis"]["review_gate_passed"] and not current["analysis"]["review_required"]
-    assert current["data_quality"]["metric_eligible"] is None
-    assert current["data_quality"]["unavailable_sections"] == ["METRICS", "OPPORTUNITIES", "RETEST"]
+    assert "CURRENT_REVIEW_REQUIRED" not in current["data_quality"]["exclusion_reasons"]
+    assert current["data_quality"]["exclusion_reasons"] == ["INTEGRITY_ERROR"]
     assert rows(api, case) == frozen
     from app.main import app
     from tests.unit.test_geo_run_contract import validate

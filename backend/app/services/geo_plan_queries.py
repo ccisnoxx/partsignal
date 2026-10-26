@@ -28,9 +28,11 @@ from app.schemas.geo_plan_management import (
     GeoPlanRunEntry,
 )
 from app.schemas.geo_plan_preview import GeoMonitoringPlanPreview
+from app.schemas.geo_plan_schedules import GeoPlanScheduleRuntime
 from app.services.geo_collector_eligibility import GeoRuntimeSwitches
 from app.services.geo_plan_policy import projection
 from app.services.geo_plans import PlanMatrixSelection, RunMatrixBuilder, load_matrix_facts
+from app.services.geo_schedule_queries import runtimes
 
 CONFIGURATION_FIELDS = (
     "name",
@@ -133,9 +135,13 @@ def plan_detail(
     value: GeoMonitoringPlanConfiguration,
     preview: GeoMonitoringPlanPreview,
     batch_count: int = 0,
+    schedule: GeoPlanScheduleRuntime | None = None,
 ) -> GeoMonitoringPlanDetail:
     stage, task, actions, deletion = projection(
-        Status(plan.status), eligible=not preview.blockers, schedule_kind=value.schedule_kind
+        Status(plan.status),
+        eligible=not preview.blockers,
+        schedule_kind=value.schedule_kind,
+        registered=schedule is not None,
     )
     if batch_count:
         actions = [action for action in actions if action != "DELETE"]
@@ -145,15 +151,20 @@ def plan_detail(
         | {name: getattr(plan, name) for name in METADATA_FIELDS}
         | {
             "preview": preview,
+            "schedule": schedule,
             "workflow_stage": stage,
             "primary_task": task,
             "available_actions": actions,
             "deletion": deletion,
             "run_entry": GeoPlanRunEntry(
                 available=False,
-                reason_code="GEO_PLAN_CRON_UNSUPPORTED"
-                if value.schedule_kind == GeoPlanScheduleKind.CRON
-                else "UI_NOT_IMPLEMENTED",
+                reason_code=(
+                    "SCHEDULED_AUTOMATICALLY"
+                    if schedule is not None
+                    else "GEO_PLAN_CRON_UNSUPPORTED"
+                    if value.schedule_kind == GeoPlanScheduleKind.CRON
+                    else "UI_NOT_IMPLEMENTED"
+                ),
             ),
         }
     )
@@ -177,8 +188,9 @@ def details(db: Session, plans: Sequence[GeoMonitoringPlan]) -> list[GeoMonitori
     values = configurations(db, plans)
     results = previews(db, list(values.values()))
     counts = plan_batch_counts(db, [plan.id for plan in plans])
+    schedules = runtimes(db, [plan.id for plan in plans])
     return [
-        plan_detail(plan, values[plan.id], preview, counts.get(plan.id, 0))
+        plan_detail(plan, values[plan.id], preview, counts.get(plan.id, 0), schedules.get(plan.id))
         for plan, preview in zip(plans, results, strict=True)
     ]
 

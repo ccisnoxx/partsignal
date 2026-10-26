@@ -55,6 +55,10 @@ class GeoAnswerSnapshot(Base):
             "raw_payload_file_id <> screenshot_file_id",
             name=conv("ck_geo_answers_files"),
         ),
+        CheckConstraint(
+            "geo_citation_observation_valid(citation_observation, citation_count)",
+            name=conv("ck_geo_answers_citation_observation"),
+        ),
         Index("ix_geo_answers_raw_file", "raw_payload_file_id"),
         Index("ix_geo_answers_screenshot_file", "screenshot_file_id"),
     )
@@ -76,6 +80,7 @@ class GeoAnswerSnapshot(Base):
     source_model: Mapped[str | None] = mapped_column(String(200))
     source_version: Mapped[str | None] = mapped_column(String(200))
     web_search_observed: Mapped[bool | None] = mapped_column(Boolean)
+    citation_observation: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     raw_payload_summary: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     raw_payload_file_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),

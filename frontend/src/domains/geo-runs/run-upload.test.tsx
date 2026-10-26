@@ -8,6 +8,9 @@ import { createAppQueryClient } from '@/app/query-client';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { RunUpload } from './run-upload';
+import { composeScreenshots } from './screenshot-composition';
+
+vi.mock('./screenshot-composition', () => ({ composeScreenshots: vi.fn() }));
 
 const fileRecord: components['schemas']['FileRecord'] = {
   id: '10000000-0000-4000-8000-000000000001',
@@ -54,8 +57,26 @@ function selectFile(type = 'image/png') {
     target: { files: [new NodeFile(['evidence'], 'proof.png', { type })] },
   });
 }
-afterEach(() => vi.restoreAllMocks());
-beforeEach(() => vi.spyOn(api, 'GET').mockResolvedValue(response(fileRecord)));
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+beforeEach(() => {
+  vi.spyOn(api, 'GET').mockResolvedValue(response(fileRecord));
+  let previewId = 0;
+  vi.stubGlobal('URL', class extends URL {
+    static createObjectURL = vi.fn(() => `blob:preview-${++previewId}`);
+    static revokeObjectURL = vi.fn();
+  });
+  vi.mocked(composeScreenshots).mockReset().mockResolvedValue(
+    new NodeFile(['evidence'], 'geo-screenshots.png', { type: 'image/png' }) as unknown as File,
+  );
+});
+async function prepareMultiple() {
+  fireEvent.change(screen.getByLabelText('上传人工采集截图'), {
+    target: { files: ['first.png', 'second.png'].map((name) => new NodeFile(['source'], name, { type: 'image/png' })) },
+  });
+  await userEvent.click(screen.getByRole('button', { name: '合成并预览截图' }));
+  await screen.findByRole('button', { name: '上传合成截图' });
+}
+
 
 describe('人工采集截图生命周期', () => {
   it('真实 SHA256、共享 PUT 后等待 VERIFIED，complete 失败只重试 complete', async () => {
@@ -203,4 +224,52 @@ describe('人工采集截图生命周期', () => {
     expect(uploaded).not.toHaveBeenCalled();
     expect(blocking).toHaveBeenLastCalledWith(true);
   });
+  it('多图只在预览确认后上传合成文件；失败和abort继续保留本地阻塞，放弃整理才释放', async () => {
+    const post = vi.spyOn(api, 'POST')
+      .mockResolvedValueOnce(response(intent))
+      .mockResolvedValueOnce(failure())
+      .mockResolvedValueOnce(response({ ...fileRecord, status: 'ABORTED' }));
+    const put = vi.spyOn(api, 'PUT').mockResolvedValue({ response: new Response(null, { status: 204 }) } as never);
+    const { uploaded, blocking } = renderUpload();
+    await prepareMultiple();
+    expect(post).not.toHaveBeenCalled();
+    expect(blocking).toHaveBeenLastCalledWith(true);
+    await userEvent.click(screen.getByRole('button', { name: '上传合成截图' }));
+    await screen.findByRole('button', { name: '重试截图校验' });
+    expect(screen.getByRole('button', { name: '放弃本地截图整理' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: '放弃截图上传' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: '放弃本地截图整理' })).toBeEnabled());
+    expect(uploaded).not.toHaveBeenCalled();
+    expect(blocking).toHaveBeenLastCalledWith(true);
+    expect(screen.getAllByRole('img')).toHaveLength(3);
+    expect(put).toHaveBeenCalledOnce();
+    expect(post).toHaveBeenCalledTimes(3);
+    await userEvent.click(screen.getByRole('button', { name: '放弃本地截图整理' }));
+    expect(blocking).toHaveBeenLastCalledWith(false);
+  });
+  it.each(['complete', 'read_verified'] as const)('%s确认VERIFIED后才关联并清理本地整理，合并阻塞最终解除', async (mode) => {
+    const post = vi.spyOn(api, 'POST').mockResolvedValueOnce(response(intent));
+    if (mode === 'complete') post.mockResolvedValueOnce(response({ ...fileRecord, status: 'VERIFIED' }));
+    else post.mockRejectedValueOnce(new TypeError('complete回执丢失'));
+    const put = vi.spyOn(api, 'PUT').mockResolvedValue({ response: new Response(null, { status: 204 }) } as never);
+    const { uploaded, blocking } = renderUpload();
+    await prepareMultiple();
+    await userEvent.click(screen.getByRole('button', { name: '上传合成截图' }));
+    if (mode === 'read_verified') {
+      await screen.findByRole('button', { name: '重试截图校验' });
+      expect(blocking).toHaveBeenLastCalledWith(true);
+      vi.mocked(api.GET).mockResolvedValue(response({ ...fileRecord, status: 'VERIFIED' }));
+      await userEvent.click(screen.getByRole('button', { name: '重试截图校验' }));
+    }
+    await waitFor(() => expect(blocking).toHaveBeenLastCalledWith(false));
+    expect(uploaded).toHaveBeenCalledExactlyOnceWith({ ...fileRecord, status: 'VERIFIED' });
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(URL.revokeObjectURL).toHaveBeenCalledTimes(3);
+    expect(put).toHaveBeenCalledOnce();
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(post).toHaveBeenNthCalledWith(1, '/api/v1/files/upload-intents', expect.objectContaining({
+      body: expect.objectContaining({ original_filename: 'geo-screenshots.png', size: 8, sha256: fileRecord.sha256 }),
+    }));
+  });
+
 });

@@ -39,7 +39,7 @@ test('已有机会 → 显式继续 → 人工解决 → 刷新保留处理历�
   expect(file.status).toBe('VERIFIED');
   await body(await page.request.post(`${api}${runs}/${run.id}/manual-submit`, {
     headers: { ...headers, 'Idempotency-Key': randomUUID() },
-    data: { answer_text: `${graph.partNumber} 的供电电压为 5 V。`, answer_format: 'TEXT', source_product: 'GEO706虚构观测',
+    data: { citation_observation: { status: 'COMPLETE', missing_reason: null }, answer_text: `${graph.partNumber} 的供电电压为 5 V。`, answer_format: 'TEXT', source_product: 'GEO706虚构观测',
       source_model: 'fixture-model', source_version: 'fixture-v1', screenshot_file_id: file.id, collected_at: run.created_at, expected_draft_revision: entry.draft_revision,
       citations: [{ original_url: 'https://geo706-fictional.test/spec', title: '虚构规格', position: 1, extraction_source: 'MANUAL' }],
     } satisfies Schema['GeoManualObservationSubmit'],

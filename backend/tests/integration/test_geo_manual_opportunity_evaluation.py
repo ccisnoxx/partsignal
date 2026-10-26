@@ -143,7 +143,9 @@ def test_admin_real_evaluation_receipt_sources_audit_and_no_automatic_followups(
     from app.main import app
     from tests.unit.test_geo_run_contract import validate
 
-    contract = yaml.safe_load((Path("/contracts") / "openapi.yaml").read_text())
+    contract = yaml.safe_load(
+        (Path(__file__).resolve().parents[3] / "contracts/openapi.yaml").read_text()
+    )
     for document in (contract, app.openapi()):
         validate(document, "GeoOpportunityEvaluationReceipt", receipt)
 

@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.audit import append_audit
 from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.config import settings
-from app.errors import AppError, not_found
+from app.errors import AppError
 from app.models.geo_batch_creation import GeoBatchCreationRequest, GeoBatchSubject
 from app.models.geo_monitoring_plans import GeoMonitoringPlan
 from app.models.geo_prompt_variants import GeoPromptVariant
@@ -70,7 +70,7 @@ def _lock_identity(db: Session, identity: str) -> None:
     db.execute(select(func.pg_advisory_xact_lock(key)))
 
 
-def _receipt(batch: GeoObservationBatch) -> GeoBatchCreated:
+def batch_receipt(batch: GeoObservationBatch) -> GeoBatchCreated:
     return GeoBatchCreated(
         batch_id=batch.id,
         requested_run_count=batch.requested_run_count,
@@ -103,7 +103,7 @@ def _latch_references(
         )
 
 
-def _create(
+def freeze_batch(
     db: Session,
     value: GeoMonitoringPlanConfiguration,
     *,
@@ -113,7 +113,7 @@ def _create(
     identity: str | None,
     request_id: str | None,
 ) -> GeoObservationBatch:
-    require_supported_schedule(value.schedule_kind)
+    # 调用者已锁定并裁决人工/已登记定时入口；本函数只冻结批次。
     # 当前规则只在创建边界读取一次；幂等重放在进入本函数前返回原快照。
     rules = freeze_current_rules(db)
     value = value.model_copy(update={"rule_set_revision": rules.revision})
@@ -239,7 +239,7 @@ def create_manual_batch(
                 raise AppError("IDEMPOTENCY_CONFLICT", "此幂等键已用于不同创建请求", 409)
             batch = db.get(GeoObservationBatch, previous.batch_id, populate_existing=True)
             assert batch is not None  # RESTRICT FK 保证回执目标存在。
-            result = _receipt(batch)
+            result = batch_receipt(batch)
             db.commit()
             return result
         if isinstance(payload, GeoPlanBatchCreate):
@@ -249,8 +249,9 @@ def create_manual_batch(
         else:
             plan = None
             value = canonical_configuration(payload.configuration)
+            require_supported_schedule(value.schedule_kind)
             lock_resources(db, [value])
-        batch = _create(
+        batch = freeze_batch(
             db,
             value,
             plan=plan,
@@ -264,62 +265,10 @@ def create_manual_batch(
                 identity_hash=identity, request_hash=request_hash, batch_id=batch.id
             )
         )
-        result = _receipt(batch)
+        result = batch_receipt(batch)
         db.commit()
         dispatch_created_batch(db, batch.id)
         return result
-
-
-@observe("batch_build", "BATCH")
-def create_scheduled_batch(
-    *,
-    db: Session,
-    plan_id: UUID,
-    scheduled_for: datetime,
-) -> GeoBatchCreated:
-    """内部调度调用边界；不计算窗口，不对 HTTP 开放系统权限。"""
-    try:
-        with _creation_errors(db):
-            db.autoflush = False
-            if db.connection().get_isolation_level() != "READ COMMITTED":
-                raise ValueError("批次创建要求 READ COMMITTED")
-            identity = schedule_identity(plan_id, scheduled_for)
-            _lock_identity(db, identity)
-            previous = db.scalar(
-                select(GeoObservationBatch)
-                .where(
-                    GeoObservationBatch.plan_id == plan_id,
-                    GeoObservationBatch.scheduled_for == scheduled_for,
-                )
-                .execution_options(populate_existing=True)
-            )
-            if previous is not None:
-                result = _receipt(previous)
-                db.commit()
-                return result
-            initial = db.get(GeoMonitoringPlan, plan_id, populate_existing=True)
-            if initial is None:
-                raise not_found("监测计划")
-            plan, value = lock_plan(db, plan_id, initial.revision)
-            require_supported_schedule(value.schedule_kind)
-            if plan.status != "ACTIVE" or value.schedule_kind != "CRON":
-                raise AppError("INVALID_STATE_TRANSITION", "调度只允许活动 CRON 计划", 409)
-            batch = _create(
-                db,
-                value,
-                plan=plan,
-                actor=None,
-                scheduled_for=scheduled_for.astimezone(UTC),
-                identity=identity,
-                request_id=None,
-            )
-            result = _receipt(batch)
-            db.commit()
-            dispatch_created_batch(db, batch.id)
-            return result
-    except Exception:
-        db.rollback()
-        raise
 
 
 @contextmanager

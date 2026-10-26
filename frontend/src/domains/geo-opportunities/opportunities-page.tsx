@@ -4,10 +4,11 @@ import { TablePagination } from '@/design-system/data-table/table-pagination';
 import { Button } from '@/design-system/primitives/button';
 import type { components } from '@/shared/api/generated/schema';
 import { opportunityListOptions } from './opportunities.api';
-import { formatTime, opportunitySearchSchema, type Opportunity, type OpportunitySearch } from './opportunities.model';
+import { formatTime, opportunityExportUrl, opportunitySearchSchema, type Opportunity, type OpportunitySearch } from './opportunities.model';
 import { canRetryOpportunityRead, canShowOpportunitySnapshot, OpportunityReadFailure } from './opportunity-controls';
 import { OpportunityDrawer } from './opportunity-detail';
 import { OpportunityFilters } from './opportunity-filters';
+import { OpportunitySchedule } from './opportunity-schedule';
 import { OpportunityEvaluation } from './opportunity-evaluation';
 import { OpportunityTable } from './opportunity-list';
 
@@ -27,8 +28,9 @@ export function OpportunitiesPage({ search, csrfToken, onSearchChange, isAdmin =
     current.onSearchChange(opportunitySearchSchema.parse({ ...current.search, opportunity_id: opportunity.id, source_page: undefined, source_page_size: undefined, retest_batch_id: undefined }));
   }, []);
   return <section aria-labelledby="opportunities-title" className="min-w-0 space-y-5">
-    <header className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 space-y-1"><h1 className="type-page-title" id="opportunities-title" ref={pageHeading} tabIndex={-1}>GEO 机会工作台</h1><p className="text-text-secondary">追溯历史证据、比较复测结果，并依据服务端动作显式处理机会。</p></div>{canRetryOpportunityRead(query.error) && <Button type="button" variant="outline" disabled={query.isFetching} onClick={() => void query.refetch()}>刷新列表</Button>}</header>
-    {isAdmin && <OpportunityEvaluation csrfToken={csrfToken} />}
+    <header className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 space-y-1"><h1 className="type-page-title" id="opportunities-title" ref={pageHeading} tabIndex={-1}>GEO 机会工作台</h1><p className="text-text-secondary">追溯历史证据、比较复测结果，并依据服务端动作显式处理机会。</p></div><div className="flex flex-wrap items-center gap-3">{data && !query.error && <a className="inline-flex min-h-11 items-center text-interaction-primary underline" href={opportunityExportUrl(search)} target="_blank" rel="noopener noreferrer">导出机会 CSV</a>}{canRetryOpportunityRead(query.error) && <Button type="button" variant="outline" disabled={query.isFetching} onClick={() => void query.refetch()}>刷新列表</Button>}</div></header>
+    <p className="text-sm text-text-secondary">CSV 导出覆盖当前筛选的全部机会，不受页码限制。服务端流式发送；空集或无权限返回明确错误，点击下载不代表传输完成。</p>
+    {isAdmin && <><OpportunityEvaluation csrfToken={csrfToken} /><OpportunitySchedule csrfToken={csrfToken} /></>}
     <OpportunityFilters key={JSON.stringify(search)} search={search} options={data?.filter_options} onChange={onSearchChange} />
     {query.isFetching && <p className="text-sm" role="status">{query.data ? '正在刷新机会列表…' : '正在读取机会列表…'}</p>}
     {query.error && <OpportunityReadFailure error={query.error} retained={Boolean(query.data)} onRetry={() => void query.refetch()} />}

@@ -159,5 +159,17 @@ describe('GEO 机会工作台', () => {
     status = 503; await userEvent.click(screen.getByRole('button', { name: '刷新列表' })); expect(await screen.findByText(/保留同一条件的上次成功快照/)).toBeVisible(); expect(screen.getByRole('region', { name: 'GEO 机会列表' })).toBeVisible();
     status = 200; await userEvent.click(screen.getByRole('button', { name: '返回第一页' })); await waitFor(() => expect(router.state.location.search).toEqual({}));
   });
+  it('CSV入口使用当前完整筛选，新快照独立下载；权限拒绝后移除入口', async () => {
+    const get = vi.spyOn(api, 'GET').mockImplementation(async () => response(list()));
+    renderOpportunities('/geo/opportunities?q=电压&status=DISMISSED&sort=LAST_SEEN_DESC&page=5');
+    const link = await screen.findByRole('link', { name: '导出机会 CSV' });
+    const url = new URL(link.getAttribute('href')!);
+    expect(url.searchParams.get('q')).toBe('电压'); expect(url.searchParams.get('status')).toBe('DISMISSED');
+    expect(url.searchParams.get('sort')).toBe('LAST_SEEN_DESC'); expect(url.searchParams.has('page')).toBe(false);
+    expect(link).toHaveAttribute('target', '_blank');
+    get.mockResolvedValue(failure(403)); await userEvent.click(screen.getByRole('button', { name: '刷新列表' }));
+    await waitFor(() => expect(screen.queryByRole('link', { name: '导出机会 CSV' })).not.toBeInTheDocument());
+  });
+
 });
 function valueId() { return opportunity().scope.subject_id; }

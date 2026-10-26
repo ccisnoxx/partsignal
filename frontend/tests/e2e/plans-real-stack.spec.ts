@@ -150,8 +150,8 @@ test('工程师 MANUAL 八步创建、CRON 不可选、服务端预览、启停�
     await engineer.getByRole('button', { name: '下一步', exact: true }).click();
     await expect(engineer.getByRole('combobox', { name: '调度方式', exact: true })).toContainText('手动触发');
     await engineer.getByRole('combobox', { name: '调度方式', exact: true }).click();
-    await expect(engineer.getByRole('option')).toHaveCount(1);
-    await expect(engineer.getByRole('option', { name: '定时配置', exact: true })).toHaveCount(0);
+    await expect(engineer.getByRole('option')).toHaveCount(2);
+    await expect(engineer.getByRole('option', { name: '定时配置', exact: true })).toHaveCount(1);
     await engineer.getByRole('option', { name: '手动触发', exact: true }).click();
     await expect(engineer.getByRole('textbox', { name: 'Cron 表达式' })).toHaveCount(0);
     await engineer.getByRole('button', { name: '下一步', exact: true }).click();

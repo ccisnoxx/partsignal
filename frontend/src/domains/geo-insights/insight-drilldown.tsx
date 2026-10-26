@@ -1,3 +1,4 @@
+import { metricLabels } from '@/shared/lib/geo-metric-labels';
 import { useQuery } from '@tanstack/react-query';
 import { TablePagination } from '@/design-system/data-table/table-pagination';
 import { Button } from '@/design-system/primitives/button';
@@ -6,7 +7,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { insightDetailOptions } from './insights.api';
 import { canShowSnapshot, ReadFailure } from './insights-components';
 import { InsightSampleTables } from './insight-sample-tables';
-import { formatTime, metricLabels, normalizeBase } from './insights.model';
+import { formatTime, normalizeBase } from './insights.model';
 import { normalizeSearch, type InsightSearch } from './drilldown.model';
 import type { InsightPageProps } from './insight-page-frame';
 

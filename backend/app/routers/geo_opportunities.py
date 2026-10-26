@@ -7,10 +7,14 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 
 from app.deps import AdminUser, CsrfProtected, DbSession, EngineerUser
 from app.errors import AppError, error_responses
+from app.routers.geo_reports import OPPORTUNITY_CSV_RESPONSES
 from app.schemas.geo_opportunities import GeoOpportunityActionType
 from app.schemas.geo_opportunity_actions import (
     GeoOpportunityContentTaskRequest,
+    GeoOpportunityFactRevisionOptions,
     GeoOpportunityFactRevisionRequest,
+    GeoOpportunityPublicationRepairMode,
+    GeoOpportunityPublicationRepairOptions,
     GeoOpportunityPublicationRepairRequest,
 )
 from app.schemas.geo_opportunity_evaluation import (
@@ -31,9 +35,12 @@ from app.services import (
     geo_opportunity_actions,
     geo_opportunity_commands,
     geo_opportunity_evaluation,
+    geo_opportunity_fact_options,
+    geo_opportunity_publication_options,
     geo_opportunity_queries,
 )
 from app.services.geo_catalog_queries import read_snapshot
+from app.services.geo_reports import prepare_opportunities_csv
 
 router = APIRouter(prefix="/api/v1/geo/opportunities", tags=["geo-opportunities"])
 
@@ -86,6 +93,20 @@ def list_opportunities(
 
 
 @router.get(
+    "/export.csv",
+    operation_id="exportGeoOpportunityWorkbenchCsv",
+    response_class=Response,
+    dependencies=[Depends(read_snapshot)],
+    responses=OPPORTUNITY_CSV_RESPONSES,
+)
+def export_csv(
+    request: Request, db: DbSession, actor: EngineerUser,
+    filters: Annotated[GeoOpportunityFilters, Query()],
+) -> Response:
+    return prepare_opportunities_csv(db, actor, filters, request.state.request_id)
+
+
+@router.get(
     "/{opportunity_id}",
     response_model=GeoOpportunityDetail,
     operation_id="getGeoOpportunity",
@@ -101,6 +122,49 @@ def get_opportunity(
 ) -> GeoOpportunityDetail:
     response.headers["Cache-Control"] = "no-store"
     return geo_opportunity_queries.get_opportunity(db, opportunity_id, filters, actor=actor)
+
+
+@router.get(
+    "/{opportunity_id}/fact-revision-options",
+    response_model=GeoOpportunityFactRevisionOptions,
+    operation_id="getGeoOpportunityFactRevisionOptions",
+    dependencies=[Depends(read_snapshot)],
+    responses=error_responses(401, 403, 404, 422),
+)
+def fact_revision_options(
+    opportunity_id: UUID, db: DbSession, actor: EngineerUser, response: Response
+) -> GeoOpportunityFactRevisionOptions:
+    response.headers["Cache-Control"] = "no-store"
+    return geo_opportunity_fact_options.get_fact_revision_options(db, opportunity_id, actor=actor)
+
+
+@router.get(
+    "/{opportunity_id}/publication-repair-options",
+    response_model=GeoOpportunityPublicationRepairOptions,
+    operation_id="getGeoOpportunityPublicationRepairOptions",
+    dependencies=[Depends(read_snapshot)],
+    responses=error_responses(401, 403, 404, 409, 422),
+)
+def publication_repair_options(
+    opportunity_id: UUID,
+    db: DbSession,
+    actor: EngineerUser,
+    response: Response,
+    mode: GeoOpportunityPublicationRepairMode = GeoOpportunityPublicationRepairMode.OPEN_ISSUE,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=50),
+    selected_issue_id: UUID | None = None,
+) -> GeoOpportunityPublicationRepairOptions:
+    response.headers["Cache-Control"] = "no-store"
+    return geo_opportunity_publication_options.get_publication_repair_options(
+        db,
+        opportunity_id,
+        actor=actor,
+        mode=mode,
+        page=page,
+        page_size=page_size,
+        selected_issue_id=selected_issue_id,
+    )
 
 
 @router.post(

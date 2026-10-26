@@ -15,7 +15,9 @@ import {
 import { batchStatusLabels, runSearchSchema, type Batch, type Run, type RunSearch } from './runs.model';
 import { BatchSummary, RunDetail } from './run-detail';
 import { RunRetry } from './run-retry';
+import { RunCancel } from './run-cancel';
 import { RunReview } from './run-review';
+import { RunReanalysis } from './run-reanalysis';
 import { RunFilters } from './run-filters';
 import { BatchTable, RunTable } from './run-list';
 
@@ -108,11 +110,14 @@ function RunsPage({ search, csrfToken, onSearchChange }: Props) {
       )}
       {search.create && (
         <BatchCreate
+          key={search.plan_id ?? 'unselected'}
+          planId={search.plan_id}
+          onPlanChange={(id) => change({ plan_id: id, batch_id: undefined, page: 1 })}
           csrfToken={csrfToken}
           onClose={() => change({ create: undefined })}
-          onCreated={(id) => {
+          onCreated={(id, planId) => {
             setMessage('批次已创建；采集方式与执行状态以服务端投影为准。');
-            onSearchChange(runSearchSchema.parse({ view: 'runs', batch_id: id }), true, true);
+            currentNavigation.current.onSearchChange(runSearchSchema.parse({ view: 'runs', batch_id: id, plan_id: planId }), true, true);
           }}
         />
       )}
@@ -207,7 +212,17 @@ function RunsPage({ search, csrfToken, onSearchChange }: Props) {
               {detail.data && (
                 <RunDetail
                   blocked={blocked}
-                  reviewControl={<RunReview blocked={Boolean(detail.error) || detail.isFetching} csrfToken={csrfToken} detail={detail.data} readError={detail.error} />}
+                  reviewControl={<>
+                    <RunReview blocked={Boolean(detail.error) || detail.isFetching} csrfToken={csrfToken} detail={detail.data} readError={detail.error} />
+                    <RunReanalysis
+                      key={detail.data.run.id}
+                      detail={detail.data}
+                      csrfToken={csrfToken}
+                      blocked={Boolean(detail.error) || detail.isFetching}
+                      readError={detail.error}
+                    />
+                  </>}
+                  cancelControl={<RunCancel key={detail.data.run.id} detail={detail.data} csrfToken={csrfToken} blocked={Boolean(detail.error) || detail.isFetching} readError={detail.error} />}
                   retryControl={<RunRetry
                     blocked={Boolean(detail.error) || detail.isFetching}
                     csrfToken={csrfToken}

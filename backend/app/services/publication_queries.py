@@ -882,9 +882,12 @@ def list_published_articles(
     search: str | None = None,
     sort: PublishedArticleSort = PublishedArticleSort.VERIFIED_DESC,
     can_delete: bool = False,
+    product_ids: frozenset[uuid.UUID] | None = None,
 ) -> PublishedArticleList:
     """按服务端搜索与稳定顺序分页返回发布成果。"""
     query = _article_context_query(search)
+    if product_ids is not None:
+        query = query.where(ContentTask.product_id.in_(product_ids))
     total = int(db.scalar(select(func.count()).select_from(query.subquery())) or 0)
     order_by = {
         PublishedArticleSort.VERIFIED_DESC: PublicationVerification.created_at.desc(),
@@ -1021,10 +1024,19 @@ def list_published_content_issues(
     page: int,
     page_size: int,
     status_filter: str | None,
+    product_ids: frozenset[uuid.UUID] | None = None,
 ) -> PublishedContentIssueList:
     """按状态和打开时间分页返回发布后内容问题。"""
     query = select(PublishedContentIssue)
     count_query = select(func.count()).select_from(PublishedContentIssue)
+    if product_ids is not None:
+        in_scope = PublishedContentIssue.published_article_id.in_(
+            select(PublicationWork.id)
+            .join(ContentTask, ContentTask.id == PublicationWork.content_task_id)
+            .where(ContentTask.product_id.in_(product_ids))
+        )
+        query = query.where(in_scope)
+        count_query = count_query.where(in_scope)
     if status_filter is not None:
         query = query.where(PublishedContentIssue.status == status_filter)
         count_query = count_query.where(PublishedContentIssue.status == status_filter)

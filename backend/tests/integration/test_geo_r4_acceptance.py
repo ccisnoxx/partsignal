@@ -49,7 +49,7 @@ def test_severe_error_requires_review_and_new_revision_invalidates_old_review(re
     assert reviewed["analysis"]["review_gate_passed"]
     # 确认风险判断不把错误回答伪装为正确，也不提前实现全指标资格。
     assert reviewed["analysis"]["effective_results"]["claims"][0] == claim
-    assert reviewed["data_quality"]["metric_eligible"] is None
+    assert "CURRENT_REVIEW_REQUIRED" not in reviewed["data_quality"]["exclusion_reasons"]
     old_payload = api.payload(case)
     new_id = api.reanalyze(case)
     current = api.detail(case)

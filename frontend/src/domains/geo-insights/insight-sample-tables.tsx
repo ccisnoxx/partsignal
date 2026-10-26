@@ -1,6 +1,7 @@
+import { exclusionLabels } from '@/shared/lib/geo-metric-labels';
 import type { components } from '@/shared/api/generated/schema';
 import { TableShell } from '@/design-system/data-table/table-shell';
-import { exclusionLabels, formatTime } from './insights.model';
+import { formatTime } from './insights.model';
 import type { InsightDetail } from './insights.api';
 import { safeCitationUrl } from './insights-components';
 

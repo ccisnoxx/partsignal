@@ -27,7 +27,7 @@ function RunAnalysis({ detail, reviewControl }: { detail: Detail; reviewControl?
     <section aria-label="分析与复核历史，只读" className="min-w-0 space-y-3 border-t border-border-subtle pt-4">
       <h4 className="font-medium">分析与复核历史（只读）</h4>
       {!analysis.revisions.length && <p className="text-sm">尚无分析 revision。</p>}
-      {analysis.revisions.map((revision) => <details key={revision.analysis.id} className="min-w-0 space-y-3">
+      {analysis.revisions.map((revision) => <details key={revision.analysis.id} id={`analysis-revision-${revision.analysis.id}`} className="min-w-0 space-y-3">
         <summary className="cursor-pointer break-words text-sm">分析 Revision {revision.analysis.revision} · {revision.analysis.status} · {revision.analysis.id === analysis.selection.current_analysis_revision_id ? '当前' : '历史'} · {timestamp(revision.analysis.created_at)}</summary>
         <AnalysisIdentity value={revision} />
         <AnalysisResults detail={detail} label={`历史 ${revision.analysis.revision}`} results={revision} subjects={revision.analysis.input_snapshot.subjects} />

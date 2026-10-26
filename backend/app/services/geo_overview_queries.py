@@ -85,7 +85,7 @@ def _ids(field: Any, values: Iterable[UUID]) -> Any:
     return field == any_(bindparam(None, list(values), type_=ARRAY(PGUUID(as_uuid=True))))
 
 
-def candidate_query(filters: GeoOverviewFilters) -> Select[Any]:
+def candidate_query(filters: GeoOverviewFilters, *, latest_only: bool = True) -> Select[Any]:
     successor = aliased(Run)
     query = select(
         Run.id,
@@ -100,8 +100,11 @@ def candidate_query(filters: GeoOverviewFilters) -> Select[Any]:
     ).where(
         Run.created_at >= filters.date_from,
         Run.created_at < filters.date_to,
-        ~select(successor.id).where(successor.previous_attempt_id == Run.id).exists(),
     )
+    if latest_only:
+        query = query.where(
+            ~select(successor.id).where(successor.previous_attempt_id == Run.id).exists()
+        )
     snapshot = Run.input_snapshot
     fields = (
         (snapshot["prompt"]["query_topic_id"].as_string(), filters.query_topic_ids),
@@ -178,7 +181,8 @@ def load_evidence_inputs(
     """显式证据集合复用同一转换；调用方持 RR 或完整 Batch→Run 锁。
 
     frozen 路径包含已被重试替代的历史 Run，不使用时间筛选或 current 指针。
-    当前路径的 run_ids 必须已由调用方选为 latest attempt。
+    当前路径的统计消费者必须先选择 latest attempt；运行详情读取历史时必须显式
+    标记 MetricRun.superseded_attempt，不能把该证据入口当作统计候选选择器。
     """
     rows: Sequence[Mapping[Any, Any]] = (
         db.execute(
@@ -432,7 +436,7 @@ def _input(
         analysis_detail=detail,
         window_key=f"{filters.date_from.isoformat()}/{filters.date_to.isoformat()}",
         applicable_subject_ids=frozenset(subject.id for subject in snapshot.subjects),
-        # 当前无实质描述/可观察无引用的独立字段，不用mention、能力或搜索信号伪造。
+        # 实质描述尚无独立字段；无引用仅由采集声明 NONE 提供，不由搜索信号推测。
         described_subject_ids=frozenset(),
         citation_absence_observable=False,
         integrity_valid=integrity,

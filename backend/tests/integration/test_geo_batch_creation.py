@@ -16,7 +16,8 @@ from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
 from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
 from app.models.identity import AuditLog, User
 from app.schemas.geo_batch_creation import GeoAdHocBatchCreate, GeoPlanBatchCreate
-from app.services import geo_batches
+from app.services import geo_batches, geo_plan_scheduler
+from app.services.geo_plan_scheduler import create_scheduled_batch
 from tests.integration.geo_cron_support import historical_scheduled_batch
 from tests.integration.geo_plans_support import (
     PREFIX,
@@ -335,26 +336,26 @@ def test_historical_schedule_replay_is_readonly_and_new_window_rejected(
     def forbidden_dispatch(*args, **kwargs):
         raise AssertionError("历史回执重放不得投递 Redis")
 
-    monkeypatch.setattr(geo_batches, "dispatch_created_batch", forbidden_dispatch)
+    monkeypatch.setattr(geo_plan_scheduler, "dispatch_created_batch", forbidden_dispatch)
 
     def replay():
         barrier.wait(timeout=5)
         with api.api.factory() as db:
-            return geo_batches.create_scheduled_batch(
+            return create_scheduled_batch(
                 db=db, plan_id=UUID(row["id"]), scheduled_for=window
             )
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         assert list(pool.map(lambda _: replay(), range(2))) == [receipt, receipt]
     with api.api.factory() as db:
-        same_window = geo_batches.create_scheduled_batch(
+        same_window = create_scheduled_batch(
             db=db,
             plan_id=UUID(row["id"]),
             scheduled_for=window.astimezone(timezone(timedelta(hours=8))),
         )
         assert same_window == receipt
         with pytest.raises(AppError) as caught:
-            geo_batches.create_scheduled_batch(
+            create_scheduled_batch(
                 db=db, plan_id=UUID(row["id"]), scheduled_for=window + timedelta(hours=1)
             )
         assert caught.value.code == "GEO_PLAN_CRON_UNSUPPORTED"

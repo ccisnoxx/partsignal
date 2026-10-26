@@ -13,6 +13,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createAppQueryClient } from '@/app/query-client';
 import { api } from '@/shared/api/client';
+import { plan } from '@/domains/geo-plans/plans.test-support';
 import { RunsPage } from './runs-page';
 import { runSearchSchema, type RunSearch } from './runs.model';
 import { asOf, batch, detail, run, runId } from './runs.test-support';
@@ -53,6 +54,20 @@ describe('运行中心双层页面', () => {
     await userEvent.click(screen.getByRole('button', { name: '应用筛选' }));
     expect(change).toHaveBeenLastCalledWith({ q: '冻结计划' });
   });
+  it('计划深链交给建批表单，成功后保留来源计划并进入canonical批次', async () => {
+    const current = plan({ revision: 11, name: '来源计划上下文' });
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/geo/monitoring-plans/{plan_id}') return response(current);
+      return response({ items: [], total: 0, page: 1, page_size: 20, as_of: asOf });
+    });
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(response({ batch_id: batch().id, requested_run_count: 3, created_at: asOf }));
+    const { change } = renderPage({ create: 1, plan_id: current.id });
+    expect(await screen.findByText(/已选择：来源计划上下文 · Revision 11/)).toBeVisible();
+    expect(get).toHaveBeenCalledWith('/api/v1/geo/monitoring-plans/{plan_id}', expect.objectContaining({ params: { path: { plan_id: current.id } } }));
+    await userEvent.click(screen.getByRole('button', { name: '确认创建批次' }));
+    await waitFor(() => expect(change).toHaveBeenCalledWith({ view: 'runs', batch_id: batch().id, plan_id: current.id }, true, true));
+    expect(post).toHaveBeenCalledTimes(1);
+  });
   it('运行主任务和动作由读模型裁决，历史运行可以查看但不能猜测重试动作', async () => {
     const historic = run({
       id: batch().id,
@@ -81,6 +96,7 @@ describe('运行中心双层页面', () => {
       raw_payload_summary: { schema_version: 1, payload_format: null, payload_bytes: null, finish_reason: null },
       raw_payload_file_id: null,
       screenshot_file_id: batch().id,
+      citation_observation: { status: 'NONE', missing_reason: null },
       citations: [],
       collected_at: asOf,
     };

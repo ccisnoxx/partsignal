@@ -5,15 +5,15 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createAppQueryClient } from '@/app/query-client';
 import { api } from '@/shared/api/client';
-import { answerInsights, filters, id, search } from '@/domains/geo-insights/insights.test-support';
+import { answerInsights, filters, id, opportunitySummary, search } from '@/domains/geo-insights/insights.test-support';
 import { ReportPage } from './report-page';
 import { ReportContent } from './report-content';
 import { reportOptions } from './reports.api';
 import { exportUrl, reportParams, reportSearchSchema, type Report } from './reports.model';
 function report(): Report {
   return { as_of: filters.date_to, generated_at: filters.date_to, source_mode: 'LIVE', filters, available: true, unavailable_reason: null,
-    insights: answerInsights(), formulas: [{ metric_code: 'natural_visibility', label: '自然可见率', formula_version: 'geo-answer-v1', numerator_description: '符合提及的合格运行', denominator_description: '未点名合格运行' }], method_notes: ['实时报告，保持各采集维度独立'],
-    exports: [{ kind: 'runs', available: true, unavailable_reason: null }, { kind: 'citations', available: true, unavailable_reason: null }, { kind: 'claims', available: true, unavailable_reason: null }, { kind: 'opportunities', available: false, unavailable_reason: 'NOT_IMPLEMENTED' }] };
+    insights: answerInsights(), open_opportunities: opportunitySummary(), formulas: [{ metric_code: 'natural_visibility', label: '自然可见率', formula_version: 'geo-answer-v1', numerator_description: '符合提及的合格运行', denominator_description: '未点名合格运行' }], method_notes: ['实时报告，保持各采集维度独立'],
+    exports: [{ kind: 'runs', available: true, unavailable_reason: null }, { kind: 'citations', available: true, unavailable_reason: null }, { kind: 'claims', available: true, unavailable_reason: null }, { kind: 'opportunities', available: true, unavailable_reason: null }] };
 }
 function renderPage(print = false) {
   const client = createAppQueryClient(); const root = createRootRoute();
@@ -55,7 +55,7 @@ describe('GEO 报告公开展示和下载边界', () => {
     const get = vi.spyOn(api, 'GET').mockResolvedValue(response(report())); renderPage();
     const download = await screen.findByRole('link', { name: '运行 CSV' });
     expect(download).toHaveAttribute('href', exportUrl('runs', search));
-    expect(screen.queryByRole('link', { name: '机会 CSV' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '机会 CSV' })).toHaveAttribute('href', exportUrl('opportunities', search));
     get.mockResolvedValue({ error: { error: { code: 'FORBIDDEN', request_id: 'denied' } }, response: Response.json({}, { status: 403 }) } as never);
     await userEvent.click(screen.getByRole('button', { name: '重新读取报告' }));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('报告不可访问'));
@@ -63,4 +63,11 @@ describe('GEO 报告公开展示和下载边界', () => {
     expect(screen.queryByRole('button', { name: '重试读取' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '重新读取报告' })).not.toBeInTheDocument();
   });
+  it('无合格运行指标仍可下载报告范围内的待处理机会CSV', async () => {
+    const value = report(); value.available = false; value.unavailable_reason = 'NO_ELIGIBLE_RUNS';
+    vi.spyOn(api, 'GET').mockResolvedValue(response(value)); renderPage();
+    expect(await screen.findByRole('link', { name: '机会 CSV' })).toHaveAttribute('href', exportUrl('opportunities', search));
+    expect(screen.queryByRole('link', { name: '打开打印报告' })).not.toBeInTheDocument();
+  });
+
 });

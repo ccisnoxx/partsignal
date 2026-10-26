@@ -81,4 +81,4 @@ class GeoRunAnalysisDetail(ContractModel):
     effective_results: GeoReviewedResults | None
     review_required: bool
     review_gate_passed: bool
-    available_actions: list[Literal["REVIEW"]]
+    available_actions: list[Literal["REVIEW", "REANALYZE"]]

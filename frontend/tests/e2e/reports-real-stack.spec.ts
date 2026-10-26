@@ -28,7 +28,7 @@ test('完整筛选报告、打印样式、三类原生CSV、审计与空数据',
   const file = await body<Schema['FileRecord']>(await page.request.post(`${api}/api/v1/files/${upload.file.id}/complete`, { headers }));
   expect(file.status).toBe('VERIFIED');
   await body(await page.request.post(`${api}${runs}/${run.id}/manual-submit`, {
-    headers: { ...headers, 'Idempotency-Key': randomUUID() }, data: { answer_text: `${graph.partNumber} 的供电电压为 5 V。`, answer_format: 'TEXT', source_product: '虚构报告观测', screenshot_file_id: file.id, collected_at: run.created_at, expected_draft_revision: input.draft_revision, citations: [{ original_url: 'https://geo-fixture-owned.test/spec?signed=fixture-only', title: '=1+1', position: 1, extraction_source: 'MANUAL' }] } satisfies Schema['GeoManualObservationSubmit'],
+    headers: { ...headers, 'Idempotency-Key': randomUUID() }, data: { citation_observation: { status: 'COMPLETE', missing_reason: null }, answer_text: `${graph.partNumber} 的供电电压为 5 V。`, answer_format: 'TEXT', source_product: '虚构报告观测', screenshot_file_id: file.id, collected_at: run.created_at, expected_draft_revision: input.draft_revision, citations: [{ original_url: 'https://geo-fixture-owned.test/spec?signed=fixture-only', title: '=1+1', position: 1, extraction_source: 'MANUAL' }] } satisfies Schema['GeoManualObservationSubmit'],
   }), 201);
   await expect.poll(async () => (await detail(page, run.id)).analysis.selection.current_analysis_revision_id, { timeout: 90_000 }).not.toBeNull();
   const machine = await detail(page, run.id); const analysisId = machine.analysis.selection.current_analysis_revision_id;

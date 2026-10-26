@@ -4,11 +4,12 @@ from enum import StrEnum
 from typing import Annotated, Literal, Self
 from uuid import UUID
 
-from pydantic import AwareDatetime, BeforeValidator, Field, model_validator
+from pydantic import AwareDatetime, BeforeValidator, Field, Json, WithJsonSchema, model_validator
 
 from app.schemas.base import ContractModel
 from app.schemas.geo_analysis import GeoRunReviewOut
 from app.schemas.geo_answers import GeoAnswerCitationOut, GeoAnswerSnapshotOut
+from app.schemas.geo_insights import GeoOverviewFilters
 from app.schemas.geo_opportunities import (
     GeoOpportunityActionType,
     GeoOpportunityPriority,
@@ -47,6 +48,24 @@ class GeoOpportunityWorkflow(ContractModel):
 
 
 class GeoOpportunityFilters(ContractModel):
+    source_scope: (
+        Annotated[
+            Json[GeoOverviewFilters],
+            WithJsonSchema(
+                {"type": "string", "contentMediaType": "application/json"}, mode="validation"
+            ),
+        ]
+        | None
+    ) = Field(
+        default=None,
+        description=(
+            "GeoOverviewFilters JSON：按关联来源运行创建时间与冻结输入筛选，包含历史尝试；"
+            "REVIEWED_ONLY要求来源已绑定复核。与机会创建时间独立。"
+        ),
+    )
+    open_only: bool = Field(
+        default=False, description="仅包含OPEN、ACKNOWLEDGED、IN_PROGRESS机会。"
+    )
     q: str | None = Field(default=None, max_length=200, pattern=r"^[^\x00]*$")
     created_from: AwareDatetime | None = None
     created_to: AwareDatetime | None = None

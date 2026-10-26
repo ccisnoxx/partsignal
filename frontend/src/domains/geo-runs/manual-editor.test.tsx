@@ -18,15 +18,34 @@ import {
   renderEditor,
 } from './manual.test-support';
 import { runKeys } from './runs.api';
+import * as screenshotComposition from './screenshot-composition';
 
 async function replaceAnswer(value: string) {
   const input = await screen.findByLabelText('回答原文');
   await userEvent.clear(input);
   await userEvent.type(input, value);
 }
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('人工采集编辑器', () => {
+  it('复制冻结完整问题不保存草稿、不提交观测，也不改变未保存编辑', async () => {
+    const user = userEvent.setup();
+    const value = context();
+    value.input_snapshot.prompt.prompt_text = '  本 Run 的完整问题\n\t保留原文\n';
+    vi.spyOn(api, 'GET').mockResolvedValue(response(value));
+    const save = vi.spyOn(api, 'PUT');
+    const submit = vi.spyOn(api, 'POST');
+    const { submitted } = renderEditor();
+    await replaceAnswer('尚未保存的回答');
+    await user.click(screen.getByRole('button', { name: '复制完整问题' }));
+    expect(await navigator.clipboard.readText()).toBe(value.input_snapshot.prompt.prompt_text);
+    expect(screen.getByText('已复制本次运行的完整问题')).toBeVisible();
+    expect(screen.getByLabelText('回答原文')).toHaveValue('尚未保存的回答');
+    expect(screen.getByRole('button', { name: '保存人工草稿' })).toBeEnabled();
+    expect(save).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
+    expect(submitted).not.toHaveBeenCalled();
+  });
   it.each([401, 403, 404])('人工上下文%d没有可恢复资源时提供退出而非无效重试', async (status) => {
     vi.spyOn(api, 'GET').mockResolvedValue(failure('INACCESSIBLE', status));
     renderEditor();
@@ -163,6 +182,55 @@ describe('人工采集编辑器', () => {
     expect(screen.getByLabelText('回答原文')).toHaveValue('canonical 新保存');
     expect(client.getQueryData<ManualContext>(runKeys.manual(runId))?.draft_revision).toBe(4);
   });
+  it('多图整理在上传前阻止保存/提交和无提示离开，VERIFIED后提交仅携带合成截图ID', async () => {
+    let previewId = 0;
+    vi.stubGlobal('URL', class extends URL {
+      static createObjectURL = vi.fn(() => `blob:preview-${++previewId}`);
+      static revokeObjectURL = vi.fn();
+    });
+    const png = new NodeFile(['evidence'], 'geo-screenshots.png', { type: 'image/png' });
+    vi.spyOn(screenshotComposition, 'composeScreenshots').mockResolvedValue(png as unknown as File);
+    vi.spyOn(api, 'GET').mockResolvedValue(response(context()));
+    const pending: components['schemas']['FileRecord'] = {
+      id: actorId, category: 'OPERATION_SCREENSHOT', original_filename: png.name,
+      object_key: 'screenshots/composite.png', content_type: 'image/png', size: 8,
+      sha256: 'ee8250fb76e094b34b471f13a73dbbe51d1ae142e9df59d7c0d31ec20f0a0a8e',
+      access_level: 'INTERNAL', status: 'PENDING', created_at: '2026-10-02T00:00:00Z',
+    };
+    const post = vi.spyOn(api, 'POST').mockImplementation(async (path) => {
+      if (path === '/api/v1/files/upload-intents') return response({ file: pending, upload: {
+        method: 'PUT', url: `/api/v1/files/${actorId}/content`, headers: { 'Content-Type': 'application/octet-stream' }, fields: {}, expires_at: '2026-10-02T00:05:00Z',
+      } });
+      if (path === '/api/v1/files/{file_id}/complete') return response({ ...pending, status: 'VERIFIED' });
+      if (path === '/api/v1/geo/observation-runs/{run_id}/manual-submit') return response(receipt);
+      throw new Error(`意外请求 ${path}`);
+    });
+    const put = vi.spyOn(api, 'PUT').mockResolvedValue({ response: new Response(null, { status: 204 }) } as never);
+    const { submitted } = renderEditor();
+    await replaceAnswer('待提交的多截图回答');
+    fireEvent.change(screen.getByLabelText('上传人工采集截图'), {
+      target: { files: ['first.png', 'second.png'].map((name) => new NodeFile(['source'], name, { type: 'image/png' })) },
+    });
+    expect(screen.getByRole('button', { name: '保存人工草稿' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '正式提交人工观测' })).toBeDisabled();
+    expect(screen.getByText(`已校验截图：${screenshotId}`)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '返回运行详情' }));
+    expect(await screen.findByRole('dialog')).toHaveTextContent('本地截图整理');
+    await userEvent.click(screen.getByRole('button', { name: '继续编辑' }));
+    await userEvent.click(screen.getByRole('button', { name: '合成并预览截图' }));
+    await screen.findByRole('button', { name: '上传合成截图' });
+    expect(post).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: '上传合成截图' }));
+    await screen.findByText(`已校验截图：${actorId}`);
+    await waitFor(() => expect(screen.getByRole('button', { name: '正式提交人工观测' })).toBeEnabled());
+    await userEvent.click(screen.getByRole('button', { name: '正式提交人工观测' }));
+    await waitFor(() => expect(submitted).toHaveBeenCalledWith(runId));
+    expect(post).toHaveBeenCalledWith('/api/v1/geo/observation-runs/{run_id}/manual-submit', expect.objectContaining({
+      body: expect.objectContaining({ screenshot_file_id: actorId, answer_text: '待提交的多截图回答' }),
+    }));
+    expect(put).toHaveBeenCalledExactlyOnceWith('/api/v1/files/{file_id}/content', expect.objectContaining({ body: png }));
+    expect(post).toHaveBeenCalledTimes(3);
+  });
   it('待校验截图阻止保存、提交和无提示离开，保留原有已校验关联', async () => {
     const get = vi.spyOn(api, 'GET').mockResolvedValue(response(context()));
     const pending: components['schemas']['FileRecord'] = {
@@ -172,7 +240,7 @@ describe('人工采集编辑器', () => {
       object_key: 'screenshots/proof.png',
       content_type: 'image/png',
       size: 8,
-      sha256: 'a'.repeat(64),
+      sha256: 'ee8250fb76e094b34b471f13a73dbbe51d1ae142e9df59d7c0d31ec20f0a0a8e',
       access_level: 'INTERNAL',
       status: 'PENDING',
       created_at: '2026-10-02T00:00:00Z',
@@ -202,7 +270,7 @@ describe('人工采集编辑器', () => {
     expect(screen.getByRole('button', { name: '正式提交人工观测' })).toBeDisabled();
     expect(screen.getByText(`已校验截图：${screenshotId}`)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '返回运行详情' }));
-    expect(await screen.findByRole('dialog')).toHaveTextContent('截图尚未确认完成');
+    expect(await screen.findByRole('dialog')).toHaveTextContent('证据尚未确认完成');
     expect(post).toHaveBeenCalledTimes(2);
     await userEvent.click(screen.getByRole('button', { name: '继续编辑' }));
     get.mockResolvedValue(failure('FORBIDDEN', 403));

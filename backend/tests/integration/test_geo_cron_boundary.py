@@ -11,6 +11,7 @@ from sqlalchemy import text
 
 from app.errors import AppError
 from app.services import geo_batches
+from app.services.geo_plan_scheduler import create_scheduled_batch
 from tests.integration.geo_cron_support import historical_cron
 from tests.integration.geo_plans_support import PREFIX, PlansAPI
 from tests.integration.geo_plans_support import plans_api as plans_api
@@ -56,7 +57,7 @@ def rejected(response) -> None:
     assert response.status_code == 409, response.text
     error = response.json()["error"]
     assert error["code"] == "GEO_PLAN_CRON_UNSUPPORTED"
-    assert error["message"] == "V1.0 不支持 CRON 计划；历史计划只读，请新建人工计划或人工批次"
+    assert error["message"] == "此入口不支持未登记的CRON计划；历史计划只读，请显式新建定时计划"
     assert error["details"] == {}
     assert error["request_id"] == response.headers["X-Request-ID"]
 
@@ -70,25 +71,18 @@ def no_redis(monkeypatch):
     monkeypatch.setattr(geo_batches, "dispatch_created_batch", forbidden)
 
 
-def test_cron_create_rejected_without_writes(plans_api: PlansAPI, no_redis):
+def test_new_cron_invalid_references_rejected_without_writes(plans_api: PlansAPI, no_redis):
     api = plans_api
     before = snapshot(api)
-    rejected(
-        api.api.engineer.post(
-            PREFIX, json=api.payload(schedule_kind="CRON", cron_expression="0 * * * *")
-        )
+    response = api.api.admin.post(
+        PREFIX,
+        json=api.payload(
+            schedule_kind="CRON",
+            cron_expression="0 * * * *",
+            collection_profile_ids=[str(uuid4())],
+        ),
     )
-    # 版本拒绝先于资源资格，未知资源不应促成保存一个 CRON 草稿。
-    rejected(
-        api.api.admin.post(
-            PREFIX,
-            json=api.payload(
-                schedule_kind="CRON",
-                cron_expression="0 * * * *",
-                collection_profile_ids=[str(uuid4())],
-            ),
-        )
-    )
+    assert response.status_code == 422, response.text
     assert snapshot(api) == before
 
 
@@ -135,7 +129,7 @@ def test_historical_cron_is_readonly_for_all_commands(
     )
     with api.api.factory() as db:
         with pytest.raises(AppError) as caught:
-            geo_batches.create_scheduled_batch(
+            create_scheduled_batch(
                 db=db, plan_id=UUID(row["id"]), scheduled_for=datetime(2026, 10, 5, tzinfo=UTC)
             )
         assert caught.value.code == "GEO_PLAN_CRON_UNSUPPORTED"
@@ -176,7 +170,7 @@ def test_parallel_legacy_cron_first_windows_are_rejected(plans_api: PlansAPI, no
         barrier.wait(timeout=5)
         with api.api.factory() as db:
             with pytest.raises(AppError) as caught:
-                geo_batches.create_scheduled_batch(
+                create_scheduled_batch(
                     db=db, plan_id=UUID(row["id"]), scheduled_for=datetime(2026, 10, 5, tzinfo=UTC)
                 )
             return caught.value.code

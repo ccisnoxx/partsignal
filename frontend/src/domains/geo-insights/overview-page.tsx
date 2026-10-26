@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/design-system/primitives/button';
 import { TableShell } from '@/design-system/data-table/table-shell';
+import { OpportunitySummary } from '@/shared/geo/opportunity-summary';
 import { overviewOptions } from './insights.api';
 import { canShowSnapshot, CellIdentity, ExclusionTable, InsightSection, MetricCards, MetricReadout, ReadFailure } from './insights-components';
 import { InsightPageFrame, useInsightNavigation, type InsightPageProps } from './insight-page-frame';
@@ -24,7 +25,7 @@ function OverviewContent({ overview, onDrilldown }: { overview: Overview; onDril
     <InsightSection id="overview-risks" title="事实风险摘要">{!overview.risks.length && <p>当前筛选没有风险维度单元。</p>}{overview.risks.map((risk) => <div className="space-y-2" key={risk.cell_key}><p className="break-all text-sm">对象 {risk.subject_id} · 单元 {risk.cell_key}</p><MetricReadout metric={risk.severe_error} onDrilldown={onDrilldown} /></div>)}</InsightSection>
     <InsightSection id="overview-batches" title="近期批次">{!overview.recent_batches.length ? <p>当前筛选没有批次。</p> : <TableShell regionLabel="近期批次表"><thead><tr><th scope="col">批次 / 创建时间</th><th scope="col">当前筛选运行数</th><th scope="col">服务端状态计数</th><th scope="col">样本</th></tr></thead><tbody>{overview.recent_batches.map((batch) => <tr key={batch.batch_id}><th scope="row" className="break-all">{batch.batch_id}<p className="text-xs">{formatTime(batch.created_at)}</p></th><td>{batch.candidate_run_count}</td><td>{Object.entries(batch.status_counts).map(([status, count]) => <p key={status}>{status}：{count}</p>)}</td><td><Button variant="outline" size="sm" onClick={() => onDrilldown(batch.drilldown)}>查看批次样本</Button></td></tr>)}</tbody></TableShell>}</InsightSection>
     <InsightSection id="overview-quality" title="数据质量摘要"><p className="text-sm">候选运行 {overview.data_quality.candidate_run_count} · 合格 {overview.data_quality.eligible_run_count} · 排除 {overview.data_quality.excluded_run_count} · 完整维度单元 {overview.data_quality.dimension_count}</p><ExclusionTable reasons={overview.data_quality.exclusion_reason_counts}/><MetricCards metrics={overview.data_quality.cards} onDrilldown={onDrilldown}/></InsightSection>
-    <InsightSection id="overview-opportunities" title="机会状态"><p className="text-sm text-text-secondary">本页面尚未整合机会计数（{overview.open_opportunities.reason_code}）。当前没有可用的机会计数。请进入 <a className="text-primary underline underline-offset-4" href="/geo/opportunities">GEO 机会工作台</a> 查看证据、比较复测结果并处理机会；行动创建与复测批次创建可通过现有 Action/Retest API 完成。</p></InsightSection>
-    <p className="text-xs text-text-secondary">趋势、SOV、引用与声明明细请进入回答洞察。导出、报告与机会操作入口不在本页面交付范围。</p>
+    <InsightSection id="overview-opportunities" title="机会状态"><OpportunitySummary summary={overview.open_opportunities} /></InsightSection>
+    <p className="text-xs text-text-secondary">趋势、SOV、引用与声明明细请进入回答洞察；机会处理沿用机会工作台。</p>
   </div>;
 }

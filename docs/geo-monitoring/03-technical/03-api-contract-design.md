@@ -209,7 +209,7 @@ GEO-206 交付 `GeoMonitoringPlanCreate/Update/Out/RevisionRequest`、状态/关
 
 GEO-208 当前命令以 session 和 CSRF 保护，ADMIN/ENGINEER 管理内部共享Plan；服务端拥有状态、revision、追溯和资格裁决。PATCH 完整替换配置而非集合片段；请求不可写 status/creator/revision。所有已存在Plan命令必须 expected_revision，DELETE 为 required query，其余 body。实际配置/状态变化恰好+1；集合顺序 no-op不变；stale409 REVISION_CONFLICT，无自动重放。合法状态与锁协议见[数据库合同](../../../contracts/database.md#geo-208-命令快照与审计)。DISABLED/PAUSED允许保存可修复的运行阻断，引用不存在仍422；activate/resume与ACTIVE实际修改必须锁内重验当前资格。复制请求另需name，返回新DISABLED/revision0，不改变源；ARCHIVED只读/复制。DELETE仅DISABLED，204空响应，审计保留。
 
-详情 `GeoMonitoringPlanDetail` 包含完整配置、preview、workflow_stage、primary_task、available_actions、deletion与run_entry；列表items使用同一模型，不返回未实施的last_batch/运行健康/成功率。列表q为名称字面子串，status/schedule_kind为闭合筛选，sort为UPDATED_DESC/NAME_ASC，page从1、page_size=10/20/50（默认20），稳定UUID次序。GET/preview在认证前RR且禁autoflush，不写心跳；count/page/关系/资格共享快照且固定批量查询。
+详情 `GeoMonitoringPlanDetail` 包含完整配置、preview、workflow_stage、primary_task、available_actions、deletion、run_entry及nullable schedule；列表items使用同一模型，不返回未实施的last_batch/运行健康/成功率。列表q为名称字面子串，status/schedule_kind为闭合筛选，sort为UPDATED_DESC/NAME_ASC，page从1、page_size=10/20/50（默认20），稳定UUID次序。GET/preview在认证前RR且禁autoflush，不写心跳；count/page/关系/资格共享快照且固定批量查询。
 
 GEO-303 已开放计划创建 API：`POST /geo/monitoring-plans/{id}/run` 必填 expected_revision 和1..160字符可见ASCII Idempotency-Key，返回201 `GeoBatchCreated` 稳定回执。非归档计划在当前资格满足时可手工创建，计划状态/revision不变；同用户同键同请求重放原回执，异请求409 IDEMPOTENCY_CONFLICT。当前R1页面仍不提供运行交互，run_entry为 `{available:false,reason_code:UI_NOT_IMPLEMENTED}`，不投影RUN_NOW；运行页面由后续任务交付。计划存在批次历史时删除投影增加 HAS_BATCH_HISTORY，不提供 DELETE，命令返回 GEO_PLAN_IN_USE。
 
@@ -251,6 +251,16 @@ warnings:
     related_resource_id: null
 ```
 
+### AUTO-01 新定时计划与窗口进展
+
+现有创建/预览Schema支持CRON+有效五字段cron_expression及IANA timezone；新建仍DISABLED，并显式登记调度。创建后schedule_kind不可互转，编辑Cron/时区/矩阵复用PATCH；activate/pause/resume/archive沿现有ADMIN/ENGINEER、CSRF、Run配置revision与资格守卫。复制已登记CRON生成独立DISABLED计划；历史未登记CRON仍只读/UNSUPPORTED_SCHEDULE，不能因旧ACTIVE自动加入调度。
+
+GeoMonitoringPlanDetail.schedule为null（MANUAL/历史未登记）或{next_run_at,latest_window}；latest_window含scheduled_for/plan_revision/status/batch_id/error_code/covered_until/created_at。CREATED是真实批次，FAILED为真实资格失败，MISSED为半开错过区间；不把Batch执行成功或指标资格混入窗口创建结果。摘要按页集合固定批量查询。已登记CRON的run_entry.reason_code为SCHEDULED_AUTOMATICALLY，不向HTTP开放系统scheduled_for。
+
+页面支持新建Cron/时区、原状态动作启停、下一次时间及最近窗口/批次导航；已登记ACTIVE详情15秒前台读取，错误/后台暂停。人工采集只生成待录入批次；恢复不追赶暂停期；每次扫描每计划最多建一批，其余已到期未执行窗口记录错过区间，超过5分钟则整段错过。服务端合法IANA名称若不被浏览器ICU支持，明确展示同一时刻UTC并保留计划时区。Cron日/月/周同时满足；DST不存在分钟跳过，重复墙钟只执行第一次。无可达日期返回422并定位cron_expression。
+
+内部扫描复用现有Beat/恢复扫描间隔与大小，按数据库游标和窗口唯一身份建批，原规则/矩阵/输入冻结及commit后派发保持。新游标与窗口见数据库0067合同，无迁移回填。仅本地代码交付，不表示线上Scheduler已部署或自动计划已在生产执行。
+
 ## 7. 批次 API
 
 GEO-304 / R2 已新增 GeoRawPayloadSummary、GeoAnswerSnapshotOut、GeoAnswerCitationInput、GeoAnswerCitationOut 四个闭合公共数据组件，无新 HTTP 端点；人工提交由 GEO-305 接线，详情仍由后续任务交付。原始 URL/位置/采集标题保持证据语义，分类/Subject/Article 归 AnalysisRevision。
@@ -272,7 +282,7 @@ GEO-303 `POST /geo/observation-batches` / `createGeoObservationBatch` 使用requ
 - 返回201 `{batch_id,requested_run_count,created_at}`；不把之后变化的Batch状态写入幂等回执。
 - 两入口都要求ADMIN/ENGINEER、session与CSRF；当前共享内部业务权限，用户仅限定key命名空间。鉴权后优先重放首次结果，首次创建才锁内校验当前revision/资格。
 - 错误复用AUTH_REQUIRED/PASSWORD_CHANGE_REQUIRED/FORBIDDEN/VALIDATION_ERROR/NOT_FOUND/REVISION_CONFLICT/GEO_PLAN_REFERENCE_INVALID/GEO_PLAN_PROFILE_INELIGIBLE/GEO_PLAN_BUDGET_EXCEEDED/GEO_PLAN_ARCHIVED/IDEMPOTENCY_CONFLICT；未知内部失败不伪造成功。
-- 不支持客户端actor/status/snapshot/classification/scheduled_for、SCHEDULED或RETEST。调度创建仅内部应用服务，窗口UTC规范化且身份不含plan revision；Scheduler循环仍属后续任务。
+- 不支持客户端actor/status/snapshot/classification/scheduled_for、SCHEDULED或RETEST。调度创建仅内部应用服务，窗口UTC规范化且身份不含plan revision；AUTO-01已接线内部到期扫描，历史未登记CRON不执行。
 - 创建不调用外部平台，不派发Redis；稳定执行ID和后续状态读模型由对应任务接入。
 
 ## 8. 运行 API
@@ -298,10 +308,11 @@ GEO-306 / R2 已实现 `GeoRunDetail`，在认证前建立同一 REPEATABLE READ
 - `answer/citations/evidence_files`：所选 attempt 的不可变原始证据，引用保留去重及实际位置；
 - `attempts/timeline`：同 cell 全部 attempts 与真实 created/started/collected/finished 时间，不推断未记录的状态时间；
 - `analysis`：GEO-507增加机器revision/结果、review历史、current选择与effective_results，精确字段见下方当前复核章节；
-- `data_quality`：完整资格仍`assessment=NOT_IMPLEMENTED`；当前必要复核未完成时`metric_eligible=false`，其他情况为null；未实施区块仅METRICS/OPPORTUNITIES/RETEST；
+- `data_quality`：CORE-01 复用 Overview 的 EFFECTIVE 策略输入和 `geo_metrics.metric_eligibility`，给出通用 `ELIGIBLE/EXCLUDED`、布尔资格与完整排除原因、当前有效分析/复核状态、证据/费用/模型版本覆盖，以及每个冻结对象的现有业务指标资格；费用或版本未知不补零。通用资格不保证各指标有分母贡献或达到样本门槛；
+- `navigation`：最新尝试提供创建日 UTC、冻结问题和采集配置的回答洞察筛选（包含该范围全部对象）；历史尝试明确 SUPERSEDED_ATTEMPT 且无当前洞察入口。机会只来自该 run_id 的真实历史来源角色，复测只来自所在批次的实际基线/请求；空数组表示没有关联，不是能力未实现；
 - `as_of`：数据库事务时钟，全部关联来自同一快照。
 
-分析/复核关联已由GEO-507接入，机会与重测关联仍是后续增量；本任务不伪造历史、指标分母或派发成功。大文件只返回白名单元数据和限时签名 URL，不返回 raw 字节、object_key、上传者或文件名；GET 不做外部 HEAD/HTTP。详情使用 `Cache-Control: no-store`。缺失历史/证据返回409 GEO_READ_MODEL_INCOMPLETE，不合格文件返回409 FILE_INTEGRITY_FAILED；已知签名不可用返回503 DEPENDENCY_UNAVAILABLE。
+分析/复核关联由GEO-507接入；CORE-01补齐只读质量与机会/复测导航，GET不会评估机会、创建复测或重新分析，不伪造历史、指标分母或派发成功。大文件只返回白名单元数据和限时签名 URL，不返回 raw 字节、object_key、上传者或文件名；GET 不做外部 HEAD/HTTP。详情使用 `Cache-Control: no-store`。缺失历史/证据返回409 GEO_READ_MODEL_INCOMPLETE，不合格文件返回409 FILE_INTEGRITY_FAILED；已知签名不可用返回503 DEPENDENCY_UNAVAILABLE。
 
 Batch列表筛选 `q/plan_id/subject_id/status/trigger_type/created_from/created_to`；Run列表支持 `batch_id/plan_id/subject_id/product_id/query_topic_id/prompt_variant_id/collection_profile_id/engine_surface_id/collection_mode/status/error_code/needs_review/latest_only/q/created_from/created_to`，批次内Run列表由路径固定batch_id。q为冻结计划名称或冻结问题正文的字面子串，转义LIKE通配符；所有历史维度使用冻结身份。时间为含起点、不含终点的带时区窗口。页大小10/20/50，默认20；排序CREATED_DESC（默认）/CREATED_ASC，UUID用于稳定tie-break。
 
@@ -362,20 +373,32 @@ collected_at: "2026-10-02T16:00:00+08:00"
 
 ## 9. 分析与复核 API
 
-### 9.1 重分析
+### 9.1 管理员显式重分析（CORE-06）
 
-`POST /geo/observation-runs/{id}/reanalyze`
-
-请求：
+`POST /api/v1/geo/observation-runs/{run_id}/reanalyze`，operationId `reanalyzeGeoObservationRun`。
+仅当前启用且无改密门禁的管理员，要求会话与CSRF；工程师不能直接调用绕过。
 
 ```yaml
-expected_current_analysis_revision: 2
-fact_versions: [{subject_id: uuid, fact_version_id: uuid}]
-analyzer_mode: CURRENT_DEFAULT
-reason: "别名和事实版本已更新"
+expected_revision: 4
+reason: DICTIONARY_UPDATED
 ```
 
-以上为尚未发布的公共命令目标草案，不属于 GEO-507 deliverables。当前仅有 GEO-506 的内部管理员命令，按 ADR-003 冻结多产品事实归属与资格；GEO-507 不新增 reanalyze HTTP operation，也不接受客户端事实清单。
+闭合请求：expected_revision为非负严格整数；reason为RULES_UPDATED、DICTIONARY_UPDATED、
+FACTS_UPDATED、RETRY_FAILED之一。客户端不提供事实清单、词典、回答或分析器配置。
+成功200返回`{run_id, analysis_revision_id, request_id}`并no-store，表示已接受该稳定分析ID；
+相同输入可能复用既有PENDING或COMPLETED版本，不意味着一定新增或计算完成。
+
+复用reanalyze_run：锁最新User→Batch→Run并校验Run revision；只接受COMPLETED/NEEDS_REVIEW/FAILED
+且保有原始采集回答的运行。当前规则、当前对象字典和批准事实按ADR-003冻结；保留原回答、历史分析/复核
+和采集终态/时间，FAILED不恢复成功。新版本成功后由原分析Worker受控更新current pointer及Run revision。
+创建与低敏原因审计同事务，commit后只派发稳定分析UUID；Broker故障保留PENDING，使用原恢复扫描。
+
+详情`analysis.available_actions`仅对合格管理员投影REANALYZE，不改变采集动作/主任务/指标统计口径。
+页面显示实际回执ID，读取既有历史显示PENDING/COMPLETED/FAILED及当前标记，链接对应历史版本；
+终态Run含PENDING分析时仍按5秒读取，读取失败或后台暂停轮询；首次观察到本次目标终态（含首次读取已完成）后再次定向失效洞察/报告缓存。
+409冲突保留原因，显式重读运行/历史后再确认；422沿既有校验/总开关错误，401/403/404沿认证授权合同。
+请求ID仅诊断标识，无HTTP幂等键。网络/5xx/异常回执等未知结果只能重读历史并人工核对，不自动重发、
+不凭版本差集或复用ID断言原请求已接受；关闭核对不取消后台分析。确认接受后的刷新失败保留回执。
 
 ### 9.2 人工复核
 
@@ -524,7 +547,7 @@ preview请求同一configuration/expected_revision和current_runs/previous_runs�
 
 上述六个操作已进入根 OpenAPI。预览/打印返回 `GeoReportPreview`：一次快照的完整筛选、`as_of`、`generated_at`、公式字典、方法说明、数据质量及回答洞察。`source_mode=LIVE`；当前候选为空为 `available=false/NO_DATA`，没有合格运行为 `NO_ELIGIBLE_RUNS`，保留实际质量。此版不保存归档报告，不冻结未来重新读取的数据。
 
-CSV 使用当前周期基础筛选，不接收自由字段选择器。runs 包含失败和排除以保留质量；citations/claims 复用明细资格与有效复核；引用仅保留 ID、URL SHA-256 与域名等安全元数据，URL/query 不进入 CSV。具体唯一列白名单由 `geo_report_csv.COLUMNS` 维护，CSV 引用与公式注入防护只作用于传输值。UTF-8 BOM、UTC 文件名、`Content-Disposition`、`X-Report-As-Of`、`Cache-Control: no-store`；首条准备完成后分批流式发送，空集 409 `GEO_REPORT_EMPTY`。机会数据尚未实现，opportunities 为 501 `NOT_IMPLEMENTED`。
+CSV 使用当前周期基础筛选，不接收自由字段选择器。runs 包含失败和排除以保留质量；citations/claims 复用明细资格与有效复核；引用仅保留 ID、URL SHA-256 与域名等安全元数据，URL/query 不进入 CSV。具体唯一列白名单由 `geo_report_csv.COLUMNS` 维护，CSV 引用与公式注入防护只作用于传输值。UTF-8 BOM、UTC 文件名、`Content-Disposition`、`X-Report-As-Of`、`Cache-Control: no-store`；首条准备完成后分批流式发送，空集 409 `GEO_REPORT_EMPTY`。机会汇总与工作台导航由 CORE-02 接入；CORE-05已接入机会CSV，与报告待处理摘要使用同一来源范围和待处理集合。
 
 打印和导出使用工程师/管理员认证。打印数据可用时写 `geo_report.print_prepared`；CSV 首条就绪时写 `geo_report.export_started`，审计提交失败阻断交付；它们不代表客户端完整接收或实际打印。审计仅含种类、as_of 与筛选 SHA-256，不保存敏感正文或 URL。详细事务/字段边界见 `contracts/database.md` GEO-606 条目。
 
@@ -636,7 +659,7 @@ Run 当前成功指针是唯一选择来源；当前有效 review 仅在该 anal
 
 `POST /api/v1/geo/observation-runs/{run_id}/review`（`reviewGeoObservationRun`）接受当前 analysis ID、expected_run_revision、CONFIRMED/CORRECTED、闭合四栏 correction_payload 与 comment，返回201复核记录和新的Run revision。ADMIN/ENGINEER使用现有session/CSRF；reviewer_id和时间由服务端生成，不接受客户端追溯字段。旧 analysis 优先409 GEO_REVIEW_STALE_ANALYSIS，旧 Run revision 为409 REVISION_CONFLICT；无当前成功分析409 GEO_ANALYSIS_NOT_AVAILABLE，非法状态409 INVALID_STATE_TRANSITION，修正schema或归属错误422 VALIDATION_ERROR。精确字段和response签名以根OpenAPI为权威。
 
-既有详情增加 `analysis`：独立机器revision及子结果、完整review历史、显式current selection、effective_results、review_required/review_gate_passed及当前REVIEW动作。读取同一RR快照；latest有效Review整体替换此前修正，CONFIRMED恢复机器投影，当前pointer之外的review仅作历史。未完成必要复核明确metric_eligible=false/GEO_REVIEW_REQUIRED；通过review gate仍返回完整指标资格未实施，不计算指标。列表needs_review查询同一current gate，不把重分析后的采集终态倒退。
+既有详情增加 `analysis`：独立机器revision及子结果、完整review历史、显式current selection、effective_results、review_required/review_gate_passed及当前REVIEW动作。读取同一RR快照；latest有效Review整体替换此前修正，CONFIRMED恢复机器投影，当前pointer之外的review仅作历史。未完成必要复核由CORE-01共享资格投影以CURRENT_REVIEW_REQUIRED明确排除；通过review gate后仍需满足运行终态、当前分析和证据完整性等既有规则。FAILED终态即使重新分析成功仍被RUN_NOT_COMPLETED排除。列表needs_review查询同一current gate，不把重分析后的采集终态倒退。
 
 本任务只同步generated类型和受影响fixture，无新前端路由、query key或URL状态，不提供重分析公共端点。GEO-508负责页面，GEO-601负责MetricEligibility。事务、追加历史、锁和0056停止路径见[根数据库合同](../../../contracts/database.md#geo-507-人工复核命令与当前结果r4)。
 
@@ -672,7 +695,27 @@ getGeoAnswerInsights增加citation_insights、fact_risks和data_quality；listGe
 
 ## 当前 R6：GEO-702 数据组件边界
 
-根OpenAPI仅新增Opportunity状态/优先级/来源角色/行动类型及闭合scope/source/trigger snapshot组件。触发快照含实际701配置revision、UTC周期、值、阈值、分子/分母、来源Run/analysis/review及不可用原因；未增加HTTP operation。702评估器是内部应用服务，开关默认关闭并重验ADMIN/ENGINEER账号资格。列表、详情、ack/dismiss工作台属于703；actions写入与复测/resolve属于704–706。既有Overview机会占位、opportunities CSV的501和前端路由保持其当前交付边界。
+根OpenAPI仅新增Opportunity状态/优先级/来源角色/行动类型及闭合scope/source/trigger snapshot组件。触发快照含实际701配置revision、UTC周期、值、阈值、分子/分母、来源Run/analysis/review及不可用原因；未增加HTTP operation。702评估器是内部应用服务，开关默认关闭并重验ADMIN/ENGINEER账号资格。列表、详情、ack/dismiss工作台属于703；actions写入与复测/resolve属于704–706。GEO-702当时未接入Overview；CORE-02已补齐总览/报告摘要与导航，CORE-05后续接入机会CSV。
+
+## CORE-02 总览与报告的机会汇总
+
+`GeoOverview.open_opportunities` 和 `GeoReportPreview.open_opportunities` 共用 `GeoOpportunitySummary`，包含同一 RR 快照的 `as_of`、`open_count`、三种待处理状态分组、四档优先级分组及服务端 drilldown。待处理集合复用 OPEN/ACKNOWLEDGED/IN_PROGRESS；RESOLVED/DISMISSED 不计入。查询按机会去重，不因来源角色、历史分析或复测来源重复计数。空集为真实零；读取失败沿请求错误路径显示，不返回成功形态的零。
+
+工作台 `GET /api/v1/geo/opportunities` 增加 `source_scope`（GeoOverviewFilters 的 JSON 查询字符串）和 `open_only`（默认false）。来源窗口按 Run.created_at 半开区间，复用冻结输入筛选；包含旧尝试和 TRIGGER/SUPPORTING/BASELINE/RETEST 来源，REVIEWED_ONLY 使用保存的 source.review_id，不替换为当前选择。机会自身对象/产品及主维度归属继续沿工作台筛选；created_from/to 仍独立表示机会创建时间。分组跳转的 status/priority 进一步收窄，汇总与列表共用一个 selector。
+
+工作台 URL 利用 Router 的 JSON search 保留完整来源对象，API 边界编码 JSON 字符串。合法 ISO 日期及微秒精度原样保留，窗口先后由服务端裁决；非法 JSON、未知字段、超限集合或无效窗口明确失败，不放宽为全量。页面显示来源范围，并可显式清除。
+
+汇总只读取已存储机会，不调用 evaluator、不写机会/来源/行动、不恢复已关闭状态。导航后是新快照，显示当前状态，不承诺历史状态回放。报告即使没有合格业务指标仍展示真实机会与质量摘要；原打印可用性、审计与 CSV 边界不变。报告嵌入的 AnswerInsights 模型不可用字段仍描述该子模型自身，报告机会数据在独立 open_opportunities 字段。
+
+## CORE-05 机会CSV导出
+
+`GET /api/v1/geo/reports/opportunities.csv` 保留原 GeoOverviewFilters 协议，映射为 source_scope + open_only=true，与报告待处理摘要同口径；即使没有合格运行指标，仍可导出已保存的匹配待处理机会。预览 exports 的 opportunities.available=true 表示能力已接入，空集在新下载快照返回409 GEO_REPORT_EMPTY；不再返回501或空成功文件。
+
+`GET /api/v1/geo/opportunities/export.csv` 接受既有 GeoOpportunityFilters，保留q、状态/优先级/规则、主维度、来源范围/模式、机会创建日期及排序，忽略page/page_size，导出全部匹配集合，可包含已关闭状态。该路径先于动态机会ID路由匹配。两个入口均沿ADMIN/ENGINEER、独立授权开始审计、专有RR/no-autoflush、首条预取、no-store和原CSV流生命周期；读取不会评估或修改机会。
+
+列表与CSV共用selector、状态投影和排序列，每次100条keyset读取，无任意截断，一行一个机会。固定26列由geo_opportunity_csv.COLUMNS拥有：as_of、机会ID/revision/标题/规则/优先级/状态/阶段、对象/产品/主题与配置等安全身份/名称、来源窗口、发现/确认/关闭时间及来源/行动计数。名称为当前元数据；不导出说明、关闭备注、回答/事实正文、快照、URL、下载地址或凭据。所有单元格沿原safe_cell和CSV引用规则，不修改存储值。
+
+工作台下载链接保留当前合法筛选及source_scope原始日期精度，排除分页/详情/自由字段；报告机会链接沿原报告筛选。原生浏览器下载不在JS中缓冲全量CSV，空集或权限等错误沿服务端明确响应，新as_of独立于页面快照，点击不证明完整接收。UTF-8 BOM、UTC文件名、Content-Disposition/X-Report-As-Of和取消/断开/发送失败释放合同保持，原三种CSV筛选和行生成器不变。
 
 ## 当前 R6：GEO-703 Opportunity API
 
@@ -691,6 +734,20 @@ ADMIN/ENGINEER可读取与处理。确认仅expected_revision；驳回额外要�
 
 Action来源保存首次trigger和当时全部run/analysis/review/role身份及明确选择的product/topic/fact/platform/article/issue ID，不复制回答或事实正文。详情追加服务端`available_action_types`、来源快照、安全相对导航与`target_available`；旧行来源为null，不补造历史。归档ContentTask aggregate经既有管理员永久删除后，目标缺失返回false/无导航，行动ID和来源保持。三个POST与详情no-store；不访问引用URL、不调用外部AI。复测/解决/补测未在704接入。
 
+### CORE-03 事实修订选项与页面入口
+
+`GET /api/v1/geo/opportunities/{opportunity_id}/fact-revision-options` 沿用 ADMIN/ENGINEER、禁 autoflush 的 REPEATABLE READ 和 no-store 边界，返回机会 ID/revision、`FACT_REVISION` 可用动作、产品 ID/品牌/型号及 `as_of`。产品范围与原 fact-revision 命令共用保存来源规则：优先取匹配机会 subject_id 的冻结 OWN_PRODUCT，否则取全部保存来源中的 OWN_PRODUCT；只返回当前 ACTIVE 产品，不要求已有批准事实。读取不锁行、不创建行动或事实版本，也不依赖当前来源分页和当前产品关联。
+
+机会详情按服务端动作提供入口，显式选择产品、确认后调用原 POST；命令仍重验 revision、产品范围、状态和幂等键。409 保留选择，显式刷新机会与选项后重新确认；未知结果保留原载荷与原键供显式核对，不自动重发。成功显示已确认的行动及产品事实工作区导航，刷新失败仍保留回执。产品事实路由的 `source_opportunity_id` 仅用于返回机会，不参与授权或事实保存/提交/审核载荷；登记行动不创建批准版本、不修改事实正文，后续修订沿原产品事实工作区流程。
+
+### CORE-04 发布问题与修复选项及页面入口
+
+`GET /api/v1/geo/opportunities/{opportunity_id}/publication-repair-options` 沿用 ADMIN/ENGINEER、禁 autoflush 的 REPEATABLE READ 与 no-store。查询接受 `mode=OPEN_ISSUE|LINK_ISSUE|CREATE_REPAIR`、`page`、`page_size`（最大50）及可选 `selected_issue_id`（仅 CREATE_REPAIR）。响应包含同快照的机会 ID/revision、PUBLICATION_REPAIR 动作、分页候选的成果/问题 ID、问题 revision、标题/平台/公开地址、服务端可操作性及原因、可空原发布修复上下文和 as_of。
+
+候选产品范围复用机会全部保存来源的自有产品规则。成果和开放问题列表在发布领域内增加仅内部使用的 product_ids 筛选，默认原行为不变；列表继续拥有动作投影。成果已有开放问题或已退役、问题已有修复任务时，候选仍可见但相应创建入口不可提交；LINK_ISSUE 仍只选择开放问题。分页 total 表示范围内成果或开放问题数，不是合格动作总数。CREATE_REPAIR 选定问题后，在同一 GET/RR 内复用原 repair-context，并复核原任务产品在保存范围，浏览器不 join 独立快照推断资格。读取不写行动或领域记录、不取得写锁。
+
+机会详情分别显式提交原 publication-repair 三种命令。OPEN_ISSUE 选择成果并填写类型/非空描述；LINK_ISSUE 携带选定问题 revision；CREATE_REPAIR 从原上下文选择同产品批准事实。机会与问题基线分别冻结，后台变化或409暂停，显式刷新后重确认；未知结果保留原完整请求与键供核对。成功先保留回执，再取消旧读取并失效相关缓存，刷新失败不重发命令。原问题/内容任务路由保留 source_opportunity_id 返回入口，问题 hash canonical 跳转与章节切换均保留该参数；它只拥有导航语义，不进入原领域命令或授权。创建修复任务不会自动解决问题、批准内容或发布，不改写批准事实和发布成果历史。
+
 
 ## 当前 R6：GEO-705 严格复测 API
 
@@ -708,3 +765,41 @@ Action来源保存首次trigger和当时全部run/analysis/review/role身份及�
 新增`POST …/resolve`（resolveGeoOpportunity）与`POST …/continue`（continueGeoOpportunity）。请求都需要expected_revision、trim非空resolution_code（1..40）/resolution_comment（1..2000）。resolve的resolution_method明确MANUAL或RETEST；MANUAL禁止比较字段，RETEST要求retest_batch_id及64位comparison_fingerprint。continue允许两者同空或成对选择，保持IN_PROGRESS。成功200返回GeoOpportunityDecisionResult的canonical opportunity与新增decision；没有Idempotency-Key或自动重放，CAS防止旧revision重复处理。
 
 资源动作增加RESOLVE/CONTINUE，仅服务端对可处理机会投影。复测达标不自动关闭；人工解决可以独立于复测恢复判断，但必须提供依据。503/409/404/422与其他错误响应保持闭合信封和request ID；精确行为错误及数据库guard见根合同。ADMIN/ENGINEER、session/强制改密、CSRF、no-store保持；不访问引用URL、不调用真实外部AI或改写历史证据。
+
+
+## AUTO-02 机会自动周期评估
+
+管理员在机会工作台显式配置一份内部共享计划，复用原机会评估服务/规则和范围，独立于MonitoringPlan。根合同新增以下操作：
+
+| 方法 | 路径 | 作用 |
+| --- | --- | --- |
+| GET | `/api/v1/geo/opportunities/evaluation-schedule` | 未配置返回revision0、UNCONFIGURED；只读不执行 |
+| PUT | 同上 | expected_revision+configuration，首次保存DISABLED |
+| POST | 同上`/activate` | 显式启用已保存配置 |
+| POST | 同上`/pause` | 暂停新评估 |
+| POST | 同上`/resume` | 从未来周期恢复并重新授权 |
+
+全部ADMIN会话，写入CSRF；unknown字段拒绝、no-store，写操作锁内重验当前账号和HTTP会话。PUT每类最多50实体，ALL不带实体筛选，FILTERED至少指定Subject/Surface/Profile一类；模式空选表示所有历史模式，固定现有规则revision，interval_hours=1～168整数、lookback_days=1～31整数。不存在规则404，旧revision409 REVISION_CONFLICT，总开关关闭或非法状态409，非法配置422。只有首次保存可expected_revision0，状态命令≥1；新请求ID用于诊断，无HTTP幂等重放。未知结果只GET重读核对，不盲目重发。
+
+响应GeoOpportunityScheduleDetail返回revision/status/configuration/authorizer_id/next_run_at/latest_window/available_actions/blocked_reason；动作由服务端投影。最近窗口包含当时配置/规则、COMPLETED/FAILED/MISSED、错过区间/错误码及可空的原GeoOpportunityEvaluationReceipt。失败不伪造统计，完成回执沿原新建/复用/跳过和未生成原因口径。周期每次重新验证授权管理员，原会话过期不等于撤销业务授权；账号停用、降权、待改密会阻止评估并显示真实原因，管理员可显式保存/恢复重新授权。
+
+后台Beat沿现有geo_recovery_scan_seconds扫描；UTC固定间隔、评估半开窗口，停机仅补最近一个到期窗口，旧窗口记错过。保存ACTIVE配置保留ACTIVE但重设未来周期；同人同配置无op；暂停清next。窗口/回执/机会/next原子提交及回拨下限见数据库0068合同。读取总览、报告、工作台或配置均不触发评估，不自动生成Action/内容任务/发布/复测或执行外部采集。
+
+页面默认收起、打开才读取，ACTIVE展开面板前台每15秒读取，后台或错误停止轮询；没有自动POST。RHF复用手动范围和选项，编辑基线冻结，409/背景修订须显式读取后再确认。未知提交冻结并只GET核对，已接受后读取失败仍保留接受事实；主体切换/卸载忽略迟到响应。首次看到已完成回执也会使机会、洞察和报告读模型失效，无需先看到运行中；同回执不重复失效。机会导航保留原工作台，不声称新建机会已被人处理。
+
+## MAN-01 人工运行取消与留痕
+
+新增 `POST /api/v1/geo/observation-runs/{run_id}/manual-cancel`（cancelGeoManualObservationRun），请求GeoManualRunCancelRequest包含expected_revision、expected_draft_revision和reason。两个版本为非负严格整数，原因规范trim、非空、最长2000字符且不含NUL。ADMIN/ENGINEER会话与CSRF，服务端锁内再次裁决。仅未提交MANUAL运行，复用原cancellable/run_transition及Batch统计；当前Profile或监测开关关闭仍可取消，不打开API/BROWSER或整批取消。
+
+200返回GeoManualRunCancellationOut：run_id、cancelled_by、cancelled_at、reason、run_revision和draft_revision。无Idempotency-Key，无自动重放；旧版本409 REVISION_CONFLICT、已开始/已提交409 GEO_RUN_ALREADY_STARTED、非人工409 GEO_MANUAL_MODE_REQUIRED、资源不存在404、身份401/403、非法请求422。两个取消竞争最多一个成功。GET Run详情新增required nullable cancellation，旧历史未记录返回null；不会补造原因。保存草稿/正式提交/取消的竞争与不可变约束见数据库0069。
+
+运行详情按服务端CANCEL动作打开原因表单；确认准备复用既有GET manual-entry的RR快照，冻结Run与已保存草稿双版本。409或已知版本变化保留原因，显式重读后再确认；未知提交只能GET详情核对实际记录，没有自动重发。若显式结束核对，必须重新准备并确认新的操作。成功先保留接受事实再刷新批次/运行缓存，刷新失败不反悔或重发；主体切换/卸载忽略迟到结果。取消记录只读展示，不删除草稿/文件引用，已提交回答和历史证据不变；临时草稿继续原有保留策略。
+
+
+## MAN-02 人工引用观察声明
+
+既有 manual-draft/manual-submit 增加可选 nullable `citation_observation: {status, missing_reason}`；新正式提交必须明确声明，省略/null 返回422 VALIDATION_ERROR。字段可选用于旧草稿读取及真实旧请求的幂等回执重放，不允许新命令绕过声明。相同幂等键改动声明或原因仍409 IDEMPOTENCY_CONFLICT。AnswerSnapshotOut 增加 required nullable 同名字段，旧记录为null，不猜测/回填。
+
+状态与数量：COMPLETE 至少1条引用；NONE（确认无引用）及 UNKNOWN（无法判断）无结构化引用；PARTIAL（部分缺失）保留实际已知引用，可为0条。PARTIAL/UNKNOWN 必填非空、不含NUL、最长2000字符 missing_reason；COMPLETE/NONE 原因为null。非法组合在请求边界422，不自动删 URL 或从列表数量代选状态。原有截图/原始文件、归属、校验、采集时间、锁与修订要求保持。人工页面支持状态/原因、服务端草稿比较及只读详情，历史未记录有明确提示。
+
+PARTIAL/UNKNOWN 的引用指标排除码为既有 CITATION_OBSERVATION_UNAVAILABLE；NONE 是独立无引用观察事实，但其他统计门禁不变。历史null保持既有指标资格，不补造完整性。缺失原因属于原始证据，分析复核不改变它。

@@ -87,14 +87,16 @@ def test_empty_overview_auth_validation_and_closed_public_payload(overview_api):
     )
     assert value["data_quality"]["candidate_run_count"] == 0
     assert all(c["value"] is None for c in value["cards"] + value["data_quality"]["cards"])
-    assert value["open_opportunities"]["open_count"] is None
+    assert value["open_opportunities"]["open_count"] == 0
     from pathlib import Path
 
     import yaml
 
     from app.main import app
 
-    contract = yaml.safe_load((Path("/contracts") / "openapi.yaml").read_text())
+    contract = yaml.safe_load(
+        (Path(__file__).resolve().parents[3] / "contracts/openapi.yaml").read_text()
+    )
     for document in (contract, app.openapi()):
         validate(document, "GeoOverview", value)
     assert api.anonymous.get(PATH, params=params(api)).status_code == 401
@@ -269,7 +271,7 @@ def test_query_count_is_fixed_with_empty_dense_and_review_history(overview_api):
         api.create(review_required=False, products=0)
     value, dense = capture()
     assert value["data_quality"]["candidate_run_count"] >= 5
-    assert empty == dense == 15
+    assert empty == dense == 16  # 机会汇总增加一次固定聚合，不随样本或来源数增长。
 
 
 def test_new_current_analysis_does_not_reuse_old_review_and_analysis_count_is_run_level(

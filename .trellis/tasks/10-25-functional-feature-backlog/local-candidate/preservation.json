@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-26",
+  "head": "a4f9bbd581aa558cb3567d6da1f0c5509998bfd0",
+  "HEAD_unchanged": true,
+  "index_hash": "2983c53a610e8226603c174a8f25b8e38c738e397606c88a0d760468ecf0b717",
+  "index_unchanged": true,
+  "pre_existing_staged_deletions_preserved": 74,
+  "original_status_entries_preserved": 377,
+  "other_pre_existing_files_unchanged": true,
+  "other_paths_hash_excluding_authorized_parent_and_single_test": "09d39457595e842cf1195f07d6c35878416329fdf86fddda79d3b46aad0ded38",
+  "single_test_change": "Only final canonical JSON assertion updated; all earlier contents equal baseline",
+  "authorized_record_root": ".trellis/tasks/10-25-functional-feature-backlog/",
+  "source_changes_beyond_test": 0,
+  "cleanup": {
+    "manifest_hashes_verified": true,
+    "payload_files": 229,
+    "supporting_records": 60,
+    "ports_closed": {
+      "17341": true,
+      "19321": true
+    },
+    "temporary_root_removed": true,
+    "patch_sha256": "5a28582d588dd72622412f134c43ddf4dbfa49742e35f64f874fbf70f1ff98e9"
+  },
+  "commit_or_push_performed": false,
+  "online_operations_performed": false,
+  "automatic_scheduling_enabled": false,
+  "new_followup_created": false,
+  "browser_upload_gap": "NOT_RUN_NO_EXISTING_PLATFORM"
+}

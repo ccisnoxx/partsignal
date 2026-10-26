@@ -1,16 +1,17 @@
 """704行动协议：来源快照与三类命令，目标领域仍拥有业务资格。"""
 
+from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import AwareDatetime, Field, HttpUrl
 
 from app.schemas.base import ContractModel
 from app.schemas.geo_opportunities import (
     GeoOpportunitySourceSnapshot,
     GeoOpportunityTriggerSnapshot,
 )
-from app.schemas.publication import PublishedContentIssueKind
+from app.schemas.publication import PublishedContentIssueKind, PublishedContentRepairContext
 
 
 class GeoOpportunityActionSourceSnapshot(ContractModel):
@@ -31,6 +32,20 @@ class GeoOpportunityActionSourceSnapshot(ContractModel):
 class GeoOpportunityFactRevisionRequest(ContractModel):
     expected_revision: int = Field(strict=True, ge=1)
     product_id: UUID
+
+
+class GeoOpportunityFactRevisionProduct(ContractModel):
+    product_id: UUID
+    brand: str
+    part_number: str
+
+
+class GeoOpportunityFactRevisionOptions(ContractModel):
+    opportunity_id: UUID
+    opportunity_revision: int = Field(ge=1)
+    available_action_types: list[Literal["FACT_REVISION"]]
+    products: list[GeoOpportunityFactRevisionProduct]
+    as_of: AwareDatetime
 
 
 class GeoOpportunityContentTaskRequest(GeoOpportunityFactRevisionRequest):
@@ -69,3 +84,33 @@ GeoOpportunityPublicationRepairRequest = Annotated[
     | GeoOpportunityCreateRepairRequest,
     Field(discriminator="mode"),
 ]
+
+
+class GeoOpportunityPublicationRepairMode(StrEnum):
+    OPEN_ISSUE = "OPEN_ISSUE"
+    LINK_ISSUE = "LINK_ISSUE"
+    CREATE_REPAIR = "CREATE_REPAIR"
+
+
+class GeoOpportunityPublicationRepairCandidate(ContractModel):
+    published_article_id: UUID
+    published_content_issue_id: UUID | None
+    issue_revision: int | None = Field(ge=0)
+    actual_title: str
+    platform_profile_name: str
+    final_url: HttpUrl
+    available: bool
+    unavailable_reason: str | None
+
+
+class GeoOpportunityPublicationRepairOptions(ContractModel):
+    opportunity_id: UUID
+    opportunity_revision: int = Field(ge=1)
+    available_action_types: list[Literal["PUBLICATION_REPAIR"]]
+    mode: GeoOpportunityPublicationRepairMode
+    candidates: list[GeoOpportunityPublicationRepairCandidate]
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1, le=50)
+    total: int = Field(ge=0)
+    repair_context: PublishedContentRepairContext | None
+    as_of: AwareDatetime

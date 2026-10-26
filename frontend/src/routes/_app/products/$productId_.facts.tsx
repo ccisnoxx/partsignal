@@ -1,11 +1,16 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 
 import { FactWorkspacePage } from '@/domains/product/fact-workspace-page';
 import { productFactsQueryOptions } from '@/domains/product/product.api';
 import { Button } from '@/design-system/primitives/button';
+import { canonicalUuidSchema } from '@/shared/lib/canonical-uuid';
 
 export const Route = createFileRoute('/_app/products/$productId_/facts')({
   staticData: { breadcrumb: '事实工作台' },
+  validateSearch: (raw): { source_opportunity_id?: string } => {
+    const result = canonicalUuidSchema.safeParse(raw.source_opportunity_id);
+    return result.success ? { source_opportunity_id: result.data } : {};
+  },
   head: ({ params }) => ({
     meta: [{ title: `事实工作台 ${params.productId} | PartSignal` }],
   }),
@@ -22,7 +27,11 @@ export const Route = createFileRoute('/_app/products/$productId_/facts')({
 function FactWorkspaceRoute() {
   const { productId } = Route.useParams();
   const { auth } = Route.useRouteContext();
-  return <FactWorkspacePage csrfToken={auth.csrfToken} key={productId} productId={productId} />;
+  const { source_opportunity_id: opportunityId } = Route.useSearch();
+  return <div className="min-w-0 space-y-4">
+    {opportunityId && <nav aria-label="事实修订来源导航" className="break-words text-sm"><Link className="inline-flex min-h-11 items-center text-interaction-primary underline" to="/geo/opportunities" search={{ opportunity_id: opportunityId }}>返回机会 {opportunityId}</Link></nav>}
+    <FactWorkspacePage csrfToken={auth.csrfToken} key={productId} productId={productId} />
+  </div>;
 }
 
 function FactWorkspaceUnexpectedError({ error, reset }: { error: Error; reset: () => void }) {

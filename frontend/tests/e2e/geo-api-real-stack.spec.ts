@@ -37,8 +37,9 @@ test('API 自动轮询、原文引用、部分 usage、费用、429/未知结果
   await expect(region.getByText('已完成', { exact: true }).first()).toBeVisible({ timeout: 30_000 });
   const collected = await detail(page, success.runId);
   expect(collected.run).toMatchObject({ status: 'COMPLETED', workflow_stage: 'COMPLETED', external_call_state: 'COMPLETED', prompt_tokens: 7, completion_tokens: null, total_tokens: null, cost_amount: '0.0012', cost_currency: 'USD' });
-  expect(collected.data_quality.assessment).toBe('NOT_IMPLEMENTED');
-  expect(collected.data_quality.unavailable_sections).toEqual(['METRICS', 'OPPORTUNITIES', 'RETEST']);
+  expect(collected.data_quality.assessment).toBe('ELIGIBLE');
+  expect(collected.data_quality.metric_eligible).toBe(true);
+  expect(collected.data_quality.exclusion_reasons).toEqual([]);
   expect(collected.answer?.web_search_observed).toBeNull();
   expect(collected.citations.find((citation) => citation.hostname === 'geo-fixture-a.test')?.occurrences).toEqual([1, 3]);
   await expect(region.locator('pre').filter({ hasText: collected.answer!.answer_text })).toBeVisible();

@@ -1,7 +1,9 @@
+import { metricLabels, exclusionLabels } from '@/shared/lib/geo-metric-labels';
 import type { ReactNode } from 'react';
 import { TableShell } from '@/design-system/data-table/table-shell';
-import { formatPoints, formatRate, formatTime, metricLabels, sampleLabels, exclusionLabels } from '@/domains/geo-insights/insights.model';
+import { formatPoints, formatRate, formatTime, sampleLabels } from '@/domains/geo-insights/insights.model';
 import type { Report } from './reports.model';
+import { OpportunitySummary } from '@/shared/geo/opportunity-summary';
 type Metric = Report['insights']['current_cells'][number]['metrics'][number] | Report['insights']['data_quality']['overview']['cards'][number];
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return <section className="min-w-0 space-y-3 border-t border-border-subtle pt-4"><h2 className="type-section-title">{title}</h2>{children}</section>;
@@ -30,7 +32,7 @@ export function ReportContent({ report }: { report: Report }) {
       <Section title="主要引用来源">{i.citation_insights.map((c) => <div key={c.cell_key} className="min-w-0"><p className="break-all">对象 {c.subject_id} · 引用事件 {c.citation_count}</p>{([['域名', c.domains], ['URL', c.urls], ['类别', c.source_categories]] as const).map(([label, buckets]) => <TableShell key={label} regionLabel={`报告引用${label} ${c.cell_key}`} className="geo-report-table-region"><thead><tr><th scope="col">{label}</th><th scope="col">事件 / 运行</th><th scope="col">覆盖 / 份额</th></tr></thead><tbody>{buckets.map((b) => <tr key={b.key}><th scope="row" className="break-all">{b.key}</th><td>{b.citation_count} / {b.run_count}</td><td>{formatRate(b.coverage_value)}（{b.run_count} / {b.coverage_denominator}）；{formatRate(b.share_value)}（{b.citation_count} / {b.share_denominator}）</td></tr>)}</tbody></TableShell>)}</div>)}</Section>
       <Section title="事实风险">{i.fact_risks.map((r) => <div key={r.cell_key} className="min-w-0"><p className="break-all">对象 {r.subject_id} · 声明 {r.claim_count} · {Object.entries(r.verdict_counts).map(([key, value]) => `${key} ${value}`).join('；')}</p><p>错误严重度：{Object.entries(r.incorrect_severity_counts).map(([key, value]) => `${key} ${value}`).join('；')}</p><ul>{r.groups.map((g) => <li key={`${g.claim_kind}/${g.verdict}/${g.severity}`}>{g.claim_kind} / {g.verdict} / {g.severity}：声明 {g.claim_count} / 运行 {g.run_count}</li>)}</ul></div>)}</Section>
     </>}
-    <Section title="机会"><p>机会数据尚未实现（NOT_IMPLEMENTED），当前报告不包含机会数量或行动结论。</p></Section>
+    <Section title="机会"><OpportunitySummary summary={report.open_opportunities} /></Section>
     <Section title="公式与方法说明"><ul>{report.method_notes.map((note) => <li key={note}>{note}</li>)}</ul><TableShell regionLabel="报告公式字典" className="geo-report-table-region"><thead><tr><th scope="col">指标</th><th scope="col">分子</th><th scope="col">分母</th><th scope="col">版本</th></tr></thead><tbody>{report.formulas.map((f) => <tr key={f.metric_code}><th scope="row">{f.label}</th><td>{f.numerator_description}</td><td>{f.denominator_description}</td><td>{f.formula_version}</td></tr>)}</tbody></TableShell></Section>
   </article>;
 }

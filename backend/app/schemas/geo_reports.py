@@ -6,7 +6,7 @@ from pydantic import AwareDatetime
 
 from app.schemas.base import ContractModel
 from app.schemas.geo_answer_insights import GeoAnswerInsights, InsightMetric
-from app.schemas.geo_insights import GeoOverviewFilters, OverviewMetric
+from app.schemas.geo_insights import GeoOpportunitySummary, GeoOverviewFilters, OverviewMetric
 
 ExportKind = Literal["runs", "citations", "claims", "opportunities"]
 
@@ -33,6 +33,7 @@ class GeoReportPreview(ContractModel):
     available: bool
     unavailable_reason: Literal["NO_DATA", "NO_ELIGIBLE_RUNS"] | None
     insights: GeoAnswerInsights
+    open_opportunities: GeoOpportunitySummary
     formulas: list[GeoReportFormula]
     method_notes: list[str]
     exports: list[GeoReportExport]

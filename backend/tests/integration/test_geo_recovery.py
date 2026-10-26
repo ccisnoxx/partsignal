@@ -24,7 +24,7 @@ from app.dev_storage import app as storage_app
 from app.models.geo_files import FileRecord
 from app.models.identity import SessionRecord
 from app.security import hash_token
-from app.services import geo_batches
+from app.services.geo_plan_scheduler import create_scheduled_batch
 from app.services.storage import signed_storage_url
 from app.tools.geo_recovery_scan import database_readable, scan_database
 from tests.integration.geo_recovery_support import (
@@ -75,7 +75,7 @@ def test_real_restore_preserves_details_metrics_credentials_and_schedule(
 
                 def replay(_):
                     with Session(engine) as session:
-                        return geo_batches.create_scheduled_batch(
+                        return create_scheduled_batch(
                             db=session, plan_id=UUID(plan["id"]), scheduled_for=window
                         )
 

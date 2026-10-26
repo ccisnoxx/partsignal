@@ -50,7 +50,7 @@ def retention_database(run_database):
         after = conn.execute("SELECT * FROM geo_answer_snapshots WHERE id=%s", (answer,)).fetchone()
         assert after == before
         assert conn.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "0066_geo_manual_evaluation",
+            "0070_geo_citation_observation",
         )
     yield value
 
@@ -116,6 +116,10 @@ def draft(db, *, age=30, terminal=True, screenshot=None):
         if terminal:
             conn.execute("UPDATE geo_observation_runs SET status='CANCELLED', "
                          "finished_at=clock_timestamp(), revision=revision+1 WHERE id=%s", (run,))
+            conn.execute("""INSERT INTO geo_manual_run_cancellations
+                (run_id,cancelled_by,cancelled_at,reason,run_revision,draft_revision)
+                SELECT id,%s,finished_at,'终态草稿保留夹具',revision,1
+                FROM geo_observation_runs WHERE id=%s""", (db.runs.plan.actor, run))
     return run
 
 

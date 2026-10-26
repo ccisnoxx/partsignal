@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { BatchSummary, RunDetail } from './run-detail';
 import { detail, summary } from './runs.test-support';
 describe('不可变运行证据', () => {
-  it('保留原文、原始引用全部位置、完整批次汇总与未实现区段；HTML 不执行', () => {
+  it('保留原文、原始引用全部位置、完整批次汇总与质量说明；HTML 不执行', () => {
     const { container } = render(
       <>
         <BatchSummary summary={summary()} />
@@ -16,7 +16,8 @@ describe('不可变运行证据', () => {
     expect(screen.getByText('1 / 1, 3')).toBeVisible();
     expect(screen.getByRole('link', { name: '规格引用' })).toHaveAttribute('rel', 'noopener noreferrer');
     expect(screen.getByText(/费用已知：1 次；未知：3 次/)).toHaveTextContent('0.12 USD');
-    expect(screen.getByText(/评估：NOT_IMPLEMENTED/)).toBeVisible();
+    expect(screen.getByText('通用资格：已排除')).toBeVisible();
+    expect(screen.getByText('费用覆盖').nextElementSibling).toHaveTextContent('未知，不计为零');
     expect(screen.queryByRole('button', { name: '人工录入' })).not.toBeInTheDocument();
   });
   it('usage独立显示零/null和实际费用，429与发送事实可追溯', () => {

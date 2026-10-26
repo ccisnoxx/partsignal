@@ -15,5 +15,5 @@
     "strict": true,
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "playwright.config.ts", "tests/e2e"]
+  "include": ["vite.config.ts", "playwright.config.ts", "tests/e2e", "src/domains/geo-runs/runs.test-support.ts"]
 }

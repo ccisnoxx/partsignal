@@ -7,7 +7,11 @@ from uuid import UUID
 from pydantic import AwareDatetime, Field, StrictBool, model_validator
 
 from app.schemas.base import ContractModel
-from app.schemas.geo_answers import GeoAnswerCitationInput, GeoRawPayloadSummary
+from app.schemas.geo_answers import (
+    GeoAnswerCitationInput,
+    GeoCitationObservation,
+    GeoRawPayloadSummary,
+)
 from app.schemas.geo_prompt_variants import Revision
 from app.schemas.geo_run_workflow import GeoRunWorkflowProjection
 from app.schemas.geo_runs import GeoRunInputSnapshot, Sha256
@@ -39,10 +43,16 @@ class GeoManualObservationDraft(ContractModel):
     raw_payload_file_id: UUID | None = None
     screenshot_file_id: UUID | None = None
     citations: list[GeoManualCitationInput] = Field(default_factory=list, max_length=1000)
+    citation_observation: GeoCitationObservation | None = Field(
+        default=None,
+        description="草稿可未记录；新人工正式提交必须显式声明。旧请求仅可原样重放已有幂等回执，不补造观察事实。",
+    )
     collected_at: AwareDatetime | None = None
 
     @model_validator(mode="after")
     def distinct_citation_positions(self) -> Self:
+        if self.citation_observation is not None:
+            self.citation_observation.validate_citation_count(len(self.citations))
         if len({value.position for value in self.citations}) != len(self.citations):
             raise ValueError("引用的实际位置不能重复")
         return self

@@ -12,6 +12,7 @@ from app.schemas.geo_monitoring_plans import (
     PlanName,
 )
 from app.schemas.geo_plan_preview import GeoMonitoringPlanPreview
+from app.schemas.geo_plan_schedules import GeoPlanScheduleRuntime
 
 
 class GeoPlanAction(StrEnum):
@@ -51,7 +52,9 @@ class GeoPlanDeletion(ContractModel):
 
 class GeoPlanRunEntry(ContractModel):
     available: Literal[False]
-    reason_code: Literal["UI_NOT_IMPLEMENTED", "GEO_PLAN_CRON_UNSUPPORTED"]
+    reason_code: Literal[
+        "UI_NOT_IMPLEMENTED", "GEO_PLAN_CRON_UNSUPPORTED", "SCHEDULED_AUTOMATICALLY"
+    ]
 
 
 class GeoMonitoringPlanCopy(GeoMonitoringPlanRevisionRequest):
@@ -59,6 +62,7 @@ class GeoMonitoringPlanCopy(GeoMonitoringPlanRevisionRequest):
 
 
 class GeoMonitoringPlanDetail(GeoMonitoringPlanOut):
+    schedule: GeoPlanScheduleRuntime | None
     preview: GeoMonitoringPlanPreview
     workflow_stage: GeoPlanWorkflowStage
     primary_task: GeoPlanPrimaryTask

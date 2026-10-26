@@ -19,7 +19,12 @@ from app.schemas.geo_insight_details import (
     QualityCode,
 )
 from app.schemas.geo_insights import GeoOverviewDataQuality, GeoOverviewFilters, OverviewMetric
-from app.services.geo_overview import QUALITY_CODES, _generic_reasons, _quality, _quality_card
+from app.services.geo_overview import (
+    QUALITY_CODES,
+    _quality,
+    _quality_card,
+    generic_exclusion_reasons,
+)
 from app.services.geo_overview_queries import OverviewInput, load_inputs
 
 
@@ -152,7 +157,7 @@ def list_quality_runs(db: Session, request: GeoInsightQualityFilters) -> GeoInsi
     values = []
     for source in inputs:
         run = source.metric
-        reasons = _generic_reasons(source, filters)
+        reasons = generic_exclusion_reasons(source, filters)
         if request.quality_code in QUALITY_CODES:
             part = quality[cast(OverviewMetric, request.quality_code)][run.run_id]
             numerator, denominator = part.numerator, part.denominator

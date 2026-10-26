@@ -52,7 +52,7 @@ def test_receipt_migration_metadata_database_uniqueness_and_immutable_history(ap
         for sql in (
             "UPDATE geo_opportunity_evaluation_runs SET receipt='{}'",
             "DELETE FROM geo_opportunity_evaluation_runs",
-            "TRUNCATE geo_opportunity_evaluation_runs",
+            "TRUNCATE geo_opportunity_evaluation_runs CASCADE",
         ):
             with pytest.raises(DBAPIError) as immutable:
                 db.execute(text(sql))
@@ -80,5 +80,5 @@ def test_receipt_migration_metadata_database_uniqueness_and_immutable_history(ap
         capture_output=True,
         text=True,
     )
-    assert result.returncode != 0 and "0066 管理员评估回执须保留" in result.stderr
+    assert result.returncode != 0 and "0069人工取消历史须保留" in result.stderr
     assert post(api, payload(api)).status_code == 200

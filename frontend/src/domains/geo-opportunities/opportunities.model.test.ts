@@ -1,3 +1,4 @@
+import { opportunityExportUrl } from './opportunities.model';
 import { describe, expect, it } from 'vitest';
 import { decisionFormSchema, dismissFormSchema, fromUtcInput, isCanonicalOpportunitySearch, opportunitySearchSchema, opportunitySearchToParams, sourceSearchToParams, toUtcInput } from './opportunities.model';
 import { opportunityId, retestId } from './opportunities.test-support';
@@ -36,4 +37,15 @@ describe('GEO 机会 URL 与原因合同', () => {
     expect(decisionFormSchema.safeParse({ resolution_code: ' ', resolution_comment: '处理依据' }).success).toBe(false);
     expect(decisionFormSchema.parse({ resolution_code: ' MANUAL ', resolution_comment: ' 已核对 ' })).toEqual({ resolution_code: 'MANUAL', resolution_comment: '已核对' });
   });
+  it('CSV URL保留全部机会筛选及来源微秒，丢弃分页、详情和自由字段', () => {
+    const scope = { date_from: '2026-10-01T00:00:00.000001+08:00', date_to: '2026-10-01T00:00:00.000002+08:00', review_policy: 'REVIEWED_ONLY' as const };
+    const search = opportunitySearchSchema.parse({ source_scope: scope, q: '待核对', status: 'DISMISSED', priority: 'HIGH', collection_mode: 'MANUAL', created_from: '2026-10-01T00:00:00Z', sort: 'LAST_SEEN_DESC', page: 99, page_size: 10, opportunity_id: opportunityId, source_page: 2, retest_batch_id: retestId, fields: 'private' });
+    const url = new URL(opportunityExportUrl(search));
+    expect(url.pathname).toBe('/api/v1/geo/opportunities/export.csv');
+    expect(JSON.parse(url.searchParams.get('source_scope')!)).toMatchObject(scope);
+    expect(url.searchParams.get('status')).toBe('DISMISSED'); expect(url.searchParams.get('sort')).toBe('LAST_SEEN_DESC');
+    expect(url.searchParams.get('q')).toBe('待核对'); expect(url.searchParams.get('collection_mode')).toBe('MANUAL');
+    for (const field of ['page', 'page_size', 'opportunity_id', 'source_page', 'retest_batch_id', 'fields']) expect(url.searchParams.has(field)).toBe(false);
+  });
+
 });

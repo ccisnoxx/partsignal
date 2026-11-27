@@ -5,8 +5,8 @@ import { approvedReturnTo } from './return-to';
 describe('approvedReturnTo', () => {
   it.each([
     '/',
-    '/tasks?page=2#results',
-    '/configuration/platforms?platform=00000000-0000-4000-8000-000000000001',
+    '/content/tasks?page=2#results',
+    '/settings/platforms?page=2',
   ])('保留安全站内地址 %s', (href) => {
     expect(approvedReturnTo(href)).toBe(href);
   });

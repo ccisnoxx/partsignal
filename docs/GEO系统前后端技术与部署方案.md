@@ -144,7 +144,7 @@ DMIT 继续只承担公网入口、SNI 分流、PROXY Protocol 和线路优化�
 |---|---|---|
 | 框架 | React + TypeScript | 适合复杂表单、审核和内容工作台 |
 | 构建 | Vite | 输出 production artifact，由 canonical frontend Nginx 镜像提供 |
-| 路由 | TanStack Router | typed route、search state 与 legacy redirect |
+| 路由 | TanStack Router | typed route 与 search state |
 | 服务端状态 | TanStack Query | 请求缓存、失效、轮询和错误状态 |
 | UI 组件 | shadcn/ui + Base UI + Tailwind CSS | 可访问 primitives、表格、表单、Dialog、Sheet 与工作台 |
 | 表单 | React Hook Form + Zod | 表单状态、契约校验和服务端字段错误映射 |

@@ -578,14 +578,6 @@ class GeoQuestionCoverageGapBasis(ContractModel):
     item: GeoInsightCoverageItem
 
 
-class DashboardSummary(ContractModel):
-    pending_fact_reviews: int = Field(ge=0)
-    pending_content_reviews: int = Field(ge=0)
-    pending_publications: int = Field(ge=0)
-    open_publication_issues: int = Field(ge=0)
-    recent_accuracy_errors: int = Field(ge=0)
-
-
 class UploadIntentCreate(ContractModel):
     category: Literal["EVIDENCE", "OPERATION_SCREENSHOT", "PUBLICATION_ASSET", "PLATFORM_LOGO"]
     original_filename: str

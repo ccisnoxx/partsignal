@@ -2239,22 +2239,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/geo-metrics": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getGeoMetrics"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/geo-insights": {
         parameters: {
             query?: never;
@@ -2263,22 +2247,6 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getGeoInsights"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/dashboard/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getDashboardSummary"];
         put?: never;
         post?: never;
         delete?: never;
@@ -7799,13 +7767,6 @@ export interface components {
             question_coverage: components["schemas"]["GeoInsightQuestionCoverage"];
             recommendations: components["schemas"]["GeoInsightRecommendation"][];
             data_quality: components["schemas"]["GeoInsightDataQuality"];
-        };
-        DashboardSummary: {
-            pending_fact_reviews: number;
-            pending_content_reviews: number;
-            pending_publications: number;
-            open_publication_issues: number;
-            recent_accuracy_errors: number;
         };
         WorkbenchLink: {
             label: string;
@@ -23385,51 +23346,6 @@ export interface operations {
             422: components["responses"]["ErrorResponse"];
         };
     };
-    getGeoMetrics: {
-        parameters: {
-            query?: {
-                date_from?: string;
-                date_to?: string;
-                observation_kind?: "LEGACY_MODEL_RESULT" | "MANUAL_ARTICLE_SEARCH";
-                product_id?: string;
-                search?: string;
-                query_topic_id?: string;
-                model_name?: string;
-                search_platform?: string;
-                publication_search?: string;
-                discovered?: boolean;
-                mentioned?: boolean;
-                recommendation?: "NONE" | "CANDIDATE" | "RECOMMENDED";
-                has_citation?: boolean;
-                accuracy?: components["schemas"]["AccuracyStatus"];
-                recorder_search?: string;
-                only_mine?: boolean;
-                include_history?: boolean;
-            };
-            header?: {
-                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 与观测列表筛选范围一致的 GEO 指标 */
-            200: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GeoMetrics"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
     getGeoInsights: {
         parameters: {
             query?: {
@@ -23465,32 +23381,6 @@ export interface operations {
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
-        };
-    };
-    getDashboardSummary: {
-        parameters: {
-            query?: never;
-            header?: {
-                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 需要行动的工作台摘要 */
-            200: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DashboardSummary"];
-                };
-            };
-            400: components["responses"]["ErrorResponse"];
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
         };
     };
     getWorkbench: {

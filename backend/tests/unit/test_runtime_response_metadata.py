@@ -397,10 +397,8 @@ WAVE_3_OPERATION_IDS = (
     "deleteGeoObservation",
     "listGeoObservationPublications",
     "createGeoObservation",
-    "getGeoMetrics",
     "getGeoInsights",
     "createGeoOptimizationContentTask",
-    "getDashboardSummary",
     "getWorkbench",
 )
 
@@ -446,10 +444,8 @@ WAVE_3_GROUPS = {
         "deleteGeoObservation",
         "listGeoObservationPublications",
         "createGeoObservation",
-        "getGeoMetrics",
         "getGeoInsights",
         "createGeoOptimizationContentTask",
-        "getDashboardSummary",
     },
     "workbench": {"getWorkbench"},
 }
@@ -507,10 +503,8 @@ WAVE_3_EXPECTED_STATUSES = {
     "deleteGeoObservation": {"204", "401", "403", "404", "409", "422"},
     "listGeoObservationPublications": {"200", "401", "403", "404", "422"},
     "createGeoObservation": {"201", "401", "403", "404", "409", "422"},
-    "getGeoMetrics": {"200", "401", "403", "422"},
     "getGeoInsights": {"200", "401", "403", "404", "409", "422"},
     "createGeoOptimizationContentTask": {"201", "401", "403", "404", "409", "422"},
-    "getDashboardSummary": {"200", "401", "403"},
     "getWorkbench": {"200", "401", "403", "409"},
 }
 
@@ -648,9 +642,9 @@ def test_runtime_request_context_covers_all_operations_and_responses() -> None:
     runtime = app.openapi()
     operations = _operation_map(runtime)
 
-    assert len(operations) == 318
-    assert len(set(operations)) == 318
-    assert sum(len(operation["responses"]) for operation in operations.values()) == 2066
+    assert len(operations) == 316
+    assert len(set(operations)) == 316
+    assert sum(len(operation["responses"]) for operation in operations.values()) == 2057
     parameter_ref = {"$ref": "#/components/parameters/RequestIdHeader"}
     header_ref = {"$ref": "#/components/headers/RequestIdResponseHeader"}
     parameter_schema = {
@@ -689,9 +683,9 @@ def test_runtime_request_context_merge_does_not_change_route_metadata() -> None:
     augmented = app.openapi()
     stripped = _strip_request_context_metadata(augmented)
 
-    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1748
+    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1741
     assert (
-        sum(len(operation["responses"]) for operation in _operation_map(stripped).values()) == 1748
+        sum(len(operation["responses"]) for operation in _operation_map(stripped).values()) == 1741
     )
     # 安装版本的 FastAPI 省略 None 默认；这里只移除已声明且显式恢复的 nullable annotation。
     raw_settings = raw["components"]["schemas"]["GeoApiSettings"]["properties"]
@@ -773,17 +767,17 @@ def test_wave_3_inventory_is_complete_and_disjoint(
     wave_operations: tuple[dict[str, Any], dict[str, Any]],
 ) -> None:
     contract, runtime = wave_operations
-    assert len(WAVE_3_OPERATION_IDS) == 43
-    assert len(set(WAVE_3_OPERATION_IDS)) == 43
+    assert len(WAVE_3_OPERATION_IDS) == 41
+    assert len(set(WAVE_3_OPERATION_IDS)) == 41
     assert {name: len(ids) for name, ids in WAVE_3_GROUPS.items()} == {
         "publication": 30,
-        "observation": 12,
+        "observation": 10,
         "workbench": 1,
     }
     assert set().union(*WAVE_3_GROUPS.values()) == set(WAVE_3_OPERATION_IDS)
     assert set(WAVE_3_EXPECTED_STATUSES) == set(WAVE_3_OPERATION_IDS)
     all_wave_ids = set(WAVE_1_OPERATION_IDS) | set(WAVE_2_OPERATION_IDS) | set(WAVE_3_OPERATION_IDS)
-    assert len(all_wave_ids) == 164
+    assert len(all_wave_ids) == 162
     assert not set(WAVE_1_OPERATION_IDS) & set(WAVE_2_OPERATION_IDS)
     assert not set(WAVE_1_OPERATION_IDS) & set(WAVE_3_OPERATION_IDS)
     assert not set(WAVE_2_OPERATION_IDS) & set(WAVE_3_OPERATION_IDS)
@@ -839,7 +833,6 @@ def test_wave_3_success_occurrences_and_response_boundaries(
     } == {
         "listPublicationReadyItems",
         "getPublicationWorkbenchSummary",
-        "getDashboardSummary",
         "getWorkbench",
     }
     success_occurrences = {
@@ -849,7 +842,7 @@ def test_wave_3_success_occurrences_and_response_boundaries(
         )
         for status_code in ("200", "201", "204")
     }
-    assert success_occurrences == {"200": 34, "201": 6, "204": 3}
+    assert success_occurrences == {"200": 32, "201": 6, "204": 3}
     error_occurrences = {
         status_code: sum(
             status_code in WAVE_3_EXPECTED_STATUSES[operation_id]
@@ -857,7 +850,7 @@ def test_wave_3_success_occurrences_and_response_boundaries(
         )
         for status_code in ("401", "403", "404", "409", "422")
     }
-    assert error_occurrences == {"401": 43, "403": 43, "404": 32, "409": 37, "422": 39}
+    assert error_occurrences == {"401": 41, "403": 41, "404": 32, "409": 37, "422": 38}
     for operation_id in WAVE_3_OPERATION_IDS:
         responses = runtime[operation_id]["responses"]
         assert all(

@@ -241,8 +241,8 @@ test('Auth production artifact 完成强制改密、自助改密、ENGINEER 403 
   await expect(page).toHaveURL('/login?redirect=%2Fsystem%2Fusers%3Fstatus%3DENABLED%26page%3D1%26pageSize%3D20');
   await expect(page.getByRole('heading', { level: 1, name: '登录' })).toBeVisible();
 
-  await page.goto('/change-password');
-  await expect(page).toHaveURL('/login?redirect=%2Fchange-password');
+  await page.goto('/account/security');
+  await expect(page).toHaveURL('/login?redirect=%2Faccount%2Fsecurity');
   await page.getByRole('textbox', { name: '用户名' }).fill(engineer.username);
   await page.getByLabel(/^密码/).fill(secondNewPassword);
   await page.getByRole('button', { name: '登录' }).click();

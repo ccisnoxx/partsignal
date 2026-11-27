@@ -1,14 +1,13 @@
-"""追加式 GEO 观测、可复算指标和工作台摘要接口。"""
+"""追加式 GEO 观测与文章关系洞察接口。"""
 
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime, timedelta
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Query, Request, status
 from pydantic import BeforeValidator
-from sqlalchemy import func, select
 
 from app.deps import (
     CsrfProtected,
@@ -17,17 +16,12 @@ from app.deps import (
     assert_account_types,
 )
 from app.errors import AppError, error_responses, not_found
-from app.models.content import ContentVersion
-from app.models.geo_files import GeoObservation
-from app.models.product_facts import FactVersion, Product
-from app.models.publication import PublicationWork
+from app.models.product_facts import Product
 from app.schemas.common import AccountType
 from app.schemas.content import ContentTaskOut
 from app.schemas.geo_files import (
-    DashboardSummary,
     GeoAccuracy,
     GeoInsights,
-    GeoMetrics,
     GeoObservationCorrectionContext,
     GeoObservationCreate,
     GeoObservationDetail,
@@ -59,9 +53,6 @@ from app.services.geo_observation import (
     get_geo_insights as get_geo_insights_service,
 )
 from app.services.geo_observation import (
-    get_geo_metrics as get_geo_metrics_service,
-)
-from app.services.geo_observation import (
     get_geo_observation as get_geo_observation_service,
 )
 from app.services.geo_observation import (
@@ -77,7 +68,6 @@ from app.services.geo_observation import (
     list_geo_observations as list_geo_observations_service,
 )
 from app.services.projections import content_task_out
-from app.services.publication_queries import NONTERMINAL_WORK_STATUSES, open_issue_count
 
 router = APIRouter(prefix="/api/v1", tags=["observation"])
 
@@ -348,21 +338,6 @@ def create_geo_observation(
 
 
 @router.get(
-    "/geo-metrics",
-    response_model=GeoMetrics,
-    operation_id="getGeoMetrics",
-    responses=error_responses(401, 403, 422),
-)
-def get_geo_metrics(
-    db: DbSession,
-    user: CurrentUser,
-    filters: Annotated[GeoObservationFilters, Depends(geo_observation_filters)],
-) -> GeoMetrics:
-    """从与列表相同的观测集合实时计算指标。"""
-    return get_geo_metrics_service(db, filters=filters, actor=user)
-
-
-@router.get(
     "/geo-insights",
     response_model=GeoInsights,
     operation_id="getGeoInsights",
@@ -404,50 +379,3 @@ def create_geo_optimization_task(
         idempotency_key=idempotency_key,
     )
     return content_task_out(db, task)
-
-
-@router.get(
-    "/dashboard/summary", response_model=DashboardSummary, operation_id="getDashboardSummary",
-    responses=error_responses(401, 403),
-)
-def get_dashboard_summary(db: DbSession, _user: CurrentUser) -> DashboardSummary:
-    since = datetime.now(UTC) - timedelta(days=30)
-    return DashboardSummary(
-        pending_fact_reviews=int(
-            db.scalar(
-                select(func.count())
-                .select_from(FactVersion)
-                .where(FactVersion.status == "PENDING_REVIEW")
-            )
-            or 0
-        ),
-        pending_content_reviews=int(
-            db.scalar(
-                select(func.count())
-                .select_from(ContentVersion)
-                .where(ContentVersion.status == "PENDING_REVIEW")
-            )
-            or 0
-        ),
-        pending_publications=int(
-            db.scalar(
-                select(func.count())
-                .select_from(PublicationWork)
-                .where(PublicationWork.status.in_(NONTERMINAL_WORK_STATUSES))
-            )
-            or 0
-        ),
-        open_publication_issues=open_issue_count(db),
-        recent_accuracy_errors=int(
-            db.scalar(
-                select(func.count())
-                .select_from(GeoObservation)
-                .where(
-                    GeoObservation.observation_kind == "LEGACY_MODEL_RESULT",
-                    GeoObservation.tested_at >= since,
-                    GeoObservation.accuracy.in_(["PARTIAL", "INCORRECT"]),
-                )
-            )
-            or 0
-        ),
-    )

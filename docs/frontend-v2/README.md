@@ -70,7 +70,7 @@ PartSignal 应从“后台管理系统”升级为“电子元器件内容生产
 
 当前 canonical `frontend/` 基线包含 React、TypeScript、Vite、TanStack Router、TanStack Query、TanStack Table、Tailwind CSS、shadcn/ui、Base UI、openapi-typescript 和 openapi-fetch。旧 Ant Design/React Router 前端源码与双前端 pipeline 已退役。
 
-当前 canonical 路由按 Workbench、Product、Content、Publishing、GEO、Configuration 和 System 组织；旧入口只通过显式 legacy redirect 进入 canonical route，不保留第二套 V1 页面。
+当前 canonical 路由按 Workbench、Product、Content、Publishing、GEO、Configuration 和 System 组织；V1 旧入口重定向兼容层已随迁移窗口结束退役，未知路径由根路由显式返回 404，不保留第二套 V1 页面。
 
 ## 6. 开发使用方式
 

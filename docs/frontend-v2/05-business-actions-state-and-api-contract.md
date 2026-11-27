@@ -289,8 +289,7 @@ resource_id ASC` 由服务端稳定排序。每项只返回 typed category、稳
 secret/token、请求载荷或审计 raw details。所有候选查询次数固定，禁止 item loop 查询、
 内部 HTTP join、Redis/cache 或通用 Dashboard/Workflow framework。
 
-旧 `GET /api/v1/dashboard/summary` 与 V1 Dashboard 原样保留到 Phase 9；它不是 V2
-Workbench 的数据来源，也不得与新 aggregate 在浏览器合并。
+旧 `GET /api/v1/dashboard/summary` 与 V1 Dashboard 已退役并从 OpenAPI 合同移除；Workbench `/` 仅消费 `GET /api/v1/workbench`。
 
 ## 16. Status Registry
 

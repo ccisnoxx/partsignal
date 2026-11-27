@@ -84,7 +84,7 @@ services:
 
   fake-oss:
     <<: *backend
-    command: [python, -m, app.files.fake_server]
+    command: [uvicorn, 'app.dev_storage:app', --host, 0.0.0.0, --port, '9000']
     ports:
       - 127.0.0.1:19001:9000
     volumes:

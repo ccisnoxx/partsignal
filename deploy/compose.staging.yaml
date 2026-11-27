@@ -58,7 +58,7 @@ services:
     image: ${PARTSIGNAL_BACKEND_IMAGE:-partsignal-backend}:${PARTSIGNAL_VERSION}
     build:
       context: ../backend
-    command: [python, -m, app.files.fake_server]
+    command: [uvicorn, 'app.dev_storage:app', --host, 0.0.0.0, --port, '9000']
     env_file: [../.env.staging]
     ports:
       - 127.0.0.1:19001:9000

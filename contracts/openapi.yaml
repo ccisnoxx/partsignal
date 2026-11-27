@@ -7080,117 +7080,6 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
-  /api/v1/geo-metrics:
-    get:
-      tags:
-      - observation
-      operationId: getGeoMetrics
-      parameters:
-      - name: date_from
-        in: query
-        schema:
-          type: string
-          format: date
-      - name: date_to
-        in: query
-        schema:
-          type: string
-          format: date
-      - name: observation_kind
-        in: query
-        schema:
-          type: string
-          enum:
-          - LEGACY_MODEL_RESULT
-          - MANUAL_ARTICLE_SEARCH
-      - name: product_id
-        in: query
-        schema:
-          type: string
-          format: uuid
-      - name: search
-        in: query
-        schema:
-          type: string
-          maxLength: 500
-      - name: query_topic_id
-        in: query
-        schema:
-          type: string
-          format: uuid
-      - name: model_name
-        in: query
-        schema:
-          type: string
-          maxLength: 160
-      - name: search_platform
-        in: query
-        schema:
-          type: string
-          maxLength: 160
-      - name: publication_search
-        in: query
-        schema:
-          type: string
-          maxLength: 500
-      - name: discovered
-        in: query
-        schema:
-          type: boolean
-      - name: mentioned
-        in: query
-        schema:
-          type: boolean
-      - name: recommendation
-        in: query
-        schema:
-          type: string
-          enum:
-          - NONE
-          - CANDIDATE
-          - RECOMMENDED
-      - name: has_citation
-        in: query
-        schema:
-          type: boolean
-      - name: accuracy
-        in: query
-        schema:
-          $ref: '#/components/schemas/AccuracyStatus'
-      - name: recorder_search
-        in: query
-        schema:
-          type: string
-          maxLength: 200
-      - name: only_mine
-        in: query
-        schema:
-          type: boolean
-          default: false
-      - name: include_history
-        in: query
-        schema:
-          type: boolean
-          default: false
-      - $ref: '#/components/parameters/RequestIdHeader'
-      responses:
-        '200':
-          description: 与观测列表筛选范围一致的 GEO 指标
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GeoMetrics'
-        '401':
-          $ref: '#/components/responses/ErrorResponse'
-        '403':
-          $ref: '#/components/responses/ErrorResponse'
-        '422':
-          $ref: '#/components/responses/ErrorResponse'
-        '400':
-          $ref: '#/components/responses/ErrorResponse'
   /api/v1/geo-insights:
     get:
       tags:
@@ -7252,29 +7141,6 @@ paths:
         '403':
           $ref: '#/components/responses/ErrorResponse'
         '409':
-          $ref: '#/components/responses/ErrorResponse'
-        '400':
-          $ref: '#/components/responses/ErrorResponse'
-  /api/v1/dashboard/summary:
-    get:
-      tags:
-      - observation
-      operationId: getDashboardSummary
-      parameters:
-      - $ref: '#/components/parameters/RequestIdHeader'
-      responses:
-        '200':
-          description: 需要行动的工作台摘要
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DashboardSummary'
-        '401':
-          $ref: '#/components/responses/ErrorResponse'
-        '403':
           $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
@@ -26752,31 +26618,6 @@ components:
             $ref: '#/components/schemas/GeoInsightRecommendation'
         data_quality:
           $ref: '#/components/schemas/GeoInsightDataQuality'
-    DashboardSummary:
-      type: object
-      additionalProperties: false
-      required:
-      - pending_fact_reviews
-      - pending_content_reviews
-      - pending_publications
-      - open_publication_issues
-      - recent_accuracy_errors
-      properties:
-        pending_fact_reviews:
-          type: integer
-          minimum: 0
-        pending_content_reviews:
-          type: integer
-          minimum: 0
-        pending_publications:
-          type: integer
-          minimum: 0
-        open_publication_issues:
-          type: integer
-          minimum: 0
-        recent_accuracy_errors:
-          type: integer
-          minimum: 0
     WorkbenchLink:
       type: object
       additionalProperties: false

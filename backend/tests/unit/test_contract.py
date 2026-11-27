@@ -53,9 +53,9 @@ def test_static_request_context_metadata_covers_all_operations_and_responses() -
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
     document = yaml.safe_load(contract.read_text(encoding="utf-8"))
     operations = operation_map(document)
-    assert len(operations) == 318
-    assert len({operation["operationId"] for operation in operations.values()}) == 318
-    assert sum(len(operation["responses"]) for operation in operations.values()) == 2066
+    assert len(operations) == 316
+    assert len({operation["operationId"] for operation in operations.values()}) == 316
+    assert sum(len(operation["responses"]) for operation in operations.values()) == 2057
 
     expected_parameter = {
         "name": "X-Request-ID",
@@ -115,7 +115,6 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
         ("200", "401", "403"): (
             "getAuditLogFilterOptions",
             "getCsrfToken",
-            "getDashboardSummary",
             "getPublicationWorkbenchSummary",
             "listPlatformPrompts",
             "listPlatformTypes",
@@ -136,7 +135,6 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "exportUsers",
             "getContentCampaignOptions",
             "getContentTaskCreationOptions",
-            "getGeoMetrics",
             "getGeoOpportunityEvaluationSchedule",
             "getWorkbenchInbox",
             "getWorkbenchOperationsMetrics",
@@ -464,7 +462,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
         if isinstance(operation, dict) and "operationId" in operation
     }
 
-    assert len(expected) == 318
+    assert len(expected) == 316
     assert set(operations) == set(expected)
     for operation_id, operation in operations.items():
         responses = operation["responses"]
@@ -484,7 +482,6 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
         "getAuthSession",
         "getCurrentUser",
         "getContentHumanizationPrompt",
-        "getDashboardSummary",
         "listPlatformPrompts",
         "listPlatformTypes",
         "listPublicationReadyItems",
@@ -492,8 +489,8 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
         "listWorkbenchAssignees",
         "getWorkbench",
     }
-    assert len(validation_free) == 15
-    assert sum("422" in statuses for statuses in expected.values()) == 303
+    assert len(validation_free) == 14
+    assert sum("422" in statuses for statuses in expected.values()) == 302
     assert {
         operation_id for operation_id, statuses in expected.items() if "422" not in statuses
     } == validation_free

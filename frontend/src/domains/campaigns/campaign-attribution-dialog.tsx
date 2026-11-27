@@ -11,12 +11,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/design-system/primitives/dialog';
+import { geoInterventionKeys } from '@/domains/geo-interventions/geo-intervention.api';
+import { GeoInterventionsSection } from '@/domains/geo-interventions/geo-interventions-section';
 import { CampaignCostEntriesSection } from './campaign-cost-entries-section';
-import {
-  campaignAttributionQueryOptions,
-  campaignInterventionsQueryOptions,
-  operationsDashboardKeys,
-} from './operations-attribution.api';
+import { campaignAttributionQueryOptions } from './operations-attribution.api';
 
 type CampaignAttributionDialogButtonProps = {
   campaignId: string;
@@ -72,9 +70,9 @@ function CampaignAttributionDialog({
   const queryClient = useQueryClient();
   const [windowDays, setWindowDays] = useState<number>(30);
   const [mutatingCost, setMutatingCost] = useState(false);
+  const [mutatingIntervention, setMutatingIntervention] = useState(false);
 
   const dashboard = useQuery(campaignAttributionQueryOptions(campaignId, windowDays));
-  const interventions = useQuery(campaignInterventionsQueryOptions(campaignId));
 
   const refreshAll = async () => {
     await Promise.all([
@@ -85,14 +83,14 @@ function CampaignAttributionDialog({
         queryKey: ['operations', 'campaign-cost-entries', campaignId],
       }),
       queryClient.invalidateQueries({
-        queryKey: operationsDashboardKeys.campaignInterventions(campaignId),
+        queryKey: geoInterventionKeys.byCampaign(campaignId),
       }),
     ]);
   };
 
   const data = dashboard.data;
   const canRecordCost = (data?.campaign_status ?? campaignStatus) !== 'ARCHIVED';
-  const busy = mutatingCost;
+  const busy = mutatingCost || mutatingIntervention;
 
   return (
     <Dialog onOpenChange={(next) => { if (!next && !busy) onClose(); }} open>
@@ -194,42 +192,16 @@ function CampaignAttributionDialog({
                 <StatCard label="自有域名引用率" value={formatPercent(data.geo_attribution.citation_rate)} />
                 <StatCard label="事实准确率" value={formatPercent(data.geo_attribution.accuracy_rate)} />
               </dl>
-              {interventions.isPending ? (
-                <p className="text-xs text-text-muted">正在加载关联 GEO 干预…</p>
-              ) : interventions.error && !interventions.data ? (
-                <div className="flex items-center justify-between gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-2 text-xs" role="alert">
-                  <span>
-                    {interventions.error instanceof Error ? interventions.error.message : '加载关联 GEO 干预失败'}
-                  </span>
-                  <Button onClick={() => void interventions.refetch()} size="sm" type="button" variant="outline">
-                    重试
-                  </Button>
-                </div>
-              ) : interventions.data && interventions.data.items.length > 0 ? (
-                <div className="space-y-1">
-                  {interventions.data.total > interventions.data.items.length && (
-                    <p className="text-xs text-text-muted">
-                      当前展示最近 {interventions.data.items.length} 条，共 {interventions.data.total} 条干预记录。
-                    </p>
-                  )}
-                  <ul className="space-y-1.5 rounded-lg border border-border-subtle p-3 text-xs">
-                    {interventions.data.items.map((item) => (
-                      <li className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle/60 pb-1.5 last:border-b-0 last:pb-0" key={item.id}>
-                        <div className="min-w-0">
-                          <p className="font-medium text-text-primary">{item.title}</p>
-                          <p className="text-text-muted">假设：{item.hypothesis}</p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          <Badge variant="outline">{item.status}</Badge>
-                          {item.outcome_verdict && <Badge variant="secondary">{item.outcome_verdict}</Badge>}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : (
-                <p className="text-xs text-text-muted">当前活动尚未关联 GEO 干预归因记录。</p>
-              )}
+              <GeoInterventionsSection
+                csrfToken={csrfToken}
+                onBusyChange={setMutatingIntervention}
+                scope={{
+                  kind: 'campaign',
+                  campaignId,
+                  campaignName,
+                  canCreate: canRecordCost,
+                }}
+              />
             </section>
 
             <section className="space-y-2">

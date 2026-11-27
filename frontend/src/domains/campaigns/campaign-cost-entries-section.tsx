@@ -4,10 +4,10 @@ import { useState } from 'react';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
 import { Input } from '@/design-system/primitives/input';
+import { geoInterventionKeys } from '@/domains/geo-interventions/geo-intervention.api';
 import {
   campaignCostEntriesQueryOptions,
   createOperatingCostEntry,
-  operationsDashboardKeys,
   voidOperatingCostEntry,
   type OperatingCostEntryCreate,
 } from './operations-attribution.api';
@@ -60,7 +60,7 @@ export function CampaignCostEntriesSection({
         queryKey: ['operations', 'campaign-cost-entries', campaignId],
       }),
       queryClient.invalidateQueries({
-        queryKey: operationsDashboardKeys.campaignInterventions(campaignId),
+        queryKey: geoInterventionKeys.byCampaign(campaignId),
       }),
     ]);
   };

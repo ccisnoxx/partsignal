@@ -19,6 +19,7 @@ import { OpportunityContentTask } from './opportunity-content-task';
 import { OpportunityRetest } from './opportunity-retest';
 import { OpportunityFactRevision } from './opportunity-fact-revision';
 import { OpportunityPublicationRepair } from './opportunity-publication-repair';
+import { OpportunityInterventionsDialogButton } from '@/domains/geo-interventions/geo-interventions-section';
 import { WorkAssignmentDialogButton } from '@/domains/workbench/work-assignment-control';
 
 export function OpportunityDrawer({ search, csrfToken, onChange, finalFocus, intent }: { search: OpportunitySearch; csrfToken: string | null; onChange: (search: OpportunitySearch) => void; finalFocus: () => HTMLElement | null; intent?: components['schemas']['GeoOpportunityAction'] }) {
@@ -45,12 +46,20 @@ export function OpportunityDrawer({ search, csrfToken, onChange, finalFocus, int
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="break-all font-mono text-xs text-text-tertiary">机会 ID：{search.opportunity_id}</p>
         {detail && (
-          <WorkAssignmentDialogButton
-            csrfToken={csrfToken}
-            onUpdated={() => void query.refetch()}
-            targetId={detail.opportunity.id}
-            targetType="GeoOpportunity"
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <OpportunityInterventionsDialogButton
+              csrfToken={csrfToken}
+              key={detail.opportunity.id}
+              opportunityId={detail.opportunity.id}
+              opportunityTitle={detail.opportunity.title}
+            />
+            <WorkAssignmentDialogButton
+              csrfToken={csrfToken}
+              onUpdated={() => void query.refetch()}
+              targetId={detail.opportunity.id}
+              targetType="GeoOpportunity"
+            />
+          </div>
         )}
       </div>
       {canRetryOpportunityRead(query.error) && <Button type="button" size="sm" variant="outline" disabled={query.isFetching} onClick={() => void query.refetch()}>刷新详情</Button>}

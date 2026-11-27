@@ -53,8 +53,6 @@ function requireCsrf(csrfToken: string | null, label: string): string {
 export const operationsDashboardKeys = {
   campaignAttribution: (campaignId: string, windowDays: number) =>
     ['operations', 'campaign-attribution', campaignId, windowDays] as const,
-  campaignInterventions: (campaignId: string) =>
-    ['operations', 'campaign-interventions', campaignId] as const,
   campaignCostEntries: (campaignId: string, includeVoided: boolean) =>
     ['operations', 'campaign-cost-entries', campaignId, includeVoided] as const,
   workbenchMetrics: (windowDays: number) =>
@@ -71,20 +69,6 @@ export function campaignAttributionQueryOptions(campaignId: string, windowDays: 
         params: { path: { campaign_id: campaignId }, query: { window_days: windowDays } },
       });
       if (!result.data) throw requestError('加载活动归因看板', result);
-      return result.data;
-    },
-  });
-}
-
-export function campaignInterventionsQueryOptions(campaignId: string) {
-  return queryOptions({
-    queryKey: operationsDashboardKeys.campaignInterventions(campaignId),
-    retry: false,
-    queryFn: async (): Promise<GeoInterventionListPage> => {
-      const result = await api.GET('/api/v1/geo/interventions', {
-        params: { query: { campaign_id: campaignId, page: 1, page_size: 20 } },
-      });
-      if (!result.data) throw requestError('加载关联 GEO 干预', result);
       return result.data;
     },
   });

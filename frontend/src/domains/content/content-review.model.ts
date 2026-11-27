@@ -17,13 +17,6 @@ const requestChangesSchema = z.object({
 
 type RequestChangesValues = z.infer<typeof requestChangesSchema>;
 
-function contentReviewErrorKind(error: unknown): 'not-found' | 'forbidden' | 'generic' {
-  if (!(error instanceof ContentRequestError)) return 'generic';
-  if (error.status === 404) return 'not-found';
-  if (error.status === 403) return 'forbidden';
-  return 'generic';
-}
-
 function mapContentReviewCommandError(error: unknown) {
   if (!(error instanceof ContentRequestError) || !error.detail) {
     return {
@@ -143,7 +136,6 @@ function replaceCanonicalContentVersion(
 }
 
 export {
-  contentReviewErrorKind,
   contentReviewTimelineItems,
   mapContentReviewCommandError,
   replaceCanonicalContentVersion,

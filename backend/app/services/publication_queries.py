@@ -413,15 +413,6 @@ def _work_context_query() -> Any:
     )
 
 
-def _latest_verification(db: Session, work_id: uuid.UUID) -> PublicationVerification | None:
-    return db.scalar(
-        select(PublicationVerification)
-        .where(PublicationVerification.publication_work_id == work_id)
-        .order_by(PublicationVerification.created_at.desc(), PublicationVerification.id.desc())
-        .limit(1)
-    )
-
-
 def _work_list_item(
     row: Row[Any],
     latest_verification: PublicationVerification | None,

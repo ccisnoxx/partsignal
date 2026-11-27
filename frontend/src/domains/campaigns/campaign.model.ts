@@ -56,17 +56,6 @@ const campaignPrimaryTaskLabels = {
   VIEW_HISTORY: '查看历史',
 } satisfies Record<ContentCampaignPrimaryTask, string>;
 
-const campaignActionLabels = {
-  UPDATE: '编辑活动',
-  ACTIVATE: '激活',
-  PAUSE: '暂停',
-  RESUME: '恢复',
-  COMPLETE: '标记完成',
-  ARCHIVE: '归档',
-  DELETE: '删除草稿',
-  PLAN_TASKS: '新建关联任务',
-} satisfies Record<ContentCampaignAction, string>;
-
 function normalizeSearchText(value: unknown) {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
@@ -282,7 +271,6 @@ function formatRatePercent(value: number | null | undefined) {
 }
 
 export {
-  campaignActionLabels,
   campaignFormSchema,
   campaignPrimaryTaskLabels,
   campaignStatusRegistry,

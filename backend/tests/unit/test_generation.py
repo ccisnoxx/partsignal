@@ -34,7 +34,6 @@ from app.services.generation import (
     ensure_humanization_egress_allowed,
     ensure_third_party_egress_allowed,
     generation_timeout_seconds,
-    text_similarity,
 )
 
 FACT_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
@@ -921,10 +920,8 @@ def test_generation_lease_rejects_invalid_snapshot_timeout(timeout: object) -> N
         generation_timeout_seconds(input_data)
 
 
-def test_content_hash_and_similarity_remain_deterministic() -> None:
+def test_content_hash_remains_deterministic() -> None:
     first_hash = content_hash("标题", "摘要", "正文", ["标签"])
     second_hash = content_hash("标题", "摘要", "正文", ["标签"])
 
     assert first_hash == second_hash
-    assert text_similarity("产品参数说明。", "产品参数说明！") >= 0.85
-    assert text_similarity("产品参数说明。", "另一内容。") < 0.85

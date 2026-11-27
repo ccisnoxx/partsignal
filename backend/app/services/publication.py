@@ -203,14 +203,6 @@ def get_publishable_content_readonly(db: Session, content_id: uuid.UUID) -> Cont
     return content
 
 
-def require_publishable(db: Session, content_id: uuid.UUID) -> ContentVersion:
-    """读取可发布内容，并重新校验任务仍处于开放状态。"""
-    content, task = _lock_approved_publication_context(db, content_id)
-    if task.status != "OPEN":
-        raise AppError("INVALID_STATE_TRANSITION", "终态内容任务不能开始新发布", 409)
-    return content
-
-
 def _platform_account_identifier_exists(
     db: Session,
     *,

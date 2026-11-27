@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import re
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, Protocol
@@ -36,7 +35,6 @@ from app.schemas.content import (
     GenerationSnapshotV4,
     HumanizationSnapshot,
     MarkdownGenerationSnapshotV2,
-    QualityIssue,
 )
 from app.schemas.geo_files import GeneratedDraft
 from app.services.ai_configuration import (
@@ -53,8 +51,6 @@ logger = logging.getLogger("partsignal.worker")
 GENERATION_CONTRACT_VERSION: Literal["content-markdown-v3"] = "content-markdown-v3"
 GENERATION_CONTRACT_VERSION_V4: Literal["content-markdown-v4"] = "content-markdown-v4"
 HUMANIZATION_CONTRACT_VERSION: Literal["humanization-markdown-v2"] = "humanization-markdown-v2"
-TEXT_CHARACTER_PATTERN = re.compile(r"[\W_]+", re.UNICODE)
-NEAR_DUPLICATE_THRESHOLD = 0.85
 GenerationSnapshotRead = (
     MarkdownGenerationSnapshotV2 | GenerationSnapshot | GenerationSnapshotV4
 )
@@ -150,58 +146,6 @@ def content_hash(title: str, summary: str, body_markdown: str, tags: list[str]) 
         separators=(",", ":"),
     ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
-
-
-def text_similarity(left: str, right: str) -> float:
-    """使用字符三元组比较中英文正文，避免分词依赖和语言偏差。"""
-
-    def trigrams(value: str) -> set[str]:
-        normalized = TEXT_CHARACTER_PATTERN.sub("", value.casefold())
-        if len(normalized) < 3:
-            return {normalized} if normalized else set()
-        return {normalized[index : index + 3] for index in range(len(normalized) - 2)}
-
-    left_tokens = trigrams(left)
-    right_tokens = trigrams(right)
-    if not left_tokens and not right_tokens:
-        return 1.0
-    if not left_tokens or not right_tokens:
-        return 0.0
-    return len(left_tokens & right_tokens) / len(left_tokens | right_tokens)
-
-
-def add_near_duplicate_warning(
-    db: Session,
-    task: ContentTask,
-    draft: GeneratedDraft,
-    issues: list[dict[str, str]],
-) -> None:
-    """对同产品同平台的其他任务提示近重复内容，不阻断草稿创建。"""
-    candidate_text = "\n".join((draft.title, draft.summary, draft.body_markdown))
-    existing_versions = db.execute(
-        select(ContentVersion.title, ContentVersion.summary, ContentVersion.body_markdown)
-        .join(ContentTask, ContentTask.id == ContentVersion.task_id)
-        .where(
-            ContentTask.product_id == task.product_id,
-            ContentTask.platform_profile_id == task.platform_profile_id,
-            ContentTask.id != task.id,
-        )
-    ).all()
-    highest_similarity = max(
-        (
-            text_similarity(candidate_text, "\n".join((title, summary, body_markdown)))
-            for title, summary, body_markdown in existing_versions
-        ),
-        default=0.0,
-    )
-    if highest_similarity >= NEAR_DUPLICATE_THRESHOLD:
-        issues.append(
-            QualityIssue(
-                code="NEAR_DUPLICATE_CONTENT",
-                severity="WARNING",
-                message=f"与同产品同平台既有内容相似度为 {highest_similarity:.0%}",
-            ).model_dump()
-        )
 
 
 def validate_generation_context(

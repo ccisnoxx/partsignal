@@ -80,6 +80,8 @@ runtime 文件使用单行 literal `KEY=value`，不使用引号、内联注释�
 
 API、Worker、Scheduler 的 Compose backend 定义共享同一 env 文件，固定 `APP_ENV=production`，应用共用 `app.config.settings`，Beat 通过相同 `app.worker:celery_app` 启动。Browser 输入保留原值并明确失败，不覆盖为 false 掩盖错误。开关是进程启动快照，修改 env 文件后必须通过受控部署统一重建三个进程；不是热重载，也不能撤回已发请求。采集任务仍需在外部调用前执行开关与资格门禁。
 
+Scheduler 的仓库资源配置为 `cpus: 0.5`、`mem_limit: 256m`。容量预算必须包含常驻 beat 与每轮独立 Python 健康检查的并存开销；健康检查仍为 30 秒间隔、15 秒超时。低驻留内存或短期 healthy 不能替代 OOM 证据，需核对 cgroup 内存、有效swap额度、OOM 和重启增量。正常发布继续使用候选与部署流程；现有容器资源动态调整的范围、观察和回退见[专项方案](../.trellis/tasks/10-24-scheduler-memory-budget/online-memory-change-plan.md)，当前仅方案，执行需另有明确授权，不以独立AMD64测试机为前提。动态更新不修改Compose或旧release/manifest，容器按旧配置重建时可能恢复旧限额；须记录运行时差异并在后续正常候选中纳入目标值。当前仓库值和ARM64短测均不证明线上已调整或验收完成。
+
 GEO-1003 的生产部署、激活和前端回滚脚本在取得维护锁、改变部署状态或调用 Compose 前执行 `check-production-inputs.py --deployment-boundary <runtime_file>`。该模式只依赖 Python 标准库，并检查 runtime 与宿主环境：Browser 必须省略或 literal false；拒绝所有 Browser 会话材料；`COMPOSE_PROFILES` 只允许空值或 `production-async`；`COMPOSE_FILE` 只允许权威 `deploy/compose.prod.yaml`，拒绝 Browser/service-session overlay 和多文件组合。runtime 仍须符合普通文件、当前用户所有和 0600 合同。该模式不替代完整输入检查或 backend preflight。
 
 权威 production Compose 不包含 Browser service/profile/session 卷；显式 `geo-browser`、`COMPOSE_PROFILES=geo-browser` 或 `--profile '*'` 展开也不会产生 Browser 服务。两个 Browser Compose 文件仅作为隔离历史资产保留，不被 Dev/Staging/Prod 默认入口引用。禁止通过手工多文件 Compose 绕过权威部署入口；GEO-801～803 历史源码和合同继续保留，当前不安装、启用或部署。release manifest producer/consumer 当前固定14项tracked files，包含输入检查、迁移运行时、部署/supervisor模块与清空边界owner；旧manifest不自动兼容。[ADR-008](./geo-monitoring/05-decisions/ADR-008-manual-pilot-ui-first-delivery-and-candidate-ownership.md)将UI完成后新候选的门禁、工件和冻结归属GEO-1010-DEPLOY；目标Browser零服务/零会话材料仍须独立现场证据。

@@ -64,8 +64,8 @@ services:
     profiles: [production-async]
     command: [celery, -A, 'app.worker:celery_app', beat, --loglevel=INFO, --schedule, /tmp/partsignal-celerybeat, --pidfile=/tmp/partsignal-beat.pid]
     restart: unless-stopped
-    mem_limit: 192m
-    cpus: 0.25
+    mem_limit: 256m
+    cpus: 0.5
     healthcheck:
       test: [CMD, python, -m, app.geo_observability, health, scheduler]
       interval: 30s

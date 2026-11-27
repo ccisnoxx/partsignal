@@ -19,6 +19,7 @@ import { OpportunityContentTask } from './opportunity-content-task';
 import { OpportunityRetest } from './opportunity-retest';
 import { OpportunityFactRevision } from './opportunity-fact-revision';
 import { OpportunityPublicationRepair } from './opportunity-publication-repair';
+import { WorkAssignmentDialogButton } from '@/domains/workbench/work-assignment-control';
 
 export function OpportunityDrawer({ search, csrfToken, onChange, finalFocus, intent }: { search: OpportunitySearch; csrfToken: string | null; onChange: (search: OpportunitySearch) => void; finalFocus: () => HTMLElement | null; intent?: components['schemas']['GeoOpportunityAction'] }) {
   const query = useQuery(opportunityDetailOptions(search));
@@ -41,7 +42,18 @@ export function OpportunityDrawer({ search, csrfToken, onChange, finalFocus, int
   }
   return <Sheet open={Boolean(search.opportunity_id)} onOpenChange={(open) => { if (!open) { setPrivacyFailure(undefined); change({ opportunity_id: undefined, source_page: undefined, source_page_size: undefined, retest_batch_id: undefined }); } }}><SheetContent finalFocus={finalFocus} size="2xl"><SheetHeader><SheetTitle>机会详情与历史证据</SheetTitle><SheetDescription>首次触发、关联评估和来源证据分别保存；关闭机会后仍可读取。</SheetDescription></SheetHeader>
     <SheetBody className="space-y-5">
-      <p className="break-all font-mono text-xs text-text-tertiary">机会 ID：{search.opportunity_id}</p>{canRetryOpportunityRead(query.error) && <Button type="button" size="sm" variant="outline" disabled={query.isFetching} onClick={() => void query.refetch()}>刷新详情</Button>}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="break-all font-mono text-xs text-text-tertiary">机会 ID：{search.opportunity_id}</p>
+        {detail && (
+          <WorkAssignmentDialogButton
+            csrfToken={csrfToken}
+            onUpdated={() => void query.refetch()}
+            targetId={detail.opportunity.id}
+            targetType="GeoOpportunity"
+          />
+        )}
+      </div>
+      {canRetryOpportunityRead(query.error) && <Button type="button" size="sm" variant="outline" disabled={query.isFetching} onClick={() => void query.refetch()}>刷新详情</Button>}
       {query.isFetching && <p className="text-xs text-text-secondary" role="status">{query.data ? '正在刷新机会证据…' : '正在读取机会证据…'}</p>}{query.error && <OpportunityReadFailure evidence error={query.error} retained={Boolean(query.data)} onRetry={() => void query.refetch()} />}
       {privateError && !query.error && <OpportunityReadFailure error={privateError} onRetry={() => {}} />}
       {search.opportunity_id && <OpportunityCommands opportunityId={search.opportunity_id} opportunity={detail?.opportunity} key={search.opportunity_id} csrfToken={csrfToken} blocked={Boolean(query.error) || query.isFetching || !detail} intent={intent} onReload={reload} onDenied={(error) => setPrivacyFailure({ id: search.opportunity_id!, error })} />}

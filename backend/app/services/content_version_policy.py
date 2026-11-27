@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models.ai_generation import GenerationJob
 from app.models.content import ContentReviewRecord, ContentVersion
+from app.models.content_quality import ContentQualityCheckJob
 from app.models.publication import PublicationVerification, PublicationWork, PublicationWorkEvent
 
 ContentVersionReference = tuple[str, str, int]
@@ -88,6 +89,19 @@ def content_version_delete_references(
             )
             .where(PublicationVerification.content_version_id.in_(version_ids))
             .group_by(PublicationVerification.content_version_id),
+        ),
+        (
+            "SEMANTIC_QUALITY_CHECK_JOB",
+            "进行中的 AI 语义质量检查作业",
+            select(
+                ContentQualityCheckJob.content_version_id,
+                func.count(ContentQualityCheckJob.id),
+            )
+            .where(
+                ContentQualityCheckJob.content_version_id.in_(version_ids),
+                ContentQualityCheckJob.status.in_(("PENDING", "RUNNING")),
+            )
+            .group_by(ContentQualityCheckJob.content_version_id),
         ),
     )
     for type_name, label, statement in queries:

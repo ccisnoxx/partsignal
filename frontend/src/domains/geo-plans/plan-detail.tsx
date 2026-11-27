@@ -115,7 +115,7 @@ function PlanDetailPanel({ plan, csrfToken, initialAction, onSaved, onDeleted, o
     </DialogContent></Dialog>
   </section>;
 }
-function deletionReason(code: PlanDetail['deletion']['blockers'][number]) { switch (code) { case 'PLAN_NOT_DISABLED': return '当前计划不是未启用状态，服务端不允许删除；可按可用动作归档。'; case 'HAS_BATCH_HISTORY': return '计划已有批次历史，请归档以保留执行记录。'; case 'ARCHIVED': return '归档计划只读，不能删除。'; case 'SCHEDULE_UNSUPPORTED': return 'V1.0 不支持定时调度，历史计划只读，不能删除。'; default: return assertNever(code); } }
+function deletionReason(code: PlanDetail['deletion']['blockers'][number]) { switch (code) { case 'PLAN_NOT_DISABLED': return '当前计划不是未启用状态，服务端不允许删除；可按可用动作归档。'; case 'HAS_BATCH_HISTORY': return '计划已有批次历史，请归档以保留执行记录。'; case 'HAS_CONTENT_CAMPAIGN': return '计划已被内容活动关联，请先解除关联或归档。'; case 'ARCHIVED': return '归档计划只读，不能删除。'; case 'SCHEDULE_UNSUPPORTED': return 'V1.0 不支持定时调度，历史计划只读，不能删除。'; default: return assertNever(code); } }
 function confirmationText(action: Command) { switch (action) {
   case 'ACTIVATE': return '服务端会重新检查当前资源资格。启用仅保存计划状态，R1 尚未执行调度或采集。';
   case 'PAUSE': return '暂停计划，不改变已保存的配置或历史。';

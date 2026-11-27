@@ -29,6 +29,12 @@ from app.services.geo_ops_runtime import observe
 from app.services.geo_plan_scheduler import create_due_plan_batches
 from app.services.geo_retention import cleanup_geo_artifacts
 from app.services.geo_runs import process_collection_run
+from app.services.page_health_scheduler import run_due_public_page_health_checks_scheduled
+from app.services.semantic_quality_worker import (
+    fail_expired_semantic_quality_check_jobs,
+    process_semantic_quality_check_job,
+    redispatch_pending_semantic_quality_check_jobs,
+)
 
 celery_app = Celery("partsignal", broker=settings.redis_url)
 celery_app.conf.update(
@@ -82,6 +88,18 @@ celery_app.conf.update(
             "task": "partsignal.cleanup_platform_logo_files",
             "schedule": 3600.0,
         },
+        "recover-expired-semantic-quality-checks": {
+            "task": "partsignal.recover_expired_semantic_quality_checks",
+            "schedule": float(settings.generation_recovery_scan_seconds),
+        },
+        "redispatch-pending-semantic-quality-checks": {
+            "task": "partsignal.redispatch_pending_semantic_quality_checks",
+            "schedule": float(settings.generation_recovery_scan_seconds),
+        },
+        "run-due-public-page-health-checks": {
+            "task": "partsignal.run_due_public_page_health_checks",
+            "schedule": 900.0,
+        },
     },
 )
 
@@ -108,6 +126,24 @@ def redispatch_pending_jobs() -> None:
 def cleanup_platform_logos() -> None:
     """按 PostgreSQL 权威状态清理全部到期且无引用的文件。"""
     cleanup_file_records()
+
+
+@celery_app.task(name="partsignal.run_semantic_quality_check")  # type: ignore[untyped-decorator]
+def run_semantic_quality_check(job_id: str) -> None:
+    """Slice 3B：仅按作业 UUID 执行异步 AI 语义质量检查。"""
+    process_semantic_quality_check_job(uuid.UUID(job_id))
+
+
+@celery_app.task(name="partsignal.recover_expired_semantic_quality_checks")  # type: ignore[untyped-decorator]
+def recover_expired_semantic_quality_checks() -> None:
+    """把超租约的 RUNNING 语义质量检查作业标记失败。"""
+    fail_expired_semantic_quality_check_jobs()
+
+
+@celery_app.task(name="partsignal.redispatch_pending_semantic_quality_checks")  # type: ignore[untyped-decorator]
+def redispatch_pending_semantic_quality_checks() -> None:
+    """补投递滞留 PENDING 语义质量检查作业，消息只携带 UUID。"""
+    redispatch_pending_semantic_quality_check_jobs(run_semantic_quality_check.delay)
 
 
 @celery_app.task(name="partsignal.collect_geo_run")  # type: ignore[untyped-decorator]
@@ -171,3 +207,9 @@ def create_due_geo_plan_batches() -> None:
 def evaluate_due_geo_opportunities() -> None:
     """读取数据库授权和周期窗口，最多执行最近一个到期评估。"""
     evaluate_due_opportunities()
+
+
+@celery_app.task(name="partsignal.run_due_public_page_health_checks")  # type: ignore[untyped-decorator]
+def run_due_public_page_health_checks_task() -> None:
+    """Slice 3D：仅对启用健康检查的平台执行到期公开页面只读巡检。"""
+    run_due_public_page_health_checks_scheduled()

@@ -20,12 +20,27 @@ from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.config import settings
 from app.errors import AppError, in_use, not_found
 from app.models.ai_generation import AIChannel, AIModel, GenerationJob
-from app.models.configuration import ContentHumanizationPrompt, PlatformPrompt, PlatformType
-from app.models.content import ContentReviewRecord, ContentTask, ContentVersion
+from app.models.campaign import ContentCampaign
+from app.models.configuration import (
+    ContentHumanizationPrompt,
+    PlatformPrompt,
+    PlatformPromptVersion,
+    PlatformType,
+)
+from app.models.content import (
+    ContentBriefSnapshot,
+    ContentReviewRecord,
+    ContentTask,
+    ContentTaskBatchRequest,
+    ContentVersion,
+)
+from app.models.content_quality import ContentQualityCheckJob
+from app.models.cost_accounting import OperatingCostEntry
 from app.models.geo_analysis import GeoRunReview
 from app.models.geo_browser_sessions import GeoBrowserSession
 from app.models.geo_catalog import GeoSubject
 from app.models.geo_files import FileRecord, GeoObservation
+from app.models.geo_interventions import GeoIntervention
 from app.models.geo_manual_cancellation import GeoManualRunCancellation
 from app.models.geo_manual_collection import GeoManualDraft, GeoManualSubmission
 from app.models.geo_monitoring_plans import GeoMonitoringPlan
@@ -46,11 +61,12 @@ from app.models.identity import (
     SessionRecord,
     User,
 )
-from app.models.product_facts import FactReviewRecord, FactVersion
+from app.models.product_facts import FactReviewRecord, FactVersion, Product
 from app.models.publication import (
     PublicationVerification,
     PublicationWork,
     PublicationWorkEvent,
+    PublishedArticleHealthCheck,
     PublishedContentIssue,
 )
 from app.schemas.common import (
@@ -103,10 +119,20 @@ def _user_business_reference_counts(
         GenerationJob.created_by,
         PlatformType.created_by,
         PlatformPrompt.updated_by,
+        PlatformPromptVersion.created_by,
+        PlatformPromptVersion.published_by,
         ContentHumanizationPrompt.updated_by,
+        ContentCampaign.owner_id,
+        ContentCampaign.created_by,
+        ContentCampaign.updated_by,
         ContentTask.created_by,
+        ContentTask.assignee_id,
+        ContentTask.assigned_by,
+        ContentBriefSnapshot.created_by,
+        ContentTaskBatchRequest.created_by,
         ContentVersion.created_by,
         ContentReviewRecord.actor_id,
+        ContentQualityCheckJob.created_by,
         GeoObservation.tested_by,
         GeoSubject.created_by,
         GeoPromptVariant.created_by,
@@ -124,6 +150,8 @@ def _user_business_reference_counts(
         GeoRuleSetRevision.created_by,
         GeoOpportunity.acknowledged_by,
         GeoOpportunity.resolved_by,
+        GeoOpportunity.assignee_id,
+        GeoOpportunity.assigned_by,
         GeoOpportunityAction.created_by,
         GeoOpportunityEvaluation.created_by,
         GeoOpportunityEvaluationRun.created_by,
@@ -131,16 +159,29 @@ def _user_business_reference_counts(
         GeoRetestBaseline.created_by,
         GeoRetestRequest.created_by,
         GeoOpportunityDecision.created_by,
+        GeoIntervention.assignee_id,
+        GeoIntervention.created_by,
+        GeoIntervention.updated_by,
+        OperatingCostEntry.created_by,
+        OperatingCostEntry.voided_by,
         FileRecord.uploader_id,
+        Product.last_reviewed_by,
         FactVersion.created_by,
         FactVersion.approved_by,
+        FactVersion.assignee_id,
+        FactVersion.assigned_by,
         FactReviewRecord.actor_id,
         PublicationWork.created_by,
         PublicationWork.closed_by,
+        PublicationWork.assignee_id,
+        PublicationWork.assigned_by,
         PublicationWorkEvent.actor_id,
         PublicationVerification.actor_id,
         PublishedContentIssue.opened_by,
         PublishedContentIssue.resolved_by,
+        PublishedContentIssue.assignee_id,
+        PublishedContentIssue.assigned_by,
+        PublishedArticleHealthCheck.triggered_by,
     )
     references = union_all(
         *(select(column.label("user_id")).where(column.in_(user_ids)) for column in columns)

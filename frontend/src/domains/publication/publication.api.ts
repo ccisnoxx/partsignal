@@ -25,6 +25,7 @@ type PublicationWorkCreate = components['schemas']['PublicationWorkCreate'];
 type PublicationPreparationUpdate = components['schemas']['PublicationPreparationUpdate'];
 type PublicationPlatformReviewRequest = components['schemas']['PublicationPlatformReviewRequest'];
 type PublicationResultUpdate = components['schemas']['PublicationResultUpdate'];
+type PublicationPreRegisterCheckRequest = components['schemas']['PublicationPreRegisterCheckRequest'];
 type PublicationVerificationCreate = components['schemas']['PublicationVerificationCreate'];
 type PublicationContentVersionSwitchRequest = components['schemas']['PublicationContentVersionSwitchRequest'];
 type PublicationWorkCloseRequest = components['schemas']['PublicationWorkCloseRequest'];
@@ -340,6 +341,22 @@ async function markPublicationPlatformReview(
   throw publicationRequestError('标记平台处理中', result);
 }
 
+async function runPublicationPreRegisterCheck(
+  workId: string,
+  body: PublicationPreRegisterCheckRequest,
+  csrfToken: string | null,
+) {
+  const result = await api.POST('/api/v1/publication-works/{work_id}/pre-register-check', {
+    body,
+    params: {
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+      path: { work_id: workId },
+    },
+  });
+  if (result.data) return result.data;
+  throw publicationRequestError('执行发布前检查', result);
+}
+
 async function registerPublicationResult(
   workId: string,
   body: PublicationResultUpdate,
@@ -520,6 +537,7 @@ export {
   openPublishedContentIssue,
   registerPublicationResult,
   resolvePublishedContentIssue,
+  runPublicationPreRegisterCheck,
   switchPublicationContentVersion,
   updatePublicationPreparation,
   verifyPublicationWork,

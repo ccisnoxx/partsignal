@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import {
   Controller,
   useForm,
+  useWatch,
   type FieldPath,
   type FieldValues,
   type UseFormReturn,
@@ -50,6 +51,7 @@ import {
   type PublicationStartErrorMapping,
 } from './publication.api';
 import { PublicationEvidenceUpload } from './publication-evidence-upload';
+import { PreRegisterCheckPanel } from './publication-precheck-panel';
 import {
   closeFormSchema,
   platformReviewFormSchema,
@@ -349,6 +351,16 @@ function PublicationWorkspaceActions({
     }
   }
 
+  const watchedResult = useWatch({ control: result.control });
+  const precheckSignature = [
+    context.work.revision,
+    context.content.id,
+    watchedResult.actualTitle ?? '',
+    watchedResult.finalUrl ?? '',
+    watchedResult.publishedAt ?? '',
+    watchedResult.comment ?? '',
+  ].join('\u0000');
+
   if (actions.length === 0 && !stale) return null;
 
   return (
@@ -445,6 +457,13 @@ function PublicationWorkspaceActions({
                 />
                 {uploadedFiles.map((file) => <p className="text-sm text-text-secondary" key={file.id}>已校验：{file.original_filename}</p>)}
               </div>
+              <PreRegisterCheckPanel
+                contextSignature={precheckSignature}
+                csrfToken={csrfToken}
+                disabled={busy || stale || uploadBusy}
+                getValues={() => result.getValues()}
+                workId={context.work.id}
+              />
               <FormFooter disabled={uploadBusy} submitDisabled={stale} pending={busy} />
             </form>
           )}

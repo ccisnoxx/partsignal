@@ -34,6 +34,7 @@ import { StickyActionBar } from '@/design-system/workspace/sticky-action-bar';
 import { WorkspaceShell } from '@/design-system/workspace/workspace-shell';
 import type { components } from '@/shared/api/generated/schema';
 import {
+  confirmProductFactsReview,
   productFactsQueryOptions,
   ProductRequestError,
   productsKeys,
@@ -45,18 +46,24 @@ import {
   factWorkspaceErrorKind,
   factWorkspaceFormSchema,
   factWorkspaceValues,
+  mapFactConfirmReviewError,
   mapFactReviewError,
   mapFactWorkspaceError,
   resolveFactWorkspaceActions,
+  toFactConfirmReview,
   toFactReviewSubmission,
   toFactWorkspaceUpdate,
+  type FactConfirmReviewValues,
   type FactReviewSubmissionValues,
   type FactWorkspace,
   type FactWorkspaceField,
   type FactWorkspaceFormValues,
 } from './fact-workspace.model';
+import { ConfirmReviewDialog, FactOpsMetadataFields } from './fact-ops-metadata-panel';
 import {
   confidentialityRegistry,
+  formatExactProductTime,
+  productFactsFreshnessRegistry,
   productFactStatusRegistry,
   productStatusRegistry,
   productWorkflowStageRegistry,
@@ -77,6 +84,13 @@ type FactWorkspacePageProps = {
 const fieldIds: Record<FactWorkspaceField, string> = {
   body_markdown: 'fact-workspace-body',
   classification: 'fact-workspace-classification',
+  source_owner: 'fact-workspace-source-owner',
+  source_reference: 'fact-workspace-source-reference',
+  verified_at: 'fact-workspace-verified-at',
+  next_review_at: 'fact-workspace-next-review-at',
+  applicable_region: 'fact-workspace-applicable-region',
+  content_restrictions: 'fact-workspace-content-restrictions',
+  approved_claims_summary: 'fact-workspace-approved-claims-summary',
 };
 
 const classificationItems = [
@@ -126,6 +140,7 @@ function FactWorkspaceEditor({
   const [announcement, setAnnouncement] = useState('');
   const [saved, setSaved] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
+  const [confirmReviewOpen, setConfirmReviewOpen] = useState(false);
   const [pendingBlocker, setPendingBlocker] = useState<PendingBlocker>();
   const form = useForm<FactWorkspaceFormValues>({
     defaultValues: factWorkspaceValues(workspace),
@@ -140,7 +155,7 @@ function FactWorkspaceEditor({
       continuation.assertCurrent();
       return replaceProductFacts(
         productId,
-        toFactWorkspaceUpdate(values, baseRevision),
+        toFactWorkspaceUpdate(values, baseRevision, workspace),
         csrfToken,
       );
     },
@@ -155,6 +170,20 @@ function FactWorkspaceEditor({
       return submitProductFactReview(
         productId,
         toFactReviewSubmission(values, baseRevision),
+        csrfToken,
+      );
+    },
+  });
+  const confirmReview = useMutation({
+    mutationFn: async ({ continuation, values }: {
+      continuation: PrincipalContinuation;
+      values: FactConfirmReviewValues;
+    }) => {
+      await queryClient.cancelQueries({ exact: true, queryKey: productsKeys.fact(productId) });
+      continuation.assertCurrent();
+      return confirmProductFactsReview(
+        productId,
+        toFactConfirmReview(values, baseRevision),
         csrfToken,
       );
     },
@@ -273,6 +302,53 @@ function FactWorkspaceEditor({
     }
   }
 
+  async function handleConfirmReview(values: FactConfirmReviewValues): Promise<FactWorkspace | undefined> {
+    const continuation = capturePrincipalContinuation(queryClient);
+    try {
+      const canonical = await confirmReview.mutateAsync({ continuation, values });
+      if (!continuation.isCurrent()) return undefined;
+      await refreshRelatedQueries(canonical, continuation);
+      if (!continuation.isCurrent()) return undefined;
+      form.reset(factWorkspaceValues(canonical));
+      setBaseRevision(canonical.revision);
+      setConflict(undefined);
+      setRequestId(undefined);
+      setSaved(false);
+      setConfirmReviewOpen(false);
+      setAnnouncement(`已确认事实无变更并延期复核，Revision ${canonical.revision}`);
+      return canonical;
+    } catch (error) {
+      if (!continuation.isCurrent()) return undefined;
+      const mapped = mapFactConfirmReviewError(error);
+      if (mapped.recovery === 'REVISION_CONFLICT') {
+        setConflict(mapped.formMessage ?? '服务端已有更新。');
+        setRequestId(mapped.requestId);
+      }
+      if (mapped.recovery === 'FACT_REVIEW_PENDING' && mapped.requestId) {
+        setPendingBlocker({
+          message: mapped.formMessage ?? '该产品已有待审核事实版本，请先完成审核',
+          requestId: mapped.requestId,
+        });
+        setRequestId(mapped.requestId);
+        const canonical = await onReload();
+        if (!continuation.isCurrent()) return undefined;
+        if (canonical) {
+          if (!form.formState.isDirty) {
+            form.reset(factWorkspaceValues(canonical));
+            setBaseRevision(canonical.revision);
+          }
+          setConflict(undefined);
+          setPendingBlocker(undefined);
+          setSaved(false);
+        }
+      } else if (mapped.recovery === 'INVALID_STATE_TRANSITION') {
+        await onReload();
+        if (!continuation.isCurrent()) return undefined;
+      }
+      throw error;
+    }
+  }
+
   async function reloadCanonical() {
     const canonical = await onReload();
     if (!canonical) return;
@@ -299,10 +375,14 @@ function FactWorkspaceEditor({
     dirty: isDirty,
     saving: save.isPending,
     submitting: submit.isPending,
+    confirmingReview: confirmReview.isPending,
     onSave: () => void form.handleSubmit(saveWorkspace)(),
     blocked: Boolean(pendingBlocker),
     onSubmit: () => {
       if (!pendingBlocker) setSubmitOpen(true);
+    },
+    onConfirmReview: () => {
+      if (!pendingBlocker) setConfirmReviewOpen(true);
     },
   });
   const saveAction = actions.find((action) => action.key === 'SAVE');
@@ -339,8 +419,18 @@ function FactWorkspaceEditor({
         <div className="flex flex-wrap gap-2">
           <StatusBadge presentation={productStatusRegistry[workspace.product.status]} />
           <StatusBadge presentation={productWorkflowStageRegistry[workspace.product.workflow_stage]} />
+          <StatusBadge presentation={productFactsFreshnessRegistry[workspace.facts_freshness]} />
         </div>
       </header>
+
+      {workspace.facts_freshness === 'OVERDUE' && (
+        <div
+          className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-text-primary"
+          role="status"
+        >
+          产品事实已超过计划复核时间（{workspace.next_review_at ? formatExactProductTime(workspace.next_review_at) : '—'}）。请核对外部最新资料；若确认无变更，可执行“确认无变更并延期复核”。
+        </div>
+      )}
 
       <FormProvider {...form}>
         <form className="min-w-0 space-y-4" noValidate onKeyDown={handleShortcut} onSubmit={form.handleSubmit(saveWorkspace)}>
@@ -393,7 +483,7 @@ function FactWorkspaceEditor({
                     required
                     render={(context) => (
                       <Select
-                        disabled={readOnly || save.isPending || submit.isPending}
+                        disabled={readOnly || save.isPending || submit.isPending || confirmReview.isPending}
                         items={classificationItems}
                         onValueChange={(value) => value && context.field.onChange(value)}
                         value={context.field.value}
@@ -417,9 +507,15 @@ function FactWorkspaceEditor({
                   <dl className="space-y-3 border-t border-border-subtle pt-4 text-sm">
                     <Metadata label="工作区 Revision" mono value={String(baseRevision)} />
                     <Metadata label="工作流阶段" value={productWorkflowStageRegistry[workspace.product.workflow_stage].label} />
+                    <Metadata label="新鲜度" value={productFactsFreshnessRegistry[workspace.facts_freshness].label} />
+                    <Metadata label="最近无变更复核" value={workspace.last_reviewed_at ? formatExactProductTime(workspace.last_reviewed_at) : '未记录'} />
                     <Metadata label="当前批准" value={<FactVersionSummary fact={workspace.approved_fact} />} />
                     <Metadata label="待审核或待修订" value={<FactVersionSummary fact={workspace.pending_fact} />} />
                   </dl>
+                  <FactOpsMetadataFields
+                    disabled={readOnly || save.isPending || submit.isPending || confirmReview.isPending}
+                    fieldIds={fieldIds}
+                  />
                 </div>
               ),
             }}
@@ -437,6 +533,17 @@ function FactWorkspaceEditor({
           onClose={() => setSubmitOpen(false)}
           onSubmit={submitReview}
           submitting={submit.isPending}
+        />
+      )}
+      {confirmReviewOpen && (
+        <ConfirmReviewDialog
+          blocked={!workspace.available_actions.includes('CONFIRM_REVIEW')}
+          confirming={confirmReview.isPending}
+          defaultNextReviewAt={workspace.next_review_at}
+          key={`${productId}-confirm-review`}
+          onClose={() => setConfirmReviewOpen(false)}
+          onConfirm={handleConfirmReview}
+          pendingBlocker={pendingBlocker}
         />
       )}
     </article>

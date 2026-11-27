@@ -53,7 +53,7 @@ test('引用 Dialog 从当前 exact list projection 实时更新', async ({ page
 
   geoTopicsApi.setProjection(topicIds.blocked, {
     canonical_question: '如何在低噪声场景选择放大器？（最新）',
-    references: { content_task_count: 7, geo_optimization_count: 0, observation_count: 4 },
+    references: { content_task_count: 7, geo_optimization_count: 0, observation_count: 4, campaign_count: 0 },
     deletion: { blockers: [] },
   });
   await page.evaluate(() => {
@@ -81,7 +81,7 @@ test('删除 Dialog 按最新 blocker/资格原位切换，并以最新 revision
   geoTopicsApi.setProjection(topicIds.deletable, {
     canonical_question: '如何比较射频器件？（存在引用）',
     available_actions: ['UPDATE'],
-    references: { content_task_count: 1, geo_optimization_count: 0, observation_count: 0 },
+    references: { content_task_count: 1, geo_optimization_count: 0, observation_count: 0, campaign_count: 0 },
     deletion: { blockers: [{ type: 'CONTENT_TASK', count: 1 }] },
     revision: 9,
   });
@@ -98,7 +98,7 @@ test('删除 Dialog 按最新 blocker/资格原位切换，并以最新 revision
 
   geoTopicsApi.setProjection(topicIds.deletable, {
     available_actions: ['UPDATE', 'DELETE'],
-    references: { content_task_count: 0, geo_optimization_count: 0, observation_count: 0 },
+    references: { content_task_count: 0, geo_optimization_count: 0, observation_count: 0, campaign_count: 0 },
     deletion: { blockers: [] },
     revision: 9,
   });
@@ -259,7 +259,7 @@ test('创建与更新携带 CSRF/revision；409 保留草稿并只在显式 relo
   dialog = page.getByRole('dialog', { name: '编辑 Query Topic' });
   await dialog.getByLabel('标准问题').fill('本地草稿问题');
   geoTopicsApi.setProjection(topicIds.blocked, {
-    references: { content_task_count: 8, geo_optimization_count: 1, observation_count: 3 },
+    references: { content_task_count: 8, geo_optimization_count: 1, observation_count: 3, campaign_count: 0 },
   });
   await page.evaluate(() => {
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });

@@ -35,6 +35,46 @@ class Product(Base):
             "facts_classification IN ('PUBLIC', 'INTERNAL', 'RESTRICTED')",
             name="ck_products_facts_classification",
         ),
+        CheckConstraint(
+            "source_owner IS NULL OR (length(btrim(source_owner)) BETWEEN 1 AND 160 "
+            "AND source_owner !~ '^[[:space:]]|[[:space:]]$')",
+            name="ck_products_source_owner_trimmed",
+        ),
+        CheckConstraint(
+            "(last_reviewed_at IS NULL) = (last_reviewed_by IS NULL)",
+            name="ck_products_last_review_pair",
+        ),
+        CheckConstraint(
+            "facts_source_reference IS NULL OR (length(btrim(facts_source_reference)) "
+            "BETWEEN 1 AND 500 AND facts_source_reference !~ '^[[:space:]]|[[:space:]]$')",
+            name="ck_products_facts_source_reference_bounds",
+        ),
+        CheckConstraint(
+            "facts_applicable_region IS NULL OR (length(btrim(facts_applicable_region)) "
+            "BETWEEN 1 AND 160 AND facts_applicable_region !~ '^[[:space:]]|[[:space:]]$')",
+            name="ck_products_facts_applicable_region_bounds",
+        ),
+        CheckConstraint(
+            "facts_content_restrictions IS NULL OR (length(btrim(facts_content_restrictions)) "
+            "BETWEEN 1 AND 4000 AND facts_content_restrictions !~ '^[[:space:]]|[[:space:]]$')",
+            name="ck_products_facts_content_restrictions_bounds",
+        ),
+        CheckConstraint(
+            "facts_approved_claims_summary IS NULL OR "
+            "(length(btrim(facts_approved_claims_summary)) BETWEEN 1 AND 4000 "
+            "AND facts_approved_claims_summary !~ '^[[:space:]]|[[:space:]]$')",
+            name="ck_products_facts_approved_claims_summary_bounds",
+        ),
+        Index(
+            "ix_products_next_review_at",
+            "next_review_at",
+            postgresql_where=text("next_review_at IS NOT NULL"),
+        ),
+        Index(
+            "ix_products_last_reviewed_by",
+            "last_reviewed_by",
+            postgresql_where=text("last_reviewed_by IS NOT NULL"),
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     part_number: Mapped[str] = mapped_column(String(160), nullable=False)
@@ -49,6 +89,17 @@ class Product(Base):
     facts_classification: Mapped[str] = mapped_column(
         String(16), nullable=False, default="RESTRICTED"
     )
+    source_owner: Mapped[str | None] = mapped_column(String(160))
+    next_review_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_reviewed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    facts_source_reference: Mapped[str | None] = mapped_column(Text)
+    facts_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    facts_applicable_region: Mapped[str | None] = mapped_column(String(160))
+    facts_content_restrictions: Mapped[str | None] = mapped_column(Text)
+    facts_approved_claims_summary: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -71,11 +122,61 @@ class FactVersion(Base):
             "status IN ('PENDING_REVIEW', 'CHANGES_REQUESTED', 'APPROVED', 'RETIRED')",
             name="ck_fact_versions_status_business_workflow",
         ),
+        CheckConstraint(
+            "source_reference IS NULL OR (length(btrim(source_reference)) BETWEEN 1 AND 500 "
+            "AND source_reference !~ '^[[:space:]]|[[:space:]]$')",
+            name="ck_fact_versions_source_reference_bounds",
+        ),
+        CheckConstraint(
+            "applicable_region IS NULL OR (length(btrim(applicable_region)) BETWEEN 1 AND 160 "
+            "AND applicable_region !~ '^[[:space:]]|[[:space:]]$')",
+            name="ck_fact_versions_applicable_region_bounds",
+        ),
+        CheckConstraint(
+            "content_restrictions IS NULL OR (length(btrim(content_restrictions)) "
+            "BETWEEN 1 AND 4000 AND content_restrictions !~ '^[[:space:]]|[[:space:]]$')",
+            name="ck_fact_versions_content_restrictions_bounds",
+        ),
+        CheckConstraint(
+            "approved_claims_summary IS NULL OR (length(btrim(approved_claims_summary)) "
+            "BETWEEN 1 AND 4000 AND approved_claims_summary !~ '^[[:space:]]|[[:space:]]$')",
+            name="ck_fact_versions_approved_claims_summary_bounds",
+        ),
         Index(
             "uq_fact_versions_one_pending_per_product",
             "product_id",
             unique=True,
             postgresql_where=text("status = 'PENDING_REVIEW'"),
+        ),
+        CheckConstraint(
+            "priority IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')",
+            name="priority",
+        ),
+        CheckConstraint(
+            "blocked_reason IS NULL OR (length(btrim(blocked_reason)) BETWEEN 1 AND 500 "
+            "AND blocked_reason !~ '^[[:space:]]|[[:space:]]$')",
+            name="blocked_reason_bounds",
+        ),
+        CheckConstraint(
+            "(assignee_id IS NULL AND assigned_by IS NULL AND assigned_at IS NULL) "
+            "OR (assignee_id IS NOT NULL AND assigned_by IS NOT NULL AND assigned_at IS NOT NULL)",
+            name="assignment_pair",
+        ),
+        Index(
+            "ix_fact_versions_assignee_due",
+            "assignee_id",
+            "due_at",
+            postgresql_where=text("assignee_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_fact_versions_assigned_by",
+            "assigned_by",
+            postgresql_where=text("assigned_by IS NOT NULL"),
+        ),
+        Index(
+            "ix_fact_versions_due_at",
+            "due_at",
+            postgresql_where=text("due_at IS NOT NULL"),
         ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
@@ -86,6 +187,11 @@ class FactVersion(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING_REVIEW")
     body_markdown: Mapped[str] = mapped_column(Text, nullable=False)
     classification: Mapped[str] = mapped_column(String(16), nullable=False)
+    source_reference: Mapped[str | None] = mapped_column(Text)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    applicable_region: Mapped[str | None] = mapped_column(String(160))
+    content_restrictions: Mapped[str | None] = mapped_column(Text)
+    approved_claims_summary: Mapped[str | None] = mapped_column(Text)
     change_summary: Mapped[str] = mapped_column(Text, nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_by: Mapped[uuid.UUID] = mapped_column(
@@ -98,6 +204,18 @@ class FactVersion(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    assignee_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    priority: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="MEDIUM", server_default="MEDIUM"
+    )
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    blocked_reason: Mapped[str | None] = mapped_column(Text)
+    assigned_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class FactReviewRecord(Base):

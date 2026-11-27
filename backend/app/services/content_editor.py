@@ -10,9 +10,12 @@ from sqlalchemy.orm import Session
 
 from app.errors import AppError, not_found
 from app.models.ai_generation import GenerationJob
-from app.models.content import ContentTask, ContentVersion
+from app.models.campaign import ContentCampaign
+from app.models.content import ContentBriefSnapshot, ContentTask, ContentVersion
 from app.models.identity import User
 from app.models.product_facts import FactVersion, Product
+from app.schemas.campaign import ContentCampaignSummary
+from app.schemas.content import ContentBriefSnapshotOut, ContentBriefSuccessMetrics
 from app.schemas.content_editor import (
     ContentEditorContext,
     ContentEditorGenerationLineage,
@@ -158,6 +161,8 @@ def content_editor_context_out(
         .limit(1)
     )
     lineage = resolve_content_ai_lineage(db, current) if current is not None else None
+    campaign = db.get(ContentCampaign, task.campaign_id) if task.campaign_id is not None else None
+    brief = db.get(ContentBriefSnapshot, task.id)
     return ContentEditorContext.model_validate(
         {
             "task": {
@@ -179,6 +184,36 @@ def content_editor_context_out(
                 "classification": fact.classification,
                 "body_markdown": fact.body_markdown,
             },
+            "campaign": (
+                ContentCampaignSummary(id=campaign.id, name=campaign.name, status=campaign.status)
+                if campaign is not None
+                else None
+            ),
+            "brief": (
+                ContentBriefSnapshotOut.model_validate(
+                    {
+                        "content_task_id": brief.content_task_id,
+                        "query_topic_id": brief.query_topic_id,
+                        "target_question": brief.target_question,
+                        "search_intent": brief.search_intent,
+                        "content_angle": brief.content_angle,
+                        "target_audience": brief.target_audience,
+                        "must_answer_questions": brief.must_answer_questions,
+                        "required_fact_points": brief.required_fact_points,
+                        "forbidden_expressions": brief.forbidden_expressions,
+                        "content_format": brief.content_format,
+                        "cta": brief.cta,
+                        "target_keywords": brief.target_keywords,
+                        "success_metrics": ContentBriefSuccessMetrics.model_validate(
+                            brief.success_metrics or {}
+                        ),
+                        "created_by": brief.created_by,
+                        "created_at": brief.created_at,
+                    }
+                )
+                if brief is not None
+                else None
+            ),
             "current_content": content_version_out(db, current) if current is not None else None,
             "comparison_content": (
                 {

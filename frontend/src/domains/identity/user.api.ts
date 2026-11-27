@@ -62,6 +62,8 @@ const bulkStatusResultSchema = z.strictObject({
           'PUBLISHED_CONTENT_ISSUE',
           'GEO_OPTIMIZATION_SOURCE',
           'GEO_OPPORTUNITY_ACTION',
+          'GEO_INTERVENTION',
+          'OPERATING_COST_ENTRY',
           'USER_BUSINESS_HISTORY',
         ]),
       })),

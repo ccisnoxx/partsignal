@@ -243,6 +243,7 @@ function deletionBlockerLabel(blocker: components['schemas']['DeletionBlocker'])
   switch (blocker.type) {
     case 'CONTENT_TASK': return '开放内容任务';
     case 'PUBLICATION_WORK': return '进行中发布工作';
+    case 'CONTENT_CAMPAIGN': return '内容活动';
     default: throw new Error(`平台列表收到未知删除阻断类型：${blocker.type}`);
   }
 }

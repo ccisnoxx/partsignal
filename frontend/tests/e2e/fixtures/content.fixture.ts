@@ -216,11 +216,19 @@ const creationOptions = {
       brand: 'PartSignal',
       part_number: 'PS-CREATE-001',
       approved_fact_versions: [
-        { id: creationFactId, version: 3, classification: 'PUBLIC' },
+        {
+          id: creationFactId,
+          version: 3,
+          classification: 'PUBLIC',
+          content_restrictions: null,
+          approved_claims_summary: null,
+        },
         {
           id: '20000000-0000-4000-8000-000000000211',
           version: 2,
           classification: 'INTERNAL',
+          content_restrictions: null,
+          approved_claims_summary: null,
         },
       ],
     },
@@ -229,7 +237,13 @@ const creationOptions = {
       brand: 'PartSignal',
       part_number: 'PS-CREATE-002',
       approved_fact_versions: [
-        { id: secondCreationFactId, version: 1, classification: 'RESTRICTED' },
+        {
+          id: secondCreationFactId,
+          version: 1,
+          classification: 'RESTRICTED',
+          content_restrictions: null,
+          approved_claims_summary: null,
+        },
       ],
     },
   ],
@@ -237,7 +251,10 @@ const creationOptions = {
     { id: platformId, name: platform.name },
     { id: secondPlatformId, name: '开发者问答' },
   ],
+  topics: [],
+  campaigns: [],
   requested_product: null,
+  requested_campaign: null,
 } satisfies CreationOptions;
 
 const generationOptions = {
@@ -271,6 +288,9 @@ const productDetail = {
     available_actions: ['UPDATE'],
     deletion: null,
     revision: 3,
+    source_owner: null,
+    next_review_at: null,
+    facts_freshness: 'FRESH',
     created_at: '2026-08-01T00:00:00Z',
     updated_at: '2026-08-10T00:00:00Z',
   },
@@ -304,6 +324,7 @@ function createContentTasks(count = 45): ContentTaskListItem[] {
       product_id: `10000000-0000-4000-8000-${suffix}`,
       fact_version_id: `20000000-0000-4000-8000-${suffix}`,
       platform_profile_id: platformId,
+      campaign_id: null,
       query_topic_id: null,
       source_published_content_issue_id: null,
       current_content_version_id: `30000000-0000-4000-8000-${suffix}`,
@@ -329,6 +350,8 @@ function createContentTasks(count = 45): ContentTaskListItem[] {
         website_url: platform.website_url,
         logo: null,
       },
+      campaign: null,
+      brief_summary: null,
       current_content: { id: `30000000-0000-4000-8000-${suffix}`, version: ordinal, source_type: ordinal % 2 ? 'AI' : 'HUMAN' },
       latest_generation_status: ordinal === 1 ? 'FAILED' : null,
       updated_at: new Date(Date.UTC(2026, 7, 10, 8, 0) - index * 60_000).toISOString(),
@@ -357,9 +380,12 @@ function createContentTasks(count = 45): ContentTaskListItem[] {
 
 function createdTask(body: ContentTaskCreate): ContentTask {
   return {
-    ...body,
+    product_id: body.product_id,
+    fact_version_id: body.fact_version_id,
+    platform_profile_id: body.platform_profile_id,
+    campaign_id: body.campaign_id ?? null,
     id: createdTaskId,
-    query_topic_id: null,
+    query_topic_id: body.query_topic_id ?? null,
     source_published_content_issue_id: null,
     current_content_version_id: null,
     workflow_stage: 'NO_DRAFT',
@@ -395,6 +421,8 @@ function createdListItem(body: ContentTaskCreate): ContentTaskListItem {
       website_url: null,
       logo: null,
     },
+    campaign: null,
+    brief_summary: null,
     current_content: null,
     latest_generation_status: null,
     updated_at: task.created_at,
@@ -407,6 +435,7 @@ function commandResponse(item: ContentTaskListItem): ContentTask {
     product_id: item.product_id,
     fact_version_id: item.fact_version_id,
     platform_profile_id: item.platform_profile_id,
+    campaign_id: item.campaign_id,
     query_topic_id: item.query_topic_id,
     source_published_content_issue_id: item.source_published_content_issue_id,
     current_content_version_id: item.current_content_version_id,
@@ -439,6 +468,8 @@ function contentTaskDetail(item: ContentTaskListItem, empty = false): ContentTas
     },
     product: { ...item.product, status: 'ACTIVE' },
     platform: item.platform,
+    campaign: null,
+    brief: null,
     fact: {
       id: item.fact_version_id,
       version: 3,
@@ -662,6 +693,8 @@ function contentEditorContext(item: ContentTaskListItem, mode: EditorMode): Cont
       classification: 'PUBLIC',
       body_markdown: '## 锁定事实\n\n- 工作电压：3.3 V\n- 工作温度：-40°C 至 85°C',
     },
+    campaign: null,
+    brief: null,
     current_content: current,
     comparison_content: current ? {
       id: editorPreviousContentId,
@@ -1098,7 +1131,10 @@ const test = base.extend<ContentFixtures>({
             json: {
               products: [],
               platforms: [],
+              topics: [],
+              campaigns: [],
               requested_product: null,
+              requested_campaign: null,
             } satisfies CreationOptions,
           });
           return;

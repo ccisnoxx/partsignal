@@ -11,8 +11,10 @@ from sqlalchemy.orm import Session
 
 from app.errors import not_found
 from app.models.ai_generation import GenerationJob
+from app.models.campaign import ContentCampaign
 from app.models.configuration import QueryTopic
 from app.models.content import (
+    ContentBriefSnapshot,
     ContentReviewRecord,
     ContentTask,
     ContentTaskGeoSource,
@@ -27,7 +29,12 @@ from app.models.publication import (
     PublishedArticle,
     PublishedContentIssue,
 )
-from app.schemas.content import ActorSummary
+from app.schemas.campaign import ContentCampaignSummary
+from app.schemas.content import (
+    ActorSummary,
+    ContentBriefSnapshotOut,
+    ContentBriefSuccessMetrics,
+)
 from app.schemas.content_task_detail import (
     ContentTaskDetail,
     ContentTaskDetailActivityItem,
@@ -377,6 +384,8 @@ def content_task_detail_out(
             "result": result,
         }
 
+    campaign = db.get(ContentCampaign, task.campaign_id) if task.campaign_id is not None else None
+    brief = db.get(ContentBriefSnapshot, task.id)
     return ContentTaskDetail.model_validate(
         {
             "task": {
@@ -405,6 +414,36 @@ def content_task_detail_out(
                 "status": fact.status,
                 "classification": fact.classification,
             },
+            "campaign": (
+                ContentCampaignSummary(id=campaign.id, name=campaign.name, status=campaign.status)
+                if campaign is not None
+                else None
+            ),
+            "brief": (
+                ContentBriefSnapshotOut.model_validate(
+                    {
+                        "content_task_id": brief.content_task_id,
+                        "query_topic_id": brief.query_topic_id,
+                        "target_question": brief.target_question,
+                        "search_intent": brief.search_intent,
+                        "content_angle": brief.content_angle,
+                        "target_audience": brief.target_audience,
+                        "must_answer_questions": brief.must_answer_questions,
+                        "required_fact_points": brief.required_fact_points,
+                        "forbidden_expressions": brief.forbidden_expressions,
+                        "content_format": brief.content_format,
+                        "cta": brief.cta,
+                        "target_keywords": brief.target_keywords,
+                        "success_metrics": ContentBriefSuccessMetrics.model_validate(
+                            brief.success_metrics or {}
+                        ),
+                        "created_by": brief.created_by,
+                        "created_at": brief.created_at,
+                    }
+                )
+                if brief is not None
+                else None
+            ),
             "current_content": (
                 {
                     "id": current_content.id,

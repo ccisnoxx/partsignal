@@ -23,7 +23,7 @@ function NewContentTaskRoute() {
       })}
       onProductIdChange={(productId) => void navigate({
         ignoreBlocker: true,
-        search: { productId },
+        search: { ...search, productId: productId || undefined },
       })}
       search={search}
     />

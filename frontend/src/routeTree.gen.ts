@@ -31,6 +31,7 @@ import { Route as AppConfigurationPlatformTypesRouteImport } from './routes/_app
 import { Route as AppConfigurationPlatformsRouteImport } from './routes/_app/configuration/platforms'
 import { Route as AppConfigurationPromptsRouteImport } from './routes/_app/configuration/prompts'
 import { Route as AppContentVersionIdRouteImport } from './routes/_app/content/$versionId'
+import { Route as AppContentCampaignsRouteRouteImport } from './routes/_app/content/campaigns/route'
 import { Route as AppContentTasksRouteRouteImport } from './routes/_app/content/tasks/route'
 import { Route as AppGeoInsightsRouteRouteImport } from './routes/_app/geo/insights/route'
 import { Route as AppGeoObservationsRouteRouteImport } from './routes/_app/geo/observations/route'
@@ -57,8 +58,12 @@ import { Route as AppAdminSettingsPromptsRouteImport } from './routes/_app/_admi
 import { Route as AppAdminSystemAuditRouteImport } from './routes/_app/_admin/system.audit'
 import { Route as AppAdminSystemUsersRouteImport } from './routes/_app/_admin/system.users'
 import { Route as AppConfigurationAiIndexRouteImport } from './routes/_app/configuration/ai/index'
+import { Route as AppContentCampaignsIndexRouteImport } from './routes/_app/content/campaigns/index'
+import { Route as AppContentCampaignsCampaignIdRouteImport } from './routes/_app/content/campaigns/$campaignId'
+import { Route as AppContentCampaignsNewRouteImport } from './routes/_app/content/campaigns/new'
 import { Route as AppContentTasksIndexRouteImport } from './routes/_app/content/tasks/index'
 import { Route as AppContentTasksTaskIdRouteImport } from './routes/_app/content/tasks/$taskId'
+import { Route as AppContentTasksBatchRouteImport } from './routes/_app/content/tasks/batch'
 import { Route as AppContentTasksNewRouteImport } from './routes/_app/content/tasks/new'
 import { Route as AppContentVersionsVersionIdRouteImport } from './routes/_app/content/versions_.$versionId'
 import { Route as AppGeoInsightsIndexRouteImport } from './routes/_app/geo/insights/index'
@@ -205,6 +210,12 @@ const AppContentVersionIdRoute = AppContentVersionIdRouteImport.update({
   path: '/$versionId',
   getParentRoute: () => AppContentRouteRoute,
 } as any)
+const AppContentCampaignsRouteRoute =
+  AppContentCampaignsRouteRouteImport.update({
+    id: '/campaigns',
+    path: '/campaigns',
+    getParentRoute: () => AppContentRouteRoute,
+  } as any)
 const AppContentTasksRouteRoute = AppContentTasksRouteRouteImport.update({
   id: '/tasks',
   path: '/tasks',
@@ -338,6 +349,23 @@ const AppConfigurationAiIndexRoute = AppConfigurationAiIndexRouteImport.update({
   path: '/configuration/ai/',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppContentCampaignsIndexRoute =
+  AppContentCampaignsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AppContentCampaignsRouteRoute,
+  } as any)
+const AppContentCampaignsCampaignIdRoute =
+  AppContentCampaignsCampaignIdRouteImport.update({
+    id: '/$campaignId',
+    path: '/$campaignId',
+    getParentRoute: () => AppContentCampaignsRouteRoute,
+  } as any)
+const AppContentCampaignsNewRoute = AppContentCampaignsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AppContentCampaignsRouteRoute,
+} as any)
 const AppContentTasksIndexRoute = AppContentTasksIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -346,6 +374,11 @@ const AppContentTasksIndexRoute = AppContentTasksIndexRouteImport.update({
 const AppContentTasksTaskIdRoute = AppContentTasksTaskIdRouteImport.update({
   id: '/$taskId',
   path: '/$taskId',
+  getParentRoute: () => AppContentTasksRouteRoute,
+} as any)
+const AppContentTasksBatchRoute = AppContentTasksBatchRouteImport.update({
+  id: '/batch',
+  path: '/batch',
   getParentRoute: () => AppContentTasksRouteRoute,
 } as any)
 const AppContentTasksNewRoute = AppContentTasksNewRouteImport.update({
@@ -543,6 +576,7 @@ export interface FileRoutesByFullPath {
   '/publications': typeof AppPublicationsRoute
   '/users': typeof AppUsersRoute
   '/account/security': typeof AccountSecurityRoute
+  '/content/campaigns': typeof AppContentCampaignsRouteRouteWithChildren
   '/content/tasks': typeof AppContentTasksRouteRouteWithChildren
   '/geo/insights': typeof AppGeoInsightsRouteRouteWithChildren
   '/geo/observations': typeof AppGeoObservationsRouteRouteWithChildren
@@ -576,7 +610,10 @@ export interface FileRoutesByFullPath {
   '/settings/prompts': typeof AppAdminSettingsPromptsRoute
   '/system/audit': typeof AppAdminSystemAuditRoute
   '/system/users': typeof AppAdminSystemUsersRoute
+  '/content/campaigns/$campaignId': typeof AppContentCampaignsCampaignIdRoute
+  '/content/campaigns/new': typeof AppContentCampaignsNewRoute
   '/content/tasks/$taskId': typeof AppContentTasksTaskIdRoute
+  '/content/tasks/batch': typeof AppContentTasksBatchRoute
   '/content/tasks/new': typeof AppContentTasksNewRoute
   '/content/versions/$versionId': typeof AppContentVersionsVersionIdRoute
   '/geo/insights/answers': typeof AppGeoInsightsAnswersRoute
@@ -592,6 +629,7 @@ export interface FileRoutesByFullPath {
   '/publishing/work/$workId': typeof AppPublishingWorkWorkIdRoute
   '/settings/platforms/$platformId': typeof AppSettingsPlatformsPlatformIdRoute
   '/configuration/ai/': typeof AppConfigurationAiIndexRoute
+  '/content/campaigns/': typeof AppContentCampaignsIndexRoute
   '/content/tasks/': typeof AppContentTasksIndexRoute
   '/geo/insights/': typeof AppGeoInsightsIndexRoute
   '/geo/observations/': typeof AppGeoObservationsIndexRoute
@@ -648,7 +686,10 @@ export interface FileRoutesByTo {
   '/settings/prompts': typeof AppAdminSettingsPromptsRoute
   '/system/audit': typeof AppAdminSystemAuditRoute
   '/system/users': typeof AppAdminSystemUsersRoute
+  '/content/campaigns/$campaignId': typeof AppContentCampaignsCampaignIdRoute
+  '/content/campaigns/new': typeof AppContentCampaignsNewRoute
   '/content/tasks/$taskId': typeof AppContentTasksTaskIdRoute
+  '/content/tasks/batch': typeof AppContentTasksBatchRoute
   '/content/tasks/new': typeof AppContentTasksNewRoute
   '/content/versions/$versionId': typeof AppContentVersionsVersionIdRoute
   '/geo/insights/answers': typeof AppGeoInsightsAnswersRoute
@@ -664,6 +705,7 @@ export interface FileRoutesByTo {
   '/publishing/work/$workId': typeof AppPublishingWorkWorkIdRoute
   '/settings/platforms/$platformId': typeof AppSettingsPlatformsPlatformIdRoute
   '/configuration/ai': typeof AppConfigurationAiIndexRoute
+  '/content/campaigns': typeof AppContentCampaignsIndexRoute
   '/content/tasks': typeof AppContentTasksIndexRoute
   '/geo/insights': typeof AppGeoInsightsIndexRoute
   '/geo/observations': typeof AppGeoObservationsIndexRoute
@@ -700,6 +742,7 @@ export interface FileRoutesById {
   '/_app/users': typeof AppUsersRoute
   '/account/security': typeof AccountSecurityRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/content/campaigns': typeof AppContentCampaignsRouteRouteWithChildren
   '/_app/content/tasks': typeof AppContentTasksRouteRouteWithChildren
   '/_app/geo/insights': typeof AppGeoInsightsRouteRouteWithChildren
   '/_app/geo/observations': typeof AppGeoObservationsRouteRouteWithChildren
@@ -733,7 +776,10 @@ export interface FileRoutesById {
   '/_app/_admin/settings/prompts': typeof AppAdminSettingsPromptsRoute
   '/_app/_admin/system/audit': typeof AppAdminSystemAuditRoute
   '/_app/_admin/system/users': typeof AppAdminSystemUsersRoute
+  '/_app/content/campaigns/$campaignId': typeof AppContentCampaignsCampaignIdRoute
+  '/_app/content/campaigns/new': typeof AppContentCampaignsNewRoute
   '/_app/content/tasks/$taskId': typeof AppContentTasksTaskIdRoute
+  '/_app/content/tasks/batch': typeof AppContentTasksBatchRoute
   '/_app/content/tasks/new': typeof AppContentTasksNewRoute
   '/_app/content/versions_/$versionId': typeof AppContentVersionsVersionIdRoute
   '/_app/geo/insights/answers': typeof AppGeoInsightsAnswersRoute
@@ -749,6 +795,7 @@ export interface FileRoutesById {
   '/_app/publishing/work/$workId': typeof AppPublishingWorkWorkIdRoute
   '/_app/settings/platforms/$platformId': typeof AppSettingsPlatformsPlatformIdRoute
   '/_app/configuration/ai/': typeof AppConfigurationAiIndexRoute
+  '/_app/content/campaigns/': typeof AppContentCampaignsIndexRoute
   '/_app/content/tasks/': typeof AppContentTasksIndexRoute
   '/_app/geo/insights/': typeof AppGeoInsightsIndexRoute
   '/_app/geo/observations/': typeof AppGeoObservationsIndexRoute
@@ -784,6 +831,7 @@ export interface FileRouteTypes {
     | '/publications'
     | '/users'
     | '/account/security'
+    | '/content/campaigns'
     | '/content/tasks'
     | '/geo/insights'
     | '/geo/observations'
@@ -817,7 +865,10 @@ export interface FileRouteTypes {
     | '/settings/prompts'
     | '/system/audit'
     | '/system/users'
+    | '/content/campaigns/$campaignId'
+    | '/content/campaigns/new'
     | '/content/tasks/$taskId'
+    | '/content/tasks/batch'
     | '/content/tasks/new'
     | '/content/versions/$versionId'
     | '/geo/insights/answers'
@@ -833,6 +884,7 @@ export interface FileRouteTypes {
     | '/publishing/work/$workId'
     | '/settings/platforms/$platformId'
     | '/configuration/ai/'
+    | '/content/campaigns/'
     | '/content/tasks/'
     | '/geo/insights/'
     | '/geo/observations/'
@@ -889,7 +941,10 @@ export interface FileRouteTypes {
     | '/settings/prompts'
     | '/system/audit'
     | '/system/users'
+    | '/content/campaigns/$campaignId'
+    | '/content/campaigns/new'
     | '/content/tasks/$taskId'
+    | '/content/tasks/batch'
     | '/content/tasks/new'
     | '/content/versions/$versionId'
     | '/geo/insights/answers'
@@ -905,6 +960,7 @@ export interface FileRouteTypes {
     | '/publishing/work/$workId'
     | '/settings/platforms/$platformId'
     | '/configuration/ai'
+    | '/content/campaigns'
     | '/content/tasks'
     | '/geo/insights'
     | '/geo/observations'
@@ -940,6 +996,7 @@ export interface FileRouteTypes {
     | '/_app/users'
     | '/account/security'
     | '/_app/'
+    | '/_app/content/campaigns'
     | '/_app/content/tasks'
     | '/_app/geo/insights'
     | '/_app/geo/observations'
@@ -973,7 +1030,10 @@ export interface FileRouteTypes {
     | '/_app/_admin/settings/prompts'
     | '/_app/_admin/system/audit'
     | '/_app/_admin/system/users'
+    | '/_app/content/campaigns/$campaignId'
+    | '/_app/content/campaigns/new'
     | '/_app/content/tasks/$taskId'
+    | '/_app/content/tasks/batch'
     | '/_app/content/tasks/new'
     | '/_app/content/versions_/$versionId'
     | '/_app/geo/insights/answers'
@@ -989,6 +1049,7 @@ export interface FileRouteTypes {
     | '/_app/publishing/work/$workId'
     | '/_app/settings/platforms/$platformId'
     | '/_app/configuration/ai/'
+    | '/_app/content/campaigns/'
     | '/_app/content/tasks/'
     | '/_app/geo/insights/'
     | '/_app/geo/observations/'
@@ -1170,6 +1231,13 @@ declare module '@tanstack/react-router' {
       path: '/$versionId'
       fullPath: '/content/$versionId'
       preLoaderRoute: typeof AppContentVersionIdRouteImport
+      parentRoute: typeof AppContentRouteRoute
+    }
+    '/_app/content/campaigns': {
+      id: '/_app/content/campaigns'
+      path: '/campaigns'
+      fullPath: '/content/campaigns'
+      preLoaderRoute: typeof AppContentCampaignsRouteRouteImport
       parentRoute: typeof AppContentRouteRoute
     }
     '/_app/content/tasks': {
@@ -1354,6 +1422,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppConfigurationAiIndexRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/_app/content/campaigns/': {
+      id: '/_app/content/campaigns/'
+      path: '/'
+      fullPath: '/content/campaigns/'
+      preLoaderRoute: typeof AppContentCampaignsIndexRouteImport
+      parentRoute: typeof AppContentCampaignsRouteRoute
+    }
+    '/_app/content/campaigns/$campaignId': {
+      id: '/_app/content/campaigns/$campaignId'
+      path: '/$campaignId'
+      fullPath: '/content/campaigns/$campaignId'
+      preLoaderRoute: typeof AppContentCampaignsCampaignIdRouteImport
+      parentRoute: typeof AppContentCampaignsRouteRoute
+    }
+    '/_app/content/campaigns/new': {
+      id: '/_app/content/campaigns/new'
+      path: '/new'
+      fullPath: '/content/campaigns/new'
+      preLoaderRoute: typeof AppContentCampaignsNewRouteImport
+      parentRoute: typeof AppContentCampaignsRouteRoute
+    }
     '/_app/content/tasks/': {
       id: '/_app/content/tasks/'
       path: '/'
@@ -1366,6 +1455,13 @@ declare module '@tanstack/react-router' {
       path: '/$taskId'
       fullPath: '/content/tasks/$taskId'
       preLoaderRoute: typeof AppContentTasksTaskIdRouteImport
+      parentRoute: typeof AppContentTasksRouteRoute
+    }
+    '/_app/content/tasks/batch': {
+      id: '/_app/content/tasks/batch'
+      path: '/batch'
+      fullPath: '/content/tasks/batch'
+      preLoaderRoute: typeof AppContentTasksBatchRouteImport
       parentRoute: typeof AppContentTasksRouteRoute
     }
     '/_app/content/tasks/new': {
@@ -1617,8 +1713,27 @@ const AppAdminRouteRouteWithChildren = AppAdminRouteRoute._addFileChildren(
   AppAdminRouteRouteChildren,
 )
 
+interface AppContentCampaignsRouteRouteChildren {
+  AppContentCampaignsCampaignIdRoute: typeof AppContentCampaignsCampaignIdRoute
+  AppContentCampaignsNewRoute: typeof AppContentCampaignsNewRoute
+  AppContentCampaignsIndexRoute: typeof AppContentCampaignsIndexRoute
+}
+
+const AppContentCampaignsRouteRouteChildren: AppContentCampaignsRouteRouteChildren =
+  {
+    AppContentCampaignsCampaignIdRoute: AppContentCampaignsCampaignIdRoute,
+    AppContentCampaignsNewRoute: AppContentCampaignsNewRoute,
+    AppContentCampaignsIndexRoute: AppContentCampaignsIndexRoute,
+  }
+
+const AppContentCampaignsRouteRouteWithChildren =
+  AppContentCampaignsRouteRoute._addFileChildren(
+    AppContentCampaignsRouteRouteChildren,
+  )
+
 interface AppContentTasksRouteRouteChildren {
   AppContentTasksTaskIdRoute: typeof AppContentTasksTaskIdRoute
+  AppContentTasksBatchRoute: typeof AppContentTasksBatchRoute
   AppContentTasksNewRoute: typeof AppContentTasksNewRoute
   AppContentTasksIndexRoute: typeof AppContentTasksIndexRoute
   AppContentTasksTaskIdEditorRoute: typeof AppContentTasksTaskIdEditorRoute
@@ -1627,6 +1742,7 @@ interface AppContentTasksRouteRouteChildren {
 
 const AppContentTasksRouteRouteChildren: AppContentTasksRouteRouteChildren = {
   AppContentTasksTaskIdRoute: AppContentTasksTaskIdRoute,
+  AppContentTasksBatchRoute: AppContentTasksBatchRoute,
   AppContentTasksNewRoute: AppContentTasksNewRoute,
   AppContentTasksIndexRoute: AppContentTasksIndexRoute,
   AppContentTasksTaskIdEditorRoute: AppContentTasksTaskIdEditorRoute,
@@ -1637,12 +1753,14 @@ const AppContentTasksRouteRouteWithChildren =
   AppContentTasksRouteRoute._addFileChildren(AppContentTasksRouteRouteChildren)
 
 interface AppContentRouteRouteChildren {
+  AppContentCampaignsRouteRoute: typeof AppContentCampaignsRouteRouteWithChildren
   AppContentTasksRouteRoute: typeof AppContentTasksRouteRouteWithChildren
   AppContentVersionIdRoute: typeof AppContentVersionIdRoute
   AppContentVersionsVersionIdRoute: typeof AppContentVersionsVersionIdRoute
 }
 
 const AppContentRouteRouteChildren: AppContentRouteRouteChildren = {
+  AppContentCampaignsRouteRoute: AppContentCampaignsRouteRouteWithChildren,
   AppContentTasksRouteRoute: AppContentTasksRouteRouteWithChildren,
   AppContentVersionIdRoute: AppContentVersionIdRoute,
   AppContentVersionsVersionIdRoute: AppContentVersionsVersionIdRoute,

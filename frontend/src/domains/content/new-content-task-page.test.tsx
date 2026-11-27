@@ -28,6 +28,8 @@ const ids = {
   factB1: '00000000-0000-4000-8000-000000000021',
   platformA: '00000000-0000-4000-8000-000000000031',
   platformB: '00000000-0000-4000-8000-000000000032',
+  topicA: '00000000-0000-4000-8000-000000000061',
+  campaignA: '00000000-0000-4000-8000-000000000071',
   task: '00000000-0000-4000-8000-000000000041',
   user: '00000000-0000-4000-8000-000000000051',
 } as const;
@@ -39,8 +41,20 @@ const baseOptions = {
       brand: 'PartSignal',
       part_number: 'PS-A',
       approved_fact_versions: [
-        { id: ids.factA2, version: 2, classification: 'INTERNAL' },
-        { id: ids.factA1, version: 1, classification: 'PUBLIC' },
+        {
+          id: ids.factA2,
+          version: 2,
+          classification: 'INTERNAL',
+          content_restrictions: '禁止宣称完全等效替代\n禁止承诺免验证直接替换',
+          approved_claims_summary: '输入电压 5.5-36V，最大输出 3A',
+        },
+        {
+          id: ids.factA1,
+          version: 1,
+          classification: 'PUBLIC',
+          content_restrictions: null,
+          approved_claims_summary: null,
+        },
       ],
     },
     {
@@ -48,7 +62,13 @@ const baseOptions = {
       brand: 'PartSignal',
       part_number: 'PS-B',
       approved_fact_versions: [
-        { id: ids.factB1, version: 1, classification: 'RESTRICTED' },
+        {
+          id: ids.factB1,
+          version: 1,
+          classification: 'RESTRICTED',
+          content_restrictions: null,
+          approved_claims_summary: null,
+        },
       ],
     },
   ],
@@ -56,7 +76,27 @@ const baseOptions = {
     { id: ids.platformA, name: '技术社区' },
     { id: ids.platformB, name: '开发者问答' },
   ],
+  topics: [
+    {
+      id: ids.topicA,
+      canonical_question: 'PS-A 如何选型与替代？',
+      intent_type: 'REPLACEMENT',
+      description: '国产替代问题',
+    },
+  ],
+  campaigns: [
+    {
+      id: ids.campaignA,
+      name: 'PS-A GEO 提升活动',
+      status: 'ACTIVE',
+      target_audience: '工业电源工程师',
+      product_ids: [ids.productA],
+      query_topic_ids: [ids.topicA],
+      platform_profile_ids: [ids.platformA],
+    },
+  ],
   requested_product: null,
+  requested_campaign: null,
 } satisfies CreationOptions;
 
 const createdTask = {
@@ -64,7 +104,8 @@ const createdTask = {
   fact_version_id: ids.factA2,
   platform_profile_id: ids.platformA,
   id: ids.task,
-  query_topic_id: null,
+  campaign_id: null,
+  query_topic_id: ids.topicA,
   source_published_content_issue_id: null,
   current_content_version_id: null,
   workflow_stage: 'NO_DRAFT',
@@ -160,9 +201,12 @@ async function choose(label: string, option: string) {
 }
 
 async function chooseValidTask() {
+  const user = userEvent.setup();
   await choose('产品', 'PartSignal · PS-A');
   await choose('已批准事实版本', 'v2 · 内部');
+  await choose('目标问题主题', 'PS-A 如何选型与替代？');
   await choose('目标平台', '技术社区');
+  await user.type(screen.getByLabelText(/内容角度/), '国产替代选型');
 }
 
 function errorResult(code: string, message: string, requestId: string, status = 409) {
@@ -200,7 +244,7 @@ describe('NewContentTaskPage', () => {
     expect(screen.getByRole('combobox', { name: '已批准事实版本' })).toHaveTextContent('选择事实版本');
     expect(screen.getByRole('combobox', { name: '目标平台' })).toHaveTextContent('技术社区');
     expect(get).toHaveBeenLastCalledWith('/api/v1/content-tasks/creation-options', {
-      params: { query: { requested_product_id: ids.productB } },
+      params: { query: { requested_product_id: ids.productB, requested_campaign_id: undefined } },
     });
   });
 
@@ -211,7 +255,7 @@ describe('NewContentTaskPage', () => {
     expect(await screen.findByRole('combobox', { name: '产品' })).toHaveTextContent('选择产品');
   });
 
-  it('只提交三字段、CSRF 与 UUID 幂等键，成功失效列表并进入 canonical Detail', async () => {
+  it('提交含问题主题与自动预填冻结 Brief 的载荷、CSRF 与 UUID 幂等键，成功进入 Detail', async () => {
     mockOptions();
     const post = vi.spyOn(api, 'POST').mockResolvedValue({
       data: createdTask,
@@ -228,9 +272,24 @@ describe('NewContentTaskPage', () => {
     expect(router.state.location.pathname).toBe(`/content/tasks/${ids.task}`);
     expect(post).toHaveBeenCalledWith('/api/v1/content-tasks', {
       body: {
+        campaign_id: null,
         product_id: ids.productA,
         fact_version_id: ids.factA2,
         platform_profile_id: ids.platformA,
+        query_topic_id: ids.topicA,
+        brief: {
+          target_question: 'PS-A 如何选型与替代？',
+          search_intent: 'REPLACEMENT',
+          content_angle: '国产替代选型',
+          target_audience: '',
+          must_answer_questions: [],
+          required_fact_points: [],
+          forbidden_expressions: ['禁止宣称完全等效替代', '禁止承诺免验证直接替换'],
+          content_format: '',
+          cta: '',
+          target_keywords: [],
+          success_metrics: { notes: null },
+        },
       },
       params: {
         header: {
@@ -239,7 +298,6 @@ describe('NewContentTaskPage', () => {
         },
       },
     });
-    expect(Object.keys(createRequest(post.mock.calls[0]![1]).body ?? {})).toHaveLength(3);
     expect(uuid).toHaveBeenCalledOnce();
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['content', 'tasks', 'list'] });
     expect(screen.queryByRole('dialog', { name: '要离开当前页面吗？' })).not.toBeInTheDocument();
@@ -352,7 +410,7 @@ describe('NewContentTaskPage', () => {
       releaseOptions = resolve;
     }) as never);
     await renderPage();
-    expect(await screen.findByText('正在读取可选产品、事实版本和平台…')).toHaveAttribute('aria-busy', 'true');
+    expect(await screen.findByText('正在读取可选活动、产品、事实版本、问题主题和平台…')).toHaveAttribute('aria-busy', 'true');
     releaseOptions?.({
       error: { error: { code: 'SERVICE_UNAVAILABLE', message: '读取失败', details: {}, request_id: 'req-options' } },
       response: Response.json({}, { status: 503 }),
@@ -360,11 +418,26 @@ describe('NewContentTaskPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('读取失败');
 
     get.mockResolvedValueOnce({
-      data: { products: [], platforms: [], requested_product: null },
-      response: Response.json({ products: [], platforms: [], requested_product: null }),
+      data: {
+        products: [],
+        platforms: [],
+        topics: [],
+        campaigns: [],
+        requested_product: null,
+        requested_campaign: null,
+      },
+      response: Response.json({
+        products: [],
+        platforms: [],
+        topics: [],
+        campaigns: [],
+        requested_product: null,
+        requested_campaign: null,
+      }),
     } as never);
     await userEvent.click(screen.getByRole('button', { name: '重试' }));
     expect(await screen.findByText(/产品活动且存在/u)).toBeInTheDocument();
+    expect(screen.getByText(/没有活跃的问题主题/)).toBeInTheDocument();
     expect(screen.getByText(/没有活动的具体平台/)).toBeInTheDocument();
   });
 

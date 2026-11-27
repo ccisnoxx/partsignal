@@ -14,7 +14,7 @@ from app.models.content import ContentTask
 from app.models.geo_opportunities import GeoOpportunity, GeoOpportunityAction
 from app.models.identity import AuditLog, User
 from app.models.product_facts import FactVersion, Product
-from app.schemas.content import ContentTaskCreate, ContentTaskPermanentDeleteRequest
+from app.schemas.content import ContentTaskPermanentDeleteRequest, ContentTaskTarget
 from app.schemas.geo_opportunities import GeoOpportunityActionType
 from app.schemas.geo_opportunity_actions import GeoOpportunityContentTaskRequest
 from app.services import content_planning, publication
@@ -366,9 +366,9 @@ def test_completion_does_not_resolve_and_authorized_aggregate_delete_preserves_a
 def test_publication_open_link_repair_unique_failure_and_article_deletion_blocker(api):
     _, _, _, identity, payload = ready(api)
     with api.harness.factory() as db:
-        task = content_planning.create_content_task(
+        task = content_planning.create_linked_content_task(
             db=db,
-            payload=ContentTaskCreate(
+            payload=ContentTaskTarget(
                 **{k: v for k, v in payload.items() if k != "expected_revision"}
             ),
             actor=db.get(User, api.engineer_id),

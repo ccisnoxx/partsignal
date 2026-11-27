@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
@@ -13,6 +14,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -106,6 +108,14 @@ class AIModel(Base):
             "test_status IN ('UNTESTED', 'PASSED', 'FAILED')",
             name="ck_ai_models_test_status",
         ),
+        CheckConstraint(
+            "(input_price_per_1m_tokens IS NULL AND output_price_per_1m_tokens IS NULL "
+            "AND price_currency IS NULL) OR "
+            "(input_price_per_1m_tokens IS NOT NULL AND output_price_per_1m_tokens IS NOT NULL "
+            "AND price_currency IS NOT NULL AND input_price_per_1m_tokens >= 0 "
+            "AND output_price_per_1m_tokens >= 0 AND price_currency ~ '^[A-Z]{3}$')",
+            name="ck_ai_models_pricing_triplet",
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     channel_id: Mapped[uuid.UUID] = mapped_column(
@@ -114,6 +124,9 @@ class AIModel(Base):
     display_name: Mapped[str] = mapped_column(String(200), nullable=False)
     model_id: Mapped[str] = mapped_column(String(300), nullable=False)
     request_parameters: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    input_price_per_1m_tokens: Mapped[Decimal | None] = mapped_column(Numeric(14, 6))
+    output_price_per_1m_tokens: Mapped[Decimal | None] = mapped_column(Numeric(14, 6))
+    price_currency: Mapped[str | None] = mapped_column(String(8))
     is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     test_status: Mapped[str] = mapped_column(String(24), nullable=False, default="UNTESTED")
     last_tested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -164,6 +177,12 @@ class GenerationJob(Base):
             "(job_type = 'HUMANIZE' AND source_content_version_id IS NOT NULL)",
             name="ck_generation_jobs_job_type_source",
         ),
+        CheckConstraint(
+            "(cost_amount IS NULL AND cost_currency IS NULL) OR "
+            "(cost_amount IS NOT NULL AND cost_currency IS NOT NULL "
+            "AND cost_amount >= 0 AND cost_currency ~ '^[A-Z]{3}$')",
+            name="ck_generation_jobs_cost_pair",
+        ),
         Index(
             "ix_generation_jobs_pending_dispatch_due",
             text("COALESCE(last_dispatch_attempt_at, created_at)"),
@@ -176,6 +195,12 @@ class GenerationJob(Base):
             postgresql_where=text("job_type = 'HUMANIZE' AND status IN ('PENDING', 'RUNNING')"),
         ),
         Index("ix_generation_jobs_ai_channel_created_at", "ai_channel_id", "created_at"),
+        Index(
+            "ix_generation_jobs_prompt_version_status",
+            "platform_prompt_version_id",
+            "status",
+            postgresql_where=text("platform_prompt_version_id IS NOT NULL"),
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     content_task_id: Mapped[uuid.UUID] = mapped_column(
@@ -193,6 +218,9 @@ class GenerationJob(Base):
     )
     ai_model_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("ai_models.id", ondelete="SET NULL")
+    )
+    platform_prompt_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("platform_prompt_versions.id", ondelete="RESTRICT")
     )
     adapter_name: Mapped[str] = mapped_column(String(80), nullable=False)
     prompt_template_version: Mapped[str] = mapped_column(String(40), nullable=False)
@@ -219,6 +247,8 @@ class GenerationJob(Base):
     prompt_tokens: Mapped[int | None] = mapped_column(Integer)
     completion_tokens: Mapped[int | None] = mapped_column(Integer)
     total_tokens: Mapped[int | None] = mapped_column(Integer)
+    cost_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 6))
+    cost_currency: Mapped[str | None] = mapped_column(String(8))
     created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )

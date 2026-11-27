@@ -17,8 +17,15 @@ const topic = {
   id: '40000000-0000-4000-8000-000000000001',
   canonical_question: '如何选择低噪声放大器？',
   intent_type: 'PRODUCT',
+  description: '工业射频选型场景',
+  is_active: true,
   variants: ['低噪声放大器选型'],
-  references: { content_task_count: 1, geo_optimization_count: 2, observation_count: 3 },
+  references: {
+    content_task_count: 1,
+    geo_optimization_count: 2,
+    observation_count: 3,
+    campaign_count: 1,
+  },
   primary_task: 'USE_FOR_OBSERVATION',
   available_actions: ['UPDATE'],
   deletion: null,
@@ -58,11 +65,15 @@ describe('Query Topic 列表 URL 与动作模型', () => {
     const values = queryTopicFormSchema.parse({
       canonical_question: '问题',
       intent_type: 'PRODUCT',
+      description: '  说明  ',
+      is_active: false,
       variants: [{ value: '变体一' }, { value: '变体二' }],
     });
     expect(toQueryTopicUpdate(values, 7)).toEqual({
       canonical_question: '问题',
       intent_type: 'PRODUCT',
+      description: '说明',
+      is_active: false,
       variants: ['变体一', '变体二'],
       expected_revision: 7,
     });

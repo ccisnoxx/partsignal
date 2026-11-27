@@ -10,6 +10,10 @@ import {
 
 type ContentTask = components['schemas']['ContentTask'];
 type ContentTaskCreate = components['schemas']['ContentTaskCreate'];
+type ContentTaskBatchPreviewRequest = components['schemas']['ContentTaskBatchPreviewRequest'];
+type ContentTaskBatchPreviewResponse = components['schemas']['ContentTaskBatchPreviewResponse'];
+type ContentTaskBatchCreateRequest = components['schemas']['ContentTaskBatchCreateRequest'];
+type ContentTaskBatchCreateResponse = components['schemas']['ContentTaskBatchCreateResponse'];
 type ContentTaskCreationOptions = components['schemas']['ContentTaskCreationOptions'];
 type ContentTaskDetail = components['schemas']['ContentTaskDetail'];
 type ContentEditorContext = components['schemas']['ContentEditorContext'];
@@ -19,7 +23,9 @@ type ContentDraftUpdate = components['schemas']['ContentDraftUpdate'];
 type ContentVersion = components['schemas']['ContentVersion'];
 type ContentVersionDetail = components['schemas']['ContentVersionDetail'];
 type CommandRequest = components['schemas']['CommandRequest'];
-type RequestChangesCommand = components['schemas']['RequestChangesCommand'];
+type ContentReviewHandoffCommand = components['schemas']['ContentReviewHandoffCommand'];
+type ContentRequestChangesHandoffCommand =
+  components['schemas']['ContentRequestChangesHandoffCommand'];
 type GenerationJob = components['schemas']['GenerationJob'];
 type GenerationJobDetail = components['schemas']['GenerationJobDetail'];
 type GenerationJobList = components['schemas']['GenerationJobList'];
@@ -76,8 +82,8 @@ const contentKeys = {
   permanentDeletionPreview: (taskId: string) => (
     ['content', 'tasks', taskId, 'permanent-deletion-preview'] as const
   ),
-  creationOptions: (requestedProductId?: string) => (
-    ['content', 'tasks', 'creation-options', requestedProductId ?? null] as const
+  creationOptions: (requestedProductId?: string, requestedCampaignId?: string) => (
+    ['content', 'tasks', 'creation-options', requestedProductId ?? null, requestedCampaignId ?? null] as const
   ),
   creationOptionsRoot: () => ['content', 'tasks', 'creation-options'] as const,
 };
@@ -274,12 +280,20 @@ function contentVersionQueryOptions(versionId: string) {
   });
 }
 
-function contentTaskCreationOptionsQueryOptions(requestedProductId?: string) {
+function contentTaskCreationOptionsQueryOptions(
+  requestedProductId?: string,
+  requestedCampaignId?: string,
+) {
   return queryOptions({
-    queryKey: contentKeys.creationOptions(requestedProductId),
+    queryKey: contentKeys.creationOptions(requestedProductId, requestedCampaignId),
     queryFn: async (): Promise<ContentTaskCreationOptions> => {
       const result = await api.GET('/api/v1/content-tasks/creation-options', {
-        params: { query: { requested_product_id: requestedProductId } },
+        params: {
+          query: {
+            requested_product_id: requestedProductId,
+            requested_campaign_id: requestedCampaignId,
+          },
+        },
       });
       if (!result.data) throw contentRequestError('读取创建选项', result);
       return result.data;
@@ -363,10 +377,19 @@ async function updateContentDraft(
 
 async function submitContentVersion(
   versionId: string,
-  body: CommandRequest,
+  body: ContentReviewHandoffCommand,
   csrfToken: string | null,
 ): Promise<ContentVersion> {
-  return commandContentVersion('submit-review', versionId, body, csrfToken);
+  const token = requireCsrfToken(csrfToken, '提交内容审核');
+  const result = await api.POST('/api/v1/content-versions/{content_version_id}/submit-review', {
+    body,
+    params: {
+      path: { content_version_id: versionId },
+      header: { 'X-CSRF-Token': token },
+    },
+  });
+  if (result.data) return result.data;
+  throw contentRequestError('提交内容审核', result);
 }
 
 async function abandonContentVersion(
@@ -374,7 +397,16 @@ async function abandonContentVersion(
   body: CommandRequest,
   csrfToken: string | null,
 ): Promise<ContentVersion> {
-  return commandContentVersion('abandon', versionId, body, csrfToken);
+  const token = requireCsrfToken(csrfToken, '放弃内容版本');
+  const result = await api.POST('/api/v1/content-versions/{content_version_id}/abandon', {
+    body,
+    params: {
+      path: { content_version_id: versionId },
+      header: { 'X-CSRF-Token': token },
+    },
+  });
+  if (result.data) return result.data;
+  throw contentRequestError('放弃内容版本', result);
 }
 
 async function approveContentVersion(
@@ -396,7 +428,7 @@ async function approveContentVersion(
 
 async function requestContentVersionChanges(
   versionId: string,
-  body: RequestChangesCommand,
+  body: ContentRequestChangesHandoffCommand,
   csrfToken: string | null,
 ): Promise<ContentVersion> {
   const token = requireCsrfToken(csrfToken, '退回内容修改');
@@ -412,28 +444,6 @@ async function requestContentVersionChanges(
   );
   if (result.data) return result.data;
   throw contentRequestError('退回内容修改', result);
-}
-
-async function commandContentVersion(
-  command: 'submit-review' | 'abandon',
-  versionId: string,
-  body: CommandRequest,
-  csrfToken: string | null,
-): Promise<ContentVersion> {
-  const action = command === 'submit-review' ? '提交内容审核' : '放弃内容版本';
-  const token = requireCsrfToken(csrfToken, action);
-  const path = command === 'submit-review'
-    ? '/api/v1/content-versions/{content_version_id}/submit-review'
-    : '/api/v1/content-versions/{content_version_id}/abandon';
-  const result = await api.POST(path, {
-    body,
-    params: {
-      path: { content_version_id: versionId },
-      header: { 'X-CSRF-Token': token },
-    },
-  });
-  if (result.data) return result.data;
-  throw contentRequestError(action, result);
 }
 
 async function deleteContentDraft(
@@ -452,7 +462,23 @@ async function deleteContentDraft(
   if (!result.response.ok) throw contentRequestError('删除内容草稿', result);
 }
 
-type ContentTaskCreateField = keyof ContentTaskCreate;
+type ContentTaskCreateField =
+  | 'campaign_id'
+  | 'product_id'
+  | 'fact_version_id'
+  | 'platform_profile_id'
+  | 'query_topic_id'
+  | 'target_question'
+  | 'search_intent'
+  | 'content_angle'
+  | 'target_audience'
+  | 'must_answer_questions_text'
+  | 'required_fact_points_text'
+  | 'forbidden_expressions_text'
+  | 'content_format'
+  | 'cta'
+  | 'target_keywords_text'
+  | 'success_metrics_notes';
 type ContentTaskCreateErrorMapping = {
   fields: Partial<Record<ContentTaskCreateField, string>>;
   formMessage?: string;
@@ -461,10 +487,37 @@ type ContentTaskCreateErrorMapping = {
 };
 
 const contentTaskCreateFields = new Set<ContentTaskCreateField>([
+  'campaign_id',
   'product_id',
   'fact_version_id',
   'platform_profile_id',
+  'query_topic_id',
+  'target_question',
+  'search_intent',
+  'content_angle',
+  'target_audience',
+  'must_answer_questions_text',
+  'required_fact_points_text',
+  'forbidden_expressions_text',
+  'content_format',
+  'cta',
+  'target_keywords_text',
+  'success_metrics_notes',
 ]);
+
+const briefApiToFormField: Record<string, ContentTaskCreateField> = {
+  target_question: 'target_question',
+  search_intent: 'search_intent',
+  content_angle: 'content_angle',
+  target_audience: 'target_audience',
+  must_answer_questions: 'must_answer_questions_text',
+  required_fact_points: 'required_fact_points_text',
+  forbidden_expressions: 'forbidden_expressions_text',
+  content_format: 'content_format',
+  cta: 'cta',
+  target_keywords: 'target_keywords_text',
+  success_metrics: 'success_metrics_notes',
+};
 
 function mapContentTaskCreateError(error: unknown): ContentTaskCreateErrorMapping {
   if (!(error instanceof ContentRequestError) || !error.detail) {
@@ -485,9 +538,14 @@ function mapContentTaskCreateError(error: unknown): ContentTaskCreateErrorMappin
       }
       const loc = 'loc' in issue ? issue.loc : undefined;
       const message = 'msg' in issue ? issue.msg : undefined;
-      const field = Array.isArray(loc) && loc.length === 2 && loc[0] === 'body'
-        ? loc[1]
-        : undefined;
+      let field: string | undefined;
+      if (Array.isArray(loc) && loc[0] === 'body') {
+        if (loc.length === 2 && typeof loc[1] === 'string') {
+          field = loc[1];
+        } else if (loc.length >= 3 && loc[1] === 'brief' && typeof loc[2] === 'string') {
+          field = briefApiToFormField[loc[2]];
+        }
+      }
       if (
         typeof field === 'string'
         && contentTaskCreateFields.has(field as ContentTaskCreateField)
@@ -685,6 +743,38 @@ const contentEditorContextErrorKind = contentTaskDetailErrorKind;
 const contentReviewContextErrorKind = contentTaskDetailErrorKind;
 const contentVersionDetailErrorKind = contentTaskDetailErrorKind;
 
+async function previewContentTaskBatch(
+  body: ContentTaskBatchPreviewRequest,
+  csrfToken: string | null,
+): Promise<ContentTaskBatchPreviewResponse> {
+  const token = requireCsrfToken(csrfToken, '预览批量规划矩阵');
+  const result = await api.POST('/api/v1/content-tasks/batch-preview', {
+    body,
+    params: { header: { 'X-CSRF-Token': token } },
+  });
+  if (result.data) return result.data;
+  throw contentRequestError('预览批量规划矩阵', result);
+}
+
+async function createContentTaskBatch(
+  body: ContentTaskBatchCreateRequest,
+  csrfToken: string | null,
+  idempotencyKey: string,
+): Promise<ContentTaskBatchCreateResponse> {
+  const token = requireCsrfToken(csrfToken, '批量创建内容任务');
+  const result = await api.POST('/api/v1/content-tasks/batch', {
+    body,
+    params: {
+      header: {
+        'X-CSRF-Token': token,
+        'Idempotency-Key': idempotencyKey,
+      },
+    },
+  });
+  if (result.data) return result.data;
+  throw contentRequestError('批量创建内容任务', result);
+}
+
 export {
   ContentRequestError,
   approveContentVersion,
@@ -705,6 +795,7 @@ export {
   contentRequestError,
   contentTaskListQueryOptions,
   createContentTask,
+  createContentTaskBatch,
   createContentRevision,
   createGenerationJob,
   createHumanizationJob,
@@ -713,6 +804,7 @@ export {
   deleteContentTask,
   permanentDeletionPreviewQueryOptions,
   permanentlyDeleteContentTask,
+  previewContentTaskBatch,
   generationJobDetailQueryOptions,
   generationJobsQueryOptions,
   generationOptionsQueryOptions,

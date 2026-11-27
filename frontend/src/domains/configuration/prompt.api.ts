@@ -9,6 +9,12 @@ type PlatformPromptCreate = components['schemas']['PlatformPromptCreate'];
 type PlatformPromptDetail = components['schemas']['PlatformPromptDetail'];
 type PlatformPromptPreviewOptions = components['schemas']['PlatformPromptPreviewOptions'];
 type PlatformPromptUpdate = components['schemas']['PlatformPromptUpdate'];
+type PlatformPromptVersionCreate = components['schemas']['PlatformPromptVersionCreate'];
+type PlatformPromptVersionDraftUpdate = components['schemas']['PlatformPromptVersionDraftUpdate'];
+type PlatformPromptVersionList = components['schemas']['PlatformPromptVersionList'];
+type PlatformPromptVersionOut = components['schemas']['PlatformPromptVersionOut'];
+type PlatformPromptBindingOut = components['schemas']['PlatformPromptBindingOut'];
+type PlatformPromptVersionBindCommand = components['schemas']['PlatformPromptVersionBindCommand'];
 
 class PromptRequestError extends Error {
   constructor(
@@ -26,6 +32,9 @@ const promptKeys = {
   list: () => ['configuration', 'prompts', 'list'] as const,
   details: () => ['configuration', 'prompts', 'detail'] as const,
   detail: (promptId: string) => ['configuration', 'prompts', 'detail', promptId] as const,
+  versions: (promptId: string) => ['configuration', 'prompts', 'versions', promptId] as const,
+  platformBinding: (platformProfileId: string) =>
+    ['configuration', 'platforms', 'prompt-binding', platformProfileId] as const,
   previewOptionsRoot: () => ['configuration', 'prompts', 'preview-options'] as const,
   previewOptions: (promptId: string) => (
     ['configuration', 'prompts', 'preview-options', promptId] as const
@@ -159,13 +168,153 @@ function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
   );
 }
 
+function platformPromptVersionsQueryOptions(promptId: string, enabled = true) {
+  return queryOptions({
+    enabled,
+    queryKey: promptKeys.versions(promptId),
+    queryFn: async ({ signal }): Promise<PlatformPromptVersionList> => {
+      const result = await api.GET('/api/v1/platform-prompts/{platform_prompt_id}/versions', {
+        params: { path: { platform_prompt_id: promptId } },
+        signal,
+      });
+      if (!result.data) throw promptRequestError('读取 Prompt 版本历史', result);
+      return result.data;
+    },
+    refetchOnMount: 'always',
+    retry: false,
+    staleTime: 0,
+  });
+}
+
+async function createPlatformPromptVersion(
+  promptId: string,
+  body: PlatformPromptVersionCreate,
+  csrfToken: string | null,
+): Promise<PlatformPromptVersionOut> {
+  const result = await api.POST('/api/v1/platform-prompts/{platform_prompt_id}/versions', {
+    body,
+    params: {
+      path: { platform_prompt_id: promptId },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.data) return result.data;
+  throw promptRequestError('创建 Prompt 版本', result);
+}
+
+async function updatePlatformPromptVersionDraft(
+  versionId: string,
+  body: PlatformPromptVersionDraftUpdate,
+  csrfToken: string | null,
+): Promise<PlatformPromptVersionOut> {
+  const result = await api.PUT('/api/v1/platform-prompt-versions/{version_id}', {
+    body,
+    params: {
+      path: { version_id: versionId },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.data) return result.data;
+  throw promptRequestError('更新 Prompt 草稿版本', result);
+}
+
+async function publishPlatformPromptVersion(
+  versionId: string,
+  expectedRevision: number,
+  csrfToken: string | null,
+): Promise<PlatformPromptVersionOut> {
+  const result = await api.POST('/api/v1/platform-prompt-versions/{version_id}/publish', {
+    body: { expected_revision: expectedRevision },
+    params: {
+      path: { version_id: versionId },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.data) return result.data;
+  throw promptRequestError('发布 Prompt 版本', result);
+}
+
+async function archivePlatformPromptVersion(
+  versionId: string,
+  expectedRevision: number,
+  csrfToken: string | null,
+): Promise<PlatformPromptVersionOut> {
+  const result = await api.POST('/api/v1/platform-prompt-versions/{version_id}/archive', {
+    body: { expected_revision: expectedRevision },
+    params: {
+      path: { version_id: versionId },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.data) return result.data;
+  throw promptRequestError('归档 Prompt 版本', result);
+}
+
+async function restorePlatformPromptVersion(
+  versionId: string,
+  expectedRevision: number,
+  csrfToken: string | null,
+): Promise<PlatformPromptVersionOut> {
+  const result = await api.POST('/api/v1/platform-prompt-versions/{version_id}/restore', {
+    body: { expected_revision: expectedRevision },
+    params: {
+      path: { version_id: versionId },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.data) return result.data;
+  throw promptRequestError('恢复 Prompt 版本', result);
+}
+
+function platformPromptBindingQueryOptions(platformProfileId: string, enabled = true) {
+  return queryOptions({
+    enabled,
+    queryKey: promptKeys.platformBinding(platformProfileId),
+    queryFn: async ({ signal }): Promise<PlatformPromptBindingOut> => {
+      const result = await api.GET('/api/v1/platform-profiles/{platform_profile_id}/prompt-binding', {
+        params: { path: { platform_profile_id: platformProfileId } },
+        signal,
+      });
+      if (!result.data) throw promptRequestError('读取平台 Prompt 版本绑定', result);
+      return result.data;
+    },
+    refetchOnMount: 'always',
+    retry: false,
+    staleTime: 0,
+  });
+}
+
+async function bindPlatformPromptVersion(
+  platformProfileId: string,
+  body: PlatformPromptVersionBindCommand,
+  csrfToken: string | null,
+): Promise<PlatformPromptBindingOut> {
+  const result = await api.POST('/api/v1/platform-profiles/{platform_profile_id}/bind-prompt-version', {
+    body,
+    params: {
+      path: { platform_profile_id: platformProfileId },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.data) return result.data;
+  throw promptRequestError('切换平台 Prompt 版本', result);
+}
+
 export {
   PromptRequestError,
+  archivePlatformPromptVersion,
+  bindPlatformPromptVersion,
   createPlatformPrompt,
+  createPlatformPromptVersion,
   deletePlatformPrompt,
+  platformPromptBindingQueryOptions,
   platformPromptDetailQueryOptions,
   platformPromptListQueryOptions,
   platformPromptPreviewOptionsQueryOptions,
+  platformPromptVersionsQueryOptions,
   promptKeys,
+  publishPlatformPromptVersion,
+  restorePlatformPromptVersion,
   updatePlatformPrompt,
+  updatePlatformPromptVersionDraft,
 };

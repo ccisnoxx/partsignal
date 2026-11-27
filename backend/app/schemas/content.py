@@ -7,11 +7,12 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
-from pydantic import Field, HttpUrl, model_validator
+from pydantic import AfterValidator, Field, HttpUrl, StringConstraints, model_validator
 
-from app.schemas.base import ContractModel
+from app.schemas.base import ContractModel, require_unique_items
+from app.schemas.campaign import ContentCampaignStatus, ContentCampaignSummary
 from app.schemas.common import DeletionProjection
-from app.schemas.configuration import PlatformLogoOut
+from app.schemas.configuration import IntentType, PlatformLogoOut
 from app.schemas.product_facts import (
     Confidentiality,
     FactVersionOut,
@@ -72,16 +73,106 @@ class ContentTaskQueryTopicReference(StrEnum):
 ContentTag = Annotated[str, Field(min_length=1, pattern=r"\S")]
 
 
-class ContentTaskCreate(ContractModel):
+BriefTextItem = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)
+]
+BriefKeywordItem = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
+]
+
+
+class ContentBriefSuccessMetrics(ContractModel):
+    """内容任务 Brief 冻结的闭合结构化目标。"""
+
+    target_discovery_rate: float | None = Field(default=None, ge=0.0, le=1.0)
+    target_mention_rate: float | None = Field(default=None, ge=0.0, le=1.0)
+    target_recommendation_rate: float | None = Field(default=None, ge=0.0, le=1.0)
+    target_citation_rate: float | None = Field(default=None, ge=0.0, le=1.0)
+    notes: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = None
+
+    @model_validator(mode="after")
+    def _normalize_notes(self) -> ContentBriefSuccessMetrics:
+        if self.notes == "":
+            self.notes = None
+        return self
+
+
+class ContentBriefInput(ContractModel):
+    """新建普通内容任务时提交并一次性冻结的 Brief。"""
+
+    target_question: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)
+    ]
+    search_intent: IntentType
+    content_angle: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)
+    ]
+    target_audience: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] = ""
+    must_answer_questions: Annotated[
+        list[BriefTextItem], AfterValidator(require_unique_items)
+    ] = Field(default_factory=list, max_length=20, json_schema_extra={"uniqueItems": True})
+    required_fact_points: Annotated[
+        list[BriefTextItem], AfterValidator(require_unique_items)
+    ] = Field(default_factory=list, max_length=20, json_schema_extra={"uniqueItems": True})
+    forbidden_expressions: Annotated[
+        list[BriefTextItem], AfterValidator(require_unique_items)
+    ] = Field(default_factory=list, max_length=50, json_schema_extra={"uniqueItems": True})
+    content_format: Annotated[str, StringConstraints(strip_whitespace=True, max_length=80)] = ""
+    cta: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] = ""
+    target_keywords: Annotated[
+        list[BriefKeywordItem], AfterValidator(require_unique_items)
+    ] = Field(default_factory=list, max_length=30, json_schema_extra={"uniqueItems": True})
+    success_metrics: ContentBriefSuccessMetrics = Field(default_factory=ContentBriefSuccessMetrics)
+
+
+class ContentBriefSnapshotOut(ContractModel):
+    """任务创建时冻结的只读 Brief 快照。"""
+
+    content_task_id: uuid.UUID
+    query_topic_id: uuid.UUID | None
+    target_question: str
+    search_intent: IntentType
+    content_angle: str
+    target_audience: str
+    must_answer_questions: list[str]
+    required_fact_points: list[str]
+    forbidden_expressions: list[str]
+    content_format: str
+    cta: str
+    target_keywords: list[str]
+    success_metrics: ContentBriefSuccessMetrics
+    created_by: uuid.UUID
+    created_at: datetime
+
+
+class ContentTaskBriefSummary(ContractModel):
+    """任务列表展示用的紧凑 Brief 摘要。"""
+
+    target_question: str
+    search_intent: IntentType
+    content_angle: str
+
+
+class ContentTaskTarget(ContractModel):
+    """内容任务锁定的产品、事实与平台三元组。"""
+
     product_id: uuid.UUID
     fact_version_id: uuid.UUID
     platform_profile_id: uuid.UUID
+
+
+class ContentTaskCreate(ContentTaskTarget):
+    campaign_id: uuid.UUID | None = None
+    query_topic_id: uuid.UUID
+    brief: ContentBriefInput
 
 
 class ContentTaskCreationFactOption(ContractModel):
     id: uuid.UUID
     version: int = Field(ge=1)
     classification: Confidentiality
+    content_restrictions: str | None
+    approved_claims_summary: str | None
 
 
 class ContentTaskCreationProductOption(ContractModel):
@@ -96,6 +187,23 @@ class ContentTaskCreationPlatformOption(ContractModel):
     name: str
 
 
+class ContentTaskCreationTopicOption(ContractModel):
+    id: uuid.UUID
+    canonical_question: str
+    intent_type: IntentType
+    description: str
+
+
+class ContentTaskCreationCampaignOption(ContractModel):
+    id: uuid.UUID
+    name: str
+    status: ContentCampaignStatus
+    target_audience: str
+    product_ids: list[uuid.UUID]
+    query_topic_ids: list[uuid.UUID]
+    platform_profile_ids: list[uuid.UUID]
+
+
 class ContentTaskRequestedProduct(ContractModel):
     product_id: uuid.UUID
     brand: str | None
@@ -103,10 +211,20 @@ class ContentTaskRequestedProduct(ContractModel):
     eligibility: Literal["ELIGIBLE", "NOT_FOUND", "PRODUCT_INACTIVE", "NO_APPROVED_FACTS"]
 
 
+class ContentTaskRequestedCampaign(ContractModel):
+    campaign_id: uuid.UUID
+    name: str | None
+    status: ContentCampaignStatus | None
+    eligibility: Literal["ELIGIBLE", "NOT_FOUND", "CAMPAIGN_NOT_ELIGIBLE"]
+
+
 class ContentTaskCreationOptions(ContractModel):
     products: list[ContentTaskCreationProductOption]
     platforms: list[ContentTaskCreationPlatformOption]
+    topics: list[ContentTaskCreationTopicOption]
+    campaigns: list[ContentTaskCreationCampaignOption]
     requested_product: ContentTaskRequestedProduct | None
+    requested_campaign: ContentTaskRequestedCampaign | None
 
 
 class ContentTaskOut(ContractModel):
@@ -114,6 +232,7 @@ class ContentTaskOut(ContractModel):
     fact_version_id: uuid.UUID
     platform_profile_id: uuid.UUID | None
     id: uuid.UUID
+    campaign_id: uuid.UUID | None
     query_topic_id: uuid.UUID | None
     source_published_content_issue_id: uuid.UUID | None
     current_content_version_id: uuid.UUID | None
@@ -153,6 +272,8 @@ class ContentTaskListItem(ContentTaskOut):
     identifier: str = Field(pattern=r"^CT-[0-9A-F]{8}$")
     product: ContentTaskProductSummary
     platform: ContentTaskPlatformSummary
+    campaign: ContentCampaignSummary | None
+    brief_summary: ContentTaskBriefSummary | None
     current_content: ContentTaskCurrentContentSummary | None
     latest_generation_status: GenerationJobStatus | None
     updated_at: datetime
@@ -234,6 +355,8 @@ class GenerationPromptOption(ContractModel):
     id: uuid.UUID
     name: str = Field(min_length=1, max_length=300)
     revision: int = Field(ge=0)
+    version_id: uuid.UUID | None = None
+    version: int | None = Field(default=None, ge=1)
     template_markdown: str = Field(min_length=1)
 
 
@@ -249,6 +372,7 @@ class OriginalGenerationJobCreate(ContractModel):
     ai_model_id: uuid.UUID
     platform_prompt_id: uuid.UUID
     platform_prompt_revision: int = Field(ge=0)
+    platform_prompt_version_id: uuid.UUID | None = None
 
 
 class HumanizationJobCreate(ContractModel):
@@ -328,7 +452,7 @@ class MarkdownGenerationSnapshotV2(ContractModel):
 
 
 class GenerationSnapshot(ContractModel):
-    """包含 Prompt 身份的一次原始生成不可变输入。"""
+    """包含 Prompt 身份的一次原始生成不可变输入（无 Brief 历史兼容合同）。"""
 
     adapter_name: Literal["openai-compatible-chat-completions"]
     contract_version: Literal["content-markdown-v3"]
@@ -337,6 +461,45 @@ class GenerationSnapshot(ContractModel):
     platform_profile: dict[str, Any]
     platform_prompt: PlatformPromptSnapshot
     fact_version: GenerationFactSnapshot
+    system_message: str
+    user_message: str
+
+
+class PlatformPromptVersionSnapshot(PlatformPromptSnapshot):
+    """冻结不可变 Prompt 版本身份的生成快照元数据。"""
+
+    version_id: uuid.UUID
+    version: int = Field(ge=1)
+
+
+class GenerationBriefSnapshot(ContractModel):
+    """冻结到 content-markdown-v4 的结构化 Brief 输入摘要（无内部溯源字段）。"""
+
+    content_task_id: uuid.UUID
+    query_topic_id: uuid.UUID | None
+    target_question: str
+    search_intent: str
+    content_angle: str
+    target_audience: str
+    must_answer_questions: list[str]
+    required_fact_points: list[str]
+    forbidden_expressions: list[str]
+    content_format: str
+    cta: str
+    target_keywords: list[str]
+
+
+class GenerationSnapshotV4(ContractModel):
+    """Slice 3A：分层组装 Prompt 版本 + ContentBriefSnapshot + PUBLIC 事实的不可变输入。"""
+
+    adapter_name: Literal["openai-compatible-chat-completions"]
+    contract_version: Literal["content-markdown-v4"]
+    channel: dict[str, Any]
+    model: dict[str, Any]
+    platform_profile: dict[str, Any]
+    platform_prompt: PlatformPromptVersionSnapshot
+    fact_version: GenerationFactSnapshot
+    brief: GenerationBriefSnapshot
     system_message: str
     user_message: str
 
@@ -398,6 +561,7 @@ class GenerationJobDetail(GenerationJobOut):
         LegacyGenerationSnapshot
         | MarkdownGenerationSnapshotV2
         | GenerationSnapshot
+        | GenerationSnapshotV4
         | LegacyHumanizationSnapshot
         | HumanizationSnapshot
     )
@@ -406,7 +570,12 @@ class GenerationJobDetail(GenerationJobOut):
     def validate_snapshot_type(self) -> GenerationJobDetail:
         if self.job_type == "GENERATE" and not isinstance(
             self.input_snapshot,
-            (LegacyGenerationSnapshot, MarkdownGenerationSnapshotV2, GenerationSnapshot),
+            (
+                LegacyGenerationSnapshot,
+                MarkdownGenerationSnapshotV2,
+                GenerationSnapshot,
+                GenerationSnapshotV4,
+            ),
         ):
             raise ValueError("原始生成作业必须使用 GenerationSnapshot")
         if self.job_type == "HUMANIZE" and not isinstance(
@@ -418,7 +587,7 @@ class GenerationJobDetail(GenerationJobOut):
 
 class QualityIssue(ContractModel):
     code: str
-    severity: Literal["WARNING", "BLOCKING"]
+    severity: Literal["BLOCKING", "WARNING", "INFORMATION"]
     message: str
 
 
@@ -626,7 +795,12 @@ class ProductFactReviewWorkspace(ContractModel):
 
 class GenerationTrace(ContractModel):
     job_id: uuid.UUID
-    input_snapshot: LegacyGenerationSnapshot | MarkdownGenerationSnapshotV2 | GenerationSnapshot
+    input_snapshot: (
+        LegacyGenerationSnapshot
+        | MarkdownGenerationSnapshotV2
+        | GenerationSnapshot
+        | GenerationSnapshotV4
+    )
 
 
 class HumanizationTrace(ContractModel):

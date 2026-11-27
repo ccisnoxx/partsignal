@@ -55,6 +55,16 @@ const initialWorkspace = {
   },
   body_markdown: '## 初始事实',
   classification: 'INTERNAL',
+  source_owner: null,
+  source_reference: null,
+  verified_at: null,
+  next_review_at: null,
+  applicable_region: null,
+  content_restrictions: null,
+  approved_claims_summary: null,
+  last_reviewed_at: null,
+  last_reviewed_by: null,
+  facts_freshness: 'UNSET',
   approved_fact: { version: 2, status: 'APPROVED' },
   pending_fact: null,
   available_actions: ['SAVE', 'SUBMIT_REVIEW'],
@@ -164,6 +174,13 @@ describe('FactWorkspacePage', () => {
         expected_revision: 3,
         body_markdown: expect.any(String),
         classification: 'INTERNAL',
+        source_owner: null,
+        source_reference: null,
+        verified_at: null,
+        next_review_at: null,
+        applicable_region: null,
+        content_restrictions: null,
+        approved_claims_summary: null,
       },
       params: {
         path: { product_id: productId },
@@ -545,5 +562,51 @@ describe('FactWorkspacePage', () => {
     expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument();
     expect(screen.getByText(`请求 ID：req-${status}`)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '重试' })).not.toBeInTheDocument();
+  });
+
+  it('展示过期复核告警，保存运营元数据，并支持确认无变更并延期复核', async () => {
+    const user = userEvent.setup();
+    const overdueWorkspace = {
+      ...initialWorkspace,
+      source_owner: '产品负责人 A',
+      source_reference: 'DS-2026-001',
+      next_review_at: '2026-01-01T00:00:00Z',
+      facts_freshness: 'OVERDUE',
+      available_actions: ['SAVE', 'SUBMIT_REVIEW', 'CONFIRM_REVIEW'],
+    } satisfies FactWorkspace;
+    const confirmedWorkspace = {
+      ...overdueWorkspace,
+      next_review_at: '2027-06-01T00:00:00Z',
+      last_reviewed_at: '2026-11-27T09:00:00Z',
+      last_reviewed_by: userAccount.id,
+      facts_freshness: 'FRESH',
+      revision: 4,
+    } satisfies FactWorkspace;
+    vi.spyOn(api, 'GET').mockResolvedValue(response(overdueWorkspace));
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(response(confirmedWorkspace));
+    renderWorkspace();
+
+    expect(await screen.findByText(/产品事实已超过计划复核时间/)).toBeInTheDocument();
+    expect(screen.getByLabelText('外部事实负责人')).toHaveValue('产品负责人 A');
+    expect(screen.getByLabelText('外部资料编号')).toHaveValue('DS-2026-001');
+
+    await user.click(screen.getByRole('button', { name: '确认无变更并延期复核' }));
+    const dialog = await screen.findByRole('dialog', { name: '确认无变更并延期复核' });
+    const nextReviewInput = within(dialog).getByLabelText(/新的下次复核时间/);
+    await user.clear(nextReviewInput);
+    await user.type(nextReviewInput, '2027-06-01T08:00');
+    await user.click(within(dialog).getByRole('button', { name: '确认延期复核' }));
+
+    await waitFor(() => expect(post).toHaveBeenCalledWith(
+      '/api/v1/products/{product_id}/facts/confirm-review',
+      expect.objectContaining({
+        body: expect.objectContaining({ expected_revision: 3 }),
+        params: {
+          path: { product_id: productId },
+          header: { 'X-CSRF-Token': auth.csrfToken },
+        },
+      }),
+    ));
+    await waitFor(() => expect(screen.queryByText(/产品事实已超过计划复核时间/)).not.toBeInTheDocument());
   });
 });

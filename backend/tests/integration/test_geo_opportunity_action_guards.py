@@ -11,7 +11,7 @@ from app.errors import AppError
 from app.models.geo_opportunities import GeoOpportunity, GeoOpportunityAction
 from app.models.identity import User
 from app.models.publication import PublicationWork
-from app.schemas.content import ContentTaskCreate, ContentTaskPermanentDeleteRequest
+from app.schemas.content import ContentTaskPermanentDeleteRequest, ContentTaskTarget
 from app.schemas.publication import (
     PublishedArticlePermanentDeleteRequest,
     PublishedContentIssueCreate,
@@ -52,9 +52,9 @@ __all__ = [
 def context(api):
     _, _, _, identity, payload = ready(api)
     with api.harness.factory() as db:
-        task = content_planning.create_content_task(
+        task = content_planning.create_linked_content_task(
             db=db,
-            payload=ContentTaskCreate(
+            payload=ContentTaskTarget(
                 **{k: v for k, v in payload.items() if k != "expected_revision"}
             ),
             actor=db.get(User, api.engineer_id),

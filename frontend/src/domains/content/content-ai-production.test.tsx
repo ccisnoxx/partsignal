@@ -117,6 +117,8 @@ function context({
       classification: 'PUBLIC',
       body_markdown: '# 批准事实',
     },
+    campaign: null,
+    brief: null,
     current_content: current,
     comparison_content: null,
     diff: null,

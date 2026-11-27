@@ -126,7 +126,14 @@ function ContentTaskListPage({
   return (
     <section className="space-y-4" aria-labelledby="content-task-list-title">
       <PageHeader
-        actions={<Link className={buttonVariants()} to="/content/tasks/new">创建内容任务</Link>}
+        actions={(
+          <div className="flex flex-wrap gap-2">
+            <Link className={buttonVariants({ variant: 'outline' })} to="/content/tasks/batch">
+              批量规划任务
+            </Link>
+            <Link className={buttonVariants()} to="/content/tasks/new">创建内容任务</Link>
+          </div>
+        )}
         badges={search.archiveStatus === 'ARCHIVED' ? <Badge variant="secondary">已归档视图</Badge> : undefined}
         description="查看服务端聚合的当前阶段，并进入每个任务唯一的下一项主要工作。"
         title="内容任务"
@@ -160,10 +167,26 @@ function ContentTaskListPage({
           Query Topic 引用筛选：{search.queryTopicReference === 'CONTENT_TASK' ? 'Content Task' : 'GEO Optimization 来源'} · {search.queryTopicId}
         </InlineBanner>
       )}
+      {search.campaignId && (
+        <InlineBanner
+          actions={
+            <Button
+              onClick={() => changeSearch({ campaignId: undefined })}
+              size="sm"
+              variant="outline"
+            >
+              清除活动筛选
+            </Button>
+          }
+          tone="info"
+        >
+          内容活动筛选：{search.campaignId}
+        </InlineBanner>
+      )}
 
       <TableToolbar>
         <ContentTaskFilters
-          key={`${search.q ?? ''}-${search.platformId ?? ''}-${search.queryTopicId ?? ''}`}
+          key={`${search.q ?? ''}-${search.platformId ?? ''}-${search.queryTopicId ?? ''}-${search.campaignId ?? ''}`}
           onChange={(changes) => changeSearch(changes)}
           platformItems={platforms.data?.items ?? []}
           search={search}
@@ -212,6 +235,7 @@ function ContentTaskListPage({
                   platformId: undefined,
                   queryTopicId: undefined,
                   queryTopicReference: undefined,
+                  campaignId: undefined,
                 })}
                 variant="outline"
               >
@@ -378,6 +402,7 @@ function ContentTaskFilters({
           platformId: undefined,
           queryTopicId: undefined,
           queryTopicReference: undefined,
+          campaignId: undefined,
         });
       }}
       onSubmit={() => onChange({ q: query.trim() || undefined })}
@@ -389,6 +414,7 @@ function ContentTaskFilters({
         && !search.workflowStage
         && !search.platformId
         && !search.queryTopicId
+        && !search.campaignId
         && search.archiveStatus === 'ACTIVE'
       }
       searchLabel="搜索内容任务"

@@ -58,6 +58,8 @@ import {
   platformPromptListQueryOptions,
   promptKeys,
 } from './prompt.api';
+import { PlatformPromptVersionBindButton } from './platform-prompt-binding-dialog';
+import { PlatformHealthCheckSettingsButton } from './platform-health-check-dialog';
 import {
   deletionBlockerLabel,
   platformStatusRegistry,
@@ -159,6 +161,7 @@ function PlatformWorkspacePage({
         ? [
             queryClient.invalidateQueries({ queryKey: promptKeys.lists() }),
             queryClient.invalidateQueries({ queryKey: promptKeys.details() }),
+            queryClient.invalidateQueries({ queryKey: ['configuration', 'prompts', 'versions'] }),
           ]
         : []),
       onConsumersChanged(kind),
@@ -232,11 +235,19 @@ function PlatformWorkspacePage({
         >
           返回 Platform List
         </a>
-        {canManagePlatformTypes && (
-          <a className={buttonVariants({ variant: 'outline' })} href="/settings/platforms/types">
-            管理平台类型
-          </a>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <PlatformHealthCheckSettingsButton
+            canEdit={canManagePlatformTypes}
+            csrfToken={csrfToken}
+            onSaved={reloadDetail}
+            platformId={platformId}
+          />
+          {canManagePlatformTypes && (
+            <a className={buttonVariants({ variant: 'outline' })} href="/settings/platforms/types">
+              管理平台类型
+            </a>
+          )}
+        </div>
       </div>
 
       <PlatformWorkspaceHeader
@@ -1442,8 +1453,31 @@ function PlatformGenerationSection({
 
   return (
     <section aria-labelledby="platform-generation-title" className="rounded-xl border border-border-subtle bg-surface-panel p-4">
-      <h2 className="type-section-title" id="platform-generation-title">生成配置</h2>
-      <p className="mt-1 text-sm text-text-muted">仅管理当前平台与现有 Prompt 的绑定，不编辑 Prompt 正文。</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="type-section-title" id="platform-generation-title">生成配置</h2>
+          <p className="mt-1 text-sm text-text-muted">仅管理当前平台与现有 Prompt 不可变版本的绑定，不编辑 Prompt 正文。</p>
+        </div>
+        {canUpdate && (
+          <PlatformPromptVersionBindButton
+            csrfToken={csrfToken}
+            onBound={() => {
+              const continuation = capturePrincipalContinuation(queryClient);
+              void (async () => {
+                try {
+                  const fresh = await onReload();
+                  if (!continuation.isCurrent()) return;
+                  reset(fresh.profile, true);
+                  await onUpdated(fresh.profile, continuation);
+                } catch (reason: unknown) {
+                  if (continuation.isCurrent()) setReloadError(reason);
+                }
+              })();
+            }}
+            platformProfileId={detail.profile.id}
+          />
+        )}
+      </div>
       <dl className="mt-4 grid gap-3 sm:grid-cols-3">
         <Metadata label="当前 Prompt" value={detail.profile.platform_prompt?.name ?? '未绑定'} />
         <Metadata label="Prompt revision" mono value={String(detail.profile.platform_prompt?.revision ?? '—')} />

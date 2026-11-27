@@ -24,12 +24,17 @@ from app.errors import (
     error_responses,
     validation_error_handler,
 )
+from app.routers.assignments import router as assignments_router
+from app.routers.campaigns import router as campaigns_router
 from app.routers.configuration import router as configuration_router
+from app.routers.content_quality import router as content_quality_router
+from app.routers.cost_accounting import router as cost_accounting_router
 from app.routers.files import router as files_router
 from app.routers.geo_answer_insights import router as geo_answer_insights_router
 from app.routers.geo_batches import router as geo_batches_router
 from app.routers.geo_browser_sessions import router as geo_browser_sessions_router
 from app.routers.geo_catalog import router as geo_catalog_router
+from app.routers.geo_interventions import router as geo_interventions_router
 from app.routers.geo_manual_collection import router as geo_manual_collection_router
 from app.routers.geo_monitoring_plans import router as geo_monitoring_plans_router
 from app.routers.geo_opportunities import router as geo_opportunities_router
@@ -45,13 +50,20 @@ from app.routers.geo_run_commands import router as geo_run_commands_router
 from app.routers.geo_surface_management import router as geo_surface_management_router
 from app.routers.identity import router as identity_router
 from app.routers.observation import router as observation_router
+from app.routers.operations_dashboard import router as operations_dashboard_router
+from app.routers.page_health import router as page_health_router
 from app.routers.planning import router as planning_router
 from app.routers.product_facts import router as product_facts_router
 from app.routers.production import router as production_router
+from app.routers.prompt_versioning import router as prompt_versioning_router
 from app.routers.publication import router as publication_router
 from app.routers.workbench import router as workbench_router
 from app.schemas.common import HealthResponse
-from app.schemas.geo_answers import GeoAnswerCitationOut, GeoRawPayloadSummary
+from app.schemas.geo_answers import (
+    GeoAnswerCitationOut,
+    GeoCitationObservation,
+    GeoRawPayloadSummary,
+)
 from app.schemas.geo_insights import GeoOverviewFilters
 from app.schemas.geo_rules import GeoRuleConfiguration
 from app.schemas.geo_runs import GeoBatchPlanSnapshot
@@ -356,16 +368,24 @@ app.include_router(geo_reports_router)
 app.include_router(geo_rules_router)
 app.include_router(geo_opportunity_schedule_router)
 app.include_router(geo_opportunities_router)
+app.include_router(geo_interventions_router)
 app.include_router(geo_retests_router)
 app.include_router(geo_manual_collection_router)
 app.include_router(geo_surface_management_router)
 app.include_router(configuration_router)
+app.include_router(cost_accounting_router)
+app.include_router(prompt_versioning_router)
 app.include_router(product_facts_router)
+app.include_router(campaigns_router)
 app.include_router(planning_router)
 app.include_router(production_router)
+app.include_router(content_quality_router)
 app.include_router(publication_router)
+app.include_router(page_health_router)
 app.include_router(observation_router)
 app.include_router(workbench_router)
+app.include_router(operations_dashboard_router)
+app.include_router(assignments_router)
 app.include_router(files_router)
 
 
@@ -387,6 +407,7 @@ def _custom_openapi() -> dict[str, Any]:
             (GeoOverviewFilters, ("mention_mode",)),
             (GeoBatchPlanSnapshot, ("description", "budget_limit", "cron_expression")),
             (GeoAnswerCitationOut, ("title",)),
+            (GeoCitationObservation, ("missing_reason",)),
             (
                 GeoRuleConfiguration,
                 (

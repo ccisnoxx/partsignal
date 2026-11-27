@@ -38,6 +38,7 @@ import {
   testAIModel,
   updateAIModel,
 } from './ai-channel.api';
+import { AIModelPricingButton } from './ai-model-pricing-dialog';
 import {
   aiModelFormSchema,
   aiModelFormValues,
@@ -486,12 +487,22 @@ function AIChannelModelsSection({
                     <td className="hidden md:table-cell" data-column-role="status">{model.workflow_stage}</td>
                     <td className="hidden max-w-72 lg:table-cell" data-column-role="metadata"><span className="block">{model.last_tested_at ? new Date(model.last_tested_at).toLocaleString('zh-CN') : '尚未测试'}</span>{model.last_test_error_summary && <span className="block break-words text-xs text-destructive">{model.last_test_error_summary}</span>}</td>
                     <td data-column-role="status"><Badge variant={model.is_enabled ? 'success' : 'secondary'}>{model.is_enabled ? '已启用' : '已停用'}</Badge></td>
-                    <td data-column-role="actions"><RowActions
-                      objectLabel={`模型 ${model.display_name}`}
-                      onCommand={(command, focusReturn) => handleModelCommand(model, command, focusReturn)}
-                      overflow={actions.overflow.map(resolveAvailability)}
-                      primary={resolveAvailability(actions.primary)}
-                    /></td>
+                    <td data-column-role="actions">
+                      <div className="flex items-center justify-end gap-1">
+                        <AIModelPricingButton
+                          csrfToken={csrfToken}
+                          disabled={commandPending}
+                          modelDisplayName={model.display_name}
+                          modelId={model.id}
+                        />
+                        <RowActions
+                          objectLabel={`模型 ${model.display_name}`}
+                          onCommand={(command, focusReturn) => handleModelCommand(model, command, focusReturn)}
+                          overflow={actions.overflow.map(resolveAvailability)}
+                          primary={resolveAvailability(actions.primary)}
+                        />
+                      </div>
+                    </td>
                   </tr>
                 );
               })}

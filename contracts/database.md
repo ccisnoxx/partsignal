@@ -1451,3 +1451,93 @@ GET Run详情新增required nullable cancellation，返回真实reason/操作者
 人工草稿沿既有 JSON、修订锁与文件生命周期，校验扩展为允许可选声明；空声明不写入 canonical JSON，使旧草稿 no-op 和真实旧请求 hash 保持原样。新正式提交在查验原有幂等回执后必须显式声明，缺失422；声明、原文、引用、证据与Run状态同事务冻结。既有回执不补声明，API/历史记录允许 NULL。缺失原因不写入低敏审计或AI输入。
 
 指标输入只提取状态；PARTIAL/UNKNOWN 使用 CITATION_OBSERVATION_UNAVAILABLE 排除三个引用指标，其他资格不变。NONE 提供可观察无引用依据，但分类/分析/复核/文件完整性仍按既有门禁；自有来源覆盖/域名覆盖可为0/1，零引用份额分母仍为0、value=null。COMPLETE 与 NULL 历史样本保留原有分类与资格计算，NULL 不被标为完整，不追溯修订历史报表。0070降级明确55000拒绝丢失已冻结事实；恢复使用前向修复或迁移前备份。
+
+
+## Slice 2A：产品事实运营元数据与新鲜度治理（0071）
+
+`0071_product_fact_ops_metadata`（`down_revision = '0070_geo_citation_observation'`）以纯加法扩展产品事实治理与不可变版本元数据，不回填历史记录，不新增参数表或替代关系表。
+
+- `products` 新增可空可变治理列：`source_owner VARCHAR(160)`、`next_review_at TIMESTAMPTZ`、`last_reviewed_at TIMESTAMPTZ`、`last_reviewed_by UUID REFERENCES users(id) ON DELETE RESTRICT`；CHECK 保证 `(last_reviewed_at IS NULL) = (last_reviewed_by IS NULL)`，以及 `source_owner` 非空时去首尾空白后长度 1..160。另增 partial 索引 `ix_products_next_review_at` 与 `ix_products_last_reviewed_by`。
+- `products` 新增可空工作区暂存列：`facts_source_reference TEXT`（1..500）、`facts_verified_at TIMESTAMPTZ`、`facts_applicable_region VARCHAR(160)`（1..160）、`facts_content_restrictions TEXT`（1..4000）、`facts_approved_claims_summary TEXT`（1..4000）；全部受既有 `facts_revision` 乐观锁保护。
+- `fact_versions` 新增 5 项可空不可变冻结列：`source_reference`、`verified_at`、`applicable_region`、`content_restrictions`、`approved_claims_summary`。提交审核时从 `products` 工作区一次性快照；更新 `partsignal_guard_fact_version()` 触发器将上述 5 列纳入不可变载荷保护，任何原地修改均以 `55000` 拒绝。
+- 新鲜度投影 `facts_freshness` 由服务端基于 PostgreSQL 时钟实时计算：`UNSET`（`next_review_at IS NULL`）、`OVERDUE`（`next_review_at <= now()`）、`FRESH`（`next_review_at > now()`）；过期为软告警，不硬阻断内容任务创建。
+- `product_workflow()` 比较 `latest` 与工作区的 `body_markdown`、`classification` 及 5 项冻结字段；仅修改可变治理态（`source_owner`、`next_review_at` 或执行 `confirm-review`）不会使 `FACT_APPROVED` 回退为 `FACTS_EDITING`。
+- `POST /api/v1/products/{product_id}/facts/confirm-review` 为 `ADMIN / ENGINEER` + CSRF 轻量命令：持 `Product FOR UPDATE` 校验 `ACTIVE`、存在 `APPROVED FactVersion`、`expected_revision == facts_revision` 及 `next_review_at > db_now`，原子更新 `next_review_at`、`last_reviewed_at`、`last_reviewed_by` 并递增 `facts_revision`，写入低敏审计 `product_facts.review_confirmed`（不记录自由文本，不强制创建新 `FactVersion`）。
+- `Product.last_reviewed_by` 纳入停用用户物理删除业务引用预检（`USER_IN_USE`）。AI 生成快照继续只读取 `PUBLIC FactVersion.body_markdown`，`source_owner` 与 `source_reference` 等内部治理字段永不外发至第三方 AI。`0071` 降级固定以 `55000` 拒绝销毁运营元数据，恢复使用迁移前备份或前向修复。
+
+
+## Slice 2B：内容策划层与不可变 Brief 快照（0072）
+
+`0072_content_planning_layer`（`down_revision = '0071_product_fact_ops_metadata'`）建立纯 GEO 内容策划层，采用纯加法前滚迁移，不回填存量任务的 Brief 快照，不在 `published_articles` 上冗余双写 `campaign_id`。
+
+- `query_topics` 升级为一等策划对象：新增 `is_active BOOLEAN NOT NULL DEFAULT true` 与 `description TEXT NOT NULL DEFAULT ''`（长度 `<= 1000`），索引 `ix_query_topics_is_active(is_active, id)`。停用仅阻止新任务与新活动选择，不影响历史任务与 GEO 观测。
+- `content_campaigns` 主聚合：包含 `id`、`name`（trim 非空 `<= 200`）、`description`（`<= 4000`）、`target_audience`（`<= 500`）、`owner_id`（`FK users.id RESTRICT`）、`priority`（`LOW | MEDIUM | HIGH | CRITICAL`）、`status`（`DRAFT | ACTIVE | PAUSED | COMPLETED | ARCHIVED`）、`start_date` / `end_date`（`start_date <= end_date`）、`target_metrics`（结构化 JSONB 对象）、`budget_amount NUMERIC(14,2)` / `budget_currency VARCHAR(8)`（同空或同非空、`>= 0`、`^[A-Z]{3}$`）、`revision`、`created_by`、`updated_by`、`created_at`、`updated_at`。触发器 `content_campaigns_lifecycle_guard` 强制合法状态转换、`COMPLETED` 仅允许归档、`ARCHIVED` 只读，物理删除仅限 `DRAFT` 且无关联 `content_tasks`。
+- 4 张多对多关联表：`content_campaign_products`、`content_campaign_topics`、`content_campaign_platforms`、`content_campaign_monitoring_plans`；复合主键，`campaign_id` 为 `ON DELETE CASCADE`（仅在删除草稿活动时清理关系），资源外键均为 `ON DELETE RESTRICT` 并建反向索引；`Product`、`QueryTopic`、`PlatformProfile`、`GeoMonitoringPlan` 删除预检与投影同步纳入活动引用阻断；触发器禁止修改 `COMPLETED / ARCHIVED` 活动的关联关系。
+- `content_tasks` 新增可空 `campaign_id UUID REFERENCES content_campaigns(id) ON DELETE RESTRICT` 及 partial 索引 `ix_content_tasks_campaign_id_created_at(campaign_id, created_at)`。触发器 `content_tasks_planning_identity_guard` 保护 `campaign_id` 与 `query_topic_id` 创建后不可变；`PublishedArticle` 通过 `PublicationWork -> ContentTask.campaign_id` 实时派生归属。
+- `content_brief_snapshots`（1:1 PK `content_task_id REFERENCES content_tasks.id RESTRICT`）：冻结 `query_topic_id`、`target_question`、`search_intent`、`content_angle`、`target_audience`、`must_answer_questions`、`required_fact_points`、`forbidden_expressions`、`content_format`、`cta`、`target_keywords`、`success_metrics`、`created_by`、`created_at`。`BEFORE INSERT` 触发器校验 `query_topic_id` 与 `content_tasks.query_topic_id` 一致；`BEFORE UPDATE OR DELETE` 触发器禁止 `UPDATE`（`55000`），仅在设置 `partsignal.content_task_delete_id = OLD.content_task_id::text` 的受控任务删除事务中放行 `DELETE`。
+- 全部新增用户外键（`content_campaigns.owner_id / created_by / updated_by`、`content_brief_snapshots.created_by`）均接入 `USER_IN_USE` 删除预检。新建普通内容任务（`POST /api/v1/content-tasks`）强制要求活跃 `query_topic_id` 与完整核心 Brief，绑定 `campaign_id` 时按 `User -> PlatformProfile -> Product -> FactVersion -> QueryTopic -> GeoMonitoringPlan -> ContentCampaign` 无死锁锁序校验活动状态与范围；存量历史任务、GEO 联动任务与发布修复任务保持 `brief: null` 兼容。`0072` 降级固定以 `55000` 拒绝销毁策划与 Brief 历史。
+
+
+## Slice 2C：批量内容任务规划矩阵与幂等回执（0073）
+
+`0073_content_task_batch_planning`（`down_revision = '0072_content_planning_layer'`）新增追加不可变批量幂等回执表 `content_task_batch_requests`，为矩阵批量规划提供 `REPEATABLE READ` 预览与全量原子提交。
+
+- `content_task_batch_requests`：`id UUID PK`、`created_by UUID FK users.id RESTRICT`、`request_key_sha256 VARCHAR(64)`、`request_sha256 VARCHAR(64)`、`campaign_id UUID NULL FK content_campaigns.id RESTRICT`、`task_ids UUID[] NOT NULL`（`cardinality BETWEEN 1 AND 100`）、`created_at TIMESTAMPTZ NOT NULL DEFAULT now()`；唯一约束 `(created_by, request_key_sha256)` 仲裁并发重放，触发器 `content_task_batch_requests_immutable_guard` 禁止 `UPDATE / DELETE`（`55000`）。`created_by` 纳入 `USER_IN_USE` 删除预检，`campaign_id` 纳入草稿活动物理删除保护。
+- `POST /api/v1/content-tasks/batch-preview`（`REPEATABLE READ`，单批 1..100 格）：确定性解析默认最新非空 `APPROVED FactVersion`，显式区分 `BLOCKER`（资源不存在/停用、无已批准事实、事实不匹配、活动不可用/范围冲突、同批同 `(product_id, query_topic_id, normalized_angle, platform_profile_id)` 重复）与 `WARNING`（已有开放任务、近 30 天已核验文章、平台未绑定 Prompt、事实已过期）。不同内容角度允许在显式确认软告警后于同 `(产品, 主题, 平台)` 并存。
+- `POST /api/v1/content-tasks/batch`（`Idempotency-Key` + CSRF）：获取 `actor + key_sha256` 事务级 advisory lock 后查验回执，再按全局无死锁序 `User -> PlatformProfile(asc) -> Product(asc) -> FactVersion(asc) -> QueryTopic(asc) -> ContentCampaign(KEY SHARE)` 加锁重验；任一硬阻断或未确认软告警整批回滚（`409` 携带逐格诊断），全部通过后原子创建全部 `ContentTask` + `ContentBriefSnapshot` + `ContentTaskBatchRequest` + 低敏审计 `content_task.batch_created`。`0073` 降级固定以 `55000` 拒绝销毁回执历史。
+
+
+## Slice 2D：统一任务分派、SLA 与运营收件箱（0074）
+
+`0074_assignments_sla_inbox`（`down_revision = '0073_content_task_batch_planning'`）以纯加法在 5 个主聚合直接落库分派与 SLA 元数据，不新增第二份可变待办表。
+
+- **统一列集合**：在 `fact_versions`、`content_tasks`、`publication_works`、`published_content_issues` 新增 `assignee_id`、`priority`（默认 `MEDIUM`，`LOW|MEDIUM|HIGH|CRITICAL`）、`due_at`、`blocked_reason`（非空 trim 1..500）、`assigned_by`、`assigned_at`；在 `geo_opportunities` 复用规则冻结的 `priority` 列并新增其余 5 列。所有 5 张表均加配对约束 `(assignee_id IS NULL AND assigned_by IS NULL AND assigned_at IS NULL) OR (assignee_id IS NOT NULL AND assigned_by IS NOT NULL AND assigned_at IS NOT NULL)` 及 partial 索引 `(assignee_id, due_at)`、`(assigned_by)`、`(due_at)`。
+- **非终态可变与终态冻结触发器**：
+  - `fact_versions`：仅 `PENDING_REVIEW` 允许修改分派/SLA，离开待审态冻结（`55000`）；
+  - `content_tasks`：仅 `status = 'OPEN' AND archived_at IS NULL` 允许修改，终态或归档后冻结（`55000`）；内容版本 `submit-review` / `request-changes` 支持可选 `next_assignee_id` 在同一事务顺手改派所属 `ContentTask`；
+  - `publication_works`：仅 `PREPARING | PLATFORM_REVIEW | AWAITING_VERIFICATION | ACTION_REQUIRED` 允许修改，`COMPLETED | CLOSED` 冻结（`55000`）；
+  - `published_content_issues`：仅 `OPEN` 允许修改（`revision + 1`），`RESOLVED` 后冻结（`55000`）；
+  - `geo_opportunities`：仅 `OPEN | ACKNOWLEDGED | IN_PROGRESS` 允许修改分派/SLA（`priority` 继续受 `trigger_snapshot` 冻结），`RESOLVED | DISMISSED` 后冻结（`55000`）。
+- **软归属、锁序与用户删除护栏**：全部 10 个新增用户外键（5 表 `assignee_id` + `assigned_by`）均纳入 `USER_IN_USE` 删除预检；分派命令先按 UUID 升序锁定操作人与目标受派人 `User FOR SHARE`（含 `discard_auth_heartbeat` 与 `SessionRecord FOR SHARE` 复核）再锁目标聚合，确保 `expected_revision` CAS 与无死锁；低敏审计 `work_assignment.updated` 仅记录稳定 ID/枚举/布尔标记，绝不记录 `blocked_reason` 自由文本。
+- **运营收件箱读模型**：`GET /api/v1/workbench/inbox` 在单次禁用 `autoflush` 的 `REPEATABLE READ` 快照下实时聚合 8 个运营分桶计数（`assigned_to_me`、`due_today`、`overdue`、`pending_review`、`awaiting_publication`、`awaiting_verification`、`needs_fix`、`high_priority_geo_opportunities`）及优先级排序队列，按请求 IANA 时区（默认 `Asia/Shanghai`）计算今日到期边界。`0074` 降级固定以 `55000` 拒绝销毁分派与 SLA 历史。
+
+
+## Slice 3A：Prompt 不可变版本化与 Brief 注入 AI（0075）
+
+`0075_prompt_versioning_v4`（`down_revision = '0074_assignments_sla_inbox'`）引入不可变 Prompt 版本子表与平台显式版本绑定，并在保留 `content-markdown-v2 / v3` 历史只读兼容的前提下新增 `content-markdown-v4` 分层 Brief 注入契约。
+
+- **`platform_prompt_versions` 表**：`id UUID PK`、`prompt_id UUID FK platform_prompts.id ON DELETE CASCADE`、`version INTEGER (>=1)`、`status VARCHAR(20) ('DRAFT' | 'PUBLISHED' | 'ARCHIVED')`、`template_markdown TEXT`（trim 非空）、`template_sha256 VARCHAR(64)`、`change_summary TEXT (<=500)`、`revision INTEGER (>=0)`、`published_at` / `published_by (FK users.id RESTRICT)`（`DRAFT` 同空，`PUBLISHED/ARCHIVED` 同非空）、`created_by (FK users.id RESTRICT)`、`created_at`、`updated_at`。约束 `UNIQUE(prompt_id, version)` 与部分唯一索引 `uq_platform_prompt_versions_one_draft`（每个 Prompt 最多 1 份草稿）。存量 `platform_prompts` 在迁移时无损回填为 `version = 1, status = 'PUBLISHED'`。
+- **不可变与绑定触发器**：
+  - `partsignal_guard_platform_prompt_version()`：发布后正文、哈希、摘要与发布元数据永久不可变（`55000`），仅允许在未绑定状态下切换 `PUBLISHED <-> ARCHIVED`；已发布/已归档版本仅在受控 `partsignal.allow_unused_prompt_delete = 'on'` 且无 `platform_profiles` 或 `generation_jobs` 引用时允许随未用模板一并删除。
+  - `platform_profiles.platform_prompt_version_id (FK platform_prompt_versions.id RESTRICT)` 配备 `partsignal_guard_platform_profile_prompt_version()` 触发器（`FOR SHARE` 校验版本归属同一 `platform_prompt_id` 且处于 `PUBLISHED` 状态）；管理员可通过显式绑定命令切换或一键回滚至任意历史已发布版本。
+- **生成作业版本归因与 `content-markdown-v4`**：`generation_jobs` 新增可空 `platform_prompt_version_id (FK RESTRICT)` 及索引 `(platform_prompt_version_id, status)`；存在 `ContentBriefSnapshot` 的新任务固定组装 `content-markdown-v4`（`system` 等于绑定不可变 `PlatformPromptVersion.template_markdown`，`user` 固定分层拼接内容 Brief + 已批准 `PUBLIC` 产品事实/公开约束 + 严禁编造事实外参数的边界声明，`source_owner`/`source_reference` 严禁入参）；无 Brief 存量任务继续沿用 `content-markdown-v3`。`platform_prompt_versions.created_by / published_by` 纳入 `USER_IN_USE` 预检。`0075` 降级固定以 `55000` 拒绝销毁 Prompt 版本历史。
+
+
+## Slice 3B：双层内容质量检查与重复度管理（0076）
+
+`0076_quality_gate_duplication`（`down_revision = '0075_prompt_versioning_v4'`）在保留 `content_versions.quality_issues` JSONB 轻量存储的基础上升级 Layer 1 三级确定性质量门禁（`BLOCKING / WARNING / INFORMATION`）与同活动/同产品重复度分析读模型，并新增 Layer 2 可选异步 AI 语义质量检查作业表 `content_quality_check_jobs`。
+
+- **`content_quality_check_jobs` 表**：`id UUID PK`、`content_version_id UUID FK content_versions.id RESTRICT`、`content_task_id UUID FK content_tasks.id RESTRICT`、`idempotency_key VARCHAR(128) UNIQUE`、`status ('PENDING'|'RUNNING'|'SUCCEEDED'|'FAILED')`、`ai_channel_id / ai_model_id (FK SET NULL)`、`adapter_name`、`input_snapshot JSONB`（仅含 `PUBLIC` 产品事实、Brief 与公开摘要，严禁 `source_owner`/`source_reference`）、`findings JSONB`（数组）、`differentiation_suggestions JSONB`（数组）、Token 与耗时指标、`error_code / error_summary`、`created_by (FK users.id RESTRICT)`、`created_at / started_at / lease_expires_at / finished_at`。部分唯一索引 `uq_content_quality_check_jobs_active_version` 保证同一 `content_version_id` 最多 1 个活动语义检查作业。
+- **不可变与受控删除守卫**：`partsignal_guard_content_quality_check_job()` 冻结终态记录（`SUCCEEDED/FAILED`）及身份/输入快照字段（`55000`），且仅在 `partsignal.content_task_delete_id = OLD.content_task_id`（已归档任务永久删除）或 `partsignal.content_version_delete_id = OLD.content_version_id`（人工未审核草稿彻底删除）时允许级联删除。`content_quality_check_jobs.created_by` 纳入 `USER_IN_USE` 预检；进行中的语义检查作业阻断草稿物理删除。
+- **提交审核警告确认门禁**：`POST /api/v1/content-versions/{content_version_id}/submit-review` 保留 `BLOCKING` 硬阻断，并新增 `acknowledge_warnings` 显式确认布尔参数；存在 `WARNING` 且未显式确认时返回 409 `QUALITY_WARNINGS_UNACKNOWLEDGED`，`INFORMATION` 仅作编辑参考不阻断提交。`0076` 降级固定以 `55000` 拒绝销毁语义质检历史。
+
+## 2026-11-27 Slice 3D：公开页面健康检查与三档异常分类（`0077_public_page_health_checks`）
+
+- **`platform_profiles` 加法配置列**：新增 `health_check_enabled BOOLEAN NOT NULL DEFAULT false`、`health_check_interval_hours INTEGER NOT NULL DEFAULT 24`（`CHECK BETWEEN 1 AND 720`）与 `health_check_anomaly_threshold INTEGER NOT NULL DEFAULT 2`（`CHECK BETWEEN 1 AND 10`）。所有既有平台默认关闭，由管理员按平台显式开启。
+- **`published_article_health_checks`（追加式不可变公开页健康检查历史）**：
+  - 记录 `published_article_id`（`ON DELETE RESTRICT`）、`checked_url`、`final_url`、`status`（`HEALTHY | FETCH_BLOCKED | CONFIRMED_ANOMALY`）、`http_status`（`100..599`）、`redirect_count`、`redirected`、`page_title`、`title_matches`、`body_similarity`（`0.0..1.0`）、`has_noindex`、`canonical_url`、`canonical_matches`、`anomaly_reasons`（JSONB 数组）、`fetch_error_code`、`auto_opened_issue_id`（`ON DELETE SET NULL`）、`triggered_by`（可空用户 UUID，`ON DELETE RESTRICT`，计划调度运行时为 `NULL`）与 `checked_at`。
+  - 建有 `(published_article_id, checked_at DESC, id DESC)` 历史与到期查询索引，以及 `triggered_by` 与 `auto_opened_issue_id` 部分索引。
+  - 数据库触发器 `trg_published_article_health_checks_immutable` 禁止所有直接 `UPDATE`/`DELETE`（`ERRCODE = '55000'`），仅在 `pg_trigger_depth() > 1` 时豁免删除 `published_content_issues` 引起的 `auto_opened_issue_id` 级联 `SET NULL`，并仅在受控发布成果永久删除（`partsignal.published_article_delete_id`）或受控归档任务永久删除（`partsignal.content_task_delete_id`）事务上下文内允许级联删除。
+- **三档分类与自动建单护栏**：`FETCH_BLOCKED`（401/403/429/5xx、WAF/登录墙、超时、网络或 SSRF 阻断）仅做告警，绝不自动开启 `published_content_issues`；仅连续 `health_check_anomaly_threshold` 次 `CONFIRMED_ANOMALY`（404/410、`noindex`、canonical 跨出允许域名或正文严重变化）且成果尚无 `OPEN`/`RETIRED` 问题时自动建单并回写 `auto_opened_issue_id`。`0077` 降级固定以 `55000` 拒绝销毁检查历史。
+
+## 2026-11-27 Slice 4A：GEO 干预编排与归因聚合层（`0078_geo_interventions`）
+
+- **`geo_interventions`（建立在 GEO R6 `geo_opportunities` / `geo_opportunity_actions` / `geo_retest_baselines` / `geo_opportunity_decisions` 之上的归因层）**：
+  - 绑定 `opportunity_id`（`ON DELETE RESTRICT`）、可空 `campaign_id`（`ON DELETE RESTRICT`）、`title`、`hypothesis`、`planned_action_type`、`target_metrics`（JSONB 对象）、`status`（`PLANNED | ACTIVE | EVALUATING | CONCLUDED | CANCELLED`）、`outcome_verdict`（`TARGET_MET | PARTIAL_IMPROVEMENT | NO_IMPROVEMENT | INSUFFICIENT_DATA`）、数据库硬约束 `causal_claim = 'NOT_ESTABLISHED'`、`baseline_id`、`decision_id`、`assignee_id`、`intervened_at`、`retest_window_start/end`、`concluded_at`、`conclusion_note`、`revision`、`created_by`、`updated_by`。
+  - 数据库触发器 `trg_geo_interventions_guard` 强制：`baseline_id` 与 `decision_id` 必须归属同一 `opportunity_id`（否则 `23514`）；`opportunity_id`/`created_by`/`created_at` 不可变；进入终态 `CONCLUDED`/`CANCELLED` 后禁止任意 `UPDATE`/`DELETE`（`55000`）；仅 `PLANNED` 允许物理删除。`0078` 降级固定以 `55000` 拒绝。
+
+## 2026-11-27 Slice 4B：统一 AI 成本冻结与运营费用台账（`0079_unified_cost_accounting`）
+
+- **`ai_models` 可选单价三元组**：新增 `input_price_per_1m_tokens NUMERIC(14, 6)`、`output_price_per_1m_tokens NUMERIC(14, 6)` 与 `price_currency VARCHAR(8)`（同空或同非空且价格 `>= 0`、币种匹配 `^[A-Z]{3}$`）；未配置保持 `NULL`，绝不补零伪装免费。
+- **`generation_jobs` 与 `content_quality_check_jobs` 冻结成本列**：均新增 `cost_amount NUMERIC(14, 6)`、`cost_currency VARCHAR(8)`（同空或同非空，口径与 `geo_observation_runs` 一致）；作业成功写入 Token 用量时按当时模型单价冻结计算，缺价或无 Token 显式保持 `NULL`。
+- **`operating_cost_entries`（追加式人工/外采费用台账）**：归属 `campaign_id` 或 `geo_intervention_id`（至少其一非空），记录 `category`（`LABOR | EXTERNAL_PLACEMENT | OTHER`）、`amount NUMERIC(14, 2)`、`currency`、`incurred_on`、`note` 及一次性作废字段 `voided_at/voided_by/void_reason`。触发器 `trg_operating_cost_entries_immutable` 禁止所有 `DELETE` 与除单次作废外的任意 `UPDATE`（`55000`）。`0079` 降级固定以 `55000` 拒绝。

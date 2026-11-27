@@ -36,6 +36,8 @@ from app.schemas.publication import (
     PublicationPackage,
     PublicationPlatformReviewRequest,
     PublicationPreparationUpdate,
+    PublicationPreRegisterCheckOut,
+    PublicationPreRegisterCheckRequest,
     PublicationReadyItemList,
     PublicationResultUpdate,
     PublicationVerificationCreate,
@@ -70,7 +72,6 @@ from app.services.publication import (
     permanently_delete_published_article,
     preview_published_article_permanent_deletion,
     register_publication_result,
-    require_publishable,
     resolve_published_content_issue,
     switch_publication_content_version,
     update_publication_preparation,
@@ -88,6 +89,10 @@ from app.services.publication import (
 from app.services.publication import (
     update_platform_account as update_platform_account_command,
 )
+from app.services.publication_package import (
+    build_publication_package,
+    evaluate_pre_register_check,
+)
 from app.services.publication_queries import (
     get_published_content_repair_context,
     publication_work_out,
@@ -96,7 +101,6 @@ from app.services.publication_queries import (
     published_article_out,
     published_content_issue_out,
     published_content_issue_workspace_context,
-    render_markdown,
 )
 from app.services.publication_queries import (
     list_publication_ready_items as list_publication_ready_items_service,
@@ -130,27 +134,41 @@ def _run_publication_command[CommandResult](
     return command()
 
 
+def _publication_repeatable_read(db: DbSession) -> None:
+    """在认证查询开启事务之前配置单次 REPEATABLE READ 读取快照。"""
+    db.autoflush = False
+    db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
+
+
 @router.get(
     "/content-versions/{content_version_id}/publication-package",
     response_model=PublicationPackage,
     operation_id="getPublicationPackage",
+    dependencies=[Depends(_publication_repeatable_read)],
     responses=error_responses(401, 403, 404, 409, 422),
 )
 def get_publication_package(
     content_version_id: uuid.UUID, db: DbSession, _user: CurrentUser
 ) -> PublicationPackage:
-    content = require_publishable(db, content_version_id)
-    body_html, body_text = render_markdown(content.body_markdown)
-    return PublicationPackage(
-        content_version_id=content.id,
-        fact_version_id=content.fact_version_id,
-        title=content.title,
-        body_markdown=content.body_markdown,
-        body_html=body_html,
-        body_text=body_text,
-        tags=content.tags,
-        content_hash=content.content_hash,
-    )
+    return build_publication_package(db, content_version_id)
+
+
+@router.post(
+    "/publication-works/{work_id}/pre-register-check",
+    response_model=PublicationPreRegisterCheckOut,
+    operation_id="preRegisterCheckPublicationWork",
+    dependencies=[Depends(_publication_repeatable_read)],
+    responses=error_responses(401, 403, 404, 409, 422),
+)
+def pre_register_check_publication_work(
+    work_id: uuid.UUID,
+    payload: PublicationPreRegisterCheckRequest,
+    db: DbSession,
+    _actor: EngineerUser,
+    _csrf: CsrfProtected,
+) -> PublicationPreRegisterCheckOut:
+    """在登记发布结果前执行 8 项发布前实时检查（只读，不修改发布工作状态）。"""
+    return evaluate_pre_register_check(db, work_id=work_id, payload=payload)
 
 
 @router.get(
@@ -592,6 +610,7 @@ def list_published_articles(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     search: Annotated[str | None, Query(max_length=200)] = None,
+    campaign_id: uuid.UUID | None = None,
     sort: PublishedArticleSort = PublishedArticleSort.VERIFIED_DESC,
 ) -> PublishedArticleList:
     return list_published_articles_service(
@@ -599,6 +618,7 @@ def list_published_articles(
         page=page,
         page_size=page_size,
         search=search,
+        campaign_id=campaign_id,
         sort=sort,
         can_delete=user.account_type == AccountType.ADMIN.value,
     )

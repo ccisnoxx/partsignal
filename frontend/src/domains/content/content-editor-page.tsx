@@ -28,6 +28,8 @@ import { Skeleton } from '@/design-system/primitives/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/design-system/primitives/tabs';
 import { StickyActionBar, type StickyAction } from '@/design-system/workspace/sticky-action-bar';
 import { WorkspaceShell } from '@/design-system/workspace/workspace-shell';
+import { ContentBriefPanel } from './content-brief-panel';
+import { ContentDuplicationDialogButton } from './content-duplication-dialog';
 import {
   abandonContentVersion,
   ContentRequestError,
@@ -205,9 +207,16 @@ function ContentEditorWorkspace({
     },
   });
   const submit = useMutation({
-    mutationFn: (comment: string) => {
+    mutationFn: ({ comment, acknowledgeWarnings }: { comment: string; acknowledgeWarnings: boolean }) => {
       if (!current) throw new Error('当前没有可提交的内容版本');
-      return submitContentVersion(current.id, toContentCommand(baseRevision, comment), csrfToken);
+      return submitContentVersion(
+        current.id,
+        {
+          ...toContentCommand(baseRevision, comment),
+          acknowledge_warnings: acknowledgeWarnings,
+        },
+        csrfToken,
+      );
     },
   });
   const remove = useMutation({
@@ -354,11 +363,11 @@ function ContentEditorWorkspace({
     }
   }
 
-  async function submitReview(comment: string) {
+  async function submitReview(comment: string, acknowledgeWarnings: boolean) {
     if (conflict || pending) return;
     const continuation = capturePrincipalContinuation(queryClient);
     try {
-      const canonical = await submit.mutateAsync(comment);
+      const canonical = await submit.mutateAsync({ comment, acknowledgeWarnings });
       if (!continuation.isCurrent()) return;
       setSubmitOpen(false);
       setAnnouncement(`内容版本 v${canonical.version} 已提交审核`);
@@ -513,7 +522,10 @@ function ContentEditorWorkspace({
                 />
               ),
             }}
-            reference={{ label: '参考', content: <EditorReferencePanel context={context} /> }}
+            reference={{
+              label: '参考',
+              content: <EditorReferencePanel context={context} csrfToken={csrfToken} />,
+            }}
           />
           <StickyActionBar actions={actions} status={<span aria-live="polite">{saveStatus}</span>} />
         </form>
@@ -540,6 +552,7 @@ function ContentEditorWorkspace({
           refreshError={refreshError}
           reloading={reloading || pending}
           submitting={submit.isPending}
+          warnings={current.quality_issues.filter((issue) => issue.severity === 'WARNING')}
         />
       )}
     </article>
@@ -680,6 +693,11 @@ function EditorContextPanel({ context }: { context: ContentEditorContext }) {
         <p>{context.task.workflow_stage}</p>
         <code className="break-all text-xs text-text-muted">{context.task.primary_task}</code>
       </PanelSection>
+      {(context.brief || context.campaign) && (
+        <PanelSection title="Campaign & Brief">
+          <ContentBriefPanel brief={context.brief} campaign={context.campaign} compact />
+        </PanelSection>
+      )}
       {context.source && (
         <PanelSection title="Source">
           <p>{context.source.query_topic?.canonical_question ?? '无 Query Topic'}</p>
@@ -691,7 +709,13 @@ function EditorContextPanel({ context }: { context: ContentEditorContext }) {
   );
 }
 
-function EditorReferencePanel({ context }: { context: ContentEditorContext }) {
+function EditorReferencePanel({
+  context,
+  csrfToken,
+}: {
+  context: ContentEditorContext;
+  csrfToken: string | null;
+}) {
   const content = context.current_content;
   return (
     <div className="space-y-5 p-4 text-sm">
@@ -699,11 +723,30 @@ function EditorReferencePanel({ context }: { context: ContentEditorContext }) {
         <MarkdownPreview className="max-h-72 min-h-32 p-0" value={context.locked_fact_version.body_markdown} />
       </PanelSection>
       <PanelSection title="Quality Issues">
+        {content && (
+          <div className="mb-2">
+            <ContentDuplicationDialogButton
+              contentVersionId={content.id}
+              csrfToken={csrfToken}
+              currentContentHash={content.content_hash}
+            />
+          </div>
+        )}
         {content?.quality_issues.length ? (
           <ul className="space-y-2">
             {content.quality_issues.map((issue) => (
               <li className="rounded-lg border border-border-subtle p-2" key={`${issue.code}-${issue.message}`}>
-                <Badge variant={issue.severity === 'BLOCKING' ? 'destructive' : 'warning'}>{issue.severity}</Badge>
+                <Badge
+                  variant={
+                    issue.severity === 'BLOCKING'
+                      ? 'destructive'
+                      : issue.severity === 'WARNING'
+                        ? 'warning'
+                        : 'secondary'
+                  }
+                >
+                  {issue.severity}
+                </Badge>
                 <p className="mt-1">{issue.message}</p>
               </li>
             ))}
@@ -852,29 +895,54 @@ function SubmitContentDialog({
   refreshError,
   reloading,
   submitting,
+  warnings,
 }: {
   conflict?: ContentEditorConflict;
   finalFocus: () => HTMLElement | null;
   onClose: () => void;
   onReload: () => void;
-  onSubmit: (comment: string) => Promise<void>;
+  onSubmit: (comment: string, acknowledgeWarnings: boolean) => Promise<void>;
   refreshError: unknown;
   reloading: boolean;
   submitting: boolean;
+  warnings: { code: string; message: string }[];
 }) {
   const [comment, setComment] = useState('');
+  const [ackWarnings, setAckWarnings] = useState(false);
+  const [serverWarnings, setServerWarnings] = useState<{ code: string; message: string }[]>([]);
   const [error, setError] = useState<string>();
+  const submittingRef = useRef(false);
+  const effectiveWarnings = serverWarnings.length > 0 ? serverWarnings : warnings;
+  const requiresAck = effectiveWarnings.length > 0;
   async function submit() {
+    if (submittingRef.current || submitting) return;
+    submittingRef.current = true;
     setError(undefined);
     try {
-      await onSubmit(comment);
+      await onSubmit(comment, requiresAck ? ackWarnings : false);
     } catch (caught) {
+      if (
+        caught instanceof ContentRequestError
+        && caught.detail?.code === 'QUALITY_WARNINGS_UNACKNOWLEDGED'
+      ) {
+        const raw = (caught.detail.details as { warnings?: { code: string; message: string }[] } | undefined)?.warnings;
+        setServerWarnings(
+          raw && raw.length > 0
+            ? raw
+            : [{ code: 'QUALITY_WARNINGS_UNACKNOWLEDGED', message: caught.message }],
+        );
+        setAckWarnings(false);
+        setError(caught.message);
+        return;
+      }
       setError(caught instanceof Error ? caught.message : '提交内容审核失败');
+    } finally {
+      submittingRef.current = false;
     }
   }
   return (
-    <Dialog onOpenChange={(open) => { if (!open) onClose(); }} open>
-      <DialogContent className="sm:max-w-lg" finalFocus={finalFocus}>
+    <Dialog onOpenChange={(open) => { if (!open && !submitting) onClose(); }} open>
+      <DialogContent className="sm:max-w-lg" finalFocus={finalFocus} showCloseButton={!submitting}>
         <DialogHeader>
           <DialogTitle>提交内容审核</DialogTitle>
           <DialogDescription>只提交已保存的 canonical revision；提交后当前版本变为只读。</DialogDescription>
@@ -889,6 +957,28 @@ function SubmitContentDialog({
           />
         )}
         {error && <p className="rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm text-danger" role="alert">{error}</p>}
+        {requiresAck && (
+          <div className="space-y-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs">
+            <p className="font-medium text-text-primary">
+              当前存在 {effectiveWarnings.length} 条质量警告（WARNING），请核对并确认后提交：
+            </p>
+            <ul className="list-disc space-y-0.5 pl-4 text-text-secondary">
+              {effectiveWarnings.map((item) => (
+                <li key={`${item.code}-${item.message}`}>{item.message}</li>
+              ))}
+            </ul>
+            <label className="flex items-center gap-2 pt-1 font-medium text-text-primary" htmlFor="content-submit-ack-warnings">
+              <input
+                checked={ackWarnings}
+                disabled={submitting}
+                id="content-submit-ack-warnings"
+                onChange={(event) => setAckWarnings(event.target.checked)}
+                type="checkbox"
+              />
+              我已核对全部质量警告，确认提交审核
+            </label>
+          </div>
+        )}
         <label className="space-y-1.5 text-sm" htmlFor="content-submit-comment">
           <span className="type-label block">备注（可选）</span>
           <textarea
@@ -903,7 +993,13 @@ function SubmitContentDialog({
         </label>
         <DialogFooter>
           <DialogClose render={<Button disabled={submitting} variant="outline" />}>取消</DialogClose>
-          <Button disabled={submitting || Boolean(conflict)} onClick={() => void submit()} type="button">{submitting ? '提交中…' : '确认提交审核'}</Button>
+          <Button
+            disabled={submitting || Boolean(conflict) || (requiresAck && !ackWarnings)}
+            onClick={() => void submit()}
+            type="button"
+          >
+            {submitting ? '提交中…' : '确认提交审核'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

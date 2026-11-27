@@ -12,7 +12,7 @@ import {
   useTable,
 } from '@tanstack/react-table';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FormProvider, useFieldArray, useForm, type FieldPath } from 'react-hook-form';
+import { FormProvider, useFieldArray, useForm, useWatch, type FieldPath } from 'react-hook-form';
 
 import {
   capturePrincipalContinuation,
@@ -50,6 +50,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/design-system/primitives/select';
+import { Textarea } from '@/design-system/primitives/textarea';
 import { contentKeys } from '@/domains/content/content.api';
 import type { components } from '@/shared/api/generated/schema';
 import {
@@ -400,7 +401,17 @@ function useQueryTopicColumns(
     columnHelper.accessor('canonical_question', {
       header: '标准问题',
       meta: { role: 'primary' },
-      cell: ({ getValue }) => <span className="block max-w-xl break-words font-medium">{getValue()}</span>,
+      cell: ({ getValue, row }) => (
+        <div className="max-w-xl space-y-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="break-words font-medium">{getValue()}</span>
+            {!row.original.is_active && <Badge variant="secondary">已停用</Badge>}
+          </div>
+          {row.original.description && (
+            <p className="line-clamp-2 text-xs text-text-muted">{row.original.description}</p>
+          )}
+        </div>
+      ),
     }),
     columnHelper.accessor('intent_type', {
       header: '意图',
@@ -515,6 +526,7 @@ function ReferenceSummary({ references }: { references: QueryTopicListItem['refe
   return (
     <div className="space-y-0.5 whitespace-nowrap text-xs">
       <p>Content Task {references.content_task_count}</p>
+      <p>Campaign {references.campaign_count}</p>
       <p>GEO Optimization {references.geo_optimization_count}</p>
       <p>Observation {references.observation_count}</p>
     </div>
@@ -544,6 +556,7 @@ function QueryTopicEditorDialog({
     resolver: zodResolver(queryTopicFormSchema),
   });
   const variants = useFieldArray({ control: form.control, name: 'variants' });
+  const isActiveValue = useWatch({ control: form.control, name: 'is_active' });
   const save = useMutation({
     mutationFn: ({ values }: {
       continuation: PrincipalContinuation;
@@ -637,6 +650,34 @@ function QueryTopicEditorDialog({
                 </Select>
               )}
             />
+            <FormField<QueryTopicFormValues, 'description'>
+              description="可选，说明该问题主题的业务场景、适用市场或运营背景。"
+              id="query-topic-description"
+              label="主题说明"
+              name="description"
+              render={(context) => (
+                <Textarea
+                  {...context.field}
+                  aria-describedby={context['aria-describedby']}
+                  aria-invalid={context['aria-invalid']}
+                  disabled={save.isPending}
+                  id={context.inputId}
+                  maxLength={1000}
+                  rows={2}
+                />
+              )}
+            />
+            {topic && (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  checked={isActiveValue}
+                  disabled={save.isPending}
+                  onChange={(event) => form.setValue('is_active', event.target.checked, { shouldDirty: true })}
+                  type="checkbox"
+                />
+                <span>启用该问题主题（停用后不可被新内容任务或新活动选取，不影响历史记录）</span>
+              </label>
+            )}
             <fieldset className="space-y-2">
               <legend className="type-label">变体 <span aria-hidden="true">*</span></legend>
               {variants.fields.map((field, index) => (
@@ -696,6 +737,7 @@ function QueryTopicReferencesDialog({
         {hrefs && (
           <ul className="space-y-2">
             <ReferenceLink count={topic.references.content_task_count} href={hrefs.contentTasks} label="Content Task" />
+            <ReferenceLink count={topic.references.campaign_count} href="/content/campaigns" label="内容活动" />
             <ReferenceLink count={topic.references.geo_optimization_count} href={hrefs.geoOptimization} label="GEO Optimization 来源" />
             <ReferenceLink count={topic.references.observation_count} href={hrefs.observations} label="Observation" />
           </ul>
@@ -899,6 +941,9 @@ function queryTopicDeleteReferenceLinks(error: unknown, topicId?: string): Query
     if (type === 'CONTENT_TASK') {
       return [{ type, count: Number(count), href: hrefs.contentTasks, label: 'Content Task' }];
     }
+    if (type === 'CONTENT_CAMPAIGN') {
+      return [{ type, count: Number(count), href: '/content/campaigns', label: '内容活动' }];
+    }
     if (type === 'GEO_OPTIMIZATION_SOURCE') {
       return [{ type, count: Number(count), href: hrefs.geoOptimization, label: 'GEO Optimization 来源' }];
     }
@@ -915,6 +960,10 @@ function queryTopicProjectionReferenceLinks(topic: QueryTopicListItem): QueryTop
   for (const blocker of topic.deletion?.blockers ?? []) {
     if (blocker.type === 'CONTENT_TASK') {
       links.push({ type: blocker.type, count: blocker.count, href: hrefs.contentTasks, label: 'Content Task' });
+      continue;
+    }
+    if (blocker.type === 'CONTENT_CAMPAIGN') {
+      links.push({ type: blocker.type, count: blocker.count, href: '/content/campaigns', label: '内容活动' });
       continue;
     }
     if (blocker.type === 'GEO_OPTIMIZATION_SOURCE') {

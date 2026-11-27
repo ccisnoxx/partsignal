@@ -114,6 +114,8 @@ def _query_topic() -> QueryTopic:
         canonical_question="如何选择测试器件？",
         intent_type="PRODUCT",
         variants=["测试器件选型"],
+        description="",
+        is_active=True,
         revision=0,
         created_at=datetime(2026, 8, 4, tzinfo=UTC),
     )
@@ -363,7 +365,7 @@ def test_seven_constrained_delete_projections_distinguish_empty_and_blocked() ->
         is_active=True,
     )
     profile_session = _ScalarSequenceSession(
-        [[], [], [], [(profile.id, 2, 1)], [(profile.id, 3)], [], []]
+        [[], [], [], [(profile.id, 2, 1)], [(profile.id, 3)], [], [], []]
     )
     profile_out = platform_profiles_out(cast(Session, profile_session), [profile], can_manage=True)[
         0
@@ -412,6 +414,7 @@ def test_seven_constrained_delete_projections_distinguish_empty_and_blocked() ->
                     [profile],
                     [],
                     [(task.id, None, "CANCELLED", "VIEW_CANCELLATION", now)],
+                    [],
                     [],
                     [],
                     [],
@@ -659,6 +662,7 @@ def _content_projection(
         [],
         [],
         [],
+        [],
     ]
     session = _ScalarSequenceSession([[task], [fact], [product], [], [], *delete_references])
     projected = content_versions_out(cast(Session, session), contents)
@@ -675,7 +679,7 @@ def test_content_current_pointer_controls_primary_task_without_n_plus_one_querie
         ("EDIT_AND_SUBMIT_REVIEW", ["SUBMIT_REVIEW", "SAVE"]),
         ("VIEW_VERSION_HISTORY", ["DELETE"]),
     ]
-    assert one_queries == two_queries == 12
+    assert one_queries == two_queries == 13
 
 
 def test_ai_draft_keeps_revision_and_abandon_actions_without_delete() -> None:

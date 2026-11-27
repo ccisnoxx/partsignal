@@ -8,7 +8,8 @@ from typing import Literal
 from pydantic import Field
 
 from app.schemas.base import ContractModel
-from app.schemas.content import ContentDiff, ContentVersionOut
+from app.schemas.campaign import ContentCampaignSummary
+from app.schemas.content import ContentBriefSnapshotOut, ContentDiff, ContentVersionOut
 from app.schemas.content_task_detail import (
     ContentTaskDetailGeneration,
     ContentTaskDetailPlatform,
@@ -88,6 +89,8 @@ class ContentEditorContext(ContractModel):
     product: ContentEditorProduct
     platform: ContentTaskDetailPlatform
     locked_fact_version: ContentEditorFact
+    campaign: ContentCampaignSummary | None
+    brief: ContentBriefSnapshotOut | None
     current_content: ContentVersionOut | None
     comparison_content: ContentEditorComparisonContent | None
     diff: ContentDiff | None

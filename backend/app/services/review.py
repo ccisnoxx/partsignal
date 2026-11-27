@@ -36,7 +36,7 @@ from app.schemas.content import (
 )
 from app.schemas.product_facts import FactVersionOut, ProductFactsProductContext
 from app.services.content_lineage import ContentAILineage, resolve_content_ai_lineage
-from app.services.product_facts import product_workflow
+from app.services.product_facts import db_utc_now, product_workflow
 from app.services.projections import (
     content_diff,
     content_task_out,
@@ -52,6 +52,10 @@ from app.services.review_policy import (
     content_review_actions,
     fact_review_actions,
     fact_review_decisions,
+)
+from app.services.work_assignments import (
+    assert_assignable_user,
+    lock_actor_and_optional_assignee,
 )
 
 
@@ -358,74 +362,191 @@ def transition_content_version(
     actor: User,
     request_id: str,
     action: ContentAction,
+    next_assignee_id: uuid.UUID | None = None,
+    acknowledge_warnings: bool = False,
 ) -> ContentVersionOut:
-    """事务化执行内容审核状态机和最终质量门禁。"""
-    content = db.scalar(
-        select(ContentVersion).where(ContentVersion.id == content_version_id).with_for_update()
+    """事务化执行内容审核状态机、最终质量门禁与可选同事务任务改派交接。"""
+    handoff_assignee_id = (
+        next_assignee_id if action in {"submit-review", "request-changes"} else None
     )
-    if content is None:
-        raise not_found("内容版本")
-    if content.revision != expected_revision:
-        raise AppError("REVISION_CONFLICT", "内容版本已被其他请求修改", 409)
-    task = db.scalar(select(ContentTask).where(ContentTask.id == content.task_id).with_for_update())
-    if task is None or task.current_content_version_id != content.id:
-        raise AppError("CONTENT_VERSION_NOT_CURRENT", "只有任务当前内容版本可以审核", 409)
-    expected, target = CONTENT_TRANSITIONS[action]
-    if content.status not in expected:
-        raise AppError(
-            "INVALID_STATE_TRANSITION", f"内容版本不能从 {content.status} 执行 {action}", 409
+    with lock_actor_and_optional_assignee(
+        db, actor, handoff_assignee_id, require_active_assignee=False
+    ) as (current_actor, handoff_user):
+        # 严格遵循 ContentTask -> ContentVersion 锁序，避免与草稿编辑/放弃/润色形成 AB-BA 死锁
+        task_id = db.scalar(
+            select(ContentVersion.task_id).where(ContentVersion.id == content_version_id)
         )
-    if action == "request-changes" and not comment.strip():
-        raise AppError("REVIEW_COMMENT_REQUIRED", "退回意见不能为空", 422)
-    blocking = any(issue.get("severity") == "BLOCKING" for issue in content.quality_issues)
-    if action in {"submit-review", "approve"} and blocking:
-        raise AppError("INVALID_STATE_TRANSITION", "内容存在阻断质量问题，不能审核通过", 409)
-    try:
-        if action == "approve":
-            fact = db.get(FactVersion, content.fact_version_id)
-            if fact is None or fact.status != "APPROVED":
-                raise AppError("FACT_NOT_APPROVED", "内容绑定的事实版本不再处于批准状态", 409)
-            previous = db.scalar(
-                select(ContentVersion).where(
-                    ContentVersion.task_id == content.task_id,
-                    ContentVersion.status == "APPROVED",
-                    ContentVersion.id != content.id,
+        if task_id is None:
+            raise not_found("内容版本")
+        task = db.scalar(
+            select(ContentTask)
+            .where(ContentTask.id == task_id)
+            .execution_options(populate_existing=True)
+            .with_for_update()
+        )
+        content = db.scalar(
+            select(ContentVersion)
+            .where(ContentVersion.id == content_version_id)
+            .execution_options(populate_existing=True)
+            .with_for_update()
+        )
+        if content is None:
+            raise not_found("内容版本")
+        if content.revision != expected_revision:
+            raise AppError("REVISION_CONFLICT", "内容版本已被其他请求修改", 409)
+        if (
+            task is None
+            or content.task_id != task.id
+            or task.current_content_version_id != content.id
+        ):
+            raise AppError("CONTENT_VERSION_NOT_CURRENT", "只有任务当前内容版本可以审核", 409)
+        expected, target = CONTENT_TRANSITIONS[action]
+        if content.status not in expected:
+            raise AppError(
+                "INVALID_STATE_TRANSITION", f"内容版本不能从 {content.status} 执行 {action}", 409
+            )
+        if action == "request-changes" and not comment.strip():
+            raise AppError("REVIEW_COMMENT_REQUIRED", "退回意见不能为空", 422)
+        if action in {"submit-review", "approve"}:
+            from app.models.ai_generation import GenerationJob
+            from app.schemas.geo_files import GeneratedDraft
+            from app.services.content_quality import evaluate_content_quality
+
+            is_humanization = False
+            source_content: ContentVersion | None = None
+            if content.source_job_id is not None:
+                source_job = db.get(GenerationJob, content.source_job_id)
+                if source_job is not None and source_job.job_type == "HUMANIZE":
+                    is_humanization = True
+                    if content.based_on_id is not None:
+                        source_content = db.get(ContentVersion, content.based_on_id)
+            live_issues = evaluate_content_quality(
+                db,
+                task,
+                GeneratedDraft(
+                    title=content.title,
+                    summary=content.summary,
+                    body_markdown=content.body_markdown,
+                    tags=list(content.tags) if content.tags else ["默认"],
+                ),
+                source_content=source_content,
+                is_humanization=is_humanization,
+            )
+            merged_issues: list[dict[str, str]] = []
+            seen_keys: set[tuple[str, str]] = set()
+            for issue in [*content.quality_issues, *live_issues]:
+                code = str(issue.get("code", ""))
+                sev = str(issue.get("severity", ""))
+                if (code, sev) not in seen_keys:
+                    seen_keys.add((code, sev))
+                    merged_issues.append(
+                        {
+                            "code": code,
+                            "severity": sev,
+                            "message": str(issue.get("message", "")),
+                        }
+                    )
+            blocking = any(item["severity"] == "BLOCKING" for item in merged_issues)
+            if blocking:
+                raise AppError(
+                    "INVALID_STATE_TRANSITION",
+                    "内容存在阻断质量问题，不能审核通过",
+                    409,
+                )
+            if action == "submit-review":
+                warnings = [item for item in merged_issues if item["severity"] == "WARNING"]
+                if warnings and not acknowledge_warnings:
+                    raise AppError(
+                        "QUALITY_WARNINGS_UNACKNOWLEDGED",
+                        "内容存在未确认的质量警告，请确认后再提交审核",
+                        409,
+                        {"warning_count": len(warnings), "warnings": warnings},
+                    )
+        if handoff_assignee_id is not None and (
+            task.status != "OPEN" or task.archived_at is not None
+        ):
+            raise AppError(
+                "INVALID_STATE_TRANSITION",
+                "已关闭或已归档的内容任务不能改派负责人",
+                409,
+            )
+        if handoff_assignee_id is not None and task.assignee_id != handoff_assignee_id:
+            assert_assignable_user(handoff_user)
+        try:
+            if action == "approve":
+                fact = db.get(FactVersion, content.fact_version_id)
+                if fact is None or fact.status != "APPROVED":
+                    raise AppError("FACT_NOT_APPROVED", "内容绑定的事实版本不再处于批准状态", 409)
+                previous = db.scalar(
+                    select(ContentVersion).where(
+                        ContentVersion.task_id == content.task_id,
+                        ContentVersion.status == "APPROVED",
+                        ContentVersion.id != content.id,
+                    )
+                )
+                if previous is not None:
+                    previous.status = "SUPERSEDED"
+                    previous.revision += 1
+                    db.flush()
+            content.status = target
+            content.revision += 1
+            db.add(
+                ContentReviewRecord(
+                    content_version_id=content.id,
+                    action=action,
+                    comment=comment.strip() if action == "request-changes" else comment,
+                    actor_id=current_actor.id,
                 )
             )
-            if previous is not None:
-                previous.status = "SUPERSEDED"
-                previous.revision += 1
-                db.flush()
-        content.status = target
-        content.revision += 1
-        db.add(
-            ContentReviewRecord(
-                content_version_id=content.id,
-                action=action,
-                comment=comment.strip() if action == "request-changes" else comment,
-                actor_id=actor.id,
-            )
-        )
-        if action == "approve":
-            append_audit(
-                db,
-                AuditEntry(
-                    actor_id=actor.id,
-                    business_module=AuditModule.CONTENT_REVIEW,
-                    action="content_version.approve",
-                    target_type="ContentVersion",
-                    target_id=content.id,
-                    request_id=request_id,
-                    outcome=AuditOutcome.SUCCESS,
-                    result_message="内容版本已审核通过",
-                    details={"facts": {"revision": content.revision}},
-                ),
-            )
-        db.commit()
-    except IntegrityError as error:
-        # IntegrityError 会使事务进入 failed 状态；先恢复整个 command 的 root transaction。
-        db.rollback()
-        if action == "submit-review" and _is_content_review_pending_integrity_error(error):
-            raise AppError("CONTENT_REVIEW_PENDING", "该任务已有待审核内容版本", 409) from error
-        raise
-    return content_version_out(db, content)
+            if handoff_assignee_id is not None and task.assignee_id != handoff_assignee_id:
+                now = db_utc_now(db)
+                task.assignee_id = handoff_assignee_id
+                task.assigned_by = current_actor.id
+                task.assigned_at = now
+                task.revision += 1
+                task.updated_at = now
+                append_audit(
+                    db,
+                    AuditEntry(
+                        actor_id=current_actor.id,
+                        business_module=AuditModule.CONTENT_PLANNING,
+                        action="work_assignment.updated",
+                        target_type="ContentTask",
+                        target_id=task.id,
+                        request_id=request_id,
+                        outcome=AuditOutcome.SUCCESS,
+                        result_message="内容审核流转时已同步改派任务负责人",
+                        details={
+                            "facts": {
+                                "assignee_id": str(task.assignee_id),
+                                "priority": task.priority,
+                                "has_due_at": task.due_at is not None,
+                                "has_blocked_reason": task.blocked_reason is not None,
+                                "revision": task.revision,
+                            }
+                        },
+                    ),
+                )
+            if action == "approve":
+                append_audit(
+                    db,
+                    AuditEntry(
+                        actor_id=current_actor.id,
+                        business_module=AuditModule.CONTENT_REVIEW,
+                        action="content_version.approve",
+                        target_type="ContentVersion",
+                        target_id=content.id,
+                        request_id=request_id,
+                        outcome=AuditOutcome.SUCCESS,
+                        result_message="内容版本已审核通过",
+                        details={"facts": {"revision": content.revision}},
+                    ),
+                )
+            db.commit()
+        except IntegrityError as error:
+            # IntegrityError 会使事务进入 failed 状态；先恢复整个 command 的 root transaction。
+            db.rollback()
+            if action == "submit-review" and _is_content_review_pending_integrity_error(error):
+                raise AppError("CONTENT_REVIEW_PENDING", "该任务已有待审核内容版本", 409) from error
+            raise
+        return content_version_out(db, content)

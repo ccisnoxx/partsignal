@@ -12,6 +12,7 @@ type ProductProjection = Product | ProductListItem;
 type ProductFactStatus = components['schemas']['ProductFactStatus'];
 type ProductWorkflowStage = components['schemas']['ProductWorkflowStage'];
 type ProductStatus = components['schemas']['ProductStatus'];
+type ProductFactsFreshness = components['schemas']['ProductFactsFreshness'];
 type ProductPrimaryTask = Product['primary_task'];
 type ProductAvailableAction = Product['available_actions'][number];
 type ProductDeletionBlocker = components['schemas']['DeletionBlocker'];
@@ -51,6 +52,12 @@ const confidentialityRegistry = {
   INTERNAL: '内部',
   RESTRICTED: '受限',
 } satisfies Record<Confidentiality, string>;
+
+const productFactsFreshnessRegistry = {
+  UNSET: { label: '未设复核期', tone: 'outline', description: '尚未配置下次事实复核时间' },
+  FRESH: { label: '在复核期内', tone: 'success', description: '事实尚在计划复核周期内' },
+  OVERDUE: { label: '事实待复核', tone: 'warning', description: '已超过下次复核时间，请确认是否需要更新或延期' },
+} satisfies Record<ProductFactsFreshness, ProductStatusPresentation>;
 
 const productIdentityField = (label: string) => z.string()
   .trim()
@@ -174,6 +181,7 @@ function getProductDeletionBlockerLabel(blocker: ProductDeletionBlocker) {
     case 'CONTENT_TASK': return '内容任务';
     case 'GEO_OBSERVATION': return 'GEO 观测';
     case 'GEO_SUBJECT': return 'GEO 监测对象';
+    case 'CONTENT_CAMPAIGN': return '内容活动';
     default: throw new Error(`Products API 返回了未知删除阻断类型：${blocker.type}`);
   }
 }
@@ -187,6 +195,7 @@ export {
   formatExactProductTime,
   formatRelativeProductTime,
   getProductDeletionBlockerLabel,
+  productFactsFreshnessRegistry,
   productFactStatusRegistry,
   productIdentityField,
   productStatusRegistry,
@@ -196,6 +205,7 @@ export {
 };
 export type {
   Product,
+  ProductFactsFreshness,
   ProductFactStatus,
   ProductListItem,
   ProductProjection,

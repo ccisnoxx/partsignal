@@ -33,7 +33,7 @@ from app.models.geo_files import GeoObservation, GeoObservationPublication
 from app.models.identity import AuditLog, User
 from app.models.product_facts import FactVersion, Product
 from app.routers.observation import _geo_observation_read_snapshot
-from app.schemas.content import ContentTaskCreate
+from app.schemas.content import ContentTaskTarget
 from app.schemas.geo_files import GeoOptimizationContentTaskCreate
 from app.security import hash_token
 from app.services import content_planning as planning_service
@@ -874,9 +874,9 @@ def test_geo_exact_race_revalidates_source_kind_and_reuses_session(case: str) ->
                 try:
                     try:
                         if case == "ordinary-loser":
-                            task = planning_service.create_content_task(
+                            task = planning_service.create_linked_content_task(
                                 db=db,
-                                payload=ContentTaskCreate(
+                                payload=ContentTaskTarget(
                                     product_id=payload.product_id,
                                     fact_version_id=payload.fact_version_id,
                                     platform_profile_id=payload.platform_profile_id,
@@ -909,9 +909,9 @@ def test_geo_exact_race_revalidates_source_kind_and_reuses_session(case: str) ->
                         is not None
                     )
                     # 已知恢复路径在没有测试补 rollback 的情况下能执行健康命令。
-                    healthy = planning_service.create_content_task(
+                    healthy = planning_service.create_linked_content_task(
                         db=db,
-                        payload=ContentTaskCreate(
+                        payload=ContentTaskTarget(
                             product_id=payload.product_id,
                             fact_version_id=payload.fact_version_id,
                             platform_profile_id=payload.platform_profile_id,
@@ -1197,13 +1197,13 @@ def test_geo_precheck_compares_each_identity_field_and_both_source_kinds() -> No
             ).id
             == winner.id
         )
-        ordinary = ContentTaskCreate(
+        ordinary = ContentTaskTarget(
             product_id=payload.product_id,
             fact_version_id=payload.fact_version_id,
             platform_profile_id=payload.platform_profile_id,
         )
         with pytest.raises(AppError) as reverse:
-            planning_service.create_content_task(
+            planning_service.create_linked_content_task(
                 db=db,
                 payload=ordinary,
                 actor=actor,
@@ -1212,7 +1212,7 @@ def test_geo_precheck_compares_each_identity_field_and_both_source_kinds() -> No
             )
         assert reverse.value.code == "IDEMPOTENCY_CONFLICT"
         assert _geo_integrity_snapshot(db) == before
-        planning_service.create_content_task(
+        planning_service.create_linked_content_task(
             db=db,
             payload=ordinary,
             actor=actor,

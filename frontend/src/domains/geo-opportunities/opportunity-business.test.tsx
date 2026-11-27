@@ -19,7 +19,31 @@ const sheet = () => screen.getByRole('dialog', { name: '机会详情与历史证
 const active = () => opportunity({ rule_code: 'TOPIC_COVERAGE_GAP', status: 'IN_PROGRESS', workflow_stage: 'IN_PROGRESS', primary_task: 'VIEW_EVIDENCE', available_actions: ['DISMISS', 'RESOLVE', 'CONTINUE'] });
 function businessDetail(current = active()): OpportunityDetail { return { ...detail(current), available_action_types: ['CONTENT_TASK', 'ADDITIONAL_MONITORING'] }; }
 function options(): components['schemas']['ContentTaskCreationOptions'] {
-  return { products: [{ id: productId, brand: '测试品牌', part_number: 'PS-123', approved_fact_versions: [{ id: factId, version: 2, classification: 'PUBLIC' }] }, { id: otherProductId, brand: '其他品牌', part_number: 'PS-456', approved_fact_versions: [{ id: retestId, version: 5, classification: 'INTERNAL' }] }], platforms: [{ id: platformId, name: '测试发布平台' }], requested_product: { product_id: productId, brand: '测试品牌', part_number: 'PS-123', eligibility: 'ELIGIBLE' } };
+  return {
+    products: [
+      {
+        id: productId,
+        brand: '测试品牌',
+        part_number: 'PS-123',
+        approved_fact_versions: [
+          { id: factId, version: 2, classification: 'PUBLIC', content_restrictions: null, approved_claims_summary: null },
+        ],
+      },
+      {
+        id: otherProductId,
+        brand: '其他品牌',
+        part_number: 'PS-456',
+        approved_fact_versions: [
+          { id: retestId, version: 5, classification: 'INTERNAL', content_restrictions: null, approved_claims_summary: null },
+        ],
+      },
+    ],
+    platforms: [{ id: platformId, name: '测试发布平台' }],
+    topics: [],
+    campaigns: [],
+    requested_product: { product_id: productId, brand: '测试品牌', part_number: 'PS-123', eligibility: 'ELIGIBLE' },
+    requested_campaign: null,
+  };
 }
 function preview(current = active(), baselineId = businessDetail(current).sources.items[0]!.run.batch_id): components['schemas']['GeoRetestPreview'] {
   const source = businessDetail(current).sources.items[0]!;

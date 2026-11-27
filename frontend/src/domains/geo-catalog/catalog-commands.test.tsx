@@ -29,7 +29,7 @@ describe('Catalog 创建和确认命令', () => {
 
   it('自有产品新建只提交现有产品 ID，搜索选项来自现有 Products API', async () => {
     const get = mockCatalogReads();
-    const product = { id: productId, part_number: 'PS-NEW', brand: 'PartSignal', category: '芯片', status: 'ACTIVE', workflow_stage: 'FACTS_EMPTY', primary_task: 'ENTER_FACTS', available_actions: [], deletion: null, revision: 1, created_at: '2026-10-02T08:00:00Z', updated_at: '2026-10-02T08:00:00Z', fact_status: 'NOT_ENTERED', current_fact: null } satisfies components['schemas']['ProductListItem'];
+    const product = { id: productId, part_number: 'PS-NEW', brand: 'PartSignal', category: '芯片', status: 'ACTIVE', workflow_stage: 'FACTS_EMPTY', primary_task: 'ENTER_FACTS', available_actions: [], deletion: null, source_owner: null, next_review_at: null, facts_freshness: 'UNSET', revision: 1, created_at: '2026-10-02T08:00:00Z', updated_at: '2026-10-02T08:00:00Z', fact_status: 'NOT_ENTERED', current_fact: null } satisfies components['schemas']['ProductListItem'];
     get.mockImplementation(async (path) => path === '/api/v1/products' ? catalogResponse({ items: [product], total: 1, page: 1, page_size: 10 }) : path === '/api/v1/geo/subjects' ? catalogResponse({ items: [], total: 0, page: 1, page_size: 20 }) : catalogResponse(catalogSubject()));
     const post = vi.spyOn(api, 'POST').mockResolvedValue(catalogResponse(catalogSubject({ subject_type: 'OWN_PRODUCT', product_id: productId, product: { id: productId, part_number: product.part_number, brand: product.brand, category: product.category, revision: 1 } })));
     renderCatalog('/configuration/geo-entities?new=1');

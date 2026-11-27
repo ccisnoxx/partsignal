@@ -38,6 +38,7 @@ from app.services.geo_plan_policy import (
 from app.services.geo_plan_queries import (
     CONFIGURATION_FIELDS,
     plan_batch_counts,
+    plan_campaign_counts,
     plan_detail,
     previews,
 )
@@ -147,6 +148,7 @@ def _finish(
         preview,
         plan_batch_counts(db, [plan.id]).get(plan.id, 0),
         runtimes(db, [plan.id]).get(plan.id),
+        plan_campaign_counts(db, [plan.id]).get(plan.id, 0),
     )
     db.commit()
     return result
@@ -280,6 +282,8 @@ def delete_plan(
             )
         if plan_batch_counts(db, [plan.id]).get(plan.id, 0):
             raise AppError("GEO_PLAN_IN_USE", "计划已有批次历史，请归档", 409)
+        if plan_campaign_counts(db, [plan.id]).get(plan.id, 0):
+            raise AppError("GEO_PLAN_IN_USE", "计划已被内容活动关联，请先解除关联或归档", 409)
         db.delete(plan)
         _flush_business(db)
         _audit(db, plan, current, request_id, "deleted")

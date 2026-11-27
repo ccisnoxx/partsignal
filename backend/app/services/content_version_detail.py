@@ -19,6 +19,7 @@ from app.schemas.content import (
     ContentVersionLineageStep,
     ContentVersionPromptSnapshot,
     GenerationSnapshot,
+    GenerationSnapshotV4,
     HumanizationSnapshot,
     LegacyGenerationSnapshot,
     LegacyHumanizationSnapshot,
@@ -33,11 +34,12 @@ def _prompt_snapshot(
         LegacyGenerationSnapshot
         | MarkdownGenerationSnapshotV2
         | GenerationSnapshot
+        | GenerationSnapshotV4
         | LegacyHumanizationSnapshot
         | HumanizationSnapshot
     ),
 ) -> ContentVersionPromptSnapshot:
-    if isinstance(snapshot, GenerationSnapshot):
+    if isinstance(snapshot, (GenerationSnapshot, GenerationSnapshotV4)):
         return ContentVersionPromptSnapshot(
             kind="PLATFORM",
             id=snapshot.platform_prompt.id,
@@ -81,6 +83,7 @@ def _lineage_step(
         LegacyGenerationSnapshot
         | MarkdownGenerationSnapshotV2
         | GenerationSnapshot
+        | GenerationSnapshotV4
         | LegacyHumanizationSnapshot
         | HumanizationSnapshot
     ),

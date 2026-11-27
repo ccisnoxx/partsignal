@@ -47,6 +47,7 @@ import {
   type RequestChangesValues,
 } from './content-review.model';
 import { contentWorkflowStageRegistry } from './content-task-list.model';
+import { ContentDuplicationDialogButton } from './content-duplication-dialog';
 import { contentVersionStatusRegistry } from './content-version.model';
 
 type ContentDiff = components['schemas']['ContentDiff'];
@@ -273,7 +274,7 @@ function ContentReviewWorkspace({
         }}
         reference={{
           label: '审核依据',
-          content: <ContentReviewPanel context={context} />,
+          content: <ContentReviewPanel context={context} csrfToken={csrfToken} />,
         }}
       />
       <StickyActionBar actions={actions} status={<span aria-live="polite">{status}</span>} />
@@ -319,19 +320,38 @@ function ContentReviewContextPanel({ context }: { context: ContentReviewContext 
   );
 }
 
-function ContentReviewPanel({ context }: { context: ContentReviewContext }) {
+function ContentReviewPanel({
+  context,
+  csrfToken,
+}: {
+  context: ContentReviewContext;
+  csrfToken: string | null;
+}) {
   const blocking = context.content.quality_issues.filter((issue) => issue.severity === 'BLOCKING');
   const warnings = context.content.quality_issues.filter((issue) => issue.severity === 'WARNING');
+  const infos = context.content.quality_issues.filter((issue) => issue.severity === 'INFORMATION');
   const snapshot = context.generation_trace?.input_snapshot;
 
   return (
     <div className="space-y-6 p-4">
+      <div className="flex flex-wrap justify-end">
+        <ContentDuplicationDialogButton
+          contentVersionId={context.content.id}
+          csrfToken={csrfToken}
+          currentContentHash={context.content.content_hash}
+        />
+      </div>
       <ReviewSection id="content-review-blocking" title="阻断问题">
         <QualityIssues emptyMessage="没有阻断问题" issues={blocking} />
       </ReviewSection>
       <ReviewSection id="content-review-warnings" title="警告">
         <QualityIssues emptyMessage="没有警告" issues={warnings} />
       </ReviewSection>
+      {infos.length > 0 && (
+        <ReviewSection id="content-review-info" title="信息提示">
+          <QualityIssues emptyMessage="没有信息提示" issues={infos} />
+        </ReviewSection>
+      )}
       <ReviewSection id="content-review-facts" title="事实一致性">
         <p className="text-sm text-text-secondary">
           以下批准事实是当前内容的锁定核对依据。
@@ -347,6 +367,19 @@ function ContentReviewPanel({ context }: { context: ContentReviewContext }) {
           <div className="space-y-3 text-sm">
             <Metadata label="生成合同" mono value={snapshot.contract_version} />
             <Metadata label="生成作业" mono value={context.generation_trace?.job_id ?? '—'} />
+            {snapshot.contract_version === 'content-markdown-v4' && (
+              <>
+                <Metadata
+                  label="Prompt 不可变版本"
+                  mono
+                  value={`${snapshot.platform_prompt.name} · v${snapshot.platform_prompt.version}`}
+                />
+                <Metadata
+                  label="冻结 Brief 目标"
+                  value={`${snapshot.brief.target_question}（角度：${snapshot.brief.content_angle}）`}
+                />
+              </>
+            )}
             <SnapshotValue label="平台快照" value={snapshot.platform_profile ?? null} />
             <SnapshotValue label="模型快照" value={snapshot.model} />
             <SnapshotValue label="渠道快照" value={snapshot.channel} />

@@ -25,6 +25,7 @@ import {
 type NavId =
   | 'workbench'
   | 'products'
+  | 'content-campaigns'
   | 'content-tasks'
   | 'publishing-work'
   | 'publishing-articles'
@@ -57,6 +58,7 @@ type NavigationItem = {
   to:
     | '/'
     | '/products'
+    | '/content/campaigns'
     | '/content/tasks'
     | '/publishing/work'
     | '/publishing/articles'
@@ -128,6 +130,7 @@ const navigationSections: readonly NavigationSection[] = [
     id: 'content-ops',
     label: '内容运营',
     items: [
+      { id: 'content-campaigns', label: '内容活动', to: '/content/campaigns', icon: TargetIcon },
       { id: 'content-tasks', label: '内容任务', to: '/content/tasks', icon: ListTodoIcon },
       { id: 'publishing-work', label: '发布工作', to: '/publishing/work', icon: SendIcon },
       { id: 'publishing-articles', label: '发布成果', to: '/publishing/articles', icon: ScrollTextIcon },

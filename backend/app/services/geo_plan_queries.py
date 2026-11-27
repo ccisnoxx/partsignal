@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.deps import DbSession
 from app.errors import not_found
+from app.models.campaign import ContentCampaignMonitoringPlan
 from app.models.geo_monitoring_plans import (
     GeoMonitoringPlan,
     GeoMonitoringPlanProfile,
@@ -136,6 +137,7 @@ def plan_detail(
     preview: GeoMonitoringPlanPreview,
     batch_count: int = 0,
     schedule: GeoPlanScheduleRuntime | None = None,
+    campaign_count: int = 0,
 ) -> GeoMonitoringPlanDetail:
     stage, task, actions, deletion = projection(
         Status(plan.status),
@@ -146,6 +148,9 @@ def plan_detail(
     if batch_count:
         actions = [action for action in actions if action != "DELETE"]
         deletion.blockers.append("HAS_BATCH_HISTORY")
+    if campaign_count:
+        actions = [action for action in actions if action != "DELETE"]
+        deletion.blockers.append("HAS_CONTENT_CAMPAIGN")
     return GeoMonitoringPlanDetail.model_validate(
         value.model_dump()
         | {name: getattr(plan, name) for name in METADATA_FIELDS}
@@ -184,13 +189,35 @@ def plan_batch_counts(db: Session, ids: Sequence[UUID]) -> dict[UUID, int]:
     }
 
 
+def plan_campaign_counts(db: Session, ids: Sequence[UUID]) -> dict[UUID, int]:
+    if not ids:
+        return {}
+    return {
+        identity: int(count)
+        for identity, count in db.execute(
+            select(ContentCampaignMonitoringPlan.plan_id, func.count())
+            .where(ContentCampaignMonitoringPlan.plan_id.in_(ids))
+            .group_by(ContentCampaignMonitoringPlan.plan_id)
+        ).tuples()
+    }
+
+
 def details(db: Session, plans: Sequence[GeoMonitoringPlan]) -> list[GeoMonitoringPlanDetail]:
     values = configurations(db, plans)
     results = previews(db, list(values.values()))
-    counts = plan_batch_counts(db, [plan.id for plan in plans])
-    schedules = runtimes(db, [plan.id for plan in plans])
+    plan_ids = [plan.id for plan in plans]
+    counts = plan_batch_counts(db, plan_ids)
+    campaign_counts = plan_campaign_counts(db, plan_ids)
+    schedules = runtimes(db, plan_ids)
     return [
-        plan_detail(plan, values[plan.id], preview, counts.get(plan.id, 0), schedules.get(plan.id))
+        plan_detail(
+            plan,
+            values[plan.id],
+            preview,
+            counts.get(plan.id, 0),
+            schedules.get(plan.id),
+            campaign_counts.get(plan.id, 0),
+        )
         for plan, preview in zip(plans, results, strict=True)
     ]
 

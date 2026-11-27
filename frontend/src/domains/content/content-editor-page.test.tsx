@@ -131,6 +131,8 @@ function editorContext(
       status: 'ACTIVE',
     },
     platform: { id: null, name: '工程师社区', website_url: null, logo: null },
+    campaign: null,
+    brief: null,
     locked_fact_version: {
       id: ids.fact,
       version: 3,
@@ -475,6 +477,7 @@ describe('ContentEditorPage', () => {
     const comment = within(dialog).getByRole('textbox', { name: '备注（可选）' });
     expect(comment).toHaveFocus();
     await user.type(comment, '请保留这条审核备注');
+    await user.click(within(dialog).getByLabelText('我已核对全部质量警告，确认提交审核'));
     await user.click(within(dialog).getByRole('button', { name: '确认提交审核' }));
 
     expect(await within(dialog).findByText('错误代码：REVISION_CONFLICT')).toBeInTheDocument();
@@ -523,6 +526,7 @@ describe('ContentEditorPage', () => {
     const dialog = await screen.findByRole('dialog', { name: '提交内容审核' });
     const comment = within(dialog).getByRole('textbox', { name: '备注（可选）' });
     await user.type(comment, 'pending 后必须保留的备注');
+    await user.click(within(dialog).getByLabelText('我已核对全部质量警告，确认提交审核'));
     await user.click(within(dialog).getByRole('button', { name: '确认提交审核' }));
 
     expect(await within(dialog).findByText('提交审核暂不可用')).toBeInTheDocument();
@@ -600,6 +604,7 @@ describe('ContentEditorPage', () => {
     const dialog = await screen.findByRole('dialog', { name: '提交内容审核' });
     const comment = within(dialog).getByRole('textbox', { name: '备注（可选）' });
     await user.type(comment, '冲突后必须保留的备注');
+    await user.click(within(dialog).getByLabelText('我已核对全部质量警告，确认提交审核'));
     await user.click(within(dialog).getByRole('button', { name: '确认提交审核' }));
     await within(dialog).findByText('错误代码：REVISION_CONFLICT');
 
@@ -645,6 +650,7 @@ describe('ContentEditorPage', () => {
     await screen.findByRole('textbox', { name: '标题' });
     await user.click(screen.getByRole('button', { name: '提交审核' }));
     const dialog = await screen.findByRole('dialog', { name: '提交内容审核' });
+    await user.click(within(dialog).getByLabelText('我已核对全部质量警告，确认提交审核'));
     await user.click(within(dialog).getByRole('button', { name: '确认提交审核' }));
     await within(dialog).findByText('错误代码：REVISION_CONFLICT');
     await user.click(within(dialog).getByRole('button', { name: '取消' }));
@@ -675,6 +681,7 @@ describe('ContentEditorPage', () => {
     await screen.findByRole('textbox', { name: '标题' });
     await user.click(screen.getByRole('button', { name: '提交审核' }));
     const dialog = await screen.findByRole('dialog', { name: '提交内容审核' });
+    await user.click(within(dialog).getByLabelText('我已核对全部质量警告，确认提交审核'));
     await user.click(within(dialog).getByRole('button', { name: '确认提交审核' }));
 
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(
@@ -717,12 +724,14 @@ describe('ContentEditorPage', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: '提交审核' })).toBeEnabled());
     await user.click(screen.getByRole('button', { name: '提交审核' }));
     const dialog = await screen.findByRole('dialog', { name: '提交内容审核' });
+    expect(within(dialog).getByRole('button', { name: '确认提交审核' })).toBeDisabled();
+    await user.click(within(dialog).getByLabelText('我已核对全部质量警告，确认提交审核'));
     await user.type(within(dialog).getByRole('textbox', { name: '备注（可选）' }), '请审核');
     await user.click(within(dialog).getByRole('button', { name: '确认提交审核' }));
 
     await waitFor(() => expect(post).toHaveBeenCalledOnce());
     expect(post.mock.calls[0]?.[1]).toMatchObject({
-      body: { expected_revision: 2, comment: '请审核' },
+      body: { expected_revision: 2, comment: '请审核', acknowledge_warnings: true },
     });
     expect(await screen.findByText('只读')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /批准|要求修改/ })).not.toBeInTheDocument();

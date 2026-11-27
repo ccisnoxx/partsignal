@@ -70,7 +70,7 @@ class SnapshotSession:
     def scalars(self, _query: object) -> list[object]:
         return list(self.rows.values())
 
-    def execute(self, _query: object) -> SimpleNamespace:
+    def execute(self, _query: object, *_args: object, **_kwargs: object) -> SimpleNamespace:
         return SimpleNamespace(tuples=lambda: self.execute_rows)
 
 
@@ -178,6 +178,7 @@ def test_build_generation_input_uses_prompt_and_fact_markdown_verbatim() -> None
             slug="platform",
             is_active=True,
             platform_prompt_id=PROMPT_ID,
+            platform_prompt_version_id=None,
         ),
     )
     prompt = cast(
@@ -568,7 +569,7 @@ def test_generation_callers_recover_only_exact_idempotency_race(
                     db=cast(Any, db_to_use), content_task_id=TASK_ID,
                     payload=SimpleNamespace(
                         ai_model_id=MODEL_ID, platform_prompt_id=PROMPT_ID,
-                        platform_prompt_revision=4,
+                        platform_prompt_revision=4, platform_prompt_version_id=None,
                     ),
                     actor=cast(Any, actor), request_id="create", idempotency_key="race-key",
                 )

@@ -49,6 +49,7 @@ import {
   openIssueFormSchema,
   type PublishedContentIssue,
 } from './published-content-issue.model';
+import { ArticleHealthCheckDialogButton } from './article-health-check-dialog';
 
 type PublishedArticleDetailPageProps = {
   articleId: string;
@@ -236,7 +237,17 @@ function PublishedArticleDetailView({ article, csrfToken, onIssueOpened, onReloa
           <Timeline emptyMessage="没有发布事件。" items={eventItems} />
         </DetailSection>
 
-        <DetailSection description="问题登记使用服务端 OPEN_ISSUE 动作；处理与解决交接到 canonical Issue Workspace。" title="内容健康">
+        <DetailSection
+          actions={(
+            <ArticleHealthCheckDialogButton
+              articleId={article.id}
+              csrfToken={csrfToken}
+              onIssueAutoOpened={onReload}
+            />
+          )}
+          description="问题登记使用服务端 OPEN_ISSUE 动作；处理与解决交接到 canonical Issue Workspace。"
+          title="内容健康"
+        >
           <p className="font-medium">{stage.label} · {article.issues.length} 条历史问题</p>
           {article.issues.length > 0 && (
             <ul className="mt-3 space-y-2 text-sm text-text-secondary">

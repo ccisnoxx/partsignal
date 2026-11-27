@@ -271,13 +271,27 @@ class _TextExtractor(HTMLParser):
             self.parts.append(data.strip())
 
 
+def _safe_link_attr(tag: str, name: str, value: str) -> bool:
+    """仅保留安全链接属性，额外阻断 protocol-relative (//) 与控制字符 href。"""
+    if tag != "a":
+        return False
+    if name in {"title", "rel"}:
+        return True
+    if name == "href":
+        cleaned = value.strip()
+        return not cleaned.startswith("//") and not any(
+            ord(ch) < 32 or ord(ch) == 127 for ch in cleaned
+        )
+    return False
+
+
 def render_markdown(body_markdown: str) -> tuple[str, str]:
     """实时派生安全 HTML 与纯文本，不保存第二份正文。"""
     raw_html = markdown.markdown(body_markdown, extensions=["tables", "fenced_code"])
     safe_html = bleach.clean(
         raw_html,
         tags=ALLOWED_HTML_TAGS,
-        attributes={"a": ["href", "title", "rel"]},
+        attributes={"a": _safe_link_attr},
         protocols=["http", "https"],
         strip=True,
     )
@@ -880,12 +894,15 @@ def list_published_articles(
     page: int,
     page_size: int,
     search: str | None = None,
+    campaign_id: uuid.UUID | None = None,
     sort: PublishedArticleSort = PublishedArticleSort.VERIFIED_DESC,
     can_delete: bool = False,
     product_ids: frozenset[uuid.UUID] | None = None,
 ) -> PublishedArticleList:
     """按服务端搜索与稳定顺序分页返回发布成果。"""
     query = _article_context_query(search)
+    if campaign_id is not None:
+        query = query.where(ContentTask.campaign_id == campaign_id)
     if product_ids is not None:
         query = query.where(ContentTask.product_id.in_(product_ids))
     total = int(db.scalar(select(func.count()).select_from(query.subquery())) or 0)

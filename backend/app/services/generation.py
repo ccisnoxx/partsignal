@@ -33,6 +33,7 @@ from app.models.product_facts import (
 from app.schemas.content import (
     GenerationFactSnapshot,
     GenerationSnapshot,
+    GenerationSnapshotV4,
     HumanizationSnapshot,
     MarkdownGenerationSnapshotV2,
     QualityIssue,
@@ -45,13 +46,18 @@ from app.services.ai_configuration import (
 )
 from app.services.ai_provider import AIProvider, ChatCompletionResult
 from app.services.content_lineage import resolve_content_ai_lineage
+from app.services.content_quality import evaluate_content_quality
+from app.services.cost_accounting import compute_frozen_ai_cost
 
 logger = logging.getLogger("partsignal.worker")
 GENERATION_CONTRACT_VERSION: Literal["content-markdown-v3"] = "content-markdown-v3"
+GENERATION_CONTRACT_VERSION_V4: Literal["content-markdown-v4"] = "content-markdown-v4"
 HUMANIZATION_CONTRACT_VERSION: Literal["humanization-markdown-v2"] = "humanization-markdown-v2"
 TEXT_CHARACTER_PATTERN = re.compile(r"[\W_]+", re.UNICODE)
 NEAR_DUPLICATE_THRESHOLD = 0.85
-GenerationSnapshotRead = MarkdownGenerationSnapshotV2 | GenerationSnapshot
+GenerationSnapshotRead = (
+    MarkdownGenerationSnapshotV2 | GenerationSnapshot | GenerationSnapshotV4
+)
 
 
 def business_generation_enabled() -> bool:
@@ -79,6 +85,8 @@ def _generation_snapshot(generation_input: dict[str, Any]) -> GenerationSnapshot
             return MarkdownGenerationSnapshotV2.model_validate(generation_input)
         if contract_version == GENERATION_CONTRACT_VERSION:
             return GenerationSnapshot.model_validate(generation_input)
+        if contract_version == GENERATION_CONTRACT_VERSION_V4:
+            return GenerationSnapshotV4.model_validate(generation_input)
     except ValidationError as error:
         raise AppError("GENERATION_SNAPSHOT_INVALID", "生成作业快照结构无效", 409) from error
     raise AppError("GENERATION_SNAPSHOT_INVALID", "原始生成快照版本不受支持", 409)
@@ -413,7 +421,6 @@ def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None
             validate_generation_context(db, job)
             db.commit()
             draft, completion = generate_for_job(db, job, generation_input, generator)
-            quality_issues: list[dict[str, str]] = []
             db.expire_all()
             job = db.scalar(
                 select(GenerationJob).where(GenerationJob.id == job_id).with_for_update()
@@ -425,17 +432,25 @@ def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None
                 return
             # 锁定任务后再次校验，防止模型调用期间事实被停用或并发分配相同版本号。
             task = validate_generation_context(db, job, lock_task=True)
-            add_near_duplicate_warning(db, task, draft, quality_issues)
             source_version_id: uuid.UUID | None = None
+            source_content_row: ContentVersion | None = None
             change_summary = "AI 生成作业创建的草稿"
             if job.job_type == "HUMANIZE":
                 humanization_snapshot = HumanizationSnapshot.model_validate(generation_input)
                 source_version_id = humanization_snapshot.source_content.id
+                source_content_row = db.get(ContentVersion, source_version_id)
                 fact_version_id = humanization_snapshot.fact_version.id
                 change_summary = "AI 自然化作业创建的草稿"
             else:
                 generation_snapshot = _generation_snapshot(generation_input)
                 fact_version_id = generation_snapshot.fact_version.id
+            quality_issues = evaluate_content_quality(
+                db,
+                task,
+                draft,
+                source_content=source_content_row,
+                is_humanization=(job.job_type == "HUMANIZE"),
+            )
             next_version = (
                 int(
                     db.scalar(
@@ -486,11 +501,20 @@ def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None
             job.error_code = None
             job.error_summary = None
             if completion is not None:
+                with db.no_autoflush:
+                    model = (
+                        db.get(AIModel, job.ai_model_id) if job.ai_model_id is not None else None
+                    )
                 job.provider_request_id = completion.provider_request_id
                 job.response_duration_ms = completion.duration_ms
                 job.prompt_tokens = completion.prompt_tokens
                 job.completion_tokens = completion.completion_tokens
                 job.total_tokens = completion.total_tokens
+                job.cost_amount, job.cost_currency = compute_frozen_ai_cost(
+                    model,
+                    prompt_tokens=completion.prompt_tokens,
+                    completion_tokens=completion.completion_tokens,
+                )
             db.commit()
             logger.info(
                 "AI 作业完成 job_id=%s job_type=%s source_content_version_id=%s "

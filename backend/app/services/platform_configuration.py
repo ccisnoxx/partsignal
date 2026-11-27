@@ -16,10 +16,13 @@ from sqlalchemy.sql.elements import ColumnElement
 from app.audit import append_audit
 from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.errors import AppError, in_use, not_found
+from app.models.ai_generation import GenerationJob
+from app.models.campaign import ContentCampaignPlatform
 from app.models.configuration import (
     ContentHumanizationPrompt,
     PlatformProfile,
     PlatformPrompt,
+    PlatformPromptVersion,
     PlatformType,
 )
 from app.models.content import ContentTask
@@ -51,14 +54,23 @@ from app.services.platform_logo_files import (
     lock_platform_logo_change,
     schedule_detached_platform_logo,
 )
+from app.services.product_facts import db_utc_now
 from app.services.projections import (
     IN_FLIGHT_PUBLICATION_STATUSES,
     platform_profile_out,
     platform_profiles_out,
 )
+from app.services.prompt_version_queries import (
+    latest_published_prompt_version,
+    lock_platform_prompt_bindings_shared,
+)
+from app.services.prompt_versioning import (
+    create_initial_published_version,
+    publish_version_from_template_edit,
+)
 
 HUMANIZATION_PROMPT_SINGLETON_ID = 1
-PLATFORM_PROMPT_BINDING_LOCK = "platform-prompt-bindings"
+lock_platform_prompt_bindings = lock_platform_prompt_bindings_shared
 
 
 def _platform_prompt_name_conflict() -> AppError:
@@ -77,14 +89,6 @@ def _platform_prompt_name_conflict() -> AppError:
                 }
             ]
         },
-    )
-
-
-def lock_platform_prompt_bindings(db: Session) -> None:
-    """串行化低频 Prompt 绑定变更与解绑删除。"""
-    db.execute(
-        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
-        {"key": PLATFORM_PROMPT_BINDING_LOCK},
     )
 
 
@@ -658,6 +662,12 @@ def create_platform_prompt(
             raise
         db.rollback()
         raise _platform_prompt_name_conflict() from error
+    create_initial_published_version(
+        db,
+        prompt=prompt,
+        actor_id=actor.id,
+        now=db_utc_now(db),
+    )
     append_audit(
         db,
         AuditEntry(
@@ -684,7 +694,8 @@ def update_platform_prompt(
     actor: User,
     request_id: str,
 ) -> PlatformPromptDetail:
-    """按 revision 更新共享 Prompt，并记录当前影响范围。"""
+    """按 revision 更新共享 Prompt，并在正文变化时追加新不可变已发布版本。"""
+    lock_platform_prompt_bindings(db)
     prompt = db.scalar(
         select(PlatformPrompt)
         .where(PlatformPrompt.id == platform_prompt_id)
@@ -708,13 +719,15 @@ def update_platform_prompt(
         raise _platform_prompt_name_conflict()
     previous_name = prompt.name
     previous_revision = prompt.revision
-    bound_platform_ids = list(
+    bound_platforms = list(
         db.scalars(
-            select(PlatformProfile.id)
+            select(PlatformProfile)
             .where(PlatformProfile.platform_prompt_id == prompt.id)
             .order_by(PlatformProfile.id)
+            .with_for_update()
         )
     )
+    bound_platform_ids = [item.id for item in bound_platforms]
     prompt.name = name
     prompt.template_markdown = markdown
     prompt.updated_by = actor.id
@@ -729,6 +742,23 @@ def update_platform_prompt(
             raise
         db.rollback()
         raise _platform_prompt_name_conflict() from error
+    previous_latest, new_version = publish_version_from_template_edit(
+        db,
+        prompt=prompt,
+        template_markdown=markdown,
+        actor_id=actor.id,
+        now=db_utc_now(db),
+    )
+    if new_version is not None:
+        # 仅推进跟随最新版本的平台；已被管理员显式回滚/锁定到历史版本的平台保持不动。
+        for profile in bound_platforms:
+            if profile.platform_prompt_version_id is None or (
+                previous_latest is not None
+                and profile.platform_prompt_version_id == previous_latest.id
+            ):
+                profile.platform_prompt_version_id = new_version.id
+                profile.revision += 1
+        db.flush()
     append_audit(
         db,
         AuditEntry(
@@ -829,6 +859,26 @@ def delete_platform_prompt(
         raise not_found("平台 Prompt")
     if prompt.revision != expected_revision:
         raise AppError("REVISION_CONFLICT", "平台 Prompt 已被其他请求修改", 409)
+    version_ids = list(
+        db.scalars(
+            select(PlatformPromptVersion.id).where(PlatformPromptVersion.prompt_id == prompt.id)
+        )
+    )
+    if version_ids:
+        job_count = int(
+            db.scalar(
+                select(func.count())
+                .select_from(GenerationJob)
+                .where(GenerationJob.platform_prompt_version_id.in_(version_ids))
+            )
+            or 0
+        )
+        if job_count > 0:
+            raise in_use(
+                "PLATFORM_PROMPT_IN_USE",
+                "平台 Prompt",
+                [("GENERATION_JOB", "生成作业", job_count)],
+            )
     bound_platforms = list(
         db.scalars(
             select(PlatformProfile)
@@ -838,9 +888,12 @@ def delete_platform_prompt(
         )
     )
     for profile in bound_platforms:
+        profile.platform_prompt_version_id = None
         profile.platform_prompt_id = None
         profile.revision += 1
+    db.flush()
     deleted_revision = prompt.revision
+    db.execute(text("SET LOCAL partsignal.allow_unused_prompt_delete = 'on'"))
     db.delete(prompt)
     append_audit(
         db,
@@ -853,12 +906,12 @@ def delete_platform_prompt(
             request_id=request_id,
             outcome=AuditOutcome.SUCCESS,
             result_message="平台 Prompt 已删除",
-        details={
-            "facts": {
-                "revision": deleted_revision,
-                "unbound_platform_count": len(bound_platforms),
-            }
-        },
+            details={
+                "facts": {
+                    "revision": deleted_revision,
+                    "unbound_platform_count": len(bound_platforms),
+                }
+            },
         ),
     )
     db.commit()
@@ -883,7 +936,10 @@ def update_platform_profile(
         raise AppError("REVISION_CONFLICT", "平台已被其他请求修改", 409)
     if db.get(PlatformType, payload.platform_type_id) is None:
         raise not_found("平台类型")
-    if payload.platform_prompt_id is not None:
+    next_prompt_version_id = profile.platform_prompt_version_id
+    if payload.platform_prompt_id is None:
+        next_prompt_version_id = None
+    else:
         selected_prompt_id = db.scalar(
             select(PlatformPrompt.id)
             .where(PlatformPrompt.id == payload.platform_prompt_id)
@@ -891,6 +947,18 @@ def update_platform_profile(
         )
         if selected_prompt_id is None:
             raise not_found("平台 Prompt")
+        if (
+            profile.platform_prompt_id != payload.platform_prompt_id
+            or next_prompt_version_id is None
+        ):
+            latest_ver = latest_published_prompt_version(db, payload.platform_prompt_id)
+            if latest_ver is None:
+                raise AppError(
+                    "PLATFORM_PROMPT_MISSING",
+                    "所选平台 Prompt 暂无已发布的不可变版本",
+                    409,
+                )
+            next_prompt_version_id = latest_ver.id
     logo_changed = "logo" in payload.model_fields_set
     previous_logo_file_id = profile.logo_file_id
     logo_file_id = (
@@ -906,6 +974,7 @@ def update_platform_profile(
     profile.allowed_domains = payload.allowed_domains
     profile.platform_type_id = payload.platform_type_id
     profile.platform_prompt_id = payload.platform_prompt_id
+    profile.platform_prompt_version_id = next_prompt_version_id
     profile.website_url = str(payload.website_url) if payload.website_url is not None else None
     if logo_changed:
         profile.logo_file_id = logo_file_id
@@ -963,6 +1032,18 @@ def delete_platform_profile(
                         PublicationWork.platform_profile_id == profile.id,
                         PublicationWork.status.in_(IN_FLIGHT_PUBLICATION_STATUSES),
                     )
+                )
+                or 0
+            ),
+        ),
+        (
+            "CONTENT_CAMPAIGN",
+            "内容活动",
+            int(
+                db.scalar(
+                    select(func.count())
+                    .select_from(ContentCampaignPlatform)
+                    .where(ContentCampaignPlatform.platform_profile_id == profile.id)
                 )
                 or 0
             ),

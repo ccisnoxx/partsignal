@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { WorkbenchPage } from './workbench-page';
+import { resolveWorkbenchTimezone } from './workbench.model';
 
 const aggregate = {
   generated_at: '2026-08-23T08:00:00Z',
@@ -52,6 +53,57 @@ const emptyAggregate = {
   recent_attention_items: [],
 } satisfies components['schemas']['WorkbenchAggregate'];
 
+const sampleInbox = {
+  generated_at: '2026-08-23T08:00:00Z',
+  timezone: 'Asia/Shanghai',
+  active_bucket: 'assigned_to_me',
+  bucket_counts: {
+    assigned_to_me: 1,
+    due_today: 1,
+    overdue: 1,
+    pending_review: 2,
+    awaiting_publication: 4,
+    awaiting_verification: 3,
+    needs_fix: 5,
+    high_priority_geo_opportunities: 2,
+  },
+  items: [
+    {
+      item_kind: 'CONTENT_TASK',
+      resource_id: '20000000-0000-4000-8000-000000000001',
+      title: 'TPS5430 国产替代选型指南',
+      summary: '知乎 · 进行中内容任务',
+      priority: 'HIGH',
+      assignee: {
+        id: '30000000-0000-4000-8000-000000000001',
+        username: 'alice',
+        display_name: 'Alice',
+      },
+      due_at: '2026-08-23T06:00:00Z',
+      is_overdue: true,
+      blocked_reason: '等待 FAE 复核',
+      buckets: ['assigned_to_me', 'due_today', 'overdue'],
+      href: '/content/tasks/20000000-0000-4000-8000-000000000001',
+      updated_at: '2026-08-23T07:30:00Z',
+    },
+  ],
+} satisfies components['schemas']['WorkbenchInbox'];
+
+const emptyInbox = {
+  ...sampleInbox,
+  bucket_counts: {
+    assigned_to_me: 0,
+    due_today: 0,
+    overdue: 0,
+    pending_review: 0,
+    awaiting_publication: 0,
+    awaiting_verification: 0,
+    needs_fix: 0,
+    high_priority_geo_opportunities: 0,
+  },
+  items: [],
+} satisfies components['schemas']['WorkbenchInbox'];
+
 afterEach(() => vi.restoreAllMocks());
 
 function renderPage() {
@@ -60,12 +112,21 @@ function renderPage() {
 }
 
 describe('WorkbenchPage', () => {
-  it('通过单一 aggregate 绘制所有区块并原样保留 canonical href', async () => {
-    const get = vi.spyOn(api, 'GET').mockResolvedValue({ data: aggregate, response: Response.json(aggregate) } as never);
+  it('绘制运营收件箱 8 分桶与 aggregate 区块并原样保留 canonical href', async () => {
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/workbench/inbox') {
+        return { data: sampleInbox, response: Response.json(sampleInbox) } as never;
+      }
+      return { data: aggregate, response: Response.json(aggregate) } as never;
+    });
     renderPage();
 
     expect(await screen.findByRole('link', { name: '查看事实审核' })).toHaveAttribute('href', '/facts?source=server');
-    expect(screen.getAllByText('事实审核').length).toBeGreaterThan(0);
+    expect(await screen.findByText('TPS5430 国产替代选型指南')).toBeInTheDocument();
+    expect(screen.getByText('已超时')).toBeInTheDocument();
+    expect(screen.getByText(/等待 FAE 复核/)).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /分配给我的/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /高优先级 GEO 机会/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '处理发布失败' })).toHaveAttribute('href', '/publication-failures?source=server');
     expect(screen.getByRole('link', { name: /修复发布内容问题/ })).toHaveAttribute(
       'href',
@@ -75,19 +136,27 @@ describe('WorkbenchPage', () => {
     expect(screen.getByText('50%')).toBeInTheDocument();
     expect(screen.getByText('0%')).toBeInTheDocument();
     expect(screen.getByText('暂无数据')).toBeInTheDocument();
-    expect(get).toHaveBeenCalledOnce();
-    expect(get).toHaveBeenCalledWith('/api/v1/workbench');
+    expect(get).toHaveBeenCalledWith(
+      '/api/v1/workbench',
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(get).toHaveBeenCalledWith('/api/v1/workbench/inbox', {
+      params: { query: { bucket: 'assigned_to_me', timezone: resolveWorkbenchTimezone() } },
+      signal: expect.any(AbortSignal),
+    });
   });
 
   it('把空队列、zero count 和 nullable rate 保持为成功状态', async () => {
-    vi.spyOn(api, 'GET').mockResolvedValue({
-      data: emptyAggregate,
-      response: Response.json(emptyAggregate),
-    } as never);
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/workbench/inbox') {
+        return { data: emptyInbox, response: Response.json(emptyInbox) } as never;
+      }
+      return { data: emptyAggregate, response: Response.json(emptyAggregate) } as never;
+    });
     renderPage();
 
     expect(await screen.findByText('当前没有需要关注的事项。')).toBeInTheDocument();
-    expect(screen.getAllByText('0')).toHaveLength(6);
+    expect(await screen.findByText(/分桶当前没有待处理事项/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '查看事实审核' })).toHaveAttribute('href', '/facts?source=server');
     expect(screen.getByText('暂无数据')).toBeInTheDocument();
   });
@@ -96,14 +165,22 @@ describe('WorkbenchPage', () => {
     const error = {
       error: { code: 'WORKBENCH_UNAVAILABLE', message: '工作台暂不可用', details: {}, request_id: 'req-workbench' },
     } satisfies components['schemas']['ErrorEnvelope'];
-    const get = vi.spyOn(api, 'GET')
-      .mockResolvedValueOnce({ error, response: Response.json(error, { status: 503 }) } as never)
-      .mockResolvedValueOnce({ data: aggregate, response: Response.json(aggregate) } as never);
+    let workbenchCalls = 0;
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/workbench/inbox') {
+        return { data: emptyInbox, response: Response.json(emptyInbox) } as never;
+      }
+      workbenchCalls += 1;
+      if (workbenchCalls === 1) {
+        return { error, response: Response.json(error, { status: 503 }) } as never;
+      }
+      return { data: aggregate, response: Response.json(aggregate) } as never;
+    });
     renderPage();
 
     expect(await screen.findByRole('alert')).toHaveTextContent('工作台暂不可用（请求 ID：req-workbench）');
     await userEvent.click(screen.getByRole('button', { name: '重试' }));
     expect(await screen.findByText('内容审核存在积压')).toBeInTheDocument();
-    expect(get).toHaveBeenCalledTimes(2);
+    expect(workbenchCalls).toBe(2);
   });
 });

@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import ValidationError
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -29,10 +29,12 @@ from app.models.configuration import (
     PlatformPrompt,
 )
 from app.models.content import (
+    ContentBriefSnapshot,
     ContentReviewRecord,
     ContentTask,
     ContentVersion,
 )
+from app.models.content_quality import ContentQualityCheckJob
 from app.models.identity import User
 from app.models.product_facts import (
     FactVersion,
@@ -41,24 +43,28 @@ from app.models.product_facts import (
 from app.schemas.content import (
     ContentDraftUpdate,
     ContentRevisionCreate,
+    GenerationBriefSnapshot,
     GenerationFactSnapshot,
     GenerationSnapshot,
+    GenerationSnapshotV4,
     HumanizationJobCreate,
     HumanizationPromptSnapshot,
     HumanizationSnapshot,
     HumanizationSourceContent,
     OriginalGenerationJobCreate,
     PlatformPromptSnapshot,
+    PlatformPromptVersionSnapshot,
 )
 from app.schemas.geo_files import GeneratedDraft
 from app.schemas.product_facts import Confidentiality
 from app.services.ai_configuration import require_supported_protocol
 from app.services.content_lineage import resolve_content_ai_lineage
+from app.services.content_quality import evaluate_content_quality
 from app.services.content_version_policy import content_version_delete_references
 from app.services.generation import (
     GENERATION_CONTRACT_VERSION,
+    GENERATION_CONTRACT_VERSION_V4,
     HUMANIZATION_CONTRACT_VERSION,
-    add_near_duplicate_warning,
     business_generation_enabled,
     content_hash,
     ensure_generation_eligible,
@@ -69,14 +75,19 @@ from app.services.generation import (
     require_business_generation_enabled,
 )
 from app.services.generation_dispatch import dispatch_generation_job
+from app.services.prompt_version_queries import (
+    lock_platform_prompt_bindings_shared,
+    prompt_has_any_version,
+    resolve_bound_prompt_version,
+)
 from app.worker import generate_content
 
 
 def generation_job_contract_retryable(job: GenerationJob) -> bool:
-    """仅允许当前正式快照版本和已声明可读的 v2 原始生成快照重试。"""
+    """仅允许当前正式快照版本和已声明可读的 v2/v3/v4 原始生成快照重试。"""
     contract_version = job.input_snapshot.get("contract_version")
     retryable_contracts = (
-        {"content-markdown-v2", GENERATION_CONTRACT_VERSION}
+        {"content-markdown-v2", GENERATION_CONTRACT_VERSION, GENERATION_CONTRACT_VERSION_V4}
         if job.job_type == "GENERATE"
         else {HUMANIZATION_CONTRACT_VERSION}
     )
@@ -133,20 +144,70 @@ def _enabled_channel(db: Session, model: AIModel) -> AIChannel:
     return channel
 
 
-def build_generation_input(
+def _build_v4_user_message(*, brief: ContentBriefSnapshot, fact: FactVersion) -> str:
+    """确定性分层拼接 Brief、PUBLIC 产品事实及边界声明，严禁外发内部溯源字段。"""
+    brief_lines = [
+        "## 内容 Brief（本次写作目标）",
+        f"- 目标问题：{brief.target_question}",
+        f"- 搜索意图：{brief.search_intent}",
+        f"- 内容角度：{brief.content_angle}",
+    ]
+    if brief.target_audience.strip():
+        brief_lines.append(f"- 目标受众：{brief.target_audience.strip()}")
+    if brief.content_format.strip():
+        brief_lines.append(f"- 内容形式：{brief.content_format.strip()}")
+    if brief.cta.strip():
+        brief_lines.append(f"- 行动号召（CTA）：{brief.cta.strip()}")
+    if brief.target_keywords:
+        brief_lines.append(f"- 目标关键词：{', '.join(brief.target_keywords)}")
+    if brief.must_answer_questions:
+        brief_lines.append("- 必须回答的问题：")
+        brief_lines.extend(f"  - {item}" for item in brief.must_answer_questions)
+    if brief.required_fact_points:
+        brief_lines.append("- 必须覆盖的产品事实要点：")
+        brief_lines.extend(f"  - {item}" for item in brief.required_fact_points)
+    if brief.forbidden_expressions:
+        brief_lines.append("- 禁止表达（严禁出现）：")
+        brief_lines.extend(f"  - {item}" for item in brief.forbidden_expressions)
+
+    fact_lines = ["## 已批准 PUBLIC 产品事实（唯一允许使用的产品事实依据）"]
+    if fact.applicable_region:
+        fact_lines.append(f"- 适用地区/市场：{fact.applicable_region}")
+    if fact.approved_claims_summary:
+        fact_lines.append(f"- 已批准核心公开结论：\n{fact.approved_claims_summary}")
+    if fact.content_restrictions:
+        fact_lines.append(f"- 公开表达禁用边界：\n{fact.content_restrictions}")
+    fact_lines.append(fact.body_markdown)
+
+    boundary = "\n".join(
+        [
+            "## 事实边界与合规声明",
+            "1. 仅允许使用上方“已批准 PUBLIC 产品事实”中明确记载的产品信息。",
+            "2. 严禁编造、补零或推断事实之外的电气参数、尺寸、认证、替代保证或实验室结论。",
+            "3. 严禁出现 Brief 禁止表达或公开表达禁用边界中的任何措辞。",
+            "4. 仅输出约定四字段 JSON 对象（title, summary, body_markdown, tags）。",
+        ]
+    )
+    return "\n\n".join(["\n".join(brief_lines), "\n".join(fact_lines), boundary])
+
+
+def _build_generation_input_with_version(
     db: Session,
     task: ContentTask,
     model: AIModel,
     platform_prompt_id: uuid.UUID,
     platform_prompt_revision: int,
-) -> dict[str, Any]:
-    """冻结平台 Prompt 与事实 Markdown，消息正文不做任何改写。"""
+    platform_prompt_version_id: uuid.UUID | None = None,
+) -> tuple[dict[str, Any], uuid.UUID | None]:
+    """冻结不可变 Prompt 版本、可选 Brief 与 PUBLIC 事实 Markdown，并返回解析到的版本 ID。"""
     fact = db.get(FactVersion, task.fact_version_id)
     if fact is None or fact.status != "APPROVED" or fact.product_id != task.product_id:
         raise AppError("FACT_NOT_APPROVED", "任务绑定的事实版本不再可用于生成", 409)
     product = db.get(Product, task.product_id)
     if product is None or product.status != "ACTIVE":
         raise AppError("FACT_NOT_APPROVED", "产品已停用，不能生成新内容", 409)
+    # 串行化平台 Prompt 绑定/编辑/删除与生成快照读取，彻底消除双向行锁 AB-BA 死锁
+    lock_platform_prompt_bindings_shared(db)
     profile = db.scalar(
         select(PlatformProfile)
         .where(PlatformProfile.id == task.platform_profile_id)
@@ -167,33 +228,130 @@ def build_generation_input(
         raise AppError("PLATFORM_PROMPT_MISSING", "任务平台缺少当前 Prompt", 409)
     if prompt.revision != platform_prompt_revision:
         raise AppError("PLATFORM_PROMPT_CHANGED", "平台当前 Prompt 已变化，请重新确认", 409)
+    bound_version = resolve_bound_prompt_version(db, profile, prompt)
+    if bound_version is None:
+        # 显式绑定失效或模板已有版本记录却无已发布版本时必须显式 409 拒绝；
+        # 仅当模板完全无版本记录（未经过版本化命令直接写入的旧式 fixture）才兼容旧 v3 主模板正文。
+        if profile.platform_prompt_version_id is not None or prompt_has_any_version(db, prompt.id):
+            raise AppError(
+                "PLATFORM_PROMPT_MISSING",
+                "任务平台缺少已发布的不可变 Prompt 版本",
+                409,
+            )
+    elif not bound_version.template_markdown.strip():
+        raise AppError("PLATFORM_PROMPT_MISSING", "任务平台缺少已发布的不可变 Prompt 版本", 409)
+    if platform_prompt_version_id is not None and (
+        bound_version is None or bound_version.id != platform_prompt_version_id
+    ):
+        raise AppError("PLATFORM_PROMPT_CHANGED", "平台绑定的 Prompt 版本已切换，请重新确认", 409)
+    system_markdown = (
+        bound_version.template_markdown
+        if bound_version is not None
+        else prompt.template_markdown
+    )
     channel = _enabled_channel(db, model)
     adapter_name = require_supported_protocol(channel.protocol_type)
     ensure_generation_sources_public(fact)
-    return GenerationSnapshot(
-        adapter_name=adapter_name,
-        contract_version=GENERATION_CONTRACT_VERSION,
-        channel=_channel_snapshot(channel),
-        model=_model_snapshot(model),
-        platform_profile={
-            "id": str(profile.id),
-            "name": profile.name,
-            "slug": profile.slug,
-        },
-        platform_prompt=PlatformPromptSnapshot(
-            id=prompt.id,
-            name=prompt.name,
-            revision=prompt.revision,
-        ),
-        fact_version=GenerationFactSnapshot(
-            id=fact.id,
-            product_id=fact.product_id,
-            version=fact.version,
-            classification=Confidentiality(fact.classification),
-        ),
-        system_message=prompt.template_markdown,
-        user_message=fact.body_markdown,
-    ).model_dump(mode="json")
+
+    brief = db.get(ContentBriefSnapshot, task.id)
+    if brief is not None:
+        if bound_version is None:
+            raise AppError(
+                "PLATFORM_PROMPT_MISSING",
+                "任务平台缺少已发布的不可变 Prompt 版本",
+                409,
+            )
+        return (
+            GenerationSnapshotV4(
+                adapter_name=adapter_name,
+                contract_version=GENERATION_CONTRACT_VERSION_V4,
+                channel=_channel_snapshot(channel),
+                model=_model_snapshot(model),
+                platform_profile={
+                    "id": str(profile.id),
+                    "name": profile.name,
+                    "slug": profile.slug,
+                },
+                platform_prompt=PlatformPromptVersionSnapshot(
+                    id=prompt.id,
+                    name=prompt.name,
+                    revision=prompt.revision,
+                    version_id=bound_version.id,
+                    version=bound_version.version,
+                ),
+                fact_version=GenerationFactSnapshot(
+                    id=fact.id,
+                    product_id=fact.product_id,
+                    version=fact.version,
+                    classification=Confidentiality(fact.classification),
+                ),
+                brief=GenerationBriefSnapshot(
+                    content_task_id=brief.content_task_id,
+                    query_topic_id=brief.query_topic_id,
+                    target_question=brief.target_question,
+                    search_intent=brief.search_intent,
+                    content_angle=brief.content_angle,
+                    target_audience=brief.target_audience,
+                    must_answer_questions=list(brief.must_answer_questions),
+                    required_fact_points=list(brief.required_fact_points),
+                    forbidden_expressions=list(brief.forbidden_expressions),
+                    content_format=brief.content_format,
+                    cta=brief.cta,
+                    target_keywords=list(brief.target_keywords),
+                ),
+                system_message=system_markdown,
+                user_message=_build_v4_user_message(brief=brief, fact=fact),
+            ).model_dump(mode="json"),
+            bound_version.id,
+        )
+
+    return (
+        GenerationSnapshot(
+            adapter_name=adapter_name,
+            contract_version=GENERATION_CONTRACT_VERSION,
+            channel=_channel_snapshot(channel),
+            model=_model_snapshot(model),
+            platform_profile={
+                "id": str(profile.id),
+                "name": profile.name,
+                "slug": profile.slug,
+            },
+            platform_prompt=PlatformPromptSnapshot(
+                id=prompt.id,
+                name=prompt.name,
+                revision=prompt.revision,
+            ),
+            fact_version=GenerationFactSnapshot(
+                id=fact.id,
+                product_id=fact.product_id,
+                version=fact.version,
+                classification=Confidentiality(fact.classification),
+            ),
+            system_message=system_markdown,
+            user_message=fact.body_markdown,
+        ).model_dump(mode="json"),
+        bound_version.id if bound_version is not None else None,
+    )
+
+
+def build_generation_input(
+    db: Session,
+    task: ContentTask,
+    model: AIModel,
+    platform_prompt_id: uuid.UUID,
+    platform_prompt_revision: int,
+    platform_prompt_version_id: uuid.UUID | None = None,
+) -> dict[str, Any]:
+    """冻结不可变 Prompt 版本、可选 Brief 与 PUBLIC 事实 Markdown。"""
+    snapshot, _bound_version_id = _build_generation_input_with_version(
+        db=db,
+        task=task,
+        model=model,
+        platform_prompt_id=platform_prompt_id,
+        platform_prompt_revision=platform_prompt_revision,
+        platform_prompt_version_id=platform_prompt_version_id,
+    )
+    return snapshot
 
 
 def _validate_humanization_source(task: ContentTask, source: ContentVersion) -> None:
@@ -291,6 +449,7 @@ class _GenerationJobIdentity:
     source_content_version_id: uuid.UUID | None
     platform_prompt_id: str | None
     platform_prompt_revision: int | None
+    platform_prompt_version_id: str | None = None
 
 
 def _generation_job_identity(
@@ -301,6 +460,7 @@ def _generation_job_identity(
     retry_of: GenerationJob | None,
     platform_prompt_id: uuid.UUID | None,
     platform_prompt_revision: int | None,
+    platform_prompt_version_id: uuid.UUID | None = None,
 ) -> _GenerationJobIdentity:
     """按唯一的业务载荷规则冻结作业身份，避免 rollback 后读取过期 ORM 状态。"""
     original_generation = retry_of is None and source is None
@@ -314,6 +474,11 @@ def _generation_job_identity(
         ),
         platform_prompt_id=(str(platform_prompt_id) if original_generation else None),
         platform_prompt_revision=(platform_prompt_revision if original_generation else None),
+        platform_prompt_version_id=(
+            str(platform_prompt_version_id)
+            if original_generation and platform_prompt_version_id is not None
+            else None
+        ),
     )
 
 
@@ -326,11 +491,21 @@ def _same_generation_job_identity(
     if identity.platform_prompt_id is None:
         return True
     existing_prompt = existing.input_snapshot.get("platform_prompt")
-    return (
+    if not (
         isinstance(existing_prompt, dict)
         and existing_prompt.get("id") == identity.platform_prompt_id
         and existing_prompt.get("revision") == identity.platform_prompt_revision
-    )
+    ):
+        return False
+    if identity.platform_prompt_version_id is not None:
+        existing_ver_id = (
+            str(existing.platform_prompt_version_id)
+            if existing.platform_prompt_version_id is not None
+            else existing_prompt.get("version_id")
+        )
+        if existing_ver_id != identity.platform_prompt_version_id:
+            return False
+    return True
 
 
 def _same_generation_job_scalar_identity(
@@ -445,6 +620,7 @@ def _create_job(
     retry_of: GenerationJob | None = None,
     platform_prompt_id: uuid.UUID | None = None,
     platform_prompt_revision: int | None = None,
+    platform_prompt_version_id: uuid.UUID | None = None,
     request_identity: _GenerationJobIdentity | None = None,
 ) -> tuple[GenerationJob, bool]:
     """创建幂等作业；同一键不能被另一业务请求复用。"""
@@ -458,6 +634,7 @@ def _create_job(
         retry_of=retry_of,
         platform_prompt_id=platform_prompt_id,
         platform_prompt_revision=platform_prompt_revision,
+        platform_prompt_version_id=platform_prompt_version_id,
     )
     existing = _find_existing_generation_job(db, idempotency_key, identity)
     if existing is not None:
@@ -465,7 +642,7 @@ def _create_job(
     if retry_of is not None:
         contract_version = retry_of.input_snapshot.get("contract_version")
         retryable_contracts = (
-            {"content-markdown-v2", GENERATION_CONTRACT_VERSION}
+            {"content-markdown-v2", GENERATION_CONTRACT_VERSION, GENERATION_CONTRACT_VERSION_V4}
             if retry_of.job_type == "GENERATE"
             else {HUMANIZATION_CONTRACT_VERSION}
         )
@@ -490,19 +667,22 @@ def _create_job(
         else:
             ensure_humanization_egress_allowed(generation_input)
         selected_model = retry_model
+        prompt_version_id = retry_of.platform_prompt_version_id
     else:
         if model is None:
             raise AppError("AI_MODEL_REQUIRED", "必须选择 AI 模型", 422)
+        prompt_version_id = None
         if source is not None:
             generation_input = build_humanization_input(db, task, source, model)
         else:
             assert platform_prompt_id is not None and platform_prompt_revision is not None
-            generation_input = build_generation_input(
-                db,
-                task,
-                model,
-                platform_prompt_id,
-                platform_prompt_revision,
+            generation_input, prompt_version_id = _build_generation_input_with_version(
+                db=db,
+                task=task,
+                model=model,
+                platform_prompt_id=platform_prompt_id,
+                platform_prompt_revision=platform_prompt_revision,
+                platform_prompt_version_id=platform_prompt_version_id,
             )
         selected_model = model
     prompt_hash = hashlib.sha256(
@@ -518,6 +698,7 @@ def _create_job(
         input_snapshot=generation_input,
         ai_channel_id=selected_model.channel_id,
         ai_model_id=selected_model.id,
+        platform_prompt_version_id=prompt_version_id,
         adapter_name=str(generation_input["adapter_name"]),
         prompt_template_version=str(generation_input["contract_version"]),
         prompt_hash=prompt_hash,
@@ -571,6 +752,7 @@ def create_generation_job(
         retry_of=None,
         platform_prompt_id=payload.platform_prompt_id,
         platform_prompt_revision=payload.platform_prompt_revision,
+        platform_prompt_version_id=payload.platform_prompt_version_id,
     )
     try:
         job, created = _create_job(
@@ -581,6 +763,7 @@ def create_generation_job(
             model=model,
             platform_prompt_id=payload.platform_prompt_id,
             platform_prompt_revision=payload.platform_prompt_revision,
+            platform_prompt_version_id=payload.platform_prompt_version_id,
             request_identity=request_identity,
         )
     except IntegrityError as error:
@@ -896,8 +1079,7 @@ def _create_human_content(
 ) -> ContentVersion:
     """创建共享审核链上的人工 Markdown 版本。"""
     draft = _validated_manual_draft(payload)
-    quality_issues: list[dict[str, str]] = []
-    add_near_duplicate_warning(db, task, draft, quality_issues)
+    quality_issues = evaluate_content_quality(db, task, draft)
     next_version = (
         int(
             db.scalar(
@@ -1042,8 +1224,7 @@ def update_content_draft(
         body_markdown=payload.body_markdown,
         tags=payload.tags,
     )
-    quality_issues: list[dict[str, str]] = []
-    add_near_duplicate_warning(db, task, draft, quality_issues)
+    quality_issues = evaluate_content_quality(db, task, draft)
     content.title = draft.title
     content.summary = draft.summary
     content.body_markdown = draft.body_markdown
@@ -1101,6 +1282,11 @@ def delete_content_draft(
     deleted_version = content.version
     db.scalar(
         select(func.set_config("partsignal.content_version_delete_id", str(content.id), True))
+    )
+    db.execute(
+        delete(ContentQualityCheckJob).where(
+            ContentQualityCheckJob.content_version_id == content.id
+        )
     )
     db.delete(content)
     db.flush()

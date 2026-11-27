@@ -89,6 +89,57 @@ function singleCount(
   };
 }
 
+type WorkbenchInboxBucket = components['schemas']['WorkbenchInbox']['active_bucket'];
+type WorkbenchInboxItemKind = components['schemas']['WorkbenchInboxItem']['item_kind'];
+type WorkPriority = components['schemas']['WorkAssignmentOut']['priority'];
+type WorkAssignmentTargetType = components['schemas']['WorkAssignmentDetail']['target_type'];
+
+const inboxBucketOrder: readonly WorkbenchInboxBucket[] = [
+  'assigned_to_me',
+  'due_today',
+  'overdue',
+  'pending_review',
+  'awaiting_publication',
+  'awaiting_verification',
+  'needs_fix',
+  'high_priority_geo_opportunities',
+];
+
+const inboxBucketLabels: Record<WorkbenchInboxBucket, string> = {
+  assigned_to_me: '分配给我的',
+  due_today: '今日到期',
+  overdue: '已经超时',
+  pending_review: '等待审核',
+  awaiting_publication: '等待发布',
+  awaiting_verification: '等待核验',
+  needs_fix: '需要修复',
+  high_priority_geo_opportunities: '高优先级 GEO 机会',
+};
+
+const inboxItemKindPresentations: Record<
+  WorkbenchInboxItemKind,
+  { label: string; tone: BadgeTone }
+> = {
+  FACT_REVIEW: { label: '事实审核', tone: 'info' },
+  CONTENT_TASK: { label: '内容任务', tone: 'info' },
+  CONTENT_REVIEW: { label: '内容审核', tone: 'info' },
+  PUBLICATION_WORK: { label: '人工发布', tone: 'warning' },
+  PUBLICATION_VERIFICATION: { label: '发布核验', tone: 'warning' },
+  CONTENT_ISSUE: { label: '发布问题', tone: 'destructive' },
+  OVERDUE_FACT: { label: '事实到期', tone: 'destructive' },
+  GEO_OPPORTUNITY: { label: 'GEO 机会', tone: 'warning' },
+};
+
+const inboxPriorityPresentations: Record<
+  WorkPriority,
+  { label: string; tone: 'secondary' | 'info' | 'warning' | 'destructive' }
+> = {
+  LOW: { label: '低', tone: 'secondary' },
+  MEDIUM: { label: '中', tone: 'info' },
+  HIGH: { label: '高', tone: 'warning' },
+  CRITICAL: { label: '紧急', tone: 'destructive' },
+};
+
 function formatWorkbenchRate(rate: WorkbenchRate) {
   if (rate.value === null) return '暂无数据';
   return new Intl.NumberFormat('zh-CN', {
@@ -97,8 +148,30 @@ function formatWorkbenchRate(rate: WorkbenchRate) {
   }).format(rate.value);
 }
 
-function formatWorkbenchDateTime(value: string) {
-  return new Date(value).toLocaleString('zh-CN');
+function resolveWorkbenchTimezone(): string {
+  try {
+    const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (typeof detected === 'string' && detected.trim().length > 0 && detected.length <= 64) {
+      return detected;
+    }
+  } catch {
+    // 缺少 Intl 时区支持时回退至默认东八区。
+  }
+  return 'Asia/Shanghai';
+}
+
+function formatWorkbenchDateTime(value: string, timeZone?: string) {
+  const date = new Date(value);
+  if (!timeZone) return date.toLocaleString('zh-CN');
+  try {
+    return new Intl.DateTimeFormat('zh-CN', {
+      dateStyle: 'short',
+      timeStyle: 'medium',
+      timeZone,
+    }).format(date);
+  } catch {
+    return date.toLocaleString('zh-CN');
+  }
 }
 
 export {
@@ -108,5 +181,16 @@ export {
   geoRateLabels,
   healthDomainLabels,
   healthStatusPresentations,
+  inboxBucketLabels,
+  inboxBucketOrder,
+  inboxItemKindPresentations,
+  inboxPriorityPresentations,
   resolveWorkbenchCounts,
+  resolveWorkbenchTimezone,
+};
+export type {
+  WorkAssignmentTargetType,
+  WorkPriority,
+  WorkbenchInboxBucket,
+  WorkbenchInboxItemKind,
 };

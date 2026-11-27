@@ -50,6 +50,7 @@ const task = {
   product_id: '00000000-0000-4000-8000-000000000002',
   fact_version_id: '00000000-0000-4000-8000-000000000003',
   platform_profile_id: '00000000-0000-4000-8000-000000000004',
+  campaign_id: null,
   query_topic_id: null,
   source_published_content_issue_id: null,
   current_content_version_id: '00000000-0000-4000-8000-000000000006',
@@ -73,6 +74,8 @@ const task = {
     website_url: null,
     logo: null,
   },
+  campaign: null,
+  brief_summary: null,
   current_content: {
     id: '00000000-0000-4000-8000-000000000006',
     version: 3,

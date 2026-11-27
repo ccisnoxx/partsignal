@@ -11,8 +11,14 @@ from sqlalchemy.orm import Session
 from app.audit import append_audit
 from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.errors import AppError, in_use, not_found
+from app.models.campaign import (
+    ContentCampaign,
+    ContentCampaignPlatform,
+    ContentCampaignProduct,
+    ContentCampaignTopic,
+)
 from app.models.configuration import PlatformProfile, PlatformPrompt, PlatformType, QueryTopic
-from app.models.content import ContentTask, ContentTaskGeoSource
+from app.models.content import ContentBriefSnapshot, ContentTask, ContentTaskGeoSource
 from app.models.geo_files import GeoObservation
 from app.models.geo_prompt_variants import GeoPromptVariant
 from app.models.identity import User
@@ -28,12 +34,14 @@ from app.schemas.configuration import (
     QueryTopicReferenceSummary,
     QueryTopicUpdate,
 )
-from app.schemas.content import ContentTaskCreate
+from app.schemas.content import ContentBriefInput, ContentTaskCreate, ContentTaskTarget
 from app.services.platform_configuration import lock_active_platform, lock_platform_prompt_bindings
 from app.services.platform_logo_files import lock_platform_logo_change
+from app.services.prompt_version_queries import latest_published_prompt_version
 
 _QUERY_TOPIC_BLOCKERS = (
     ("CONTENT_TASK", "内容任务"),
+    ("CONTENT_CAMPAIGN", "内容活动"),
     ("GEO_OPTIMIZATION_SOURCE", "GEO 优化来源"),
     ("GEO_OBSERVATION", "GEO 观测"),
     ("GEO_PROMPT_VARIANT", "GEO 问题变体"),
@@ -74,6 +82,10 @@ def _query_topic_reference_counts(
             ContentTask.query_topic_id.label("resource_id"),
             literal("CONTENT_TASK").label("blocker_type"),
         ).where(ContentTask.query_topic_id.in_(topic_ids)),
+        select(
+            ContentCampaignTopic.query_topic_id.label("resource_id"),
+            literal("CONTENT_CAMPAIGN").label("blocker_type"),
+        ).where(ContentCampaignTopic.query_topic_id.in_(topic_ids)),
         select(
             ContentTaskGeoSource.query_topic_id.label("resource_id"),
             literal("GEO_OPTIMIZATION_SOURCE").label("blocker_type"),
@@ -153,9 +165,12 @@ def list_query_topic_items(
     page: int,
     page_size: QueryTopicPageSize,
     can_delete: bool,
+    is_active: bool | None = None,
 ) -> QueryTopicListPage:
     """返回 V2 使用的服务端搜索、排序、分页和引用摘要。"""
     query = select(QueryTopic)
+    if is_active is not None:
+        query = query.where(QueryTopic.is_active.is_(is_active))
     if q is not None:
         term = q.strip()
         if not term:
@@ -165,6 +180,7 @@ def list_query_topic_items(
         variant = func.unnest(QueryTopic.variants).column_valued("variant")
         query = query.where(
             QueryTopic.canonical_question.ilike(pattern, escape="\\")
+            | QueryTopic.description.ilike(pattern, escape="\\")
             | exists(
                 select(1).where(variant.ilike(pattern, escape="\\"))
             )
@@ -201,6 +217,7 @@ def list_query_topic_items(
                         (item.id, "GEO_OPTIMIZATION_SOURCE"), 0
                     ),
                     observation_count=reference_counts.get((item.id, "GEO_OBSERVATION"), 0),
+                    campaign_count=reference_counts.get((item.id, "CONTENT_CAMPAIGN"), 0),
                 ),
             }
         )
@@ -227,6 +244,8 @@ def create_query_topic(
         canonical_question=payload.canonical_question,
         intent_type=payload.intent_type.value,
         variants=payload.variants,
+        description=payload.description,
+        is_active=True,
     )
     db.add(topic)
     db.flush()
@@ -241,7 +260,7 @@ def create_query_topic(
             request_id=request_id,
             outcome=AuditOutcome.SUCCESS,
             result_message="GEO 问题已创建",
-            details={"facts": {"revision": topic.revision}},
+            details={"facts": {"revision": topic.revision, "is_active": topic.is_active}},
         ),
     )
     db.commit()
@@ -267,6 +286,9 @@ def update_query_topic(
     topic.canonical_question = payload.canonical_question
     topic.intent_type = payload.intent_type.value
     topic.variants = payload.variants
+    topic.description = payload.description
+    if payload.is_active is not None:
+        topic.is_active = payload.is_active
     topic.revision += 1
     append_audit(
         db,
@@ -279,7 +301,7 @@ def update_query_topic(
             request_id=request_id,
             outcome=AuditOutcome.SUCCESS,
             result_message="GEO 问题已更新",
-            details={"facts": {"revision": topic.revision}},
+            details={"facts": {"revision": topic.revision, "is_active": topic.is_active}},
         ),
     )
     db.commit()
@@ -333,6 +355,7 @@ def create_platform_profile(
     lock_platform_prompt_bindings(db)
     if db.get(PlatformType, payload.platform_type_id) is None:
         raise not_found("平台类型")
+    bound_prompt_version_id: uuid.UUID | None = None
     if payload.platform_prompt_id is not None:
         selected_prompt_id = db.scalar(
             select(PlatformPrompt.id)
@@ -341,6 +364,10 @@ def create_platform_profile(
         )
         if selected_prompt_id is None:
             raise not_found("平台 Prompt")
+        latest_ver = latest_published_prompt_version(db, payload.platform_prompt_id)
+        if latest_ver is None:
+            raise AppError("PLATFORM_PROMPT_MISSING", "所选 Prompt 尚无已发布版本，不能绑定", 409)
+        bound_prompt_version_id = latest_ver.id
     if db.scalar(select(PlatformProfile.id).where(PlatformProfile.slug == payload.slug)):
         raise _platform_slug_conflict()
     logo_file_id = lock_platform_logo_change(
@@ -354,6 +381,7 @@ def create_platform_profile(
         allowed_domains=payload.allowed_domains,
         platform_type_id=payload.platform_type_id,
         platform_prompt_id=payload.platform_prompt_id,
+        platform_prompt_version_id=bound_prompt_version_id,
         website_url=str(payload.website_url) if payload.website_url is not None else None,
         logo_file_id=logo_file_id,
         logo_external_url=None,
@@ -376,7 +404,7 @@ def create_platform_profile(
 
 def lock_content_task_creation_resources(
     db: Session,
-    payload: ContentTaskCreate,
+    payload: ContentTaskTarget,
 ) -> PlatformProfile:
     """按统一顺序锁定并校验内容任务的三个权威目标资源。"""
     profile = lock_active_platform(db, payload.platform_profile_id)
@@ -405,16 +433,100 @@ def lock_content_task_creation_resources(
     return profile
 
 
+def _lock_campaign_for_task(
+    db: Session,
+    *,
+    campaign_id: uuid.UUID,
+    product_id: uuid.UUID,
+    query_topic_id: uuid.UUID,
+    platform_profile_id: uuid.UUID,
+) -> ContentCampaign:
+    """在资源锁之后锁定活动并校验状态与范围归属。"""
+    campaign = db.scalar(
+        select(ContentCampaign)
+        .where(ContentCampaign.id == campaign_id)
+        .execution_options(populate_existing=True)
+        .with_for_update(key_share=True)
+    )
+    if campaign is None:
+        raise not_found("内容活动")
+    if campaign.status not in {"DRAFT", "ACTIVE"}:
+        raise AppError(
+            "INVALID_STATE_TRANSITION",
+            "仅草稿或进行中的内容活动允许新建关联内容任务",
+            409,
+        )
+    has_product = (
+        db.scalar(
+            select(ContentCampaignProduct.product_id).where(
+                ContentCampaignProduct.campaign_id == campaign.id,
+                ContentCampaignProduct.product_id == product_id,
+            )
+        )
+        is not None
+    )
+    has_topic = (
+        db.scalar(
+            select(ContentCampaignTopic.query_topic_id).where(
+                ContentCampaignTopic.campaign_id == campaign.id,
+                ContentCampaignTopic.query_topic_id == query_topic_id,
+            )
+        )
+        is not None
+    )
+    has_platform = (
+        db.scalar(
+            select(ContentCampaignPlatform.platform_profile_id).where(
+                ContentCampaignPlatform.campaign_id == campaign.id,
+                ContentCampaignPlatform.platform_profile_id == platform_profile_id,
+            )
+        )
+        is not None
+    )
+    if not (has_product and has_topic and has_platform):
+        raise AppError(
+            "CAMPAIGN_SCOPE_MISMATCH",
+            "所选产品、问题主题或目标平台不在该内容活动的规划范围内",
+            422,
+        )
+    return campaign
+
+
+def _brief_matches_input(
+    snapshot: ContentBriefSnapshot | None, brief: ContentBriefInput | None
+) -> bool:
+    if brief is None:
+        return snapshot is None
+    if snapshot is None:
+        return False
+    return (
+        snapshot.target_question == brief.target_question
+        and snapshot.search_intent == brief.search_intent.value
+        and snapshot.content_angle == brief.content_angle
+        and snapshot.target_audience == brief.target_audience
+        and snapshot.must_answer_questions == brief.must_answer_questions
+        and snapshot.required_fact_points == brief.required_fact_points
+        and snapshot.forbidden_expressions == brief.forbidden_expressions
+        and snapshot.content_format == brief.content_format
+        and snapshot.cta == brief.cta
+        and snapshot.target_keywords == brief.target_keywords
+        and (snapshot.success_metrics or {})
+        == brief.success_metrics.model_dump(mode="json", exclude_none=True)
+    )
+
+
 def add_locked_content_task(
     *,
     db: Session,
-    payload: ContentTaskCreate,
+    payload: ContentTaskTarget,
     profile: PlatformProfile,
     actor: User,
-    idempotency_key: str,
+    idempotency_key: str | None,
     query_topic_id: uuid.UUID | None = None,
+    campaign_id: uuid.UUID | None = None,
+    brief: ContentBriefInput | None = None,
 ) -> ContentTask:
-    """在调用方持有目标资源锁时构造并 flush 内容任务。"""
+    """在调用方持有目标资源锁时构造并 flush 内容任务及其可选 Brief 快照。"""
     task = ContentTask(
         product_id=payload.product_id,
         fact_version_id=payload.fact_version_id,
@@ -422,11 +534,31 @@ def add_locked_content_task(
         platform_profile_name_snapshot=profile.name,
         platform_website_url_snapshot=profile.website_url,
         query_topic_id=query_topic_id,
+        campaign_id=campaign_id,
         idempotency_key=idempotency_key,
         created_by=actor.id,
     )
     db.add(task)
     db.flush()
+    if brief is not None:
+        snapshot = ContentBriefSnapshot(
+            content_task_id=task.id,
+            query_topic_id=query_topic_id,
+            target_question=brief.target_question,
+            search_intent=brief.search_intent.value,
+            content_angle=brief.content_angle,
+            target_audience=brief.target_audience,
+            must_answer_questions=brief.must_answer_questions,
+            required_fact_points=brief.required_fact_points,
+            forbidden_expressions=brief.forbidden_expressions,
+            content_format=brief.content_format,
+            cta=brief.cta,
+            target_keywords=brief.target_keywords,
+            success_metrics=brief.success_metrics.model_dump(mode="json", exclude_none=True),
+            created_by=actor.id,
+        )
+        db.add(snapshot)
+        db.flush()
     return task
 
 
@@ -443,12 +575,14 @@ def _is_content_task_idempotency_integrity_error(error: IntegrityError) -> bool:
 def _content_task_has_ordinary_identity(
     db: Session,
     task: ContentTask,
-    payload: ContentTaskCreate,
+    payload: ContentTaskTarget,
     *,
     require_complete: bool,
     query_topic_id: uuid.UUID | None = None,
+    campaign_id: uuid.UUID | None = None,
+    brief: ContentBriefInput | None = None,
 ) -> bool | None:
-    """判断任务是否可证明属于普通创建命令的同一 identity。"""
+    """判断任务是否可证明属于同一内容任务创建命令的 canonical identity。"""
     if require_complete and (
         task.product_id is None
         or task.fact_version_id is None
@@ -457,12 +591,16 @@ def _content_task_has_ordinary_identity(
         return None
     if db.get(ContentTaskGeoSource, task.id) is not None:
         return False
-    return (
+    if not (
         task.product_id == payload.product_id
         and task.query_topic_id == query_topic_id
+        and task.campaign_id == campaign_id
         and task.fact_version_id == payload.fact_version_id
         and task.platform_profile_id == payload.platform_profile_id
-    )
+    ):
+        return False
+    snapshot = db.get(ContentBriefSnapshot, task.id)
+    return _brief_matches_input(snapshot, brief)
 
 
 def _idempotency_conflict() -> AppError:
@@ -470,17 +608,17 @@ def _idempotency_conflict() -> AppError:
     return AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一内容任务创建请求", 409)
 
 
-def create_content_task(
+def create_linked_content_task(
     *,
     db: Session,
-    payload: ContentTaskCreate,
+    payload: ContentTaskTarget,
     actor: User,
     request_id: str,
     idempotency_key: str,
-    commit: bool = True,
     query_topic_id: uuid.UUID | None = None,
+    commit: bool = True,
 ) -> ContentTask:
-    """幂等锁定已批准事实和活动平台；Prompt 门禁只在创建 AI 作业时执行。"""
+    """由 GEO 机会行动等跨领域编排调用的无 Brief 联动内容任务创建。"""
     db.execute(
         text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
         {"key": f"content-task-create:{idempotency_key}"},
@@ -491,7 +629,13 @@ def create_content_task(
     if existing is not None:
         if (
             _content_task_has_ordinary_identity(
-                db, existing, payload, require_complete=False, query_topic_id=query_topic_id
+                db,
+                existing,
+                payload,
+                require_complete=False,
+                query_topic_id=query_topic_id,
+                campaign_id=None,
+                brief=None,
             )
             is not True
         ):
@@ -510,6 +654,77 @@ def create_content_task(
         is None
     ):
         raise not_found("GEO问题主题")
+    task = add_locked_content_task(
+        db=db,
+        payload=payload,
+        profile=profile,
+        actor=actor,
+        idempotency_key=idempotency_key,
+        query_topic_id=query_topic_id,
+    )
+    if commit:
+        db.commit()
+    return task
+
+
+def create_content_task(
+    *,
+    db: Session,
+    payload: ContentTaskCreate,
+    actor: User,
+    request_id: str,
+    idempotency_key: str,
+    commit: bool = True,
+) -> ContentTask:
+    """幂等创建普通内容任务：强制绑定活跃问题主题与不可变 Brief 快照，可选校验活动范围。"""
+    db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": f"content-task-create:{idempotency_key}"},
+    )
+    existing = db.scalar(
+        select(ContentTask).where(ContentTask.idempotency_key == idempotency_key)
+    )
+    if existing is not None:
+        if (
+            _content_task_has_ordinary_identity(
+                db,
+                existing,
+                payload,
+                require_complete=False,
+                query_topic_id=payload.query_topic_id,
+                campaign_id=payload.campaign_id,
+                brief=payload.brief,
+            )
+            is not True
+        ):
+            raise _idempotency_conflict()
+        return existing
+
+    try:
+        profile = lock_content_task_creation_resources(db, payload)
+    except ContentTaskFactProductMismatch as error:
+        raise AppError("VALIDATION_ERROR", "事实版本不属于所选产品", 422) from error
+
+    topic = db.scalar(
+        select(QueryTopic)
+        .where(QueryTopic.id == payload.query_topic_id)
+        .execution_options(populate_existing=True)
+        .with_for_update()
+    )
+    if topic is None:
+        raise not_found("GEO问题主题")
+    if not topic.is_active:
+        raise AppError("QUERY_TOPIC_INACTIVE", "已停用的目标问题不能用于创建新内容任务", 409)
+
+    if payload.campaign_id is not None:
+        _lock_campaign_for_task(
+            db,
+            campaign_id=payload.campaign_id,
+            product_id=payload.product_id,
+            query_topic_id=payload.query_topic_id,
+            platform_profile_id=payload.platform_profile_id,
+        )
+
     try:
         task = add_locked_content_task(
             db=db,
@@ -517,7 +732,9 @@ def create_content_task(
             profile=profile,
             actor=actor,
             idempotency_key=idempotency_key,
-            query_topic_id=query_topic_id,
+            query_topic_id=payload.query_topic_id,
+            campaign_id=payload.campaign_id,
+            brief=payload.brief,
         )
     except IntegrityError as error:
         # 外层事务协调者不能在root rollback释放锁后继续创建来源关联。
@@ -530,7 +747,13 @@ def create_content_task(
         if winner is None:
             raise error
         same_identity = _content_task_has_ordinary_identity(
-            db, winner, payload, require_complete=True, query_topic_id=query_topic_id
+            db,
+            winner,
+            payload,
+            require_complete=True,
+            query_topic_id=payload.query_topic_id,
+            campaign_id=payload.campaign_id,
+            brief=payload.brief,
         )
         if same_identity is None:
             raise error

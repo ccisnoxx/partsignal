@@ -17,6 +17,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -42,10 +43,43 @@ class ContentTask(Base):
             "archived_at IS NULL OR status IN ('OPEN', 'COMPLETED', 'CANCELLED')",
             name="archive_state",
         ),
+        CheckConstraint(
+            "priority IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')",
+            name="priority",
+        ),
+        CheckConstraint(
+            "blocked_reason IS NULL OR (length(btrim(blocked_reason)) BETWEEN 1 AND 500 "
+            "AND blocked_reason !~ '^[[:space:]]|[[:space:]]$')",
+            name="blocked_reason_bounds",
+        ),
+        CheckConstraint(
+            "(assignee_id IS NULL AND assigned_by IS NULL AND assigned_at IS NULL) "
+            "OR (assignee_id IS NOT NULL AND assigned_by IS NOT NULL AND assigned_at IS NOT NULL)",
+            name="assignment_pair",
+        ),
+        Index(
+            "ix_content_tasks_assignee_due",
+            "assignee_id",
+            "due_at",
+            postgresql_where=text("assignee_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_content_tasks_assigned_by",
+            "assigned_by",
+            postgresql_where=text("assigned_by IS NOT NULL"),
+        ),
+        Index(
+            "ix_content_tasks_due_at",
+            "due_at",
+            postgresql_where=text("due_at IS NOT NULL"),
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     query_topic_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("query_topics.id", ondelete="RESTRICT")
+    )
+    campaign_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("content_campaigns.id", ondelete="RESTRICT")
     )
     product_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False
@@ -86,6 +120,18 @@ class ContentTask(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    assignee_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    priority: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="MEDIUM", server_default="MEDIUM"
+    )
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    blocked_reason: Mapped[str | None] = mapped_column(Text)
+    assigned_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class ContentVersion(Base):
@@ -205,6 +251,121 @@ class ContentTaskGeoSource(Base):
     created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ContentBriefSnapshot(Base):
+    """内容任务创建时冻结的 1:1 不可变 Brief 快照。"""
+
+    __tablename__ = "content_brief_snapshots"
+    __table_args__ = (
+        CheckConstraint(
+            "btrim(target_question) <> '' AND length(target_question) <= 500",
+            name="ck_content_brief_target_question_nonempty",
+        ),
+        CheckConstraint(
+            "search_intent IN ('BRAND', 'PRODUCT', 'REPLACEMENT', 'COMPARISON', "
+            "'APPLICATION', 'TROUBLESHOOTING')",
+            name="ck_content_brief_search_intent",
+        ),
+        CheckConstraint(
+            "btrim(content_angle) <> '' AND length(content_angle) <= 160",
+            name="ck_content_brief_content_angle_nonempty",
+        ),
+        CheckConstraint(
+            "length(target_audience) <= 500",
+            name="ck_content_brief_target_audience_length",
+        ),
+        CheckConstraint(
+            "length(content_format) <= 80",
+            name="ck_content_brief_content_format_length",
+        ),
+        CheckConstraint("length(cta) <= 500", name="ck_content_brief_cta_length"),
+        CheckConstraint(
+            "jsonb_typeof(success_metrics) = 'object'",
+            name="ck_content_brief_success_metrics_object",
+        ),
+    )
+
+    content_task_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("content_tasks.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    query_topic_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("query_topics.id", ondelete="RESTRICT")
+    )
+    target_question: Mapped[str] = mapped_column(Text, nullable=False)
+    search_intent: Mapped[str] = mapped_column(String(40), nullable=False)
+    content_angle: Mapped[str] = mapped_column(String(160), nullable=False)
+    target_audience: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    must_answer_questions: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, default=list
+    )
+    required_fact_points: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, default=list
+    )
+    forbidden_expressions: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, default=list
+    )
+    content_format: Mapped[str] = mapped_column(String(80), nullable=False, default="")
+    cta: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    target_keywords: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False, default=list)
+    success_metrics: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ContentTaskBatchRequest(Base):
+    """批量内容任务创建的追加不可变幂等回执。"""
+
+    __tablename__ = "content_task_batch_requests"
+    __table_args__ = (
+        UniqueConstraint(
+            "created_by",
+            "request_key_sha256",
+            name="uq_content_task_batch_requests_actor_key",
+        ),
+        CheckConstraint(
+            "request_key_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_content_task_batch_requests_key_sha256",
+        ),
+        CheckConstraint(
+            "request_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_content_task_batch_requests_payload_sha256",
+        ),
+        CheckConstraint(
+            "cardinality(task_ids) BETWEEN 1 AND 100",
+            name="ck_content_task_batch_requests_task_ids_bounds",
+        ),
+        CheckConstraint(
+            "array_position(task_ids, NULL) IS NULL",
+            name="ck_content_task_batch_requests_task_ids_nonnull",
+        ),
+        Index("ix_content_task_batch_requests_created_by", "created_by", "created_at"),
+        Index(
+            "ix_content_task_batch_requests_campaign_id",
+            "campaign_id",
+            postgresql_where=text("campaign_id IS NOT NULL"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    request_key_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    request_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    campaign_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("content_campaigns.id", ondelete="RESTRICT")
+    )
+    task_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(UUID(as_uuid=True)), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

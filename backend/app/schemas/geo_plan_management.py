@@ -46,7 +46,13 @@ class GeoPlanPrimaryTask(StrEnum):
 
 class GeoPlanDeletion(ContractModel):
     blockers: list[
-        Literal["PLAN_NOT_DISABLED", "ARCHIVED", "HAS_BATCH_HISTORY", "SCHEDULE_UNSUPPORTED"]
+        Literal[
+            "PLAN_NOT_DISABLED",
+            "ARCHIVED",
+            "HAS_BATCH_HISTORY",
+            "HAS_CONTENT_CAMPAIGN",
+            "SCHEDULE_UNSUPPORTED",
+        ]
     ]
 
 

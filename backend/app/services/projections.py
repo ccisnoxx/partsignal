@@ -13,13 +13,19 @@ from sqlalchemy.sql.selectable import Subquery
 
 from app.config import settings
 from app.models.ai_generation import GenerationJob
+from app.models.campaign import ContentCampaign, ContentCampaignPlatform
 from app.models.configuration import (
     ContentHumanizationPrompt,
     PlatformProfile,
     PlatformPrompt,
     PlatformType,
 )
-from app.models.content import ContentReviewRecord, ContentTask, ContentVersion
+from app.models.content import (
+    ContentBriefSnapshot,
+    ContentReviewRecord,
+    ContentTask,
+    ContentVersion,
+)
 from app.models.geo_analysis import GeoAnalysisFactVersion
 from app.models.geo_files import FileRecord
 from app.models.geo_opportunities import GeoOpportunityAction
@@ -31,6 +37,7 @@ from app.models.publication import (
     PublicationWork,
     PublishedArticle,
 )
+from app.schemas.campaign import ContentCampaignSummary
 from app.schemas.configuration import (
     PlatformLogoExternalOut,
     PlatformLogoOut,
@@ -41,6 +48,7 @@ from app.schemas.configuration import (
 )
 from app.schemas.content import (
     ContentDiff,
+    ContentTaskBriefSummary,
     ContentTaskCurrentContentSummary,
     ContentTaskListItem,
     ContentTaskOut,
@@ -189,7 +197,7 @@ def _content_task_available_actions(
 
 
 def _content_task_payload(task: ContentTask) -> dict[str, object]:
-    """构造不暴露幂等键和内部显示快照的任务响应载荷。"""
+    """构造不暴露幂等键、内部显示快照与独立分派列的任务响应载荷。"""
     return {
         column.name: getattr(task, column.name)
         for column in task.__table__.columns
@@ -198,6 +206,12 @@ def _content_task_payload(task: ContentTask) -> dict[str, object]:
             "idempotency_key",
             "platform_profile_name_snapshot",
             "platform_website_url_snapshot",
+            "assignee_id",
+            "priority",
+            "due_at",
+            "blocked_reason",
+            "assigned_by",
+            "assigned_at",
         }
     }
 
@@ -688,6 +702,17 @@ def platform_profiles_out(
             .group_by(PublicationWork.platform_profile_id)
         ).tuples()
     }
+    campaign_counts = {
+        profile_id: int(count)
+        for profile_id, count in db.execute(
+            select(
+                ContentCampaignPlatform.platform_profile_id,
+                func.count(ContentCampaignPlatform.campaign_id),
+            )
+            .where(ContentCampaignPlatform.platform_profile_id.in_(profile_ids))
+            .group_by(ContentCampaignPlatform.platform_profile_id)
+        ).tuples()
+    }
     profile_id_strings = [str(profile_id) for profile_id in profile_ids]
     updated_at_by_profile = {
         uuid.UUID(target_id): updated_at
@@ -791,6 +816,16 @@ def platform_profiles_out(
                                 if profile.id in active_work_counts
                                 else []
                             ),
+                            *(
+                                [
+                                    {
+                                        "type": "CONTENT_CAMPAIGN",
+                                        "count": campaign_counts[profile.id],
+                                    }
+                                ]
+                                if profile.id in campaign_counts
+                                else []
+                            ),
                         ]
                     }
                     if can_manage
@@ -805,6 +840,7 @@ def platform_profiles_out(
                             if not profile.is_active
                             and task_counts.get(profile.id, 0) == 0
                             and active_work_counts.get(profile.id, 0) == 0
+                            and campaign_counts.get(profile.id, 0) == 0
                             else []
                         ),
                     ]
@@ -933,6 +969,25 @@ def content_tasks_out(
         content.id: content
         for content in db.scalars(select(ContentVersion).where(ContentVersion.id.in_(current_ids)))
     }
+    campaign_ids = {task.campaign_id for task in tasks if task.campaign_id is not None}
+    campaigns_by_id = (
+        {
+            campaign.id: campaign
+            for campaign in db.scalars(
+                select(ContentCampaign).where(ContentCampaign.id.in_(campaign_ids))
+            )
+        }
+        if campaign_ids
+        else {}
+    )
+    briefs_by_task = {
+        brief.content_task_id: brief
+        for brief in db.scalars(
+            select(ContentBriefSnapshot).where(
+                ContentBriefSnapshot.content_task_id.in_(task_ids)
+            )
+        )
+    }
     items: list[ContentTaskListItem] = []
     for task in tasks:
         product = products_by_id.get(task.product_id)
@@ -1034,6 +1089,24 @@ def content_tasks_out(
                     else None
                 ),
             }
+        )
+        campaign = (
+            campaigns_by_id.get(task.campaign_id) if task.campaign_id is not None else None
+        )
+        brief = briefs_by_task.get(task.id)
+        payload["campaign"] = (
+            ContentCampaignSummary(id=campaign.id, name=campaign.name, status=campaign.status)
+            if campaign is not None
+            else None
+        )
+        payload["brief_summary"] = (
+            ContentTaskBriefSummary(
+                target_question=brief.target_question,
+                search_intent=brief.search_intent,
+                content_angle=brief.content_angle,
+            )
+            if brief is not None
+            else None
         )
         payload["latest_generation_status"] = latest_generation_status
         payload["current_content"] = (

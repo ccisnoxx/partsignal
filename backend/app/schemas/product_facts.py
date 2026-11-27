@@ -7,10 +7,16 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import AwareDatetime, Field, field_validator
 
 from app.schemas.base import ContractModel
 from app.schemas.common import DeletionProjection
+
+
+class ProductFactsFreshness(StrEnum):
+    UNSET = "UNSET"
+    FRESH = "FRESH"
+    OVERDUE = "OVERDUE"
 
 
 class ProductStatus(StrEnum):
@@ -87,6 +93,9 @@ class ProductOut(ContractModel):
     ]
     available_actions: list[Literal["UPDATE", "DELETE"]]
     deletion: DeletionProjection | None
+    source_owner: str | None
+    next_review_at: datetime | None
+    facts_freshness: ProductFactsFreshness
     revision: int
     created_at: datetime
     updated_at: datetime
@@ -119,6 +128,34 @@ class ProductFactsDraftUpdate(ContractModel):
     expected_revision: int = Field(ge=0)
     body_markdown: str = Field(min_length=1)
     classification: Confidentiality
+    source_owner: str | None = Field(default=None, max_length=160)
+    source_reference: str | None = Field(default=None, max_length=500)
+    verified_at: AwareDatetime | None = None
+    next_review_at: AwareDatetime | None = None
+    applicable_region: str | None = Field(default=None, max_length=160)
+    content_restrictions: str | None = Field(default=None, max_length=4000)
+    approved_claims_summary: str | None = Field(default=None, max_length=4000)
+
+    @field_validator(
+        "source_owner",
+        "source_reference",
+        "applicable_region",
+        "content_restrictions",
+        "approved_claims_summary",
+        mode="before",
+    )
+    @classmethod
+    def normalize_optional_metadata(cls, value: object) -> object:
+        """去除可选运营元数据两侧空白；纯空白归一为 None。"""
+        if not isinstance(value, str):
+            return value
+        stripped = value.strip()
+        return stripped or None
+
+
+class ProductFactsConfirmReviewRequest(ContractModel):
+    expected_revision: int = Field(ge=0)
+    next_review_at: AwareDatetime
 
 
 class ProductFactsProductContext(ContractModel):
@@ -135,9 +172,19 @@ class ProductFactsDraft(ContractModel):
     product: ProductFactsProductContext
     body_markdown: str
     classification: Confidentiality
+    source_owner: str | None
+    source_reference: str | None
+    verified_at: datetime | None
+    next_review_at: datetime | None
+    applicable_region: str | None
+    content_restrictions: str | None
+    approved_claims_summary: str | None
+    last_reviewed_at: datetime | None
+    last_reviewed_by: uuid.UUID | None
+    facts_freshness: ProductFactsFreshness
     approved_fact: ProductFactSummary | None
     pending_fact: ProductFactSummary | None
-    available_actions: list[Literal["SAVE", "SUBMIT_REVIEW"]]
+    available_actions: list[Literal["SAVE", "SUBMIT_REVIEW", "CONFIRM_REVIEW"]]
     revision: int = Field(ge=0)
 
 
@@ -172,6 +219,11 @@ class FactVersionOut(ContractModel):
     approved_by: uuid.UUID | None = None
     created_at: datetime
     approved_at: datetime | None = None
+    source_reference: str | None = None
+    verified_at: datetime | None = None
+    applicable_region: str | None = None
+    content_restrictions: str | None = None
+    approved_claims_summary: str | None = None
 
 
 class FactVersionList(ContractModel):

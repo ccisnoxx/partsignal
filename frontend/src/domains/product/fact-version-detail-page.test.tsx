@@ -218,4 +218,22 @@ describe('FactVersionDetailPage', () => {
     expect(await screen.findByText('刷新事实版本失败，已保留当前不可变快照')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'FactVersion v2' })).toBeInTheDocument();
   });
+
+  it('只读展示提交审核时冻结的 5 项运营元数据快照', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue(response({
+      ...approvedVersion,
+      source_reference: 'FAE-REPORT-2026-09',
+      verified_at: '2026-08-08T08:00:00Z',
+      applicable_region: '中国大陆',
+      content_restrictions: '禁止承诺 100% 管脚直代',
+      approved_claims_summary: '适用于 12V-24V 工业降压场景',
+    } satisfies FactVersion));
+    renderDetail();
+
+    expect(await screen.findByRole('heading', { name: '冻结运营元数据快照' })).toBeInTheDocument();
+    expect(screen.getByText('FAE-REPORT-2026-09')).toBeInTheDocument();
+    expect(screen.getByText('中国大陆')).toBeInTheDocument();
+    expect(screen.getByText('禁止承诺 100% 管脚直代')).toBeInTheDocument();
+    expect(screen.getByText('适用于 12V-24V 工业降压场景')).toBeInTheDocument();
+  });
 });

@@ -9,17 +9,21 @@ from sqlalchemy.orm import Session
 
 from app.errors import AppError, not_found
 from app.models.ai_generation import AIChannel, AIModel
-from app.models.configuration import PlatformProfile, PlatformPrompt
+from app.models.campaign import ContentCampaign
+from app.models.configuration import PlatformProfile, PlatformPrompt, QueryTopic
 from app.models.content import ContentTask, ContentTaskGeoSource
 from app.models.product_facts import FactVersion, Product
 from app.schemas.content import (
     ContentTaskArchiveStatus,
+    ContentTaskCreationCampaignOption,
     ContentTaskCreationFactOption,
     ContentTaskCreationOptions,
     ContentTaskCreationPlatformOption,
     ContentTaskCreationProductOption,
+    ContentTaskCreationTopicOption,
     ContentTaskList,
     ContentTaskQueryTopicReference,
+    ContentTaskRequestedCampaign,
     ContentTaskRequestedProduct,
     ContentTaskWorkflowStage,
     GenerationOptionModel,
@@ -27,6 +31,7 @@ from app.schemas.content import (
     PlatformPromptPreviewOptions,
     PlatformPromptSnapshot,
 )
+from app.services.content_campaigns import campaign_scope_map
 from app.services.generation import business_generation_enabled
 from app.services.projections import content_task_workflow_projection, content_tasks_out
 
@@ -119,7 +124,10 @@ def get_platform_prompt_preview_options(
 
 
 def get_content_task_creation_options(
-    *, db: Session, requested_product_id: uuid.UUID | None
+    *,
+    db: Session,
+    requested_product_id: uuid.UUID | None,
+    requested_campaign_id: uuid.UUID | None = None,
 ) -> ContentTaskCreationOptions:
     """批量返回新建任务的可选范围；写命令仍须持锁重新校验。"""
     rows = db.execute(
@@ -145,7 +153,11 @@ def get_content_task_creation_options(
         _, facts = grouped.setdefault(product.id, (product, []))
         facts.append(
             ContentTaskCreationFactOption(
-                id=fact.id, version=fact.version, classification=fact.classification
+                id=fact.id,
+                version=fact.version,
+                classification=fact.classification,
+                content_restrictions=fact.content_restrictions,
+                approved_claims_summary=fact.approved_claims_summary,
             )
         )
     products = [
@@ -165,6 +177,41 @@ def get_content_task_creation_options(
             .where(PlatformProfile.is_active.is_(True))
             .order_by(func.lower(PlatformProfile.name), PlatformProfile.id)
         )
+    ]
+
+    topics = [
+        ContentTaskCreationTopicOption(
+            id=topic.id,
+            canonical_question=topic.canonical_question,
+            intent_type=topic.intent_type,
+            description=topic.description,
+        )
+        for topic in db.scalars(
+            select(QueryTopic)
+            .where(QueryTopic.is_active.is_(True))
+            .order_by(func.lower(QueryTopic.canonical_question), QueryTopic.id)
+        )
+    ]
+
+    eligible_campaigns = list(
+        db.scalars(
+            select(ContentCampaign)
+            .where(ContentCampaign.status.in_(("DRAFT", "ACTIVE")))
+            .order_by(ContentCampaign.updated_at.desc(), ContentCampaign.id.desc())
+        )
+    )
+    scopes = campaign_scope_map(db, [item.id for item in eligible_campaigns])
+    campaigns = [
+        ContentTaskCreationCampaignOption(
+            id=item.id,
+            name=item.name,
+            status=item.status,
+            target_audience=item.target_audience,
+            product_ids=scopes.get(item.id, ([], [], []))[0],
+            query_topic_ids=scopes.get(item.id, ([], [], []))[1],
+            platform_profile_ids=scopes.get(item.id, ([], [], []))[2],
+        )
+        for item in eligible_campaigns
     ]
 
     requested_product = None
@@ -193,10 +240,36 @@ def get_content_task_creation_options(
                 ),
             )
 
+    requested_campaign = None
+    if requested_campaign_id is not None:
+        matched_campaign = next(
+            (item for item in eligible_campaigns if item.id == requested_campaign_id), None
+        )
+        if matched_campaign is not None:
+            requested_campaign = ContentTaskRequestedCampaign(
+                campaign_id=requested_campaign_id,
+                name=matched_campaign.name,
+                status=matched_campaign.status,
+                eligibility="ELIGIBLE",
+            )
+        else:
+            campaign_row = db.get(ContentCampaign, requested_campaign_id)
+            requested_campaign = ContentTaskRequestedCampaign(
+                campaign_id=requested_campaign_id,
+                name=campaign_row.name if campaign_row is not None else None,
+                status=campaign_row.status if campaign_row is not None else None,
+                eligibility=(
+                    "NOT_FOUND" if campaign_row is None else "CAMPAIGN_NOT_ELIGIBLE"
+                ),
+            )
+
     return ContentTaskCreationOptions(
         products=products,
         platforms=platforms,
+        topics=topics,
+        campaigns=campaigns,
         requested_product=requested_product,
+        requested_campaign=requested_campaign,
     )
 
 
@@ -208,6 +281,7 @@ def list_content_tasks(
     platform_profile_id: uuid.UUID | None,
     filter_product_id: uuid.UUID | None,
     filter_fact_version_id: uuid.UUID | None,
+    campaign_id: uuid.UUID | None = None,
     query_topic_id: uuid.UUID | None,
     query_topic_reference: ContentTaskQueryTopicReference | None,
     archive_status: ContentTaskArchiveStatus,
@@ -258,6 +332,8 @@ def list_content_tasks(
         query = query.where(ContentTask.product_id == filter_product_id)
     if filter_fact_version_id is not None:
         query = query.where(ContentTask.fact_version_id == filter_fact_version_id)
+    if campaign_id is not None:
+        query = query.where(ContentTask.campaign_id == campaign_id)
     if query_topic_id is not None:
         if query_topic_reference == ContentTaskQueryTopicReference.CONTENT_TASK:
             query = query.where(ContentTask.query_topic_id == query_topic_id)

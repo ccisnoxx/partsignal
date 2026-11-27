@@ -399,9 +399,11 @@ def test_fact_workspace_read_model_uses_one_snapshot_and_fixed_query_count(
         captured: dict[str, str] = {}
         real_projection = product_routes.product_facts_draft_out
 
-        def inspected_projection(db: Session, product: Product) -> object:
+        def inspected_projection(
+            db: Session, product: Product, *, now: datetime | None = None
+        ) -> object:
             captured["isolation"] = str(db.scalar(text("SHOW transaction_isolation")))
-            return real_projection(db, product)
+            return real_projection(db, product, now=now)
 
         monkeypatch.setattr(product_routes, "product_facts_draft_out", inspected_projection)
 

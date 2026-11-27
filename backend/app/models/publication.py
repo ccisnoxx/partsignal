@@ -9,6 +9,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -18,8 +19,9 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.schema import conv
 
 from app.db import Base
 from app.models.base import new_uuid
@@ -104,6 +106,36 @@ class PublicationWork(Base):
             postgresql_where=text("status <> 'CLOSED'"),
         ),
         Index("ix_publication_works_status_updated_at", "status", "updated_at"),
+        CheckConstraint(
+            "priority IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')",
+            name="priority",
+        ),
+        CheckConstraint(
+            "blocked_reason IS NULL OR (length(btrim(blocked_reason)) BETWEEN 1 AND 500 "
+            "AND blocked_reason !~ '^[[:space:]]|[[:space:]]$')",
+            name="blocked_reason_bounds",
+        ),
+        CheckConstraint(
+            "(assignee_id IS NULL AND assigned_by IS NULL AND assigned_at IS NULL) "
+            "OR (assignee_id IS NOT NULL AND assigned_by IS NOT NULL AND assigned_at IS NOT NULL)",
+            name="assignment_pair",
+        ),
+        Index(
+            "ix_publication_works_assignee_due",
+            "assignee_id",
+            "due_at",
+            postgresql_where=text("assignee_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_publication_works_assigned_by",
+            "assigned_by",
+            postgresql_where=text("assigned_by IS NOT NULL"),
+        ),
+        Index(
+            "ix_publication_works_due_at",
+            "due_at",
+            postgresql_where=text("due_at IS NOT NULL"),
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
@@ -144,6 +176,18 @@ class PublicationWork(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
+    assignee_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    priority: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="MEDIUM", server_default="MEDIUM"
+    )
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    blocked_reason: Mapped[str | None] = mapped_column(Text)
+    assigned_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class PublicationWorkEvent(Base):
@@ -253,6 +297,36 @@ class PublishedContentIssue(Base):
             postgresql_where=text("status = 'OPEN'"),
         ),
         Index("ix_published_content_issues_status_opened_at", "status", "opened_at"),
+        CheckConstraint(
+            "priority IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')",
+            name="priority",
+        ),
+        CheckConstraint(
+            "blocked_reason IS NULL OR (length(btrim(blocked_reason)) BETWEEN 1 AND 500 "
+            "AND blocked_reason !~ '^[[:space:]]|[[:space:]]$')",
+            name="blocked_reason_bounds",
+        ),
+        CheckConstraint(
+            "(assignee_id IS NULL AND assigned_by IS NULL AND assigned_at IS NULL) "
+            "OR (assignee_id IS NOT NULL AND assigned_by IS NOT NULL AND assigned_at IS NOT NULL)",
+            name="assignment_pair",
+        ),
+        Index(
+            "ix_published_content_issues_assignee_due",
+            "assignee_id",
+            "due_at",
+            postgresql_where=text("assignee_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_published_content_issues_assigned_by",
+            "assigned_by",
+            postgresql_where=text("assigned_by IS NOT NULL"),
+        ),
+        Index(
+            "ix_published_content_issues_due_at",
+            "due_at",
+            postgresql_where=text("due_at IS NOT NULL"),
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     published_article_id: Mapped[uuid.UUID] = mapped_column(
@@ -274,6 +348,18 @@ class PublishedContentIssue(Base):
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     resolution_outcome: Mapped[str | None] = mapped_column(String(20))
     resolution_comment: Mapped[str | None] = mapped_column(Text)
+    assignee_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    priority: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="MEDIUM", server_default="MEDIUM"
+    )
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    blocked_reason: Mapped[str | None] = mapped_column(Text)
+    assigned_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class PublicationAttachment(Base):
@@ -287,4 +373,87 @@ class PublicationAttachment(Base):
     )
     file_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("file_records.id", ondelete="RESTRICT"), primary_key=True
+    )
+
+
+class PublishedArticleHealthCheck(Base):
+    """公开页面健康检查追加式不可变历史（三档分类与连续确认异常自动建单关联）。"""
+
+    __tablename__ = "published_article_health_checks"
+    __table_args__ = (
+        CheckConstraint(
+            "length(btrim(checked_url)) > 0",
+            name=conv("ck_published_article_health_checks_url_nonempty"),
+        ),
+        CheckConstraint(
+            "status IN ('HEALTHY', 'FETCH_BLOCKED', 'CONFIRMED_ANOMALY')",
+            name=conv("ck_published_article_health_checks_status"),
+        ),
+        CheckConstraint(
+            "http_status IS NULL OR (http_status BETWEEN 100 AND 599)",
+            name=conv("ck_published_article_health_checks_http_status"),
+        ),
+        CheckConstraint(
+            "redirect_count >= 0",
+            name=conv("ck_published_article_health_checks_redirect_count"),
+        ),
+        CheckConstraint(
+            "body_similarity IS NULL OR (body_similarity >= 0.0 AND body_similarity <= 1.0)",
+            name=conv("ck_published_article_health_checks_body_similarity"),
+        ),
+        CheckConstraint(
+            "jsonb_typeof(anomaly_reasons) = 'array'",
+            name=conv("ck_published_article_health_checks_reasons_array"),
+        ),
+        Index(
+            "ix_published_article_health_checks_article_checked",
+            "published_article_id",
+            text("checked_at DESC"),
+            text("id DESC"),
+        ),
+        Index(
+            "ix_published_article_health_checks_triggered_by",
+            "triggered_by",
+            postgresql_where=text("triggered_by IS NOT NULL"),
+        ),
+        Index(
+            "ix_published_article_health_checks_auto_issue",
+            "auto_opened_issue_id",
+            postgresql_where=text("auto_opened_issue_id IS NOT NULL"),
+        ),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    published_article_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("published_articles.id", ondelete="RESTRICT"), nullable=False
+    )
+    checked_url: Mapped[str] = mapped_column(Text, nullable=False)
+    final_url: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    http_status: Mapped[int | None] = mapped_column(Integer)
+    redirect_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    redirected: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    page_title: Mapped[str | None] = mapped_column(Text)
+    title_matches: Mapped[bool | None] = mapped_column(Boolean)
+    body_similarity: Mapped[float | None] = mapped_column(Float)
+    has_noindex: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    canonical_url: Mapped[str | None] = mapped_column(Text)
+    canonical_matches: Mapped[bool | None] = mapped_column(Boolean)
+    anomaly_reasons: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
+    )
+    fetch_error_code: Mapped[str | None] = mapped_column(String(64))
+    auto_opened_issue_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("published_content_issues.id", ondelete="SET NULL")
+    )
+    triggered_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    checked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )

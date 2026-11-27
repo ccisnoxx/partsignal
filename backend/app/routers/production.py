@@ -30,7 +30,6 @@ from app.models.content import (
 from app.schemas.common import (
     AccountType,
     CommandRequest,
-    RequestChangesCommand,
 )
 from app.schemas.content import (
     ContentDiff,
@@ -48,6 +47,10 @@ from app.schemas.content import (
     HumanizationJobCreate,
     OriginalGenerationJobCreate,
     PlatformPromptPreviewOptions,
+)
+from app.schemas.work_assignment import (
+    ContentRequestChangesHandoffCommand,
+    ContentReviewHandoffCommand,
 )
 from app.services.content_production import (
     abandon_content_version as abandon_content_version_command,
@@ -80,6 +83,10 @@ from app.services.content_task_queries import (
 )
 from app.services.content_version_detail import get_content_version_detail
 from app.services.projections import content_diff, content_version_out, content_versions_out
+from app.services.prompt_version_queries import (
+    prompt_has_any_version,
+    resolve_bound_prompt_version,
+)
 from app.services.review import (
     get_content_review_context,
     get_content_task_review_context,
@@ -184,6 +191,18 @@ def get_generation_options(
     )
     if prompt is None or not prompt.template_markdown.strip():
         raise AppError("PLATFORM_PROMPT_MISSING", "任务平台缺少当前 Prompt", 409)
+    bound_version = resolve_bound_prompt_version(db, platform_profile, prompt)
+    if bound_version is None:
+        if platform_profile.platform_prompt_version_id is not None or prompt_has_any_version(
+            db, prompt.id
+        ):
+            raise AppError(
+                "PLATFORM_PROMPT_MISSING",
+                "任务平台缺少已发布的不可变 Prompt 版本",
+                409,
+            )
+    elif not bound_version.template_markdown.strip():
+        raise AppError("PLATFORM_PROMPT_MISSING", "任务平台缺少已发布的不可变 Prompt 版本", 409)
     return GenerationOptions(
         platform_profile_id=task.platform_profile_id,
         platform_profile_name=platform_profile.name,
@@ -191,7 +210,13 @@ def get_generation_options(
             id=prompt.id,
             name=prompt.name,
             revision=prompt.revision,
-            template_markdown=prompt.template_markdown,
+            version_id=bound_version.id if bound_version is not None else None,
+            version=bound_version.version if bound_version is not None else None,
+            template_markdown=(
+                bound_version.template_markdown
+                if bound_version is not None
+                else prompt.template_markdown
+            ),
         ),
         humanization_prompt_configured=db.get(ContentHumanizationPrompt, 1) is not None,
         models=generation_model_options(db),
@@ -546,7 +571,7 @@ def abandon_content_version(
 )
 def submit_content_version(
     content_version_id: uuid.UUID,
-    payload: CommandRequest,
+    payload: ContentReviewHandoffCommand,
     request: Request,
     db: DbSession,
     editor: ContentEditor,
@@ -560,6 +585,8 @@ def submit_content_version(
         actor=editor,
         request_id=request.state.request_id,
         action="submit-review",
+        next_assignee_id=payload.next_assignee_id,
+        acknowledge_warnings=payload.acknowledge_warnings,
     )
 
 
@@ -597,7 +624,7 @@ def approve_content_version(
 )
 def request_content_changes(
     content_version_id: uuid.UUID,
-    payload: RequestChangesCommand,
+    payload: ContentRequestChangesHandoffCommand,
     request: Request,
     db: DbSession,
     reviewer: CurrentUser,
@@ -612,6 +639,7 @@ def request_content_changes(
         actor=reviewer,
         request_id=request.state.request_id,
         action="request-changes",
+        next_assignee_id=payload.next_assignee_id,
     )
 
 

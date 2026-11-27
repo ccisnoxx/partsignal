@@ -57,6 +57,7 @@ import { ProductDeletionConditionsDialog } from './product-deletion-dialog';
 import {
   confidentialityRegistry,
   formatExactProductTime,
+  productFactsFreshnessRegistry,
   productStatusRegistry,
   productWorkflowStageRegistry,
   resolveProductOverflowActions,
@@ -197,6 +198,15 @@ function ProductDetailPage({ csrfToken, onDeleted, productId }: ProductDetailPag
             <Metadata label="品牌" value={product.brand} />
             <Metadata label="类别" value={product.category} />
             <Metadata label="修订号" value={String(product.revision)} mono />
+            <Metadata label="外部事实负责人" value={product.source_owner ?? '未指定'} />
+            <Metadata
+              label="事实新鲜度"
+              value={<StatusBadge presentation={productFactsFreshnessRegistry[product.facts_freshness]} />}
+            />
+            <Metadata
+              label="下次复核时间"
+              value={product.next_review_at ? <ProductTime value={product.next_review_at} /> : '未设置'}
+            />
             <Metadata label="创建时间" value={<ProductTime value={product.created_at} />} />
             <Metadata label="最近更新" value={<ProductTime value={product.updated_at} />} />
           </dl>

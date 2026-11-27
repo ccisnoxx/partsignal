@@ -107,6 +107,7 @@ function ContentAiProduction({ blocked = false, context, csrfToken, taskId }: Co
           ai_model_id: modelId,
           platform_prompt_id: prompt.id,
           platform_prompt_revision: prompt.revision,
+          ...(prompt.version_id ? { platform_prompt_version_id: prompt.version_id } : {}),
         },
         csrfToken,
         commandKey(commandKeys.current, signature),

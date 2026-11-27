@@ -19,6 +19,7 @@ type Product = components['schemas']['Product'];
 type ProductDetail = components['schemas']['ProductDetail'];
 type ProductFactsDraft = components['schemas']['ProductFactsDraft'];
 type ProductFactsDraftUpdate = components['schemas']['ProductFactsDraftUpdate'];
+type ProductFactsConfirmReviewRequest = components['schemas']['ProductFactsConfirmReviewRequest'];
 type ProductFactReviewWorkspace = components['schemas']['ProductFactReviewWorkspace'];
 type ProductFactHistoryList = components['schemas']['ProductFactHistoryList'];
 type FactReviewSubmissionRequest = components['schemas']['FactReviewSubmissionRequest'];
@@ -169,6 +170,23 @@ async function replaceProductFacts(
   });
   if (result.data) return result.data;
   throw productRequestError('保存事实工作区', result);
+}
+
+async function confirmProductFactsReview(
+  productId: string,
+  body: ProductFactsConfirmReviewRequest,
+  csrfToken: string | null,
+): Promise<ProductFactsDraft> {
+  if (!csrfToken) throw new ProductRequestError('缺少会话安全令牌，无法确认事实复核');
+  const result = await api.POST('/api/v1/products/{product_id}/facts/confirm-review', {
+    body,
+    params: {
+      path: { product_id: productId },
+      header: { 'X-CSRF-Token': csrfToken },
+    },
+  });
+  if (result.data) return result.data;
+  throw productRequestError('确认事实复核', result);
 }
 
 async function submitProductFactReview(
@@ -322,6 +340,7 @@ function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
 export {
   ProductRequestError,
   approveFactVersion,
+  confirmProductFactsReview,
   deleteProduct,
   factVersionQueryOptions,
   mapProductFormError,

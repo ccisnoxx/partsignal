@@ -202,7 +202,7 @@ describe('GEO API', () => {
     const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({ response: new Response(null, { status: 204 }) } as never);
     const client = new QueryClient();
     const body: Parameters<typeof createQueryTopic>[0] = {
-      canonical_question: '标准问题', intent_type: 'PRODUCT', variants: ['变体'],
+      canonical_question: '标准问题', intent_type: 'PRODUCT', variants: ['变体'], description: '',
     };
 
     await client.fetchQuery(queryTopicListQueryOptions(queryTopicSearchSchema.parse({})));

@@ -75,6 +75,8 @@ const detail = {
     logo: null,
   },
   fact: { id: ids.fact, version: 3, status: 'APPROVED', classification: 'PUBLIC' },
+  campaign: null,
+  brief: null,
   current_content: {
     id: ids.content,
     version: 4,

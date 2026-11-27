@@ -31,7 +31,7 @@ from app.models.product_facts import Product
 from app.models.publication import PublicationWork, PublishedArticle, PublishedContentIssue
 from app.schemas import geo_files as geo_schema
 from app.schemas.common import SignedUrl
-from app.schemas.content import ActorSummary, ContentTaskCreate
+from app.schemas.content import ActorSummary, ContentTaskTarget
 from app.schemas.geo_files import (
     GeoAccuracy,
     GeoArticleResultOut,
@@ -2288,7 +2288,7 @@ def create_geo_optimization_content_task(
             raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一内容任务创建请求", 409)
         return existing
 
-    target = ContentTaskCreate(
+    target = ContentTaskTarget(
         product_id=payload.product_id,
         fact_version_id=payload.fact_version_id,
         platform_profile_id=payload.platform_profile_id,

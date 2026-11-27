@@ -32,6 +32,7 @@ const auditRelatedStatusValues = ['AVAILABLE', 'MISSING', 'UNSUPPORTED'] as cons
 const auditRelatedRegistry = new Map<string, 'NONE' | 'AVAILABLE' | 'MISSING'>([
   ['Product', 'NONE'],
   ['FactVersion', 'AVAILABLE'],
+  ['ContentCampaign', 'NONE'],
   ['ContentTask', 'NONE'],
   ['ContentVersion', 'AVAILABLE'],
   ['PublicationWork', 'NONE'],
@@ -52,19 +53,26 @@ const auditRuntimeProjectionErrorMessage = '审计响应安全投影失败';
 
 const auditFactFields: Record<AuditModule, ReadonlySet<string>> = {
   IDENTITY: new Set(['account_type', 'is_active', 'source', 'status', 'row_count', 'revision']),
-  PRODUCT_FACTS: new Set(['product_id', 'review_record_count', 'revision', 'status', 'version']),
+  PRODUCT_FACTS: new Set([
+    'assignee_id', 'has_blocked_reason', 'has_due_at', 'priority',
+    'product_id', 'review_record_count', 'revision', 'status', 'version',
+  ]),
   CONTENT_PLANNING: new Set([
-    'content_review_record_count', 'content_version_count', 'fact_version_id', 'generation_job_count',
-    'platform_profile_id', 'platform_profile_version_id', 'platform_type_id', 'previous_active_version_id',
-    'publication_work_count', 'reason', 'replacement_version_id', 'revision', 'status', 'version',
+    'acknowledged_warnings', 'assignee_id', 'campaign_id', 'category', 'content_review_record_count',
+    'content_version_count', 'created_count', 'currency', 'fact_version_id', 'generation_job_count',
+    'geo_intervention_id', 'has_blocked_reason', 'has_due_at',
+    'is_active', 'monitoring_plan_count', 'platform_count', 'platform_profile_id', 'platform_profile_version_id',
+    'platform_type_id', 'previous_active_version_id', 'priority', 'product_count', 'publication_work_count',
+    'reason', 'replacement_version_id', 'revision', 'status', 'topic_count', 'version', 'warning_cell_count',
   ]),
   CONTENT_PRODUCTION: new Set([
-    'based_on_id', 'content_version_id', 'retry_of_id', 'source_content_version_id', 'task_id', 'version',
+    'based_on_id', 'content_version_id', 'model_id', 'retry_of_id', 'source_content_version_id', 'task_id', 'version',
   ]),
   CONTENT_REVIEW: new Set(['revision', 'status']),
   PUBLICATION: new Set([
-    'attachment_count', 'content_version_id', 'fact_version_id', 'platform_profile_id',
-    'platform_profile_version_id', 'publication_id', 'publication_reference_count', 'repair_task_id',
+    'assignee_id', 'attachment_count', 'auto_opened_issue_count', 'checked_count', 'content_version_id', 'fact_version_id',
+    'has_blocked_reason', 'has_due_at', 'platform_profile_id',
+    'platform_profile_version_id', 'priority', 'publication_id', 'publication_reference_count', 'repair_task_id',
     'revision', 'status', 'status_event_count', 'task_id', 'trigger_status',
   ]),
   GEO_OBSERVATION: new Set([
@@ -72,12 +80,16 @@ const auditFactFields: Record<AuditModule, ReadonlySet<string>> = {
     'draft_revision', 'baseline_id', 'baseline_batch_id', 'batch_id', 'requested_run_count',
     'article_count', 'article_result_count', 'attachment_count', 'observation_count', 'product_id',
     'publication_count', 'query_topic_id', 'root_observation_id', 'supersedes_id',
-    'action_id', 'action_type', 'target_type', 'target_id', 'decision_id', 'decision', 'export_type', 'as_of', 'filter_sha256', 'revision', 'status',
+    'action_id', 'action_type', 'assignee_id', 'campaign_id', 'has_blocked_reason', 'has_due_at',
+    'opportunity_id', 'outcome_verdict', 'priority',
+    'target_type', 'target_id', 'decision_id', 'decision', 'export_type', 'as_of', 'filter_sha256', 'revision', 'status',
   ]),
   CONFIGURATION: new Set([
     'account_count', 'allowed_domain_count', 'bound_platform_count', 'bound_platform_ids', 'channel_id',
-    'configured', 'header_name', 'is_active', 'is_sensitive', 'model_count', 'platform_account_count',
-    'platform_profile_id', 'platform_type_id', 'previous_active_version_id', 'protocol_type',
+    'configured', 'header_name', 'health_check_anomaly_threshold', 'health_check_enabled', 'health_check_interval_hours',
+    'is_active', 'is_sensitive', 'model_count', 'platform_account_count',
+    'platform_profile_id', 'platform_type_id', 'previous_active_version_id', 'previous_template_version_id',
+    'price_currency', 'pricing_configured', 'protocol_type', 'template_id', 'template_version_id',
     'provider_brand', 'reason', 'reference_count', 'replacement_version_id', 'revision', 'status',
     'test_status', 'session_reference', 'unbound_platform_count', 'version',
   ]),
@@ -567,13 +579,16 @@ const auditActionLabels: Record<string, string> = {
   'ai_channel.created': '创建 AI 渠道', 'ai_channel.updated': '更新 AI 渠道', 'ai_channel.deleted': '删除 AI 渠道',
   'ai_channel.api_key_replaced': '替换 API Key', 'ai_channel.enabled': '启用 AI 渠道', 'ai_channel.disabled': '停用 AI 渠道',
   'ai_channel_header.created': '创建 Header', 'ai_channel_header.updated': '更新 Header', 'ai_channel_header.deleted': '删除 Header',
-  'ai_model.created': '创建模型', 'ai_model.updated': '更新模型', 'ai_model.deleted': '删除模型', 'ai_model.enabled': '启用模型', 'ai_model.disabled': '停用模型',
-  'platform_profile.enabled': '启用平台', 'platform_profile.disabled': '停用平台', 'platform_profile.deleted': '删除平台',
+  'ai_model.created': '创建模型', 'ai_model.updated': '更新模型', 'ai_model.deleted': '删除模型', 'ai_model.enabled': '启用模型', 'ai_model.disabled': '停用模型', 'ai_model.pricing_updated': '更新模型定价',
+  'platform_profile.enabled': '启用平台', 'platform_profile.disabled': '停用平台', 'platform_profile.deleted': '删除平台', 'platform_profile.prompt_version_bound': '绑定平台 Prompt 版本', 'platform_profile.health_check_settings_updated': '更新公开页面健康检查配置',
   'platform_prompt.created': '创建平台 Prompt', 'platform_prompt.updated': '更新平台 Prompt', 'platform_prompt.deleted': '删除平台 Prompt',
+  'platform_prompt_version.created': '创建 Prompt 版本', 'platform_prompt_version.draft_updated': '更新 Prompt 草稿版本', 'platform_prompt_version.published': '发布 Prompt 版本', 'platform_prompt_version.archived': '归档 Prompt 版本', 'platform_prompt_version.restored': '恢复 Prompt 版本',
   'content_humanization_prompt.saved': '保存自然化 Prompt', 'platform_type.deleted': '删除平台类型', 'platform_account.deleted': '删除平台账号',
-  'product.created': '创建产品', 'product.updated': '更新产品', 'product.deleted': '删除产品', 'fact_version.approve': '批准事实版本', 'fact_version.deleted': '删除事实版本',
-  'content_version.approve': '批准内容版本', 'content_version.deleted': '删除内容版本', 'content_task.deleted': '删除内容任务', 'content_task.permanently_deleted': '永久删除内容任务',
-  'publication_work.completed': '完成发布工作', 'published_article.permanently_deleted': '永久删除发布成果',
+  'product.created': '创建产品', 'product.updated': '更新产品', 'product.deleted': '删除产品', 'product_facts.review_confirmed': '确认产品事实复核', 'fact_version.approve': '批准事实版本', 'fact_version.deleted': '删除事实版本',
+  'content_version.approve': '批准内容版本', 'content_version.deleted': '删除内容版本', 'content_quality_check.requested': '发起 AI 语义质量检查', 'content_task.deleted': '删除内容任务', 'content_task.permanently_deleted': '永久删除内容任务', 'content_task.batch_created': '批量创建内容任务', 'work_assignment.updated': '更新任务分派与 SLA',
+  'content_campaign.created': '创建内容活动', 'content_campaign.updated': '更新内容活动', 'content_campaign.activated': '激活内容活动', 'content_campaign.paused': '暂停内容活动', 'content_campaign.resumed': '恢复内容活动', 'content_campaign.completed': '完成内容活动', 'content_campaign.archived': '归档内容活动', 'content_campaign.deleted': '删除内容活动',
+  'operating_cost_entry.created': '登记运营费用台账', 'operating_cost_entry.voided': '作废运营费用台账',
+  'publication_work.completed': '完成发布工作', 'published_article.permanently_deleted': '永久删除发布成果', 'published_article_health_check.run': '执行公开页面健康检查', 'published_article_health_check.batch_run': '批量执行到期公开页面健康检查',
   'query_topic.created': '创建问题主题', 'query_topic.updated': '更新问题主题', 'query_topic.deleted': '删除问题主题',
   'geo_report.export_started': '开始 GEO CSV 导出',
   'geo_report.print_prepared': '准备 GEO 打印报告',
@@ -623,6 +638,10 @@ const auditActionLabels: Record<string, string> = {
   'geo_subject_alias.deleted': '删除 GEO 别名',
   'geo_subject_domain.created': '创建 GEO 域名',
   'geo_subject_domain.deleted': '删除 GEO 域名',
+  'geo_intervention.created': '创建 GEO 干预归因',
+  'geo_intervention.updated': '更新 GEO 干预归因',
+  'geo_intervention.concluded': '结案 GEO 干预归因',
+  'geo_intervention.cancelled': '取消 GEO 干预归因',
 };
 
 const auditFieldLabels: Record<string, string> = {
@@ -632,14 +651,14 @@ const auditFieldLabels: Record<string, string> = {
   export_type: '导出类型', as_of: '数据截止时间', filter_sha256: '筛选摘要 SHA-256',
   scope: '评估范围', evaluated_cells: '评估结果数', created: '新建机会数',
   existing_reused: '复用机会结果数', skipped: '跳过结果数', unavailable_reasons: '不可用原因',
-  decision_id: '处理记录 ID', decision: '处理选择', account_type: '账号类型', is_active: '启用状态', source: '来源', status: '状态', row_count: '行数', revision: '修订号', display_name: '显示名称',
-  product_id: '产品 ID', review_record_count: '审核记录数', version: '版本', fact_version_id: '事实版本 ID', platform_profile_id: '平台 ID', platform_profile_version_id: '平台版本 ID', platform_type_id: '平台类型 ID', previous_active_version_id: '原活动版本 ID', reason: '原因', replacement_version_id: '替代版本 ID',
+  decision_id: '处理记录 ID', decision: '处理选择', opportunity_id: 'GEO 机会 ID', outcome_verdict: '归因结论', account_type: '账号类型', is_active: '启用状态', source: '来源', status: '状态', row_count: '行数', revision: '修订号', display_name: '显示名称',
+  product_id: '产品 ID', campaign_id: '活动 ID', assignee_id: '责任人 ID', has_due_at: '设置截止时间', has_blocked_reason: '存在阻塞原因', priority: '优先级', product_count: '产品数', topic_count: '问题主题数', platform_count: '平台数', monitoring_plan_count: '监测计划数', created_count: '批量创建任务数', warning_cell_count: '软告警单元格数', acknowledged_warnings: '已确认软告警', review_record_count: '审核记录数', version: '版本', fact_version_id: '事实版本 ID', platform_profile_id: '平台 ID', platform_profile_version_id: '平台版本 ID', platform_type_id: '平台类型 ID', previous_active_version_id: '原活动版本 ID', reason: '原因', replacement_version_id: '替代版本 ID',
   generation_job_count: '生成作业数', content_version_count: '内容版本数', content_review_record_count: '内容审核记录数', publication_work_count: '发布工作数', generation_data_classification: '生成数据分级', generation_input_configured: '生成输入配置状态',
-  based_on_id: '基线版本 ID', content_version_id: '内容版本 ID', retry_of_id: '重试来源 ID', source_content_version_id: '来源内容版本 ID', task_id: '任务 ID',
-  attachment_count: '附件数', publication_id: '发布成果 ID', publication_reference_count: '发布引用数', repair_task_id: '修复任务 ID', status_event_count: '状态事件数', trigger_status: '触发状态',
+  based_on_id: '基线版本 ID', content_version_id: '内容版本 ID', model_id: 'AI 模型 ID', retry_of_id: '重试来源 ID', source_content_version_id: '来源内容版本 ID', task_id: '任务 ID',
+  attachment_count: '附件数', auto_opened_issue_count: '自动登记问题数', checked_count: '本次巡检篇数', publication_id: '发布成果 ID', publication_reference_count: '发布引用数', repair_task_id: '修复任务 ID', status_event_count: '状态事件数', trigger_status: '触发状态',
   article_count: '文章数', article_result_count: '文章结果数', observation_count: '观测数', publication_count: '发布数', query_topic_id: '问题主题 ID', root_observation_id: '根观测 ID', supersedes_id: '更正来源 ID',
-  account_count: '账号数', allowed_domain_count: '允许域名数', bound_platform_count: '绑定平台数', bound_platform_ids: '绑定平台 ID', channel_id: '渠道 ID', configured: '配置状态', header_name: 'Header 名', is_sensitive: '敏感状态', model_count: '模型数', platform_account_count: '平台账号数', protocol_type: '协议类型', provider_brand: 'Provider', reference_count: '引用数', test_status: '测试状态', unbound_platform_count: '解绑平台数',
-  access_level: '访问级别', category: '分类', size: '大小', is_configured: '配置状态', logo_configured: 'Logo 配置状态', name: '名称', website_configured: '网站配置状态',
+  account_count: '账号数', allowed_domain_count: '允许域名数', bound_platform_count: '绑定平台数', bound_platform_ids: '绑定平台 ID', channel_id: '渠道 ID', configured: '配置状态', header_name: 'Header 名', health_check_enabled: '启用公开页健康检查', health_check_interval_hours: '公开页巡检周期（小时）', health_check_anomaly_threshold: '连续异常建单阈值', is_sensitive: '敏感状态', model_count: '模型数', platform_account_count: '平台账号数', price_currency: '定价币种', pricing_configured: '已配置单价', template_id: 'Prompt 模板 ID', template_version_id: 'Prompt 版本 ID', previous_template_version_id: '原 Prompt 版本 ID', protocol_type: '协议类型', provider_brand: 'Provider', reference_count: '引用数', test_status: '测试状态', unbound_platform_count: '解绑平台数',
+  access_level: '访问级别', category: '分类', currency: '币种', geo_intervention_id: 'GEO 干预 ID', size: '大小', is_configured: '配置状态', logo_configured: 'Logo 配置状态', name: '名称', website_configured: '网站配置状态',
 };
 
 type AuditActionLabelProjection =
@@ -706,6 +725,7 @@ function resolveAuditRelatedLink(detail: AuditLogDetail): AuditRelatedLink | und
   switch (related.kind) {
     case 'Product': return targetId ? { href: `/products/${targetId}`, label: '查看产品' } : undefined;
     case 'FactVersion': return targetId && related.parent_id ? { href: `/products/${related.parent_id}/facts/versions/${targetId}`, label: '查看事实版本' } : undefined;
+    case 'ContentCampaign': return targetId ? { href: `/content/campaigns/${targetId}`, label: '查看内容活动' } : undefined;
     case 'ContentTask': return targetId ? { href: `/content/tasks/${targetId}`, label: '查看内容任务' } : undefined;
     case 'ContentVersion': return related.parent_id ? { href: `/content/tasks/${related.parent_id}`, label: '查看所属任务' } : undefined;
     case 'PublicationWork': return targetId ? { href: `/publishing/work/${targetId}`, label: '查看发布工作' } : undefined;

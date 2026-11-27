@@ -57,15 +57,79 @@ AttachmentFileIds = Annotated[
 ]
 
 
+class PublicationPackageLink(ContractModel):
+    """从 Markdown 正文实时提取的链接与锚文本检查项。"""
+
+    text: str
+    href: str
+    is_valid: bool
+
+
+class PublicationPackageImage(ContractModel):
+    """从 Markdown 正文实时提取的图片与 Alt 文本检查项。"""
+
+    alt: str
+    src: str
+    missing_alt: bool
+    is_valid_src: bool
+
+
+class PublicationCharacterStats(ContractModel):
+    """基于 Markdown 与派生纯文本实时计算的字符数与阅读时长统计。"""
+
+    total_chars: int = Field(ge=0)
+    non_whitespace_chars: int = Field(ge=0)
+    plain_text_chars: int = Field(ge=0)
+    paragraph_count: int = Field(ge=0)
+    heading_count: int = Field(ge=0)
+    estimated_read_minutes: int = Field(ge=1)
+
+
+class PublicationChecklistItem(ContractModel):
+    """发布包与发布前检查单项结论。"""
+
+    code: str
+    label: str
+    status: Literal["PASS", "WARNING", "BLOCKING"]
+    detail: str
+
+
 class PublicationPackage(ContractModel):
     content_version_id: uuid.UUID
     fact_version_id: uuid.UUID
+    version: int = Field(ge=1)
     title: str
+    summary: str
     body_markdown: str
     body_html: str
     body_text: str
     tags: list[str]
+    recommended_topics: list[str]
+    links: list[PublicationPackageLink]
+    images: list[PublicationPackageImage]
+    character_stats: PublicationCharacterStats
+    platform_checklist: list[PublicationChecklistItem]
     content_hash: str
+
+
+class PublicationPreRegisterCheckRequest(ContractModel):
+    """登记发布结果前执行实时合规与完整性核对的输入载荷。"""
+
+    actual_title: str = ""
+    final_url: str = ""
+    published_at: datetime | None = None
+    comment: str = ""
+
+
+class PublicationPreRegisterCheckOut(ContractModel):
+    """发布前检查聚合结论（含阻断/警告计数与逐项明细）。"""
+
+    publication_work_id: uuid.UUID
+    content_version_id: uuid.UUID
+    can_register: bool
+    blocking_count: int = Field(ge=0)
+    warning_count: int = Field(ge=0)
+    checks: list[PublicationChecklistItem]
 
 
 class PlatformAccountCreate(ContractModel):

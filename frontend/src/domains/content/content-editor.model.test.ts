@@ -78,6 +78,8 @@ function context(
       status: 'ACTIVE',
     },
     platform: { id: null, name: '测试平台', website_url: null, logo: null },
+    campaign: null,
+    brief: null,
     locked_fact_version: {
       id: ids.fact,
       version: 1,

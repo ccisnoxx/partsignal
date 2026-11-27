@@ -14,7 +14,18 @@ export async function reviewConfiguration(page: Page, csrfToken: string) {
   }), 201);
   const draft = await body<Schema['ProductFactsDraft']>(await page.request.get(`${api}/api/v1/products/${product.id}/facts`));
   const saved = await body<Schema['ProductFactsDraft']>(await page.request.put(`${api}/api/v1/products/${product.id}/facts`, {
-    headers, data: { expected_revision: draft.revision, body_markdown: '供电电压为 3.3 V。', classification: 'PUBLIC' } satisfies Schema['ProductFactsDraftUpdate'],
+    headers, data: {
+      expected_revision: draft.revision,
+      body_markdown: '供电电压为 3.3 V。',
+      classification: 'PUBLIC',
+      source_owner: null,
+      source_reference: null,
+      verified_at: null,
+      next_review_at: null,
+      applicable_region: null,
+      content_restrictions: null,
+      approved_claims_summary: null,
+    } satisfies Schema['ProductFactsDraftUpdate'],
   }));
   const fact = await body<Schema['FactVersion']>(await page.request.post(`${api}/api/v1/products/${product.id}/fact-review-submissions`, {
     headers, data: { expected_revision: saved.revision, change_summary: 'GEO-508 虚构前置批准事实' } satisfies Schema['FactReviewSubmissionRequest'],

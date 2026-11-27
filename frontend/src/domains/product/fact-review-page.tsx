@@ -25,6 +25,7 @@ import { Skeleton } from '@/design-system/primitives/skeleton';
 import { StickyActionBar } from '@/design-system/workspace/sticky-action-bar';
 import { Timeline } from '@/design-system/workspace/timeline';
 import { WorkspaceShell } from '@/design-system/workspace/workspace-shell';
+import { WorkAssignmentDialogButton } from '@/domains/workbench/work-assignment-control';
 import type { components } from '@/shared/api/generated/schema';
 import {
   factReviewErrorKind,
@@ -246,10 +247,16 @@ function FactReviewWorkspaceView({
             {workspace.product.brand} · {workspace.product.category} · FactVersion v{target.fact_version.version}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <StatusBadge presentation={productStatusRegistry[workspace.product.status]} />
           <StatusBadge presentation={productWorkflowStageRegistry[workspace.product.workflow_stage]} />
           <StatusBadge presentation={productFactStatusRegistry[target.fact_version.status]} />
+          <WorkAssignmentDialogButton
+            csrfToken={csrfToken}
+            onUpdated={() => void onRefresh()}
+            targetId={target.fact_version.id}
+            targetType="FactVersion"
+          />
         </div>
       </header>
 

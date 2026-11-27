@@ -129,6 +129,8 @@ function queryTopicReferenceHrefs(topicId: string) {
 const queryTopicFormSchema = z.object({
   canonical_question: z.string().min(1, '请填写标准问题'),
   intent_type: z.enum(intentValues),
+  description: z.string().trim().max(1000, '描述不能超过 1000 字'),
+  is_active: z.boolean(),
   variants: z.array(z.object({ value: z.string().min(1, '请填写变体') })).min(1, '至少填写一个变体'),
 });
 
@@ -138,10 +140,14 @@ function queryTopicFormValues(topic?: QueryTopic): QueryTopicFormValues {
   return topic ? {
     canonical_question: topic.canonical_question,
     intent_type: topic.intent_type,
+    description: topic.description ?? '',
+    is_active: topic.is_active,
     variants: topic.variants.map((value) => ({ value })),
   } : {
     canonical_question: '',
     intent_type: 'PRODUCT',
+    description: '',
+    is_active: true,
     variants: [{ value: '' }],
   };
 }
@@ -150,6 +156,7 @@ function toQueryTopicCreate(values: QueryTopicFormValues): QueryTopicCreate {
   return {
     canonical_question: values.canonical_question,
     intent_type: values.intent_type,
+    description: values.description.trim(),
     variants: values.variants.map((item) => item.value),
   };
 }
@@ -158,7 +165,11 @@ function toQueryTopicUpdate(
   values: QueryTopicFormValues,
   expectedRevision: number,
 ): QueryTopicUpdate {
-  return { ...toQueryTopicCreate(values), expected_revision: expectedRevision };
+  return {
+    ...toQueryTopicCreate(values),
+    is_active: values.is_active,
+    expected_revision: expectedRevision,
+  };
 }
 
 export {

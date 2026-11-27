@@ -88,20 +88,26 @@ class QueryTopicListSort(StrEnum):
     INTENT_DESC = "INTENT_DESC"
 
 
+QueryTopicDescription = Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)]
+
+
 class QueryTopicCreate(ContractModel):
     canonical_question: QueryTopicText
     intent_type: IntentType
     variants: Annotated[list[QueryTopicText], AfterValidator(require_unique_items)] = Field(
         min_length=1, json_schema_extra={"uniqueItems": True}
     )
+    description: QueryTopicDescription = ""
 
 
 class QueryTopicUpdate(QueryTopicCreate):
     expected_revision: int = Field(ge=0)
+    is_active: bool | None = None
 
 
 class QueryTopicOut(QueryTopicCreate):
     id: uuid.UUID
+    is_active: bool
     available_actions: list[Literal["UPDATE", "DELETE"]]
     deletion: DeletionProjection | None
     primary_task: Literal["USE_FOR_OBSERVATION"]
@@ -117,6 +123,7 @@ class QueryTopicReferenceSummary(ContractModel):
     content_task_count: int = Field(ge=0)
     geo_optimization_count: int = Field(ge=0)
     observation_count: int = Field(ge=0)
+    campaign_count: int = Field(ge=0)
 
 
 class QueryTopicListItem(QueryTopicOut):

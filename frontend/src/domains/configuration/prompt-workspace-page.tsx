@@ -53,6 +53,7 @@ import {
   type PromptWorkspaceSearch,
 } from './prompt-workspace.model';
 import { PromptPreview } from './prompt-preview';
+import { PromptVersionHistoryButton } from './prompt-version-dialogs';
 
 type PlatformPromptList = components['schemas']['PlatformPromptList'];
 type PlatformPromptListItem = components['schemas']['PlatformPromptListItem'];
@@ -292,6 +293,17 @@ function PromptWorkspacePage({
           content: (
             <>
               <PromptPreview csrfToken={csrfToken} dirty={editorDirty} prompt={detail.data} />
+              {detail.data && !creating && (
+                <div className="px-4 pt-3">
+                  <PromptVersionHistoryButton
+                    csrfToken={csrfToken}
+                    currentMarkdown={detail.data.template_markdown}
+                    onMutated={() => void detail.refetch()}
+                    promptId={detail.data.id}
+                    promptName={detail.data.name}
+                  />
+                </div>
+              )}
               <PromptReferencePane
                 canDelete={Boolean(detailActions?.canDelete)}
                 creating={creating}

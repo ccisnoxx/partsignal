@@ -31,6 +31,7 @@ from app.schemas.product_facts import (
     FactVersionOut,
     ProductCreate,
     ProductFactHistoryList,
+    ProductFactsConfirmReviewRequest,
     ProductFactsDraft,
     ProductFactsDraftUpdate,
     ProductFactStatus,
@@ -42,7 +43,15 @@ from app.schemas.product_facts import (
 )
 from app.services.product_detail import product_detail_out
 from app.services.product_facts import (
+    confirm_product_facts_review as confirm_product_facts_review_command,
+)
+from app.services.product_facts import (
     create_product as create_product_command,
+)
+from app.services.product_facts import (
+    db_utc_now,
+    product_facts_draft_out,
+    product_out,
 )
 from app.services.product_facts import delete_fact_version as delete_fact_version_command
 from app.services.product_facts import delete_product as delete_product_command
@@ -50,7 +59,6 @@ from app.services.product_facts import (
     list_product_fact_history as list_product_fact_history_query,
 )
 from app.services.product_facts import list_products as list_products_query
-from app.services.product_facts import product_facts_draft_out, product_out
 from app.services.product_facts import (
     replace_product_facts as replace_product_facts_command,
 )
@@ -102,6 +110,7 @@ def list_products(
         sort=sort,
         fact_status=fact_status,
         workflow_stage=workflow_stage,
+        now=db_utc_now(db),
     )
 
 
@@ -122,7 +131,7 @@ def create_product(
     product = create_product_command(
         db=db, payload=payload, actor=editor, request_id=request.state.request_id
     )
-    return product_out(db, product, can_delete=editor.account_type == "ADMIN")
+    return product_out(db, product, can_delete=editor.account_type == "ADMIN", now=db_utc_now(db))
 
 
 @router.get(
@@ -135,7 +144,7 @@ def get_product(product_id: uuid.UUID, db: DbSession, user: CurrentUser) -> Prod
     product = db.get(Product, product_id)
     if product is None:
         raise not_found("产品")
-    return product_out(db, product, can_delete=user.account_type == "ADMIN")
+    return product_out(db, product, can_delete=user.account_type == "ADMIN", now=db_utc_now(db))
 
 
 @router.get(
@@ -175,7 +184,7 @@ def update_product(
         actor=editor,
         request_id=request.state.request_id,
     )
-    return product_out(db, product, can_delete=editor.account_type == "ADMIN")
+    return product_out(db, product, can_delete=editor.account_type == "ADMIN", now=db_utc_now(db))
 
 
 @router.delete(
@@ -214,7 +223,7 @@ def get_product_facts(
     product = db.get(Product, product_id)
     if product is None:
         raise not_found("产品")
-    return product_facts_draft_out(db, product)
+    return product_facts_draft_out(db, product, now=db_utc_now(db))
 
 
 @router.put(
@@ -232,6 +241,29 @@ def replace_product_facts(
     _csrf: CsrfProtected,
 ) -> ProductFactsDraft:
     return replace_product_facts_command(
+        db=db,
+        product_id=product_id,
+        payload=payload,
+        actor=editor,
+        request_id=request.state.request_id,
+    )
+
+
+@router.post(
+    "/products/{product_id}/facts/confirm-review",
+    response_model=ProductFactsDraft,
+    operation_id="confirmProductFactsReview",
+    responses=error_responses(401, 403, 404, 409, 422),
+)
+def confirm_product_facts_review(
+    product_id: uuid.UUID,
+    payload: ProductFactsConfirmReviewRequest,
+    request: Request,
+    db: DbSession,
+    editor: ProductEditor,
+    _csrf: CsrfProtected,
+) -> ProductFactsDraft:
+    return confirm_product_facts_review_command(
         db=db,
         product_id=product_id,
         payload=payload,

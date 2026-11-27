@@ -14,7 +14,7 @@ from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.errors import AppError, not_found
 from app.models.geo_opportunities import GeoOpportunity, GeoOpportunityAction, GeoOpportunitySource
 from app.models.identity import User
-from app.schemas.content import ContentTaskCreate
+from app.schemas.content import ContentTaskTarget
 from app.schemas.geo_opportunities import (
     GeoOpportunityActionType as ActionType,
 )
@@ -93,9 +93,9 @@ def _target(
     # 先取原领域锁，最后才锁机会；评估器采用Product→Opportunity，反向会死锁。
     if kind == ActionType.CONTENT_TASK and isinstance(payload, GeoOpportunityContentTaskRequest):
         _product_scope(db, opportunity, payload.product_id)
-        task = content_planning.create_content_task(
+        task = content_planning.create_linked_content_task(
             db=db,
-            payload=ContentTaskCreate(
+            payload=ContentTaskTarget(
                 product_id=payload.product_id,
                 fact_version_id=payload.fact_version_id,
                 platform_profile_id=payload.platform_profile_id,

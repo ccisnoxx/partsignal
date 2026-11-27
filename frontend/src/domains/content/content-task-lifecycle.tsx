@@ -335,6 +335,9 @@ const blockerLabels = {
   PUBLISHED_CONTENT_ISSUE: '发布内容问题',
   GEO_OPTIMIZATION_SOURCE: 'GEO 优化来源',
   GEO_OPPORTUNITY_ACTION: 'GEO 机会行动',
+  GEO_INTERVENTION: 'GEO 干预归因记录',
+  OPERATING_COST_ENTRY: '运营费用台账记录',
+  CONTENT_CAMPAIGN: '内容活动',
   USER_BUSINESS_HISTORY: '用户业务历史',
 } satisfies Record<DeletionBlocker['type'], string>;
 

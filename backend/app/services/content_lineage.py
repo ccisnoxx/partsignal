@@ -13,6 +13,7 @@ from app.models.ai_generation import GenerationJob
 from app.models.content import ContentVersion
 from app.schemas.content import (
     GenerationSnapshot,
+    GenerationSnapshotV4,
     HumanizationSnapshot,
     LegacyGenerationSnapshot,
     LegacyHumanizationSnapshot,
@@ -20,7 +21,10 @@ from app.schemas.content import (
 )
 
 GenerationSnapshotRead = (
-    LegacyGenerationSnapshot | MarkdownGenerationSnapshotV2 | GenerationSnapshot
+    LegacyGenerationSnapshot
+    | MarkdownGenerationSnapshotV2
+    | GenerationSnapshot
+    | GenerationSnapshotV4
 )
 HumanizationSnapshotRead = LegacyHumanizationSnapshot | HumanizationSnapshot
 
@@ -88,6 +92,10 @@ def resolve_content_ai_lineage(db: Session, content: ContentVersion) -> ContentA
                         )
                     elif contract_version == "content-markdown-v3":
                         generation_snapshot = GenerationSnapshot.model_validate(job.input_snapshot)
+                    elif contract_version == "content-markdown-v4":
+                        generation_snapshot = GenerationSnapshotV4.model_validate(
+                            job.input_snapshot
+                        )
                     else:
                         raise AppError(
                             "GENERATION_SNAPSHOT_INVALID", "原始生成快照版本不受支持", 409

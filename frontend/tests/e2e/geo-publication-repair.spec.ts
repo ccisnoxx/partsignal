@@ -101,6 +101,8 @@ for (const mode of ['OPEN_ISSUE', 'CREATE_REPAIR'] as const) {
         product: { id: publicationIds.product, brand: 'PartSignal', part_number: 'PS-LNA-01', status: 'ACTIVE' },
         platform: { id: publicationIds.platform, name: publishedArticle.platform_profile_name, website_url: 'https://community.example.invalid', logo: null },
         fact: { id: publicationIds.factVersion, version: 2, status: 'APPROVED', classification: 'PUBLIC' },
+        campaign: null,
+        brief: null,
         current_content: null, generation: null, review: null, publishing: null, source: null, activity: [],
       } satisfies Schema['ContentTaskDetail'] });
     });

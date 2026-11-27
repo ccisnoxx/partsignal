@@ -19,6 +19,7 @@ from app.audit_types import (
 )
 from app.errors import AppError, not_found
 from app.models.ai_generation import AIChannel, AIModel
+from app.models.campaign import ContentCampaign
 from app.models.configuration import PlatformProfile
 from app.models.content import ContentTask, ContentVersion
 from app.models.geo_catalog import GeoSubject
@@ -274,6 +275,9 @@ def _related_entry(
             fact_version,
             str(fact_version.product_id) if fact_version is not None else None,
         )
+    if target_type == "ContentCampaign":
+        campaign = db.get(ContentCampaign, target_id) if target_id is not None else None
+        return _availability(target_type, campaign)
     if target_type == "ContentTask":
         content_task = db.get(ContentTask, target_id) if target_id is not None else None
         return _availability(target_type, content_task)

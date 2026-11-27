@@ -42,10 +42,12 @@ import { ProductDeletionConditionsDialog } from './product-deletion-dialog';
 import {
   formatExactProductTime,
   formatRelativeProductTime,
+  productFactsFreshnessRegistry,
   productFactStatusRegistry,
   productWorkflowStageRegistry,
   resolveProductOverflowActions,
   resolveProductPrimaryAction,
+  type ProductFactsFreshness,
   type ProductFactStatus,
   type ProductListItem,
   type ProductWorkflowStage,
@@ -295,7 +297,14 @@ function useProductColumns({
       header: '事实状态',
       meta: { role: 'status' },
       enableSorting: false,
-      cell: ({ getValue }) => <ProductStatusBadge status={getValue()} />,
+      cell: ({ row }) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <ProductStatusBadge status={row.original.fact_status} />
+          {row.original.facts_freshness === 'OVERDUE' && (
+            <ProductFreshnessBadge freshness={row.original.facts_freshness} />
+          )}
+        </div>
+      ),
     }),
     columnHelper.accessor('current_fact', {
       header: '当前事实',
@@ -431,6 +440,18 @@ function TruncatedText({ className = '', text }: { className?: string; text: str
 
 function ProductStatusBadge({ status }: { status: ProductFactStatus }) {
   const presentation = productFactStatusRegistry[status];
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<Badge tabIndex={0} variant={presentation.tone} />}>
+        {presentation.label}
+      </TooltipTrigger>
+      <TooltipContent>{presentation.description}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function ProductFreshnessBadge({ freshness }: { freshness: ProductFactsFreshness }) {
+  const presentation = productFactsFreshnessRegistry[freshness];
   return (
     <Tooltip>
       <TooltipTrigger render={<Badge tabIndex={0} variant={presentation.tone} />}>

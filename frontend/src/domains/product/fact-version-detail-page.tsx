@@ -117,6 +117,30 @@ function FactVersionDetailView({
         </DetailSection>
 
         <DetailSection
+          description="提交审核时冻结的约束与溯源元数据，仅可读；外部资料编号永不外发第三方 AI。"
+          title="冻结运营元数据快照"
+        >
+          <dl className="grid min-w-0 gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Metadata label="外部资料编号" value={version.source_reference ?? '未填写'} />
+            <Metadata
+              label="最近业务确认时间"
+              value={version.verified_at ? <FactVersionTime value={version.verified_at} /> : '未填写'}
+            />
+            <Metadata label="适用市场或地区" value={version.applicable_region ?? '未填写'} />
+            <Metadata
+              className="sm:col-span-2 lg:col-span-3"
+              label="禁止公开表达"
+              value={version.content_restrictions ?? '未填写'}
+            />
+            <Metadata
+              className="sm:col-span-2 lg:col-span-3"
+              label="允许公开的核心结论摘要"
+              value={version.approved_claims_summary ?? '未填写'}
+            />
+          </dl>
+        </DetailSection>
+
+        <DetailSection
           description="仅展示当前 FactVersion payload 能确定的生命周期事件。"
           title="生命周期"
         >

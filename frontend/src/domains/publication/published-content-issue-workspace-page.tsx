@@ -8,6 +8,7 @@ import { Button } from '@/design-system/primitives/button';
 import { DetailSection } from '@/design-system/workspace/detail-section';
 import { Timeline, type TimelineItem } from '@/design-system/workspace/timeline';
 import { WorkspaceShell } from '@/design-system/workspace/workspace-shell';
+import { WorkAssignmentDialogButton } from '@/domains/workbench/work-assignment-control';
 import {
   PublicationRequestError,
   publicationKeys,
@@ -155,6 +156,14 @@ function PublishedContentIssueWorkspacePage({
         <ContextValue label="修订号" value={String(issue.revision)} />
         <ContextValue label="Issue ID" mono value={issue.id} />
       </dl>
+      <div>
+        <WorkAssignmentDialogButton
+          csrfToken={csrfToken}
+          onUpdated={() => void query.refetch()}
+          targetId={issue.id}
+          targetType="PublishedContentIssue"
+        />
+      </div>
       <nav aria-label="内容问题工作区章节">
         <ul className="space-y-1">
           {issueWorkspaceSections.map((section) => (

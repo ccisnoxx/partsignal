@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  factConfirmReviewSchema,
   factWorkspaceFormSchema,
+  factWorkspaceValues,
+  mapFactConfirmReviewError,
   mapFactReviewError,
   resolveFactWorkspaceActions,
+  toFactConfirmReview,
   toFactReviewSubmission,
   toFactWorkspaceUpdate,
   type FactWorkspace,
@@ -22,6 +26,16 @@ const workspace = {
   },
   body_markdown: '## 事实',
   classification: 'INTERNAL',
+  source_owner: null,
+  source_reference: null,
+  verified_at: null,
+  next_review_at: null,
+  applicable_region: null,
+  content_restrictions: null,
+  approved_claims_summary: null,
+  last_reviewed_at: null,
+  last_reviewed_by: null,
+  facts_freshness: 'UNSET',
   approved_fact: null,
   pending_fact: null,
   available_actions: ['SAVE', 'SUBMIT_REVIEW'],
@@ -125,22 +139,65 @@ describe('Fact Workspace model', () => {
     },
   );
 
-  it('只接受非空 Markdown，并把当前 revision 放入写请求', () => {
-    expect(factWorkspaceFormSchema.safeParse({ body_markdown: '   ', classification: 'PUBLIC' }).success).toBe(false);
-    expect(toFactWorkspaceUpdate({ body_markdown: '## 新事实', classification: 'RESTRICTED' }, 7)).toEqual({
+  it('只接受非空 Markdown，并把当前 revision 与运营元数据放入写请求', () => {
+    const baseValues = factWorkspaceValues(workspace);
+    expect(factWorkspaceFormSchema.safeParse({ ...baseValues, body_markdown: '   ', classification: 'PUBLIC' }).success).toBe(false);
+    expect(toFactWorkspaceUpdate({
+      ...baseValues,
+      body_markdown: '## 新事实',
+      classification: 'RESTRICTED',
+      source_owner: '  张工  ',
+      source_reference: '  DS-2026-01  ',
+      applicable_region: '  中国大陆 ',
+      content_restrictions: '禁止宣称 100% 替代',
+      approved_claims_summary: '   ',
+    }, 7)).toEqual({
       expected_revision: 7,
       body_markdown: '## 新事实',
       classification: 'RESTRICTED',
+      source_owner: '张工',
+      source_reference: 'DS-2026-01',
+      verified_at: null,
+      next_review_at: null,
+      applicable_region: '中国大陆',
+      content_restrictions: '禁止宣称 100% 替代',
+      approved_claims_summary: null,
     });
     expect(toFactReviewSubmission({ change_summary: '补充数据来源' }, 7)).toEqual({
       expected_revision: 7,
       change_summary: '补充数据来源',
     });
+    expect(factConfirmReviewSchema.safeParse({ next_review_at: '' }).success).toBe(false);
+    expect(toFactConfirmReview({ next_review_at: '2027-06-01T08:00' }, 7)).toEqual({
+      expected_revision: 7,
+      next_review_at: expect.stringMatching(/^2027-06-01T/),
+    });
+    expect(mapFactConfirmReviewError(requestError({
+      code: 'VALIDATION_ERROR',
+      message: '下次复核时间必须晚于当前时间',
+      details: { errors: [{ loc: ['body', 'next_review_at'], msg: '下次复核时间必须晚于当前时间' }] },
+      request_id: 'req-confirm',
+    }, 422)).fields).toEqual({ next_review_at: '下次复核时间必须晚于当前时间' });
+
+    // 未编辑时间戳时透传原始 ISO 亚秒值，防止仅改可变治理字段时误将 FACT_APPROVED 退回 FACTS_EDITING
+    const preciseWorkspace = {
+      ...workspace,
+      verified_at: '2026-10-01T08:00:35.123Z',
+      next_review_at: '2027-01-15T09:30:45.456Z',
+    } satisfies FactWorkspace;
+    const preserved = toFactWorkspaceUpdate({
+      ...factWorkspaceValues(preciseWorkspace),
+      source_owner: '仅更新负责人',
+    }, 7, preciseWorkspace);
+    expect(preserved.verified_at).toBe('2026-10-01T08:00:35.123Z');
+    expect(preserved.next_review_at).toBe('2027-01-15T09:30:45.456Z');
+    expect(preserved.source_owner).toBe('仅更新负责人');
   });
 
   it('动作只随服务端 token 变化，本地状态只决定可执行性', () => {
     const onSave = vi.fn();
     const onSubmit = vi.fn();
+    const onConfirmReview = vi.fn();
     const actions = resolveFactWorkspaceActions(workspace, {
       canSave: true,
       dirty: false,
@@ -148,10 +205,28 @@ describe('Fact Workspace model', () => {
       submitting: false,
       onSave,
       onSubmit,
+      onConfirmReview,
     });
     expect(actions.map((action) => [action.key, action.enabled])).toEqual([
       ['SAVE', false],
       ['SUBMIT_REVIEW', true],
+    ]);
+
+    expect(resolveFactWorkspaceActions({
+      ...workspace,
+      available_actions: ['SAVE', 'SUBMIT_REVIEW', 'CONFIRM_REVIEW'],
+    }, {
+      canSave: true,
+      dirty: false,
+      saving: false,
+      submitting: false,
+      onSave,
+      onSubmit,
+      onConfirmReview,
+    }).map((action) => [action.key, action.enabled])).toEqual([
+      ['SAVE', false],
+      ['SUBMIT_REVIEW', true],
+      ['CONFIRM_REVIEW', true],
     ]);
 
     expect(resolveFactWorkspaceActions({ ...workspace, available_actions: ['SAVE'] }, {

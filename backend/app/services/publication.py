@@ -18,11 +18,13 @@ from app.errors import AppError, in_use, not_found
 from app.models.ai_generation import GenerationJob
 from app.models.configuration import PlatformProfile, QueryTopic
 from app.models.content import (
+    ContentBriefSnapshot,
     ContentReviewRecord,
     ContentTask,
     ContentTaskGeoSource,
     ContentVersion,
 )
+from app.models.content_quality import ContentQualityCheckJob
 from app.models.geo_files import (
     FileRecord,
     GeoObservationAttachment,
@@ -39,6 +41,7 @@ from app.models.publication import (
     PublicationWork,
     PublicationWorkEvent,
     PublishedArticle,
+    PublishedArticleHealthCheck,
     PublishedContentIssue,
 )
 from app.schemas.common import DeletionBlocker, RevisionRequest
@@ -88,6 +91,7 @@ class _TaskDeletionScope:
     """一次任务聚合删除在当前事务内重新计算出的精确范围。"""
 
     jobs: list[GenerationJob]
+    quality_check_jobs: list[ContentQualityCheckJob]
     versions: list[ContentVersion]
     reviews: list[ContentReviewRecord]
     works: list[PublicationWork]
@@ -179,6 +183,24 @@ def _lock_approved_publication_context(
     if task.current_content_version_id != content.id:
         raise AppError("CONTENT_VERSION_NOT_CURRENT", "只有任务当前批准版本可以开始发布", 409)
     return content, task
+
+
+def get_publishable_content_readonly(db: Session, content_id: uuid.UUID) -> ContentVersion:
+    """只读校验可发布内容上下文，绝不在 REPEATABLE READ 读事务中获取 FOR UPDATE 排他锁。"""
+    content = db.get(ContentVersion, content_id)
+    if content is None:
+        raise not_found("内容版本")
+    fact = db.get(FactVersion, content.fact_version_id)
+    task = db.get(ContentTask, content.task_id)
+    if content.status != "APPROVED" or fact is None or fact.status != "APPROVED":
+        raise AppError("CONTENT_NOT_APPROVED", "只有绑定有效批准事实的批准内容可以发布", 409)
+    if task is None:
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容版本关联的任务不存在", 409)
+    if task.current_content_version_id != content.id:
+        raise AppError("CONTENT_VERSION_NOT_CURRENT", "只有任务当前批准版本可以开始发布", 409)
+    if task.status != "OPEN":
+        raise AppError("INVALID_STATE_TRANSITION", "终态内容任务不能开始新发布", 409)
+    return content
 
 
 def require_publishable(db: Session, content_id: uuid.UUID) -> ContentVersion:
@@ -752,6 +774,9 @@ def register_publication_result(
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布工作锁定平台不存在", 409)
     if not domain_allowed(str(payload.final_url), profile.allowed_domains):
         raise AppError("VALIDATION_ERROR", "最终 URL 不属于平台允许域名", 422)
+    from app.services.publication_package import assert_actual_title_compliant
+
+    assert_actual_title_compliant(db, work=work, actual_title=payload.actual_title)
     files = _publication_evidence_files(db, payload.attachment_file_ids)
     if (
         files
@@ -1046,6 +1071,7 @@ def create_repair_task(
         raise AppError("FACT_NOT_APPROVED", "修复任务必须选择当前已批准的同产品事实版本", 409)
     task = ContentTask(
         query_topic_id=original_task.query_topic_id,
+        campaign_id=original_task.campaign_id,
         product_id=original_task.product_id,
         fact_version_id=fact.id,
         platform_profile_id=profile.id,
@@ -1253,6 +1279,11 @@ def permanently_delete_published_article(
             "PublishedContentIssue": [issue.id for issue in scope.issues],
         },
     )
+    db.execute(
+        delete(PublishedArticleHealthCheck).where(
+            PublishedArticleHealthCheck.published_article_id == scope.article.id
+        )
+    )
     if scope.issues:
         db.execute(
             delete(PublishedContentIssue).where(
@@ -1306,6 +1337,14 @@ def _task_deletion_scope(db: Session, task: ContentTask) -> _TaskDeletionScope:
             select(GenerationJob)
             .where(GenerationJob.content_task_id == task.id)
             .order_by(GenerationJob.id)
+            .with_for_update()
+        )
+    )
+    quality_check_jobs = list(
+        db.scalars(
+            select(ContentQualityCheckJob)
+            .where(ContentQualityCheckJob.content_task_id == task.id)
+            .order_by(ContentQualityCheckJob.id)
             .with_for_update()
         )
     )
@@ -1366,6 +1405,7 @@ def _task_deletion_scope(db: Session, task: ContentTask) -> _TaskDeletionScope:
                 select(PublishedArticle)
                 .where(PublishedArticle.id.in_(work_ids))
                 .order_by(PublishedArticle.id)
+                .with_for_update()
             )
         )
         if work_ids
@@ -1378,6 +1418,7 @@ def _task_deletion_scope(db: Session, task: ContentTask) -> _TaskDeletionScope:
                 select(PublishedContentIssue)
                 .where(PublishedContentIssue.published_article_id.in_(article_ids))
                 .order_by(PublishedContentIssue.id)
+                .with_for_update()
             )
         )
         if article_ids
@@ -1466,6 +1507,7 @@ def _task_deletion_scope(db: Session, task: ContentTask) -> _TaskDeletionScope:
             )
     return _TaskDeletionScope(
         jobs=jobs,
+        quality_check_jobs=quality_check_jobs,
         versions=versions,
         reviews=reviews,
         works=works,
@@ -1555,6 +1597,9 @@ def _delete_task_core(db: Session, task: ContentTask, scope: _TaskDeletionScope)
         )
         db.execute(delete(PublicationWork).where(PublicationWork.id.in_(work_ids)))
     db.execute(delete(ContentTaskGeoSource).where(ContentTaskGeoSource.content_task_id == task.id))
+    db.execute(
+        delete(ContentBriefSnapshot).where(ContentBriefSnapshot.content_task_id == task.id)
+    )
     task.current_content_version_id = None
     db.flush()
     if version_ids:
@@ -1564,6 +1609,9 @@ def _delete_task_core(db: Session, task: ContentTask, scope: _TaskDeletionScope)
             .where(ContentVersion.id.in_(version_ids))
             .values(source_job_id=None, updated_at=ContentVersion.updated_at)
         )
+    db.execute(
+        delete(ContentQualityCheckJob).where(ContentQualityCheckJob.content_task_id == task.id)
+    )
     db.execute(delete(GenerationJob).where(GenerationJob.content_task_id == task.id))
     if version_ids:
         db.execute(
@@ -1582,6 +1630,7 @@ def _task_audit_targets(task: ContentTask, scope: _TaskDeletionScope) -> dict[st
     return {
         "ContentTask": [task.id],
         "GenerationJob": [item.id for item in scope.jobs],
+        "ContentQualityCheckJob": [item.id for item in scope.quality_check_jobs],
         "ContentVersion": [item.id for item in scope.versions],
         "PublicationWork": [item.id for item in scope.works],
         "PublishedArticle": [item.id for item in scope.articles],
@@ -1676,8 +1725,10 @@ def delete_content_task(
             409,
         )
     scope = _task_deletion_scope(db, task)
-    if any(job.status in {"PENDING", "RUNNING"} for job in scope.jobs):
-        raise AppError("CONTENT_TASK_BUSY", "任务仍有运行中的生成作业", 409)
+    if any(job.status in {"PENDING", "RUNNING"} for job in scope.jobs) or any(
+        job.status in {"PENDING", "RUNNING"} for job in scope.quality_check_jobs
+    ):
+        raise AppError("CONTENT_TASK_BUSY", "任务仍有运行中的生成或语义质检作业", 409)
     action_count = db.scalar(
         select(func.count())
         .select_from(GeoOpportunityAction)
@@ -1741,13 +1792,21 @@ def permanently_delete_content_task(
             422,
         )
     scope = _task_deletion_scope(db, task)
-    if any(job.status in {"PENDING", "RUNNING"} for job in scope.jobs):
-        raise AppError("CONTENT_TASK_BUSY", "任务仍有运行中的生成作业", 409)
+    if any(job.status in {"PENDING", "RUNNING"} for job in scope.jobs) or any(
+        job.status in {"PENDING", "RUNNING"} for job in scope.quality_check_jobs
+    ):
+        raise AppError("CONTENT_TASK_BUSY", "任务仍有运行中的生成或语义质检作业", 409)
     db.scalar(select(func.set_config("partsignal.content_task_delete_id", str(task.id), True)))
     for root_id in scope.exclusive_geo_chain_roots:
         _delete_manual_observation_chain(db, root_id)
     article_ids = [article.id for article in scope.articles]
     issue_ids = [issue.id for issue in scope.issues]
+    if article_ids:
+        db.execute(
+            delete(PublishedArticleHealthCheck).where(
+                PublishedArticleHealthCheck.published_article_id.in_(article_ids)
+            )
+        )
     if issue_ids:
         db.execute(delete(PublishedContentIssue).where(PublishedContentIssue.id.in_(issue_ids)))
     if article_ids:

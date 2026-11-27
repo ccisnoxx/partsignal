@@ -40,8 +40,20 @@ from app.schemas.content import (
     ContentTaskQueryTopicReference,
     ContentTaskWorkflowStage,
 )
+from app.schemas.content_batch import (
+    ContentTaskBatchCreateRequest,
+    ContentTaskBatchCreateResponse,
+    ContentTaskBatchPreviewRequest,
+    ContentTaskBatchPreviewResponse,
+)
 from app.schemas.content_editor import ContentEditorContext
 from app.schemas.content_task_detail import ContentTaskDetail
+from app.services.content_batch_planning import (
+    create_content_task_batch as create_content_task_batch_command,
+)
+from app.services.content_batch_planning import (
+    preview_content_task_batch as preview_content_task_batch_query,
+)
 from app.services.content_editor import content_editor_context_out
 from app.services.content_planning import (
     create_content_task as create_content_task_command,
@@ -85,7 +97,8 @@ SystemAdmin = AdminUser
 
 
 def _content_task_read_snapshot(db: DbSession) -> None:
-    """为跨产品、事实和平台的创建选项建立一致快照。"""
+    """为跨产品、事实和平台的创建选项与批量预览建立禁止 autoflush 的一致快照。"""
+    db.autoflush = False
     db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
 
 
@@ -93,10 +106,17 @@ def _content_task_read_snapshot(db: DbSession) -> None:
     "/query-topics",
     response_model=QueryTopicList,
     operation_id="listQueryTopics",
-    responses=error_responses(401, 403),
+    responses=error_responses(401, 403, 422),
 )
-def list_query_topics(db: DbSession, user: CurrentUser) -> QueryTopicList:
-    topics = list(db.scalars(select(QueryTopic).order_by(QueryTopic.created_at)))
+def list_query_topics(
+    db: DbSession,
+    user: CurrentUser,
+    is_active: bool | None = None,
+) -> QueryTopicList:
+    query = select(QueryTopic)
+    if is_active is not None:
+        query = query.where(QueryTopic.is_active.is_(is_active))
+    topics = list(db.scalars(query.order_by(QueryTopic.created_at)))
     return QueryTopicList(
         items=query_topics_out(db, topics, can_delete=user.account_type == "ADMIN")
     )
@@ -112,6 +132,7 @@ def list_query_topic_items(
     db: DbSession,
     user: CurrentUser,
     q: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
+    is_active: bool | None = None,
     sort: QueryTopicListSort = QueryTopicListSort.QUESTION_ASC,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[QueryTopicPageSize, BeforeValidator(int), Query()] = 20,
@@ -120,6 +141,7 @@ def list_query_topic_items(
     return list_query_topic_items_query(
         db=db,
         q=q,
+        is_active=is_active,
         sort=sort,
         page=page,
         page_size=page_size,
@@ -259,6 +281,7 @@ def list_content_tasks(
     platform_profile_id: uuid.UUID | None = None,
     filter_product_id: uuid.UUID | None = None,
     filter_fact_version_id: uuid.UUID | None = None,
+    campaign_id: uuid.UUID | None = None,
     query_topic_id: uuid.UUID | None = None,
     query_topic_reference: ContentTaskQueryTopicReference | None = None,
     archive_status: ContentTaskArchiveStatus = ContentTaskArchiveStatus.ACTIVE,
@@ -272,6 +295,7 @@ def list_content_tasks(
         platform_profile_id=platform_profile_id,
         filter_product_id=filter_product_id,
         filter_fact_version_id=filter_fact_version_id,
+        campaign_id=campaign_id,
         query_topic_id=query_topic_id,
         query_topic_reference=query_topic_reference,
         archive_status=archive_status,
@@ -306,6 +330,48 @@ def create_content_task(
     return content_task_out(db, task, can_permanently_delete=editor.account_type == "ADMIN")
 
 
+@router.post(
+    "/content-tasks/batch-preview",
+    response_model=ContentTaskBatchPreviewResponse,
+    operation_id="previewContentTaskBatch",
+    dependencies=[Depends(_content_task_read_snapshot)],
+    responses=error_responses(401, 403, 422),
+)
+def preview_content_task_batch(
+    payload: ContentTaskBatchPreviewRequest,
+    db: DbSession,
+    _editor: ContentEditor,
+    _csrf: CsrfProtected,
+) -> ContentTaskBatchPreviewResponse:
+    """只读评估批量任务矩阵，区分硬阻断与软告警。"""
+    return preview_content_task_batch_query(db=db, payload=payload)
+
+
+@router.post(
+    "/content-tasks/batch",
+    response_model=ContentTaskBatchCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+    operation_id="createContentTaskBatch",
+    responses=error_responses(401, 403, 409, 422),
+)
+def create_content_task_batch(
+    payload: ContentTaskBatchCreateRequest,
+    request: Request,
+    db: DbSession,
+    editor: ContentEditor,
+    _csrf: CsrfProtected,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=128)],
+) -> ContentTaskBatchCreateResponse:
+    """按批量幂等键全量原子创建内容任务与不可变 Brief 快照。"""
+    return create_content_task_batch_command(
+        db=db,
+        payload=payload,
+        actor=editor,
+        request_id=request.state.request_id,
+        idempotency_key=idempotency_key,
+    )
+
+
 @router.get(
     "/content-tasks/creation-options",
     response_model=ContentTaskCreationOptions,
@@ -317,8 +383,13 @@ def get_content_task_creation_options(
     db: DbSession,
     editor: ContentEditor,
     requested_product_id: uuid.UUID | None = None,
+    requested_campaign_id: uuid.UUID | None = None,
 ) -> ContentTaskCreationOptions:
-    return get_content_task_creation_options_query(db=db, requested_product_id=requested_product_id)
+    return get_content_task_creation_options_query(
+        db=db,
+        requested_product_id=requested_product_id,
+        requested_campaign_id=requested_campaign_id,
+    )
 
 
 @router.get(

@@ -10,6 +10,8 @@ import { Skeleton } from '@/design-system/primitives/skeleton';
 import type { components } from '@/shared/api/generated/schema';
 import { cn } from '@/shared/lib/utils';
 import { workbenchQueryOptions } from './workbench.api';
+import { WorkbenchInboxSection } from './workbench-inbox-section';
+import { WorkbenchOperationsMetricsButton } from './workbench-operations-metrics-dialog';
 import {
   attentionPresentations,
   formatWorkbenchDateTime,
@@ -57,11 +59,14 @@ function WorkbenchContent({ data }: { data: WorkbenchAggregate }) {
   return (
     <section aria-labelledby="workbench-title" className="min-w-0 space-y-6">
       <PageHeader
-        description="集中处理跨产品事实、内容、发布与 GEO 的当前运营事项。"
+        actions={<WorkbenchOperationsMetricsButton />}
+        description="集中处理分配给我的事项、今日到期、已超时及跨产品事实、内容、发布与 GEO 的运营队列。"
         meta={<span>聚合生成于 {formatWorkbenchDateTime(data.generated_at)}</span>}
-        title="工作台"
+        title="运营工作台"
         titleId="workbench-title"
       />
+
+      <WorkbenchInboxSection />
 
       <section aria-labelledby="workbench-counts-title" className="space-y-2.5">
         <SectionHeading description="数量与入口均来自服务端聚合投影。" id="workbench-counts-title">

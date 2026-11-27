@@ -21,7 +21,12 @@ from app.main import (
     REQUEST_ID_PATTERN,
     app,
 )
-from app.schemas.geo_answers import GeoAnswerCitationOut, GeoRawPayloadSummary
+from app.schemas.geo_answers import (
+    GeoAnswerCitationOut,
+    GeoCitationObservation,
+    GeoRawPayloadSummary,
+)
+from app.schemas.geo_insights import GeoOverviewFilters
 from app.schemas.geo_rules import GeoRuleConfiguration
 from app.schemas.geo_runs import GeoBatchPlanSnapshot
 from app.schemas.geo_surfaces import GeoApiSettings
@@ -311,7 +316,7 @@ WAVE_2_EXPECTED_STATUSES = {
     "approveFactVersion": {"200", "401", "403", "404", "409", "422"},
     "requestFactVersionChanges": {"200", "401", "403", "404", "409", "422"},
     "retireFactVersion": {"200", "401", "403", "404", "409", "422"},
-    "listQueryTopics": {"200", "401", "403"},
+    "listQueryTopics": {"200", "401", "403", "422"},
     "listQueryTopicItems": {"200", "401", "403", "422"},
     "createQueryTopic": {"201", "401", "403", "422"},
     "updateQueryTopic": {"200", "401", "403", "404", "409", "422"},
@@ -643,9 +648,9 @@ def test_runtime_request_context_covers_all_operations_and_responses() -> None:
     runtime = app.openapi()
     operations = _operation_map(runtime)
 
-    assert len(operations) == 256
-    assert len(set(operations)) == 256
-    assert sum(len(operation["responses"]) for operation in operations.values()) == 1667
+    assert len(operations) == 318
+    assert len(set(operations)) == 318
+    assert sum(len(operation["responses"]) for operation in operations.values()) == 2066
     parameter_ref = {"$ref": "#/components/parameters/RequestIdHeader"}
     header_ref = {"$ref": "#/components/headers/RequestIdResponseHeader"}
     parameter_schema = {
@@ -684,9 +689,9 @@ def test_runtime_request_context_merge_does_not_change_route_metadata() -> None:
     augmented = app.openapi()
     stripped = _strip_request_context_metadata(augmented)
 
-    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1411
+    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1748
     assert (
-        sum(len(operation["responses"]) for operation in _operation_map(stripped).values()) == 1411
+        sum(len(operation["responses"]) for operation in _operation_map(stripped).values()) == 1748
     )
     # 安装版本的 FastAPI 省略 None 默认；这里只移除已声明且显式恢复的 nullable annotation。
     raw_settings = raw["components"]["schemas"]["GeoApiSettings"]["properties"]
@@ -703,8 +708,10 @@ def test_runtime_request_context_merge_does_not_change_route_metadata() -> None:
         assert "default" not in raw_summary[name]
         assert stripped_summary[name].pop("default") is None
     for model, names in (
+        (GeoOverviewFilters, ("mention_mode",)),
         (GeoBatchPlanSnapshot, ("budget_limit", "cron_expression")),
         (GeoAnswerCitationOut, ("title",)),
+        (GeoCitationObservation, ("missing_reason",)),
         (
             GeoRuleConfiguration,
             (
@@ -1004,14 +1011,9 @@ def test_wave_2_error_statuses_use_project_error_envelope(
         assert _resolved_runtime_response(responses[status_code])["content"]["application/json"][
             "schema"
         ] == {"$ref": "#/components/schemas/ErrorEnvelope"}
-    if operation_id == "listQueryTopics":
-        assert "422" not in responses
-        assert "4XX" not in responses
-        assert "default" not in responses
-    else:
-        assert _resolved_runtime_response(responses["422"])["content"]["application/json"][
-            "schema"
-        ] == {"$ref": "#/components/schemas/ErrorEnvelope"}
+    assert _resolved_runtime_response(responses["422"])["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/ErrorEnvelope"}
 
 
 def test_wave_2_success_occurrences_and_response_boundaries(

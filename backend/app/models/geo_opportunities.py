@@ -73,6 +73,32 @@ class GeoOpportunity(Base):
         ),
         Index("ix_geo_opportunity_subject", "subject_id"),
         Index("ix_geo_opportunity_period", "source_date_from", "source_date_to"),
+        CheckConstraint(
+            "blocked_reason IS NULL OR (length(btrim(blocked_reason)) BETWEEN 1 AND 500 "
+            "AND blocked_reason !~ '^[[:space:]]|[[:space:]]$')",
+            name=conv("ck_geo_opportunities_blocked_reason_bounds"),
+        ),
+        CheckConstraint(
+            "(assignee_id IS NULL AND assigned_by IS NULL AND assigned_at IS NULL) "
+            "OR (assignee_id IS NOT NULL AND assigned_by IS NOT NULL AND assigned_at IS NOT NULL)",
+            name=conv("ck_geo_opportunities_assignment_pair"),
+        ),
+        Index(
+            "ix_geo_opportunities_assignee_due",
+            "assignee_id",
+            "due_at",
+            postgresql_where=text("assignee_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_geo_opportunities_assigned_by",
+            "assigned_by",
+            postgresql_where=text("assigned_by IS NOT NULL"),
+        ),
+        Index(
+            "ix_geo_opportunities_due_at",
+            "due_at",
+            postgresql_where=text("due_at IS NOT NULL"),
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     identity_key: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -115,6 +141,15 @@ class GeoOpportunity(Base):
     )
     resolution_code: Mapped[str | None] = mapped_column(String(40))
     resolution_comment: Mapped[str | None] = mapped_column(Text)
+    assignee_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    blocked_reason: Mapped[str | None] = mapped_column(Text)
+    assigned_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class GeoOpportunitySource(Base):

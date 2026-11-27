@@ -60,10 +60,13 @@ const blockedTopic = {
   canonical_question: '如何选择低噪声放大器？',
   intent_type: 'PRODUCT',
   variants: ['低噪声放大器选型', 'LNA 选型', '射频前端低噪声器件'],
+  description: '',
+  is_active: true,
   references: {
     content_task_count: 2,
     geo_optimization_count: 1,
     observation_count: 3,
+    campaign_count: 0,
   },
   available_actions: ['UPDATE'],
   deletion: {
@@ -84,7 +87,7 @@ const deletableTopic = {
   canonical_question: '如何比较不同厂商的射频器件？',
   intent_type: 'COMPARISON',
   variants: ['射频器件横向比较'],
-  references: { content_task_count: 0, geo_optimization_count: 0, observation_count: 0 },
+  references: { content_task_count: 0, geo_optimization_count: 0, observation_count: 0, campaign_count: 0 },
   available_actions: ['UPDATE', 'DELETE'],
   deletion: { blockers: [] },
   revision: 1,

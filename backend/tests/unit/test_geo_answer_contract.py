@@ -36,6 +36,7 @@ def answer_payload() -> dict[str, Any]:
         "raw_payload_file_id": None,
         "screenshot_file_id": None,
         "citation_count": 0,
+        "citation_observation": {"status": "NONE", "missing_reason": None},
         "collected_at": datetime.now(UTC).isoformat(),
         "created_at": datetime.now(UTC).isoformat(),
         "answer_sha256": hashlib.sha256("  原始回答\r\n型号 A-1\n".encode()).hexdigest(),

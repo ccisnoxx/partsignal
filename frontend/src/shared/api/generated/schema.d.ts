@@ -461,6 +461,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/products/{product_id}/facts/confirm-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: components["parameters"]["ProductId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["confirmProductFactsReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/products/{product_id}/fact-versions": {
         parameters: {
             query?: never;
@@ -1089,6 +1107,145 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["disableAIModel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-campaigns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Content Campaigns */
+        get: operations["listContentCampaigns"];
+        put?: never;
+        /** Create Content Campaign */
+        post: operations["createContentCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-campaigns/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Content Campaign Options */
+        get: operations["getContentCampaignOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-campaigns/{campaign_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Content Campaign */
+        get: operations["getContentCampaign"];
+        put?: never;
+        post?: never;
+        /** Delete Content Campaign */
+        delete: operations["deleteContentCampaign"];
+        options?: never;
+        head?: never;
+        /** Update Content Campaign */
+        patch: operations["updateContentCampaign"];
+        trace?: never;
+    };
+    "/api/v1/content-campaigns/{campaign_id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Activate Content Campaign */
+        post: operations["activateContentCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-campaigns/{campaign_id}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pause Content Campaign */
+        post: operations["pauseContentCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-campaigns/{campaign_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Content Campaign */
+        post: operations["resumeContentCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-campaigns/{campaign_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete Content Campaign */
+        post: operations["completeContentCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-campaigns/{campaign_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive Content Campaign */
+        post: operations["archiveContentCampaign"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3592,6 +3749,624 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/content-tasks/batch-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Content Task Batch
+         * @description 只读评估批量任务矩阵，区分硬阻断与软告警。
+         */
+        post: operations["previewContentTaskBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-tasks/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Content Task Batch
+         * @description 按批量幂等键全量原子创建内容任务与不可变 Brief 快照。
+         */
+        post: operations["createContentTaskBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workbench/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Workbench Inbox Route
+         * @description 在单次一致快照内返回当前操作者的 8 分桶运营收件箱投影。
+         */
+        get: operations["getWorkbenchInbox"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workbench/assignees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Workbench Assignees
+         * @description 返回可供软归属分派的活跃成员列表。
+         */
+        get: operations["listWorkbenchAssignees"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-assignments/{target_type}/{target_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Work Assignment
+         * @description 读取指定业务聚合的当前责任人与 SLA 状态。
+         */
+        get: operations["getWorkAssignment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fact-versions/{fact_version_id}/assignment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Fact Version Assignment
+         * @description 更新待审核产品事实版本的责任人与 SLA。
+         */
+        patch: operations["updateFactVersionAssignment"];
+        trace?: never;
+    };
+    "/api/v1/content-tasks/{content_task_id}/assignment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Content Task Assignment
+         * @description 更新未归档开放内容任务的责任人与 SLA。
+         */
+        patch: operations["updateContentTaskAssignment"];
+        trace?: never;
+    };
+    "/api/v1/publication-works/{publication_work_id}/assignment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Publication Work Assignment
+         * @description 更新非终态发布工作的责任人与 SLA。
+         */
+        patch: operations["updatePublicationWorkAssignment"];
+        trace?: never;
+    };
+    "/api/v1/published-content-issues/{issue_id}/assignment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Published Content Issue Assignment
+         * @description 更新开放发布后内容问题的责任人与 SLA。
+         */
+        patch: operations["updatePublishedContentIssueAssignment"];
+        trace?: never;
+    };
+    "/api/v1/geo/opportunities/{opportunity_id}/assignment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Geo Opportunity Assignment
+         * @description 更新开放 GEO 机会的责任人与 SLA（优先级受触发规则冻结）。
+         */
+        patch: operations["updateGeoOpportunityAssignment"];
+        trace?: never;
+    };
+    "/api/v1/platform-prompts/{platform_prompt_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Prompt Versions Route
+         * @description 列出指定 Prompt 全部不可变版本及实时效果指标。
+         */
+        get: operations["listPlatformPromptVersions"];
+        put?: never;
+        /**
+         * Create Prompt Version Route
+         * @description 为指定 Prompt 创建新草稿或直接发布不可变版本。
+         */
+        post: operations["createPlatformPromptVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform-prompt-versions/{version_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Prompt Version Draft Route
+         * @description 更新尚未发布的 Prompt 草稿版本。
+         */
+        put: operations["updatePlatformPromptVersionDraft"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform-prompt-versions/{version_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish Prompt Version Route
+         * @description 发布并永久冻结 Prompt 草稿版本。
+         */
+        post: operations["publishPlatformPromptVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform-prompt-versions/{version_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive Prompt Version Route
+         * @description 归档未被任何平台绑定的已发布 Prompt 版本。
+         */
+        post: operations["archivePlatformPromptVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform-prompt-versions/{version_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Prompt Version Route
+         * @description 将已归档 Prompt 版本恢复为可绑定发布状态以支持回滚。
+         */
+        post: operations["restorePlatformPromptVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform-profiles/{platform_profile_id}/prompt-binding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Platform Prompt Binding Route
+         * @description 读取平台当前的 Prompt 版本绑定与全部可供切换/回滚的已发布版本。
+         */
+        get: operations["getPlatformPromptBinding"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform-profiles/{platform_profile_id}/bind-prompt-version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bind Platform Prompt Version Route
+         * @description 显式将平台绑定或回滚到指定的已发布不可变 Prompt 版本。
+         */
+        post: operations["bindPlatformPromptVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-versions/{content_version_id}/duplication-analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Content Version Duplication Analysis Route
+         * @description 在单次只读快照下分析同活动/同产品内容相似度、重复段落与差异化建议。
+         */
+        get: operations["getContentVersionDuplicationAnalysis"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-versions/{content_version_id}/semantic-quality-checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Content Version Semantic Quality Checks Route
+         * @description 读取目标内容版本的 Layer 2 异步 AI 语义质量检查历史。
+         */
+        get: operations["listContentVersionSemanticQualityChecks"];
+        put?: never;
+        /**
+         * Create Content Version Semantic Quality Check Route
+         * @description 发起可选的 Layer 2 异步 AI 语义质量检查（仅允许 PUBLIC 产品事实外发）。
+         */
+        post: operations["createContentVersionSemanticQualityCheck"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/publication-works/{work_id}/pre-register-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pre Register Check Publication Work
+         * @description 在登记发布结果前执行 8 项发布前实时检查（只读，不修改发布工作状态）。
+         */
+        post: operations["preRegisterCheckPublicationWork"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform-profiles/{platform_profile_id}/health-check-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Platform Health Check Settings Endpoint */
+        get: operations["getPlatformHealthCheckSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Platform Health Check Settings Endpoint */
+        patch: operations["updatePlatformHealthCheckSettings"];
+        trace?: never;
+    };
+    "/api/v1/published-articles/{article_id}/health-checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Published Article Health Checks Endpoint */
+        get: operations["listPublishedArticleHealthChecks"];
+        put?: never;
+        /** Run Published Article Health Check Endpoint */
+        post: operations["runPublishedArticleHealthCheck"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/published-articles/health-checks/run-due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run Due Public Page Health Checks Endpoint */
+        post: operations["runDuePublicPageHealthChecks"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/interventions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Geo Interventions Endpoint */
+        get: operations["listGeoInterventions"];
+        put?: never;
+        /** Create Geo Intervention Endpoint */
+        post: operations["createGeoIntervention"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/interventions/{intervention_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Geo Intervention Endpoint */
+        get: operations["getGeoIntervention"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Geo Intervention Endpoint */
+        patch: operations["updateGeoIntervention"];
+        trace?: never;
+    };
+    "/api/v1/geo/interventions/{intervention_id}/conclude": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Conclude Geo Intervention Endpoint */
+        post: operations["concludeGeoIntervention"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/interventions/{intervention_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Geo Intervention Endpoint */
+        post: operations["cancelGeoIntervention"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai-models/{model_id}/pricing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Ai Model Pricing Endpoint */
+        get: operations["getAIModelPricing"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Ai Model Pricing Endpoint */
+        patch: operations["updateAIModelPricing"];
+        trace?: never;
+    };
+    "/api/v1/cost-entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Operating Cost Entries Endpoint */
+        get: operations["listOperatingCostEntries"];
+        put?: never;
+        /** Create Operating Cost Entry Endpoint */
+        post: operations["createOperatingCostEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cost-entries/{entry_id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Void Operating Cost Entry Endpoint */
+        post: operations["voidOperatingCostEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/campaigns/{campaign_id}/attribution-dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Campaign Attribution Dashboard Endpoint */
+        get: operations["getCampaignAttributionDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workbench/operations-metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Workbench Operations Metrics Endpoint */
+        get: operations["getWorkbenchOperationsMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3642,7 +4417,7 @@ export interface components {
          * @description 受约束物理删除的稳定直接引用类型。
          * @enum {string}
          */
-        DeletionBlockerType: "FACT_VERSION" | "CONTENT_TASK" | "GEO_OBSERVATION" | "GEO_ANALYSIS" | "GEO_SUBJECT" | "GEO_PROMPT_VARIANT" | "CONTENT_VERSION" | "GENERATION_JOB" | "PUBLISHED_ARTICLE" | "PLATFORM_PROFILE" | "PLATFORM_ACCOUNT" | "PUBLICATION_WORK" | "PROTECTED_CONTENT_VERSION" | "PUBLISHED_CONTENT_ISSUE" | "GEO_OPTIMIZATION_SOURCE" | "USER_BUSINESS_HISTORY" | "GEO_OPPORTUNITY_ACTION";
+        DeletionBlockerType: "FACT_VERSION" | "CONTENT_TASK" | "GEO_OBSERVATION" | "GEO_ANALYSIS" | "GEO_SUBJECT" | "GEO_PROMPT_VARIANT" | "CONTENT_VERSION" | "GENERATION_JOB" | "PUBLISHED_ARTICLE" | "PLATFORM_PROFILE" | "PLATFORM_ACCOUNT" | "PUBLICATION_WORK" | "PROTECTED_CONTENT_VERSION" | "PUBLISHED_CONTENT_ISSUE" | "GEO_OPTIMIZATION_SOURCE" | "GEO_OPPORTUNITY_ACTION" | "GEO_INTERVENTION" | "OPERATING_COST_ENTRY" | "CONTENT_CAMPAIGN" | "USER_BUSINESS_HISTORY";
         DeletionBlocker: {
             type: components["schemas"]["DeletionBlockerType"];
             count: number;
@@ -3809,6 +4584,8 @@ export interface components {
          * @enum {string}
          */
         ProductSort: "UPDATED_DESC" | "UPDATED_ASC" | "MODEL_ASC" | "MODEL_DESC";
+        /** @enum {string} */
+        ProductFactsFreshness: "UNSET" | "FRESH" | "OVERDUE";
         Product: {
             /** Format: uuid */
             id: string;
@@ -3821,6 +4598,9 @@ export interface components {
             primary_task: "ENTER_FACTS" | "SUBMIT_FACT_REVIEW" | "REVIEW_FACT" | "REVISE_FACT" | "CREATE_CONTENT_TASK" | "VIEW_FACT_HISTORY";
             available_actions: ("UPDATE" | "DELETE")[];
             deletion: components["schemas"]["DeletionProjection"] | null;
+            source_owner: string | null;
+            next_review_at: string | null;
+            facts_freshness: components["schemas"]["ProductFactsFreshness"];
             revision: number;
             /** Format: date-time */
             created_at: string;
@@ -3937,6 +4717,9 @@ export interface components {
             primary_task: "ENTER_FACTS" | "SUBMIT_FACT_REVIEW" | "REVIEW_FACT" | "REVISE_FACT" | "CREATE_CONTENT_TASK" | "VIEW_FACT_HISTORY";
             available_actions: ("UPDATE" | "DELETE")[];
             deletion: components["schemas"]["DeletionProjection"] | null;
+            source_owner: string | null;
+            next_review_at: string | null;
+            facts_freshness: components["schemas"]["ProductFactsFreshness"];
             revision: number;
             /** Format: date-time */
             created_at: string;
@@ -3957,6 +4740,25 @@ export interface components {
             expected_revision: number;
             body_markdown: string;
             classification: components["schemas"]["Confidentiality"];
+            /** @default null */
+            source_owner: string | null;
+            /** @default null */
+            source_reference: string | null;
+            /** @default null */
+            verified_at: string | null;
+            /** @default null */
+            next_review_at: string | null;
+            /** @default null */
+            applicable_region: string | null;
+            /** @default null */
+            content_restrictions: string | null;
+            /** @default null */
+            approved_claims_summary: string | null;
+        };
+        ProductFactsConfirmReviewRequest: {
+            expected_revision: number;
+            /** Format: date-time */
+            next_review_at: string;
         };
         ProductFactsProductContext: {
             /** Format: uuid */
@@ -3973,9 +4775,19 @@ export interface components {
             product: components["schemas"]["ProductFactsProductContext"];
             body_markdown: string;
             classification: components["schemas"]["Confidentiality"];
+            source_owner: string | null;
+            source_reference: string | null;
+            verified_at: string | null;
+            next_review_at: string | null;
+            applicable_region: string | null;
+            content_restrictions: string | null;
+            approved_claims_summary: string | null;
+            last_reviewed_at: string | null;
+            last_reviewed_by: string | null;
+            facts_freshness: components["schemas"]["ProductFactsFreshness"];
             approved_fact: components["schemas"]["ProductFactSummary"] | null;
             pending_fact: components["schemas"]["ProductFactSummary"] | null;
-            available_actions: ("SAVE" | "SUBMIT_REVIEW")[];
+            available_actions: ("SAVE" | "SUBMIT_REVIEW" | "CONFIRM_REVIEW")[];
             revision: number;
         };
         /** @enum {string} */
@@ -4018,6 +4830,11 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             approved_at?: string | null;
+            source_reference?: string | null;
+            verified_at?: string | null;
+            applicable_region?: string | null;
+            content_restrictions?: string | null;
+            approved_claims_summary?: string | null;
         };
         FactVersionList: {
             items: components["schemas"]["FactVersion"][];
@@ -4050,19 +4867,27 @@ export interface components {
             canonical_question: string;
             intent_type: components["schemas"]["IntentType"];
             variants: string[];
+            /** @default  */
+            description: string;
         };
         QueryTopicUpdate: {
             expected_revision: number;
             canonical_question: string;
             intent_type: components["schemas"]["IntentType"];
             variants: string[];
+            /** @default  */
+            description: string;
+            is_active?: boolean | null;
         };
         QueryTopic: {
             canonical_question: string;
             intent_type: components["schemas"]["IntentType"];
             variants: string[];
+            /** @default  */
+            description: string;
             /** Format: uuid */
             id: string;
+            is_active: boolean;
             available_actions: ("UPDATE" | "DELETE")[];
             deletion: components["schemas"]["DeletionProjection"] | null;
             /** @constant */
@@ -4080,13 +4905,17 @@ export interface components {
             content_task_count: number;
             geo_optimization_count: number;
             observation_count: number;
+            campaign_count: number;
         };
         QueryTopicListItem: {
             canonical_question: string;
             intent_type: components["schemas"]["IntentType"];
             variants: string[];
+            /** @default  */
+            description: string;
             /** Format: uuid */
             id: string;
+            is_active: boolean;
             available_actions: ("UPDATE" | "DELETE")[];
             deletion: components["schemas"]["DeletionProjection"] | null;
             /** @constant */
@@ -4572,12 +5401,18 @@ export interface components {
             fact_version_id: string;
             /** Format: uuid */
             platform_profile_id: string;
+            campaign_id?: string | null;
+            /** Format: uuid */
+            query_topic_id: string;
+            brief: components["schemas"]["ContentBriefInput"];
         };
         ContentTaskCreationFactOption: {
             /** Format: uuid */
             id: string;
             version: number;
             classification: components["schemas"]["Confidentiality"];
+            content_restrictions: string | null;
+            approved_claims_summary: string | null;
         };
         ContentTaskCreationProductOption: {
             /** Format: uuid */
@@ -4602,7 +5437,10 @@ export interface components {
         ContentTaskCreationOptions: {
             products: components["schemas"]["ContentTaskCreationProductOption"][];
             platforms: components["schemas"]["ContentTaskCreationPlatformOption"][];
+            topics: components["schemas"]["ContentTaskCreationTopicOption"][];
+            campaigns: components["schemas"]["ContentTaskCreationCampaignOption"][];
             requested_product: components["schemas"]["ContentTaskRequestedProduct"] | null;
+            requested_campaign: components["schemas"]["ContentTaskRequestedCampaign"] | null;
         };
         ContentTask: {
             /** Format: uuid */
@@ -4613,6 +5451,7 @@ export interface components {
             platform_profile_id: string | null;
             /** Format: uuid */
             id: string;
+            campaign_id: string | null;
             /** Format: uuid */
             query_topic_id: string | null;
             /** Format: uuid */
@@ -4672,6 +5511,7 @@ export interface components {
             platform_profile_id: string | null;
             /** Format: uuid */
             id: string;
+            campaign_id: string | null;
             /** Format: uuid */
             query_topic_id: string | null;
             /** Format: uuid */
@@ -4695,6 +5535,8 @@ export interface components {
             identifier: string;
             product: components["schemas"]["ContentTaskProductSummary"];
             platform: components["schemas"]["ContentTaskPlatformSummary"];
+            campaign: components["schemas"]["ContentCampaignSummary"] | null;
+            brief_summary: components["schemas"]["ContentTaskBriefSummary"] | null;
             current_content: components["schemas"]["ContentTaskCurrentContentSummary"] | null;
             latest_generation_status: components["schemas"]["GenerationJobStatus"] | null;
             /** Format: date-time */
@@ -4897,6 +5739,8 @@ export interface components {
             product: components["schemas"]["ContentTaskDetailProduct"];
             platform: components["schemas"]["ContentTaskDetailPlatform"];
             fact: components["schemas"]["ContentTaskDetailFact"];
+            campaign: components["schemas"]["ContentCampaignSummary"] | null;
+            brief: components["schemas"]["ContentBriefSnapshotOut"] | null;
             current_content: components["schemas"]["ContentTaskDetailCurrentContent"] | null;
             generation: components["schemas"]["ContentTaskDetailGeneration"] | null;
             review: components["schemas"]["ContentTaskDetailReview"] | null;
@@ -4974,6 +5818,8 @@ export interface components {
             product: components["schemas"]["ContentEditorProduct"];
             platform: components["schemas"]["ContentTaskDetailPlatform"];
             locked_fact_version: components["schemas"]["ContentEditorFact"];
+            campaign: components["schemas"]["ContentCampaignSummary"] | null;
+            brief: components["schemas"]["ContentBriefSnapshotOut"] | null;
             current_content: components["schemas"]["ContentVersion"] | null;
             comparison_content: components["schemas"]["ContentEditorComparisonContent"] | null;
             diff: components["schemas"]["ContentDiff"] | null;
@@ -5052,6 +5898,9 @@ export interface components {
             name: string;
             revision: number;
             template_markdown: string;
+            /** Format: uuid */
+            version_id?: string | null;
+            version?: number | null;
         };
         OriginalGenerationJobCreate: {
             /** Format: uuid */
@@ -5059,6 +5908,8 @@ export interface components {
             /** Format: uuid */
             platform_prompt_id: string;
             platform_prompt_revision: number;
+            /** Format: uuid */
+            platform_prompt_version_id?: string | null;
         };
         HumanizationJobCreate: {
             /** Format: uuid */
@@ -5102,39 +5953,73 @@ export interface components {
             /** Format: date-time */
             finished_at?: string | null;
         };
+        /** GenerationJobDetail */
         GenerationJobDetail: {
-            /** Format: uuid */
+            /**
+             * Id
+             * Format: uuid
+             */
             id: string;
-            /** Format: uuid */
+            /**
+             * Content Task Id
+             * Format: uuid
+             */
             content_task_id: string;
-            job_type: components["schemas"]["GenerationJobType"];
-            /** Format: uuid */
+            /**
+             * Job Type
+             * @enum {string}
+             */
+            job_type: "GENERATE" | "HUMANIZE";
+            /** Source Content Version Id */
             source_content_version_id: string | null;
-            status: components["schemas"]["GenerationJobStatus"];
-            /** @enum {string} */
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED";
+            /**
+             * Workflow Stage
+             * @enum {string}
+             */
             workflow_stage: "IN_PROGRESS" | "SUCCEEDED" | "RETRYABLE_FAILURE" | "HISTORICAL_FAILURE";
-            /** @enum {string} */
+            /**
+             * Primary Task
+             * @enum {string}
+             */
             primary_task: "VIEW_EXECUTION_PROGRESS" | "VIEW_GENERATED_CONTENT" | "HANDLE_FAILURE" | "VIEW_FAILURE";
+            /** Available Actions */
             available_actions: "RETRY"[];
+            /** Attempt Count */
             attempt_count: number;
-            /** Format: uuid */
+            /** Content Version Id */
             content_version_id?: string | null;
-            /** Format: uuid */
+            /** Retry Of Id */
             retry_of_id?: string | null;
+            /** Error Code */
             error_code?: string | null;
+            /** Error Summary */
             error_summary?: string | null;
+            /** Provider Request Id */
             provider_request_id?: string | null;
+            /** Response Duration Ms */
             response_duration_ms?: number | null;
+            /** Prompt Tokens */
             prompt_tokens?: number | null;
+            /** Completion Tokens */
             completion_tokens?: number | null;
+            /** Total Tokens */
             total_tokens?: number | null;
-            /** Format: date-time */
+            /**
+             * Created At
+             * Format: date-time
+             */
             created_at: string;
-            /** Format: date-time */
+            /** Started At */
             started_at?: string | null;
-            /** Format: date-time */
+            /** Finished At */
             finished_at?: string | null;
-            input_snapshot: components["schemas"]["LegacyGenerationSnapshot"] | components["schemas"]["MarkdownGenerationSnapshotV2"] | components["schemas"]["GenerationSnapshot"] | components["schemas"]["LegacyHumanizationSnapshot"] | components["schemas"]["HumanizationSnapshot"];
+            /** Input Snapshot */
+            input_snapshot: components["schemas"]["LegacyGenerationSnapshot"] | components["schemas"]["MarkdownGenerationSnapshotV2"] | components["schemas"]["GenerationSnapshot"] | components["schemas"]["GenerationSnapshotV4"] | components["schemas"]["LegacyHumanizationSnapshot"] | components["schemas"]["HumanizationSnapshot"];
         };
         LegacyGenerationSnapshot: {
             adapter_name: string;
@@ -5292,10 +6177,16 @@ export interface components {
         };
         /** @enum {string} */
         ContentVersionStatus: "DRAFT" | "PENDING_REVIEW" | "CHANGES_REQUESTED" | "APPROVED" | "SUPERSEDED" | "ABANDONED";
+        /** QualityIssue */
         QualityIssue: {
+            /** Code */
             code: string;
-            /** @enum {string} */
-            severity: "WARNING" | "BLOCKING";
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "BLOCKING" | "WARNING" | "INFORMATION";
+            /** Message */
             message: string;
         };
         ContentVersion: {
@@ -5483,10 +6374,15 @@ export interface components {
             product: components["schemas"]["ProductFactsProductContext"];
             review: components["schemas"]["ProductFactReviewTarget"] | null;
         };
+        /** GenerationTrace */
         GenerationTrace: {
-            /** Format: uuid */
+            /**
+             * Job Id
+             * Format: uuid
+             */
             job_id: string;
-            input_snapshot: components["schemas"]["LegacyGenerationSnapshot"] | components["schemas"]["MarkdownGenerationSnapshotV2"] | components["schemas"]["GenerationSnapshot"];
+            /** Input Snapshot */
+            input_snapshot: components["schemas"]["LegacyGenerationSnapshot"] | components["schemas"]["MarkdownGenerationSnapshotV2"] | components["schemas"]["GenerationSnapshot"] | components["schemas"]["GenerationSnapshotV4"];
         };
         HumanizationTrace: {
             /** Format: uuid */
@@ -5505,16 +6401,42 @@ export interface components {
             available_actions: components["schemas"]["ContentReviewAction"][];
             review_history: components["schemas"]["ReviewRecord"][];
         };
+        /** PublicationPackage */
         PublicationPackage: {
-            /** Format: uuid */
+            /**
+             * Content Version Id
+             * Format: uuid
+             */
             content_version_id: string;
-            /** Format: uuid */
+            /**
+             * Fact Version Id
+             * Format: uuid
+             */
             fact_version_id: string;
+            /** Version */
+            version: number;
+            /** Title */
             title: string;
+            /** Summary */
+            summary: string;
+            /** Body Markdown */
             body_markdown: string;
+            /** Body Html */
             body_html: string;
+            /** Body Text */
             body_text: string;
+            /** Tags */
             tags: string[];
+            /** Recommended Topics */
+            recommended_topics: string[];
+            /** Links */
+            links: components["schemas"]["PublicationPackageLink"][];
+            /** Images */
+            images: components["schemas"]["PublicationPackageImage"][];
+            character_stats: components["schemas"]["PublicationCharacterStats"];
+            /** Platform Checklist */
+            platform_checklist: components["schemas"]["PublicationChecklistItem"][];
+            /** Content Hash */
             content_hash: string;
         };
         PublicationWorkspaceContent: {
@@ -8382,7 +9304,7 @@ export interface components {
         /** GeoPlanDeletion */
         GeoPlanDeletion: {
             /** Blockers */
-            blockers: ("PLAN_NOT_DISABLED" | "ARCHIVED" | "HAS_BATCH_HISTORY" | "SCHEDULE_UNSUPPORTED")[];
+            blockers: ("PLAN_NOT_DISABLED" | "ARCHIVED" | "HAS_BATCH_HISTORY" | "HAS_CONTENT_CAMPAIGN" | "SCHEDULE_UNSUPPORTED")[];
         };
         /** GeoPlanRunEntry */
         GeoPlanRunEntry: {
@@ -9114,8 +10036,11 @@ export interface components {
          */
         GeoCitationObservation: {
             status: components["schemas"]["GeoCitationObservationStatus"];
-            /** Missing Reason */
-            missing_reason?: string | null;
+            /**
+             * Missing Reason
+             * @default null
+             */
+            missing_reason: string | null;
         };
         /** GeoAnswerSnapshotOut */
         GeoAnswerSnapshotOut: {
@@ -12208,6 +13133,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Campaign Id */
+            campaign_id: string | null;
             /** Query Topic Id */
             query_topic_id: string | null;
             /** Source Published Content Issue Id */
@@ -12361,6 +13288,16 @@ export interface components {
             created_at: string;
             /** Approved At */
             approved_at?: string | null;
+            /** Source Reference */
+            source_reference?: string | null;
+            /** Verified At */
+            verified_at?: string | null;
+            /** Applicable Region */
+            applicable_region?: string | null;
+            /** Content Restrictions */
+            content_restrictions?: string | null;
+            /** Approved Claims Summary */
+            approved_claims_summary?: string | null;
         };
         /** FileRecordOut */
         FileRecordOut: {
@@ -12900,6 +13837,11 @@ export interface components {
             /** Available Actions */
             available_actions: ("UPDATE" | "DELETE")[];
             deletion: components["schemas"]["DeletionProjection"] | null;
+            /** Source Owner */
+            source_owner: string | null;
+            /** Next Review At */
+            next_review_at: string | null;
+            facts_freshness: components["schemas"]["ProductFactsFreshness"];
             /** Revision */
             revision: number;
             /**
@@ -13223,10 +14165,17 @@ export interface components {
             /** Variants */
             variants: string[];
             /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
              * Id
              * Format: uuid
              */
             id: string;
+            /** Is Active */
+            is_active: boolean;
             /** Available Actions */
             available_actions: ("UPDATE" | "DELETE")[];
             deletion: components["schemas"]["DeletionProjection"] | null;
@@ -14238,6 +15187,2363 @@ export interface components {
             run_revision: number;
             /** Draft Revision */
             draft_revision: number;
+        };
+        /**
+         * ContentBriefInput
+         * @description 新建普通内容任务时提交并一次性冻结的 Brief。
+         */
+        ContentBriefInput: {
+            /** Target Question */
+            target_question: string;
+            search_intent: components["schemas"]["IntentType"];
+            /** Content Angle */
+            content_angle: string;
+            /**
+             * Target Audience
+             * @default
+             */
+            target_audience: string;
+            /** Must Answer Questions */
+            must_answer_questions?: string[];
+            /** Required Fact Points */
+            required_fact_points?: string[];
+            /** Forbidden Expressions */
+            forbidden_expressions?: string[];
+            /**
+             * Content Format
+             * @default
+             */
+            content_format: string;
+            /**
+             * Cta
+             * @default
+             */
+            cta: string;
+            /** Target Keywords */
+            target_keywords?: string[];
+            success_metrics?: components["schemas"]["ContentBriefSuccessMetrics"];
+        };
+        /**
+         * ContentBriefSnapshotOut
+         * @description 任务创建时冻结的只读 Brief 快照。
+         */
+        ContentBriefSnapshotOut: {
+            /**
+             * Content Task Id
+             * Format: uuid
+             */
+            content_task_id: string;
+            /** Query Topic Id */
+            query_topic_id: string | null;
+            /** Target Question */
+            target_question: string;
+            search_intent: components["schemas"]["IntentType"];
+            /** Content Angle */
+            content_angle: string;
+            /** Target Audience */
+            target_audience: string;
+            /** Must Answer Questions */
+            must_answer_questions: string[];
+            /** Required Fact Points */
+            required_fact_points: string[];
+            /** Forbidden Expressions */
+            forbidden_expressions: string[];
+            /** Content Format */
+            content_format: string;
+            /** Cta */
+            cta: string;
+            /** Target Keywords */
+            target_keywords: string[];
+            success_metrics: components["schemas"]["ContentBriefSuccessMetrics"];
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * ContentBriefSuccessMetrics
+         * @description 内容任务 Brief 冻结的闭合结构化目标。
+         */
+        ContentBriefSuccessMetrics: {
+            /** Target Discovery Rate */
+            target_discovery_rate?: number | null;
+            /** Target Mention Rate */
+            target_mention_rate?: number | null;
+            /** Target Recommendation Rate */
+            target_recommendation_rate?: number | null;
+            /** Target Citation Rate */
+            target_citation_rate?: number | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** ContentCampaignCounts */
+        ContentCampaignCounts: {
+            /** Product Count */
+            product_count: number;
+            /** Topic Count */
+            topic_count: number;
+            /** Platform Count */
+            platform_count: number;
+            /** Monitoring Plan Count */
+            monitoring_plan_count: number;
+            /** Task Count */
+            task_count: number;
+            /** Published Article Count */
+            published_article_count: number;
+        };
+        /** ContentCampaignCreate */
+        ContentCampaignCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Target Audience
+             * @default
+             */
+            target_audience: string;
+            /** Owner Id */
+            owner_id?: string | null;
+            /**
+             * Priority
+             * @default MEDIUM
+             * @enum {string}
+             */
+            priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+            /** Start Date */
+            start_date?: string | null;
+            /** End Date */
+            end_date?: string | null;
+            target_metrics?: components["schemas"]["ContentCampaignTargetMetrics"];
+            /** Budget Amount */
+            budget_amount?: string | null;
+            /** Budget Currency */
+            budget_currency?: string | null;
+            /** Product Ids */
+            product_ids?: string[];
+            /** Query Topic Ids */
+            query_topic_ids?: string[];
+            /** Platform Profile Ids */
+            platform_profile_ids?: string[];
+            /** Monitoring Plan Ids */
+            monitoring_plan_ids?: string[];
+        };
+        /** ContentCampaignDetail */
+        ContentCampaignDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Target Audience */
+            target_audience: string;
+            owner: components["schemas"]["ContentCampaignOwner"];
+            /**
+             * Priority
+             * @enum {string}
+             */
+            priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED";
+            /** Start Date */
+            start_date: string | null;
+            /** End Date */
+            end_date: string | null;
+            target_metrics: components["schemas"]["ContentCampaignTargetMetrics"];
+            /** Budget Amount */
+            budget_amount: string | null;
+            /** Budget Currency */
+            budget_currency: string | null;
+            counts: components["schemas"]["ContentCampaignCounts"];
+            /**
+             * Workflow Stage
+             * @enum {string}
+             */
+            workflow_stage: "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED";
+            /**
+             * Primary Task
+             * @enum {string}
+             */
+            primary_task: "CONFIGURE_CAMPAIGN" | "ACTIVATE_CAMPAIGN" | "MANAGE_CAMPAIGN" | "RESUME_CAMPAIGN" | "ARCHIVE_CAMPAIGN" | "VIEW_HISTORY";
+            /** Available Actions */
+            available_actions: ("UPDATE" | "ACTIVATE" | "PAUSE" | "RESUME" | "COMPLETE" | "ARCHIVE" | "DELETE" | "PLAN_TASKS")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Updated By
+             * Format: uuid
+             */
+            updated_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Products */
+            products: components["schemas"]["ContentCampaignProductItem"][];
+            /** Topics */
+            topics: components["schemas"]["ContentCampaignTopicItem"][];
+            /** Platforms */
+            platforms: components["schemas"]["ContentCampaignPlatformItem"][];
+            /** Monitoring Plans */
+            monitoring_plans: components["schemas"]["ContentCampaignMonitoringPlanItem"][];
+        };
+        /** ContentCampaignListItem */
+        ContentCampaignListItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Target Audience */
+            target_audience: string;
+            owner: components["schemas"]["ContentCampaignOwner"];
+            /**
+             * Priority
+             * @enum {string}
+             */
+            priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED";
+            /** Start Date */
+            start_date: string | null;
+            /** End Date */
+            end_date: string | null;
+            target_metrics: components["schemas"]["ContentCampaignTargetMetrics"];
+            /** Budget Amount */
+            budget_amount: string | null;
+            /** Budget Currency */
+            budget_currency: string | null;
+            counts: components["schemas"]["ContentCampaignCounts"];
+            /**
+             * Workflow Stage
+             * @enum {string}
+             */
+            workflow_stage: "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED";
+            /**
+             * Primary Task
+             * @enum {string}
+             */
+            primary_task: "CONFIGURE_CAMPAIGN" | "ACTIVATE_CAMPAIGN" | "MANAGE_CAMPAIGN" | "RESUME_CAMPAIGN" | "ARCHIVE_CAMPAIGN" | "VIEW_HISTORY";
+            /** Available Actions */
+            available_actions: ("UPDATE" | "ACTIVATE" | "PAUSE" | "RESUME" | "COMPLETE" | "ARCHIVE" | "DELETE" | "PLAN_TASKS")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
+            /** Revision */
+            revision: number;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Updated By
+             * Format: uuid
+             */
+            updated_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ContentCampaignListPage */
+        ContentCampaignListPage: {
+            /** Items */
+            items: components["schemas"]["ContentCampaignListItem"][];
+            /** Page */
+            page: number;
+            /**
+             * Page Size
+             * @enum {integer}
+             */
+            page_size: 10 | 20 | 50;
+            /** Total */
+            total: number;
+        };
+        /** ContentCampaignMonitoringPlanItem */
+        ContentCampaignMonitoringPlanItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "DISABLED" | "ACTIVE" | "PAUSED" | "ARCHIVED";
+        };
+        /** ContentCampaignOptions */
+        ContentCampaignOptions: {
+            /** Owners */
+            owners: components["schemas"]["ContentCampaignOwner"][];
+            /** Products */
+            products: components["schemas"]["ContentCampaignProductItem"][];
+            /** Topics */
+            topics: components["schemas"]["ContentCampaignTopicItem"][];
+            /** Platforms */
+            platforms: components["schemas"]["ContentCampaignPlatformItem"][];
+            /** Monitoring Plans */
+            monitoring_plans: components["schemas"]["ContentCampaignMonitoringPlanItem"][];
+        };
+        /**
+         * ContentCampaignOwner
+         * @description 活动负责人最小展示摘要。
+         */
+        ContentCampaignOwner: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Username */
+            username: string;
+            /** Display Name */
+            display_name: string;
+        };
+        /** ContentCampaignPlatformItem */
+        ContentCampaignPlatformItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Is Active */
+            is_active: boolean;
+            /** Configuration Complete */
+            configuration_complete: boolean;
+        };
+        /** ContentCampaignProductItem */
+        ContentCampaignProductItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Brand */
+            brand: string;
+            /** Part Number */
+            part_number: string;
+            status: components["schemas"]["ProductStatus"];
+            /** Has Approved Fact */
+            has_approved_fact: boolean;
+            facts_freshness: components["schemas"]["ProductFactsFreshness"];
+        };
+        /**
+         * ContentCampaignSummary
+         * @description 嵌入任务、详情与编辑器投影的紧凑活动摘要。
+         */
+        ContentCampaignSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED";
+        };
+        /**
+         * ContentCampaignTargetMetrics
+         * @description 活动闭合结构化目标指标。
+         */
+        ContentCampaignTargetMetrics: {
+            /** Target Content Count */
+            target_content_count?: number | null;
+            /** Target Discovery Rate */
+            target_discovery_rate?: number | null;
+            /** Target Mention Rate */
+            target_mention_rate?: number | null;
+            /** Target Recommendation Rate */
+            target_recommendation_rate?: number | null;
+            /** Target Citation Rate */
+            target_citation_rate?: number | null;
+        };
+        /** ContentCampaignTopicItem */
+        ContentCampaignTopicItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Canonical Question */
+            canonical_question: string;
+            intent_type: components["schemas"]["IntentType"];
+            /** Is Active */
+            is_active: boolean;
+            /** Description */
+            description: string;
+        };
+        /** ContentCampaignUpdate */
+        ContentCampaignUpdate: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Target Audience
+             * @default
+             */
+            target_audience: string;
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /**
+             * Priority
+             * @default MEDIUM
+             * @enum {string}
+             */
+            priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+            /** Start Date */
+            start_date?: string | null;
+            /** End Date */
+            end_date?: string | null;
+            target_metrics?: components["schemas"]["ContentCampaignTargetMetrics"];
+            /** Budget Amount */
+            budget_amount?: string | null;
+            /** Budget Currency */
+            budget_currency?: string | null;
+            /** Product Ids */
+            product_ids?: string[];
+            /** Query Topic Ids */
+            query_topic_ids?: string[];
+            /** Platform Profile Ids */
+            platform_profile_ids?: string[];
+            /** Monitoring Plan Ids */
+            monitoring_plan_ids?: string[];
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /**
+         * ContentTaskBriefSummary
+         * @description 任务列表展示用的紧凑 Brief 摘要。
+         */
+        ContentTaskBriefSummary: {
+            /** Target Question */
+            target_question: string;
+            search_intent: components["schemas"]["IntentType"];
+            /** Content Angle */
+            content_angle: string;
+        };
+        /** ContentTaskCreationCampaignOption */
+        ContentTaskCreationCampaignOption: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED";
+            /** Target Audience */
+            target_audience: string;
+            /** Product Ids */
+            product_ids: string[];
+            /** Query Topic Ids */
+            query_topic_ids: string[];
+            /** Platform Profile Ids */
+            platform_profile_ids: string[];
+        };
+        /** ContentTaskCreationTopicOption */
+        ContentTaskCreationTopicOption: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Canonical Question */
+            canonical_question: string;
+            intent_type: components["schemas"]["IntentType"];
+            /** Description */
+            description: string;
+        };
+        /** ContentTaskRequestedCampaign */
+        ContentTaskRequestedCampaign: {
+            /**
+             * Campaign Id
+             * Format: uuid
+             */
+            campaign_id: string;
+            /** Name */
+            name: string | null;
+            /** Status */
+            status: ("DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED") | null;
+            /**
+             * Eligibility
+             * @enum {string}
+             */
+            eligibility: "ELIGIBLE" | "NOT_FOUND" | "CAMPAIGN_NOT_ELIGIBLE";
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
+        };
+        /**
+         * ContentTaskBatchCellInput
+         * @description 批量规划矩阵中的单个任务单元格定义。
+         */
+        ContentTaskBatchCellInput: {
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /**
+             * Query Topic Id
+             * Format: uuid
+             */
+            query_topic_id: string;
+            /**
+             * Platform Profile Id
+             * Format: uuid
+             */
+            platform_profile_id: string;
+            /** Fact Version Id */
+            fact_version_id?: string | null;
+            brief: components["schemas"]["ContentBriefInput"];
+        };
+        /**
+         * ContentTaskBatchCreateRequest
+         * @description 批量任务原子提交请求；若存在软告警需显式确认 acknowledge_warnings=true。
+         */
+        ContentTaskBatchCreateRequest: {
+            /** Campaign Id */
+            campaign_id?: string | null;
+            /** Cells */
+            cells: components["schemas"]["ContentTaskBatchCellInput"][];
+            /**
+             * Acknowledge Warnings
+             * @default false
+             */
+            acknowledge_warnings: boolean;
+        };
+        /**
+         * ContentTaskBatchCreateResponse
+         * @description 批量任务原子创建结果或幂等重放回执。
+         */
+        ContentTaskBatchCreateResponse: {
+            /**
+             * Batch Request Id
+             * Format: uuid
+             */
+            batch_request_id: string;
+            /** Replayed */
+            replayed: boolean;
+            /** Campaign Id */
+            campaign_id: string | null;
+            /** Created Count */
+            created_count: number;
+            /** Tasks */
+            tasks: components["schemas"]["ContentTaskOut"][];
+        };
+        /**
+         * ContentTaskBatchDiagnostic
+         * @description 单元格级硬阻断或软告警诊断。
+         */
+        ContentTaskBatchDiagnostic: {
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "BLOCKER" | "WARNING";
+            /**
+             * Code
+             * @enum {string}
+             */
+            code: "PRODUCT_NOT_FOUND" | "PRODUCT_INACTIVE" | "NO_APPROVED_FACT" | "FACT_NOT_FOUND" | "FACT_NOT_APPROVED" | "FACT_PRODUCT_MISMATCH" | "PLATFORM_NOT_FOUND" | "PLATFORM_DISABLED" | "QUERY_TOPIC_NOT_FOUND" | "QUERY_TOPIC_INACTIVE" | "CAMPAIGN_NOT_FOUND" | "CAMPAIGN_NOT_ELIGIBLE" | "CAMPAIGN_SCOPE_MISMATCH" | "DUPLICATE_IN_BATCH" | "EXISTING_ACTIVE_TASK" | "RECENT_PUBLISHED_ARTICLE" | "PLATFORM_MISSING_PROMPT" | "FACT_OVERDUE";
+            /** Message */
+            message: string;
+        };
+        /**
+         * ContentTaskBatchPreviewCell
+         * @description 单个矩阵单元格的解析结果与诊断。
+         */
+        ContentTaskBatchPreviewCell: {
+            /** Index */
+            index: number;
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /**
+             * Query Topic Id
+             * Format: uuid
+             */
+            query_topic_id: string;
+            /**
+             * Platform Profile Id
+             * Format: uuid
+             */
+            platform_profile_id: string;
+            /** Resolved Fact Version Id */
+            resolved_fact_version_id: string | null;
+            /** Resolved Fact Version */
+            resolved_fact_version: number | null;
+            /** Content Angle */
+            content_angle: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "READY" | "WARNING" | "BLOCKED";
+            /** Blockers */
+            blockers: components["schemas"]["ContentTaskBatchDiagnostic"][];
+            /** Warnings */
+            warnings: components["schemas"]["ContentTaskBatchDiagnostic"][];
+        };
+        /**
+         * ContentTaskBatchPreviewRequest
+         * @description 只读批量任务预览请求，最多 100 格。
+         */
+        ContentTaskBatchPreviewRequest: {
+            /** Campaign Id */
+            campaign_id?: string | null;
+            /** Cells */
+            cells: components["schemas"]["ContentTaskBatchCellInput"][];
+        };
+        /**
+         * ContentTaskBatchPreviewResponse
+         * @description 批量任务规划只读预览投影。
+         */
+        ContentTaskBatchPreviewResponse: {
+            /** Campaign Id */
+            campaign_id: string | null;
+            /** Total Cells */
+            total_cells: number;
+            /** Creatable Count */
+            creatable_count: number;
+            /** Blocker Cell Count */
+            blocker_cell_count: number;
+            /** Warning Cell Count */
+            warning_cell_count: number;
+            /** Can Commit */
+            can_commit: boolean;
+            /** Requires Warning Acknowledgement */
+            requires_warning_acknowledgement: boolean;
+            /** Cells */
+            cells: components["schemas"]["ContentTaskBatchPreviewCell"][];
+        };
+        /**
+         * ContentRequestChangesHandoffCommand
+         * @description 退回内容修改命令，支持同事务顺手改派内容任务负责人。
+         */
+        ContentRequestChangesHandoffCommand: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Comment */
+            comment: string;
+            /** Next Assignee Id */
+            next_assignee_id?: string | null;
+        };
+        /**
+         * ContentReviewHandoffCommand
+         * @description 提交内容审核命令，支持同事务顺手改派内容任务负责人及显式确认质量警告。
+         */
+        ContentReviewHandoffCommand: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Comment */
+            comment: string;
+            /** Next Assignee Id */
+            next_assignee_id?: string | null;
+            /**
+             * Acknowledge Warnings
+             * @default false
+             */
+            acknowledge_warnings: boolean;
+        };
+        /**
+         * WorkAssigneeOption
+         * @description 可供分派的活跃操作者摘要（工程师与管理员均可读取）。
+         */
+        WorkAssigneeOption: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Username */
+            username: string;
+            /** Display Name */
+            display_name: string;
+            account_type: components["schemas"]["AccountType"];
+        };
+        /** WorkAssigneeOptionList */
+        WorkAssigneeOptionList: {
+            /** Items */
+            items: components["schemas"]["WorkAssigneeOption"][];
+        };
+        /**
+         * WorkAssignmentDetail
+         * @description 统一分派读取与更新返回模型。
+         */
+        WorkAssignmentDetail: {
+            /**
+             * Target Type
+             * @enum {string}
+             */
+            target_type: "FactVersion" | "ContentTask" | "PublicationWork" | "PublishedContentIssue" | "GeoOpportunity";
+            /**
+             * Target Id
+             * Format: uuid
+             */
+            target_id: string;
+            /** Revision */
+            revision: number;
+            /** Editable */
+            editable: boolean;
+            /** Priority Mutable */
+            priority_mutable: boolean;
+            assignment: components["schemas"]["WorkAssignmentOut"];
+        };
+        /**
+         * WorkAssignmentOut
+         * @description 单个业务聚合的当前责任人与 SLA 状态投影。
+         */
+        WorkAssignmentOut: {
+            assignee: components["schemas"]["ActorSummary"] | null;
+            /**
+             * Priority
+             * @enum {string}
+             */
+            priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+            /** Due At */
+            due_at: string | null;
+            /** Blocked Reason */
+            blocked_reason: string | null;
+            assigned_by: components["schemas"]["ActorSummary"] | null;
+            /** Assigned At */
+            assigned_at: string | null;
+            /** Is Overdue */
+            is_overdue: boolean;
+        };
+        /**
+         * WorkAssignmentUpdate
+         * @description 软归属分派与 SLA 更新载荷（受 expected_revision 乐观锁保护）。
+         */
+        WorkAssignmentUpdate: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Assignee Id */
+            assignee_id?: string | null;
+            /** Priority */
+            priority?: ("LOW" | "MEDIUM" | "HIGH" | "CRITICAL") | null;
+            /** Due At */
+            due_at?: string | null;
+            /** Blocked Reason */
+            blocked_reason?: string | null;
+        };
+        /** WorkbenchInbox */
+        WorkbenchInbox: {
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Timezone */
+            timezone: string;
+            /**
+             * Active Bucket
+             * @enum {string}
+             */
+            active_bucket: "assigned_to_me" | "due_today" | "overdue" | "pending_review" | "awaiting_publication" | "awaiting_verification" | "needs_fix" | "high_priority_geo_opportunities";
+            bucket_counts: components["schemas"]["WorkbenchInboxCounts"];
+            /** Items */
+            items: components["schemas"]["WorkbenchInboxItem"][];
+        };
+        /** WorkbenchInboxCounts */
+        WorkbenchInboxCounts: {
+            /** Assigned To Me */
+            assigned_to_me: number;
+            /** Due Today */
+            due_today: number;
+            /** Overdue */
+            overdue: number;
+            /** Pending Review */
+            pending_review: number;
+            /** Awaiting Publication */
+            awaiting_publication: number;
+            /** Awaiting Verification */
+            awaiting_verification: number;
+            /** Needs Fix */
+            needs_fix: number;
+            /** High Priority Geo Opportunities */
+            high_priority_geo_opportunities: number;
+        };
+        /** WorkbenchInboxItem */
+        WorkbenchInboxItem: {
+            /**
+             * Item Kind
+             * @enum {string}
+             */
+            item_kind: "FACT_REVIEW" | "CONTENT_TASK" | "CONTENT_REVIEW" | "PUBLICATION_WORK" | "PUBLICATION_VERIFICATION" | "CONTENT_ISSUE" | "OVERDUE_FACT" | "GEO_OPPORTUNITY";
+            /**
+             * Resource Id
+             * Format: uuid
+             */
+            resource_id: string;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /**
+             * Priority
+             * @enum {string}
+             */
+            priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+            assignee: components["schemas"]["ActorSummary"] | null;
+            /** Due At */
+            due_at: string | null;
+            /** Is Overdue */
+            is_overdue: boolean;
+            /** Blocked Reason */
+            blocked_reason: string | null;
+            /** Buckets */
+            buckets: ("assigned_to_me" | "due_today" | "overdue" | "pending_review" | "awaiting_publication" | "awaiting_verification" | "needs_fix" | "high_priority_geo_opportunities")[];
+            /** Href */
+            href: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * GenerationBriefSnapshot
+         * @description 冻结到 content-markdown-v4 的结构化 Brief 输入摘要（无内部溯源字段）。
+         */
+        GenerationBriefSnapshot: {
+            /**
+             * Content Task Id
+             * Format: uuid
+             */
+            content_task_id: string;
+            /** Query Topic Id */
+            query_topic_id: string | null;
+            /** Target Question */
+            target_question: string;
+            /** Search Intent */
+            search_intent: string;
+            /** Content Angle */
+            content_angle: string;
+            /** Target Audience */
+            target_audience: string;
+            /** Must Answer Questions */
+            must_answer_questions: string[];
+            /** Required Fact Points */
+            required_fact_points: string[];
+            /** Forbidden Expressions */
+            forbidden_expressions: string[];
+            /** Content Format */
+            content_format: string;
+            /** Cta */
+            cta: string;
+            /** Target Keywords */
+            target_keywords: string[];
+        };
+        /**
+         * PlatformPromptVersionSnapshot
+         * @description 冻结不可变 Prompt 版本身份的生成快照元数据。
+         */
+        PlatformPromptVersionSnapshot: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Revision */
+            revision: number;
+            /**
+             * Version Id
+             * Format: uuid
+             */
+            version_id: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * GenerationSnapshotV4
+         * @description Slice 3A：分层组装 Prompt 版本 + ContentBriefSnapshot + PUBLIC 事实的不可变输入。
+         */
+        GenerationSnapshotV4: {
+            /**
+             * Adapter Name
+             * @constant
+             */
+            adapter_name: "openai-compatible-chat-completions";
+            /**
+             * Contract Version
+             * @constant
+             */
+            contract_version: "content-markdown-v4";
+            /** Channel */
+            channel: {
+                [key: string]: unknown;
+            };
+            /** Model */
+            model: {
+                [key: string]: unknown;
+            };
+            /** Platform Profile */
+            platform_profile: {
+                [key: string]: unknown;
+            };
+            platform_prompt: components["schemas"]["PlatformPromptVersionSnapshot"];
+            fact_version: components["schemas"]["GenerationFactSnapshot"];
+            brief: components["schemas"]["GenerationBriefSnapshot"];
+            /** System Message */
+            system_message: string;
+            /** User Message */
+            user_message: string;
+        };
+        /**
+         * PlatformPromptVersionCreate
+         * @description 创建新 Prompt 版本（草稿或立即发布）。
+         */
+        PlatformPromptVersionCreate: {
+            /** Template Markdown */
+            template_markdown: string;
+            /**
+             * Change Summary
+             * @default
+             */
+            change_summary: string;
+            /**
+             * Publish Immediately
+             * @default false
+             */
+            publish_immediately: boolean;
+        };
+        /**
+         * PlatformPromptVersionDraftUpdate
+         * @description 编辑未发布的草稿版本。
+         */
+        PlatformPromptVersionDraftUpdate: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Template Markdown */
+            template_markdown: string;
+            /**
+             * Change Summary
+             * @default
+             */
+            change_summary: string;
+        };
+        /**
+         * PlatformPromptVersionActionCommand
+         * @description 对不可变 Prompt 版本执行发布、归档或恢复。
+         */
+        PlatformPromptVersionActionCommand: {
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /**
+         * PlatformPromptVersionMetrics
+         * @description 基于 PostgreSQL 源事实实时聚合的单版本效果指标。
+         */
+        PlatformPromptVersionMetrics: {
+            /** Generation Job Count */
+            generation_job_count: number;
+            /** Succeeded Job Count */
+            succeeded_job_count: number;
+            /** First Pass Review Total */
+            first_pass_review_total: number;
+            /** First Pass Approved Count */
+            first_pass_approved_count: number;
+            /** First Pass Approval Rate */
+            first_pass_approval_rate?: number | null;
+            /** Avg Human Revisions */
+            avg_human_revisions?: number | null;
+            /** Published Article Count */
+            published_article_count: number;
+            /** Geo Observation Count */
+            geo_observation_count: number;
+            /** Geo Mention Rate */
+            geo_mention_rate?: number | null;
+            /** Geo Citation Rate */
+            geo_citation_rate?: number | null;
+        };
+        /**
+         * PlatformPromptVersionOut
+         * @description 单个不可变 Prompt 版本详情与实时指标。
+         */
+        PlatformPromptVersionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Prompt Id
+             * Format: uuid
+             */
+            prompt_id: string;
+            /** Version */
+            version: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+            /** Template Markdown */
+            template_markdown: string;
+            /** Template Sha256 */
+            template_sha256: string;
+            /** Change Summary */
+            change_summary: string;
+            /** Revision */
+            revision: number;
+            /** Published At */
+            published_at: string | null;
+            /** Published By */
+            published_by: string | null;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Bound Platform Count */
+            bound_platform_count: number;
+            /** Bound Platforms */
+            bound_platforms: components["schemas"]["PlatformPromptBoundPlatform"][];
+            /** Available Actions */
+            available_actions: ("UPDATE_DRAFT" | "PUBLISH" | "ARCHIVE" | "RESTORE")[];
+            metrics: components["schemas"]["PlatformPromptVersionMetrics"];
+        };
+        /**
+         * PlatformPromptVersionList
+         * @description 指定 Prompt 主模板的全部版本与按版本聚合指标。
+         */
+        PlatformPromptVersionList: {
+            /**
+             * Prompt Id
+             * Format: uuid
+             */
+            prompt_id: string;
+            /** Prompt Name */
+            prompt_name: string;
+            /** Latest Published Version Id */
+            latest_published_version_id: string | null;
+            /** Items */
+            items: components["schemas"]["PlatformPromptVersionOut"][];
+        };
+        /**
+         * PlatformPromptVersionOption
+         * @description 供平台切换或回滚绑定的已发布 Prompt 版本选项。
+         */
+        PlatformPromptVersionOption: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Prompt Id
+             * Format: uuid
+             */
+            prompt_id: string;
+            /** Prompt Name */
+            prompt_name: string;
+            /** Version */
+            version: number;
+            /** Change Summary */
+            change_summary: string;
+            /** Published At */
+            published_at: string | null;
+            /** Is Current */
+            is_current: boolean;
+        };
+        /**
+         * PlatformPromptBindingOut
+         * @description 单个平台当前的 Prompt 版本绑定与可回滚选项。
+         */
+        PlatformPromptBindingOut: {
+            /**
+             * Platform Profile Id
+             * Format: uuid
+             */
+            platform_profile_id: string;
+            /** Platform Revision */
+            platform_revision: number;
+            /** Platform Prompt Id */
+            platform_prompt_id: string | null;
+            /** Platform Prompt Name */
+            platform_prompt_name: string | null;
+            bound_version: components["schemas"]["PlatformPromptVersionOption"] | null;
+            /** Available Versions */
+            available_versions: components["schemas"]["PlatformPromptVersionOption"][];
+        };
+        /**
+         * PlatformPromptVersionBindCommand
+         * @description 显式切换或回滚平台绑定的已发布 Prompt 版本。
+         */
+        PlatformPromptVersionBindCommand: {
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * Platform Prompt Version Id
+             * Format: uuid
+             */
+            platform_prompt_version_id: string;
+        };
+        /**
+         * SimilarContentItem
+         * @description 与当前内容高度相似的同 Campaign 或同产品历史内容摘要。
+         */
+        SimilarContentItem: {
+            /**
+             * Content Version Id
+             * Format: uuid
+             */
+            content_version_id: string;
+            /**
+             * Content Task Id
+             * Format: uuid
+             */
+            content_task_id: string;
+            /** Task Identifier */
+            task_identifier: string;
+            /** Platform Name */
+            platform_name: string;
+            /** Campaign Id */
+            campaign_id: string | null;
+            /** Same Campaign */
+            same_campaign: boolean;
+            /** Title */
+            title: string;
+            /** Status */
+            status: string;
+            /** Similarity */
+            similarity: number;
+            /** Title Similarity */
+            title_similarity: number;
+            /** Shared Paragraph Count */
+            shared_paragraph_count: number;
+        };
+        /**
+         * DuplicateTitleItem
+         * @description 高度重复的标题条目。
+         */
+        DuplicateTitleItem: {
+            /**
+             * Content Version Id
+             * Format: uuid
+             */
+            content_version_id: string;
+            /**
+             * Content Task Id
+             * Format: uuid
+             */
+            content_task_id: string;
+            /** Task Identifier */
+            task_identifier: string;
+            /** Platform Name */
+            platform_name: string;
+            /** Same Campaign */
+            same_campaign: boolean;
+            /** Title */
+            title: string;
+            /** Similarity */
+            similarity: number;
+        };
+        /**
+         * DuplicateParagraphItem
+         * @description 跨内容重复或近似复用的段落明细。
+         */
+        DuplicateParagraphItem: {
+            /**
+             * Target Version Id
+             * Format: uuid
+             */
+            target_version_id: string;
+            /** Target Task Identifier */
+            target_task_identifier: string;
+            /** Target Platform Name */
+            target_platform_name: string;
+            /** Target Title */
+            target_title: string;
+            /** Same Campaign */
+            same_campaign: boolean;
+            /** Source Excerpt */
+            source_excerpt: string;
+            /** Matched Excerpt */
+            matched_excerpt: string;
+            /** Similarity */
+            similarity: number;
+        };
+        /**
+         * ContentDuplicationAnalysisOut
+         * @description 内容版本重复度分析与差异化建议读模型。
+         */
+        ContentDuplicationAnalysisOut: {
+            /**
+             * Content Version Id
+             * Format: uuid
+             */
+            content_version_id: string;
+            /**
+             * Content Task Id
+             * Format: uuid
+             */
+            content_task_id: string;
+            /** Campaign Id */
+            campaign_id: string | null;
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /** Compared Campaign Count */
+            compared_campaign_count: number;
+            /** Compared Product Count */
+            compared_product_count: number;
+            /** Same Campaign Max Similarity */
+            same_campaign_max_similarity: number;
+            /** Same Product Max Similarity */
+            same_product_max_similarity: number;
+            /** Similar Contents */
+            similar_contents: components["schemas"]["SimilarContentItem"][];
+            /** Duplicate Titles */
+            duplicate_titles: components["schemas"]["DuplicateTitleItem"][];
+            /** Duplicate Paragraphs */
+            duplicate_paragraphs: components["schemas"]["DuplicateParagraphItem"][];
+            /** Differentiation Suggestions */
+            differentiation_suggestions: string[];
+        };
+        /**
+         * SemanticQualityCheckCreate
+         * @description 触发可选 Layer 2 异步 AI 语义质量检查请求体。
+         */
+        SemanticQualityCheckCreate: {
+            /**
+             * Ai Model Id
+             * Format: uuid
+             */
+            ai_model_id: string;
+        };
+        /**
+         * SemanticQualityFinding
+         * @description AI 语义质量检查输出的单条结构化发现。
+         */
+        SemanticQualityFinding: {
+            /** Code */
+            code: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "BLOCKING" | "WARNING" | "INFORMATION";
+            /** Message */
+            message: string;
+            /**
+             * Suggestion
+             * @default
+             */
+            suggestion: string;
+        };
+        /**
+         * SemanticQualityCheckJobOut
+         * @description Layer 2 异步 AI 语义质量检查作业读模型。
+         */
+        SemanticQualityCheckJobOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Content Version Id
+             * Format: uuid
+             */
+            content_version_id: string;
+            /**
+             * Content Task Id
+             * Format: uuid
+             */
+            content_task_id: string;
+            /** Content Revision */
+            content_revision?: number | null;
+            /** Content Hash */
+            content_hash?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED";
+            /** Ai Model Id */
+            ai_model_id: string | null;
+            /** Adapter Name */
+            adapter_name: string;
+            /** Findings */
+            findings: components["schemas"]["SemanticQualityFinding"][];
+            /** Differentiation Suggestions */
+            differentiation_suggestions: string[];
+            /** Prompt Tokens */
+            prompt_tokens: number | null;
+            /** Completion Tokens */
+            completion_tokens: number | null;
+            /** Total Tokens */
+            total_tokens: number | null;
+            /** Response Duration Ms */
+            response_duration_ms: number | null;
+            /** Error Code */
+            error_code: string | null;
+            /** Error Summary */
+            error_summary: string | null;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+        };
+        /**
+         * SemanticQualityCheckJobList
+         * @description 目标内容版本的异步语义质量检查历史列表及当前可用模型选项。
+         */
+        SemanticQualityCheckJobList: {
+            /**
+             * Content Version Id
+             * Format: uuid
+             */
+            content_version_id: string;
+            /** Items */
+            items: components["schemas"]["SemanticQualityCheckJobOut"][];
+            /** Available Models */
+            available_models?: components["schemas"]["GenerationOptionModel"][];
+        };
+        /**
+         * PublicationPackageLink
+         * @description 从 Markdown 正文实时提取的链接与锚文本检查项。
+         */
+        PublicationPackageLink: {
+            /** Text */
+            text: string;
+            /** Href */
+            href: string;
+            /** Is Valid */
+            is_valid: boolean;
+        };
+        /**
+         * PublicationPackageImage
+         * @description 从 Markdown 正文实时提取的图片与 Alt 文本检查项。
+         */
+        PublicationPackageImage: {
+            /** Alt */
+            alt: string;
+            /** Src */
+            src: string;
+            /** Missing Alt */
+            missing_alt: boolean;
+            /** Is Valid Src */
+            is_valid_src: boolean;
+        };
+        /**
+         * PublicationCharacterStats
+         * @description 基于 Markdown 与派生纯文本实时计算的字符数与阅读时长统计。
+         */
+        PublicationCharacterStats: {
+            /** Total Chars */
+            total_chars: number;
+            /** Non Whitespace Chars */
+            non_whitespace_chars: number;
+            /** Plain Text Chars */
+            plain_text_chars: number;
+            /** Paragraph Count */
+            paragraph_count: number;
+            /** Heading Count */
+            heading_count: number;
+            /** Estimated Read Minutes */
+            estimated_read_minutes: number;
+        };
+        /**
+         * PublicationChecklistItem
+         * @description 发布包与发布前检查单项结论。
+         */
+        PublicationChecklistItem: {
+            /** Code */
+            code: string;
+            /** Label */
+            label: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PASS" | "WARNING" | "BLOCKING";
+            /** Detail */
+            detail: string;
+        };
+        /**
+         * PublicationPreRegisterCheckRequest
+         * @description 登记发布结果前执行实时合规与完整性核对的输入载荷。
+         */
+        PublicationPreRegisterCheckRequest: {
+            /**
+             * Actual Title
+             * @default
+             */
+            actual_title: string;
+            /**
+             * Final Url
+             * @default
+             */
+            final_url: string;
+            /** Published At */
+            published_at?: string | null;
+            /**
+             * Comment
+             * @default
+             */
+            comment: string;
+        };
+        /**
+         * PublicationPreRegisterCheckOut
+         * @description 发布前检查聚合结论（含阻断/警告计数与逐项明细）。
+         */
+        PublicationPreRegisterCheckOut: {
+            /**
+             * Publication Work Id
+             * Format: uuid
+             */
+            publication_work_id: string;
+            /**
+             * Content Version Id
+             * Format: uuid
+             */
+            content_version_id: string;
+            /** Can Register */
+            can_register: boolean;
+            /** Blocking Count */
+            blocking_count: number;
+            /** Warning Count */
+            warning_count: number;
+            /** Checks */
+            checks: components["schemas"]["PublicationChecklistItem"][];
+        };
+        /**
+         * PlatformHealthCheckSettingsOut
+         * @description 单个平台的公开页面健康检查配置（含乐观并发修订号）。
+         */
+        PlatformHealthCheckSettingsOut: {
+            /**
+             * Platform Profile Id
+             * Format: uuid
+             */
+            platform_profile_id: string;
+            /** Health Check Enabled */
+            health_check_enabled: boolean;
+            /** Health Check Interval Hours */
+            health_check_interval_hours: number;
+            /** Health Check Anomaly Threshold */
+            health_check_anomaly_threshold: number;
+            /** Revision */
+            revision: number;
+        };
+        /**
+         * PlatformHealthCheckSettingsUpdate
+         * @description 管理员按平台更新公开页面健康检查配置的命令载荷。
+         */
+        PlatformHealthCheckSettingsUpdate: {
+            /** Health Check Enabled */
+            health_check_enabled: boolean;
+            /** Health Check Interval Hours */
+            health_check_interval_hours: number;
+            /** Health Check Anomaly Threshold */
+            health_check_anomaly_threshold: number;
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /**
+         * PublishedArticleHealthCheckOut
+         * @description 单次不可变公开页面健康检查记录。
+         */
+        PublishedArticleHealthCheckOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Published Article Id
+             * Format: uuid
+             */
+            published_article_id: string;
+            /** Checked Url */
+            checked_url: string;
+            /** Final Url */
+            final_url: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "HEALTHY" | "FETCH_BLOCKED" | "CONFIRMED_ANOMALY";
+            /** Http Status */
+            http_status?: number | null;
+            /** Redirect Count */
+            redirect_count: number;
+            /** Redirected */
+            redirected: boolean;
+            /** Page Title */
+            page_title: string | null;
+            /** Title Matches */
+            title_matches: boolean | null;
+            /** Body Similarity */
+            body_similarity?: number | null;
+            /** Has Noindex */
+            has_noindex: boolean;
+            /** Canonical Url */
+            canonical_url: string | null;
+            /** Canonical Matches */
+            canonical_matches: boolean | null;
+            /** Anomaly Reasons */
+            anomaly_reasons: string[];
+            /** Fetch Error Code */
+            fetch_error_code: string | null;
+            /** Auto Opened Issue Id */
+            auto_opened_issue_id: string | null;
+            /** Triggered By */
+            triggered_by: string | null;
+            /**
+             * Checked At
+             * Format: date-time
+             */
+            checked_at: string;
+        };
+        /**
+         * PublishedArticleHealthCheckList
+         * @description 发布成果的公开页面健康检查历史与当前连续异常统计。
+         */
+        PublishedArticleHealthCheckList: {
+            /**
+             * Published Article Id
+             * Format: uuid
+             */
+            published_article_id: string;
+            /** Platform Health Check Enabled */
+            platform_health_check_enabled: boolean;
+            /** Anomaly Threshold */
+            anomaly_threshold: number;
+            /** Consecutive Confirmed Anomalies */
+            consecutive_confirmed_anomalies: number;
+            /** Latest Status */
+            latest_status: ("HEALTHY" | "FETCH_BLOCKED" | "CONFIRMED_ANOMALY") | null;
+            /** Items */
+            items: components["schemas"]["PublishedArticleHealthCheckOut"][];
+        };
+        /**
+         * PublicPageHealthCheckRunDueRequest
+         * @description 管理员手动触发到期公开页面健康检查巡检的批量上限。
+         */
+        PublicPageHealthCheckRunDueRequest: {
+            /**
+             * Limit
+             * @default 20
+             */
+            limit: number;
+        };
+        /**
+         * PublicPageHealthCheckBatchOut
+         * @description 一次到期巡检批次的汇总统计与逐篇结果。
+         */
+        PublicPageHealthCheckBatchOut: {
+            /** Checked Count */
+            checked_count: number;
+            /** Healthy Count */
+            healthy_count: number;
+            /** Fetch Blocked Count */
+            fetch_blocked_count: number;
+            /** Confirmed Anomaly Count */
+            confirmed_anomaly_count: number;
+            /** Auto Opened Issue Count */
+            auto_opened_issue_count: number;
+            /** Items */
+            items: components["schemas"]["PublishedArticleHealthCheckOut"][];
+        };
+        /**
+         * GeoInterventionTargetMetrics
+         * @description 闭合目标指标定义（均按 0..1 比率表达，避免无界键）。
+         */
+        GeoInterventionTargetMetrics: {
+            /** Target Discovery Rate */
+            target_discovery_rate?: number | null;
+            /** Target Mention Rate */
+            target_mention_rate?: number | null;
+            /** Target Recommendation Rate */
+            target_recommendation_rate?: number | null;
+            /** Target Citation Rate */
+            target_citation_rate?: number | null;
+            /** Target Accuracy Rate */
+            target_accuracy_rate?: number | null;
+        };
+        /**
+         * GeoInterventionCreate
+         * @description 创建 GEO 干预归因记录的命令载荷。
+         */
+        GeoInterventionCreate: {
+            /**
+             * Opportunity Id
+             * Format: uuid
+             */
+            opportunity_id: string;
+            /** Campaign Id */
+            campaign_id?: string | null;
+            /** Title */
+            title: string;
+            /** Hypothesis */
+            hypothesis: string;
+            /**
+             * Planned Action Type
+             * @enum {string}
+             */
+            planned_action_type: "FACT_REVISION" | "CONTENT_TASK" | "PUBLICATION_REPAIR" | "ADDITIONAL_MONITORING" | "OTHER";
+            target_metrics?: components["schemas"]["GeoInterventionTargetMetrics"];
+            /** Baseline Id */
+            baseline_id?: string | null;
+            /** Assignee Id */
+            assignee_id?: string | null;
+            /** Intervened At */
+            intervened_at?: string | null;
+            /** Retest Window Start */
+            retest_window_start?: string | null;
+            /** Retest Window End */
+            retest_window_end?: string | null;
+        };
+        /**
+         * GeoInterventionUpdate
+         * @description 更新非终态 GEO 干预的命令载荷（CAS expected_revision）。
+         */
+        GeoInterventionUpdate: {
+            /** Campaign Id */
+            campaign_id?: string | null;
+            /** Title */
+            title: string;
+            /** Hypothesis */
+            hypothesis: string;
+            /**
+             * Planned Action Type
+             * @enum {string}
+             */
+            planned_action_type: "FACT_REVISION" | "CONTENT_TASK" | "PUBLICATION_REPAIR" | "ADDITIONAL_MONITORING" | "OTHER";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PLANNED" | "ACTIVE" | "EVALUATING";
+            target_metrics?: components["schemas"]["GeoInterventionTargetMetrics"];
+            /** Baseline Id */
+            baseline_id?: string | null;
+            /** Decision Id */
+            decision_id?: string | null;
+            /** Assignee Id */
+            assignee_id?: string | null;
+            /** Intervened At */
+            intervened_at?: string | null;
+            /** Retest Window Start */
+            retest_window_start?: string | null;
+            /** Retest Window End */
+            retest_window_end?: string | null;
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /**
+         * GeoInterventionConcludeRequest
+         * @description 结案 GEO 干预并冻结归因结论（CAS expected_revision）。
+         */
+        GeoInterventionConcludeRequest: {
+            /**
+             * Outcome Verdict
+             * @enum {string}
+             */
+            outcome_verdict: "TARGET_MET" | "PARTIAL_IMPROVEMENT" | "NO_IMPROVEMENT" | "INSUFFICIENT_DATA";
+            /** Conclusion Note */
+            conclusion_note: string;
+            /** Decision Id */
+            decision_id?: string | null;
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /**
+         * GeoInterventionCancelRequest
+         * @description 取消非终态 GEO 干预（CAS expected_revision）。
+         */
+        GeoInterventionCancelRequest: {
+            /** Reason */
+            reason: string;
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /**
+         * GeoInterventionLinkedActionOut
+         * @description 由对应 GeoOpportunity 派生的下游行动摘要。
+         */
+        GeoInterventionLinkedActionOut: {
+            /**
+             * Action Id
+             * Format: uuid
+             */
+            action_id: string;
+            /** Action Type */
+            action_type: string;
+            /** Target Type */
+            target_type: string;
+            /** Target Id */
+            target_id: string | null;
+            /** Status Snapshot */
+            status_snapshot: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * GeoInterventionMetricDeltaOut
+         * @description 基线与复测窗口间的单项指标变化与达标状态。
+         */
+        GeoInterventionMetricDeltaOut: {
+            /** Metric Code */
+            metric_code: string;
+            /** Baseline Value */
+            baseline_value: number | null;
+            /** Retest Value */
+            retest_value: number | null;
+            /** Delta */
+            delta: number | null;
+            /** Target Value */
+            target_value: number | null;
+            /** Target Met */
+            target_met: boolean | null;
+        };
+        /**
+         * GeoInterventionAttributionOut
+         * @description 显式非强因果归因证据摘要（延续 R6 可比性与样本完整性口径）。
+         */
+        GeoInterventionAttributionOut: {
+            /**
+             * Causal Claim
+             * @default NOT_ESTABLISHED
+             * @constant
+             */
+            causal_claim: "NOT_ESTABLISHED";
+            /** Comparable */
+            comparable: boolean | null;
+            /** Comparability Reasons */
+            comparability_reasons: string[];
+            /** Baseline Batch Id */
+            baseline_batch_id: string | null;
+            /** Retest Batch Id */
+            retest_batch_id: string | null;
+            /** Baseline Sample Count */
+            baseline_sample_count: number;
+            /** Baseline Completed Run Count */
+            baseline_completed_run_count: number;
+            /** Retest Sample Count */
+            retest_sample_count: number;
+            /** Retest Completed Run Count */
+            retest_completed_run_count: number;
+            /** Missing Data Rate */
+            missing_data_rate?: number | null;
+            /** Metric Deltas */
+            metric_deltas: components["schemas"]["GeoInterventionMetricDeltaOut"][];
+            /** Linked Actions */
+            linked_actions: components["schemas"]["GeoInterventionLinkedActionOut"][];
+            /** Linked Content Task Ids */
+            linked_content_task_ids: string[];
+            /** Linked Published Article Ids */
+            linked_published_article_ids: string[];
+        };
+        /**
+         * GeoInterventionOut
+         * @description GEO 干预完整视图（含关联机会/活动身份与只读归因证据）。
+         */
+        GeoInterventionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Opportunity Id
+             * Format: uuid
+             */
+            opportunity_id: string;
+            /** Opportunity Rule Code */
+            opportunity_rule_code: string;
+            /** Opportunity Status */
+            opportunity_status: string;
+            /** Campaign Id */
+            campaign_id: string | null;
+            /** Campaign Name */
+            campaign_name: string | null;
+            /** Title */
+            title: string;
+            /** Hypothesis */
+            hypothesis: string;
+            /**
+             * Planned Action Type
+             * @enum {string}
+             */
+            planned_action_type: "FACT_REVISION" | "CONTENT_TASK" | "PUBLICATION_REPAIR" | "ADDITIONAL_MONITORING" | "OTHER";
+            target_metrics: components["schemas"]["GeoInterventionTargetMetrics"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PLANNED" | "ACTIVE" | "EVALUATING" | "CONCLUDED" | "CANCELLED";
+            /** Outcome Verdict */
+            outcome_verdict: ("TARGET_MET" | "PARTIAL_IMPROVEMENT" | "NO_IMPROVEMENT" | "INSUFFICIENT_DATA") | null;
+            /**
+             * Causal Claim
+             * @default NOT_ESTABLISHED
+             * @constant
+             */
+            causal_claim: "NOT_ESTABLISHED";
+            /** Baseline Id */
+            baseline_id: string | null;
+            /** Decision Id */
+            decision_id: string | null;
+            /** Assignee Id */
+            assignee_id: string | null;
+            /** Assignee Display Name */
+            assignee_display_name: string | null;
+            /** Intervened At */
+            intervened_at: string | null;
+            /** Retest Window Start */
+            retest_window_start: string | null;
+            /** Retest Window End */
+            retest_window_end: string | null;
+            /** Concluded At */
+            concluded_at: string | null;
+            /** Conclusion Note */
+            conclusion_note: string;
+            /** Revision */
+            revision: number;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Updated By
+             * Format: uuid
+             */
+            updated_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Available Actions */
+            available_actions: ("UPDATE" | "CONCLUDE" | "CANCEL")[];
+            attribution: components["schemas"]["GeoInterventionAttributionOut"];
+        };
+        /**
+         * GeoInterventionListPage
+         * @description GEO 干预分页列表。
+         */
+        GeoInterventionListPage: {
+            /** Items */
+            items: components["schemas"]["GeoInterventionOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
+        /**
+         * AIModelPricingOut
+         * @description AI 模型每百万 Token 价格配置视图。
+         */
+        AIModelPricingOut: {
+            /**
+             * Model Id
+             * Format: uuid
+             */
+            model_id: string;
+            /**
+             * Channel Id
+             * Format: uuid
+             */
+            channel_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Provider Model Id */
+            provider_model_id: string;
+            /** Input Price Per 1M Tokens */
+            input_price_per_1m_tokens?: string | null;
+            /** Output Price Per 1M Tokens */
+            output_price_per_1m_tokens?: string | null;
+            /** Price Currency */
+            price_currency?: string | null;
+            /** Pricing Configured */
+            pricing_configured: boolean;
+            /** Revision */
+            revision: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * AIModelPricingUpdate
+         * @description 更新或清空 AI 模型定价配置（三字段同时为空或同时非空）。
+         */
+        AIModelPricingUpdate: {
+            /** Input Price Per 1M Tokens */
+            input_price_per_1m_tokens?: string | null;
+            /** Output Price Per 1M Tokens */
+            output_price_per_1m_tokens?: string | null;
+            /** Price Currency */
+            price_currency?: string | null;
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /**
+         * OperatingCostEntryCreate
+         * @description 新增一条运营费用台账记录。
+         */
+        OperatingCostEntryCreate: {
+            /** Campaign Id */
+            campaign_id?: string | null;
+            /** Geo Intervention Id */
+            geo_intervention_id?: string | null;
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "LABOR" | "EXTERNAL_PLACEMENT" | "OTHER";
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Incurred On
+             * Format: date
+             */
+            incurred_on: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /**
+         * OperatingCostEntryVoidRequest
+         * @description 一次性作废运营费用台账记录。
+         */
+        OperatingCostEntryVoidRequest: {
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * OperatingCostEntryOut
+         * @description 运营费用台账明细响应。
+         */
+        OperatingCostEntryOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Campaign Id */
+            campaign_id?: string | null;
+            /** Campaign Name */
+            campaign_name?: string | null;
+            /** Geo Intervention Id */
+            geo_intervention_id?: string | null;
+            /** Geo Intervention Title */
+            geo_intervention_title?: string | null;
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "LABOR" | "EXTERNAL_PLACEMENT" | "OTHER";
+            /** Amount */
+            amount: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Incurred On
+             * Format: date
+             */
+            incurred_on: string;
+            /** Note */
+            note: string;
+            /** Is Voided */
+            is_voided: boolean;
+            /** Voided At */
+            voided_at?: string | null;
+            /** Voided By */
+            voided_by?: string | null;
+            /** Voided By Name */
+            voided_by_name?: string | null;
+            /** Void Reason */
+            void_reason?: string | null;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /** Created By Name */
+            created_by_name?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * OperatingCostEntryListPage
+         * @description 运营费用台账分页列表。
+         */
+        OperatingCostEntryListPage: {
+            /** Items */
+            items: components["schemas"]["OperatingCostEntryOut"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+        };
+        /**
+         * ProductionMetricsOut
+         * @description 内容生产漏斗、审核一次通过率与周期耗时指标。
+         */
+        ProductionMetricsOut: {
+            /** Task Count */
+            task_count: number;
+            /** Approved Task Count */
+            approved_task_count: number;
+            /** Published Article Count */
+            published_article_count: number;
+            /** First Pass Review Rate */
+            first_pass_review_rate?: number | null;
+            /** Avg Draft To Approval Hours */
+            avg_draft_to_approval_hours?: number | null;
+            /** Avg Approval To Publish Hours */
+            avg_approval_to_publish_hours?: number | null;
+            /** Avg Publish To Verify Hours */
+            avg_publish_to_verify_hours?: number | null;
+            /** Near Duplicate Version Count */
+            near_duplicate_version_count: number;
+            /** Overdue Fact Product Count */
+            overdue_fact_product_count: number;
+        };
+        /**
+         * PublishingHealthOut
+         * @description 发布成果公开页面健康分布与发布后问题处置效率。
+         */
+        PublishingHealthOut: {
+            /** Published Article Count */
+            published_article_count: number;
+            /** Healthy Articles */
+            healthy_articles: number;
+            /** Fetch Blocked Articles */
+            fetch_blocked_articles: number;
+            /** Confirmed Anomaly Articles */
+            confirmed_anomaly_articles: number;
+            /** Unchecked Articles */
+            unchecked_articles: number;
+            /** Open Issues */
+            open_issues: number;
+            /** Resolved Issues */
+            resolved_issues: number;
+            /** Avg Issue Resolution Hours */
+            avg_issue_resolution_hours?: number | null;
+        };
+        /**
+         * GeoAttributionSummaryOut
+         * @description GEO 观测效果与干预闭环摘要（显式非强因果）。
+         */
+        GeoAttributionSummaryOut: {
+            /**
+             * Causal Claim
+             * @default NOT_ESTABLISHED
+             * @constant
+             */
+            causal_claim: "NOT_ESTABLISHED";
+            /** Sample Count */
+            sample_count: number;
+            /** Completed Run Count */
+            completed_run_count: number;
+            /** Missing Data Rate */
+            missing_data_rate?: number | null;
+            /** Mention Rate */
+            mention_rate?: number | null;
+            /** Recommendation Rate */
+            recommendation_rate?: number | null;
+            /** Citation Rate */
+            citation_rate?: number | null;
+            /** Accuracy Rate */
+            accuracy_rate?: number | null;
+            /** Open Opportunity Count */
+            open_opportunity_count: number;
+            /** Resolved Opportunity Count */
+            resolved_opportunity_count: number;
+            /** Linked Intervention Count */
+            linked_intervention_count: number;
+            /** Concluded Intervention Count */
+            concluded_intervention_count: number;
+        };
+        /**
+         * CostSampleCoverageOut
+         * @description AI 与 GEO 样本单价覆盖率（显式披露缺失定价比例，严禁假 0）。
+         */
+        CostSampleCoverageOut: {
+            /** Total Ai Jobs */
+            total_ai_jobs: number;
+            /** Priced Ai Jobs */
+            priced_ai_jobs: number;
+            /** Unpriced Ai Jobs */
+            unpriced_ai_jobs: number;
+            /** Missing Price Rate */
+            missing_price_rate?: number | null;
+            /** Total Geo Runs */
+            total_geo_runs: number;
+            /** Priced Geo Runs */
+            priced_geo_runs: number;
+            /** Missing Geo Price Rate */
+            missing_geo_price_rate?: number | null;
+        };
+        /**
+         * CurrencyCostBreakdownOut
+         * @description 按单一币种分组汇总的 AI 与人工/外采运营成本明细（严禁跨币种混加）。
+         */
+        CurrencyCostBreakdownOut: {
+            /** Currency */
+            currency: string;
+            /** Ai Generation Cost */
+            ai_generation_cost: string;
+            /** Ai Semantic Check Cost */
+            ai_semantic_check_cost: string;
+            /** Geo Collection Cost */
+            geo_collection_cost: string;
+            /** Labor Cost */
+            labor_cost: string;
+            /** External Placement Cost */
+            external_placement_cost: string;
+            /** Other Operating Cost */
+            other_operating_cost: string;
+            /** Total Ai Cost */
+            total_ai_cost: string;
+            /** Total Operating Cost */
+            total_operating_cost: string;
+            /** Total Cost */
+            total_cost: string;
+        };
+        /**
+         * UnitEconomicsByCurrencyOut
+         * @description 按单一币种计算的单位内容与单位 GEO 样本经济学指标（分母为 0 时为 null）。
+         */
+        UnitEconomicsByCurrencyOut: {
+            /** Currency */
+            currency: string;
+            /** Cost Per Approved Content */
+            cost_per_approved_content?: string | null;
+            /** Cost Per Published Article */
+            cost_per_published_article?: string | null;
+            /** Cost Per Geo Sample */
+            cost_per_geo_sample?: string | null;
+            /** Cost Per Resolved Opportunity */
+            cost_per_resolved_opportunity?: string | null;
+        };
+        /**
+         * CampaignAttributionDashboardOut
+         * @description 单个内容活动的实时归因、生产效率、页面健康与成本看板。
+         */
+        CampaignAttributionDashboardOut: {
+            /**
+             * Campaign Id
+             * Format: uuid
+             */
+            campaign_id: string;
+            /** Campaign Name */
+            campaign_name: string;
+            /** Campaign Status */
+            campaign_status: string;
+            /**
+             * Causal Claim
+             * @default NOT_ESTABLISHED
+             * @constant
+             */
+            causal_claim: "NOT_ESTABLISHED";
+            /** Window Days */
+            window_days: number;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            production: components["schemas"]["ProductionMetricsOut"];
+            publishing_health: components["schemas"]["PublishingHealthOut"];
+            geo_attribution: components["schemas"]["GeoAttributionSummaryOut"];
+            cost_coverage: components["schemas"]["CostSampleCoverageOut"];
+            /** Costs By Currency */
+            costs_by_currency: components["schemas"]["CurrencyCostBreakdownOut"][];
+            /** Unit Economics By Currency */
+            unit_economics_by_currency: components["schemas"]["UnitEconomicsByCurrencyOut"][];
+        };
+        /**
+         * ContentDecayAlertItem
+         * @description 内容老化与 GEO 衰退可执行预警项。
+         */
+        ContentDecayAlertItem: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "OVERDUE_FACT" | "UNHEALTHY_PAGE" | "GEO_VISIBILITY_DROP" | "GEO_CITATION_LOST";
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "HIGH" | "MEDIUM";
+            /**
+             * Target Type
+             * @enum {string}
+             */
+            target_type: "Product" | "PublishedArticle" | "GeoOpportunity";
+            /**
+             * Target Id
+             * Format: uuid
+             */
+            target_id: string;
+            /** Title */
+            title: string;
+            /** Detail */
+            detail: string;
+            /** Navigation Path */
+            navigation_path: string;
+        };
+        /**
+         * OperationsMetricsOut
+         * @description 全局纯 GEO 内容运营经营看板与衰退预警。
+         */
+        OperationsMetricsOut: {
+            /**
+             * Causal Claim
+             * @default NOT_ESTABLISHED
+             * @constant
+             */
+            causal_claim: "NOT_ESTABLISHED";
+            /** Window Days */
+            window_days: number;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Active Campaign Count */
+            active_campaign_count: number;
+            production: components["schemas"]["ProductionMetricsOut"];
+            publishing_health: components["schemas"]["PublishingHealthOut"];
+            geo_attribution: components["schemas"]["GeoAttributionSummaryOut"];
+            cost_coverage: components["schemas"]["CostSampleCoverageOut"];
+            /** Costs By Currency */
+            costs_by_currency: components["schemas"]["CurrencyCostBreakdownOut"][];
+            /** Unit Economics By Currency */
+            unit_economics_by_currency: components["schemas"]["UnitEconomicsByCurrencyOut"][];
+            /** Decay Alerts */
+            decay_alerts: components["schemas"]["ContentDecayAlertItem"][];
         };
     };
     responses: {
@@ -15557,6 +18863,42 @@ export interface operations {
             422: components["responses"]["ErrorResponse"];
         };
     };
+    confirmProductFactsReview: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                product_id: components["parameters"]["ProductId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductFactsConfirmReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description 已确认事实无变更并延期下次复核时间 */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductFactsDraft"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
     listFactVersions: {
         parameters: {
             query?: never;
@@ -15847,7 +19189,9 @@ export interface operations {
     };
     listQueryTopics: {
         parameters: {
-            query?: never;
+            query?: {
+                is_active?: boolean | null;
+            };
             header?: {
                 "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
             };
@@ -15869,6 +19213,7 @@ export interface operations {
             400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     createQueryTopic: {
@@ -15907,6 +19252,7 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string;
+                is_active?: boolean | null;
                 sort?: components["schemas"]["QueryTopicListSort"];
                 page?: number;
                 page_size?: 10 | 20 | 50;
@@ -17386,6 +20732,381 @@ export interface operations {
             422: components["responses"]["ErrorResponse"];
         };
     };
+    listContentCampaigns: {
+        parameters: {
+            query?: {
+                q?: string | null;
+                status?: ("DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED") | null;
+                priority?: ("LOW" | "MEDIUM" | "HIGH" | "CRITICAL") | null;
+                owner_id?: string | null;
+                product_id?: string | null;
+                query_topic_id?: string | null;
+                page?: number;
+                page_size?: 10 | 20 | 50;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentCampaignListPage"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createContentCampaign: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentCampaignCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentCampaignDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getContentCampaignOptions: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentCampaignOptions"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getContentCampaign: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentCampaignDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteContentCampaign: {
+        parameters: {
+            query: {
+                expected_revision: number;
+            };
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateContentCampaign: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentCampaignUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentCampaignDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    activateContentCampaign: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentCampaignDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    pauseContentCampaign: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentCampaignDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    resumeContentCampaign: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentCampaignDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    completeContentCampaign: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentCampaignDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    archiveContentCampaign: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentCampaignDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
     listContentTasks: {
         parameters: {
             query?: {
@@ -17399,6 +21120,8 @@ export interface operations {
                 filter_product_id?: string;
                 /** @description 仅返回直接绑定该事实版本的内容任务 */
                 filter_fact_version_id?: string;
+                /** @description 仅返回直接绑定该内容活动的内容任务 */
+                campaign_id?: string | null;
                 /** @description 与 query_topic_reference 同时提供，精确筛选 Query Topic 直接引用 */
                 query_topic_id?: string;
                 /** @description 与 query_topic_id 同时提供，区分内容任务或 GEO 优化来源引用 */
@@ -17474,6 +21197,8 @@ export interface operations {
             query?: {
                 /** @description 返回 URL handoff 指定产品的当前资格状态 */
                 requested_product_id?: string;
+                /** @description 返回 URL handoff 指定内容活动的当前资格状态 */
+                requested_campaign_id?: string | null;
             };
             header?: {
                 "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
@@ -18277,7 +22002,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: components["requestBodies"]["CommandRequest"];
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentReviewHandoffCommand"];
+            };
+        };
         responses: {
             200: components["responses"]["ContentVersionResponse"];
             400: components["responses"]["ErrorResponse"];
@@ -18346,7 +22075,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: components["requestBodies"]["RequestChangesCommand"];
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentRequestChangesHandoffCommand"];
+            };
+        };
         responses: {
             200: components["responses"]["ContentVersionResponse"];
             400: components["responses"]["ErrorResponse"];
@@ -19020,6 +22753,7 @@ export interface operations {
                 page?: number;
                 page_size?: number;
                 search?: string | null;
+                campaign_id?: string | null;
                 sort?: components["schemas"]["PublishedArticleSort"];
             };
             header?: {
@@ -22531,46 +26265,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     startFactRevisionFromGeoOpportunity: {
@@ -23104,56 +26802,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     exportGeoOpportunityWorkbenchCsv: {
@@ -23201,46 +26854,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     reanalyzeGeoObservationRun: {
@@ -23272,56 +26889,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     getGeoOpportunityEvaluationSchedule: {
@@ -23346,36 +26918,9 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     saveGeoOpportunityEvaluationSchedule: {
@@ -23405,56 +26950,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     activateGeoOpportunityEvaluationSchedule: {
@@ -23484,56 +26984,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     pauseGeoOpportunityEvaluationSchedule: {
@@ -23563,56 +27018,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     resumeGeoOpportunityEvaluationSchedule: {
@@ -23642,56 +27052,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     cancelGeoManualObservationRun: {
@@ -23723,56 +27088,1352 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    previewContentTaskBatch: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentTaskBatchPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
+                    "application/json": components["schemas"]["ContentTaskBatchPreviewResponse"];
                 };
             };
-            /** @description 业务或校验错误 */
-            403: {
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createContentTaskBatch: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentTaskBatchCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
+                    "application/json": components["schemas"]["ContentTaskBatchCreateResponse"];
                 };
             };
-            /** @description 业务或校验错误 */
-            404: {
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getWorkbenchInbox: {
+        parameters: {
+            query?: {
+                bucket?: "assigned_to_me" | "due_today" | "overdue" | "pending_review" | "awaiting_publication" | "awaiting_verification" | "needs_fix" | "high_priority_geo_opportunities";
+                timezone?: string;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
+                    "application/json": components["schemas"]["WorkbenchInbox"];
                 };
             };
-            /** @description 业务或校验错误 */
-            409: {
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listWorkbenchAssignees: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
+                    "application/json": components["schemas"]["WorkAssigneeOptionList"];
                 };
             };
-            /** @description 业务或校验错误 */
-            422: {
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getWorkAssignment: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                target_type: "FactVersion" | "ContentTask" | "PublicationWork" | "PublishedContentIssue" | "GeoOpportunity";
+                target_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
+                    "application/json": components["schemas"]["WorkAssignmentDetail"];
                 };
             };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateFactVersionAssignment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                fact_version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkAssignmentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkAssignmentDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateContentTaskAssignment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                content_task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkAssignmentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkAssignmentDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updatePublicationWorkAssignment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                publication_work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkAssignmentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkAssignmentDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updatePublishedContentIssueAssignment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                issue_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkAssignmentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkAssignmentDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateGeoOpportunityAssignment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                opportunity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkAssignmentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkAssignmentDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPlatformPromptVersions: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                platform_prompt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPromptVersionList"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createPlatformPromptVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                platform_prompt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformPromptVersionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPromptVersionOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updatePlatformPromptVersionDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformPromptVersionDraftUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPromptVersionOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    publishPlatformPromptVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformPromptVersionActionCommand"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPromptVersionOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    archivePlatformPromptVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformPromptVersionActionCommand"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPromptVersionOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    restorePlatformPromptVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformPromptVersionActionCommand"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPromptVersionOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPlatformPromptBinding: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                platform_profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPromptBindingOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    bindPlatformPromptVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                platform_profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformPromptVersionBindCommand"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPromptBindingOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getContentVersionDuplicationAnalysis: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                content_version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentDuplicationAnalysisOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listContentVersionSemanticQualityChecks: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                content_version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SemanticQualityCheckJobList"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createContentVersionSemanticQualityCheck: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                content_version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SemanticQualityCheckCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SemanticQualityCheckJobOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    preRegisterCheckPublicationWork: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicationPreRegisterCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationPreRegisterCheckOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPlatformHealthCheckSettings: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                platform_profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformHealthCheckSettingsOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updatePlatformHealthCheckSettings: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                platform_profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformHealthCheckSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformHealthCheckSettingsOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPublishedArticleHealthChecks: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishedArticleHealthCheckList"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    runPublishedArticleHealthCheck: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishedArticleHealthCheckOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    runDuePublicPageHealthChecks: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicPageHealthCheckRunDueRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicPageHealthCheckBatchOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listGeoInterventions: {
+        parameters: {
+            query?: {
+                campaign_id?: string | null;
+                opportunity_id?: string | null;
+                status?: ("PLANNED" | "ACTIVE" | "EVALUATING" | "CONCLUDED" | "CANCELLED") | null;
+                assignee_id?: string | null;
+                page?: number;
+                page_size?: number;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoInterventionListPage"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createGeoIntervention: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoInterventionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoInterventionOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeoIntervention: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                intervention_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoInterventionOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateGeoIntervention: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                intervention_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoInterventionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoInterventionOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    concludeGeoIntervention: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                intervention_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoInterventionConcludeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoInterventionOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    cancelGeoIntervention: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                intervention_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoInterventionCancelRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoInterventionOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getAIModelPricing: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                model_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIModelPricingOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateAIModelPricing: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                model_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIModelPricingUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIModelPricingOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listOperatingCostEntries: {
+        parameters: {
+            query?: {
+                campaign_id?: string | null;
+                geo_intervention_id?: string | null;
+                category?: ("LABOR" | "EXTERNAL_PLACEMENT" | "OTHER") | null;
+                include_voided?: boolean;
+                page?: number;
+                page_size?: number;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatingCostEntryListPage"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createOperatingCostEntry: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OperatingCostEntryCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatingCostEntryOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    voidOperatingCostEntry: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OperatingCostEntryVoidRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatingCostEntryOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getCampaignAttributionDashboard: {
+        parameters: {
+            query?: {
+                window_days?: number;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                campaign_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignAttributionDashboardOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getWorkbenchOperationsMetrics: {
+        parameters: {
+            query?: {
+                window_days?: number;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationsMetricsOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
 }

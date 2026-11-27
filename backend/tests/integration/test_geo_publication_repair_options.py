@@ -11,7 +11,7 @@ from app.models.geo_opportunities import GeoOpportunityAction
 from app.models.identity import User
 from app.models.product_facts import FactVersion
 from app.models.publication import PublishedArticle, PublishedContentIssue
-from app.schemas.content import ContentTaskCreate
+from app.schemas.content import ContentTaskTarget
 from app.schemas.publication import PublishedContentIssueCreate
 from app.services import content_planning, publication, publication_queries
 from tests.integration.geo_opportunity_actions_support import (
@@ -53,9 +53,9 @@ __all__ = [
 def published(api):
     _, _, _, initial, payload = ready(api)
     with api.harness.factory() as db:
-        task = content_planning.create_content_task(
+        task = content_planning.create_linked_content_task(
             db=db,
-            payload=ContentTaskCreate(
+            payload=ContentTaskTarget(
                 **{k: v for k, v in payload.items() if k != "expected_revision"}
             ),
             actor=db.get(User, api.engineer_id),

@@ -100,6 +100,7 @@ const contentTasksSearchSchema = z.object({
     z.enum(archiveStatusValues),
   ).default('ACTIVE'),
   platformId: z.preprocess(normalizePlatformId, z.uuid().optional()),
+  campaignId: z.preprocess(normalizePlatformId, z.uuid().optional()),
   queryTopicId: z.preprocess(normalizePlatformId, z.uuid().optional()),
   queryTopicReference: z.preprocess(
     normalizeQueryTopicReference,
@@ -124,6 +125,7 @@ function contentTasksSearchToApiParams(search: ContentTasksSearch): ContentTaskL
     workflow_stage: search.workflowStage,
     archive_status: search.archiveStatus,
     platform_profile_id: search.platformId,
+    campaign_id: search.campaignId,
     query_topic_id: search.queryTopicId,
     query_topic_reference: search.queryTopicReference,
     page: search.page,
@@ -142,6 +144,7 @@ function canonicalContentTasksSearchRecord(
   if (search.q) record.q = search.q;
   if (search.workflowStage) record.workflowStage = search.workflowStage;
   if (search.platformId) record.platformId = search.platformId;
+  if (search.campaignId) record.campaignId = search.campaignId;
   if (search.queryTopicId) record.queryTopicId = search.queryTopicId;
   if (search.queryTopicReference) record.queryTopicReference = search.queryTopicReference;
   return record;
@@ -167,6 +170,7 @@ function hasContentTaskFilters(search: ContentTasksSearch) {
     search.q
     || search.workflowStage
     || search.platformId
+    || search.campaignId
     || search.queryTopicId
     || search.archiveStatus !== 'ACTIVE',
   );

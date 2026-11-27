@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
 
 from sqlalchemy import delete, func, literal, select, union_all
@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.audit import append_audit
 from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.errors import AppError, in_use, not_found
+from app.models.campaign import ContentCampaignProduct
 from app.models.content import ContentTask, ContentVersion
 from app.models.geo_analysis import GeoAnalysisFactVersion
 from app.models.geo_catalog import GeoSubject
@@ -28,8 +29,10 @@ from app.schemas.product_facts import (
     ProductCreate,
     ProductFactHistoryItem,
     ProductFactHistoryList,
+    ProductFactsConfirmReviewRequest,
     ProductFactsDraft,
     ProductFactsDraftUpdate,
+    ProductFactsFreshness,
     ProductFactsProductContext,
     ProductFactStatus,
     ProductList,
@@ -85,6 +88,35 @@ def _product_identity_conflict(db: Session, error: IntegrityError) -> None:
     ) from error
 
 
+def _utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    return value.astimezone(UTC) if value.tzinfo is not None else value.replace(tzinfo=UTC)
+
+
+def db_utc_now(db: Session) -> datetime:
+    """读取 PostgreSQL 事务时钟并规范为 UTC，供新鲜度投影与复核写入共用。"""
+    value = db.scalar(select(func.now()))
+    normalized = _utc(value) if isinstance(value, datetime) else None
+    return normalized if normalized is not None else datetime.now(UTC)
+
+
+def product_facts_freshness(
+    next_review_at: datetime | None, *, now: datetime | None = None
+) -> ProductFactsFreshness:
+    """根据下次复核时间实时计算事实新鲜度状态。"""
+    if next_review_at is None:
+        return ProductFactsFreshness.UNSET
+    reference_now = _utc(now) or datetime.now(UTC)
+    target = _utc(next_review_at)
+    assert target is not None
+    return (
+        ProductFactsFreshness.OVERDUE
+        if target <= reference_now
+        else ProductFactsFreshness.FRESH
+    )
+
+
 def product_workflow(
     product: Product,
     latest: FactVersion | None,
@@ -111,6 +143,11 @@ def product_workflow(
     if latest is not None and (
         latest.body_markdown == product.facts_body_markdown
         and latest.classification == product.facts_classification
+        and latest.source_reference == product.facts_source_reference
+        and _utc(latest.verified_at) == _utc(product.facts_verified_at)
+        and latest.applicable_region == product.facts_applicable_region
+        and latest.content_restrictions == product.facts_content_restrictions
+        and latest.approved_claims_summary == product.facts_approved_claims_summary
     ):
         if latest.status == "CHANGES_REQUESTED":
             return ProductWorkflowStage.FACT_CHANGES_REQUESTED, "REVISE_FACT"
@@ -124,6 +161,7 @@ def products_out(
     products: list[Product],
     *,
     can_delete: bool,
+    now: datetime | None = None,
 ) -> list[ProductListItem]:
     """批量投影产品流程、事实摘要与无引用删除动作。"""
     if not products:
@@ -146,6 +184,10 @@ def products_out(
             GeoSubject.product_id.label("resource_id"),
             literal("GEO_SUBJECT").label("blocker_type"),
         ).where(GeoSubject.product_id.in_(product_ids)),
+        select(
+            ContentCampaignProduct.product_id.label("resource_id"),
+            literal("CONTENT_CAMPAIGN").label("blocker_type"),
+        ).where(ContentCampaignProduct.product_id.in_(product_ids)),
     ).subquery()
     reference_counts = {
         (resource_id, blocker_type): int(count)
@@ -183,11 +225,18 @@ def products_out(
         ).tuples()
     }
 
+    reference_now = _utc(now) if now is not None else datetime.now(UTC)
     items: list[ProductListItem] = []
     for product in products:
         blockers = [
             {"type": blocker_type, "count": count}
-            for blocker_type in ("FACT_VERSION", "CONTENT_TASK", "GEO_OBSERVATION", "GEO_SUBJECT")
+            for blocker_type in (
+                "FACT_VERSION",
+                "CONTENT_TASK",
+                "GEO_OBSERVATION",
+                "GEO_SUBJECT",
+                "CONTENT_CAMPAIGN",
+            )
             if (count := reference_counts.get((product.id, blocker_type), 0))
         ]
         actions = ["UPDATE"]
@@ -203,12 +252,21 @@ def products_out(
             field: getattr(product, field)
             for field in ProductOut.model_fields
             if field
-            not in {"available_actions", "deletion", "workflow_stage", "primary_task"}
+            not in {
+                "available_actions",
+                "deletion",
+                "workflow_stage",
+                "primary_task",
+                "facts_freshness",
+            }
         }
         payload["available_actions"] = actions
         payload["deletion"] = {"blockers": blockers} if can_delete else None
         payload["workflow_stage"] = workflow_stage
         payload["primary_task"] = primary_task
+        payload["facts_freshness"] = product_facts_freshness(
+            product.next_review_at, now=reference_now
+        )
         payload["fact_status"] = latest.status if latest else "NOT_ENTERED"
         payload["current_fact"] = (
             {"version": latest.version, "status": latest.status} if latest else None
@@ -228,9 +286,15 @@ def products_out(
     return items
 
 
-def product_out(db: Session, product: Product, *, can_delete: bool) -> ProductOut:
+def product_out(
+    db: Session,
+    product: Product,
+    *,
+    can_delete: bool,
+    now: datetime | None = None,
+) -> ProductOut:
     """投影单个产品及其当前动作。"""
-    item = products_out(db, [product], can_delete=can_delete)[0]
+    item = products_out(db, [product], can_delete=can_delete, now=now)[0]
     return ProductOut.model_validate(
         {field: getattr(item, field) for field in ProductOut.model_fields}
     )
@@ -246,6 +310,7 @@ def list_products(
     sort: ProductSort,
     fact_status: ProductFactStatus | None,
     workflow_stage: ProductWorkflowStage | None,
+    now: datetime | None = None,
 ) -> ProductList:
     """以单一批量投影完成产品列表筛选、排序和分页。"""
     query = select(Product)
@@ -256,7 +321,7 @@ def list_products(
             Product.part_number.ilike(pattern, escape="\\")
             | Product.brand.ilike(pattern, escape="\\")
         )
-    projected = products_out(db, list(db.scalars(query)), can_delete=can_delete)
+    projected = products_out(db, list(db.scalars(query)), can_delete=can_delete, now=now)
     if fact_status is not None:
         projected = [item for item in projected if item.fact_status == fact_status]
     if workflow_stage is not None:
@@ -353,7 +418,9 @@ def list_product_fact_history(
     )
 
 
-def product_facts_draft_out(db: Session, product: Product) -> ProductFactsDraft:
+def product_facts_draft_out(
+    db: Session, product: Product, *, now: datetime | None = None
+) -> ProductFactsDraft:
     """投影单次请求可完整绘制的事实工作区。"""
     versions = list(
         db.scalars(
@@ -375,11 +442,13 @@ def product_facts_draft_out(db: Session, product: Product) -> ProductFactsDraft:
         latest,
         has_pending=has_pending,
     )
-    actions: list[Literal["SAVE", "SUBMIT_REVIEW"]] = (
+    actions: list[Literal["SAVE", "SUBMIT_REVIEW", "CONFIRM_REVIEW"]] = (
         [] if product.status == "RETIRED" else ["SAVE"]
     )
     if product.facts_body_markdown.strip() and not has_pending and actions:
         actions.append("SUBMIT_REVIEW")
+    if approved is not None and not has_pending and actions:
+        actions.append("CONFIRM_REVIEW")
     return ProductFactsDraft.model_validate(
         {
             "product_id": product.id,
@@ -393,6 +462,16 @@ def product_facts_draft_out(db: Session, product: Product) -> ProductFactsDraft:
             },
             "body_markdown": product.facts_body_markdown,
             "classification": product.facts_classification,
+            "source_owner": product.source_owner,
+            "source_reference": product.facts_source_reference,
+            "verified_at": product.facts_verified_at,
+            "next_review_at": product.next_review_at,
+            "applicable_region": product.facts_applicable_region,
+            "content_restrictions": product.facts_content_restrictions,
+            "approved_claims_summary": product.facts_approved_claims_summary,
+            "last_reviewed_at": product.last_reviewed_at,
+            "last_reviewed_by": product.last_reviewed_by,
+            "facts_freshness": product_facts_freshness(product.next_review_at, now=now),
             "approved_fact": (
                 {"version": approved.version, "status": approved.status}
                 if approved is not None
@@ -558,6 +637,18 @@ def delete_product(
             db.execute(select(func.count()).select_from(GeoSubject)
                        .where(GeoSubject.product_id == product.id)).scalar_one(),
         ),
+        (
+            "CONTENT_CAMPAIGN",
+            "内容活动",
+            int(
+                db.scalar(
+                    select(func.count())
+                    .select_from(ContentCampaignProduct)
+                    .where(ContentCampaignProduct.product_id == product.id)
+                )
+                or 0
+            ),
+        ),
     ]
     if any(count for _, _, count in references):
         raise in_use("PRODUCT_IN_USE", "产品", references)
@@ -678,9 +769,109 @@ def replace_product_facts(
         raise AppError("VALIDATION_ERROR", "产品事实 Markdown 不能为空", 422)
     product.facts_body_markdown = payload.body_markdown
     product.facts_classification = payload.classification.value
+    product.source_owner = payload.source_owner
+    product.facts_source_reference = payload.source_reference
+    product.facts_verified_at = _utc(payload.verified_at)
+    product.next_review_at = _utc(payload.next_review_at)
+    product.facts_applicable_region = payload.applicable_region
+    product.facts_content_restrictions = payload.content_restrictions
+    product.facts_approved_claims_summary = payload.approved_claims_summary
     product.facts_revision += 1
     db.flush()
-    result = product_facts_draft_out(db, product)
+    result = product_facts_draft_out(db, product, now=db_utc_now(db))
+    db.commit()
+    return result
+
+
+def confirm_product_facts_review(
+    *,
+    db: Session,
+    product_id: uuid.UUID,
+    payload: ProductFactsConfirmReviewRequest,
+    actor: User,
+    request_id: str,
+) -> ProductFactsDraft:
+    """确认当前已批准事实无需改动，仅延期下次复核时间并写低敏审计。"""
+    product = db.scalar(select(Product).where(Product.id == product_id).with_for_update())
+    if product is None:
+        raise not_found("产品")
+    if product.status != "ACTIVE":
+        raise AppError("INVALID_STATE_TRANSITION", "已停用产品不能确认事实复核", 409)
+    if product.facts_revision != payload.expected_revision:
+        raise AppError("REVISION_CONFLICT", "事实工作区已被其他请求修改", 409)
+    if (
+        db.scalar(
+            select(FactVersion.id).where(
+                FactVersion.product_id == product.id,
+                FactVersion.status == "PENDING_REVIEW",
+            )
+        )
+        is not None
+    ):
+        raise AppError("FACT_REVIEW_PENDING", "该产品已有待审核事实版本，请先完成审核", 409)
+    # 沿既有无死锁锁序 Product -> FactVersion 锁定 APPROVED 版本（FOR SHARE），
+    # 阻断并发 retire / delete 在提交前抽走唯一已批准版本。
+    approved_versions = list(
+        db.scalars(
+            select(FactVersion)
+            .where(
+                FactVersion.product_id == product.id,
+                FactVersion.status == "APPROVED",
+            )
+            .order_by(FactVersion.id)
+            .with_for_update(read=True)
+        )
+    )
+    if not approved_versions:
+        raise AppError(
+            "INVALID_STATE_TRANSITION",
+            "该产品尚无已批准事实版本，无法执行无变更复核延期",
+            409,
+        )
+    db_now = db_utc_now(db)
+    target_next_review = _utc(payload.next_review_at)
+    assert target_next_review is not None
+    if target_next_review <= db_now:
+        raise AppError(
+            "VALIDATION_ERROR",
+            "下次复核时间必须晚于当前时间",
+            422,
+            details={
+                "errors": [
+                    {
+                        "loc": ["body", "next_review_at"],
+                        "msg": "下次复核时间必须晚于当前时间",
+                        "type": "value_error",
+                    }
+                ]
+            },
+        )
+    product.next_review_at = target_next_review
+    product.last_reviewed_at = db_now
+    product.last_reviewed_by = actor.id
+    product.facts_revision += 1
+    db.flush()
+    append_audit(
+        db,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.PRODUCT_FACTS,
+            action="product_facts.review_confirmed",
+            target_type="Product",
+            target_id=product.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="已确认产品事实无变更并延期下次复核时间",
+            details={
+                "facts": {
+                    "product_id": str(product.id),
+                    "revision": product.facts_revision,
+                    "status": product.status,
+                }
+            },
+        ),
+    )
+    result = product_facts_draft_out(db, product, now=db_now)
     db.commit()
     return result
 
@@ -729,6 +920,11 @@ def submit_fact_review(
         version=next_version,
         body_markdown=product.facts_body_markdown,
         classification=product.facts_classification,
+        source_reference=product.facts_source_reference,
+        verified_at=product.facts_verified_at,
+        applicable_region=product.facts_applicable_region,
+        content_restrictions=product.facts_content_restrictions,
+        approved_claims_summary=product.facts_approved_claims_summary,
         change_summary=payload.change_summary,
         status="PENDING_REVIEW",
         created_by=actor.id,
@@ -766,4 +962,4 @@ def start_fact_revision_context(*, db: Session, product_id: uuid.UUID) -> Produc
         raise not_found("产品")
     if product.status != "ACTIVE":
         raise AppError("INVALID_STATE_TRANSITION", "已停用产品不能开始事实修订", 409)
-    return product_facts_draft_out(db, product)
+    return product_facts_draft_out(db, product, now=db_utc_now(db))

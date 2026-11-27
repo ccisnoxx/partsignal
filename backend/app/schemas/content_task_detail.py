@@ -9,10 +9,12 @@ from typing import Annotated, Literal
 from pydantic import Field, HttpUrl
 
 from app.schemas.base import ContractModel
+from app.schemas.campaign import ContentCampaignSummary
 from app.schemas.common import DeletionProjection
 from app.schemas.configuration import PlatformLogoOut
 from app.schemas.content import (
     ActorSummary,
+    ContentBriefSnapshotOut,
     ContentTaskAction,
     ContentTaskPrimaryTask,
     ContentTaskWorkflowStage,
@@ -222,6 +224,8 @@ class ContentTaskDetail(ContractModel):
     product: ContentTaskDetailProduct
     platform: ContentTaskDetailPlatform
     fact: ContentTaskDetailFact
+    campaign: ContentCampaignSummary | None
+    brief: ContentBriefSnapshotOut | None
     current_content: ContentTaskDetailCurrentContent | None
     generation: ContentTaskDetailGeneration | None
     review: ContentTaskDetailReview | None

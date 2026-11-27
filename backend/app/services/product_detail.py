@@ -22,7 +22,7 @@ from app.schemas.product_detail import (
     ProductDetailPublishingSummary,
 )
 from app.services.geo_observation import GeoObservationFilters, get_geo_metrics
-from app.services.product_facts import product_out
+from app.services.product_facts import db_utc_now, product_out
 from app.services.projections import content_tasks_out
 
 _ACTIVITY_LABELS = {
@@ -266,7 +266,9 @@ def product_detail_out(
         actor=actor,
     )
     return ProductDetail(
-        product=product_out(db, product, can_delete=actor.account_type == "ADMIN"),
+        product=product_out(
+            db, product, can_delete=actor.account_type == "ADMIN", now=db_utc_now(db)
+        ),
         approved_fact=(
             {
                 "id": approved.id,

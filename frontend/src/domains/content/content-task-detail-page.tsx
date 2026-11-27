@@ -16,6 +16,8 @@ import {
   resolveContentTaskPrimaryAction,
 } from './content-task-actions';
 import { useContentTaskLifecycle } from './content-task-lifecycle';
+import { ContentBriefPanel } from './content-brief-panel';
+import { WorkAssignmentDialogButton } from '@/domains/workbench/work-assignment-control';
 import {
   contentWorkflowStageRegistry,
   formatExactContentTaskTime,
@@ -164,6 +166,14 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
               <SummaryItem label="修订号">
                 <span className="font-mono">{data.task.revision}</span>
               </SummaryItem>
+              <div className="flex items-end">
+                <WorkAssignmentDialogButton
+                  csrfToken={csrfToken}
+                  onUpdated={() => void detail.refetch()}
+                  targetId={data.task.id}
+                  targetType="ContentTask"
+                />
+              </div>
             </div>
             <dl className="mt-4 grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
               <Metadata label="创建时间" value={<TaskTime value={data.task.created_at} />} />
@@ -306,6 +316,10 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
               </ContextCard>
             </div>
           ) : <EmptyValue />}
+        </DetailSection>
+
+        <DetailSection title="活动与内容 Brief" description="任务创建时冻结的不可变 Brief 快照与归属活动。">
+          <ContentBriefPanel brief={data.brief} campaign={data.campaign} />
         </DetailSection>
 
         <DetailSection title="来源上下文" description="与此任务关联的来源信息。">

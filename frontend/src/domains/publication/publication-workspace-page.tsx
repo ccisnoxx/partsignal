@@ -1,13 +1,17 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSyncExternalStore, useState, useRef, useEffect } from 'react';
 
-import type { PrincipalContinuation } from '@/app/auth/principal-epoch';
+import {
+  capturePrincipalContinuation,
+  type PrincipalContinuation,
+} from '@/app/auth/principal-epoch';
 import { MarkdownPreview } from '@/design-system/editor/markdown-editor';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
 import { DetailSection } from '@/design-system/workspace/detail-section';
 import { Timeline } from '@/design-system/workspace/timeline';
 import { WorkspaceShell } from '@/design-system/workspace/workspace-shell';
+import { WorkAssignmentDialogButton } from '@/domains/workbench/work-assignment-control';
 import {
   getFileDownloadUrl,
   publicationKeys,
@@ -19,6 +23,7 @@ import {
   publicationEventRegistry,
   publicationStageRegistry,
 } from './publication-work.model';
+import { PublicationPackageDialogButton } from './publication-package-dialog';
 import { PublicationWorkspaceActions } from './publication-workspace-actions';
 import {
   canonicalPublicationWorkspaceHash,
@@ -202,6 +207,23 @@ function PublicationWorkspacePage({
         <ContextValue label="内容版本" value={`v${context.content.version}`} />
         <ContextValue label="内容哈希" value={context.content.content_hash} mono />
       </dl>
+      <div>
+        <WorkAssignmentDialogButton
+          csrfToken={csrfToken}
+          onUpdated={() => {
+            try {
+              const continuation = capturePrincipalContinuation(queryClient);
+              void reloadContext(continuation).catch((error: unknown) => {
+                if (continuation.isCurrent()) setReadError(errorMessage(error));
+              });
+            } catch (error) {
+              setReadError(errorMessage(error));
+            }
+          }}
+          targetId={work.id}
+          targetType="PublicationWork"
+        />
+      </div>
       <nav aria-label="发布工作台章节">
         <ul className="space-y-1">
           {publicationWorkspaceSections.map((section) => (
@@ -263,7 +285,18 @@ function PublicationWorkspacePage({
       </div>
       <div id="content-version" tabIndex={-1}>
         <DetailSection
-          actions={<Button disabled={commandBusy || syncRequired} onClick={() => void copyPackage()} size="sm" type="button" variant="outline">复制发布包</Button>}
+          actions={(
+            <div className="flex flex-wrap gap-2">
+              <PublicationPackageDialogButton
+                contentHash={context.content.content_hash}
+                contentVersionId={context.content.id}
+                disabled={commandBusy || syncRequired}
+                workId={work.id}
+                workRevision={work.revision}
+              />
+              <Button disabled={commandBusy || syncRequired} onClick={() => void copyPackage()} size="sm" type="button" variant="outline">复制发布包</Button>
+            </div>
+          )}
           description={`批准内容 v${context.content.version}，只读且绑定工作哈希。`}
           title={context.content.title}
         >

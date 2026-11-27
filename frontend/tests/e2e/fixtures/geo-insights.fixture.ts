@@ -101,9 +101,23 @@ const noActionInsights = {
   },
 } satisfies components['schemas']['GeoInsights'];
 const creationOptions = {
-  products: [{ id: ids.product, brand: 'PartSignal', part_number: 'PS-LNA', approved_fact_versions: [{ id: ids.fact, version: 3, classification: 'PUBLIC' }] }],
+  products: [{
+    id: ids.product,
+    brand: 'PartSignal',
+    part_number: 'PS-LNA',
+    approved_fact_versions: [{
+      id: ids.fact,
+      version: 3,
+      classification: 'PUBLIC',
+      content_restrictions: null,
+      approved_claims_summary: null,
+    }],
+  }],
   platforms: [{ id: ids.platform, name: '官网' }],
+  topics: [],
+  campaigns: [],
   requested_product: { product_id: ids.product, brand: 'PartSignal', part_number: 'PS-LNA', eligibility: 'ELIGIBLE' },
+  requested_campaign: null,
 } satisfies components['schemas']['ContentTaskCreationOptions'];
 const user = {
   id: ids.user, username: 'admin', display_name: '管理员', account_type: 'ADMIN',
@@ -169,7 +183,7 @@ const test = base.extend<{ insightsApi: InsightsController }>({
         const body = createRequests.at(-1)!.body;
         return route.fulfill({ status: 201, json: {
           id: ids.task, product_id: body.product_id, fact_version_id: body.fact_version_id,
-          platform_profile_id: body.platform_profile_id, query_topic_id: null,
+          platform_profile_id: body.platform_profile_id, campaign_id: null, query_topic_id: null,
           source_published_content_issue_id: null, current_content_version_id: null,
           workflow_stage: 'NO_DRAFT', primary_task: 'CREATE_FIRST_DRAFT',
           available_actions: ['CANCEL', 'DELETE', 'CREATE_GENERATION_JOB', 'CREATE_MANUAL_VERSION'],

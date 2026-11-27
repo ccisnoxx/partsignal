@@ -21,8 +21,9 @@ from app.db import get_db
 from app.deps import get_current_session
 from app.errors import AppError
 from app.main import app
-from app.models.configuration import PlatformProfile, PlatformType
+from app.models.configuration import PlatformProfile, PlatformType, QueryTopic
 from app.models.content import (
+    ContentBriefSnapshot,
     ContentReviewRecord,
     ContentTask,
     ContentTaskGeoSource,
@@ -31,7 +32,8 @@ from app.models.content import (
 from app.models.identity import AuditLog, User
 from app.models.product_facts import FactVersion, Product
 from app.routers.planning import _content_task_read_snapshot
-from app.schemas.content import ContentTaskCreate
+from app.schemas.configuration import IntentType
+from app.schemas.content import ContentBriefInput, ContentTaskCreate
 from app.security import hash_token
 from app.services import content_planning as content_planning_service
 from app.services.content_planning import create_content_task
@@ -39,11 +41,20 @@ from app.services.content_task_queries import get_content_task_creation_options
 from tests.integration.test_publication_workflow import temporary_database
 
 
+def _default_brief() -> ContentBriefInput:
+    return ContentBriefInput(
+        target_question="如何选择 PS 系列产品？",
+        search_intent=IntentType.PRODUCT,
+        content_angle="产品选型指南",
+    )
+
+
 class CreationGraph(TypedDict):
     user: User
     product: Product
     fact: FactVersion
     platform: PlatformProfile
+    topic: QueryTopic
 
 
 def _seed_creation_graph(
@@ -90,9 +101,22 @@ def _seed_creation_graph(
         allowed_domains=[f"{suffix}.example.invalid"],
         platform_type_id=platform_type.id,
     )
-    db.add_all([fact, platform])
+    topic = QueryTopic(
+        canonical_question=f"如何选择 PS-{suffix}？",
+        intent_type="PRODUCT",
+        variants=[f"PS-{suffix} 选型"],
+        description="",
+        is_active=True,
+    )
+    db.add_all([fact, platform, topic])
     db.commit()
-    return {"user": user, "product": product, "fact": fact, "platform": platform}
+    return {
+        "user": user,
+        "product": product,
+        "fact": fact,
+        "platform": platform,
+        "topic": topic,
+    }
 
 
 def _statement_count(engine: Engine) -> int:
@@ -154,7 +178,7 @@ def test_creation_options_are_filtered_sorted_and_constant_query_count() -> None
             ]
             assert options.requested_product is not None
             assert options.requested_product.eligibility == "ELIGIBLE"
-            assert _statement_count(engine) == initial_count == 2
+            assert _statement_count(engine) == initial_count == 4
 
             inactive_requested = get_content_task_creation_options(
                 db=db, requested_product_id=inactive["product"].id
@@ -195,6 +219,8 @@ def test_create_content_task_revalidates_qualification_and_idempotency() -> None
                 product_id=graph["product"].id,
                 fact_version_id=graph["fact"].id,
                 platform_profile_id=graph["platform"].id,
+                query_topic_id=graph["topic"].id,
+                brief=_default_brief(),
             )
             options = get_content_task_creation_options(
                 db=db, requested_product_id=graph["product"].id
@@ -272,6 +298,8 @@ def test_create_content_task_revalidates_qualification_and_idempotency() -> None
                         product_id=retired_fact["product"].id,
                         fact_version_id=retired_fact["fact"].id,
                         platform_profile_id=graph["platform"].id,
+                        query_topic_id=graph["topic"].id,
+                        brief=_default_brief(),
                     ),
                     actor=actor,
                     request_id="test-request",
@@ -286,6 +314,8 @@ def test_create_content_task_revalidates_qualification_and_idempotency() -> None
                         product_id=blank_fact["product"].id,
                         fact_version_id=blank_fact["fact"].id,
                         platform_profile_id=graph["platform"].id,
+                        query_topic_id=graph["topic"].id,
+                        brief=_default_brief(),
                     ),
                     actor=actor,
                     request_id="test-request",
@@ -300,6 +330,8 @@ def test_create_content_task_revalidates_qualification_and_idempotency() -> None
                         product_id=retired_product["product"].id,
                         fact_version_id=retired_product["fact"].id,
                         platform_profile_id=graph["platform"].id,
+                        query_topic_id=graph["topic"].id,
+                        brief=_default_brief(),
                     ),
                     actor=actor,
                     request_id="test-request",
@@ -327,6 +359,8 @@ def test_exact_idempotency_constraint_race_recovers_only_verified_winner(
                 product_id=graph["product"].id,
                 fact_version_id=graph["fact"].id,
                 platform_profile_id=graph["platform"].id,
+                query_topic_id=graph["topic"].id,
+                brief=_default_brief(),
             )
             key = f"content-create-race-{uuid.uuid4()}"
             before = _content_task_creation_snapshot(db, key)
@@ -339,11 +373,24 @@ def test_exact_idempotency_constraint_race_recovers_only_verified_winner(
                     platform_profile_id=winner_graph["platform"].id,
                     platform_profile_name_snapshot=winner_graph["platform"].name,
                     platform_website_url_snapshot=winner_graph["platform"].website_url,
+                    query_topic_id=winner_graph["topic"].id,
                     idempotency_key=key,
                     created_by=actor_id,
                 )
                 competitor.add(winner)
                 competitor.flush()
+                if winner_kind == "same":
+                    brief = _default_brief()
+                    competitor.add(
+                        ContentBriefSnapshot(
+                            content_task_id=winner.id,
+                            query_topic_id=winner.query_topic_id,
+                            target_question=brief.target_question,
+                            search_intent=brief.search_intent.value,
+                            content_angle=brief.content_angle,
+                            created_by=actor_id,
+                        )
+                    )
                 if winner_kind == "geo":
                     competitor.add(ContentTaskGeoSource(content_task_id=winner.id,
                         rule_code="CONTENT_DECLINE", date_from=date(2026, 1, 1),
@@ -448,9 +495,15 @@ def test_content_task_integrity_unknown_and_unverifiable_are_rethrown(
         else None
     )
     is_exact = case.startswith("winner-")
-    db = _ScalarSequenceSession([None, winner] if is_exact else [None])
-    payload = ContentTaskCreate(product_id=uuid.uuid4(), fact_version_id=uuid.uuid4(),
-        platform_profile_id=uuid.uuid4())
+    active_topic = SimpleNamespace(id=uuid.uuid4(), is_active=True)
+    db = _ScalarSequenceSession([None, active_topic, winner] if is_exact else [None, active_topic])
+    payload = ContentTaskCreate(
+        product_id=uuid.uuid4(),
+        fact_version_id=uuid.uuid4(),
+        platform_profile_id=uuid.uuid4(),
+        query_topic_id=active_topic.id,
+        brief=_default_brief(),
+    )
     monkeypatch.setattr(content_planning_service, "lock_content_task_creation_resources",
         lambda _db, _payload: SimpleNamespace(id=payload.platform_profile_id))
     monkeypatch.setattr(content_planning_service, "add_locked_content_task",
@@ -461,7 +514,7 @@ def test_content_task_integrity_unknown_and_unverifiable_are_rethrown(
             idempotency_key=f"content-create-{uuid.uuid4()}")
     assert raised.value is original
     assert db.rollback_count == int(is_exact)
-    assert db.scalar_call_count == (2 if is_exact else 1)
+    assert db.scalar_call_count == (3 if is_exact else 2)
 @pytest.mark.integration
 def test_content_task_http_known_conflict_and_unknown_no_leak(
     monkeypatch: pytest.MonkeyPatch,
@@ -472,8 +525,13 @@ def test_content_task_http_known_conflict_and_unknown_no_leak(
         session_factory = sessionmaker(bind=engine, expire_on_commit=False)
         with session_factory() as db:
             graph = _seed_creation_graph(db, suffix="http-conflict")
-            winner_payload = ContentTaskCreate(product_id=graph["product"].id,
-                fact_version_id=graph["fact"].id, platform_profile_id=graph["platform"].id)
+            winner_payload = ContentTaskCreate(
+                product_id=graph["product"].id,
+                fact_version_id=graph["fact"].id,
+                platform_profile_id=graph["platform"].id,
+                query_topic_id=graph["topic"].id,
+                brief=_default_brief(),
+            )
             key = f"content-create-http-{uuid.uuid4()}"
             create_content_task(db=db, payload=winner_payload, actor=graph["user"],
                 request_id="http-winner", idempotency_key=key)
@@ -486,12 +544,15 @@ def test_content_task_http_known_conflict_and_unknown_no_leak(
         app.dependency_overrides[get_db] = override_db
         app.dependency_overrides[get_current_session] = lambda: current_session
         try:
+            brief_json = _default_brief().model_dump(mode="json")
             response = TestClient(app).post("/api/v1/content-tasks", headers={
                 "Idempotency-Key": key, "X-CSRF-Token": csrf_token,
                 "X-Request-ID": "content-task-http-conflict"}, json={
                 "product_id": str(winner_payload.product_id),
                 "fact_version_id": str(winner_payload.fact_version_id),
-                "platform_profile_id": str(uuid.uuid4())})
+                "platform_profile_id": str(uuid.uuid4()),
+                "query_topic_id": str(winner_payload.query_topic_id),
+                "brief": brief_json})
             assert response.status_code == 409, response.text
             assert response.headers["X-Request-ID"] == "content-task-http-conflict"
             assert response.json()["error"] == {"code": "IDEMPOTENCY_CONFLICT",
@@ -505,7 +566,9 @@ def test_content_task_http_known_conflict_and_unknown_no_leak(
                 "X-CSRF-Token": csrf_token, "X-Request-ID": "content-task-http-unknown"},
                 json={"product_id": str(winner_payload.product_id),
                 "fact_version_id": str(winner_payload.fact_version_id),
-                "platform_profile_id": str(uuid.uuid4())})
+                "platform_profile_id": str(uuid.uuid4()),
+                "query_topic_id": str(winner_payload.query_topic_id),
+                "brief": brief_json})
             assert leaked.status_code == 500
             for secret in ("INSERT INTO", "content_tasks", "content_tasks_bad_check",
                 "sensitive database detail", "Traceback"):
@@ -525,6 +588,7 @@ def test_concurrent_idempotent_submissions_create_one_task() -> None:
             product_id = graph["product"].id
             fact_id = graph["fact"].id
             platform_id = graph["platform"].id
+            topic_id = graph["topic"].id
             actor_id = graph["user"].id
         key = f"content-create-{uuid.uuid4()}"
         barrier = Barrier(2, timeout=10)
@@ -550,6 +614,8 @@ def test_concurrent_idempotent_submissions_create_one_task() -> None:
                             product_id=product_id,
                             fact_version_id=fact_id,
                             platform_profile_id=platform_id,
+                            query_topic_id=topic_id,
+                            brief=_default_brief(),
                         ),
                         actor=actor,
                         request_id="concurrent-test",

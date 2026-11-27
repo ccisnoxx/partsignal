@@ -131,9 +131,23 @@ const factId = '50000000-0000-4000-8000-000000000001';
 const taskId = '60000000-0000-4000-8000-000000000001';
 const search = { from: '2026-07-15', to: '2026-08-13' };
 const creationOptions = {
-  products: [{ id: productId, brand: 'PartSignal', part_number: 'PS-LNA', approved_fact_versions: [{ id: factId, version: 1, classification: 'PUBLIC' }] }],
+  products: [{
+    id: productId,
+    brand: 'PartSignal',
+    part_number: 'PS-LNA',
+    approved_fact_versions: [{
+      id: factId,
+      version: 1,
+      classification: 'PUBLIC',
+      content_restrictions: null,
+      approved_claims_summary: null,
+    }],
+  }],
   platforms: [{ id: platformId, name: '官网' }],
+  topics: [],
+  campaigns: [],
   requested_product: null,
+  requested_campaign: null,
 } satisfies components['schemas']['ContentTaskCreationOptions'];
 function result(data: unknown) { return { data, response: Response.json(data) } as never; }
 function mockReads(data: components['schemas']['GeoInsights'] = insights) {

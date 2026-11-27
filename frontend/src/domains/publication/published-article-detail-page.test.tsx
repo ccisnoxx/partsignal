@@ -33,10 +33,10 @@ function response(value: unknown, status = 200) {
   } as never;
 }
 
-function errorResponse(status: number) {
+function errorResponse(status: number, code = `PUBLICATION_${status}`) {
   return response({
     error: {
-      code: `PUBLICATION_${status}`,
+      code,
       message: '发布成果请求失败',
       details: {},
       request_id: `req-${status}`,
@@ -111,7 +111,7 @@ describe('PublishedArticleDetailPage', () => {
     const get = vi.spyOn(api, 'GET')
       .mockResolvedValueOnce(response(publishedArticle))
       .mockResolvedValueOnce(response(refreshedArticle));
-    const post = vi.spyOn(api, 'POST').mockResolvedValue(errorResponse(409));
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(errorResponse(409, 'PUBLISHED_CONTENT_ISSUE_CONFLICT'));
     renderDetail();
 
     await user.click(await screen.findByRole('button', { name: '登记内容问题' }));

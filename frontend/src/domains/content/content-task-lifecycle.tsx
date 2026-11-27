@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 
 import {
@@ -15,7 +15,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/design-system/primitives/dialog';
-import { Input } from '@/design-system/primitives/input';
 import type { components } from '@/shared/api/generated/schema';
 import {
   ContentRequestError,
@@ -23,7 +22,6 @@ import {
   cancelContentTask,
   contentKeys,
   deleteContentTask,
-  permanentDeletionPreviewQueryOptions,
   permanentlyDeleteContentTask,
   restoreContentTask,
 } from './content.api';
@@ -32,8 +30,9 @@ import type {
   ContentTaskAvailableAction,
 } from './content-task-actions';
 
+import { DeletionRecoveryDialog, PermanentDeleteTaskDialog } from './content-task-deletion-dialogs';
+
 type PermanentDeletionPreview = components['schemas']['ContentTaskPermanentDeletionPreview'];
-type PermanentDeletionCounts = components['schemas']['ContentTaskPermanentDeletionCounts'];
 type DeletionBlocker = components['schemas']['DeletionBlocker'];
 
 type LifecycleVariables =
@@ -65,6 +64,9 @@ function useContentTaskLifecycle({
   const [cancelTargetId, setCancelTargetId] = useState<string>();
   const [conditionsTargetId, setConditionsTargetId] = useState<string>();
   const [permanentTargetId, setPermanentTargetId] = useState<string>();
+  const [deleteConflicts, setDeleteConflicts] = useState<Record<string, ContentRequestError>>({});
+  const [recoveryTargetId, setRecoveryTargetId] = useState<string>();
+  const commandPending = useRef(false);
   const [notice, setNotice] = useState<string | null>(null);
   const focusReturnRef = useRef<HTMLElement | null>(null);
   const lifecycle = useMutation({
@@ -112,30 +114,47 @@ function useContentTaskLifecycle({
     },
     onError: async (error, variables) => {
       if (!variables.continuation.isCurrent()) return;
-      if (error instanceof ContentRequestError && (error.status === 404 || error.status === 409)) {
+      if (variables.action === 'PERMANENT_DELETE') setPermanentTargetId(undefined);
+      if (variables.action === 'DELETE' && error instanceof ContentRequestError
+        && (error.detail?.code === 'GEO_OBSERVATION_CONTEXT_INCOMPLETE' || error.detail?.code === 'GEO_OBSERVATION_CHAIN_CHANGED')) {
+        setDeleteConflicts((current) => ({ ...current, [variables.task.id]: error }));
+        setRecoveryTargetId(variables.task.id);
+      }
+      if (variables.action === 'PERMANENT_DELETE' || (error instanceof ContentRequestError && (error.status === 404 || error.status === 409))) {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: contentKeys.detail(variables.task.id) }),
           queryClient.invalidateQueries({ queryKey: contentKeys.lists() }),
           queryClient.invalidateQueries({
             queryKey: contentKeys.permanentDeletionPreview(variables.task.id),
+            refetchType: 'none',
           }),
         ]);
       }
     },
+    onSettled: () => { commandPending.current = false; },
   });
   const { mutate, reset } = lifecycle;
   const runLifecycle = useCallback((variables: LifecycleVariables) => {
-    mutate({
-      ...variables,
-      continuation: capturePrincipalContinuation(queryClient),
-    });
-  }, [mutate, queryClient]);
+    if (commandPending.current) return;
+    const current = resolveTask(variables.task.id);
+    if ((variables.action === 'DELETE' || variables.action === 'PERMANENT_DELETE')
+      && !current?.available_actions.includes(variables.action)) return;
+    const continuation = capturePrincipalContinuation(queryClient);
+    commandPending.current = true;
+    mutate({ ...variables, continuation });
+  }, [mutate, queryClient, resolveTask]);
 
   const handleCommand = useCallback((
     command: string,
     task: ContentTaskActionState,
     focusReturn?: HTMLElement | null,
   ) => {
+    if (commandPending.current) return;
+    if (command === 'delete-content-task' && deleteConflicts[task.id]) {
+      focusReturnRef.current = focusReturn ?? null;
+      setRecoveryTargetId(task.id);
+      return;
+    }
     reset();
     setNotice(null);
     switch (command) {
@@ -144,6 +163,7 @@ function useContentTaskLifecycle({
         setCancelTargetId(task.id);
         return;
       case 'delete-content-task':
+        focusReturnRef.current = focusReturn ?? null;
         runLifecycle({ action: 'DELETE', task });
         return;
       case 'archive-content-task':
@@ -163,12 +183,14 @@ function useContentTaskLifecycle({
       default:
         throw new Error(`Content Tasks 收到未知页面命令：${command}`);
     }
-  }, [reset, runLifecycle]);
+  }, [deleteConflicts, reset, runLifecycle]);
 
   const pendingAction = lifecycle.isPending ? lifecycle.variables?.action : undefined;
   const cancelTarget = cancelTargetId ? resolveTask(cancelTargetId) : undefined;
   const conditionsTarget = conditionsTargetId ? resolveTask(conditionsTargetId) : undefined;
   const permanentTarget = permanentTargetId ? resolveTask(permanentTargetId) : undefined;
+  const recoveryTarget = recoveryTargetId ? resolveTask(recoveryTargetId) : undefined;
+  const recoveryError = recoveryTarget ? deleteConflicts[recoveryTarget.id] : undefined;
   const dialogs = (
     <>
       <CancelTaskDialog
@@ -192,8 +214,25 @@ function useContentTaskLifecycle({
         open={Boolean(conditionsTarget?.deletion?.blockers.length)}
         task={conditionsTarget}
       />
+      {recoveryTarget && recoveryError && (
+        <DeletionRecoveryDialog
+          key={recoveryTarget.id}
+          task={recoveryTarget}
+          error={recoveryError}
+          finalFocus={() => resolveFocusReturn(focusReturnRef)}
+          onClose={() => setRecoveryTargetId(undefined)}
+          onRecovered={() => {
+            setDeleteConflicts((current) => {
+              const next = { ...current };
+              delete next[recoveryTarget.id];
+              return next;
+            });
+            setRecoveryTargetId(undefined);
+            reset();
+          }}
+        />
+      )}
       <PermanentDeleteTaskDialog
-        error={lifecycle.error}
         finalFocus={() => resolveFocusReturn(focusReturnRef)}
         onClose={() => setPermanentTargetId(undefined)}
         onSubmit={(preview, confirmationText) => {
@@ -336,110 +375,6 @@ function DeletionConditionsDialog({
   );
 }
 
-const deletionCountFields = [
-  ['content_versions', '内容版本'],
-  ['content_review_records', '内容审核记录'],
-  ['generation_jobs', '生成作业'],
-  ['publication_works', '发布工作'],
-  ['publication_events', '发布事件'],
-  ['publication_verifications', '发布核验'],
-  ['published_articles', '发布成果'],
-  ['published_content_issues', '内容问题'],
-  ['geo_article_relations', 'GEO 文章关系'],
-  ['exclusive_geo_observation_chains', '独占 GEO 观测链'],
-  ['attachment_relations', '附件关系'],
-] as const satisfies readonly [keyof PermanentDeletionCounts, string][];
-
-function PermanentDeleteTaskDialog({
-  error,
-  finalFocus,
-  onClose,
-  onSubmit,
-  open,
-  pending,
-  task,
-}: {
-  error: unknown;
-  finalFocus: () => HTMLElement | null;
-  onClose: () => void;
-  onSubmit: (preview: PermanentDeletionPreview, confirmationText: string) => void;
-  open: boolean;
-  pending: boolean;
-  task?: ContentTaskActionState;
-}) {
-  const [confirmationText, setConfirmationText] = useState('');
-  const preview = useQuery({
-    ...permanentDeletionPreviewQueryOptions(task?.id ?? 'closed'),
-    enabled: open && task !== undefined,
-  });
-  return (
-    <Dialog
-      onOpenChange={(next) => !next && !pending && onClose()}
-      onOpenChangeComplete={(next) => !next && setConfirmationText('')}
-      open={open}
-    >
-      <DialogContent className="sm:max-w-lg" finalFocus={finalFocus}>
-        <DialogHeader>
-          <DialogTitle>永久删除任务“{task?.identifier}”</DialogTitle>
-          <DialogDescription>服务端会在执行时重新计算以下范围；外部页面不会被删除。</DialogDescription>
-        </DialogHeader>
-        {preview.isPending ? (
-          <p role="status">正在读取实时删除范围…</p>
-        ) : preview.error ? (
-          <div className="space-y-2" role="alert">
-            <p className="text-destructive">{errorMessage(preview.error)}</p>
-            <Button onClick={() => void preview.refetch()} variant="outline">重试</Button>
-          </div>
-        ) : preview.data ? (
-          <>
-            <dl className="grid max-h-48 grid-cols-2 gap-x-4 gap-y-1 overflow-y-auto rounded-lg border p-3">
-              {deletionCountFields.map(([field, label]) => (
-                <div className="contents" key={field}>
-                  <dt className="text-text-secondary">{label}</dt>
-                  <dd className="text-right font-mono">{preview.data.counts[field]}</dd>
-                </div>
-              ))}
-            </dl>
-            <div className="space-y-1">
-              <p className="font-medium">登记的外部 URL</p>
-              {preview.data.external_urls.length > 0 ? (
-                <ul className="max-h-24 list-disc overflow-y-auto pl-5 text-xs text-text-secondary">
-                  {preview.data.external_urls.map((url) => <li key={url}>{url}</li>)}
-                </ul>
-              ) : <p className="text-xs text-text-muted">无外部登记 URL</p>}
-            </div>
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">输入“{preview.data.confirmation_text}”确认永久删除</span>
-              <Input
-                autoComplete="off"
-                onChange={(event) => setConfirmationText(event.currentTarget.value)}
-                value={confirmationText}
-              />
-            </label>
-          </>
-        ) : null}
-        {Boolean(error) && (
-          <p className="text-sm text-destructive" role="alert">{errorMessage(error)}</p>
-        )}
-        <DialogFooter>
-          <DialogClose disabled={pending} render={<Button variant="outline" />}>返回</DialogClose>
-          <Button
-            disabled={
-              pending
-              || !preview.data
-              || confirmationText !== preview.data.confirmation_text
-            }
-            onClick={() => preview.data && onSubmit(preview.data, confirmationText)}
-            type="button"
-            variant="destructive"
-          >
-            {pending ? '正在永久删除…' : '永久删除'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function lifecycleSuccessMessage(action: LifecycleVariables['action']) {
   switch (action) {

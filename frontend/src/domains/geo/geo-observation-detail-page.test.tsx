@@ -258,7 +258,7 @@ describe('GeoObservationDetailPage', () => {
     vi.spyOn(api, 'GET').mockImplementation(async () => failed ? ({
       error: {
         error: {
-          code: 'REVISION_CONFLICT',
+          code: 'GEO_OBSERVATION_CONTEXT_INCOMPLETE',
           message: 'GEO 观测更正链不完整',
           details: {},
           request_id: 'req-geo-detail',
@@ -278,20 +278,20 @@ describe('GeoObservationDetailPage', () => {
     ).toBeInTheDocument());
   });
 
-  it('背景刷新失败时保留已有只读快照并允许重试', async () => {
+  it.each([[500, 'INTERNAL_ERROR'], [409, 'GEO_OBSERVATION_CONTEXT_INCOMPLETE']] as const)('背景刷新 %s %s 时保留只读快照并冻结动作', async (status, code) => {
     const data = manualDetail();
     const get = vi.spyOn(api, 'GET')
       .mockResolvedValueOnce({ data, response: Response.json(data) } as never)
       .mockResolvedValue({
         error: {
           error: {
-            code: 'INTERNAL_ERROR',
+            code,
             message: '刷新失败',
             details: {},
             request_id: 'req-refresh',
           },
         },
-        response: Response.json({}, { status: 500 }),
+        response: Response.json({}, { status }),
       } as never);
     const { queryClient } = renderDetail(data);
     expect(await screen.findByRole('heading', { name: '怎样选择射频前端器件？' }))
@@ -307,6 +307,9 @@ describe('GeoObservationDetailPage', () => {
     expect(alert).toHaveTextContent('刷新失败，已保留当前只读详情');
     expect(alert).toHaveTextContent('req-refresh');
     expect(get).toHaveBeenCalledTimes(2);
+    await userEvent.click(screen.getByRole('button', { name: /更多操作/ }));
+    expect(await screen.findByRole('menuitem', { name: /^删除/ })).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.keyboard('{Escape}');
   });
 
   it('删除完整更正链后失效所有真实消费者且不重取旧 Detail', async () => {
@@ -371,10 +374,10 @@ describe('GeoObservationDetailPage', () => {
     if (mode === 'revoked') await waitFor(() => expect(screen.getByRole('heading', { name: '怎样选择射频前端器件？' })).toHaveFocus());
   });
 
-  it('DELETE 409 旧确认失效，背景成功不解冻，显式重载才允许重新确认', async () => {
+  it.each(['GEO_OBSERVATION_CONTEXT_INCOMPLETE', 'GEO_OBSERVATION_CHAIN_CHANGED'])('DELETE %s 旧确认失效，背景成功不解冻，显式重载才允许重新确认', async (code) => {
     const data = manualDetail();
     vi.spyOn(api, 'GET').mockResolvedValue({ data, response: Response.json(data) } as never);
-    const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({ response: new Response(null, { status: 409 }) } as never);
+    const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({ error: { error: { code, message: 'GEO 链冲突', details: {}, request_id: 'req-geo-chain' } }, response: Response.json({}, { status: 409 }) } as never);
     const { queryClient } = renderDetail(data);
     await userEvent.click(await screen.findByRole('button', { name: /更多操作/ }));
     await userEvent.click(await screen.findByRole('menuitem', { name: '删除' }));

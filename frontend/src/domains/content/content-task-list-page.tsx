@@ -10,7 +10,7 @@ import {
   type PaginationState,
   useTable,
 } from '@tanstack/react-table';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { ColumnHeader } from '@/design-system/data-table/column-header';
 import { EmptyTable } from '@/design-system/data-table/empty-table';
@@ -80,9 +80,10 @@ function ContentTaskListPage({
   const tasks = useQuery(contentTaskListQueryOptions(search));
   const platforms = useQuery(contentPlatformReferencesQueryOptions());
   const rows = tasks.data?.items ?? [];
+  const resolveTask = useCallback((taskId: string) => tasks.data?.items.find((task) => task.id === taskId), [tasks.data]);
   const lifecycle = useContentTaskLifecycle({
     csrfToken,
-    resolveTask: (taskId) => rows.find((task) => task.id === taskId),
+    resolveTask,
   });
   const total = tasks.data?.total ?? 0;
   const pageCount = Math.ceil(total / search.pageSize);

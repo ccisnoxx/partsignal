@@ -191,12 +191,12 @@ describe('PublicationWorkspacePage', () => {
     },
   );
 
-  it('409 保留 RHF 输入并要求显式重载，不自动重放命令', async () => {
+  it.each(['REVISION_CONFLICT', 'PLATFORM_ACCOUNT_DISABLED'])('%s 保留 RHF 输入并要求显式重载，不自动重放命令', async (code) => {
     const get = mockReads();
     const patch = vi.spyOn(api, 'PATCH').mockResolvedValue({
       error: {
         error: {
-          code: 'PUBLICATION_REVISION_CONFLICT',
+          code,
           message: '发布工作已变化',
           details: {},
           request_id: 'req-workspace-conflict',

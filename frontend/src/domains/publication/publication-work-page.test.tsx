@@ -175,15 +175,17 @@ describe('PublicationWorkPage', () => {
     expect(within(dialog).getByRole('button', { name: '确认开始' })).toBeDisabled();
   });
 
-  it('409 不自动重放，保留账号和 request ID；人工重试复用 key 后采用 canonical ID', async () => {
+  it.each(['PUBLICATION_IDENTITY_CONFLICT', 'IDEMPOTENCY_CONFLICT', 'PUBLICATION_CONTEXT_INCOMPLETE', 'CONTENT_VERSION_NOT_CURRENT'])('%s 不重放且保留账号；仅幂等冲突更换 key，人工重试采用 canonical ID', async (code) => {
     mockPublicationGet();
     const post = vi.spyOn(api, 'POST')
-      .mockResolvedValueOnce(structuredError(409, 'PUBLICATION_ALREADY_EXISTS', 'req-start-409'))
+      .mockResolvedValueOnce(structuredError(409, code, 'req-start-409'))
       .mockResolvedValueOnce({
         data: createdWork,
         response: Response.json(createdWork, { status: 201 }),
       } as never);
-    vi.spyOn(crypto, 'randomUUID').mockReturnValue('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+    vi.spyOn(crypto, 'randomUUID')
+      .mockReturnValueOnce('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+      .mockReturnValueOnce('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
     const { invalidateQueries, onContentProjectionChange, onSearchChange } = renderPage();
     const dialog = await openStartDialog();
 
@@ -214,7 +216,9 @@ describe('PublicationWorkPage', () => {
       'X-CSRF-Token': 'publication-csrf',
       'Idempotency-Key': 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     });
-    expect(second.params.header['Idempotency-Key']).toBe(first.params.header['Idempotency-Key']);
+    expect(second.params.header['Idempotency-Key']).toBe(code === 'IDEMPOTENCY_CONFLICT'
+      ? 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+      : first.params.header['Idempotency-Key']);
     expect(onSearchChange).toHaveBeenCalledWith(
       { page: 1, pageSize: 20, status: undefined },
       expect.objectContaining({ isCurrent: expect.any(Function) }),

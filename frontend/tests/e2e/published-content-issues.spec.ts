@@ -107,3 +107,35 @@ test('非法列表状态与未知 Workspace hash 被 canonicalize，页面无根
     ).toBe(true);
   }
 });
+
+test('REPAIR_TASK_EXISTS 不重放；重读失败保持冻结，完整重读后交接 canonical task', async ({ page, publicationApi }) => {
+  publicationApi.seedIssue();
+  publicationApi.setRepairConflict(true);
+  await page.goto(workspacePath);
+  await page.getByRole('button', { name: '创建修复任务' }).click();
+  const dialog = page.getByRole('dialog', { name: '创建修复任务' });
+  await dialog.getByRole('combobox', { name: '修复依据' }).click();
+  await page.getByRole('option', { name: 'FactVersion v2 · 批准修复依据' }).click();
+  await dialog.getByRole('button', { name: '确认创建' }).click();
+  await expect(dialog.getByText('请求 ID：req-repair-exists')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '确认创建' })).toBeDisabled();
+  await expect(page.getByRole('link', { name: publicationIds.repairTask })).toHaveCount(0);
+  expect(publicationApi.commandRequests).toHaveLength(1);
+  expect(publicationApi.issueWorkspaceRequests).toHaveLength(1);
+  expect(publicationApi.issueRepairRequests).toHaveLength(1);
+
+  publicationApi.setRepairContextFailure(true);
+  await dialog.getByRole('button', { name: '显式重载最新问题' }).click();
+  await expect(dialog.getByText('请求 ID：req-repair-context', { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '确认创建' })).toBeDisabled();
+  expect(publicationApi.commandRequests).toHaveLength(1);
+
+  publicationApi.setRepairContextFailure(false);
+  await dialog.getByRole('button', { name: '显式重载最新问题' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('link', { name: publicationIds.repairTask })).toHaveAttribute('href', `/content/tasks/${publicationIds.repairTask}`);
+  await expect(page.getByRole('button', { name: '创建修复任务' })).toHaveCount(0);
+  expect(publicationApi.commandRequests).toHaveLength(1);
+  expect(publicationApi.issueWorkspaceRequests).toHaveLength(3);
+  expect(publicationApi.issueRepairRequests).toHaveLength(3);
+});

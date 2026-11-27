@@ -279,7 +279,7 @@ describe('ContentTaskDetailPage', () => {
     expect(get).toHaveBeenCalledTimes(2);
   });
 
-  it('409 command 不重放并刷新 canonical detail/list cache', async () => {
+  it.each(['REVISION_CONFLICT', 'GEO_OBSERVATION_CONTEXT_INCOMPLETE', 'GEO_OBSERVATION_CHAIN_CHANGED'])('DELETE %s 不重放且 GEO 冲突要求显式恢复', async (code) => {
     const deletable = {
       ...detail,
       task: {
@@ -292,7 +292,7 @@ describe('ContentTaskDetailPage', () => {
     const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({
       error: {
         error: {
-          code: 'REVISION_CONFLICT',
+          code,
           message: '内容任务已被其他请求修改',
           details: {},
           request_id: 'req-detail-conflict',
@@ -307,9 +307,22 @@ describe('ContentTaskDetailPage', () => {
     const confirm = await screen.findByRole('dialog', { name: '确认删除任务“CT-00000000”' });
     await userEvent.click(within(confirm).getByRole('button', { name: '确认删除' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('req-detail-conflict');
+    expect((await screen.findAllByRole('alert'))[0]).toHaveTextContent('req-detail-conflict');
     expect(remove).toHaveBeenCalledOnce();
     await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    if (code !== 'REVISION_CONFLICT') {
+      const recovery = await screen.findByRole('dialog', { name: /重新检查任务/ });
+      expect(remove).toHaveBeenCalledOnce();
+      await userEvent.click(within(recovery).getByRole('button', { name: '返回' }));
+      await userEvent.click(screen.getByRole('button', { name: /更多操作/ }));
+      await userEvent.click(await screen.findByRole('menuitem', { name: '删除任务' }));
+      await userEvent.click(within(await screen.findByRole('dialog', { name: /确认删除任务/ })).getByRole('button', { name: '确认删除' }));
+      const stillBlocked = await screen.findByRole('dialog', { name: /重新检查任务/ });
+      expect(remove).toHaveBeenCalledOnce();
+      await userEvent.click(within(stillBlocked).getByRole('button', { name: '重新读取删除条件' }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      expect(remove).toHaveBeenCalledOnce();
+    }
   });
 
   it('deletion blocker 显示真实计数，关闭后焦点返回 overflow trigger', async () => {

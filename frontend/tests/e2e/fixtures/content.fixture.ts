@@ -24,7 +24,7 @@ type HumanizationJobCreate = components['schemas']['HumanizationJobCreate'];
 type OriginalGenerationJobCreate = components['schemas']['OriginalGenerationJobCreate'];
 type ProductDetail = components['schemas']['ProductDetail'];
 type ContentTaskListMode = 'success' | 'empty' | 'error' | 'loading';
-type MutationMode = 'success' | 'revision-conflict';
+type MutationMode = 'success' | 'revision-conflict' | 'geo-context-conflict' | 'geo-chain-conflict';
 type CreationOptionsMode = 'success' | 'empty' | 'error' | 'loading';
 type CreateMode =
   | 'success'
@@ -139,6 +139,7 @@ type ContentApiController = {
   setEditorMutationMode: (mode: EditorMutationMode) => void;
   setListMode: (mode: ContentTaskListMode) => void;
   setMutationMode: (mode: MutationMode) => void;
+  setPreviewFailure: (failed: boolean) => void;
   setReviewMode: (mode: ReviewMode) => void;
   setReviewMutationMode: (mode: ReviewMutationMode) => void;
   setVersionDetail: (detail: ContentVersionDetail) => void;
@@ -970,6 +971,7 @@ const test = base.extend<ContentFixtures>({
     const items = createContentTasks();
     let listMode: ContentTaskListMode = 'success';
     let mutationMode: MutationMode = 'success';
+    let previewFailure = false;
     let creationOptionsMode: CreationOptionsMode = 'success';
     let createMode: CreateMode = 'success';
     let detailMode: DetailMode = 'success';
@@ -1812,6 +1814,10 @@ const test = base.extend<ContentFixtures>({
 
       const previewMatch = url.pathname.match(/^\/api\/v1\/content-tasks\/([^/]+)\/permanent-deletion-preview$/);
       if (method === 'GET' && previewMatch) {
+        if (previewFailure) {
+          await route.fulfill({ status: 409, json: errorEnvelope('GEO_OBSERVATION_CONTEXT_INCOMPLETE', '删除范围不可读取', 'req-content-preview') });
+          return;
+        }
         await route.fulfill({
           status: 200,
           json: {
@@ -1852,6 +1858,11 @@ const test = base.extend<ContentFixtures>({
           method,
           pathname: url.pathname,
         });
+        if (mutationMode === 'geo-context-conflict' || mutationMode === 'geo-chain-conflict') {
+          const code = mutationMode === 'geo-context-conflict' ? 'GEO_OBSERVATION_CONTEXT_INCOMPLETE' : 'GEO_OBSERVATION_CHAIN_CHANGED';
+          await route.fulfill({ status: 409, json: errorEnvelope(code, '删除上下文已失效', 'req-content-geo-conflict') });
+          return;
+        }
         if (mutationMode === 'revision-conflict') {
           await route.fulfill({ status: 409, json: errorEnvelope('REVISION_CONFLICT', '内容任务已被其他请求修改', 'req-content-conflict') });
           return;
@@ -1944,6 +1955,7 @@ const test = base.extend<ContentFixtures>({
       setEditorMutationMode: (mode) => { editorMutationMode = mode; },
       setListMode: (mode) => { listMode = mode; },
       setMutationMode: (mode) => { mutationMode = mode; },
+      setPreviewFailure: (failed) => { previewFailure = failed; },
       setReviewMode: (mode) => {
         reviewMode = mode;
         if (mode === 'loading' || mode === 'error') return;

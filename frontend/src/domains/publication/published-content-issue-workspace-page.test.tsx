@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -34,10 +34,10 @@ function response(value: unknown, status = 200) {
   } as never;
 }
 
-function errorResponse(status: number) {
+function errorResponse(status: number, code = `PUBLICATION_${status}`) {
   return response({
     error: {
-      code: `PUBLICATION_${status}`,
+      code,
       message: '内容问题请求失败',
       details: {},
       request_id: `req-issue-${status}`,
@@ -77,6 +77,62 @@ const resolvedWorkspace = {
 };
 
 describe('PublishedContentIssueWorkspacePage', () => {
+  it('REPAIR_TASK_EXISTS 空 details 不猜 ID；双 Context 重读失败仍冻结，成功后交接已有修复任务', async () => {
+    const user = userEvent.setup();
+    const winnerIssue = {
+      ...issueWorkspace.issue,
+      repair_task_id: repairTask.id,
+      workflow_stage: 'REPAIRING',
+      primary_task: 'CONTINUE_REPAIR',
+      available_actions: ['RESOLVE'],
+    };
+    let hasWinner = false;
+    let repairReadFails = false;
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/published-content-issues/{issue_id}/workspace-context') {
+        return response(hasWinner
+          ? { ...issueWorkspace, issue: winnerIssue, repair_task: repairTask }
+          : issueWorkspace);
+      }
+      if (path === '/api/v1/published-content-issues/{issue_id}/repair-context') {
+        if (repairReadFails) return errorResponse(409, 'PUBLICATION_CONTEXT_INCOMPLETE');
+        return response(hasWinner ? { ...repairContext, issue: winnerIssue } : repairContext);
+      }
+      throw new Error(`未声明 GET：${path}`);
+    });
+    const post = vi.spyOn(api, 'POST').mockImplementation(async () => {
+      hasWinner = true;
+      return errorResponse(409, 'REPAIR_TASK_EXISTS');
+    });
+    renderWorkspace();
+
+    await user.click(await screen.findByRole('button', { name: '创建修复任务' }));
+    const dialog = screen.getByRole('dialog', { name: '创建修复任务' });
+    await user.click(await screen.findByRole('combobox', { name: '修复依据' }));
+    await user.click(await screen.findByRole('option', { name: /FactVersion v2/ }));
+    await user.click(within(dialog).getByRole('button', { name: '确认创建' }));
+    expect(await within(dialog).findByText('请求 ID：req-issue-409')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: '确认创建' })).toBeDisabled();
+    expect(screen.queryByRole('link', { name: repairTask.id })).not.toBeInTheDocument();
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(post).toHaveBeenCalledOnce();
+
+    repairReadFails = true;
+    await user.click(within(dialog).getByRole('button', { name: '显式重载最新问题' }));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(4));
+    expect(await within(dialog).findByText('内容问题请求失败')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: '确认创建' })).toBeDisabled();
+    expect(post).toHaveBeenCalledOnce();
+
+    repairReadFails = false;
+    await user.click(within(dialog).getByRole('button', { name: '显式重载最新问题' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('link', { name: repairTask.id })).toHaveAttribute('href', `/content/tasks/${repairTask.id}`);
+    expect(get).toHaveBeenCalledTimes(6);
+    expect(post).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('button', { name: '创建修复任务' })).not.toBeInTheDocument();
+  });
+
   it('首屏只读取一个 Context，修复选项直到动作打开才请求', async () => {
     const user = userEvent.setup();
     const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => {
@@ -174,7 +230,7 @@ describe('PublishedContentIssueWorkspacePage', () => {
       throw new Error(`未声明 GET：${path}`);
     });
     const post = vi.spyOn(api, 'POST')
-      .mockResolvedValueOnce(errorResponse(409))
+      .mockResolvedValueOnce(errorResponse(409, 'REVISION_CONFLICT'))
       .mockResolvedValueOnce(response(repairTask, 201));
     renderWorkspace();
 
@@ -251,7 +307,7 @@ describe('PublishedContentIssueWorkspacePage', () => {
         issue: { ...issueWorkspace.issue, revision: 1 },
       });
     });
-    const post = vi.spyOn(api, 'POST').mockResolvedValue(errorResponse(409));
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(errorResponse(409, 'REVISION_CONFLICT'));
     renderWorkspace();
 
     await user.click(await screen.findByRole('button', { name: '解决内容问题' }));
@@ -291,7 +347,7 @@ describe('PublishedContentIssueWorkspacePage', () => {
       }
       throw new Error(`未声明 GET：${path}`);
     });
-    const post = vi.spyOn(api, 'POST').mockResolvedValue(errorResponse(409));
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(errorResponse(409, 'FACT_NOT_APPROVED'));
     renderWorkspace();
 
     await user.click(await screen.findByRole('button', { name: '创建修复任务' }));

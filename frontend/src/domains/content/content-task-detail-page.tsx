@@ -86,9 +86,12 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
     ),
   });
 
-  if (detail.isPending) return <ContentTaskDetailSkeleton taskId={taskId} />;
+  if (detail.isPending) return <><ContentTaskDetailSkeleton taskId={taskId} />{lifecycle.dialogs}</>;
   if (detail.error) {
-    return <ContentTaskDetailFailure error={detail.error} onRetry={() => void detail.refetch()} />;
+    return <>
+      <ContentTaskDetailFailure error={detail.error} onRetry={() => void detail.refetch()} />
+      {lifecycle.dialogs}
+    </>;
   }
 
   const data = detail.data;
@@ -100,6 +103,7 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
   const readonly = data.task.archived_at !== null || data.task.status !== 'OPEN';
 
   return (
+    <>
     <article className="min-w-0 space-y-4" aria-labelledby="content-task-detail-title">
       <header className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-1">
@@ -359,8 +363,9 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
         </div>
       </div>
 
-      {lifecycle.dialogs}
     </article>
+    {lifecycle.dialogs}
+    </>
   );
 }
 

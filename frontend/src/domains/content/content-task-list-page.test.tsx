@@ -290,13 +290,18 @@ describe('ContentTaskListPage', () => {
     await waitFor(() => expect(more).toHaveFocus());
   });
 
-  it('DELETE 409 不自动重放，显示 request ID 并刷新 projection', async () => {
+  it.each(['REVISION_CONFLICT', 'GEO_OBSERVATION_CONTEXT_INCOMPLETE', 'GEO_OBSERVATION_CHAIN_CHANGED'])('DELETE %s 不重放且 GEO 冲突要求显式恢复', async (code) => {
     const deletable = { ...task, available_actions: ['DELETE'] } satisfies ContentTaskListItem;
     const get = mockList([deletable]);
+    get.mockImplementation(async (path) => {
+      const data = path === '/api/v1/content-tasks/{content_task_id}/detail'
+        ? { task: deletable } : path === '/api/v1/platform-profiles' ? emptyPlatforms : taskList([deletable]);
+      return { data, response: Response.json(data) } as never;
+    });
     const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({
       error: {
         error: {
-          code: 'REVISION_CONFLICT',
+          code,
           message: '内容任务已被其他请求修改',
           details: {},
           request_id: 'req-content-conflict',
@@ -315,7 +320,7 @@ describe('ContentTaskListPage', () => {
     });
     await userEvent.click(within(dialog).getByRole('button', { name: '确认删除' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
+    expect((await screen.findAllByRole('alert'))[0]).toHaveTextContent(
       '内容任务已被其他请求修改（请求 ID：req-content-conflict）',
     );
     expect(remove).toHaveBeenCalledOnce();
@@ -327,9 +332,22 @@ describe('ContentTaskListPage', () => {
       },
     });
     await waitFor(() => expect(get).toHaveBeenCalledTimes(3));
+    if (code !== 'REVISION_CONFLICT') {
+      const recovery = await screen.findByRole('dialog', { name: /重新检查任务/ });
+      expect(remove).toHaveBeenCalledOnce();
+      await userEvent.click(within(recovery).getByRole('button', { name: '返回' }));
+      await userEvent.click(screen.getByRole('button', { name: /更多操作/ }));
+      await userEvent.click(await screen.findByRole('menuitem', { name: '删除任务' }));
+      await userEvent.click(within(await screen.findByRole('dialog', { name: /确认删除任务/ })).getByRole('button', { name: '确认删除' }));
+      const stillBlocked = await screen.findByRole('dialog', { name: /重新检查任务/ });
+      expect(remove).toHaveBeenCalledOnce();
+      await userEvent.click(within(stillBlocked).getByRole('button', { name: '重新读取删除条件' }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+      expect(remove).toHaveBeenCalledOnce();
+    }
   });
 
-  it('PERMANENT_DELETE 使用实时 preview 和精确确认文本', async () => {
+  it.each(['success', 'GEO_OBSERVATION_CONTEXT_INCOMPLETE', 'GEO_OBSERVATION_CHAIN_CHANGED'])('PERMANENT_DELETE %s 后不可复用旧确认', async (code) => {
     const archived = {
       ...task,
       archived_at: '2026-08-10T00:00:00Z',
@@ -355,6 +373,7 @@ describe('ContentTaskListPage', () => {
       external_urls: ['https://community.example.invalid/article/1'],
       confirmation_text: '永久删除',
     } satisfies components['schemas']['ContentTaskPermanentDeletionPreview'];
+    let previewReads = 0;
     const get = mockList([archived]);
     get.mockImplementation(async (path) => {
       if (path === '/api/v1/content-tasks') {
@@ -365,12 +384,16 @@ describe('ContentTaskListPage', () => {
         return { data: emptyPlatforms, response: Response.json(emptyPlatforms) } as never;
       }
       if (path === '/api/v1/content-tasks/{content_task_id}/permanent-deletion-preview') {
+        previewReads += 1;
         return { data: preview, response: Response.json(preview) } as never;
       }
       throw new Error(`未声明 GET：${path}`);
     });
-    const post = vi.spyOn(api, 'POST').mockResolvedValue({
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(code === 'success' ? {
       response: new Response(null, { status: 204 }),
+    } as never : {
+      error: { error: { code, message: 'GEO 链不可删除', details: {}, request_id: 'req-permanent-conflict' } },
+      response: Response.json({}, { status: 409 }),
     } as never);
     renderContentTasks('/content/tasks?archiveStatus=ARCHIVED&page=1&pageSize=20');
 
@@ -399,5 +422,16 @@ describe('ContentTaskListPage', () => {
       },
     ));
     await waitFor(() => expect(more).toHaveFocus());
+    if (code !== 'success') {
+      expect(await screen.findByRole('alert')).toHaveTextContent('req-permanent-conflict');
+      const before = previewReads;
+      await userEvent.click(more);
+      await userEvent.click(await screen.findByRole('menuitem', { name: '永久删除' }));
+      const reopened = await screen.findByRole('dialog', { name: /永久删除任务/ });
+      await waitFor(() => expect(previewReads).toBeGreaterThan(before));
+      expect(within(reopened).getByRole('textbox')).toHaveValue('');
+      expect(within(reopened).getByRole('button', { name: '永久删除' })).toBeDisabled();
+      expect(post).toHaveBeenCalledOnce();
+    }
   });
 });

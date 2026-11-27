@@ -117,7 +117,7 @@ describe('Table Kit', () => {
     expect(screen.getByRole('dialog', { name: '确认归档记录' })).toBeInTheDocument();
     expect(onCommand).not.toHaveBeenCalledWith('archive');
     await user.click(screen.getByRole('button', { name: '确认归档' }));
-    expect(onCommand).toHaveBeenCalledWith('archive');
+    expect(onCommand).toHaveBeenCalledWith('archive', screen.getByRole('button', { name: '更多操作：示例对象' }));
   });
 
   it('RowActions 拒绝会绕过确认的链接操作配置', () => {

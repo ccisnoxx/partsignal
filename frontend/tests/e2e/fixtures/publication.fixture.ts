@@ -36,6 +36,8 @@ type PublicationApiController = {
   setArticleDetailError: (status?: WorkspaceErrorStatus) => void;
   setArticleListMode: (mode: ArticleListMode) => void;
   seedIssue: () => void;
+  setRepairConflict: (enabled: boolean) => void;
+  setRepairContextFailure: (enabled: boolean) => void;
   setReadyMode: (mode: SurfaceMode) => void;
   setSummaryMode: (mode: SurfaceMode) => void;
   setSwitchCandidate: () => void;
@@ -477,6 +479,8 @@ const test = base.extend<PublicationFixtures>({
     let workMode: SurfaceMode = 'success';
     let createMode: CreateMode = 'success';
     let commandMode: CommandMode = 'success';
+    let repairConflict = false;
+    let repairContextFailure = false;
     let workspaceErrorStatus: WorkspaceErrorStatus | undefined;
     let articleDetailErrorStatus: WorkspaceErrorStatus | undefined;
     let articleListMode: ArticleListMode = 'success';
@@ -678,6 +682,10 @@ const test = base.extend<PublicationFixtures>({
       }
       if (method === 'GET' && url.pathname === `/api/v1/published-content-issues/${publicationIds.issue}/repair-context`) {
         issueRepairRequests.push(url);
+        if (repairContextFailure) {
+          await route.fulfill({ status: 409, json: errorEnvelope('PUBLICATION_CONTEXT_INCOMPLETE', '发布修复上下文不完整', 'req-repair-context') });
+          return;
+        }
         if (!currentIssue) {
           await route.fulfill({ status: 404, json: errorEnvelope('NOT_FOUND', '内容问题不存在', 'req-issue-repair-404') });
           return;
@@ -702,6 +710,11 @@ const test = base.extend<PublicationFixtures>({
           primary_task: 'CONTINUE_REPAIR',
           available_actions: ['RESOLVE'],
         };
+        if (repairConflict) {
+          // 并发调用已创建 canonical task；本次失败响应不携带 winner ID。
+          await route.fulfill({ status: 409, json: errorEnvelope('REPAIR_TASK_EXISTS', '内容问题已有修复任务', 'req-repair-exists') });
+          return;
+        }
         await route.fulfill({ status: 201, json: repairTask });
         return;
       }
@@ -768,7 +781,7 @@ const test = base.extend<PublicationFixtures>({
         if (workspaceErrorStatus) {
           await route.fulfill({
             status: workspaceErrorStatus,
-            json: errorEnvelope(`WORKSPACE_${workspaceErrorStatus}`, '发布工作台不可用', `req-workspace-${workspaceErrorStatus}`),
+            json: errorEnvelope(workspaceErrorStatus === 409 ? 'PUBLICATION_CONTEXT_INCOMPLETE' : `WORKSPACE_${workspaceErrorStatus}`, '发布工作台不可用', `req-workspace-${workspaceErrorStatus}`),
           });
           return;
         }
@@ -849,7 +862,7 @@ const test = base.extend<PublicationFixtures>({
         });
         if (commandMode === 'pending') await new Promise<void>((resolve) => { releaseCommand = resolve; });
         if (commandMode === 'conflict') {
-          await route.fulfill({ status: 409, json: errorEnvelope('PUBLICATION_REVISION_CONFLICT', '发布工作已变化', 'req-workspace-conflict') });
+          await route.fulfill({ status: 409, json: errorEnvelope('REVISION_CONFLICT', '发布工作已变化', 'req-workspace-conflict') });
           return;
         }
         const body = request.postDataJSON() as Record<string, unknown>;
@@ -977,7 +990,7 @@ const test = base.extend<PublicationFixtures>({
         });
         if (createMode === 'pending') await new Promise<void>((resolve) => { releaseCreate = resolve; });
         if (createMode === 'conflict') {
-          await route.fulfill({ status: 409, json: errorEnvelope('PUBLICATION_ALREADY_EXISTS', '发布工作已存在', 'req-publication-conflict') });
+          await route.fulfill({ status: 409, json: errorEnvelope('PUBLICATION_IDENTITY_CONFLICT', '发布工作已存在', 'req-publication-conflict') });
           return;
         }
         readyItems = readyItems.filter((item) => item.content_version.id !== readyItem.content_version.id);
@@ -1029,6 +1042,8 @@ const test = base.extend<PublicationFixtures>({
       setArticleDetailError: (status) => { articleDetailErrorStatus = status; },
       setArticleListMode: (mode) => { articleListMode = mode; },
       seedIssue: () => { seedCurrentIssue(); },
+      setRepairConflict: (enabled) => { repairConflict = enabled; },
+      setRepairContextFailure: (enabled) => { repairContextFailure = enabled; },
       setReadyMode: (mode) => { readyMode = mode; },
       setSummaryMode: (mode) => { summaryMode = mode; },
       setSwitchCandidate: () => {

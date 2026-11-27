@@ -138,7 +138,7 @@ function RowActions({ objectLabel, onCommand, overflow, primary }: RowActionsPro
   }
 
   function confirmAction() {
-    if (pendingAction?.command) onCommand(pendingAction.command);
+    if (pendingAction?.command) onCommand(pendingAction.command, overflowTriggerRef.current);
     setPendingAction(null);
   }
 

@@ -1,8 +1,0 @@
-{
-  "command": [
-    "colima",
-    "start"
-  ],
-  "exit_code": 0,
-  "elapsed_seconds": 7.79
-}

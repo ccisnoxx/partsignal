@@ -1,4 +1,0 @@
-{
-  "command": "npm --prefix browser-collector test",
-  "exit_code": 0
-}

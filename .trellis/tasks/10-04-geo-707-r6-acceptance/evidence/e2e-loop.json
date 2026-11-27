@@ -1,7 +1,0 @@
-{
-  "argv": [
-    "deploy/scripts/e2e-local.sh"
-  ],
-  "exit_code": 2,
-  "elapsed_seconds": 316.586
-}

@@ -1,6 +1,0 @@
-{
-  "command": "colima stop",
-  "exit_code": 0,
-  "duration_seconds": 2.1,
-  "log": "colima-restore.log"
-}

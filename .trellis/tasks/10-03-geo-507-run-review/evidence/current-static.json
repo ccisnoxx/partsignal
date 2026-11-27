@@ -1,8 +1,0 @@
-{
-  "command": [
-    "make",
-    "lint",
-    "typecheck"
-  ],
-  "exit_code": 0
-}

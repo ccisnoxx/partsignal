@@ -3,7 +3,7 @@
   "name": "geo-observation-context-code-reconciliation",
   "title": "GEO observation context code reconciliation",
   "description": "T5-I6：把剩余 11 个 GEO context/chain producer 统一迁出 REVISION_CONFLICT，并覆盖共享 content-task deletion operation 的错误传播与原子性。",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "777",
   "assignee": "777",
   "createdAt": "2026-09-16",
-  "completedAt": null,
+  "completedAt": "2026-10-24",
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
@@ -21,6 +21,24 @@
   "children": [],
   "parent": "09-14-publication-geo-integrity-error-contract-decision",
   "relatedFiles": [],
-  "notes": "规划审计确认 producer 数量为 11；三个共享 content-task operation 及 test_publication_workflow.py 已纳入同一 T5-I6。用户于 2026-09-21 批准实施，已运行 task.py start。实施及定向验证已完成，独立 full review 的唯一 P2 经一次修复与定点复核关闭；前置 protected-owner 指纹未留存，AC11 不能宣称完整通过，故保持 in_progress。T6-G/T6-C release gate 有效；不提交、归档、push 或单独发布 backend code。",
-  "meta": {}
+  "notes": "规划审计确认 producer 数量为 11；三个共享 content-task operation 及 test_publication_workflow.py 已纳入同一 T5-I6。用户于 2026-09-21 批准实施，已运行 task.py start。实施及定向验证已完成，独立 full review 的唯一 P2 经一次修复与定点复核关闭；前置 protected-owner 指纹未留存，AC11 不能宣称完整通过，故保持 in_progress。T6-G/T6-C release gate 有效；不提交、归档、push 或单独发布 backend code。\n2026-10-24 核对：后端实施和定向复核完成；AC11 历史前置指纹缺失不可补造。后续 G03/G04 已覆盖部分 T6-G；当前共享 content-task 生命周期仍缺 T6-C 预览/确认失效合同，不解除发布条件。 详见 .trellis/tasks/10-24-open-task-evidence-reconciliation/implement.md。\n2026-10-24 后续修复：T6-C 已实现并完成 List/Detail 定向验收，T6-G 当前矩阵通过，见 .trellis/tasks/10-24-content-deletion-recovery-acceptance/implement.md。转 review；历史 AC11 protected-owner 前置指纹永久 NOT_CAPTURED，等待明确接受历史证据例外后再完成，不追认历史通过，不部署、不提交推送。\n2026-10-24 用户明确接受 AC11 历史证据缺口，保留 NOT_CAPTURED，以本轮当前验收记录为收尾依据；任务 completed。该例外不是历史指纹通过，不授予部署、提交或推送权限。父任务另有 T5-G/T6-P 剩余项，见 .trellis/tasks/09-16-geo-observation-context-code-reconciliation/closeout.md。",
+  "meta": {
+    "reconciliation": {
+      "date": "2026-10-24",
+      "record": ".trellis/tasks/10-24-open-task-evidence-reconciliation/implement.md",
+      "decision": "retain_open",
+      "summary": "后端实施和定向复核完成；AC11 历史前置指纹缺失不可补造。后续 G03/G04 已覆盖部分 T6-G；当前共享 content-task 生命周期仍缺 T6-C 预览/确认失效合同，不解除发布条件。"
+    },
+    "current_acceptance": {
+      "record": ".trellis/tasks/10-24-content-deletion-recovery-acceptance/implement.md",
+      "t6_c": "passed_local_targeted",
+      "t6_g": "passed_local_targeted",
+      "historical_ac11": "NOT_CAPTURED",
+      "closure": "closed_with_explicit_user_acceptance",
+      "deploy_authorized": false,
+      "exception_accepted_by": "user",
+      "exception_accepted_on": "2026-10-24",
+      "closeout_record": ".trellis/tasks/09-16-geo-observation-context-code-reconciliation/closeout.md"
+    }
+  }
 }

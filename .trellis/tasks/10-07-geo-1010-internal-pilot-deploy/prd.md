@@ -63,6 +63,8 @@ Scheduler 只运行既有分析恢复、过期采集 lease 恢复、PENDING 分�
 
 ## 独立验收
 
+2026-10-24逐项证据与当前可执行边界见[验收分项核对](acceptance-status.md)。下方含多个条件的复合验收项仍按全部条件裁决，不因其中迁移/账号/readiness已完成就勾选完整MANUAL smoke。
+
 - [x] 同一固定 UI 完成后 main 候选6a96bfcb的门禁、archive、images、manifest、schema/hashes 可核验并可重现。
 - [x] 六服务运行，五项已定义healthcheck healthy，Frontend实际页面/资产/浏览器验证通过；API/Worker/Scheduler配置相同，API/Browser自动采集关闭、Beat仅既有8项恢复/清理任务。
 - [ ] 目标迁移到唯一 head、账号初始化、readiness 和完整 MANUAL 主链路 smoke 成功；无需手改数据库。

@@ -24,3 +24,15 @@ parent=null；scope=deployment/integration。用户只授权本开发阶段任�
 ## 2026-10-01 后续用户指示
 
 用户要求浏览器向应用后端传输文件，再由后端写入OSS；本轮仅交付源码与定向验证，保留当前staging release。原完整外部集成验收尚未完成，不能按原完成判据标记completed。实现子任务只完成已授权的上传改造，并在结束后停止，不发起未来部署、Production或Observation任务。
+
+## 2026-10-24 当前恢复边界
+
+后续 10-08 fresh rebuild 已替代本文件的旧 preview 原地切换前提；实际 API 的真实 OSS 对象读写、私有访问与精确清理已有现场证据，见[核对记录](../10-24-open-task-evidence-reconciliation/implement.md)。原始验收历史保留，不再依据旧记录声称服务器仍为 fake-oss。剩余浏览器上传、FileRecord VERIFIED、下载内容/哈希及未引用清理后的 DELETED/下载失效仍未被证据覆盖，因此本任务保持 in_progress。恢复时先确认实际候选与环境，按当前后端中转和对象私有合同验收，不执行旧 release 原地切换或为浏览器直传申请 CORS 权限。本轮不执行现场操作或部署。
+
+## 2026-10-24 最新实际验收
+
+用户授权本轮唯一PNG/FileRecord后，已完成真实文件API上传与下载验证，见[evidence/live-20261024T010420Z-b292543b/README.md](evidence/live-20261024T010420Z-b292543b/README.md)。状态为等待自然清理；保留UI上传入口缺失（现有平台数0），不把API结果冒充浏览器控件验收。不新增平台、不绑定Logo、不触发批量清理。
+
+## 2026-10-25 自然清理结果
+
+只读现场核对已确认原唯一对象自然清理通过：OSS对象缺失、FileRecord DELETED、正常GET返回墓碑、下载地址接口409 FILE_INTEGRITY_FAILED，见同一证据目录的最新观察。未手动触发清理或修改线上配置。浏览器Logo控件验收仍缺，按当前用户要求暂不创建平台；整项保持in_progress，不提交推送。

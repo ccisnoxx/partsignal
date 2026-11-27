@@ -61,3 +61,9 @@ Node实际默认配置探针通过，1,295份既有源码/配置摘要一致，�
 独立review发现部分引用风险已修正并复核；文本API/页面入口说明由主代理修正后自查，不冒充独立再次复核。Audit Bundle 20261005T130659Z-geo-browser-scope-adjustment-dd53e77f已finalize/verify通过；有一条unclassified independent-review.md辅助文件类型warning，无校验错误或Digest异常，产物已纳入哈希清单。validated Digest为1次只读执行、1次验收、1次独立复核，无活跃Worker或未知写入。子任务验收不表示本治理任务done或生产批准。
 
 新治理任务in_progress→review，804 blocked→deferred，未自行标done；completedAt保持null。未提交、推送、上线、归档或实施后续任务。后续901～906照当前依赖与条件验收执行；恢复804～807所需条件见ADR006/manifest，不在本轮执行。
+
+## 2026-10-24 证据核对收尾
+
+范围治理与文档已交付，原验证和独立复核及后续 PSR 记录支持收尾；Browser 804～807 保持延期，不授予生产 Go。
+
+依据本轮用户“核对后整理收尾已完成任务”的授权，状态由 review 更新为 completed，完成日期记为 2026-10-24；不倒填原实施日期或历史具名接受，不产生 UAT/生产 Go。原记录与原始验证结果保留。详细证据、当前限制及仍需现场执行的工作见[核对记录](../10-24-open-task-evidence-reconciliation/implement.md)。本轮没有重新运行业务测试，没有提交、推送或部署。

@@ -1,0 +1,38 @@
+{
+  "id": "publication-exact-code-recovery-acceptance",
+  "name": "publication-exact-code-recovery-acceptance",
+  "title": "T6-P Publication 真实错误码恢复验收",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-24",
+  "completedAt": "2026-10-24",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "09-14-publication-geo-integrity-error-contract-decision",
+  "relatedFiles": [],
+  "notes": "\n2026-10-24 当前收尾：T5-G 独立只读核对无 material finding；T6-P 57 定向测试及28既有+2重跑浏览器验收完成，T6-G/C有效证据复用；原15-consumer已对照后续合同与测试owner。AC11历史NOT_CAPTURED保留并按用户明确接受关闭。未部署、未提交或推送。",
+  "meta": {
+    "current_closeout": {
+      "date": "2026-10-24",
+      "decision": "completed",
+      "record": ".trellis/tasks/09-04-integrity-error-domain-mapping/closeout.md",
+      "validation": ".trellis/tasks/10-24-publication-exact-code-recovery-acceptance/evidence/validation.json",
+      "remaining": [],
+      "historical_ac11": "NOT_CAPTURED; explicitly accepted by user",
+      "deploy_authorized": false,
+      "commit_authorized": false,
+      "push_authorized": false
+    }
+  }
+}

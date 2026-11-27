@@ -104,3 +104,17 @@ Host只读runtime结构检查及Linux mountinfo解析通过；仅concurrency=1�
 ## Hostdzire 已上线（2026-10-08 UTC）
 
 Hostdzire新站已上线：候选6a96bfcb完整Gate通过，Host原生构建/清空重建完成，0066与六服务/登录/私有OSS验证通过。AI配置留给上线后管理界面，自定义Header可选；AI业务smoke、UAT及人工接受尚未完成。 具体同候选工件、完整Gate、实际state/服务、数据库、认证、OSS、页面与资源恢复见[最终现场证据](./evidence/hostdzire-final-deployment.json)。阶段为PRODUCTION_INITIALIZED，激活声明OSS_MET_AI_PENDING；没有真实AI通过声明。源码候选/镜像/archive/manifest保持不可变，本次执行记录提交仅为治理。旧数据不恢复；新环境的数据备份/恢复尚未现场演练，完整业务smoke与UAT需在用户完成管理界面配置后继续，不提前review/done或Production Go。
+
+## 2026-10-24 OSS等待期间的证据收口
+
+本轮只在本地复用10-08部署和10-24 OSS现场证据，完成[验收分项核对](acceptance-status.md)。初始化、0066迁移、账号及readiness已有结果，不重做；完整MANUAL smoke、AI业务结果、新数据恢复/安全停止及接受仍未完成。task保持in_progress，未新增线上操作或应用测试。
+
+## 2026-10-24 AI管理配置只读核对
+
+[核对报告](ai-management-readonly.md)及[脱敏现场JSON](evidence/ai-management-readonly-20261024.json)确认AI渠道/模型/Header为0，三服务生成模式和既有主密钥可复用；旧AI清单存在品牌枚举和Header元数据问题，已检查范围未找到供应商Key。明确未来1次连接测试＋1次真实草稿生成的最小范围；MANUAL规则分析本身不外呼AI。未执行管理配置写入、真实smoke、业务数据写入、重启或部署，任务保持in_progress。
+
+2026-10-24后续受保护来源核对：本地6份、Hostdzire shared 6份及三服务环境未找到供应商Key/具体Header；直连DeepSeek对应CUSTOM品牌，最小自定义Header为0，deepseek-flash有官方文档依据但权限/调用未验证。录入方案见[AI只读报告](ai-management-readonly.md)，未保存任何配置或执行模型测试。
+
+2026-10-24用户明确将AI配置标记为WAITING_SUPPLIER_API_KEY，CUSTOM/0额外Header方案保留，任务不关闭。再次核对MANUAL规则分析虽不需要Key，现场操作仍需要当前禁止的平台/业务写入；新数据恢复缺目标和输入、安全停止不在当前范围；UAT/父项/Browser延期条件未改变。本轮只同步本地等待状态和独立阻断，未访问线上或重复运行应用测试。
+
+2026-10-24已整理[解除阻塞的最小输入清单](minimum-unblocking-inputs.md)：分别列出供应商Key、独立AMD64环境、MANUAL样本/平台、恢复目标及人员窗口，映射能推进的验收和仍需明确的操作范围。复用已有配置与证据，不要求重复提供；OSS自然清理安排不变。仅整理本地文档，未执行后续步骤。

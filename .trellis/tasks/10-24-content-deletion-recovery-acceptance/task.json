@@ -1,0 +1,43 @@
+{
+  "id": "content-deletion-recovery-acceptance",
+  "name": "content-deletion-recovery-acceptance",
+  "title": "T6-C 删除冲突恢复修复、T6-G 验收与 AC11 收尾",
+  "description": "修复共享内容任务删除失败后的预览、确认与显式恢复；核对GEO页面矩阵，记录历史AC11缺失及当前替代验收。不部署、不提交推送。",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-24",
+  "completedAt": "2026-10-24",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "frontend/src/domains/content/content-task-lifecycle.tsx",
+    "frontend/src/domains/content/content-task-deletion-dialogs.tsx",
+    "frontend/src/domains/content/content-task-deletion-dialogs.test.tsx",
+    "frontend/src/domains/content/content-task-list-page.test.tsx",
+    "frontend/src/domains/content/content-task-list-page.tsx",
+    "frontend/src/domains/content/content-task-detail-page.test.tsx",
+    "frontend/src/domains/content/content-task-detail-page.tsx",
+    "frontend/src/domains/geo/geo-observation-detail-page.test.tsx",
+    "frontend/src/design-system/data-table/row-actions.tsx",
+    "frontend/src/design-system/data-table/table-kit.test.tsx",
+    "frontend/tests/e2e/content-task-deletion-recovery.spec.ts",
+    "frontend/tests/e2e/fixtures/content.fixture.ts"
+  ],
+  "notes": "T6-C 修复与 T6-G 本地验收完成；7 个定向组件/API 文件成功证据，内容 browser 44/44 与同轮 GEO 38/38，有效复用范围见 implement.md。独立复核无剩余问题。AC11 历史 NOT_CAPTURED 保留，原 T5-I6 转 review 等待历史证据例外接受。无部署、提交、推送。",
+  "meta": {
+    "validation_record": ".trellis/tasks/10-24-content-deletion-recovery-acceptance/evidence/validation.json",
+    "historical_ac11": "NOT_CAPTURED",
+    "deploy_authorized": false
+  }
+}

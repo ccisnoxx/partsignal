@@ -7,3 +7,9 @@
 2026-10-07T17:53:03.202761Z–17:54:32.855793Z运行原始e2e-geo.sh，exit0；enabled/api-disabled/monitoring-disabled三个phase均passed，每阶段secret_scan=0与owned cleanup成功。记录见[evidence/targeted-check.json](./evidence/targeted-check.json)。bash -n exit0。完整门禁仍待修正后新固定SHA，不将定向通过冒充最终门禁。
 
 修复后的固定main76d1d523完整原始make verify于2026-10-07T17:56:34.595156Z–18:34:07.274518Z通过exit0；三GEO模式及完整canonical真实流、fixture、部署脚本均通过。门禁记录由关联DEPLOY evidence/candidate-source-verification.json保存。实际diff仅模式内显式false和过期规范，无工厂放宽/应用功能/Production变化。工作验证完成，状态review，未记录人工接受或代签done。
+
+## 2026-10-24 证据核对收尾
+
+三模式定向验证及 76d1d523 完整门禁通过，修复保留于当前源码；当前用户授权据实收尾，不伪造过去接受时间。
+
+依据本轮用户“核对后整理收尾已完成任务”的授权，状态由 review 更新为 completed，完成日期记为 2026-10-24；不倒填原实施日期或历史具名接受，不产生 UAT/生产 Go。原记录与原始验证结果保留。详细证据、当前限制及仍需现场执行的工作见[核对记录](../10-24-open-task-evidence-reconciliation/implement.md)。本轮没有重新运行业务测试，没有提交、推送或部署。

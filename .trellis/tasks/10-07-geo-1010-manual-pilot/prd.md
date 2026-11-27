@@ -16,7 +16,7 @@
 | [GEO-1010-DEPLOY](../10-07-geo-1010-internal-pilot-deploy/prd.md) | geo-1010-internal-pilot-deploy | in_progress | GEO-1009、GEO-1010-UI | UI 完成后的固定候选工件、门禁、内部部署、smoke 和最小停止/恢复闭环 |
 | [GEO-1010-UAT](../10-07-geo-1010-manual-uat-performance/prd.md) | geo-1010-manual-uat-performance | planned | GEO-1010-UI、GEO-1010-DEPLOY | 受控真实数据、至少一个闭环、可用性/性能及具名内部 Go/No-Go |
 
-父任务保留原 manifest 前置依赖 GEO-1009、GEO-904、GEO-905、GEO-906，规划时均为 done；旧 done 不代表目标现场验证。DEPLOY 不与 UI 并行。环境准备与候选部署可在 DEPLOY 内分阶段，但不增加第四个子任务；规划阶段未执行任何阶段；UI已本地实施、验证并获人工接受，尚未部署。
+父任务保留原 manifest 前置依赖 GEO-1009、GEO-904、GEO-905、GEO-906，规划时均为 done；旧 done 不代表目标现场验证。DEPLOY 不与 UI 并行。环境准备与候选部署可在 DEPLOY 内分阶段，但不增加第四个子任务；规划阶段未执行任何阶段。后续UI已获人工接受，包含UI的6a96bfcb候选已于10-08部署；完整现场业务smoke及UAT仍未完成，见[DEPLOY分项核对](../10-07-geo-1010-internal-pilot-deploy/acceptance-status.md)。
 
 ## 父任务治理规则
 

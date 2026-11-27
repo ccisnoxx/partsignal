@@ -21,7 +21,7 @@
   "children": [],
   "parent": "10-07-geo-1010-manual-pilot",
   "relatedFiles": [],
-  "notes": "2026-10-07：新会话启动授权已执行，准备核对完成；UI接受身份保留。DEPLOY blocked，必需输入见preparation.md；未冻结候选、未运行新SHA完整门禁、未部署，不可review/done。\n2026-10-07：用户确认Git授权，提交已接受UI、接受治理及DEPLOY准备到main并push/fetch；候选完整门禁待实际执行，目标输入仍缺。\n已按归属提交两笔main并push/fetch；候选1ed8c4af完整门禁exit2，GEO测试入口配置冲突另立独立缺陷记录，尚无正式release manifest。\n2026-10-07：新源码候选76d1d523完整门禁exit0；独立clean main checkout与archive已保存。未冻结完整release；目标五组输入缺失、未部署、UAT未开始。治理结果后续提交不冒充候选。\n2026-10-07当地：用户将现有站点方向纠正为直接清空重建，不隔离或保留旧数据；旧preview保留数据接管方案撤回。清理仅固定postgres/redis/objects内容，fresh-init发布路径实现中；受保护Host runtime只读检查PASSED，AI清单custom headers澄清待回复。\n2026-10-08T02:23:24.022958+00:00：fresh工具提交3811738db696724fa948ebb133b000889c933ca8；16项fresh检查及受影响旧路径通过，root mount缺口修正后独立复核关闭。Audit 20261008T014655Z-hostdzire-fresh-rebuild-145a7537已校验。基线76完整Gate仅作历史，本机Docker不可连接，新完整Gate未运行，AI初始化交接未就绪，无服务器写入。\n2026-10-08T02:44:47.207591+00:00：用户要求自定义Header可选；首次bootstrap/header T1加密/stdin路径已实施，unit58与scripts harness通过，PG11skip不作通过，独立复核进行中。未改私有输入清单或执行服务器写入。\n2026-10-08T02:54:30.568424+00:00：可选Header实现提交4a4859b0e9737cf6e8da9bddb88d0580c8734ea9；名称容量P2已在reader/Host提前拒绝，修后unit60/Host7/输入预检5正44负及定向static/type通过；独立修正复核关闭P2。PG11skip不作通过，Audit81760223校验闭合；私有清单及Host未写入。\n2026-10-08T03:53:08.400635+00:00：按用户再次纠正直接在Hostdzire构建；源码852c6d5e与fresh工件已生成，完整本地Gate exit0。真实OSS HEAD 404/NoSuchBucket；AI配置选择待回复。原站公网200，未停服/清空/迁移/切换。\n2026-10-08T04:25:37.469841+00:00：现有env已核对并修正OSS地域，Production runtime原子交付且内部secret/DB身份保留。真实PUT/HEAD/签名GET通过、匿名GET200，Bucket public-read/无CORS；权限范围及AI初始化方式待回复，旧站未切换。\n2026-10-08T04:34:09.939561+00:00：用户选择新站上线后管理界面配置AI。首次安装无需凭据owner/TTY输入；必须由候选绑定的owner显式移交，不伪造AI Gate/成功attempt。\n2026-10-08T04:50:24.315596+00:00：admin-ui移交9项/harness/static通过，fresh独立复核未发现代码阻断、operations文档P2已修正；真实临时PG迁移0066的只读空集探针通过且临时库删除。新候选完整Gate/Host交付尚未执行，Bucket scope仍待回复，无旧站停服/删除。\n2026-10-08 05:40Z：688f1ef5完整Gate通过；私有对象实验通过、共享Bucket全局设置不变，旧Bucket批准问题已被限定应用修正替代，DEPLOY恢复in_progress。\n2026-10-08 06:37Z：Hostdzire新站已上线：候选6a96bfcb完整Gate通过，Host原生构建/清空重建完成，0066与六服务/登录/私有OSS验证通过。AI配置留给上线后管理界面，自定义Header可选；AI业务smoke、UAT及人工接受尚未完成。 首次维护即时观察未通过时未停服/清空，确认实际503后恢复推进；旧数据仅固定三个目录内容删除，Bucket全局设置未改，环境/TLS保留。",
+  "notes": "2026-10-07：新会话启动授权已执行，准备核对完成；UI接受身份保留。DEPLOY blocked，必需输入见preparation.md；未冻结候选、未运行新SHA完整门禁、未部署，不可review/done。\n2026-10-07：用户确认Git授权，提交已接受UI、接受治理及DEPLOY准备到main并push/fetch；候选完整门禁待实际执行，目标输入仍缺。\n已按归属提交两笔main并push/fetch；候选1ed8c4af完整门禁exit2，GEO测试入口配置冲突另立独立缺陷记录，尚无正式release manifest。\n2026-10-07：新源码候选76d1d523完整门禁exit0；独立clean main checkout与archive已保存。未冻结完整release；目标五组输入缺失、未部署、UAT未开始。治理结果后续提交不冒充候选。\n2026-10-07当地：用户将现有站点方向纠正为直接清空重建，不隔离或保留旧数据；旧preview保留数据接管方案撤回。清理仅固定postgres/redis/objects内容，fresh-init发布路径实现中；受保护Host runtime只读检查PASSED，AI清单custom headers澄清待回复。\n2026-10-08T02:23:24.022958+00:00：fresh工具提交3811738db696724fa948ebb133b000889c933ca8；16项fresh检查及受影响旧路径通过，root mount缺口修正后独立复核关闭。Audit 20261008T014655Z-hostdzire-fresh-rebuild-145a7537已校验。基线76完整Gate仅作历史，本机Docker不可连接，新完整Gate未运行，AI初始化交接未就绪，无服务器写入。\n2026-10-08T02:44:47.207591+00:00：用户要求自定义Header可选；首次bootstrap/header T1加密/stdin路径已实施，unit58与scripts harness通过，PG11skip不作通过，独立复核进行中。未改私有输入清单或执行服务器写入。\n2026-10-08T02:54:30.568424+00:00：可选Header实现提交4a4859b0e9737cf6e8da9bddb88d0580c8734ea9；名称容量P2已在reader/Host提前拒绝，修后unit60/Host7/输入预检5正44负及定向static/type通过；独立修正复核关闭P2。PG11skip不作通过，Audit81760223校验闭合；私有清单及Host未写入。\n2026-10-08T03:53:08.400635+00:00：按用户再次纠正直接在Hostdzire构建；源码852c6d5e与fresh工件已生成，完整本地Gate exit0。真实OSS HEAD 404/NoSuchBucket；AI配置选择待回复。原站公网200，未停服/清空/迁移/切换。\n2026-10-08T04:25:37.469841+00:00：现有env已核对并修正OSS地域，Production runtime原子交付且内部secret/DB身份保留。真实PUT/HEAD/签名GET通过、匿名GET200，Bucket public-read/无CORS；权限范围及AI初始化方式待回复，旧站未切换。\n2026-10-08T04:34:09.939561+00:00：用户选择新站上线后管理界面配置AI。首次安装无需凭据owner/TTY输入；必须由候选绑定的owner显式移交，不伪造AI Gate/成功attempt。\n2026-10-08T04:50:24.315596+00:00：admin-ui移交9项/harness/static通过，fresh独立复核未发现代码阻断、operations文档P2已修正；真实临时PG迁移0066的只读空集探针通过且临时库删除。新候选完整Gate/Host交付尚未执行，Bucket scope仍待回复，无旧站停服/删除。\n2026-10-08 05:40Z：688f1ef5完整Gate通过；私有对象实验通过、共享Bucket全局设置不变，旧Bucket批准问题已被限定应用修正替代，DEPLOY恢复in_progress。\n2026-10-08 06:37Z：Hostdzire新站已上线：候选6a96bfcb完整Gate通过，Host原生构建/清空重建完成，0066与六服务/登录/私有OSS验证通过。AI配置留给上线后管理界面，自定义Header可选；AI业务smoke、UAT及人工接受尚未完成。 首次维护即时观察未通过时未停服/清空，确认实际503后恢复推进；旧数据仅固定三个目录内容删除，Bucket全局设置未改，环境/TLS保留。\n2026-10-24 核对：仓库最新现场证据仍为 10-08 的 6a96bfcb，不代表当前实时状态；AI 配置/业务 smoke、现场新数据恢复及接受无完成证据。10-14 仅提交本地实现，不代替部署；本轮暂不部署。 详见 .trellis/tasks/10-24-open-task-evidence-reconciliation/implement.md。\n2026-10-24 再核对：见 remaining_work_review 与 .trellis/tasks/10-24-open-task-evidence-reconciliation/remaining-task-review.md；本项仍有实际验收或外部依赖，非单纯状态滞后。未访问现场、不部署、不提交推送。\n2026-10-24 OSS等待期间再核对：基础部署证据分项已收口，复合MANUAL smoke/新数据恢复/接受未完成；见acceptance-status.md。不将旧AI待配置状态作为本轮实时观察。\n2026-10-24 10:09北京时间只读AI核对：线上三表为空；既有生成模式/加密主密钥可复用，受保护AI输入仅部分元数据可复用，品牌枚举/Header/供应商凭据需补齐。真实smoke未执行；详见ai-management-readonly.md。\n2026-10-24 用户要求AI配置标记WAITING_SUPPLIER_API_KEY，保留CUSTOM及0额外Header方案，不关闭任务；其余工作按独立阻断核对，无新增可整项关闭或当前可执行的行为验证。",
   "meta": {
     "display_id": "GEO-1010-DEPLOY",
     "manifest_id": null,
@@ -115,6 +115,91 @@
     "bucket_global_settings_change_required": false,
     "manual_uat": "NOT_STARTED",
     "site_url": "https://geo.962850.xyz",
-    "private_object_review_audit_id": "20261008T054042Z-hostdzire-private-object-deploy-51ad1979"
+    "private_object_review_audit_id": "20261008T054042Z-hostdzire-private-object-deploy-51ad1979",
+    "reconciliation": {
+      "date": "2026-10-24",
+      "record": ".trellis/tasks/10-24-open-task-evidence-reconciliation/implement.md",
+      "decision": "retain_open",
+      "summary": "仓库最新现场证据仍为 10-08 的 6a96bfcb，不代表当前实时状态；AI 配置/业务 smoke、现场新数据恢复及接受无完成证据。10-14 仅提交本地实现，不代替部署；本轮暂不部署。"
+    },
+    "remaining_work_review": {
+      "date": "2026-10-24",
+      "record": ".trellis/tasks/10-24-open-task-evidence-reconciliation/remaining-task-review.md",
+      "category": "post_deployment_acceptance_pending",
+      "decision": "retain_open",
+      "completed_stages": [
+        "10-08候选6a96bfcb工件/门禁/部署/0066迁移/初始化账号/readiness完成，完整MANUAL smoke未完成",
+        "10-24已记录实际API候选身份、production/aliyun_oss与0066；唯一FileRecord API上传下载通过，详见OSS证据"
+      ],
+      "remaining_execution": [
+        "AI管理界面配置与真实业务smoke",
+        "MANUAL主链路、评估/Action/Retest入口现场验证",
+        "新数据备份恢复、安全停止、工作验收及人工接受"
+      ],
+      "waiting_for": [
+        "供应商API Key（仅AI配置分项）及获批管理端写入/外呼范围",
+        "MANUAL获批样本、平台及业务数据写入范围（规则分析不依赖Key）",
+        "业务/运维验收与恢复负责人、恢复目标及操作窗口"
+      ],
+      "live_state_verified": false,
+      "live_state_evidence_scope": "复用10-24 API/存储/schema与AI三表/受保护来源只读证据；本轮不重新访问线上，不声称最新实时运行状态。",
+      "latest_record": ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/acceptance-status.md"
+    },
+    "current_execution_constraint": {
+      "date": "2026-10-24",
+      "reason": "AI配置等待供应商Key；其余MANUAL/恢复/UAT分别受业务写入、服务操作及外部样本/人员限制，非统一等待Key/OSS/AMD64。",
+      "review_record": ".trellis/tasks/10-24-open-task-evidence-reconciliation/remaining-task-review.md",
+      "scheduler_amd64_is_not_the_sole_blocker": true
+    },
+    "acceptance_reconciliation": {
+      "date": "2026-10-24",
+      "record": ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/acceptance-status.md",
+      "decision": "retain_open",
+      "newly_completed_business_acceptance": false,
+      "fresh_remote_access": false
+    },
+    "ai_management_readonly": {
+      "observed_at": "2026-10-24T02:09:29.714062+00:00",
+      "record": ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/ai-management-readonly.md",
+      "evidence": ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/evidence/ai-management-readonly-20261024.json",
+      "managed_channels": 0,
+      "managed_models": 0,
+      "managed_headers": 0,
+      "runtime_reusable": true,
+      "protected_ai_input_reusable": "PARTIAL_METADATA_ONLY",
+      "supplier_credential_available_in_inspected_scope": false,
+      "smoke": "NOT_RUN",
+      "remote_writes": false,
+      "external_ai_calls": 0
+    },
+    "ai_protected_sources_review": {
+      "record": ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/ai-management-readonly.md",
+      "evidence": ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/evidence/ai-protected-sources-20261024.json",
+      "supplier_key_found": false,
+      "brand": "CUSTOM",
+      "custom_header_count_planned": 0,
+      "configuration_written": false,
+      "external_ai_calls": 0
+    },
+    "ai_configuration_execution": {
+      "state": "WAITING_SUPPLIER_API_KEY",
+      "date": "2026-10-24",
+      "supplier_key_found": false,
+      "entry_plan": {
+        "provider_brand": "CUSTOM",
+        "protocol_type": "openai-compatible-chat-completions",
+        "model_id": "deepseek-flash",
+        "timeout_seconds": 60,
+        "request_parameters": {},
+        "custom_headers": [],
+        "initial_channel_enabled": false,
+        "initial_model_enabled": false
+      },
+      "configuration_written": false,
+      "model_test": "NOT_RUN",
+      "business_smoke": "NOT_RUN",
+      "record": ".trellis/tasks/10-07-geo-1010-internal-pilot-deploy/ai-management-readonly.md",
+      "resume_condition": "取得获授权供应商Key；管理配置写入与模型测试/外呼须在届时明确授权范围内执行，Key就绪不自动授予执行权限。"
+    }
   }
 }

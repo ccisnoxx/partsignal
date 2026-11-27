@@ -3,7 +3,7 @@
   "name": "integrity-error-domain-mapping",
   "title": "IntegrityError 领域错误映射",
   "description": "只读建立 PostgreSQL constraint → service command → domain error 权威映射与后续实施拆分，不启动实施。",
-  "status": "planning",
+  "status": "completed",
   "dev_type": null,
   "scope": "planning-only",
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "777",
   "assignee": "777",
   "createdAt": "2026-09-04",
-  "completedAt": null,
+  "completedAt": "2026-10-24",
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
@@ -35,6 +35,24 @@
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "",
-  "meta": {}
+  "notes": "2026-10-24 核对：自身规划完成，保留现有聚合跟踪；等待 T5-I6 与前端恢复条件收口，不重做已完成子项。 详见 .trellis/tasks/10-24-open-task-evidence-reconciliation/implement.md。\n2026-10-24 关闭 T5-I6 后再次核对：自身规划 AC 完成；13 个直接子项中 12 个 completed，Publication/GEO 父项仍跟踪 T5-G/T6-P。保持 planning，不将已登记叶子完成等同整条工作线完成；见 .trellis/tasks/09-16-geo-observation-context-code-reconciliation/closeout.md。\n2026-10-24 当前收尾：T5-G 独立只读核对无 material finding；T6-P 57 定向测试及28既有+2重跑浏览器验收完成，T6-G/C有效证据复用；原15-consumer已对照后续合同与测试owner。AC11历史NOT_CAPTURED保留并按用户明确接受关闭。未部署、未提交或推送。",
+  "meta": {
+    "reconciliation": {
+      "date": "2026-10-24",
+      "record": ".trellis/tasks/10-24-open-task-evidence-reconciliation/implement.md",
+      "decision": "retain_open",
+      "summary": "自身规划完成，保留现有聚合跟踪；等待 T5-I6 与前端恢复条件收口，不重做已完成子项。"
+    },
+    "current_closeout": {
+      "date": "2026-10-24",
+      "decision": "completed",
+      "record": ".trellis/tasks/09-04-integrity-error-domain-mapping/closeout.md",
+      "validation": ".trellis/tasks/10-24-publication-exact-code-recovery-acceptance/evidence/validation.json",
+      "remaining": [],
+      "historical_ac11": "NOT_CAPTURED; explicitly accepted by user",
+      "deploy_authorized": false,
+      "commit_authorized": false,
+      "push_authorized": false
+    }
+  }
 }

@@ -115,3 +115,15 @@
 ## Convergence Status
 
 已完成规划收敛和实施变更。producer count、code taxonomy、wire、恢复、数据库边界、共享operation owner、T6-G/T6-C release gate、精确文件边界与required validation均已冻结；实施 full review 的唯一 P2 已经一次 targeted repair 与一次独立 targeted re-review 确认关闭。用户于 2026-09-21 批准规划进入实施，当前 Task 仍为 `in_progress`：AC11 的前置 protected-owner 指纹未在 preflight 保存，不能追认该门禁通过。发布仍受 T6-G/T6-C release-atomic gate 约束。
+
+## 2026-10-24 当前验收与历史证据处置
+
+T6-C 删除恢复修复及 T6-G 定向矩阵已有本地验收，详见 [本轮实施与验收](../10-24-content-deletion-recovery-acceptance/implement.md)。原 AC11 保持未勾选：2026-09-21 前置 protected-owner 指纹为 **NOT_CAPTURED**，本轮 hash 和测试不能追认历史无越界。
+
+任务转入 `review`，当前不再缺 T6-C 编码或 T6-G 定向验收；最终关闭须明确接受并记录历史证据例外，使用本轮当前验收作为后续依据。未接受前不得写成 AC11 全部通过或 completed。本轮用户请求明确收尾方式，不等于已经接受历史例外。T6-G/T6-C 与后端的原子交付约束保留；不部署、不提交推送。
+
+## 2026-10-24 用户接受例外并关闭（最新）
+
+用户明确指示：“接受 AC11 的历史证据缺口，保留 NOT_CAPTURED，以本轮当前验收记录作为收尾依据，关闭 T5-I6”。据此本任务为 completed，完成日期 2026-10-24；原 AC11 复合验收项保持未勾选，缺失的历史 protected-owner 指纹仍为 NOT_CAPTURED，不改写为通过。收尾依据是 [当前验收](../10-24-content-deletion-recovery-acceptance/implement.md) 加本次用户明确接受。
+
+[closeout.md](closeout.md) 记录父任务核对及未关闭原因。任务关闭不表示父工作线或发布门禁全部完成；不部署、不提交推送。

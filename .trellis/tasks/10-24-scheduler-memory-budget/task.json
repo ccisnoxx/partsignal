@@ -1,0 +1,60 @@
+{
+  "id": "scheduler-memory-budget",
+  "name": "scheduler-memory-budget",
+  "title": "Scheduler 内存预算修复与线上最小变更方案",
+  "description": "仓库0.5 CPU/256 MiB与ARM64短测完成；基于现有线上Docker规划单Scheduler内存调整、自然观察及有条件回退，不再要求独立AMD64测试机。当前仅方案，不操作线上、不提交推送。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-10-24",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "deploy/compose.prod.yaml",
+    "docs/production-configuration.md"
+  ],
+  "notes": "仓库配置与ARM64短期对照已完成。2026-10-24已获条件具备则启动24h授权；本机及dmit/hostdzire/cox/pub实时核对均不满足原生AMD64隔离环境条件，24h NOT_STARTED，等待合格测试环境。见environment-readiness.md。不部署、不提交推送。\n2026-10-24 用户要求明确标为等待独立AMD64环境；status保持in_progress，不关闭、不归档，短测证据保留。\n2026-10-25 用户修订：取消独立AMD64测试机前置，基于现有线上Docker仅制定256 MiB最小变更、观察和回退方案。online-memory-change-plan.md已形成；不把旧隔离授权扩展为线上写入。状态in_progress，执行状态PLAN_READY_WAITING_ONLINE_CHANGE_AUTHORIZATION，实际变更/观察NOT_STARTED。原证据保留，不提交推送。",
+  "meta": {
+    "execution_state": "PLAN_READY_WAITING_ONLINE_CHANGE_AUTHORIZATION",
+    "acceptance_24h": {
+      "status": "NOT_STARTED",
+      "waiting_for": "旧隔离试验保持NOT_STARTED，不再是当前前置",
+      "short_test_status": "ARM64_SHORT_PASS",
+      "short_test_evidence": "evidence/arm64-short-r3/summary.json",
+      "environment_evidence": "evidence/amd64-environment-inventory.json",
+      "resume_plan": "acceptance-plan.md",
+      "required_for_current_plan": false,
+      "role": "historical_optional_isolated_experiment",
+      "superseded_by": "online-memory-change-plan.md"
+    },
+    "current_plan": "online-memory-change-plan.md",
+    "online_change": {
+      "plan": "online-memory-change-plan.md",
+      "status": "PLAN_ONLY_NOT_EXECUTED",
+      "execution_status": "NOT_STARTED",
+      "observation_status": "NOT_STARTED",
+      "external_test_machine_required": false,
+      "online_write_authorized_this_turn": false,
+      "core_scope": "RAM 192→256 MiB，保持有效swap额度及CPU/镜像/进程/健康检查；仅唯一现有Scheduler",
+      "followup_24h": "recommended_operational_review_not_independent_test_gate",
+      "new_automation": false,
+      "independent_plan_review": {
+        "status": "REVIEWED_NO_REMAINING_MATERIAL_FINDINGS_IN_REVIEWED_SCOPE",
+        "fixed_issue": "原MemorySwap=0的回退执行值已改为按原有效RAM+swap额度规范化，不能直接传0",
+        "scope": "方案文本与资源/swap/回退/观察及授权边界",
+        "runtime_or_rollback_executed": false
+      }
+    }
+  }
+}

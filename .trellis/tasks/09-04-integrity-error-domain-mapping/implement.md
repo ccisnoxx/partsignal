@@ -306,3 +306,18 @@ T2-C 还必须先处理 `putContentHumanizationPrompt` 的已知语义误用：`
 - [x] 未修改代码、合同、数据库、生产数据、历史 Task。
 - [x] 未 commit、archive、push。
 - [ ] 等待用户 review 并明确批准后，才可创建/启动推荐的 T1。
+
+## 2026-10-24 收尾核对（最新）
+
+用户已明确接受 T5-I6 的 AC11 历史证据例外；T5-I6 已 completed，历史指纹仍为 NOT_CAPTURED。自身规划交付完成，但本任务继续作为聚合跟踪，保持 planning。
+
+本次不能关闭整条工作线：原计划的 T5-G 跨域只读完成 gate 没有找到完成工件；T6-P 尚有 PUBLICATION_REVISION_CONFLICT 假码测试及 REPAIR_TASK_EXISTS 精确错误码验收缺口。后续 UI 任务已实现通用 409 显式重读，不代表本矩阵全部验收。具体证据、下一步与未执行边界见 [T5-I6 收尾及父任务核对](../09-16-geo-observation-context-code-reconciliation/closeout.md)。
+
+本轮只更新治理记录，不实施 T6-P、不补称 T5-G 通过；不部署、不提交推送，也不移动归档目录。
+
+
+## 2026-10-24 当前实施线关闭
+
+用户授权的T5-G与T6-P均完成；T5-G独立跨域只读核对无material finding，T6-P真实code验收57组件/API通过，浏览器28未变成功加2修正locator后成功。现行生产行为满足恢复合同，本轮没有生产源码改动。结合T6-G/C当前证据及原15-consumer后续交付映射，关闭本父任务。完整依据见 `.trellis/tasks/09-04-integrity-error-domain-mapping/closeout.md` 及两项本日任务记录。
+
+上述“仍需T5-G/T6-P”仅为本日较早核对状态，由本段与最新task.json覆盖。AC11历史NOT_CAPTURED不变，不追认历史PASS；不部署、不提交推送，不归档。

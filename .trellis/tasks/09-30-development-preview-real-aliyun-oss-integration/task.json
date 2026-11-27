@@ -23,7 +23,7 @@
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "2026-10-01用户授权后端中转上传源码实现，并明确本轮保留当前staging release。真实OSS切换与完整外部验收尚未执行；子任务只完成源码与定向验证。",
+  "notes": "2026-10-01用户授权后端中转上传源码实现，并明确本轮保留当前staging release。真实OSS切换与完整外部验收尚未执行；子任务只完成源码与定向验证。\n2026-10-24 核对：10-08 后续现场已证明实际 API 的真实 OSS 对象读写、私有访问与精确清理；旧 preview/fake-oss 时态过期。浏览器上传、FileRecord VERIFIED、下载及 DELETED 墓碑完整闭环无证据，保持未完成；不恢复旧切换/CORS方案。 详见 .trellis/tasks/10-24-open-task-evidence-reconciliation/implement.md。\n2026-10-24 再核对：见 remaining_work_review 与 .trellis/tasks/10-24-open-task-evidence-reconciliation/remaining-task-review.md；本项仍有实际验收或外部依赖，非单纯状态滞后。未访问现场、不部署、不提交推送。\n2026-10-24 01:06Z：用户授权唯一PNG/FileRecord后，正常认证文件API上传、VERIFIED、签名下载/哈希、匿名/无效签名403通过。平台为空，未创建平台/绑定Logo，浏览器控件验收仍未做。等待10-25 01:06:36Z后既有清理，自动化partsignal-oss仅只读跟进；保持in_progress。\n2026-10-25 北京时间12:02只读复查：唯一文件自然清理PASS；deleted_at=09:52:58，OSS HEAD确认对象缺失，FileRecord及正常GET均DELETED，download-url=409 FILE_INTEGRITY_FAILED。未触发清理，未创建平台或修改线上配置；浏览器控件仍NOT_RUN_NO_EXISTING_PLATFORM，整项保持in_progress，不提交推送。\n2026-10-25 用户要求暂停已完成的自然清理自动跟进。按原创建参数调用partsignal-oss暂停接口，服务明确返回记录不存在，未应用暂停、不新建替代自动化；实际结果NOT_FOUND。浏览器上传仍NOT_RUN_NO_EXISTING_PLATFORM，任务in_progress，未创建平台、访问线上、修改配置或提交推送。",
   "meta": {
     "blocker": {
       "category": "deployment_deferred_by_user_scope",
@@ -32,13 +32,79 @@
       "namespace_read_status": 403,
       "runtime_changed": false,
       "bucket_private_required": false,
-      "bucket_identity_user_confirmed": true
+      "bucket_identity_user_confirmed": true,
+      "historical": true,
+      "current_blocker": false,
+      "superseded_by": "10-08 backend relay/private-object runtime evidence; browser CORS is not required"
     },
     "independent_review": {
       "outcome": "BLOCKER",
       "review_deliverable_accepted": true,
       "audit_id": "20260930T141519Z-development-preview-real-aliyun-oss-integration-215fb218",
       "applies_to": "2026-09-30原private验收合同，历史保留；恢复写入前需按修订合同重新fresh复核"
+    },
+    "reconciliation": {
+      "date": "2026-10-24",
+      "record": ".trellis/tasks/10-24-open-task-evidence-reconciliation/implement.md",
+      "decision": "retain_open",
+      "summary": "10-08 后续现场已证明实际 API 的真实 OSS 对象读写、私有访问与精确清理；旧 preview/fake-oss 时态过期。浏览器上传、FileRecord VERIFIED、下载及 DELETED 墓碑完整闭环无证据，保持未完成；不恢复旧切换/CORS方案。"
+    },
+    "remaining_work_review": {
+      "date": "2026-10-25",
+      "record": ".trellis/tasks/10-24-open-task-evidence-reconciliation/remaining-task-review.md",
+      "category": "browser_upload_acceptance_on_hold",
+      "decision": "retain_open",
+      "completed_stages": [
+        "后端中转上传源码子任务完成",
+        "真实认证API上传、VERIFIED、下载字节/哈希/type及匿名/无效签名拒绝通过",
+        "10-25只读确认自然清理：OSS对象缺失、FileRecord DELETED、下载409 FILE_INTEGRITY_FAILED"
+      ],
+      "remaining_execution": [
+        "正常浏览器Logo上传控件的完整验收；当前无既有平台，暂不创建平台",
+        "保留UI缺口，满足原验收范围后再做最终复核与收尾"
+      ],
+      "waiting_for": [
+        "浏览器控件验收所需的既有平台和受控操作范围；当前暂不创建平台"
+      ],
+      "live_state_verified": true,
+      "live_state_evidence_scope": "仅10-25实际API候选/相关源码、OSS精确对象、唯一FileRecord与下载接口；不覆盖其他部署验收或浏览器上传控件"
+    },
+    "acceptance_preparation": {
+      "status": "READY_WITH_EXECUTION_CONSTRAINTS",
+      "record": "acceptance-readiness.md",
+      "onsite_result": "API_UPLOAD_DOWNLOAD_NATURAL_CLEANUP_PASS; UI_NOT_RUN",
+      "blocked_by_current_scope": null,
+      "depends_on_independent_amd64": false,
+      "cleanup_constraint": "VERIFIED Logo保留24h后由既有小时扫描回收；无精确file_id清理入口，禁止用batch_size冒充精确范围"
+    },
+    "execution_state": "WAITING_BROWSER_UPLOAD_ACCEPTANCE",
+    "live_file_acceptance": {
+      "record": "evidence/live-20261024T010420Z-b292543b/README.md",
+      "run": "evidence/live-20261024T010420Z-b292543b/run.json",
+      "file_id": "40361764-34d3-41c5-9510-006bb0ab6184",
+      "upload_download": "PASS_AUTHENTICATED_API",
+      "browser_logo_upload": "NOT_RUN_NO_EXISTING_PLATFORM",
+      "natural_cleanup": "PASS",
+      "cleanup_after": "2026-10-25T01:06:36.624278Z",
+      "automation_id": "partsignal-oss",
+      "platform_saved": false,
+      "logo_bound": false,
+      "cleanup_observation": "evidence/live-20261024T010420Z-b292543b/cleanup-observation-20261025T040159541712Z.json",
+      "cleanup_deleted_at": "2026-10-25 01:52:58.527221+00:00",
+      "cleanup_checked_at": "2026-10-25T04:02:04.135148+00:00",
+      "download_after_cleanup": "409 FILE_INTEGRITY_FAILED",
+      "automation_status": "NOT_FOUND",
+      "automation_pause_request": {
+        "checked_at": "2026-10-25T04:18:03.265823+00:00",
+        "requested_action": "pause",
+        "automation_id": "partsignal-oss",
+        "lookup_result": "NOT_FOUND",
+        "pause_applied": false,
+        "replacement_created": false,
+        "tool_result": "Automation does not exist in the app and could not be updated. It may have been deleted manually by the user.",
+        "preserved_task_status": "in_progress",
+        "browser_logo_upload": "NOT_RUN_NO_EXISTING_PLATFORM"
+      }
     }
   }
 }

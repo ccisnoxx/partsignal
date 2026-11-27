@@ -50,3 +50,27 @@ fresh critical_reviewer结论BLOCKER，确认public-read及CORS/namespace读取4
 因此原“无源码变更、原 release 验证复用”的集成前提不再适用于新候选。原 2f171300 验证仍属于现在线 release，不能用于声称后端中转代码已验证或真实 OSS 已接入。真实 OSS 配置安装、三消费者重载、浏览器外部文件验收、OSS 精确对象清理均未执行；服务器仍为 development/fake-oss，不标记本父任务 completed。
 
 GetBucketCors 与 ListObjects 的 403 是已观察到的管理/列举权限结果，不是 OSS 对象 PUT/GET/HEAD/DELETE 不可用的证据。后端上传不受浏览器 OSS 上传 CORS 约束。已知 Bucket public-read 与用户本轮豁免保持，未改 ACL/CORS/其他项目对象；任何后续运行态验收只能操作应用生成的精确 UUID key，不能据 Bucket 身份确认删除其他系统对象。
+
+## 2026-10-24 当前离线推进
+
+上文09-30/10-01的fake-oss与CORS恢复点仅是历史，已被PRD的10-24恢复边界替代。本轮按当前用户禁止线上写入/AI/部署的范围，完成UI→后端中转→VERIFIED→真实下载→未引用到期回收步骤核对，见acceptance-readiness.md；现场结果仍NOT_RUN。确认cleanup无file_id限定、abort不接受VERIFIED，不能全局清理或篡改时间以满足本次精确范围。无需独立AMD64环境即可准备/未来验收，但当前线上测试文件写入未获允许。
+
+## 2026-10-24 唯一真实文件推进
+
+用户已允许唯一PNG和FileRecord；正常文件API上传和真实OSS下载/hash/type通过，匿名/无效签名403。文件未引用，未保存平台；线上平台为空，因此浏览器Logo控件仍未验收。自然清理等待2026-10-25T01:06:36.624278Z到期，由已有小时任务执行；自动化partsignal-oss只读跟进。全部证据、身份与范围见[evidence/live-20261024T010420Z-b292543b/README.md](evidence/live-20261024T010420Z-b292543b/README.md)，任务不关闭。
+
+## 2026-10-25 自然清理分项通过
+
+用户要求只读核对原唯一文件，不创建平台、不改线上配置、不提交推送。先核实hostdzire实际API仍为原image、Compose工作目录，production/aliyun_oss及受保护本地OSS输入一致，四份运行源码哈希与原验收一致；随后执行`backend/.venv/bin/python .trellis/tasks/09-30-development-preview-real-aliyun-oss-integration/evidence/live-20261024T010420Z-b292543b/observe-cleanup.py`，退出0，结果NATURAL_CLEANUP_PASS。
+
+北京时间12:02现场检查：FileRecord DELETED、未引用，deleted_at为09:52:58；真实OSS HEAD确认对象缺失，正常文件GET返回200/DELETED，download-url为409 FILE_INTEGRITY_FAILED，注销204。证据链接与适用范围见[本轮README](evidence/live-20261024T010420Z-b292543b/README.md)。未手动清理或修改到期时间，没有业务文件/平台写入、线上配置修改、AI调用、服务操作或Git暂存/提交/推送；登录/注销的认证审计副作用保留真实说明。
+
+仅关闭自然清理分项；浏览器Logo控件仍NOT_RUN_NO_EXISTING_PLATFORM，等待状态改为WAITING_BROWSER_UPLOAD_ACCEPTANCE，任务继续in_progress。没有产品源码变更，不运行应用测试、完整门禁或部署验收；本地仅核对JSON、证据链接、diff及原有工作区/暂存区保护。
+
+## 2026-10-25 自然清理自动跟进暂停请求
+
+用户明确要求暂停已完成的OSS自然清理跟进，保留浏览器上传缺口与任务未完成状态。既有ID为partsignal-oss；本机automations目录无匹配配置。先以仅状态参数调用接口，因缺少完整名称/提示/调度被校验拒绝，未变更。随后从原创建聊天的归档记录恢复成功创建时的完整参数，保留名称、提示、调度和原targetThreadId，仅将status改为PAUSED，调用automation_update。
+
+服务明确返回`Automation does not exist in the app and could not be updated. It may have been deleted manually by the user.`。实际结果记录为NOT_FOUND，pause_applied=false，没有伪记PAUSED，也没有新建替代自动化；见[状态记录](evidence/live-20261024T010420Z-b292543b/automation.json)。此前ACTIVE仅作为creation_snapshot保留。任务仍in_progress，WAITING_BROWSER_UPLOAD_ACCEPTANCE及NOT_RUN_NO_EXISTING_PLATFORM保持。
+
+本次没有访问Hostdzire、执行OSS观察、创建平台、修改线上配置、重启、部署或Git暂存/提交/推送。仅更新本地跟进记录；无产品源码变更，不运行应用测试。任务JSON、记录链接及diff检查通过，原暂存区未改变。

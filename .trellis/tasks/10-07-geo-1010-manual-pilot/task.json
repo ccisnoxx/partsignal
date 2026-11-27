@@ -25,7 +25,7 @@
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "2026-10-07：UI人工接受并done；DEPLOY新会话已开展准备，implementation_started=true，当前blocked/未部署；父任务仍in_progress，UAT planned/未开始。\n2026-10-08 06:37Z：Hostdzire新站已上线：候选6a96bfcb完整Gate通过，Host原生构建/清空重建完成，0066与六服务/登录/私有OSS验证通过。AI配置留给上线后管理界面，自定义Header可选；AI业务smoke、UAT及人工接受尚未完成。",
+  "notes": "2026-10-07：UI人工接受并done；DEPLOY新会话已开展准备，implementation_started=true，当前blocked/未部署；父任务仍in_progress，UAT planned/未开始。\n2026-10-08 06:37Z：Hostdzire新站已上线：候选6a96bfcb完整Gate通过，Host原生构建/清空重建完成，0066与六服务/登录/私有OSS验证通过。AI配置留给上线后管理界面，自定义Header可选；AI业务smoke、UAT及人工接受尚未完成。\n2026-10-24 核对：UI 已完成；DEPLOY/真实 UAT 与父任务接受仍缺证据，production_go=false 不变。 详见 .trellis/tasks/10-24-open-task-evidence-reconciliation/implement.md。\n2026-10-24 再核对：见 remaining_work_review 与 .trellis/tasks/10-24-open-task-evidence-reconciliation/remaining-task-review.md；本项仍有实际验收或外部依赖，非单纯状态滞后。未访问现场、不部署、不提交推送。",
   "meta": {
     "display_id": "GEO-1010",
     "manifest_id": "GEO-1010",
@@ -47,6 +47,36 @@
       "review_requires": "所有三个children done且完成集成工作验收",
       "done_requires": "父任务单独显式人工接受",
       "uat_go_no_go": "具名显式人工结论，不代表生产Go"
+    },
+    "reconciliation": {
+      "date": "2026-10-24",
+      "record": ".trellis/tasks/10-24-open-task-evidence-reconciliation/implement.md",
+      "decision": "retain_open",
+      "summary": "UI 已完成；DEPLOY/真实 UAT 与父任务接受仍缺证据，production_go=false 不变。"
+    },
+    "remaining_work_review": {
+      "date": "2026-10-24",
+      "record": ".trellis/tasks/10-24-open-task-evidence-reconciliation/remaining-task-review.md",
+      "category": "waiting_children_and_integrated_acceptance",
+      "decision": "retain_open",
+      "completed_stages": [
+        "UI已done且获人工接受"
+      ],
+      "remaining_execution": [
+        "子任务全部完成后的集成验收",
+        "父任务单独显式人工接受"
+      ],
+      "waiting_for": [
+        "DEPLOY完成",
+        "UAT完成"
+      ],
+      "live_state_verified": false
+    },
+    "current_execution_constraint": {
+      "date": "2026-10-24",
+      "reason": "等待DEPLOY和UAT及集成/父项人工接受",
+      "review_record": ".trellis/tasks/10-24-open-task-evidence-reconciliation/remaining-task-review.md",
+      "scheduler_amd64_is_not_the_sole_blocker": true
     }
   }
 }

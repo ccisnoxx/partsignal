@@ -3,7 +3,7 @@
   "name": "hostdzire-routine-deployment",
   "title": "优化 Hostdzire 日常部署与增量验证流程",
   "description": "分离代码验证和部署交付，复用未变证据，提供 Production 日常入口与版本/业务 smoke，保留状态 owner 和维护隔离。",
-  "status": "review",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "777",
   "assignee": "777",
   "createdAt": "2026-10-08",
-  "completedAt": null,
+  "completedAt": "2026-10-24",
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
@@ -21,6 +21,20 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "仓库流程优化与定向验证、独立复核完成；未提交/push/远程发布，现场与耗时待正式候选验证。",
-  "meta": {}
+  "notes": "仓库流程优化与定向验证、独立复核完成；未提交/push/远程发布，现场与耗时待正式候选验证。\n2026-10-24 核对：仓库实现与直接风险验证完成，10-14 已提交推送并复验；原范围允许现场验证另行进行，耗时目标仍未证明。 详见 .trellis/tasks/10-24-open-task-evidence-reconciliation/implement.md。",
+  "meta": {
+    "closeout": {
+      "date": "2026-10-24",
+      "kind": "user_authorized_evidence_based_closeout",
+      "authorization": "2026-10-24 用户要求核对未关闭任务实际完成情况和后续证据，整理收尾已经完成但状态滞后的任务，明确实际剩余工作，暂不部署。",
+      "record": ".trellis/tasks/10-24-open-task-evidence-reconciliation/implement.md",
+      "scope": "原任务范围内的已完成仓库交付；不构成部署或生产 Go"
+    },
+    "reconciliation": {
+      "date": "2026-10-24",
+      "record": ".trellis/tasks/10-24-open-task-evidence-reconciliation/implement.md",
+      "decision": "completed",
+      "summary": "仓库实现与直接风险验证完成，10-14 已提交推送并复验；原范围允许现场验证另行进行，耗时目标仍未证明。"
+    }
+  }
 }

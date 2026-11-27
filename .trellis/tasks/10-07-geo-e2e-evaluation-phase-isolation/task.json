@@ -3,7 +3,7 @@
   "name": "geo-e2e-evaluation-phase-isolation",
   "title": "修复 GEO 候选门禁的 E2E 评估开关隔离",
   "description": "GEO-1010-DEPLOY固定候选完整门禁中，canonical MANUAL开启评估后污染GEO-408模式工厂。仅修正测试入口模式配置与规范；不新增业务功能或改变Production默认。",
-  "status": "review",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "777",
   "assignee": "777",
   "createdAt": "2026-10-07",
-  "completedAt": null,
+  "completedAt": "2026-10-24",
   "branch": "main",
   "base_branch": "main",
   "worktree_path": null,
@@ -21,7 +21,7 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "定向三模式与新候选完整门禁exit0；修复工作验收完成，未代替人工接受。",
+  "notes": "定向三模式与新候选完整门禁exit0；修复工作验收完成，未代替人工接受。\n2026-10-24 核对：三模式定向验证及 76d1d523 完整门禁通过，修复保留于当前源码；当前用户授权据实收尾，不伪造过去接受时间。 详见 .trellis/tasks/10-24-open-task-evidence-reconciliation/implement.md。",
   "meta": {
     "related_task": "GEO-1010-DEPLOY",
     "failure_candidate_commit": "1ed8c4af1d62fb6d86b4401d0703a90bf629a839",
@@ -30,6 +30,20 @@
     "full_gate_status": "PASSED",
     "full_gate_candidate_commit": "76d1d523b87816ba2ce52a2fc6a679144b5dab06",
     "work_verified": true,
-    "human_acceptance_recorded": false
+    "human_acceptance_recorded": true,
+    "human_acceptance_basis": "2026-10-24 current-user-authorized evidence-based closeout; not retrospective acceptance",
+    "closeout": {
+      "date": "2026-10-24",
+      "kind": "user_authorized_evidence_based_closeout",
+      "authorization": "2026-10-24 用户要求核对未关闭任务实际完成情况和后续证据，整理收尾已经完成但状态滞后的任务，明确实际剩余工作，暂不部署。",
+      "record": ".trellis/tasks/10-24-open-task-evidence-reconciliation/implement.md",
+      "scope": "原任务范围内的已完成仓库交付；不构成部署或生产 Go"
+    },
+    "reconciliation": {
+      "date": "2026-10-24",
+      "record": ".trellis/tasks/10-24-open-task-evidence-reconciliation/implement.md",
+      "decision": "completed",
+      "summary": "三模式定向验证及 76d1d523 完整门禁通过，修复保留于当前源码；当前用户授权据实收尾，不伪造过去接受时间。"
+    }
   }
 }

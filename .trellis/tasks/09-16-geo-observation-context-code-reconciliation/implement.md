@@ -128,3 +128,15 @@ full review有material finding时只允许一次targeted repair、相关required
 ## Completion boundary
 
 只有Phase 0决策、PRD convergence、实施、required validation与独立review全部完成后，才可报告T5-I6完成。提交、归档、push、T5-G、T6-G和T6-C均需届时明确授权；不得归档T5-C或顶层`integrity-error-domain-mapping`。
+
+## 2026-10-24 后续本地验收
+
+[content-deletion-recovery-acceptance](../10-24-content-deletion-recovery-acceptance/implement.md) 完成共享 List/Detail 删除冲突恢复修复，核对 T6-G，记录定向组件、production-artifact fixture、独立复核及本轮保护基线。历史后端测试保持原时间与范围，不宣称本轮重跑。
+
+AC11 历史前置指纹缺失不可补造；保留 NOT_CAPTURED，以新的当前验收记录完成技术侧补证。原任务改为 review，唯一收尾事项是负责人接受并记录该历史证据例外，接受前不标 completed、不勾选原 AC11。两个前端 slice 的本地合同条件完成不等于发布许可；本轮无提交、推送或部署。
+
+## 2026-10-24 例外接受后的完成记录（最新）
+
+用户已明确接受历史证据缺口，以本轮当前验收记录为收尾依据；状态 review → completed。历史 AC11 保留未勾选及 NOT_CAPTURED，current_acceptance.closure 为 closed_with_explicit_user_acceptance。此前“等待接受”的描述属于接受前记录。
+
+本次只核对记录与既有验收源文件指纹，没有重跑测试。两个父任务核对发现 T5-G/T6-P 未闭合，继续保留；见 [closeout.md](closeout.md)。无部署、提交、推送或归档移动。

@@ -47,3 +47,9 @@ OpenAPI、数据库合同、Alembic revision、业务事务/锁顺序/revision/�
 独立复核执行摘要已生成并校验通过，Audit ID `20261006T015455Z-verify-entrypoint-4daba9dc`。实际 diff 已检查，只增加本轮测试编排及对应说明；其余既有工作树改动保留，未提交、推送或归档。
 
 未运行：生产 smoke、生产恢复/停止演练以及远端 GitHub Actions。生产目标、固定 clean candidate 与各阶段人工批准仍缺失；本次不改变 GEO-906 原 NOT_STARTED/NOT_VERIFIED 限制。修复仅针对本地 Make 入口，CI 独立 pytest 编排未修改/未验证。原 GEO-906 的失败、后续分项通过、人工接受及 done/completed 状态均未覆盖。
+
+## 2026-10-24 证据核对收尾
+
+本地 verify 入口修复全部 AC 和原验证/复核已完成，当前入口仍保留；不将历史完整验证冒称当前发布验证。
+
+依据本轮用户“核对后整理收尾已完成任务”的授权，状态由 review 更新为 completed，完成日期记为 2026-10-24；不倒填原实施日期或历史具名接受，不产生 UAT/生产 Go。原记录与原始验证结果保留。详细证据、当前限制及仍需现场执行的工作见[核对记录](../10-24-open-task-evidence-reconciliation/implement.md)。本轮没有重新运行业务测试，没有提交、推送或部署。

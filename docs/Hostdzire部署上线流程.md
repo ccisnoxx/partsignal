@@ -38,6 +38,7 @@ Production 不使用 `/var/www/partsignal-frontend/current`，`/root/partsignal/
 - Production env 引用 `.env.staging`，或配置为 `deterministic`、development storage、fake OSS、非安全 Cookie、`AI_ALLOW_LOCAL_HTTP=true`。
 - 保留旧数据的clean-init/upgrade缺少其要求的quarantine、恢复命令或已验证previous V2；清空重建则必须明确授权固定三个数据目录的内容丢弃，并具备新安装输入和安全停止/重建路径。
 - migration、完整性、账号初始化、Compose health、`nginx -t`、live/ready、缓存/CSP/source-map 或浏览器验收失败。
+- 面向正式业务投产的 Production 发布未通过正式生产 UAT（详见第 6 节及 [已部署环境全量验收计划](./deployed-full-functional-acceptance-plan.md)）；不得在未完成正式生产 UAT 前宣称正式发布通过或 Production Go。
 - 真实 AI/OSS 只能通过放宽安全策略、固定成功适配器或输出凭据才能验证。
 
 ## 3. Repository 与 Candidate
@@ -121,7 +122,7 @@ fresh候选显式声明`fresh-rebuild`恢复策略，旧previous V2为不适用�
 
 日常部署验证实际运行 API/Frontend/Worker/Scheduler 的固定 image ID、数据库 head、live/ready、登录页和匿名受保护 API 拒绝；受影响功能增加一条有代表性的业务 smoke。使用已有受保护会话时只执行获准的只读操作，secret 不进入 argv 或普通日志。health、登录页和匿名拒绝只证明这些边界，不证明管理员完整业务或真实 AI/OSS 已通过。
 
-首次完整产品交付或相关体验变化时，浏览器覆盖受影响的 `/login`、首页、Product、Content、Publishing、GEO、Configuration、System 与 legacy redirect，以及 direct link、refresh、Back/Forward、登录 return-to、权限拒绝、revision conflict 和键盘/焦点基线。375/768/1024/1440 视口矩阵只在响应式变化或明确交付要求下运行。浏览器运行在本机独立 Playwright session 或既有测试中，不在服务器安装浏览器，不输出或持久化密码。
+首次完整产品交付、正式业务投产上线或相关核心体验变化时，必须将**正式生产 UAT**作为正式发布前置条件，按 [已部署环境全量验收计划](./deployed-full-functional-acceptance-plan.md) 覆盖受影响的 P0/P1 风险及 `/login`、首页、Product、Content、Publishing、GEO、Configuration、System 与 legacy redirect，以及 direct link、refresh、Back/Forward、登录 return-to、权限拒绝、revision conflict 和键盘/焦点基线；未通过正式生产 UAT 不得宣称正式发布完成。375/768/1024/1440 视口矩阵只在响应式变化或明确交付要求下运行。浏览器运行在本机独立 Playwright session 或既有测试中，不在服务器安装浏览器，不输出或持久化密码。
 
 ## 7. 分层恢复
 

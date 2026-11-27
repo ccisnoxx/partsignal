@@ -66,7 +66,7 @@ PartSignal 应从“后台管理系统”升级为“电子元器件内容生产
 
 ## 5. 当前项目基线
 
-仓库 README 将系统定义为“面向电子元器件国产替代业务的多平台 GEO 内容运营系统”，当前 MVP 已实现产品事实、不可变事实版本、内容生成与版本管理、人工发布登记、发布验证、GEO 观测等纵向闭环。
+仓库 README 已将系统定位冻结为“面向电子元器件企业的 GEO 内容运营工作台（方向 A：纯 GEO 内容运营）”，当前 MVP 已实现外部确认后的 Markdown 产品事实、不可变事实版本、多平台内容生成与版本管理、人工发布登记与首次核验、GEO 观测与机会复测等纵向闭环；不承担元器件参数数据库、替代可行性判定、工程验证或跨平台自动发布职责。
 
 当前 canonical `frontend/` 基线包含 React、TypeScript、Vite、TanStack Router、TanStack Query、TanStack Table、Tailwind CSS、shadcn/ui、Base UI、openapi-typescript 和 openapi-fetch。旧 Ant Design/React Router 前端源码与双前端 pipeline 已退役。
 

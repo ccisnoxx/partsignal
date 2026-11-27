@@ -1,10 +1,13 @@
 type ColumnRole =
+  | 'selection'
   | 'primary'
   | 'status'
   | 'metadata'
   | 'numeric'
   | 'date'
   | 'actions';
+
+type ColumnPriority = 'essential' | 'tablet' | 'desktop' | 'wide';
 
 type ActionTarget =
   | { href: string; command?: never }
@@ -71,6 +74,7 @@ type EmptyTableKind = 'empty' | 'filtered-empty' | 'error';
 export type {
   ActionConfirmation,
   BulkAction,
+  ColumnPriority,
   ColumnRole,
   EmptyTableKind,
   OverflowRowAction,

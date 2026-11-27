@@ -25,6 +25,7 @@ import { ErrorSummary, type ErrorSummaryItem } from '@/design-system/forms/form-
 import { Badge } from '@/design-system/primitives/badge';
 import { Button, buttonVariants } from '@/design-system/primitives/button';
 import { Input } from '@/design-system/primitives/input';
+import { MetadataDisclosure } from '@/design-system/primitives/metadata-disclosure';
 import {
   Select,
   SelectContent,
@@ -490,16 +491,12 @@ function HistoryContextPanel({ context }: { context: GeoObservationCorrectionCon
       <ol className="space-y-3">
         {context.detail.correction_history.map((item, index) => (
           <li key={item.observation.id}>
-            <details
-              className="rounded-lg border border-border-subtle p-3"
-              open={item.is_original || item.is_chain_tail}
+            <MetadataDisclosure
+              defaultOpen={item.is_original || item.is_chain_tail}
+              summary={`${item.is_original ? 'Original' : `Correction ${index}`}${item.is_chain_tail ? ' · 当前尾' : ''}`}
             >
-              <summary className="cursor-pointer font-medium text-text-primary">
-                {item.is_original ? 'Original' : `Correction ${index}`}
-                {item.is_chain_tail ? ' · 当前尾' : ''}
-              </summary>
               <HistoryNode item={item} />
-            </details>
+            </MetadataDisclosure>
           </li>
         ))}
       </ol>

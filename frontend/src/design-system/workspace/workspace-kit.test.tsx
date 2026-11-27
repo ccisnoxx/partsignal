@@ -10,17 +10,25 @@ import { StickyActionBar } from '@/design-system/workspace/sticky-action-bar';
 import { Timeline } from '@/design-system/workspace/timeline';
 import { WorkspaceShell } from '@/design-system/workspace/workspace-shell';
 
-let desktop = false;
+let viewportWidth = 768;
 const mediaListeners = new Set<() => void>();
 
+function matchesQuery(query: string) {
+  const match = query.match(/min-width:\s*(\d+)px/);
+  if (!match) return false;
+  return viewportWidth >= Number(match[1]);
+}
+
 beforeEach(() => {
-  desktop = false;
+  viewportWidth = 768;
   mediaListeners.clear();
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
-    value: vi.fn(() => ({
-      matches: desktop,
-      media: '(min-width: 1280px)',
+    value: vi.fn((query: string) => ({
+      get matches() {
+        return matchesQuery(query);
+      },
+      media: query,
       onchange: null,
       addEventListener: (_type: string, listener: () => void) => mediaListeners.add(listener),
       removeEventListener: (_type: string, listener: () => void) => mediaListeners.delete(listener),
@@ -31,8 +39,8 @@ beforeEach(() => {
   });
 });
 
-function switchToDesktop() {
-  desktop = true;
+function setViewport(width: number) {
+  viewportWidth = width;
   act(() => mediaListeners.forEach((listener) => listener()));
 }
 
@@ -86,15 +94,41 @@ describe('Workspace Kit', () => {
     expect(screen.getByRole('textbox', { name: '编辑草稿' })).toHaveValue('未保存草稿');
   });
 
-  it('桌面渲染固定三槽，主区域使用弹性最大列', () => {
+  it('宽屏按真实槽位动态分栏，并支持一键折叠辅助栏扩展主区域', async () => {
+    const user = userEvent.setup();
     render(<WorkspaceShell ariaLabel="事实工作区" {...slots} />);
-    switchToDesktop();
+    setViewport(1440);
 
     const main = screen.getByRole('region', { name: '正文' });
     expect(main).toHaveAttribute('data-workspace-area', 'main');
-    expect(main.parentElement).toHaveClass('grid-cols-[16rem_minmax(0,1fr)_20rem]');
+    expect(main.parentElement).toHaveClass('grid-cols-[15rem_minmax(0,1fr)_20rem]');
     expect(screen.getByRole('region', { name: '上下文' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: '参考' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '隐藏上下文' }));
+    expect(screen.queryByRole('region', { name: '上下文' })).not.toBeInTheDocument();
+    expect(main.parentElement).toHaveClass('grid-cols-[minmax(0,1fr)_20rem]');
+
+    await user.click(screen.getByRole('button', { name: '隐藏参考' }));
+    expect(screen.queryByRole('region', { name: '参考' })).not.toBeInTheDocument();
+    expect(main.parentElement).toHaveClass('grid-cols-[minmax(0,1fr)]');
+
+    await user.click(screen.getByRole('button', { name: '显示上下文' }));
+    expect(screen.getByRole('region', { name: '上下文' })).toBeInTheDocument();
+  });
+
+  it('1024px 中等桌面采用主区+单侧辅栏双栏对照，缺槽位不渲染空占位', () => {
+    const { rerender } = render(<WorkspaceShell ariaLabel="对照工作区" {...slots} />);
+    setViewport(1024);
+
+    const main = screen.getByRole('region', { name: '正文' });
+    expect(main.parentElement).toHaveClass('grid-cols-[minmax(0,1fr)_20rem]');
+    expect(screen.getByRole('tablist', { name: '辅助工作区面板' })).toBeInTheDocument();
+
+    setViewport(1440);
+    rerender(<WorkspaceShell ariaLabel="两栏工作区" main={slots.main} reference={slots.reference} />);
+    const mainTwoCol = screen.getByRole('region', { name: '正文' });
+    expect(mainTwoCol.parentElement).toHaveClass('grid-cols-[minmax(0,1fr)_20rem]');
   });
 
   it('缺少 optional pane 时仍保留主区域与 shell', () => {

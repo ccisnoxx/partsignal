@@ -103,7 +103,7 @@ function StickyActionBar({ actions, className, status }: StickyActionBarProps) {
     <>
       <div
         className={cn(
-          'sticky bottom-0 z-10 flex flex-col gap-3 border-t border-border-default bg-surface-panel/95 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-20px_rgba(0,0,0,0.35)] backdrop-blur sm:flex-row sm:items-center sm:justify-between',
+          'sticky bottom-0 z-10 mt-4 flex flex-col gap-3 rounded-xl border border-border-default bg-surface-panel/95 px-4 pt-3 pb-[max(0.875rem,env(safe-area-inset-bottom))] shadow-[var(--shadow-raised)] backdrop-blur sm:flex-row sm:items-center sm:justify-between',
           className,
         )}
         data-safe-area="bottom"

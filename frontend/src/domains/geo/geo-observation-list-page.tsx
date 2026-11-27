@@ -25,6 +25,8 @@ import { TableShell } from '@/design-system/data-table/table-shell';
 import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
 import { TableToolbar } from '@/design-system/data-table/table-toolbar';
 import type { ColumnRole } from '@/design-system/data-table/types';
+import { InlineBanner } from '@/design-system/feedback/inline-banner';
+import { PageHeader } from '@/design-system/layout/page-header';
 import { Button, buttonVariants } from '@/design-system/primitives/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/design-system/primitives/dialog';
 import type { components } from '@/shared/api/generated/schema';
@@ -219,33 +221,38 @@ function GeoObservationListPage({
 
   return (
     <section aria-labelledby="geo-observation-list-title" className="min-w-0 space-y-4">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="type-page-title" id="geo-observation-list-title" ref={titleRef} tabIndex={-1}>GEO 观测记录</h1>
-          <p className="max-w-3xl text-text-secondary">
-            查看服务端汇总的发现、提及和准确性结果，并进入每条观测的规范地址。
-          </p>
-        </div>
-        <a className={buttonVariants()} href="/geo/observations/new">新建 Observation</a>
-      </header>
+      <PageHeader
+        actions={<a className={buttonVariants()} href="/geo/observations/new">新建 Observation</a>}
+        description="查看服务端汇总的发现、提及和准确性结果，并进入每条观测的规范地址。"
+        title="GEO 观测记录"
+        titleId="geo-observation-list-title"
+        titleRef={titleRef}
+        titleTabIndex={-1}
+      />
 
       {conflict && (
-        <div role="alert" className="space-y-2 text-sm text-destructive">
-          <p>删除发生冲突，请显式重载列表后重新确认。{commandError}</p>
-          <Button disabled={observations.isFetching} onClick={() => void reloadList()} variant="outline">重载列表</Button>
-        </div>
+        <InlineBanner
+          actions={<Button disabled={observations.isFetching} onClick={() => void reloadList()} size="sm" variant="outline">重载列表</Button>}
+          tone="danger"
+        >
+          删除发生冲突，请显式重载列表后重新确认。{commandError}
+        </InlineBanner>
       )}
       {observations.data && observations.error && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
-          <span>刷新失败，已保留当前观测列表：{errorMessage(observations.error)}</span>
-          <Button onClick={() => void reloadList()} size="sm" variant="outline">重试刷新</Button>
-        </div>
+        <InlineBanner
+          actions={<Button onClick={() => void reloadList()} size="sm" variant="outline">重试刷新</Button>}
+          tone="danger"
+        >
+          刷新失败，已保留当前观测列表：{errorMessage(observations.error)}
+        </InlineBanner>
       )}
       {search.queryTopicId && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-info/30 bg-info/10 p-3 text-sm" role="status">
-          <span>Query Topic Observation 筛选：{search.queryTopicId}</span>
-          <Button onClick={() => changeSearch({ queryTopicId: undefined })} size="sm" variant="outline">清除此引用筛选</Button>
-        </div>
+        <InlineBanner
+          actions={<Button onClick={() => changeSearch({ queryTopicId: undefined })} size="sm" variant="outline">清除此引用筛选</Button>}
+          tone="info"
+        >
+          Query Topic Observation 筛选：{search.queryTopicId}
+        </InlineBanner>
       )}
 
       <TableToolbar>

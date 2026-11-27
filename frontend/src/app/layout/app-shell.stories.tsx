@@ -91,3 +91,8 @@ export const AuthError: Story = {
 export const ForbiddenContent: Story = {
   args: { path: '/system/users', auth: storyAuth(engineer) },
 };
+
+export const GeoAnalyticsConsolidated: Story = {
+  args: { path: '/geo/insights/answers', auth: storyAuth(admin) },
+  parameters: { viewport: { defaultViewport: 'desktop1440' } },
+};

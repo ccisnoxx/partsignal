@@ -424,12 +424,18 @@ test('375/768/1024/1440 复用 Workspace 响应式、键盘焦点且 StickyActio
   for (const width of widths) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `${width}px 页面根不应横向溢出`).toBe(true);
-    if (width < 1280) {
+    if (width < 1024) {
       const mainTab = page.getByRole('tab', { name: '内容文档' });
       await mainTab.focus();
       await mainTab.press('ArrowRight');
       await expect(page.getByRole('tab', { name: '上下文' })).toBeFocused();
       await mainTab.click();
+    } else if (width < 1280) {
+      await expect(page.getByRole('region', { name: '内容文档' })).toBeVisible();
+      const contextTab = page.getByRole('tab', { name: '上下文' });
+      await contextTab.focus();
+      await contextTab.press('ArrowRight');
+      await expect(page.getByRole('tab', { name: '参考' })).toBeFocused();
     } else {
       await expect(page.getByRole('region', { name: '上下文' })).toBeVisible();
       await expect(page.getByRole('region', { name: '参考' })).toBeVisible();

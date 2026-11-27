@@ -12,6 +12,7 @@ import { FormField } from '@/design-system/forms/form-field';
 import { ErrorSummary, type ErrorSummaryItem } from '@/design-system/forms/form-layout';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
+import { MetadataDisclosure } from '@/design-system/primitives/metadata-disclosure';
 import {
   Dialog,
   DialogClose,
@@ -397,12 +398,11 @@ function QualityIssues({ emptyMessage, issues }: { emptyMessage: string; issues:
 
 function SnapshotValue({ label, value }: { label: string; value: unknown }) {
   return (
-    <details className="rounded-lg border border-border-subtle bg-surface-raised p-3">
-      <summary className="cursor-pointer font-medium text-text-primary">{label}</summary>
-      <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all font-mono text-xs text-text-secondary">
+    <MetadataDisclosure summary={label}>
+      <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all font-mono text-xs text-text-secondary">
         {JSON.stringify(value, null, 2)}
       </pre>
-    </details>
+    </MetadataDisclosure>
   );
 }
 

@@ -27,6 +27,8 @@ import { TableShell } from '@/design-system/data-table/table-shell';
 import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
 import { TableToolbar } from '@/design-system/data-table/table-toolbar';
 import type { ColumnRole, OverflowRowAction } from '@/design-system/data-table/types';
+import { InlineBanner } from '@/design-system/feedback/inline-banner';
+import { PageHeader } from '@/design-system/layout/page-header';
 import { FormField } from '@/design-system/forms/form-field';
 import { ErrorSummary, FormActions, type ErrorSummaryItem } from '@/design-system/forms/form-layout';
 import { Badge } from '@/design-system/primitives/badge';
@@ -226,27 +228,28 @@ function QueryTopicListPage({
 
   return (
     <section aria-labelledby="query-topic-list-title" className="min-w-0 space-y-4">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="type-page-title" id="query-topic-list-title">GEO 问题主题</h1>
-          <p className="max-w-3xl text-text-secondary">
-            管理标准问题与搜索变体，并从服务端权威动作开始一次 GEO 观测。
-          </p>
-        </div>
-        <Button
-          onClick={() => setEditor({ focusReturn: createButtonRef.current })}
-          ref={createButtonRef}
-          type="button"
-        >
-          创建 Query Topic
-        </Button>
-      </header>
+      <PageHeader
+        actions={
+          <Button
+            onClick={() => setEditor({ focusReturn: createButtonRef.current })}
+            ref={createButtonRef}
+            type="button"
+          >
+            创建 Query Topic
+          </Button>
+        }
+        description="管理标准问题与搜索变体，并从服务端权威动作开始一次 GEO 观测。"
+        title="GEO 问题主题"
+        titleId="query-topic-list-title"
+      />
 
       {topics.data && topics.error && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
-          <span>刷新失败，已保留当前列表：{errorMessage(topics.error)}</span>
-          <Button onClick={() => void topics.refetch()} size="sm" variant="outline">重试刷新</Button>
-        </div>
+        <InlineBanner
+          actions={<Button onClick={() => void topics.refetch()} size="sm" variant="outline">重试刷新</Button>}
+          tone="danger"
+        >
+          刷新失败，已保留当前列表：{errorMessage(topics.error)}
+        </InlineBanner>
       )}
 
       <TableToolbar>

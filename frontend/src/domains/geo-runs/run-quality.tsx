@@ -1,6 +1,7 @@
 import type { components } from '@/shared/api/generated/schema';
 import { exclusionLabels, metricLabels } from '@/shared/lib/geo-metric-labels';
 import { TableShell } from '@/design-system/data-table/table-shell';
+import { MetadataDisclosure } from '@/design-system/primitives/metadata-disclosure';
 
 type Detail = components['schemas']['GeoRunDetail'];
 const reviewLabels = {
@@ -40,8 +41,7 @@ export function RunQuality({ detail }: { detail: Detail }) {
         以下资格复用总览与回答洞察的有效结果口径。具备资格仍可能没有分母贡献；单次运行不代表达到可报告或稳定样本门槛，也不代表表现为零。
       </p>
       {quality.subjects.map((subject) => (
-        <details key={subject.subject_id}>
-          <summary className="cursor-pointer text-sm">{subject.display_name} · 各指标资格</summary>
+        <MetadataDisclosure key={subject.subject_id} summary={`${subject.display_name} · 各指标资格`}>
           <TableShell regionLabel={`${subject.display_name}指标资格`}>
             <thead><tr><th scope="col">指标</th><th scope="col">资格</th><th scope="col">排除原因</th></tr></thead>
             <tbody>{subject.metrics.map((metric) => (
@@ -52,7 +52,7 @@ export function RunQuality({ detail }: { detail: Detail }) {
               </tr>
             ))}</tbody>
           </TableShell>
-        </details>
+        </MetadataDisclosure>
       ))}
       <nav aria-label="运行后续导航" className="space-y-2 text-sm">
         <h4 className="type-label">后续查看与处理</h4>

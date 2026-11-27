@@ -1,9 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { capturePrincipalContinuation, type PrincipalContinuation } from '@/app/auth/principal-epoch';
+import { PageHeader } from '@/design-system/layout/page-header';
 import { Button } from '@/design-system/primitives/button';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/design-system/primitives/sheet';
+import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/design-system/primitives/sheet';
 import type { components } from '@/shared/api/generated/schema';
+import { cn } from '@/shared/lib/utils';
 import { QuestionRequestError, questionDetailOptions, questionKeys } from './questions.api';
 import { questionEditorIdentity, questionSearchSchema, type PromptVariant, type QuestionSearch } from './questions.model';
 import type { QuestionCommand } from './question-actions';
@@ -74,21 +76,51 @@ function QuestionsPage({ search, csrfToken, onSearchChange }: {
   }
   const close = () => onSearchChange(questionSearchSchema.parse({ ...latestSearch.current, selected: undefined, copy: undefined, new: undefined }));
   const unrecoverable = detail.error instanceof QuestionRequestError && (detail.error.status === 403 || detail.error.status === 404);
+  const createOpen = Boolean(search.new || search.copy);
   const readState = <>
     {detail.data && detail.error && <QuestionNotice error>后台读取失败，本地输入已保留：{questionErrorMessage(detail.error)}{!unrecoverable && <Button onClick={() => void detail.refetch()} type="button" variant="outline">重试详情读取</Button>}{unrecoverable && <p>资源已不可访问，当前输入保留供核对；请关闭详情。</p>}</QuestionNotice>}
-    {detail.isFetching && <p role="status">正在读取变体详情…</p>}
+    {detail.isFetching && <p className="text-xs text-text-secondary" role="status">正在读取变体详情…</p>}
     {!detail.data && (detail.isPending ? <QuestionNotice>正在读取变体…</QuestionNotice> : <QuestionNotice error>{questionErrorMessage(detail.error)}{!unrecoverable && <Button onClick={() => void detail.refetch()} type="button" variant="outline">重试详情读取</Button>}<Button onClick={close} type="button" variant="outline">关闭详情</Button></QuestionNotice>)}
   </>;
   return <section aria-labelledby="questions-title" className="min-w-0 space-y-5">
-    <header className="flex flex-wrap items-start justify-between gap-3"><div className="space-y-1"><h1 className="type-page-title" id="questions-title">问题库</h1><p className="max-w-3xl text-text-secondary">管理主题下的实际提问变体，显式维护点名属性、语言、地区和优先级。</p></div><Button onClick={(event) => { returnFocus.current = event.currentTarget; onSearchChange(questionSearchSchema.parse({ ...search, selected: undefined, copy: undefined, new: 1 })); }} type="button">新建问题变体</Button></header>
+    <PageHeader
+      actions={
+        <Button onClick={(event) => { returnFocus.current = event.currentTarget; onSearchChange(questionSearchSchema.parse({ ...search, selected: undefined, copy: undefined, new: 1 })); }} type="button">
+          新建问题变体
+        </Button>
+      }
+      description="管理主题下的实际提问变体，显式维护点名属性、语言、地区和优先级。"
+      title="问题库"
+      titleId="questions-title"
+    />
     {Boolean(refreshError) && <QuestionNotice error>操作已完成，但列表刷新失败：{questionErrorMessage(refreshError)}<Button onClick={() => void refreshLists()} type="button" variant="outline">重新读取列表</Button></QuestionNotice>}
-    <QuestionList onChange={onSearchChange} onOpen={open} search={search} />
-    {(search.new || search.copy) && <section aria-label="问题变体创建工作区" className="space-y-4 rounded-xl border border-border-default bg-surface-panel p-4"><h2 className="type-section-title">{search.copy ? '复制为新变体' : '新建问题变体'}</h2>{search.copy && readState}{search.new || detail.data ? <QuestionForm copying={Boolean(search.copy)} csrfToken={csrfToken} key={identity} onCancel={close} onSaved={saved} readBlocked={Boolean(search.copy) && unrecoverable} variant={search.copy ? detail.data : undefined} /> : null}</section>}
+    <div className={cn('grid min-w-0 items-start gap-5', createOpen && 'xl:grid-cols-[minmax(0,1fr)_32rem]')}>
+      <div className="min-w-0">
+        <QuestionList onChange={onSearchChange} onOpen={open} search={search} />
+      </div>
+      {createOpen && (
+        <section aria-label="问题变体创建工作区" className="min-w-0 space-y-4 rounded-xl border border-border-default bg-surface-panel p-5 shadow-[var(--shadow-raised)] xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto">
+          <div className="border-b border-border-subtle pb-3">
+            <h2 className="type-section-title">{search.copy ? '复制为新变体' : '新建问题变体'}</h2>
+          </div>
+          {search.copy && readState}
+          {search.new || detail.data ? <QuestionForm copying={Boolean(search.copy)} csrfToken={csrfToken} key={identity} onCancel={close} onSaved={saved} readBlocked={Boolean(search.copy) && unrecoverable} variant={search.copy ? detail.data : undefined} /> : null}
+        </section>
+      )}
+    </div>
     <Sheet onOpenChange={(open) => { if (!open) close(); }} open={Boolean(search.selected)}>
-      {search.selected && <SheetContent className="w-full overflow-y-auto sm:max-w-2xl" finalFocus={() => returnFocus.current?.isConnected ? returnFocus.current : null}>
-        <SheetHeader><SheetTitle>问题变体工作区</SheetTitle><SheetDescription>查看完整语义、服务端动作与删除条件。</SheetDescription></SheetHeader>
-        <div className="min-w-0 space-y-4 px-4 pb-6">{readState}{detail.data && <QuestionDetail csrfToken={csrfToken} initialAction={request?.id === search.selected ? request.command : undefined} key={identity} onCopy={() => onSearchChange(questionSearchSchema.parse({ ...latestSearch.current, selected: undefined, copy: search.selected }))} onDeleted={deleted} onReload={reload} onSaved={saved} readBlocked={unrecoverable} ref={detailActions} variant={detail.data} />}</div>
-      </SheetContent>}
+      {search.selected && (
+        <SheetContent finalFocus={() => returnFocus.current?.isConnected ? returnFocus.current : null} size="lg">
+          <SheetHeader>
+            <SheetTitle>问题变体工作区</SheetTitle>
+            <SheetDescription>查看完整语义、服务端动作与删除条件。</SheetDescription>
+          </SheetHeader>
+          <SheetBody className="space-y-4">
+            {readState}
+            {detail.data && <QuestionDetail csrfToken={csrfToken} initialAction={request?.id === search.selected ? request.command : undefined} key={identity} onCopy={() => onSearchChange(questionSearchSchema.parse({ ...latestSearch.current, selected: undefined, copy: search.selected }))} onDeleted={deleted} onReload={reload} onSaved={saved} readBlocked={unrecoverable} ref={detailActions} variant={detail.data} />}
+          </SheetBody>
+        </SheetContent>
+      )}
     </Sheet>
   </section>;
 }

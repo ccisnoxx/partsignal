@@ -4,10 +4,12 @@ import { createColumnHelper, metaHelper, rowPaginationFeature, tableFeatures, us
 import { useMemo, useState } from 'react';
 import { ColumnHeader } from '@/design-system/data-table/column-header';
 import { EmptyTable } from '@/design-system/data-table/empty-table';
+import { FilterChipsBar, type FilterChipItem } from '@/design-system/data-table/filter-chips';
 import { RowActions } from '@/design-system/data-table/row-actions';
 import { TablePagination } from '@/design-system/data-table/table-pagination';
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
+import { TableToolbar } from '@/design-system/data-table/table-toolbar';
 import type { ColumnRole } from '@/design-system/data-table/types';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button, buttonVariants } from '@/design-system/primitives/button';
@@ -70,17 +72,30 @@ function SurfacesFilters({ search, onChange }: { search: SurfacesSearch; onChang
   const [error, setError] = useState('');
   const profiles = search.tab === 'profiles';
   function change(values: Partial<SurfacesSearch>) { onChange(surfacesSearchSchema.parse({ ...search, ...values, page: 1 })); }
-  return <div className="min-w-0 space-y-3 rounded-xl border border-border-default bg-surface-panel p-3">
-    <form aria-label="搜索 GEO 配置" className="flex min-w-0 flex-wrap items-end gap-3" onSubmit={(event) => {
-      event.preventDefault();
-      if (profiles && surfaceId.trim() && !canonicalUuidSchema.safeParse(surfaceId.trim()).success) { setError('观测面 ID 必须为合法 UUID，或留空。'); return; }
-      setError(''); change({ q, ...(profiles ? { surface_id: surfaceId } : {}) });
-    }}><label className="min-w-0 flex-1 space-y-1 text-sm">搜索配置名称<Input maxLength={240} onChange={(event) => setQ(event.target.value)} value={q} /></label>{profiles && <label className="min-w-0 flex-1 space-y-1 text-sm">筛选观测面 ID<Input maxLength={36} onChange={(event) => setSurfaceId(event.target.value)} value={surfaceId} /></label>}<Button type="submit">应用搜索</Button></form>
-    {error && <CatalogNotice error>{error}</CatalogNotice>}
-    <div className="grid min-w-0 gap-3 sm:grid-cols-3"><CatalogSelect choices={[{ value: '', label: '全部状态' }, { value: 'true', label: '已启用' }, { value: 'false', label: '已停用' }]} label="筛选启用状态" onChange={(value) => change({ is_active: value === '' ? undefined : value === 'true' })} value={search.is_active === undefined ? '' : String(search.is_active)} />
-      {profiles ? <CatalogSelect choices={[{ value: '', label: '全部模式' }, ...Object.entries(modeLabels).map(([value, label]) => ({ value, label }))]} label="筛选采集模式" onChange={(value) => change({ collection_mode: value as SurfacesSearch['collection_mode'] })} value={search.collection_mode ?? ''} /> : <CatalogSelect choices={[{ value: '', label: '全部类型' }, ...Object.entries(kindLabels).map(([value, label]) => ({ value, label }))]} label="筛选观测面类型" onChange={(value) => change({ surface_kind: value as SurfacesSearch['surface_kind'] })} value={search.surface_kind ?? ''} />}
-      <CatalogSelect choices={[{ value: 'NAME_ASC', label: '名称升序' }, { value: 'UPDATED_DESC', label: '最近更新' }]} label="配置列表排序" onChange={(value) => change({ sort: value as SurfacesSearch['sort'] })} value={search.sort ?? 'NAME_ASC'} />
-    </div>
-  </div>;
+  const chips: FilterChipItem[] = [
+    ...(search.q ? [{ key: 'q', label: `搜索：${search.q}`, onRemove: () => change({ q: undefined }) }] : []),
+    ...(profiles && search.surface_id ? [{ key: 'surface_id', label: `观测面 ID：${search.surface_id.slice(0, 8)}…`, onRemove: () => change({ surface_id: undefined }) }] : []),
+    ...(search.is_active !== undefined ? [{ key: 'is_active', label: `状态：${search.is_active ? '已启用' : '已停用'}`, onRemove: () => change({ is_active: undefined }) }] : []),
+    ...(!profiles && search.surface_kind ? [{ key: 'surface_kind', label: `类型：${kindLabels[search.surface_kind]}`, onRemove: () => change({ surface_kind: undefined }) }] : []),
+    ...(profiles && search.collection_mode ? [{ key: 'collection_mode', label: `模式：${modeLabels[search.collection_mode]}`, onRemove: () => change({ collection_mode: undefined }) }] : []),
+  ];
+  return (
+    <TableToolbar
+      chips={chips.length ? <FilterChipsBar items={chips} onClearAll={() => onChange(surfacesSearchSchema.parse({ tab: search.tab, profile_id: search.profile_id, ...(!profiles ? { surface_id: search.surface_id } : {}), new: search.new, editor: search.editor }))} /> : undefined}
+    >
+      <div className="min-w-0 space-y-3">
+        <form aria-label="搜索 GEO 配置" className="flex min-w-0 flex-wrap items-end gap-3" onSubmit={(event) => {
+          event.preventDefault();
+          if (profiles && surfaceId.trim() && !canonicalUuidSchema.safeParse(surfaceId.trim()).success) { setError('观测面 ID 必须为合法 UUID，或留空。'); return; }
+          setError(''); change({ q, ...(profiles ? { surface_id: surfaceId } : {}) });
+        }}><label className="min-w-0 flex-1 space-y-1 text-sm">搜索配置名称<Input maxLength={240} onChange={(event) => setQ(event.target.value)} value={q} /></label>{profiles && <label className="min-w-0 flex-1 space-y-1 text-sm">筛选观测面 ID<Input maxLength={36} onChange={(event) => setSurfaceId(event.target.value)} value={surfaceId} /></label>}<Button type="submit">应用搜索</Button></form>
+        {error && <CatalogNotice error>{error}</CatalogNotice>}
+        <div className="grid min-w-0 gap-3 sm:grid-cols-3"><CatalogSelect choices={[{ value: '', label: '全部状态' }, { value: 'true', label: '已启用' }, { value: 'false', label: '已停用' }]} label="筛选启用状态" onChange={(value) => change({ is_active: value === '' ? undefined : value === 'true' })} value={search.is_active === undefined ? '' : String(search.is_active)} />
+          {profiles ? <CatalogSelect choices={[{ value: '', label: '全部模式' }, ...Object.entries(modeLabels).map(([value, label]) => ({ value, label }))]} label="筛选采集模式" onChange={(value) => change({ collection_mode: value as SurfacesSearch['collection_mode'] })} value={search.collection_mode ?? ''} /> : <CatalogSelect choices={[{ value: '', label: '全部类型' }, ...Object.entries(kindLabels).map(([value, label]) => ({ value, label }))]} label="筛选观测面类型" onChange={(value) => change({ surface_kind: value as SurfacesSearch['surface_kind'] })} value={search.surface_kind ?? ''} />}
+          <CatalogSelect choices={[{ value: 'NAME_ASC', label: '名称升序' }, { value: 'UPDATED_DESC', label: '最近更新' }]} label="配置列表排序" onChange={(value) => change({ sort: value as SurfacesSearch['sort'] })} value={search.sort ?? 'NAME_ASC'} />
+        </div>
+      </div>
+    </TableToolbar>
+  );
 }
 export { SurfacesList };

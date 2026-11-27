@@ -4,6 +4,7 @@ import type { components } from '@/shared/api/generated/schema';
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
+import { MetadataDisclosure } from '@/design-system/primitives/metadata-disclosure';
 import { batchStatusLabels, modeLabels, runCost, runPrimaryLabels, runStatusLabels, timestamp } from './runs.model';
 import { RunAnalysis } from './run-analysis';
 import { RunQuality } from './run-quality';
@@ -182,12 +183,11 @@ function RunDetail({
               <Fact label="采集时间" value={timestamp(answer.collected_at)} />
               <Fact label="回答 SHA-256" value={answer.answer_sha256} />
             </dl>
-            <details open>
-              <summary className="cursor-pointer text-sm">完整回答 · {answer.answer_format}</summary>
-              <pre className="mt-3 max-h-[36rem] overflow-y-auto whitespace-pre-wrap break-words text-sm">
+            <MetadataDisclosure defaultOpen summary={`完整回答 · ${answer.answer_format}`}>
+              <pre className="max-h-[36rem] overflow-y-auto whitespace-pre-wrap break-words text-sm text-text-primary">
                 {answer.answer_text}
               </pre>
-            </details>
+            </MetadataDisclosure>
             <Button
               onClick={() => {
                 void navigator.clipboard.writeText(answer.answer_text).then(
@@ -203,12 +203,11 @@ function RunDetail({
             <p aria-live="polite" className="text-sm">
               {copyMessage}
             </p>
-            <details>
-              <summary className="cursor-pointer text-sm">安全载荷摘要</summary>
-              <pre className="mt-2 whitespace-pre-wrap break-words text-xs">
+            <MetadataDisclosure summary="安全载荷摘要">
+              <pre className="whitespace-pre-wrap break-words text-xs">
                 {JSON.stringify(answer.raw_payload_summary, null, 2)}
               </pre>
-            </details>
+            </MetadataDisclosure>
           </>
         ) : (
           <p className="text-sm text-text-secondary">尚未提交原始回答。</p>

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { components } from '@/shared/api/generated/schema';
 import { TableShell } from '@/design-system/data-table/table-shell';
+import { MetadataDisclosure } from '@/design-system/primitives/metadata-disclosure';
 import { codepointExcerpt, currentAnalysis, type Analysis, type Correction, type Detail } from './review.model';
 import { timestamp } from './runs.model';
 
@@ -27,22 +28,35 @@ function RunAnalysis({ detail, reviewControl }: { detail: Detail; reviewControl?
     <section aria-label="分析与复核历史，只读" className="min-w-0 space-y-3 border-t border-border-subtle pt-4">
       <h4 className="font-medium">分析与复核历史（只读）</h4>
       {!analysis.revisions.length && <p className="text-sm">尚无分析 revision。</p>}
-      {analysis.revisions.map((revision) => <details key={revision.analysis.id} id={`analysis-revision-${revision.analysis.id}`} className="min-w-0 space-y-3">
-        <summary className="cursor-pointer break-words text-sm">分析 Revision {revision.analysis.revision} · {revision.analysis.status} · {revision.analysis.id === analysis.selection.current_analysis_revision_id ? '当前' : '历史'} · {timestamp(revision.analysis.created_at)}</summary>
-        <AnalysisIdentity value={revision} />
-        <AnalysisResults detail={detail} label={`历史 ${revision.analysis.revision}`} results={revision} subjects={revision.analysis.input_snapshot.subjects} />
-      </details>)}
+      {analysis.revisions.map((revision) => (
+        <MetadataDisclosure
+          id={`analysis-revision-${revision.analysis.id}`}
+          key={revision.analysis.id}
+          summary={`分析 Revision ${revision.analysis.revision} · ${revision.analysis.status} · ${revision.analysis.id === analysis.selection.current_analysis_revision_id ? '当前' : '历史'} · ${timestamp(revision.analysis.created_at)}`}
+        >
+          <div className="space-y-3">
+            <AnalysisIdentity value={revision} />
+            <AnalysisResults detail={detail} label={`历史 ${revision.analysis.revision}`} results={revision} subjects={revision.analysis.input_snapshot.subjects} />
+          </div>
+        </MetadataDisclosure>
+      ))}
       {!analysis.reviews.length && <p className="text-sm">尚无人工复核记录。</p>}
-      {analysis.reviews.map(({ review }) => <details className="min-w-0 space-y-3" key={review.id}>
-        <summary className="cursor-pointer break-words text-sm">复核 {review.decision} · {review.id === analysis.selection.current_review_id ? '当前' : '历史'} · {timestamp(review.created_at)}</summary>
-        <dl className="space-y-2 break-words text-sm [overflow-wrap:anywhere]">
-          <div><dt>复核 ID / 分析 ID</dt><dd>{review.id} / {review.analysis_revision_id}</dd></div>
-          <div><dt>复核人 ID</dt><dd>{review.reviewer_id}</dd></div>
-          <div><dt>人工复核说明</dt><dd className="whitespace-pre-wrap">{review.comment || '未填写（服务端允许）'}</dd></div>
-        </dl>
-        {review.correction_payload && 'schema_version' in review.correction_payload && <CorrectionHistory correction={review.correction_payload} />}
-        {!review.correction_payload && <p className="text-sm">确认机器结论；没有修正载荷。</p>}
-      </details>)}
+      {analysis.reviews.map(({ review }) => (
+        <MetadataDisclosure
+          key={review.id}
+          summary={`复核 ${review.decision} · ${review.id === analysis.selection.current_review_id ? '当前' : '历史'} · ${timestamp(review.created_at)}`}
+        >
+          <div className="space-y-3">
+            <dl className="space-y-2 break-words text-sm [overflow-wrap:anywhere]">
+              <div><dt>复核 ID / 分析 ID</dt><dd>{review.id} / {review.analysis_revision_id}</dd></div>
+              <div><dt>复核人 ID</dt><dd>{review.reviewer_id}</dd></div>
+              <div><dt>人工复核说明</dt><dd className="whitespace-pre-wrap">{review.comment || '未填写（服务端允许）'}</dd></div>
+            </dl>
+            {review.correction_payload && 'schema_version' in review.correction_payload && <CorrectionHistory correction={review.correction_payload} />}
+            {!review.correction_payload && <p className="text-sm">确认机器结论；没有修正载荷。</p>}
+          </div>
+        </MetadataDisclosure>
+      ))}
     </section>
   </section>;
 }

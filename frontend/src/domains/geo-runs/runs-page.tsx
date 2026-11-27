@@ -1,7 +1,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { RefreshCwIcon } from 'lucide-react';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { TablePagination } from '@/design-system/data-table/table-pagination';
+import { InlineBanner } from '@/design-system/feedback/inline-banner';
+import { PageHeader } from '@/design-system/layout/page-header';
+import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
+import { cn } from '@/shared/lib/utils';
 import { BatchCreate } from './batch-create';
 import { ManualEditor } from './manual-editor';
 import {
@@ -90,161 +95,204 @@ function RunsPage({ search, csrfToken, onSearchChange }: Props) {
   const blocked =
     detail.error instanceof RunRequestError &&
     (detail.error.status === 401 || detail.error.status === 403 || detail.error.status === 404);
+  const hasSidePanel = Boolean(search.create || search.run_id);
+
   return (
     <section aria-labelledby="runs-title" className="min-w-0 space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <h1 className="type-page-title" id="runs-title">
-            运行中心
-          </h1>
-          <p className="text-text-secondary">回答级批次、API 自动采集、人工录入与不可变采集证据。</p>
+      <PageHeader
+        actions={
+          <>
+            <Button onClick={() => void list.refetch()} size="sm" type="button" variant="outline">
+              <RefreshCwIcon aria-hidden="true" className="size-3.5" />
+              <span>刷新列表</span>
+            </Button>
+            <Button onClick={() => change({ create: 1, run_id: undefined, edit: undefined })} type="button">
+              创建运行批次
+            </Button>
+          </>
+        }
+        description="回答级批次、API 自动采集、人工录入与不可变采集证据。"
+        title="运行中心"
+        titleId="runs-title"
+      />
+      {message && <InlineBanner tone="success">{message}</InlineBanner>}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div
+          aria-label="运行中心视图"
+          className="inline-flex rounded-lg border border-border-subtle bg-surface-raised p-0.5"
+          role="group"
+        >
+          <Button
+            aria-pressed={!runs}
+            className={cn(!runs && 'bg-surface-panel shadow-xs')}
+            onClick={() => change({ view: undefined, batch_id: undefined, page: 1 })}
+            size="sm"
+            type="button"
+            variant={!runs ? 'secondary' : 'ghost'}
+          >
+            批次视图
+          </Button>
+          <Button
+            aria-pressed={runs}
+            className={cn(runs && 'bg-surface-panel shadow-xs')}
+            onClick={() => change({ view: 'runs', page: 1 })}
+            size="sm"
+            type="button"
+            variant={runs ? 'secondary' : 'ghost'}
+          >
+            运行视图
+          </Button>
         </div>
-        <Button onClick={() => change({ create: 1, run_id: undefined, edit: undefined })} type="button">
-          创建运行批次
-        </Button>
-      </header>
-      {message && (
-        <p className="text-sm" role="status">
-          {message}
-        </p>
-      )}
-      {search.create && (
-        <BatchCreate
-          key={search.plan_id ?? 'unselected'}
-          planId={search.plan_id}
-          onPlanChange={(id) => change({ plan_id: id, batch_id: undefined, page: 1 })}
-          csrfToken={csrfToken}
-          onClose={() => change({ create: undefined })}
-          onCreated={(id, planId) => {
-            setMessage('批次已创建；采集方式与执行状态以服务端投影为准。');
-            currentNavigation.current.onSearchChange(runSearchSchema.parse({ view: 'runs', batch_id: id, plan_id: planId }), true, true);
-          }}
-        />
-      )}
-      <div aria-label="运行中心视图" className="flex flex-wrap gap-2" role="group">
-        <Button
-          aria-pressed={!runs}
-          onClick={() => change({ view: undefined, batch_id: undefined, page: 1 })}
-          type="button"
-          variant={!runs ? 'secondary' : 'outline'}
-        >
-          批次视图
-        </Button>
-        <Button
-          aria-pressed={runs}
-          onClick={() => change({ view: 'runs', page: 1 })}
-          type="button"
-          variant={runs ? 'secondary' : 'outline'}
-        >
-          运行视图
-        </Button>
-        <Button onClick={() => void list.refetch()} type="button" variant="outline">
-          刷新列表
-        </Button>
       </div>
-      <RunFilters key={`${search.view ?? 'batches'}:${search.q ?? ''}`} onChange={onSearchChange} search={search} />
-      {search.batch_id && (
-        <section aria-label="选中批次" className="min-w-0 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="type-section-title break-all">批次 {search.batch_id}</h2>
-            <Button onClick={() => change({ batch_id: undefined, page: 1 })} type="button" variant="outline">
-              查看全部运行
-            </Button>
-          </div>
-          {batch.isPending && <p role="status">读取批次摘要…</p>}
-          {batch.error && <ReadFailure error={batch.error} onRetry={() => void batch.refetch()} />}
-          {batch.data && (
-            <>
-              <p className="text-sm">
-                {batch.data.batch.plan_snapshot.name} · {batchStatusLabels[batch.data.workflow.status]}
-              </p>
-              <BatchSummary summary={batch.data.summary} />
-            </>
+
+      <div className={cn('grid min-w-0 items-start gap-5', hasSidePanel && 'xl:grid-cols-[minmax(0,1fr)_34rem]')}>
+        <div className="min-w-0 space-y-4">
+          <RunFilters key={`${search.view ?? 'batches'}:${search.q ?? ''}`} onChange={onSearchChange} search={search} />
+          {search.batch_id && (
+            <section
+              aria-label="选中批次"
+              className="min-w-0 space-y-3 rounded-xl border border-info-border bg-info-surface/40 p-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <h2 className="type-section-title break-all">批次 {search.batch_id}</h2>
+                  {batch.data && (
+                    <Badge variant="info">{batchStatusLabels[batch.data.workflow.status]}</Badge>
+                  )}
+                </div>
+                <Button onClick={() => change({ batch_id: undefined, page: 1 })} size="sm" type="button" variant="outline">
+                  查看全部运行
+                </Button>
+              </div>
+              {batch.isPending && <p className="text-xs text-text-secondary" role="status">读取批次摘要…</p>}
+              {batch.error && <ReadFailure error={batch.error} onRetry={() => void batch.refetch()} />}
+              {batch.data && (
+                <>
+                  <p className="text-sm text-text-secondary">
+                    {batch.data.batch.plan_snapshot.name} · {batchStatusLabels[batch.data.workflow.status]}
+                  </p>
+                  <BatchSummary summary={batch.data.summary} />
+                </>
+              )}
+            </section>
           )}
-        </section>
-      )}
-      {list.isFetching && (
-        <p className="text-sm" role="status">
-          {list.data ? '正在刷新列表…' : '正在读取列表…'}
-        </p>
-      )}
-      {list.error && (
-        <ReadFailure error={list.error} onRetry={() => void list.refetch()} retained={Boolean(list.data)} />
-      )}
-      {runs
-        ? runList.data && <RunTable items={runList.data.items} onOpen={openRun} selected={search.run_id} />
-        : batches.data && <BatchTable items={batches.data.items} onOpen={openBatch} selected={search.batch_id} />}
-      {total !== undefined && (
-        <TablePagination
-          onPageIndexChange={(index) => change({ page: index + 1 })}
-          onPageSizeChange={(size) => change({ page_size: size, page: 1 })}
-          pageCount={Math.ceil(total / size)}
-          pageIndex={(search.page ?? 1) - 1}
-          pageSize={size}
-          totalItems={total}
-        />
-      )}
-      {search.run_id && (
-        <div className="min-w-0 space-y-3">
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button onClick={closeRun} type="button" variant="outline">
-              关闭运行详情
-            </Button>
-          </div>
-          {search.edit ? (
-            <ManualEditor
-              csrfToken={csrfToken}
-              key={search.run_id}
-              onClose={() => change({ edit: undefined })}
-              onSubmitted={submitted}
-              runId={search.run_id}
-            />
+          {list.isFetching && (
+            <p className="text-xs text-text-secondary" role="status">
+              {list.data ? '正在刷新列表…' : '正在读取列表…'}
+            </p>
+          )}
+          {list.error && (
+            <ReadFailure error={list.error} onRetry={() => void list.refetch()} retained={Boolean(list.data)} />
+          )}
+          {list.isPending && !list.data ? (
+            runs ? (
+              <RunTable items={[]} loading onOpen={openRun} selected={search.run_id} />
+            ) : (
+              <BatchTable items={[]} loading onOpen={openBatch} selected={search.batch_id} />
+            )
+          ) : runs ? (
+            runList.data && <RunTable items={runList.data.items} onOpen={openRun} selected={search.run_id} />
           ) : (
-            <>
-              {detail.isPending && <p role="status">读取运行详情…</p>}
-              {detail.error && (
-                <ReadFailure
-                  error={detail.error}
-                  onRetry={() => void detail.refetch()}
-                  retained={Boolean(detail.data)}
-                />
-              )}
-              {detail.data && (
-                <RunDetail
-                  blocked={blocked}
-                  reviewControl={<>
-                    <RunReview blocked={Boolean(detail.error) || detail.isFetching} csrfToken={csrfToken} detail={detail.data} readError={detail.error} />
-                    <RunReanalysis
-                      key={detail.data.run.id}
-                      detail={detail.data}
-                      csrfToken={csrfToken}
-                      blocked={Boolean(detail.error) || detail.isFetching}
-                      readError={detail.error}
-                    />
-                  </>}
-                  cancelControl={<RunCancel key={detail.data.run.id} detail={detail.data} csrfToken={csrfToken} blocked={Boolean(detail.error) || detail.isFetching} readError={detail.error} />}
-                  retryControl={<RunRetry
-                    blocked={Boolean(detail.error) || detail.isFetching}
-                    csrfToken={csrfToken}
-                    detail={detail.data}
-                    onCreated={(id) => {
-                      setMessage('已显式创建新尝试，原尝试保留。');
-                      const current = currentNavigation.current;
-                      if (current.search.run_id === detail.data.run.id)
-                        current.onSearchChange(runSearchSchema.parse({ ...current.search, run_id: id, edit: undefined }), true);
-                    }}
-                  />}
-                  detail={detail.data}
-                  key={detail.data.run.id}
-                  onEdit={() => change({ edit: 1 })}
-                  onRefreshEvidence={() => void detail.refetch()}
-                  onSelectAttempt={(id) => change({ run_id: id, edit: undefined })}
-                />
-              )}
-            </>
+            batches.data && <BatchTable items={batches.data.items} onOpen={openBatch} selected={search.batch_id} />
+          )}
+          {total !== undefined && (
+            <TablePagination
+              onPageIndexChange={(index) => change({ page: index + 1 })}
+              onPageSizeChange={(size) => change({ page_size: size, page: 1 })}
+              pageCount={Math.ceil(total / size)}
+              pageIndex={(search.page ?? 1) - 1}
+              pageSize={size}
+              totalItems={total}
+            />
           )}
         </div>
-      )}
+
+        {hasSidePanel && (
+          <aside className="min-w-0 space-y-4 rounded-xl border border-border-default bg-surface-panel p-4 shadow-[var(--shadow-raised)] xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto">
+            {search.create && (
+              <BatchCreate
+                key={search.plan_id ?? 'unselected'}
+                planId={search.plan_id}
+                onPlanChange={(id) => change({ plan_id: id, batch_id: undefined, page: 1 })}
+                csrfToken={csrfToken}
+                onClose={() => change({ create: undefined })}
+                onCreated={(id, planId) => {
+                  setMessage('批次已创建；采集方式与执行状态以服务端投影为准。');
+                  currentNavigation.current.onSearchChange(
+                    runSearchSchema.parse({ view: 'runs', batch_id: id, plan_id: planId }),
+                    true,
+                    true,
+                  );
+                }}
+              />
+            )}
+            {search.run_id && (
+              <div className="min-w-0 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle pb-3">
+                  <span className="type-label text-text-secondary">
+                    {search.edit ? '人工录入工作区' : '运行详情与证据'}
+                  </span>
+                  <Button onClick={closeRun} size="sm" type="button" variant="outline">
+                    关闭运行详情
+                  </Button>
+                </div>
+                {search.edit ? (
+                  <ManualEditor
+                    csrfToken={csrfToken}
+                    key={search.run_id}
+                    onClose={() => change({ edit: undefined })}
+                    onSubmitted={submitted}
+                    runId={search.run_id}
+                  />
+                ) : (
+                  <>
+                    {detail.isPending && <p className="text-xs text-text-secondary" role="status">读取运行详情…</p>}
+                    {detail.error && (
+                      <ReadFailure
+                        error={detail.error}
+                        onRetry={() => void detail.refetch()}
+                        retained={Boolean(detail.data)}
+                      />
+                    )}
+                    {detail.data && (
+                      <RunDetail
+                        blocked={blocked}
+                        reviewControl={<>
+                          <RunReview blocked={Boolean(detail.error) || detail.isFetching} csrfToken={csrfToken} detail={detail.data} readError={detail.error} />
+                          <RunReanalysis
+                            key={detail.data.run.id}
+                            detail={detail.data}
+                            csrfToken={csrfToken}
+                            blocked={Boolean(detail.error) || detail.isFetching}
+                            readError={detail.error}
+                          />
+                        </>}
+                        cancelControl={<RunCancel key={detail.data.run.id} detail={detail.data} csrfToken={csrfToken} blocked={Boolean(detail.error) || detail.isFetching} readError={detail.error} />}
+                        retryControl={<RunRetry
+                          blocked={Boolean(detail.error) || detail.isFetching}
+                          csrfToken={csrfToken}
+                          detail={detail.data}
+                          onCreated={(id) => {
+                            setMessage('已显式创建新尝试，原尝试保留。');
+                            const current = currentNavigation.current;
+                            if (current.search.run_id === detail.data.run.id)
+                              current.onSearchChange(runSearchSchema.parse({ ...current.search, run_id: id, edit: undefined }), true);
+                          }}
+                        />}
+                        detail={detail.data}
+                        key={detail.data.run.id}
+                        onEdit={() => change({ edit: 1 })}
+                        onRefreshEvidence={() => void detail.refetch()}
+                        onSelectAttempt={(id) => change({ run_id: id, edit: undefined })}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </aside>
+        )}
+      </div>
     </section>
   );
 }
@@ -260,19 +308,22 @@ function ReadFailure({
   const unrecoverable =
     error instanceof RunRequestError && (error.status === 401 || error.status === 403 || error.status === 404);
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border-default p-3 text-sm" role="alert">
+    <InlineBanner
+      actions={
+        unrecoverable ? undefined : (
+          <Button onClick={onRetry} size="sm" type="button" variant="outline">
+            重试读取
+          </Button>
+        )
+      }
+      tone="danger"
+    >
       <span>
         {retained ? '刷新失败，保留上次读取结果：' : '读取失败：'}
         {error instanceof Error ? error.message : '未知错误'}
       </span>
-      {unrecoverable ? (
-        <span>当前资源不可访问，请返回列表或关闭详情。</span>
-      ) : (
-        <Button onClick={onRetry} size="sm" type="button" variant="outline">
-          重试读取
-        </Button>
-      )}
-    </div>
+      {unrecoverable && <span className="ml-1">当前资源不可访问，请返回列表或关闭详情。</span>}
+    </InlineBanner>
   );
 }
 export { RunsPage };

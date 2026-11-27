@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  isNavItemActive,
   resolveActiveNavId,
   resolveAppLayout,
   resolveBreadcrumbs,
@@ -23,7 +24,7 @@ describe('路由导航元数据', () => {
     ))).toBe('users');
   });
 
-  it('按匹配链顺序生成面包屑，并只向管理员显示系统入口', () => {
+  it('按匹配链顺序生成面包屑，并收敛 GEO 分析入口且按角色过滤系统管理入口', () => {
     expect(resolveBreadcrumbs(matches(
       { pathname: '/', staticData: {} },
       { pathname: '/products', staticData: { breadcrumb: '产品' } },
@@ -42,17 +43,15 @@ describe('路由导航元数据', () => {
         'publishing-articles',
         'publishing-issues',
         'geo-overview',
-        'geo-answer-insights',
-        'geo-reports',
-        'geo-insights',
-        'geo-topics',
-        'geo-questions',
         'geo-plans',
         'geo-runs',
         'geo-opportunities',
+        'geo-questions',
+        'geo-topics',
         'geo-observations',
         'platforms',
       ]);
+
     expect(visibleNavigationSections(true).flatMap((section) => section.items.map((item) => item.id)))
       .toEqual([
         'workbench',
@@ -62,14 +61,11 @@ describe('路由导航元数据', () => {
         'publishing-articles',
         'publishing-issues',
         'geo-overview',
-        'geo-answer-insights',
-        'geo-reports',
-        'geo-insights',
-        'geo-topics',
-        'geo-questions',
         'geo-plans',
         'geo-runs',
         'geo-opportunities',
+        'geo-questions',
+        'geo-topics',
         'geo-observations',
         'platforms',
         'geo-surfaces',
@@ -80,6 +76,16 @@ describe('路由导航元数据', () => {
         'users',
         'audit',
       ]);
+
+    const analyticsItem = visibleNavigationSections(false)
+      .flatMap((section) => section.items)
+      .find((item) => item.id === 'geo-overview');
+    expect(analyticsItem).toBeDefined();
+    expect(isNavItemActive(analyticsItem!, 'geo-overview')).toBe(true);
+    expect(isNavItemActive(analyticsItem!, 'geo-answer-insights')).toBe(true);
+    expect(isNavItemActive(analyticsItem!, 'geo-reports')).toBe(true);
+    expect(isNavItemActive(analyticsItem!, 'geo-insights')).toBe(true);
+    expect(isNavItemActive(analyticsItem!, 'geo-runs')).toBe(false);
   });
 
   it('只由最深显式路由切换打印布局', () => {

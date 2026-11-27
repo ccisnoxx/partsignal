@@ -175,12 +175,16 @@ test('375/1440 使用既有 WorkspaceShell 响应式形态', async ({ page }, te
   }
 });
 
-test('768/1024 保持 tabbed workspace 且内容无水平溢出', async ({ page }, testInfo) => {
+test('768/1024 保持自适应 workspace（768 全 Tab、1024 两栏对照）且内容无水平溢出', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'foundation-desktop', '中间视口只需在 desktop project 覆盖一次');
   for (const width of [768, 1024]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(reviewPath);
-    await expect(page.getByRole('tab', { name: '当前内容 Markdown' })).toBeVisible();
+    if (width < 1024) {
+      await expect(page.getByRole('tab', { name: '当前内容 Markdown' })).toBeVisible();
+    } else {
+      await expect(page.getByRole('region', { name: '当前内容 Markdown', exact: true })).toBeVisible();
+    }
     await page.getByRole('tab', { name: '审核依据' }).click();
     await expect(page.getByRole('heading', { name: '阻断问题' })).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);

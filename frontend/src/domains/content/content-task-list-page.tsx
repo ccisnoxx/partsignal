@@ -21,6 +21,8 @@ import { TableShell } from '@/design-system/data-table/table-shell';
 import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
 import { TableToolbar } from '@/design-system/data-table/table-toolbar';
 import type { ColumnRole } from '@/design-system/data-table/types';
+import { InlineBanner } from '@/design-system/feedback/inline-banner';
+import { PageHeader } from '@/design-system/layout/page-header';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button, buttonVariants } from '@/design-system/primitives/button';
 import {
@@ -122,37 +124,40 @@ function ContentTaskListPage({
 
   return (
     <section className="space-y-4" aria-labelledby="content-task-list-title">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 id="content-task-list-title" className="type-page-title">内容任务</h1>
-            {search.archiveStatus === 'ARCHIVED' && <Badge variant="secondary">已归档视图</Badge>}
-          </div>
-          <p className="max-w-3xl text-text-secondary">
-            查看服务端聚合的当前阶段，并进入每个任务唯一的下一项主要工作。
-          </p>
-        </div>
-        <Link className={buttonVariants()} to="/content/tasks/new">创建内容任务</Link>
-      </header>
+      <PageHeader
+        actions={<Link className={buttonVariants()} to="/content/tasks/new">创建内容任务</Link>}
+        badges={search.archiveStatus === 'ARCHIVED' ? <Badge variant="secondary">已归档视图</Badge> : undefined}
+        description="查看服务端聚合的当前阶段，并进入每个任务唯一的下一项主要工作。"
+        title="内容任务"
+        titleId="content-task-list-title"
+      />
 
       {lifecycle.notice && (
-        <div className="rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success" role="status">
-          {lifecycle.notice}
-        </div>
+        <InlineBanner tone="success">{lifecycle.notice}</InlineBanner>
       )}
       {lifecycle.error && (
-        <div className="flex flex-col gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between" role="alert">
-          <span>{errorMessage(lifecycle.error)}</span>
-          <Button onClick={lifecycle.reset} size="sm" variant="outline">关闭</Button>
-        </div>
+        <InlineBanner
+          actions={<Button onClick={lifecycle.reset} size="sm" variant="outline">关闭</Button>}
+          tone="danger"
+        >
+          {errorMessage(lifecycle.error)}
+        </InlineBanner>
       )}
       {search.queryTopicId && search.queryTopicReference && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-info/30 bg-info/10 p-3 text-sm" role="status">
-          <span>
-            Query Topic 引用筛选：{search.queryTopicReference === 'CONTENT_TASK' ? 'Content Task' : 'GEO Optimization 来源'} · {search.queryTopicId}
-          </span>
-          <Button onClick={() => changeSearch({ queryTopicId: undefined, queryTopicReference: undefined })} size="sm" variant="outline">清除此引用筛选</Button>
-        </div>
+        <InlineBanner
+          actions={
+            <Button
+              onClick={() => changeSearch({ queryTopicId: undefined, queryTopicReference: undefined })}
+              size="sm"
+              variant="outline"
+            >
+              清除此引用筛选
+            </Button>
+          }
+          tone="info"
+        >
+          Query Topic 引用筛选：{search.queryTopicReference === 'CONTENT_TASK' ? 'Content Task' : 'GEO Optimization 来源'} · {search.queryTopicId}
+        </InlineBanner>
       )}
 
       <TableToolbar>

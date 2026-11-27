@@ -3,14 +3,17 @@ import { createColumnHelper, metaHelper, rowPaginationFeature, tableFeatures, us
 import { useMemo, useState } from 'react';
 import { ColumnHeader } from '@/design-system/data-table/column-header';
 import { EmptyTable } from '@/design-system/data-table/empty-table';
+import { FilterChipsBar, type FilterChipItem } from '@/design-system/data-table/filter-chips';
 import { RowActions } from '@/design-system/data-table/row-actions';
 import { TablePagination } from '@/design-system/data-table/table-pagination';
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
+import { TableToolbar } from '@/design-system/data-table/table-toolbar';
 import type { ColumnRole } from '@/design-system/data-table/types';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
 import { Input } from '@/design-system/primitives/input';
+import { MetadataDisclosure } from '@/design-system/primitives/metadata-disclosure';
 import { queryTopicsQueryOptions } from '@/domains/geo/geo.api';
 import { questionListOptions } from './questions.api';
 import { intentLabels, mentionLabels, priorityLabels, questionSearchSchema, stageLabels, type PromptVariant, type QuestionSearch } from './questions.model';
@@ -56,23 +59,43 @@ function QuestionFilters({ search, onChange }: { search: QuestionSearch; onChang
   const [error, setError] = useState('');
   const topics = useQuery(queryTopicsQueryOptions());
   function change(patch: Partial<QuestionSearch>) { onChange(questionSearchSchema.parse({ ...search, ...patch, page: 1 })); }
-  return <div className="space-y-3 rounded-xl border border-border-default bg-surface-panel p-3">
-    <form aria-label="筛选问题变体" className="space-y-3" onSubmit={(event) => {
-      event.preventDefault();
-      if (language && !/^[a-zA-Z]{2,8}(-[a-zA-Z0-9]{1,8})*$/.test(language) || region && !/^[a-zA-Z]{2}$/.test(region)) { setError('请填写合法语言标签和两位地区代码，或留空。'); return; }
-      setError(''); change({ q, query_topic_id: topic, language_code: language, region_code: region });
-    }}>
-      <div className="flex flex-wrap items-end gap-3"><label className="min-w-0 flex-1 space-y-1 text-sm">搜索完整问题文本<Input maxLength={240} onChange={(event) => setQ(event.target.value)} value={q} /></label><Button type="submit">应用筛选</Button></div>
-      <details><summary className="cursor-pointer text-sm text-text-secondary">主题、语言和地区筛选</summary><div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-3"><QuestionSelect choices={[{ value: '', label: '全部主题' }, ...(topics.data?.items.map((item) => ({ value: item.id, label: item.canonical_question })) ?? [])]} label="筛选问题主题" onChange={setTopic} value={topic} /><label className="space-y-1 text-sm">筛选语言<Input maxLength={16} onChange={(event) => setLanguage(event.target.value)} value={language} /></label><label className="space-y-1 text-sm">筛选地区<Input maxLength={2} onChange={(event) => setRegion(event.target.value)} value={region} /></label></div>{topics.isPending && <p role="status">正在读取主题筛选…</p>}{topics.error && <QuestionNotice error>{questionErrorMessage(topics.error)}<Button onClick={() => void topics.refetch()} type="button" variant="outline">重试主题筛选</Button></QuestionNotice>}</details>
-      {error && <QuestionNotice error>{error}</QuestionNotice>}
-    </form>
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-      <QuestionSelect choices={[{ value: '', label: '全部意图' }, ...Object.entries(intentLabels).map(([value, label]) => ({ value, label }))]} label="筛选意图" onChange={(value) => change({ intent_type: value as QuestionSearch['intent_type'] })} value={search.intent_type ?? ''} />
-      <QuestionSelect choices={[{ value: '', label: '全部点名属性' }, ...Object.entries(mentionLabels).map(([value, label]) => ({ value, label }))]} label="筛选点名属性" onChange={(value) => change({ mention_mode: value as QuestionSearch['mention_mode'] })} value={search.mention_mode ?? ''} />
-      <QuestionSelect choices={[{ value: '', label: '全部优先级' }, ...Object.entries(priorityLabels).map(([value, label]) => ({ value, label }))]} label="筛选优先级" onChange={(value) => change({ priority: value as QuestionSearch['priority'] })} value={search.priority ?? ''} />
-      <QuestionSelect choices={[{ value: '', label: '全部启用状态' }, { value: 'true', label: '已启用' }, { value: 'false', label: '已停用' }]} label="筛选启用状态" onChange={(value) => change({ is_active: value === '' ? undefined : value === 'true' })} value={search.is_active === undefined ? '' : String(search.is_active)} />
-      <QuestionSelect choices={[{ value: 'UPDATED_DESC', label: '最近更新' }, { value: 'TEXT_ASC', label: '文本升序' }]} label="列表排序" onChange={(value) => change({ sort: value as QuestionSearch['sort'] })} value={search.sort ?? 'UPDATED_DESC'} />
-    </div>
-  </div>;
+  const chips: FilterChipItem[] = [
+    ...(search.q ? [{ key: 'q', label: `搜索：${search.q}`, onRemove: () => change({ q: undefined }) }] : []),
+    ...(search.query_topic_id ? [{ key: 'topic', label: `主题：${topics.data?.items.find((item) => item.id === search.query_topic_id)?.canonical_question ?? search.query_topic_id.slice(0, 8)}`, onRemove: () => change({ query_topic_id: undefined }) }] : []),
+    ...(search.language_code ? [{ key: 'language_code', label: `语言：${search.language_code}`, onRemove: () => change({ language_code: undefined }) }] : []),
+    ...(search.region_code ? [{ key: 'region_code', label: `地区：${search.region_code}`, onRemove: () => change({ region_code: undefined }) }] : []),
+    ...(search.intent_type ? [{ key: 'intent_type', label: `意图：${intentLabels[search.intent_type]}`, onRemove: () => change({ intent_type: undefined }) }] : []),
+    ...(search.mention_mode ? [{ key: 'mention_mode', label: `点名：${mentionLabels[search.mention_mode]}`, onRemove: () => change({ mention_mode: undefined }) }] : []),
+    ...(search.priority ? [{ key: 'priority', label: `优先级：${priorityLabels[search.priority]}`, onRemove: () => change({ priority: undefined }) }] : []),
+    ...(search.is_active !== undefined ? [{ key: 'is_active', label: `状态：${search.is_active ? '已启用' : '已停用'}`, onRemove: () => change({ is_active: undefined }) }] : []),
+  ];
+  return (
+    <TableToolbar
+      chips={chips.length ? <FilterChipsBar items={chips} onClearAll={() => onChange(questionSearchSchema.parse({ selected: search.selected, new: search.new, copy: search.copy }))} /> : undefined}
+    >
+      <div className="space-y-3">
+        <form aria-label="筛选问题变体" className="space-y-3" onSubmit={(event) => {
+          event.preventDefault();
+          if (language && !/^[a-zA-Z]{2,8}(-[a-zA-Z0-9]{1,8})*$/.test(language) || region && !/^[a-zA-Z]{2}$/.test(region)) { setError('请填写合法语言标签和两位地区代码，或留空。'); return; }
+          setError(''); change({ q, query_topic_id: topic, language_code: language, region_code: region });
+        }}>
+          <div className="flex flex-wrap items-end gap-3"><label className="min-w-0 flex-1 space-y-1 text-sm">搜索完整问题文本<Input maxLength={240} onChange={(event) => setQ(event.target.value)} value={q} /></label><Button type="submit">应用筛选</Button></div>
+          <MetadataDisclosure summary="主题、语言和地区筛选">
+            <div className="mt-1 grid min-w-0 gap-3 sm:grid-cols-3"><QuestionSelect choices={[{ value: '', label: '全部主题' }, ...(topics.data?.items.map((item) => ({ value: item.id, label: item.canonical_question })) ?? [])]} label="筛选问题主题" onChange={setTopic} value={topic} /><label className="space-y-1 text-sm">筛选语言<Input maxLength={16} onChange={(event) => setLanguage(event.target.value)} value={language} /></label><label className="space-y-1 text-sm">筛选地区<Input maxLength={2} onChange={(event) => setRegion(event.target.value)} value={region} /></label></div>
+            {topics.isPending && <p className="mt-2" role="status">正在读取主题筛选…</p>}
+            {topics.error && <QuestionNotice error>{questionErrorMessage(topics.error)}<Button onClick={() => void topics.refetch()} type="button" variant="outline">重试主题筛选</Button></QuestionNotice>}
+          </MetadataDisclosure>
+          {error && <QuestionNotice error>{error}</QuestionNotice>}
+        </form>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <QuestionSelect choices={[{ value: '', label: '全部意图' }, ...Object.entries(intentLabels).map(([value, label]) => ({ value, label }))]} label="筛选意图" onChange={(value) => change({ intent_type: value as QuestionSearch['intent_type'] })} value={search.intent_type ?? ''} />
+          <QuestionSelect choices={[{ value: '', label: '全部点名属性' }, ...Object.entries(mentionLabels).map(([value, label]) => ({ value, label }))]} label="筛选点名属性" onChange={(value) => change({ mention_mode: value as QuestionSearch['mention_mode'] })} value={search.mention_mode ?? ''} />
+          <QuestionSelect choices={[{ value: '', label: '全部优先级' }, ...Object.entries(priorityLabels).map(([value, label]) => ({ value, label }))]} label="筛选优先级" onChange={(value) => change({ priority: value as QuestionSearch['priority'] })} value={search.priority ?? ''} />
+          <QuestionSelect choices={[{ value: '', label: '全部启用状态' }, { value: 'true', label: '已启用' }, { value: 'false', label: '已停用' }]} label="筛选启用状态" onChange={(value) => change({ is_active: value === '' ? undefined : value === 'true' })} value={search.is_active === undefined ? '' : String(search.is_active)} />
+          <QuestionSelect choices={[{ value: 'UPDATED_DESC', label: '最近更新' }, { value: 'TEXT_ASC', label: '文本升序' }]} label="列表排序" onChange={(value) => change({ sort: value as QuestionSearch['sort'] })} value={search.sort ?? 'UPDATED_DESC'} />
+        </div>
+      </div>
+    </TableToolbar>
+  );
 }
 export { QuestionList };

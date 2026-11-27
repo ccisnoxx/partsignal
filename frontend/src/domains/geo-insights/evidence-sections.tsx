@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { components } from '@/shared/api/generated/schema';
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { Button } from '@/design-system/primitives/button';
+import { MetadataDisclosure } from '@/design-system/primitives/metadata-disclosure';
 import { formatRate, formatTime, sampleLabels, type AnswerInsights, type Drilldown, type OnDrilldown } from './insights.model';
 import { CellIdentity, InsightSection, safeCitationUrl } from './insights-components';
 
@@ -56,13 +57,15 @@ function EvidenceCellIdentity({ insights, cellKey, subjectId }: { insights: Answ
 }
 function CitationUrl({ value }: { value: string }) {
   const href = safeCitationUrl(value);
-  return <details className="max-w-72 whitespace-normal">
-    <summary className="table-cell-ellipsis block max-w-72 cursor-pointer truncate">{value}</summary>
-    <div className="mt-2 break-all">{href
-      ? <a className="text-primary underline" href={href} rel="noopener noreferrer" target="_blank">{value}</a>
-      : <><span>{value}</span><p className="text-text-secondary">不支持打开此链接。</p></>}
-    </div>
-  </details>;
+  return (
+    <MetadataDisclosure className="max-w-72 whitespace-normal" summary={value}>
+      <div className="break-all">
+        {href
+          ? <a className="text-primary underline" href={href} rel="noopener noreferrer" target="_blank">{value}</a>
+          : <><span>{value}</span><p className="text-text-secondary">不支持打开此链接。</p></>}
+      </div>
+    </MetadataDisclosure>
+  );
 }
 function CitationBuckets({ rows, title, cellKey, kind, onDrilldown }: {
   rows: Bucket[]; title: string; cellKey: string; kind: 'domain' | 'url' | 'source'; onDrilldown: OnDrilldown;
@@ -82,10 +85,14 @@ function CitationBuckets({ rows, title, cellKey, kind, onDrilldown }: {
         <td>{row.citation_count}</td><td>{row.run_count}</td>
         <td>{formatRate(row.coverage_value)}<br />分母：{row.coverage_denominator}</td>
         <td>{formatRate(row.share_value)}<br />分母：{row.share_denominator}</td>
-        <td className="max-w-64 whitespace-normal"><details><summary className="cursor-pointer">完整身份</summary>
-          <dl className="mt-2 break-all"><dt>问题主题 ID</dt><dd>{row.query_topic_ids.join('、') || '无'}</dd>
-            <dt>观测面 ID</dt><dd>{row.engine_surface_ids.join('、') || '无'}</dd></dl>
-        </details></td>
+        <td className="max-w-64 whitespace-normal">
+          <MetadataDisclosure summary="完整身份">
+            <dl className="space-y-1 break-all">
+              <div><dt className="text-text-tertiary">问题主题 ID</dt><dd>{row.query_topic_ids.join('、') || '无'}</dd></div>
+              <div><dt className="text-text-tertiary">观测面 ID</dt><dd>{row.engine_surface_ids.join('、') || '无'}</dd></div>
+            </dl>
+          </MetadataDisclosure>
+        </td>
         <td><DetailButton descriptor={row.drilldown} label={`引用明细：${row.key}`} onDrilldown={onDrilldown} /></td>
       </tr>)}</tbody>
     </TableShell>}
@@ -167,10 +174,10 @@ export function InsightDataQuality({ insights, onDrilldown }: Props) {
     {insights.unavailable_sections.includes('DATA_QUALITY') ? <Empty>服务端尚未支持数据质量区块。</Empty> : <>
       <p className="text-sm text-text-secondary">同筛选候选运行的操作统计；不跨 cell 汇总业务比例。摘要时间：{formatTime(insights.as_of)}</p>
       <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
-        <div><dt className="text-text-muted">候选运行</dt><dd>{overview.candidate_run_count}</dd></div>
-        <div><dt className="text-text-muted">合格运行</dt><dd>{overview.eligible_run_count}</dd></div>
-        <div><dt className="text-text-muted">排除运行（去重）</dt><dd>{overview.excluded_run_count}</dd></div>
-        <div><dt className="text-text-muted">完整维度数</dt><dd>{overview.dimension_count}</dd></div>
+        <div className="rounded-lg border border-border-subtle bg-surface-raised/35 p-3"><dt className="text-xs text-text-secondary">候选运行</dt><dd className="mt-1 font-mono text-xl font-semibold tabular-nums">{overview.candidate_run_count}</dd></div>
+        <div className="rounded-lg border border-border-subtle bg-surface-raised/35 p-3"><dt className="text-xs text-text-secondary">合格运行</dt><dd className="mt-1 font-mono text-xl font-semibold tabular-nums">{overview.eligible_run_count}</dd></div>
+        <div className="rounded-lg border border-border-subtle bg-surface-raised/35 p-3"><dt className="text-xs text-text-secondary">排除运行（去重）</dt><dd className="mt-1 font-mono text-xl font-semibold tabular-nums">{overview.excluded_run_count}</dd></div>
+        <div className="rounded-lg border border-border-subtle bg-surface-raised/35 p-3"><dt className="text-xs text-text-secondary">完整维度数</dt><dd className="mt-1 font-mono text-xl font-semibold tabular-nums">{overview.dimension_count}</dd></div>
       </dl>
       <DetailButton descriptor={quality.excluded_drilldown} label="排除运行明细" onDrilldown={onDrilldown} />
       {!overview.exclusion_reason_counts.length ? <Empty>当前筛选无排除原因记录。</Empty> : <TableShell regionLabel="排除原因">
@@ -187,14 +194,16 @@ export function InsightDataQuality({ insights, onDrilldown }: Props) {
         <thead><tr><th scope="col">质量指标 / 公式版本</th><th scope="col">数值</th><th scope="col">分子 / 分母</th>
           <th scope="col">样本等级</th><th scope="col">合格 / 排除运行</th><th scope="col">排除与不可判断</th><th scope="col">组成明细</th></tr></thead>
         <tbody>{overview.cards.map((card) => <tr key={card.metric_code}>
-          <th className="font-normal" scope="row">{labelFor(metricLabels, card.metric_code)}<br />{card.formula_version}</th>
-          <td>{formatRate(card.value)}</td><td>{card.numerator} / {card.denominator}</td><td>{labelFor(sampleLabels, card.sample_level)}</td>
-          <td>{card.eligible_run_count} / {card.excluded_run_count}</td>
-          <td className="max-w-64 whitespace-normal"><details><summary className="cursor-pointer">指标口径明细</summary>
-            <p>不可判断声明数：{card.unjudgeable_claim_count}</p>
-            <p>不可计算原因：{card.unavailable_reason === null ? '无' : card.unavailable_reason === 'NO_DENOMINATOR' ? '无可用分母' : `未支持的原因：${card.unavailable_reason}`}</p>
-            {card.exclusion_reason_counts.length ? <ul>{card.exclusion_reason_counts.map((row) => <li key={row.code}>{labelFor(exclusionLabels, row.code)}：{row.run_count}</li>)}</ul> : <p>无排除原因记录。</p>}
-          </details></td>
+          <th className="font-normal" scope="row">{labelFor(metricLabels, card.metric_code)}<br /><span className="font-mono text-xs text-text-tertiary">{card.formula_version}</span></th>
+          <td className="font-mono tabular-nums">{formatRate(card.value)}</td><td className="tabular-nums">{card.numerator} / {card.denominator}</td><td>{labelFor(sampleLabels, card.sample_level)}</td>
+          <td className="tabular-nums">{card.eligible_run_count} / {card.excluded_run_count}</td>
+          <td className="max-w-64 whitespace-normal">
+            <MetadataDisclosure summary="指标口径明细">
+              <p>不可判断声明数：{card.unjudgeable_claim_count}</p>
+              <p>不可计算原因：{card.unavailable_reason === null ? '无' : card.unavailable_reason === 'NO_DENOMINATOR' ? '无可用分母' : `未支持的原因：${card.unavailable_reason}`}</p>
+              {card.exclusion_reason_counts.length ? <ul className="list-inside list-disc">{card.exclusion_reason_counts.map((row) => <li key={row.code}>{labelFor(exclusionLabels, row.code)}：{row.run_count}</li>)}</ul> : <p>无排除原因记录。</p>}
+            </MetadataDisclosure>
+          </td>
           <td><DetailButton descriptor={card.drilldown} label={`质量明细：${labelFor(metricLabels, card.metric_code)}`} onDrilldown={onDrilldown} /></td>
         </tr>)}</tbody>
       </TableShell>}

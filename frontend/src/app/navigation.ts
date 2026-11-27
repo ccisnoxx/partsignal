@@ -1,35 +1,92 @@
 import type { StaticDataRouteOption } from '@tanstack/react-router';
 import {
-  BoxesIcon,
   BotIcon,
+  BoxesIcon,
+  CalendarRangeIcon,
   ChartSplineIcon,
   ClipboardListIcon,
   EyeIcon,
   FileTextIcon,
+  HelpCircleIcon,
   LayoutDashboardIcon,
   ListTodoIcon,
-  MessagesSquareIcon,
   MessageSquareWarningIcon,
-  SendIcon,
+  PlayCircleIcon,
   ScrollTextIcon,
+  SendIcon,
   Settings2Icon,
+  SlidersHorizontalIcon,
+  TagsIcon,
+  TargetIcon,
   UsersIcon,
   type LucideIcon,
 } from 'lucide-react';
 
-type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-overview' | 'geo-reports' | 'geo-answer-insights' | 'geo-insights' | 'geo-topics' | 'geo-questions' | 'geo-plans' | 'geo-runs' | 'geo-opportunities' | 'geo-observations' | 'geo-entities' | 'geo-surfaces' | 'geo-rules' | 'platforms' | 'prompts' | 'ai-channels' | 'users' | 'audit';
+type NavId =
+  | 'workbench'
+  | 'products'
+  | 'content-tasks'
+  | 'publishing-work'
+  | 'publishing-articles'
+  | 'publishing-issues'
+  | 'geo-overview'
+  | 'geo-reports'
+  | 'geo-answer-insights'
+  | 'geo-insights'
+  | 'geo-topics'
+  | 'geo-questions'
+  | 'geo-plans'
+  | 'geo-runs'
+  | 'geo-opportunities'
+  | 'geo-observations'
+  | 'geo-entities'
+  | 'geo-surfaces'
+  | 'geo-rules'
+  | 'platforms'
+  | 'prompts'
+  | 'ai-channels'
+  | 'users'
+  | 'audit';
+
 type AppLayout = 'app' | 'print';
 
 type NavigationItem = {
   id: NavId;
+  matchNavIds?: readonly NavId[];
   label: string;
-  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/overview' | '/geo/reports' | '/geo/insights/answers' | '/geo/insights' | '/geo/topics' | '/geo/questions' | '/geo/plans' | '/geo/runs' | '/geo/opportunities' | '/geo/observations' | '/configuration/geo-entities' | '/configuration/geo-surfaces' | '/configuration/geo-rules' | '/settings/platforms' | '/settings/prompts' | '/settings/ai' | '/system/users' | '/system/audit';
+  to:
+    | '/'
+    | '/products'
+    | '/content/tasks'
+    | '/publishing/work'
+    | '/publishing/articles'
+    | '/publishing/issues'
+    | '/geo/overview'
+    | '/geo/reports'
+    | '/geo/insights/answers'
+    | '/geo/insights'
+    | '/geo/topics'
+    | '/geo/questions'
+    | '/geo/plans'
+    | '/geo/runs'
+    | '/geo/opportunities'
+    | '/geo/observations'
+    | '/configuration/geo-entities'
+    | '/configuration/geo-surfaces'
+    | '/configuration/geo-rules'
+    | '/settings/platforms'
+    | '/settings/prompts'
+    | '/settings/ai'
+    | '/system/users'
+    | '/system/audit';
   icon: LucideIcon;
   adminOnly?: boolean;
 };
 
 type NavigationSection = {
+  id: string;
   label: string;
+  collapsible?: boolean;
   items: readonly NavigationItem[];
 };
 
@@ -51,8 +108,16 @@ declare module '@tanstack/react-router' {
   }
 }
 
+const geoAnalyticsNavIds: readonly NavId[] = [
+  'geo-overview',
+  'geo-answer-insights',
+  'geo-reports',
+  'geo-insights',
+];
+
 const navigationSections: readonly NavigationSection[] = [
   {
+    id: 'workspace',
     label: '工作区',
     items: [
       { id: 'workbench', label: '工作台', to: '/', icon: LayoutDashboardIcon },
@@ -60,6 +125,7 @@ const navigationSections: readonly NavigationSection[] = [
     ],
   },
   {
+    id: 'content-ops',
     label: '内容运营',
     items: [
       { id: 'content-tasks', label: '内容任务', to: '/content/tasks', icon: ListTodoIcon },
@@ -69,39 +135,60 @@ const navigationSections: readonly NavigationSection[] = [
     ],
   },
   {
-    label: 'GEO',
+    id: 'geo-ops',
+    label: 'GEO 监测',
     items: [
-      { id: 'geo-overview', label: '总览', to: '/geo/overview', icon: LayoutDashboardIcon },
-      { id: 'geo-answer-insights', label: '回答洞察', to: '/geo/insights/answers', icon: ChartSplineIcon },
-      { id: 'geo-reports', label: '报告', to: '/geo/reports', icon: FileTextIcon },
-      { id: 'geo-insights', label: '洞察', to: '/geo/insights', icon: ChartSplineIcon },
-      { id: 'geo-topics', label: '问题主题', to: '/geo/topics', icon: MessagesSquareIcon },
-      { id: 'geo-questions', label: '问题库', to: '/geo/questions', icon: MessagesSquareIcon },
-      { id: 'geo-plans', label: '监测计划', to: '/geo/plans', icon: ClipboardListIcon },
-      { id: 'geo-runs', label: '运行中心', to: '/geo/runs', icon: ClipboardListIcon },
-      { id: 'geo-opportunities', label: '机会工作台', to: '/geo/opportunities', icon: ListTodoIcon },
+      {
+        id: 'geo-overview',
+        matchNavIds: geoAnalyticsNavIds,
+        label: '分析与报告',
+        to: '/geo/overview',
+        icon: ChartSplineIcon,
+      },
+      { id: 'geo-plans', label: '监测计划', to: '/geo/plans', icon: CalendarRangeIcon },
+      { id: 'geo-runs', label: '运行中心', to: '/geo/runs', icon: PlayCircleIcon },
+      { id: 'geo-opportunities', label: '机会工作台', to: '/geo/opportunities', icon: TargetIcon },
+    ],
+  },
+  {
+    id: 'geo-assets',
+    label: 'GEO 资产',
+    collapsible: true,
+    items: [
+      { id: 'geo-questions', label: '问题库', to: '/geo/questions', icon: HelpCircleIcon },
+      { id: 'geo-topics', label: '问题主题', to: '/geo/topics', icon: TagsIcon },
       { id: 'geo-observations', label: '观测记录', to: '/geo/observations', icon: EyeIcon },
     ],
   },
   {
+    id: 'configuration',
     label: '业务配置',
+    collapsible: true,
     items: [
       { id: 'platforms', label: '平台与账号', to: '/settings/platforms', icon: Settings2Icon },
-      { id: 'geo-surfaces', label: 'GEO 平台与采集配置', to: '/configuration/geo-surfaces', icon: BotIcon, adminOnly: true },
+      { id: 'geo-surfaces', label: 'GEO 观测面与采集', to: '/configuration/geo-surfaces', icon: BotIcon, adminOnly: true },
       { id: 'geo-entities', label: '监测对象与竞品', to: '/configuration/geo-entities', icon: BoxesIcon, adminOnly: true },
-      { id: 'geo-rules', label: 'GEO 规则与阈值', to: '/configuration/geo-rules', icon: Settings2Icon, adminOnly: true },
+      { id: 'geo-rules', label: 'GEO 规则与阈值', to: '/configuration/geo-rules', icon: SlidersHorizontalIcon, adminOnly: true },
       { id: 'prompts', label: 'Prompt 管理', to: '/settings/prompts', icon: FileTextIcon, adminOnly: true },
       { id: 'ai-channels', label: 'AI 渠道', to: '/settings/ai', icon: BotIcon, adminOnly: true },
     ],
   },
   {
+    id: 'system',
     label: '系统管理',
+    collapsible: true,
     items: [
       { id: 'users', label: '用户管理', to: '/system/users', icon: UsersIcon, adminOnly: true },
       { id: 'audit', label: '系统审计', to: '/system/audit', icon: ClipboardListIcon, adminOnly: true },
     ],
   },
 ];
+
+function isNavItemActive(item: NavigationItem, activeNavId?: NavId): boolean {
+  if (!activeNavId) return false;
+  if (item.id === activeNavId) return true;
+  return Boolean(item.matchNavIds?.includes(activeNavId));
+}
 
 function resolveActiveNavId(matches: readonly MetadataMatch[]): NavId | undefined {
   for (let index = matches.length - 1; index >= 0; index -= 1) {
@@ -137,6 +224,8 @@ function visibleNavigationSections(isAdmin: boolean): NavigationSection[] {
 }
 
 export {
+  geoAnalyticsNavIds,
+  isNavItemActive,
   navigationSections,
   resolveActiveNavId,
   resolveAppLayout,

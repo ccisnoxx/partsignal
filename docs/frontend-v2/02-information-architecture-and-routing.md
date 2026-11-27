@@ -22,33 +22,46 @@ GEO 观测
 
 ## 2. 推荐左侧导航
 
+桌面端侧边栏支持展开（`15rem / 240px`）与收起（`4rem / 64px` 图标态 + Tooltip，折叠状态持久化于 `localStorage`），次要分组支持手风琴折叠。顶部栏（`h-14`）承载动态 Breadcrumb 与用户菜单，不再在正文顶部重复静态模块标题。
+
 ```text
 PartSignal
 
-工作
-└── 工作台
+工作区
+├── 工作台             /
+└── 产品               /products
 
 内容运营
-├── 产品事实
-├── 内容任务
-├── 发布管理
-└── GEO 观测
+├── 内容任务           /content/tasks
+├── 发布工作           /publishing/work
+├── 发布成果           /publishing/articles
+└── 内容问题           /publishing/issues
 
-分析
-├── GEO 洞察
-└── GEO 问题库
+GEO 监测
+├── 分析与报告         /geo/overview（聚合 /geo/overview、/geo/insights/answers、/geo/reports、/geo/insights，页内通过 SubNavTabs 切换）
+├── 监测计划           /geo/plans
+├── 运行中心           /geo/runs
+└── 机会工作台         /geo/opportunities
 
-业务配置
-├── 平台与账号
-├── Prompt
-└── AI 渠道
+GEO 资产（可折叠分组）
+├── 问题库             /geo/questions
+├── 问题主题           /geo/topics
+└── 观测记录           /geo/observations
 
-系统                         [ADMIN]
-├── 用户
-└── 系统审计
+业务配置（可折叠分组）
+├── 平台与账号         /settings/platforms
+├── GEO 观测面与采集   /configuration/geo-surfaces       [ADMIN]
+├── 监测对象与竞品     /configuration/geo-entities       [ADMIN]
+├── GEO 规则与阈值     /configuration/geo-rules          [ADMIN]
+├── Prompt 管理        /settings/prompts                 [ADMIN]
+└── AI 渠道            /settings/ai                      [ADMIN]
+
+系统管理（可折叠分组，[ADMIN]）
+├── 用户管理           /system/users
+└── 系统审计           /system/audit
 ```
 
-底部用户菜单：修改密码、退出登录。
+右上角用户菜单：角色徽章、修改密码（`/account/security`）、退出登录。
 
 ## 3. 为什么取消“审核”一级导航
 
@@ -123,21 +136,31 @@ V2 合并为：
 | `/publishing/articles/$articleId` | 发布成果详情 | Detail | 发布管理 |
 | `/publishing/issues` | 内容问题 | Table | 发布管理 |
 | `/publishing/issues/$issueId` | 问题处理 | Workspace | 发布管理 |
-| `/geo/observations` | GEO 观测 | Table | GEO 观测 |
-| `/geo/observations/new` | 新建观测 | Workspace | GEO 观测 |
-| `/geo/observations/$observationId` | 观测详情 | Detail | GEO 观测 |
-| `/geo/observations/$observationId/correct` | 更正观测 | Workspace | GEO 观测 |
-| `/geo/insights` | GEO 洞察 | Analytics Workspace | GEO 洞察 |
-| `/geo/insights/print` | GEO 打印报告 | Print | GEO 洞察 |
-| `/geo/topics` | GEO 问题库 | Table | GEO 问题库 |
+| `/geo/overview` | GEO 总览 | Analytics + SubNavTabs | 分析与报告 |
+| `/geo/insights/answers` | GEO 回答洞察 | Analytics + SubNavTabs | 分析与报告 |
+| `/geo/reports` | GEO 报告预览 | Report + SubNavTabs + Print | 分析与报告 |
+| `/geo/insights` | GEO 文章关系洞察 | Analytics + SubNavTabs | 分析与报告 |
+| `/geo/insights/print` | GEO 打印报告 | Print | 分析与报告 |
+| `/geo/plans` | GEO 监测计划 | Table + Sheet/Pane | 监测计划 |
+| `/geo/runs` | GEO 运行中心 | Table + Right Pane | 运行中心 |
+| `/geo/opportunities` | GEO 机会工作台 | Table + Sheet | 机会工作台 |
+| `/geo/questions` | GEO 问题库 | Table + Sheet/Pane | 问题库 |
+| `/geo/topics` | GEO 问题主题 | Table | 问题主题 |
+| `/geo/observations` | GEO 观测记录 | Table | 观测记录 |
+| `/geo/observations/new` | 新建观测 | Workspace | 观测记录 |
+| `/geo/observations/$observationId` | 观测详情 | Detail | 观测记录 |
+| `/geo/observations/$observationId/correct` | 更正观测 | Workspace | 观测记录 |
 | `/settings/platforms` | 平台与账号 | Table | 平台与账号 |
 | `/settings/platforms/types` | 平台分类 | Settings Table | 平台与账号 |
-| `/settings/platforms/$platformId?tab=overview|accounts|generation` | 平台 Workspace | Workspace | 平台与账号 |
-| `/settings/prompts` | Prompt 管理 | List + Workspace | Prompt |
+| `/settings/platforms/$platformId?tab=overview\|accounts\|generation` | 平台 Workspace | Workspace | 平台与账号 |
+| `/configuration/geo-surfaces` | GEO 观测面与采集 | Table + Right Pane | GEO 观测面与采集 |
+| `/configuration/geo-entities` | 监测对象与竞品 | Table + Right Pane | 监测对象与竞品 |
+| `/configuration/geo-rules` | GEO 规则与阈值 | Split Form + Preview | GEO 规则与阈值 |
+| `/settings/prompts` | Prompt 管理 | List + Workspace | Prompt 管理 |
 | `/settings/ai` | AI 渠道 | Table | AI 渠道 |
-| `/settings/ai/$channelId?tab=basic|request|models|usage|logs` | AI 渠道配置、模型与 Runtime | Workspace | AI 渠道 |
-| `/system/users` | 用户 | Table | 用户 |
-| `/system/audit` | 系统审计 | Table + Detail Pane / Sheet | 系统审计 |
+| `/settings/ai/$channelId?tab=basic\|request\|models\|usage\|logs` | AI 渠道配置、模型与 Runtime | Workspace | AI 渠道 |
+| `/system/users` | 用户管理 | Table | 用户管理 |
+| `/system/audit` | 系统审计 | Table + Sheet | 系统审计 |
 
 ## 7. TanStack Router 文件结构示意
 
@@ -213,7 +236,7 @@ Content Task List 固定使用 `q/workflowStage/archiveStatus/platformId/page/pa
 
 ## 11. Sidebar Active 状态
 
-禁止通过 `pathname.startsWith()` 和特殊 case 猜所属模块。每个 route 声明 `navId`，子路由继承，Sidebar active state 由 router match 决定。
+禁止通过 `pathname.startsWith()` 和特殊 case 猜所属模块。每个 route 声明 `navId`，子路由继承，Sidebar active state 由 router match 与导航项 `id` / `matchNavIds` 决定（例如 4 个 GEO 分析路由均高亮侧边栏“分析与报告”，页内通过 `SubNavTabs` 标识当前子视图）。
 
 ## 12. 权限
 

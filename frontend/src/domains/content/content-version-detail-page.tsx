@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { MarkdownPreview } from '@/design-system/editor/markdown-editor';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
+import { MetadataDisclosure } from '@/design-system/primitives/metadata-disclosure';
 import { Skeleton } from '@/design-system/primitives/skeleton';
 import { DetailSection } from '@/design-system/workspace/detail-section';
 import { Timeline, type TimelineItem } from '@/design-system/workspace/timeline';
@@ -248,14 +249,11 @@ function SnapshotDetails({
   value: object | string;
 }) {
   return (
-    <details className={`min-w-0 rounded-md border border-border-subtle p-3 ${className ?? ''}`}>
-      <summary className="cursor-pointer font-medium text-text-primary focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-        {label}
-      </summary>
-      <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-all font-mono text-xs text-text-secondary">
+    <MetadataDisclosure className={className} summary={label}>
+      <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-all font-mono text-xs text-text-secondary">
         {typeof value === 'string' ? value : JSON.stringify(value, null, 2)}
       </pre>
-    </details>
+    </MetadataDisclosure>
   );
 }
 

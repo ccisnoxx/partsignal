@@ -20,6 +20,8 @@ import { TablePagination } from '@/design-system/data-table/table-pagination';
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
 import { TableToolbar } from '@/design-system/data-table/table-toolbar';
+import { InlineBanner } from '@/design-system/feedback/inline-banner';
+import { PageHeader } from '@/design-system/layout/page-header';
 import type { BulkAction, ColumnRole } from '@/design-system/data-table/types';
 import { FormField } from '@/design-system/forms/form-field';
 import { ErrorSummary } from '@/design-system/forms/form-layout';
@@ -81,7 +83,7 @@ import {
 } from './user-list.model';
 
 const columnRoles = [
-  'metadata', 'primary', 'status', 'status', 'metadata', 'date', 'actions',
+  'selection', 'primary', 'status', 'status', 'metadata', 'date', 'actions',
 ] as const satisfies readonly ColumnRole[];
 
 const dateTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
@@ -415,13 +417,12 @@ function UserListPage({
 
   return (
     <section aria-labelledby="user-list-title" className="min-w-0 space-y-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="type-page-title" id="user-list-title">用户管理</h1>
-          <p className="max-w-3xl text-text-secondary">管理内部账号、账号类型、启停状态和临时密码。</p>
-        </div>
-        <Button onClick={() => setCreateOpen(true)} ref={createTrigger} type="button">新增用户</Button>
-      </header>
+      <PageHeader
+        actions={<Button onClick={() => setCreateOpen(true)} ref={createTrigger} type="button">新增用户</Button>}
+        description="管理内部账号、账号类型、启停状态和临时密码。"
+        title="用户管理"
+        titleId="user-list-title"
+      />
 
       <UserSummary data={users.data?.summary} />
 
@@ -466,10 +467,10 @@ function UserListPage({
         selectedCount={selectedItems.length}
       />
 
-      <TableShell className="user-list-table" regionLabel="用户列表">
+      <TableShell data-mobile-actions="compact" data-responsive-layout="mobile" regionLabel="用户列表">
         <thead>
           <tr>
-            <th data-column-role="metadata" data-user-selection scope="col">
+            <th data-column-role="selection" scope="col">
               <SelectionCheckbox
                 aria-label="选择当前页全部用户"
                 checked={allVisibleSelected}
@@ -478,10 +479,10 @@ function UserListPage({
               />
             </th>
             <th data-column-role="primary" scope="col">用户</th>
-            <th data-column-role="status" data-user-column="account-type" scope="col">账号类型</th>
-            <th data-column-role="status" data-user-column="status" scope="col">状态</th>
-            <th data-user-column="password" data-column-role="metadata" scope="col">登录安全</th>
-            <th data-user-column="created" data-column-role="date" scope="col">创建时间</th>
+            <th data-column-priority="tablet" data-column-role="status" scope="col">账号类型</th>
+            <th data-column-priority="tablet" data-column-role="status" scope="col">状态</th>
+            <th data-column-priority="tablet" data-column-role="metadata" scope="col">登录安全</th>
+            <th data-column-priority="tablet" data-column-role="date" scope="col">创建时间</th>
             <th data-column-role="actions" scope="col">操作</th>
           </tr>
         </thead>
@@ -518,7 +519,7 @@ function UserListPage({
               const actions = resolveUserActions(user, pending);
               return (
                 <tr key={user.id}>
-                  <td data-column-role="metadata" data-user-selection>
+                  <td data-column-role="selection">
                     <SelectionCheckbox
                       aria-label={`选择用户 ${user.username}`}
                       checked={selectedIds.has(user.id)}
@@ -526,10 +527,10 @@ function UserListPage({
                     />
                   </td>
                   <td data-column-role="primary"><UserIdentity user={user} /></td>
-                  <td data-column-role="status" data-user-column="account-type"><Badge variant={accountTypeRegistry[user.account_type].tone}>{accountTypeRegistry[user.account_type].label}</Badge></td>
-                  <td data-column-role="status" data-user-column="status"><UserStatusBadge user={user} /></td>
-                  <td data-user-column="password" data-column-role="metadata">{user.must_change_password ? '必须修改密码' : '已完成初始改密'}</td>
-                  <td data-user-column="created" data-column-role="date"><time dateTime={user.created_at}>{dateTimeFormatter.format(new Date(user.created_at))}</time></td>
+                  <td data-column-priority="tablet" data-column-role="status"><Badge variant={accountTypeRegistry[user.account_type].tone}>{accountTypeRegistry[user.account_type].label}</Badge></td>
+                  <td data-column-priority="tablet" data-column-role="status"><UserStatusBadge user={user} /></td>
+                  <td data-column-priority="tablet" data-column-role="metadata">{user.must_change_password ? '必须修改密码' : '已完成初始改密'}</td>
+                  <td data-column-priority="tablet" data-column-role="date"><time dateTime={user.created_at}>{dateTimeFormatter.format(new Date(user.created_at))}</time></td>
                   <td data-column-role="actions">
                     <RowActions
                       objectLabel={user.username}
@@ -721,7 +722,7 @@ function UserIdentity({ user }: { user: User }) {
     <div className="min-w-0">
       <strong className="table-cell-ellipsis block font-medium">{user.display_name}</strong>
       <span className="table-cell-ellipsis block text-xs text-text-muted">@{user.username}</span>
-      <div className="user-list-mobile-summary text-xs text-text-secondary">
+      <div className="ps-table-mobile-meta text-xs text-text-secondary">
         <span>{accountTypeRegistry[user.account_type].label}</span>
         <span>{userStatusRegistry[user.is_active ? 'ENABLED' : 'DISABLED'].label}</span>
         <span>{user.must_change_password ? '必须修改密码' : '已完成初始改密'}</span>
@@ -1300,10 +1301,12 @@ function BulkResult({ feedback, onClose }: { feedback: BulkFeedback; onClose: ()
 
 function Notice({ message, onClose, tone = 'danger' }: { message: string; onClose: () => void; tone?: 'danger' | 'warning' }) {
   return (
-    <div className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-sm ${tone === 'danger' ? 'border-destructive/30 bg-destructive/10 text-destructive' : 'border-warning/30 bg-warning/5'}`} role="alert">
-      <span>{message}</span>
-      <Button onClick={onClose} size="sm" variant="outline">{tone === 'danger' ? '重试或关闭' : '关闭'}</Button>
-    </div>
+    <InlineBanner
+      actions={<Button onClick={onClose} size="sm" variant="outline">{tone === 'danger' ? '重试或关闭' : '关闭'}</Button>}
+      tone={tone}
+    >
+      {message}
+    </InlineBanner>
   );
 }
 

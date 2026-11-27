@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { InlineBanner } from '@/design-system/feedback/inline-banner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/design-system/primitives/select';
 type Choice = { value: string; label: string };
 function QuestionSelect({ label, value, choices, onChange, disabled, id, describedBy, invalid, required }: {
@@ -11,7 +12,7 @@ function QuestionSelect({ label, value, choices, onChange, disabled, id, describ
   </Select>;
 }
 function QuestionNotice({ children, error = false }: { children: ReactNode; error?: boolean }) {
-  return <div className={`space-y-2 rounded-lg border p-3 text-sm ${error ? 'border-danger/30 bg-danger/5 text-danger' : 'border-border-default bg-surface-raised text-text-secondary'}`} role={error ? 'alert' : 'status'}>{children}</div>;
+  return <InlineBanner tone={error ? 'danger' : 'info'}>{children}</InlineBanner>;
 }
 function questionErrorMessage(error: unknown) { return error instanceof Error ? error.message : '问题库请求发生未知错误'; }
 export { QuestionNotice, QuestionSelect, questionErrorMessage };

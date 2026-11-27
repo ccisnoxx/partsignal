@@ -137,7 +137,10 @@ function renderRoute(path: string, auth = authValue(engineer)) {
   return router;
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  window.localStorage.clear();
+});
 
 describe('AppShell', () => {
   it('由 match metadata 激活父级导航并生成详情面包屑', async () => {
@@ -229,5 +232,20 @@ describe('AppShell', () => {
     expect(screen.queryByRole('navigation', { name: '面包屑' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /系统管理员/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '跳到主内容' })).not.toBeInTheDocument();
+  });
+
+  it('桌面侧栏支持收起与展开，并在所有 GEO 分析子路由高亮分析与报告入口', async () => {
+    vi.spyOn(api, 'GET').mockImplementation(() => new Promise(() => undefined));
+    renderRoute('/geo/insights/answers');
+    const user = userEvent.setup();
+
+    const mainNavigation = await screen.findByRole('navigation', { name: '主导航' });
+    expect(within(mainNavigation).getByRole('link', { name: '分析与报告' })).toHaveAttribute('aria-current', 'page');
+
+    const toggle = screen.getByRole('button', { name: '收起侧边栏' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await user.click(toggle);
+    expect(screen.getByRole('button', { name: '展开侧边栏' })).toHaveAttribute('aria-expanded', 'false');
+    expect(within(mainNavigation).getByRole('link', { name: '分析与报告' })).toHaveAttribute('aria-current', 'page');
   });
 });

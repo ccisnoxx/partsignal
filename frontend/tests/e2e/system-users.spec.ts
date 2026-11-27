@@ -260,7 +260,7 @@ test('Users 管理员边界、四档响应式、键盘动作与无敏感响应�
   await page.setViewportSize({ width: widths[0], height: 900 });
   const firstRow = page.getByRole('row', { name: /operator-long-account-name/ });
   if (widths[0] <= 768) {
-    const compactFacts = firstRow.locator('.user-list-mobile-summary');
+    const compactFacts = firstRow.locator('.ps-table-mobile-meta');
     await expect(compactFacts.getByText('ENGINEER', { exact: true })).toBeVisible();
     await expect(compactFacts.getByText('Enabled', { exact: true })).toBeVisible();
   } else {

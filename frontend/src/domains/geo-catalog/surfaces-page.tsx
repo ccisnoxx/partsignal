@@ -1,9 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { capturePrincipalContinuation, type PrincipalContinuation } from '@/app/auth/principal-epoch';
+import { PageHeader } from '@/design-system/layout/page-header';
 import type { components } from '@/shared/api/generated/schema';
 import { Button } from '@/design-system/primitives/button';
 import { Tabs, TabsList, TabsTrigger } from '@/design-system/primitives/tabs';
+import { cn } from '@/shared/lib/utils';
 import { CatalogNotice } from './catalog-controls';
 import { ProfileForm } from './profile-form';
 import { SurfaceForm } from './surface-form';
@@ -75,21 +77,40 @@ function SurfacesPage({ search, token, isAdmin, onSearchChange }: {
     return canonical;
   }
   const closeEditor = () => onSearchChange(surfacesSearchSchema.parse({ ...latestSearch.current, new: undefined, editor: undefined }));
+  const hasSidePanel = Boolean(search.new || selected);
   return <section aria-labelledby="geo-surfaces-title" className="min-w-0 space-y-5">
-    <header className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 space-y-1"><h1 className="type-page-title" id="geo-surfaces-title">GEO 平台与采集配置</h1><p className="max-w-3xl text-text-secondary">维护观测面及人工、API、浏览器模式的非敏感配置。管理操作不执行采集。</p></div>{isAdmin && <Button onClick={() => onSearchChange(surfacesSearchSchema.parse({ ...search, new: 1, editor: undefined }))} type="button">{profiles ? '新建采集配置' : '新建观测面'}</Button>}</header>
+    <PageHeader
+      actions={isAdmin ? <Button onClick={() => onSearchChange(surfacesSearchSchema.parse({ ...search, new: 1, editor: undefined }))} type="button">{profiles ? '新建采集配置' : '新建观测面'}</Button> : undefined}
+      description="维护观测面及人工、API、浏览器模式的非敏感配置。管理操作不执行采集。"
+      title="GEO 平台与采集配置"
+      titleId="geo-surfaces-title"
+    />
     {!isAdmin && <CatalogNotice>ENGINEER 只读：可查看非敏感摘要，配置由管理员维护。</CatalogNotice>}
     {message && <CatalogNotice>{message}</CatalogNotice>}
-    <Tabs onValueChange={(tab) => { if (tab === 'surfaces' || tab === 'profiles') onSearchChange(surfacesSearchSchema.parse({ tab })); }} value={profiles ? 'profiles' : 'surfaces'}><TabsList aria-label="GEO 配置类别"><TabsTrigger value="surfaces">观测面</TabsTrigger><TabsTrigger value="profiles">采集配置</TabsTrigger></TabsList></Tabs>
+    <Tabs onValueChange={(tab) => { if (tab === 'surfaces' || tab === 'profiles') onSearchChange(surfacesSearchSchema.parse({ tab })); }} value={profiles ? 'profiles' : 'surfaces'}>
+      <TabsList aria-label="GEO 配置类别">
+        <TabsTrigger value="surfaces">观测面</TabsTrigger>
+        <TabsTrigger value="profiles">采集配置</TabsTrigger>
+      </TabsList>
+    </Tabs>
     {Boolean(refreshError) && <CatalogNotice error>操作已完成，但关联列表刷新失败：{surfacesErrorMessage(refreshError)}<Button onClick={() => void refreshConsumers(profiles)} type="button" variant="outline">重新读取关联列表</Button></CatalogNotice>}
-    <SurfacesList onChange={onSearchChange} search={search} />
-    {search.new && (isAdmin ? <section aria-label={profiles ? '创建采集配置' : '创建观测面'} className="min-w-0 space-y-4 rounded-xl border border-border-default bg-surface-panel p-4"><h2 className="type-section-title">{profiles ? '新建采集配置' : '新建观测面'}</h2>{profiles ? <ProfileForm key={identity} onCancel={closeEditor} onSaved={saved} surfaceId={search.surface_id} token={token} /> : <SurfaceForm key={identity} onCancel={closeEditor} onSaved={saved} token={token} />}</section> : <CatalogNotice>当前账号没有创建 GEO 配置的权限。</CatalogNotice>)}
-    {selected && <>
-      {detail.data ? <>
-        {detail.error && <CatalogNotice error>{detail.error instanceof SurfacesRequestError && detail.error.status === 404 ? '资源已删除。' : '后台详情刷新失败，当前编辑输入已保留：'}{surfacesErrorMessage(detail.error)}<Button onClick={() => void detail.refetch()} type="button" variant="outline">重试详情刷新</Button></CatalogNotice>}
-        {detail.isFetching && <p role="status">正在刷新配置详情…</p>}
-        <SurfacesDetail editing={search.editor === 1} key={identity} onCloseEditor={closeEditor} onDeleted={deleted} onEdit={() => onSearchChange(surfacesSearchSchema.parse({ ...latestSearch.current, editor: 1 }))} onProfiles={() => onSearchChange(surfacesSearchSchema.parse({ tab: 'profiles', surface_id: detail.data!.summary.id }))} onReload={reload} onSaved={saved} reading={detail.isFetching} resource={detail.data} token={token} unavailable={unavailable} />
-      </> : detail.isPending ? <CatalogNotice>正在读取配置详情…</CatalogNotice> : <CatalogNotice error>{detail.error instanceof SurfacesRequestError && detail.error.status === 404 ? '资源不存在或已删除。' : detail.error instanceof SurfacesRequestError && detail.error.status === 403 ? '当前账号无权读取此配置。' : '配置详情读取失败。'}{surfacesErrorMessage(detail.error)}<div className="flex flex-wrap gap-2"><Button onClick={() => void detail.refetch()} type="button" variant="outline">重试详情</Button><Button onClick={() => onSearchChange(surfacesSearchSchema.parse({ ...latestSearch.current, editor: undefined, ...(profiles ? { profile_id: undefined } : { surface_id: undefined }) }))} type="button" variant="outline">关闭详情</Button></div></CatalogNotice>}
-    </>}
+    <div className={cn('grid min-w-0 items-start gap-5', hasSidePanel && 'xl:grid-cols-[minmax(0,1fr)_32rem]')}>
+      <div className="min-w-0">
+        <SurfacesList onChange={onSearchChange} search={search} />
+      </div>
+      {hasSidePanel && (
+        <aside className="min-w-0 space-y-4 xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto">
+          {search.new && (isAdmin ? <section aria-label={profiles ? '创建采集配置' : '创建观测面'} className="min-w-0 space-y-4 rounded-xl border border-border-default bg-surface-panel p-5 shadow-[var(--shadow-raised)]"><h2 className="type-section-title">{profiles ? '新建采集配置' : '新建观测面'}</h2>{profiles ? <ProfileForm key={identity} onCancel={closeEditor} onSaved={saved} surfaceId={search.surface_id} token={token} /> : <SurfaceForm key={identity} onCancel={closeEditor} onSaved={saved} token={token} />}</section> : <CatalogNotice>当前账号没有创建 GEO 配置的权限。</CatalogNotice>)}
+          {selected && <>
+            {detail.data ? <>
+              {detail.error && <CatalogNotice error>{detail.error instanceof SurfacesRequestError && detail.error.status === 404 ? '资源已删除。' : '后台详情刷新失败，当前编辑输入已保留：'}{surfacesErrorMessage(detail.error)}<Button onClick={() => void detail.refetch()} type="button" variant="outline">重试详情刷新</Button></CatalogNotice>}
+              {detail.isFetching && <p className="text-xs text-text-secondary" role="status">正在刷新配置详情…</p>}
+              <SurfacesDetail editing={search.editor === 1} key={identity} onCloseEditor={closeEditor} onDeleted={deleted} onEdit={() => onSearchChange(surfacesSearchSchema.parse({ ...latestSearch.current, editor: 1 }))} onProfiles={() => onSearchChange(surfacesSearchSchema.parse({ tab: 'profiles', surface_id: detail.data!.summary.id }))} onReload={reload} onSaved={saved} reading={detail.isFetching} resource={detail.data} token={token} unavailable={unavailable} />
+            </> : detail.isPending ? <CatalogNotice>正在读取配置详情…</CatalogNotice> : <CatalogNotice error>{detail.error instanceof SurfacesRequestError && detail.error.status === 404 ? '资源不存在或已删除。' : detail.error instanceof SurfacesRequestError && detail.error.status === 403 ? '当前账号无权读取此配置。' : '配置详情读取失败。'}{surfacesErrorMessage(detail.error)}<div className="flex flex-wrap gap-2"><Button onClick={() => void detail.refetch()} type="button" variant="outline">重试详情</Button><Button onClick={() => onSearchChange(surfacesSearchSchema.parse({ ...latestSearch.current, editor: undefined, ...(profiles ? { profile_id: undefined } : { surface_id: undefined }) }))} type="button" variant="outline">关闭详情</Button></div></CatalogNotice>}
+          </>}
+        </aside>
+      )}
+    </div>
   </section>;
 }
 export { SurfacesPage };

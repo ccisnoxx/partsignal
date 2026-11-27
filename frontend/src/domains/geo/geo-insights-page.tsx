@@ -7,6 +7,9 @@ import {
   capturePrincipalContinuation,
   type PrincipalContinuation,
 } from '@/app/auth/principal-epoch';
+import { InlineBanner } from '@/design-system/feedback/inline-banner';
+import { PageHeader } from '@/design-system/layout/page-header';
+import { SubNavTabs } from '@/design-system/layout/sub-nav-tabs';
 import { Button, buttonVariants } from '@/design-system/primitives/button';
 import {
   Dialog,
@@ -79,33 +82,44 @@ function GeoInsightsSession({
   const [optimization, setOptimization] = useState<OptimizationContext>();
 
   if (insights.isPending) {
-    return <div aria-busy="true" className="rounded-xl border border-border-subtle p-6">正在读取 GEO 洞察…</div>;
+    return <div aria-busy="true" className="rounded-xl border border-border-subtle bg-surface-panel p-6 shadow-[var(--shadow-panel)]">正在读取 GEO 洞察…</div>;
   }
   if (!insights.data) {
     return (
-      <div className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/10 p-5" role="alert">
-        <p>{errorMessage(insights.error)}</p>
-        <div className="flex gap-2">
-          <Button onClick={() => void insights.refetch()} type="button" variant="outline">重试</Button>
-          <Button onClick={() => onSearchChange(resetFilters())} type="button" variant="ghost">清除筛选</Button>
-        </div>
-      </div>
+      <InlineBanner
+        actions={
+          <>
+            <Button onClick={() => void insights.refetch()} size="sm" type="button" variant="outline">重试</Button>
+            <Button onClick={() => onSearchChange(resetFilters())} size="sm" type="button" variant="ghost">清除筛选</Button>
+          </>
+        }
+        tone="danger"
+      >
+        {errorMessage(insights.error)}
+      </InlineBanner>
     );
   }
 
   const data = insights.data;
   return (
-    <section className="min-w-0 space-y-8" aria-labelledby="geo-insights-title">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="type-page-title" id="geo-insights-title">GEO 洞察</h1>
-          <p className="text-text-secondary">基于当前链尾人工观测与逐篇发布内容关系，定位值得跟进的内容与问题。</p>
-          <p className="text-sm text-text-tertiary">
-            当前周期 {data.period.current.date_from} 至 {data.period.current.date_to} · 生成于 {formatInsightGeneratedAt(data.generated_at)}
-          </p>
-        </div>
-        <a className={buttonVariants({ variant: 'outline' })} href={geoInsightPrintHref(search)}>打印报告</a>
-      </header>
+    <section className="min-w-0 space-y-6" aria-labelledby="geo-insights-title">
+      <PageHeader
+        actions={<a className={buttonVariants({ size: 'sm', variant: 'outline' })} href={geoInsightPrintHref(search)}>打印报告</a>}
+        description="基于当前链尾人工观测与逐篇发布内容关系，定位值得跟进的内容与问题。"
+        meta={<span>当前周期 {data.period.current.date_from} 至 {data.period.current.date_to} · 生成于 {formatInsightGeneratedAt(data.generated_at)}</span>}
+        title="GEO 洞察"
+        titleId="geo-insights-title"
+      />
+
+      <SubNavTabs
+        ariaLabel="GEO 分析页面"
+        items={[
+          { key: 'overview', active: false, render: (props) => <a href="/geo/overview" {...props}>总览</a> },
+          { key: 'answers', active: false, render: (props) => <a href="/geo/insights/answers" {...props}>回答洞察</a> },
+          { key: 'reports', active: false, render: (props) => <a href="/geo/reports" {...props}>报告预览</a> },
+          { key: 'article-insights', active: true, render: (props) => <a href="/geo/insights" {...props}>文章关系洞察</a> },
+        ]}
+      />
 
       <InsightsFilters
         data={data}
@@ -115,10 +129,12 @@ function GeoInsightsSession({
       />
 
       {insights.isError && (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-warning/30 bg-warning/10 p-4" role="alert">
-          <p>刷新失败，当前仍显示上一次成功快照。{errorMessage(insights.error)}</p>
-          <Button onClick={() => void insights.refetch()} type="button" variant="outline">重新加载</Button>
-        </div>
+        <InlineBanner
+          actions={<Button onClick={() => void insights.refetch()} size="sm" type="button" variant="outline">重新加载</Button>}
+          tone="warning"
+        >
+          刷新失败，当前仍显示上一次成功快照。{errorMessage(insights.error)}
+        </InlineBanner>
       )}
 
       <GeoInsightsReport data={data} onOptimize={setOptimization} variant="screen" />

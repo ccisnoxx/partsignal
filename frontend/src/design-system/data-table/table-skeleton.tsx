@@ -13,7 +13,15 @@ function TableSkeleton({ columnRoles, rowCount = 5 }: TableSkeletonProps) {
         <tr key={rowIndex}>
           {columnRoles.map((role, columnIndex) => (
             <td data-column-role={role} key={`${role}-${columnIndex}`}>
-              <Skeleton className={role === 'actions' ? 'ml-auto h-7 w-28' : 'h-4 w-full max-w-40'} />
+              <Skeleton
+                className={
+                  role === 'actions'
+                    ? 'ml-auto h-7 w-28'
+                    : role === 'selection'
+                      ? 'size-4'
+                      : 'h-4 w-full max-w-40'
+                }
+              />
             </td>
           ))}
         </tr>

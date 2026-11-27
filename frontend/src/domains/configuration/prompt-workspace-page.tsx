@@ -25,6 +25,8 @@ import {
 import { Input } from '@/design-system/primitives/input';
 import { Skeleton } from '@/design-system/primitives/skeleton';
 import { StickyActionBar, type StickyAction } from '@/design-system/workspace/sticky-action-bar';
+import { InlineBanner } from '@/design-system/feedback/inline-banner';
+import { PageHeader } from '@/design-system/layout/page-header';
 import { WorkspaceShell } from '@/design-system/workspace/workspace-shell';
 import type { components } from '@/shared/api/generated/schema';
 import {
@@ -210,21 +212,20 @@ function PromptWorkspacePage({
   const detailActions = detail.data ? resolvePromptActions(detail.data) : undefined;
   return (
     <article aria-labelledby="prompt-workspace-title" className="min-w-0 space-y-4">
-      <header className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-1">
-          <p className="type-label text-text-muted">业务配置</p>
-          <h1 className="type-page-title" id="prompt-workspace-title">Prompt 管理</h1>
-          <p className="max-w-3xl text-text-secondary">
-            维护平台共用的 Markdown Prompt；绑定关系和可用动作以服务端投影为准。
-          </p>
-        </div>
-        <Button
-          onClick={() => void onSearchChange({ ...(search.q ? { q: search.q } : {}), new: 1 })}
-          type="button"
-        >
-          新建 Prompt
-        </Button>
-      </header>
+      <PageHeader
+        actions={
+          <Button
+            onClick={() => void onSearchChange({ ...(search.q ? { q: search.q } : {}), new: 1 })}
+            type="button"
+          >
+            新建 Prompt
+          </Button>
+        }
+        description="维护平台共用的 Markdown Prompt；绑定关系和可用动作以服务端投影为准。"
+        eyebrow="业务配置"
+        title="Prompt 管理"
+        titleId="prompt-workspace-title"
+      />
 
       {followUpFailure && (
         <Notice
@@ -897,10 +898,12 @@ function PromptDetailFailure({ error, onRetry }: { error: unknown; onRetry: () =
 
 function Notice({ actionLabel, message, onAction }: { actionLabel: string; message: string; onAction: () => void }) {
   return (
-    <section className="flex flex-col gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 sm:flex-row sm:items-center sm:justify-between" role="alert">
-      <p className="text-sm text-text-primary">{message}</p>
-      <Button onClick={onAction} size="sm" type="button" variant="outline">{actionLabel}</Button>
-    </section>
+    <InlineBanner
+      actions={<Button onClick={onAction} size="sm" type="button" variant="outline">{actionLabel}</Button>}
+      tone="warning"
+    >
+      {message}
+    </InlineBanner>
   );
 }
 

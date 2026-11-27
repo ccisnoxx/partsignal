@@ -14,6 +14,8 @@ import { TablePagination } from '@/design-system/data-table/table-pagination';
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
 import { TableToolbar } from '@/design-system/data-table/table-toolbar';
+import { InlineBanner } from '@/design-system/feedback/inline-banner';
+import { PageHeader } from '@/design-system/layout/page-header';
 import type { ActionConfirmation, ColumnRole } from '@/design-system/data-table/types';
 import { FormField } from '@/design-system/forms/form-field';
 import { ErrorSummary } from '@/design-system/forms/form-layout';
@@ -214,15 +216,14 @@ function AIChannelListPage({
 
   return (
     <section aria-labelledby="ai-channel-list-title" className="min-w-0 space-y-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="type-page-title" id="ai-channel-list-title" ref={titleRef} tabIndex={-1}>AI 渠道</h1>
-          <p className="max-w-3xl text-text-secondary">
-            查看渠道、模型与连接状态，并按服务端提供的动作继续管理。
-          </p>
-        </div>
-        <Button onClick={() => setCreateOpen(true)} ref={createTrigger} type="button">创建渠道</Button>
-      </header>
+      <PageHeader
+        actions={<Button onClick={() => setCreateOpen(true)} ref={createTrigger} type="button">创建渠道</Button>}
+        description="查看渠道、模型与连接状态，并按服务端提供的动作继续管理。"
+        title="AI 渠道"
+        titleId="ai-channel-list-title"
+        titleRef={titleRef}
+        titleTabIndex={-1}
+      />
 
       {channels.data && channels.error && (
         <Notice
@@ -249,15 +250,15 @@ function AIChannelListPage({
         />
       </TableToolbar>
 
-      <TableShell className="ai-channel-list-table" regionLabel="AI 渠道列表">
+      <TableShell data-mobile-actions="compact" data-responsive-layout="mobile" regionLabel="AI 渠道列表">
         <thead>
           <tr>
             <th data-column-role="primary" scope="col">渠道</th>
-            <th data-ai-column="provider" data-column-role="metadata" scope="col">Provider / Protocol</th>
+            <th data-column-priority="tablet" data-column-role="metadata" scope="col">Provider / Protocol</th>
             <th data-column-role="status" scope="col">状态</th>
-            <th data-ai-column="models" data-column-role="numeric" scope="col">模型</th>
-            <th data-ai-column="connection" data-column-role="status" scope="col">连接</th>
-            <th data-ai-column="configuration" data-column-role="status" scope="col">配置</th>
+            <th data-column-priority="tablet" data-column-role="numeric" scope="col">模型</th>
+            <th data-column-priority="tablet" data-column-role="status" scope="col">连接</th>
+            <th data-column-priority="tablet" data-column-role="status" scope="col">配置</th>
             <th data-column-role="actions" scope="col">操作</th>
           </tr>
         </thead>
@@ -312,11 +313,11 @@ function AIChannelListPage({
               return (
                 <tr key={channel.id}>
                   <td data-column-role="primary"><ChannelIdentity channel={channel} /></td>
-                  <td data-ai-column="provider" data-column-role="metadata"><ProviderProtocol channel={channel} /></td>
+                  <td data-column-priority="tablet" data-column-role="metadata"><ProviderProtocol channel={channel} /></td>
                   <td data-column-role="status"><ChannelStatusBadge channel={channel} /></td>
-                  <td data-ai-column="models" data-column-role="numeric">{channel.enabled_model_count} / {channel.model_count}</td>
-                  <td data-ai-column="connection" data-column-role="status"><ConnectionBadge channel={channel} /></td>
-                  <td data-ai-column="configuration" data-column-role="status"><ConfigurationBadge channel={channel} /></td>
+                  <td data-column-priority="tablet" data-column-role="numeric">{channel.enabled_model_count} / {channel.model_count}</td>
+                  <td data-column-priority="tablet" data-column-role="status"><ConnectionBadge channel={channel} /></td>
+                  <td data-column-priority="tablet" data-column-role="status"><ConfigurationBadge channel={channel} /></td>
                   <td data-column-role="actions">
                     <RowActions
                       objectLabel={channel.name}
@@ -630,7 +631,7 @@ function ChannelIdentity({ channel }: { channel: AIChannelSummary }) {
           {channel.name}
         </a>
         {channel.description && <p className="table-cell-ellipsis text-xs text-text-muted">{channel.description}</p>}
-        <div className="ai-channel-mobile-summary text-xs text-text-secondary">
+        <div className="ps-table-mobile-meta text-xs text-text-secondary">
           <span>{providerRegistry[channel.provider_brand]} · {channel.protocol_type}</span>
           <span>模型 {channel.enabled_model_count}/{channel.model_count}</span>
           <span>连接 {connectionStatusRegistry[channel.latest_test_status].label}</span>
@@ -705,10 +706,12 @@ function Notice({
   onAction: () => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
-      <span>{message}</span>
-      <Button onClick={onAction} size="sm" variant="outline">{actionLabel}</Button>
-    </div>
+    <InlineBanner
+      actions={<Button onClick={onAction} size="sm" variant="outline">{actionLabel}</Button>}
+      tone="danger"
+    >
+      {message}
+    </InlineBanner>
   );
 }
 

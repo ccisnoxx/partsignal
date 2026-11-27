@@ -1,4 +1,5 @@
 import { TableShell } from '@/design-system/data-table/table-shell';
+import { MetadataDisclosure } from '@/design-system/primitives/metadata-disclosure';
 import { allRuleFields, ruleConfigurationSchema, ruleLabels, sampleLevelLabels, type GeoRulePreview } from './geo-rules.model';
 
 function GeoRulesPreview({ preview }: { preview: GeoRulePreview }) {
@@ -11,9 +12,8 @@ function GeoRulesPreview({ preview }: { preview: GeoRulePreview }) {
       <thead><tr><th scope="col">规则</th><th scope="col">当前最低样本</th><th scope="col">前期最低样本</th><th scope="col">样本资格</th><th scope="col">数值门槛</th></tr></thead>
         <tbody>{preview.sample_gates.map((gate) => <tr key={gate.rule_code}><th scope="row">{ruleLabels[gate.rule_code]}</th><td>{gate.current_minimum}</td><td>{gate.previous_minimum}</td><td>{gate.sample_sufficient ? '样本充足' : '样本不足'}</td><td>{gate.threshold_configured ? '已配置' : '未配置'}</td></tr>)}</tbody>
     </TableShell>
-    <details className="rounded-lg border border-border-subtle p-3">
-      <summary className="cursor-pointer font-medium">查看本次完整规则快照（revision {preview.snapshot.rule_set_revision}）</summary>
-      <dl className="mt-3 grid min-w-0 gap-x-5 gap-y-2 text-sm sm:grid-cols-2">
+    <MetadataDisclosure summary={`查看本次完整规则快照（revision ${preview.snapshot.rule_set_revision}）`}>
+      <dl className="grid min-w-0 gap-x-5 gap-y-2 text-sm sm:grid-cols-2">
         {allRuleFields.map((field) => {
           const [root, child] = field.name.split('.');
           const value = child ? (configuration[root as 'sample_policy' | 'recovery'] as unknown as Record<string, unknown>)[child] : configuration[root as keyof typeof configuration];
@@ -24,7 +24,7 @@ function GeoRulesPreview({ preview }: { preview: GeoRulePreview }) {
         <div><dt className="text-text-secondary">同类事实错误最大次数</dt><dd>{configuration.recovery.fact_error_max_count}</dd></div>
         <div><dt className="text-text-secondary">快照 schema 版本</dt><dd>{preview.snapshot.schema_version}</dd></div>
       </dl>
-    </details>
+    </MetadataDisclosure>
   </section>;
 }
 export { GeoRulesPreview };

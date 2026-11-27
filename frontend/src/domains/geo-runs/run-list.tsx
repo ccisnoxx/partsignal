@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { ColumnHeader } from '@/design-system/data-table/column-header';
 import { EmptyTable } from '@/design-system/data-table/empty-table';
 import { TableShell } from '@/design-system/data-table/table-shell';
+import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
 import {
@@ -21,12 +22,24 @@ const features = tableFeatures({
   rowPaginationFeature,
   columnMeta: metaHelper<{ role: 'primary' | 'status' | 'metadata' | 'date' | 'actions' }>(),
 });
+function statusBadgeVariant(status: string): 'success' | 'destructive' | 'warning' | 'info' | 'secondary' {
+  if (status === 'COMPLETED' || status === 'SUCCEEDED' || status === 'PARTIALLY_COMPLETED') return 'success';
+  if (status === 'FAILED' || status === 'CANCELLED' || status === 'TIMED_OUT' || status === 'CANCELED') return 'destructive';
+  if (status.includes('MANUAL') || status.includes('PARTIAL') || status.includes('REVIEW')) return 'warning';
+  if (status === 'RUNNING' || status === 'PENDING' || status === 'QUEUED' || status === 'ANALYZING' || status === 'IN_PROGRESS') return 'info';
+  return 'secondary';
+}
+
+const batchSkeletonRoles = ['primary', 'status', 'metadata', 'metadata', 'date', 'actions'] as const;
+
 function BatchTable({
   items,
+  loading = false,
   selected,
   onOpen,
 }: {
   items: Batch[];
+  loading?: boolean;
   selected?: string;
   onOpen: (batch: Batch) => void;
 }) {
@@ -46,7 +59,7 @@ function BatchTable({
             >
               <span className="table-cell-ellipsis">{row.original.plan_name}</span>
             </Button>
-            <p className="break-all text-xs text-text-muted">{row.id}</p>
+            <p className="break-all font-mono text-[11px] text-text-tertiary">{row.id}</p>
           </div>
         ),
       }),
@@ -55,8 +68,8 @@ function BatchTable({
         meta: { role: 'status' },
         cell: ({ row, getValue }) => (
           <div className="space-y-1">
-            <Badge>{batchStatusLabels[getValue()]}</Badge>
-            <p className="text-xs">
+            <Badge variant={statusBadgeVariant(getValue())}>{batchStatusLabels[getValue()]}</Badge>
+            <p className="text-xs text-text-secondary">
               {row.original.trigger_type} · 计划修订 {row.original.plan_revision ?? '临时配置'}
             </p>
           </div>
@@ -125,7 +138,9 @@ function BatchTable({
           </tr>
         ))}
       </thead>
-      {!items.length ? (
+      {loading ? (
+        <TableSkeleton columnRoles={batchSkeletonRoles} />
+      ) : !items.length ? (
         <EmptyTable kind="empty" colSpan={6} description="请调整筛选或从现有计划创建批次。" title="暂无匹配批次" />
       ) : (
         <tbody>
@@ -145,10 +160,12 @@ function BatchTable({
 }
 function RunTable({
   items,
+  loading = false,
   selected,
   onOpen,
 }: {
   items: Run[];
+  loading?: boolean;
   selected?: string;
   onOpen: (run: Run, edit?: boolean) => void;
 }) {
@@ -193,7 +210,7 @@ function RunTable({
         meta: { role: 'status' },
         cell: ({ row, getValue }) => (
           <div className="space-y-1">
-            <Badge>{runStatusLabels[getValue()]}</Badge>
+            <Badge variant={statusBadgeVariant(getValue())}>{runStatusLabels[getValue()]}</Badge>
             {row.original.error_code && (
               <p className="max-w-xs break-words text-xs text-danger">{row.original.error_code}</p>
             )}
@@ -252,7 +269,9 @@ function RunTable({
           </tr>
         ))}
       </thead>
-      {!items.length ? (
+      {loading ? (
+        <TableSkeleton columnRoles={batchSkeletonRoles} />
+      ) : !items.length ? (
         <EmptyTable kind="empty" colSpan={6} description="请调整筛选。" title="暂无匹配运行" />
       ) : (
         <tbody>

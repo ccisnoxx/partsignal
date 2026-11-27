@@ -7,6 +7,8 @@ import { TableShell } from '@/design-system/data-table/table-shell';
 import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
 import { TableToolbar } from '@/design-system/data-table/table-toolbar';
 import type { ColumnRole } from '@/design-system/data-table/types';
+import { InlineBanner } from '@/design-system/feedback/inline-banner';
+import { PageHeader } from '@/design-system/layout/page-header';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
 import {
@@ -60,13 +62,12 @@ function PublishedContentIssueListPage({
   }
 
   return (
-    <section aria-labelledby="published-content-issues-title" className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="type-page-title" id="published-content-issues-title">发布内容问题</h1>
-        <p className="max-w-3xl text-text-secondary">
-          处理公开页面异常、跟进修复任务，并查看不可变的解决历史。
-        </p>
-      </header>
+    <section aria-labelledby="published-content-issues-title" className="space-y-5">
+      <PageHeader
+        description="处理公开页面异常、跟进修复任务，并查看不可变的解决历史。"
+        title="发布内容问题"
+        titleId="published-content-issues-title"
+      />
 
       <TableToolbar>
         <label className="text-sm font-medium" htmlFor="published-content-issue-status">
@@ -89,10 +90,12 @@ function PublishedContentIssueListPage({
       </TableToolbar>
 
       {issues.data && issues.error && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-danger/30 bg-danger/5 p-4" role="alert">
-          <p className="text-sm text-danger">刷新失败，已保留当前内容问题列表：{errorMessage(issues.error)}</p>
-          <Button onClick={() => void issues.refetch()} size="sm" variant="outline">重试刷新</Button>
-        </div>
+        <InlineBanner
+          actions={<Button onClick={() => void issues.refetch()} size="sm" variant="outline">重试刷新</Button>}
+          tone="danger"
+        >
+          刷新失败，已保留当前内容问题列表：{errorMessage(issues.error)}
+        </InlineBanner>
       )}
 
       <PublishedContentIssueTable query={issues} search={search} />

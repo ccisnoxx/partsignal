@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { useState } from 'react';
 import { Button } from '@/design-system/primitives/button';
 import { Input } from '@/design-system/primitives/input';
+import { MetadataDisclosure } from '@/design-system/primitives/metadata-disclosure';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/design-system/primitives/select';
 import { canonicalUuidSchema } from '@/shared/lib/canonical-uuid';
 import { batchStatusLabels, modeLabels, runSearchSchema, runStatusLabels, type RunSearch } from './runs.model';
@@ -19,7 +20,7 @@ function RunSelect({
 }) {
   return (
     <label className="min-w-0 space-y-1 text-sm">
-      <span>{label}</span>
+      <span className="type-label text-text-secondary">{label}</span>
       <Select items={choices} onValueChange={(next) => next !== null && onChange(next)} value={value}>
         <SelectTrigger aria-label={label} className="w-full">
           <SelectValue />
@@ -45,7 +46,7 @@ function RunFilters({ search, onChange }: { search: RunSearch; onChange: (next: 
   return (
     <section
       aria-label="运行中心筛选"
-      className="min-w-0 space-y-3 rounded-xl border border-border-default bg-surface-panel p-3"
+      className="min-w-0 space-y-3 rounded-xl border border-border-subtle bg-surface-panel p-3.5 shadow-[var(--shadow-panel)]"
     >
       <form
         className="flex flex-wrap items-end gap-3"
@@ -120,10 +121,9 @@ function RunFilters({ search, onChange }: { search: RunSearch; onChange: (next: 
           value={search.sort ?? ''}
         />
       </div>
-      <details>
-        <summary className="cursor-pointer text-sm">更多筛选：身份与时间</summary>
+      <MetadataDisclosure summary="更多筛选：身份与时间">
         <form
-          className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2"
+          className="mt-1 grid min-w-0 gap-3 sm:grid-cols-2"
           key={JSON.stringify(search)}
           onSubmit={(event) => {
             event.preventDefault();
@@ -222,7 +222,7 @@ function RunFilters({ search, onChange }: { search: RunSearch; onChange: (next: 
             应用更多筛选
           </Button>
         </form>
-      </details>
+      </MetadataDisclosure>
     </section>
   );
 }

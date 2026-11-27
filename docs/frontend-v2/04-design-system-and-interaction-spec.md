@@ -18,20 +18,21 @@ Domain Components
 Routes
 ```
 
-Primitives：Button、IconButton、Input、Textarea、Badge、Tooltip、Popover、DropdownMenu、Dialog、Sheet、Tabs、Select、Combobox、Checkbox、Radio、Switch、Skeleton、Separator。
+Primitives：Button、IconButton、Input、Textarea、Badge、Tooltip、Popover、DropdownMenu、Dialog、Sheet（含 `size` 变体与粘性 `SheetHeader`/`SheetBody`/`SheetFooter`）、Tabs、Select、Combobox、Checkbox、Radio、Switch、Skeleton、Separator、MetadataDisclosure / MetadataList。
 
-Patterns：PageHeader、WorkspaceHeader、FilterBar、DataTable Kit、RowActions、BulkActionBar、DetailSection、Timeline、EvidenceViewer、MarkdownEditor、StickyActionBar、EmptyState、ErrorState。
+Patterns：PageHeader、SubNavTabs、InlineBanner、WorkspaceHeader、FilterBar、FilterChipsBar、DataTable Kit、RowActions、BulkActionBar、DetailSection、Timeline、EvidenceViewer、MarkdownEditor、StickyActionBar、EmptyState、ErrorState、DataViz 轻量原语（DeltaIndicator、ComparisonBar、ShareBar、CoverageProgress）。
 
-Domain UI 不应重新实现这些基础交互。
+Domain UI 不应重新实现这些基础交互或原生 `<details>` 折叠面板。
 
 ## 3. Token 系统
 
 Surface：`surface-app`、`surface-panel`、`surface-raised`、`surface-overlay`、`surface-selected`。  
-Text：`text-primary`、`text-secondary`、`text-muted`、`text-disabled`、`text-danger`。  
+Text：`text-primary`、`text-secondary`、`text-tertiary`、`text-muted`、`text-disabled`、`text-danger`。  
 Border：`border-subtle`、`border-default`、`border-strong`、`border-focus`。  
-Semantic：`success`、`warning`、`danger`、`info`。
+Shadow：`shadow-panel`、`shadow-raised`。  
+Semantic：`success`、`warning`、`danger`、`info`，并配齐对应的软态表面与边框 token（`--{tone}-surface`、`--{tone}-border`）。
 
-业务状态颜色必须通过 status registry 使用，禁止 feature 自行写颜色。
+业务状态颜色必须通过 status registry 或 `InlineBanner` / `Badge` 语义变体使用，禁止 feature 自行写颜色。
 
 ## 4. Typography
 
@@ -39,7 +40,7 @@ Semantic：`success`、`warning`、`danger`、`info`。
 
 ## 5. Page Header
 
-标准：Breadcrumb → Title/Actions → Description/metadata。Page-level Primary 最多一个，例如 `[新建产品]`、`[创建任务]`、`[新建观测]`，其他进入 overflow。
+标准：Topbar 承载 Breadcrumb，正文区通过统一 `PageHeader` 渲染 Eyebrow（可选）→ Title / Actions → Description / Meta。Page-level Primary 最多一个，例如 `[新建产品]`、`[创建任务]`、`[新建观测]`，其他进入次级按钮或 overflow。分析类多视图页在 `PageHeader` 下方使用 `SubNavTabs` 切换子视图。
 
 ## 6. Data Table Kit
 
@@ -50,9 +51,10 @@ design-system/data-table/
 ├── table-body.tsx
 ├── table-toolbar.tsx
 ├── filter-bar.tsx
+├── filter-chips.tsx
 ├── column-header.tsx
 ├── column-visibility.tsx
-├── pagination.tsx
+├── table-pagination.tsx
 ├── row-actions.tsx
 ├── bulk-action-bar.tsx
 ├── empty-table.tsx
@@ -60,21 +62,24 @@ design-system/data-table/
 └── types.ts
 ```
 
-不要做 `showSearch/showFilter/type/variant` 堆叠的万能组件。每个 domain 自己组合 Table Kit。
+不要做 `showSearch/showFilter/type/variant` 堆叠的万能组件。每个 domain 自己组合 Table Kit。`TableToolbar` 可选挂载 `FilterChipsBar` 呈现当前激活筛选条件及一键清空。
 
-## 7. Table 列角色
+## 7. Table 列角色与通用响应式规则
 
 ```ts
 type ColumnRole =
+  | "selection"
   | "primary"
   | "status"
   | "metadata"
   | "numeric"
   | "date"
   | "actions"
+
+type ColumnPriority = "always" | "tablet" | "desktop" | "wide"
 ```
 
-Design System 根据角色提供默认 alignment、text treatment、truncation 和 responsive priority。
+Design System 根据角色提供默认 alignment、text treatment、truncation、sticky actions 背景同步和 responsive priority。窄屏隐藏次要列和紧凑操作列统一通过 `data-column-priority`、`data-responsive-layout="tablet|mobile"`、`data-mobile-actions="compact"` 与 `.ps-table-mobile-meta` 声明，禁止在 `global.css` 为单个业务页面编写特例 CSS 规则。
 
 ## 8. Table 行点击
 
@@ -131,9 +136,11 @@ Destructive bulk action 必须明确确认；server 必须重新校验；partial
 
 Registry 只提供 label、semantic tone、optional icon、description，不提供业务动作资格。
 
-## 14. GEO Outcome Indicators
+## 14. GEO Outcome Indicators & 轻量数据可视化
 
 Discovered / Mentioned / Accurate 使用紧凑 indicator，如 `●发现 ●提及 ●准确`，并保证不只依赖颜色，tooltip 有解释。
+
+分析页趋势对比、份额与覆盖率不引入重型图表库，统一使用 `design-system/data-viz/` 轻量语义原语（`DeltaIndicator`、`ComparisonBar`、`ShareBar`、`CoverageProgress`），并与可访问数据表格成对呈现；无样本/不可比状态必须显式文本表达，不得补零或省略。
 
 ## 15. Workspace Kit
 
@@ -148,7 +155,10 @@ design-system/workspace/
 └── activity-timeline.tsx
 ```
 
-Desktop 三栏推荐：Context 260–300px，Main flex(min 520px)，Reference 320–380px。宽度不足时 Reference 先转 Sheet/Tab，再收 Context，Main 永远保持可用。
+`WorkspaceShell` 按实际传入槽位动态分配列宽（不渲染空占位列）：
+- `>=1280px`：三栏为 `15rem / minmax(0,1fr) / 20rem`（缺省某侧时自动退化为两栏或单栏），并支持独立隐藏/显示上下文与参考栏；
+- `1024px–1279px`：主工作区与单一侧边参考区两栏对照（存在双侧槽位时以 Tabs 切换），并支持一键折叠侧栏；
+- `<1024px`：全槽位以 `WorkspaceTabs` 切换，Main 永远保持可用。
 
 ## 16. Sticky Action Bar
 
@@ -176,11 +186,12 @@ Error contract 统一解析 title/message/field errors/request id/retryability�
 
 例如 GEO Topic 被引用时，UI 应展示不能删除的具体原因，而不是 generic 400。
 
-## 20. Dialog vs Sheet vs Page
+## 20. Dialog vs Sheet vs Sticky Right Pane vs Page
 
-Dialog：短任务/简单确认/小型元数据编辑。  
-Sheet：辅助详情、Audit detail、mobile reference。  
-Page/Workspace：复杂 form/workflow。
+- Dialog：短任务/简单确认/小型元数据编辑。
+- Sheet（支持 `sm` / `md` / `lg` / `xl` / `2xl` 与粘性头尾）：辅助详情、Audit detail、GEO 证据钻取、机会详情与对比。
+- Sticky Right Pane（桌面 `xl:sticky` 右栏）：需要与左表并行对照、且内部自带 DirtyGuard / 二次确认 Dialog 的编辑或向导面板（如运行详情、监测计划向导、问题与对象创建/编辑），避免嵌套 `role="dialog"` 冲突。
+- Page / Workspace：复杂长工作流。
 
 禁止把长工作流塞进 Modal。
 
@@ -188,7 +199,7 @@ Page/Workspace：复杂 form/workflow。
 
 至少测试 375 / 768 / 1024 / 1440。
 
-窄屏 Table 保留 primary/status，metadata 可隐藏；极窄屏转 List，而不是无限压缩。Workspace side panes → Tabs/Sheet；Sticky action 适配 safe area。
+窄屏 Table 保留 primary/status，metadata 通过 `data-column-priority` 隐藏并在主列内渲染 `.ps-table-mobile-meta` 摘要，不无限压缩且不产生页面级横向滚动。Workspace side panes 按断点降级为两栏对照或 Tabs；Sticky action 适配 safe area。
 
 ## 22. Accessibility
 
@@ -196,6 +207,6 @@ Page/Workspace：复杂 form/workflow。
 
 ## 23. Storybook 要求
 
-必须有 Story：PageHeader、StatusBadge、TableShell、RowActions、FilterBar、BulkActionBar、EmptyState、WorkspaceShell、StickyActionBar、DetailSection、MarkdownEditor、EvidenceViewer、Timeline。
+必须有 Story：AppShell、PageHeader、SubNavTabs、InlineBanner、MetadataDisclosure、FilterChipsBar、DataViz 原语、StatusBadge、TableShell、RowActions、FilterBar、BulkActionBar、EmptyState、Sheet（含尺寸变体）、WorkspaceShell（含两栏/三栏与多视口）、StickyActionBar、DetailSection、MarkdownEditor、EvidenceViewer、Timeline。
 
-每个 Story 至少覆盖 default/loading/empty/error/long text/disabled/destructive/narrow viewport。
+每个 Story 至少覆盖 default/loading/empty/error/long text/disabled/destructive/narrow viewport 中的适用状态。

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { capturePrincipalContinuation } from '@/app/auth/principal-epoch';
 import { MarkdownPreview } from '@/design-system/editor/markdown-editor';
+import { InlineBanner } from '@/design-system/feedback/inline-banner';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
 import {
@@ -235,26 +236,26 @@ function ContentAiProduction({ blocked = false, context, csrfToken, taskId }: Co
   return (
     <section
       aria-labelledby="content-ai-production-title"
-      className="flex flex-col gap-3 rounded-xl border border-border-subtle bg-surface-panel p-4"
+      className="flex flex-col gap-2.5 rounded-xl border border-border-subtle bg-surface-panel px-4 py-3 shadow-[var(--shadow-panel)]"
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 space-y-0.5">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="type-section-title" id="content-ai-production-title">AI 内容生产</h2>
-            {trackedStatus ? <JobStatusBadge status={trackedStatus} /> : null}
+            <h2 className="text-sm font-semibold text-text-primary" id="content-ai-production-title">AI 内容生产</h2>
+            {trackedStatus ? <JobStatusBadge status={trackedStatus} /> : <span className="text-xs text-text-tertiary">当前没有需要跟踪的 AI 作业。</span>}
           </div>
-          <p className="text-sm text-text-secondary">
+          <p className="text-xs text-text-secondary">
             Prompt、模型和不可变输入由服务端冻结；页面只跟踪当前作业。
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex shrink-0 flex-wrap gap-2">
           {canGenerate ? (
-            <Button disabled={blocked || pending} onClick={() => openProduction('generate')} type="button">
+            <Button disabled={blocked || pending} onClick={() => openProduction('generate')} size="sm" type="button">
               AI 生成首稿
             </Button>
           ) : null}
           {canHumanize ? (
-            <Button disabled={blocked || pending} onClick={() => openProduction('humanize')} type="button" variant="outline">
+            <Button disabled={blocked || pending} onClick={() => openProduction('humanize')} size="sm" type="button" variant="outline">
               创建自然化版本
             </Button>
           ) : null}
@@ -264,18 +265,20 @@ function ContentAiProduction({ blocked = false, context, csrfToken, taskId }: Co
       {trackedJobId && trackedStatus ? (
         <div
           aria-live="polite"
-          className="flex flex-col gap-2 rounded-lg border border-border-subtle bg-surface-raised p-3 text-sm"
+          className="flex flex-col gap-2 rounded-lg border border-border-subtle bg-surface-raised/60 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
           role={trackedStatus === 'FAILED' ? 'alert' : 'status'}
         >
-          <p className="font-medium">{jobStatusCopy(trackedStatus)}</p>
-          <p className="break-all font-mono text-xs text-text-muted">Job {trackedJobId}</p>
-          {trackedStatus === 'FAILED' ? (
-            <p className="text-danger">
-              {trackedErrorCode ? `${trackedErrorCode}：` : ''}{trackedErrorSummary ?? '生成作业失败'}
-            </p>
-          ) : null}
-          {jobs.error ? <p className="text-danger">{errorMessage(jobs.error)}</p> : null}
-          <div className="flex flex-wrap gap-2">
+          <div className="min-w-0 space-y-1">
+            <p className="font-medium text-text-primary">{jobStatusCopy(trackedStatus)}</p>
+            <p className="break-all font-mono text-xs text-text-tertiary">Job {trackedJobId}</p>
+            {trackedStatus === 'FAILED' ? (
+              <p className="text-danger">
+                {trackedErrorCode ? `${trackedErrorCode}：` : ''}{trackedErrorSummary ?? '生成作业失败'}
+              </p>
+            ) : null}
+            {jobs.error ? <p className="text-danger">{errorMessage(jobs.error)}</p> : null}
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
             <Button onClick={() => setDetailJobId(trackedJobId)} size="sm" type="button" variant="outline">
               查看完整作业快照
             </Button>
@@ -286,14 +289,10 @@ function ContentAiProduction({ blocked = false, context, csrfToken, taskId }: Co
             ) : null}
           </div>
         </div>
-      ) : (
-        <p className="text-sm text-text-muted">当前没有需要跟踪的 AI 作业。</p>
-      )}
+      ) : null}
 
       {error && mode === null && !retryOpen ? (
-        <p className="rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm text-danger" role="alert">
-          {error}
-        </p>
+        <InlineBanner tone="danger">{error}</InlineBanner>
       ) : null}
 
       {mode ? (

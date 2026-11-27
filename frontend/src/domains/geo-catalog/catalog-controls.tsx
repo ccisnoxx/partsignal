@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import { useFormContext } from 'react-hook-form';
 
+import { InlineBanner } from '@/design-system/feedback/inline-banner';
 import { FormField } from '@/design-system/forms/form-field';
 import { Input } from '@/design-system/primitives/input';
 import { Textarea } from '@/design-system/primitives/textarea';
@@ -43,7 +44,7 @@ function CatalogChoiceField({ name, label, choices }: { name: string; label: str
 }
 
 function CatalogNotice({ children, error = false }: { children: ReactNode; error?: boolean }) {
-  return <div className={`space-y-2 rounded-lg border p-3 text-sm ${error ? 'border-danger/30 bg-danger/5 text-danger' : 'border-border-default bg-surface-raised text-text-secondary'}`} role={error ? 'alert' : 'status'}>{children}</div>;
+  return <InlineBanner tone={error ? 'danger' : 'info'}>{children}</InlineBanner>;
 }
 
 function catalogErrorMessage(error: unknown) {

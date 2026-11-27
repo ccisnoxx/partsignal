@@ -1,9 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { capturePrincipalContinuation, type PrincipalContinuation } from '@/app/auth/principal-epoch';
+import { PageHeader } from '@/design-system/layout/page-header';
 import { Button } from '@/design-system/primitives/button';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/design-system/primitives/sheet';
+import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/design-system/primitives/sheet';
 import type { components } from '@/shared/api/generated/schema';
+import { cn } from '@/shared/lib/utils';
 import { PlanRequestError, planDetailOptions, planKeys } from './plans.api';
 import { planEditorIdentity, planSearchSchema, type PlanDetail, type PlanSearch } from './plans.model';
 import { PlanNotice, planErrorMessage } from './plan-controls';
@@ -56,12 +58,48 @@ function PlansPage({ search, csrfToken, onSearchChange }: { search: PlanSearch; 
   const close = () => onSearchChange(planSearchSchema.parse({ ...latestSearch.current, selected: undefined, new: undefined, edit: undefined }));
   const edit = (step = 0) => { setEditStep(step); onSearchChange(planSearchSchema.parse({ ...latestSearch.current, edit: 1 })); };
   const unrecoverable = detail.error instanceof PlanRequestError && (detail.error.status === 403 || detail.error.status === 404);
-  const readState = <>{detail.data && detail.error && <PlanNotice error>后台读取失败，本地输入已保留：{planErrorMessage(detail.error)}{!unrecoverable && <Button onClick={() => void detail.refetch()} type="button" variant="outline">重试详情读取</Button>}{unrecoverable && <p>当前计划已不可访问，输入保留供核对，请关闭工作区。</p>}</PlanNotice>}{detail.isFetching && <p role="status">正在读取计划详情…</p>}{!detail.data && (detail.isPending ? <PlanNotice>正在读取计划…</PlanNotice> : <PlanNotice error>{planErrorMessage(detail.error)}{!unrecoverable && <Button onClick={() => void detail.refetch()} type="button" variant="outline">重试详情读取</Button>}<Button onClick={close} type="button" variant="outline">关闭工作区</Button></PlanNotice>)}</>;
-  return <section aria-labelledby="plans-title" className="min-w-0 space-y-5"><header className="flex flex-wrap items-start justify-between gap-3"><div className="space-y-1"><h1 className="type-page-title" id="plans-title">监测计划</h1><p className="max-w-3xl text-text-secondary">组合监测对象、问题变体和采集配置，预览运行矩阵并管理计划状态。</p></div><Button onClick={(event) => { returnFocus.current = event.currentTarget; onSearchChange(planSearchSchema.parse({ ...latestSearch.current, selected: undefined, edit: undefined, new: 1 })); }} type="button">新建监测计划</Button></header>
+  const wizardOpen = Boolean(search.new || (search.edit && search.selected));
+  const readState = <>{detail.data && detail.error && <PlanNotice error>后台读取失败，本地输入已保留：{planErrorMessage(detail.error)}{!unrecoverable && <Button onClick={() => void detail.refetch()} type="button" variant="outline">重试详情读取</Button>}{unrecoverable && <p>当前计划已不可访问，输入保留供核对，请关闭工作区。</p>}</PlanNotice>}{detail.isFetching && <p className="text-xs text-text-secondary" role="status">正在读取计划详情…</p>}{!detail.data && (detail.isPending ? <PlanNotice>正在读取计划…</PlanNotice> : <PlanNotice error>{planErrorMessage(detail.error)}{!unrecoverable && <Button onClick={() => void detail.refetch()} type="button" variant="outline">重试详情读取</Button>}<Button onClick={close} type="button" variant="outline">关闭工作区</Button></PlanNotice>)}</>;
+  return <section aria-labelledby="plans-title" className="min-w-0 space-y-5">
+    <PageHeader
+      actions={
+        <Button onClick={(event) => { returnFocus.current = event.currentTarget; onSearchChange(planSearchSchema.parse({ ...latestSearch.current, selected: undefined, edit: undefined, new: 1 })); }} type="button">
+          新建监测计划
+        </Button>
+      }
+      description="组合监测对象、问题变体和采集配置，预览运行矩阵并管理计划状态。"
+      title="监测计划"
+      titleId="plans-title"
+    />
     {Boolean(refreshError) && <PlanNotice error>操作已完成，但列表刷新失败：{planErrorMessage(refreshError)}<Button onClick={() => void refreshLists()} type="button" variant="outline">重新读取列表</Button></PlanNotice>}
-    <PlanList onChange={onSearchChange} onOpen={open} search={search} />
-    {(search.new || search.edit && search.selected) && <section aria-label="计划配置工作区" className="min-w-0 space-y-4 rounded-xl border border-border-default bg-surface-panel p-4"><h2 className="type-section-title">{search.new ? '新建监测计划向导' : '修订监测计划配置'}</h2>{!search.new && readState}{search.new || detail.data ? <PlanWizard initialStep={search.new ? 0 : editStep} csrfToken={csrfToken} key={identity} onCancel={close} onReload={search.new ? undefined : reload} onSaved={saved} plan={search.new ? undefined : detail.data} readBlocked={!search.new && unrecoverable} /> : null}</section>}
-    <Sheet onOpenChange={(isOpen) => { if (!isOpen) close(); }} open={Boolean(search.selected && !search.edit)}>{search.selected && !search.edit && <SheetContent className="w-full overflow-y-auto sm:max-w-3xl" finalFocus={() => returnFocus.current?.isConnected ? returnFocus.current : null}><SheetHeader><SheetTitle>监测计划工作区</SheetTitle><SheetDescription>完整配置、服务端预览与可用动作。</SheetDescription></SheetHeader><div className="min-w-0 space-y-4 px-4 pb-6">{readState}{detail.data && <PlanDetailPanel csrfToken={csrfToken} initialAction={request?.id === search.selected ? request.command : undefined} key={identity} onDeleted={deleted} onEdit={edit} onReload={reload} onSaved={saved} plan={detail.data} readBlocked={unrecoverable} ref={detailActions} />}</div></SheetContent>}</Sheet>
+    <div className={cn('grid min-w-0 items-start gap-5', wizardOpen && 'xl:grid-cols-[minmax(0,1fr)_36rem]')}>
+      <div className="min-w-0">
+        <PlanList onChange={onSearchChange} onOpen={open} search={search} />
+      </div>
+      {wizardOpen && (
+        <section aria-label="计划配置工作区" className="min-w-0 space-y-4 rounded-xl border border-border-default bg-surface-panel p-5 shadow-[var(--shadow-raised)] xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto">
+          <div className="border-b border-border-subtle pb-3">
+            <h2 className="type-section-title">{search.new ? '新建监测计划向导' : '修订监测计划配置'}</h2>
+          </div>
+          {!search.new && readState}
+          {search.new || detail.data ? <PlanWizard initialStep={search.new ? 0 : editStep} csrfToken={csrfToken} key={identity} onCancel={close} onReload={search.new ? undefined : reload} onSaved={saved} plan={search.new ? undefined : detail.data} readBlocked={!search.new && unrecoverable} /> : null}
+        </section>
+      )}
+    </div>
+    <Sheet onOpenChange={(isOpen) => { if (!isOpen) close(); }} open={Boolean(search.selected && !search.edit)}>
+      {search.selected && !search.edit && (
+        <SheetContent finalFocus={() => returnFocus.current?.isConnected ? returnFocus.current : null} size="xl">
+          <SheetHeader>
+            <SheetTitle>监测计划工作区</SheetTitle>
+            <SheetDescription>完整配置、服务端预览与可用动作。</SheetDescription>
+          </SheetHeader>
+          <SheetBody className="space-y-4">
+            {readState}
+            {detail.data && <PlanDetailPanel csrfToken={csrfToken} initialAction={request?.id === search.selected ? request.command : undefined} key={identity} onDeleted={deleted} onEdit={edit} onReload={reload} onSaved={saved} plan={detail.data} readBlocked={unrecoverable} ref={detailActions} />}
+          </SheetBody>
+        </SheetContent>
+      )}
+    </Sheet>
   </section>;
 }
 export { PlansPage };

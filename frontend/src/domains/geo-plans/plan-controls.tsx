@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
+import { InlineBanner } from '@/design-system/feedback/inline-banner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/design-system/primitives/select';
 import { statusLabels, type PlanDetail } from './plans.model';
 function PlanSelect({ label, value, choices, onChange, disabled, id, describedBy, invalid, required }: {
@@ -8,7 +9,9 @@ function PlanSelect({ label, value, choices, onChange, disabled, id, describedBy
 }) {
   return <Select disabled={disabled} items={choices} onValueChange={(next) => { if (next !== null) onChange(next); }} value={value}><SelectTrigger aria-describedby={describedBy} aria-invalid={invalid} aria-label={label} aria-required={required} className="w-full min-w-0" id={id}><SelectValue /></SelectTrigger><SelectContent>{choices.map((choice) => <SelectItem key={choice.value} value={choice.value}>{choice.label}</SelectItem>)}</SelectContent></Select>;
 }
-function PlanNotice({ children, error = false }: { children: ReactNode; error?: boolean }) { return <div className={`space-y-2 rounded-lg border p-3 text-sm ${error ? 'border-danger/30 bg-danger/5 text-danger' : 'border-border-default bg-surface-raised text-text-secondary'}`} role={error ? 'alert' : 'status'}>{children}</div>; }
+function PlanNotice({ children, error = false }: { children: ReactNode; error?: boolean }) {
+  return <InlineBanner tone={error ? 'danger' : 'info'}>{children}</InlineBanner>;
+}
 function UnsupportedPlanNotice({ plan }: { plan: PlanDetail }) {
   return <PlanNotice>
     <p>历史CRON未登记到期调度。此历史计划只读，不能编辑、复制、删除或运行，不会自动创建批次（Batch）。</p>

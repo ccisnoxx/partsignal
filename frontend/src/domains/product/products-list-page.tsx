@@ -26,6 +26,8 @@ import { TableShell } from '@/design-system/data-table/table-shell';
 import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
 import { TableToolbar } from '@/design-system/data-table/table-toolbar';
 import type { ColumnRole } from '@/design-system/data-table/types';
+import { InlineBanner } from '@/design-system/feedback/inline-banner';
+import { PageHeader } from '@/design-system/layout/page-header';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button, buttonVariants } from '@/design-system/primitives/button';
 import {
@@ -157,19 +159,20 @@ function ProductsListPage({ csrfToken, onSearchChange, search }: ProductsListPag
 
   return (
     <section className="space-y-4" aria-labelledby="products-list-title">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <h1 id="products-list-title" className="type-page-title">产品事实</h1>
-          <p className="max-w-3xl text-text-secondary">查看产品当前事实状态，并进入服务端指定的下一项工作。</p>
-        </div>
-        <Link className={buttonVariants()} to="/products/new">新建产品</Link>
-      </header>
+      <PageHeader
+        actions={<Link className={buttonVariants()} to="/products/new">新建产品</Link>}
+        description="查看产品当前事实状态，并进入服务端指定的下一项工作。"
+        title="产品事实"
+        titleId="products-list-title"
+      />
 
       {remove.error && (
-        <div className="flex flex-col gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between" role="alert">
-          <span>{errorMessage(remove.error)}</span>
-          <Button onClick={() => remove.reset()} size="sm" variant="outline">关闭</Button>
-        </div>
+        <InlineBanner
+          actions={<Button onClick={() => remove.reset()} size="sm" variant="outline">关闭</Button>}
+          tone="danger"
+        >
+          {errorMessage(remove.error)}
+        </InlineBanner>
       )}
 
       <TableToolbar>
@@ -180,7 +183,7 @@ function ProductsListPage({ csrfToken, onSearchChange, search }: ProductsListPag
         />
       </TableToolbar>
 
-      <TableShell className="products-list-table" regionLabel="产品事实列表">
+      <TableShell data-responsive-layout="tablet" regionLabel="产品事实列表">
         <thead>
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id}>
@@ -191,6 +194,7 @@ function ProductsListPage({ csrfToken, onSearchChange, search }: ProductsListPag
                   <ColumnHeader
                     key={header.id}
                     onSort={header.column.getCanSort() ? () => header.column.toggleSorting() : undefined}
+                    priority={role === 'status' ? 'tablet' : undefined}
                     role={role}
                     sortDirection={header.column.getCanSort() ? header.column.getIsSorted() : false}
                   >
@@ -224,11 +228,18 @@ function ProductsListPage({ csrfToken, onSearchChange, search }: ProductsListPag
           <tbody>
             {table.getRowModel().rows.map((row) => (
               <tr key={row.id}>
-                {row.getAllCells().map((cell) => (
-                  <td data-column-role={cell.column.columnDef.meta?.role} key={cell.id}>
-                    <table.FlexRender cell={cell} />
-                  </td>
-                ))}
+                {row.getAllCells().map((cell) => {
+                  const role = cell.column.columnDef.meta?.role;
+                  return (
+                    <td
+                      data-column-priority={role === 'status' ? 'tablet' : undefined}
+                      data-column-role={role}
+                      key={cell.id}
+                    >
+                      <table.FlexRender cell={cell} />
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>

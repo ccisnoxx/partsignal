@@ -7,6 +7,8 @@ import { TableShell } from '@/design-system/data-table/table-shell';
 import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
 import { TableToolbar } from '@/design-system/data-table/table-toolbar';
 import type { ColumnRole } from '@/design-system/data-table/types';
+import { InlineBanner } from '@/design-system/feedback/inline-banner';
+import { PageHeader } from '@/design-system/layout/page-header';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
 import { Input } from '@/design-system/primitives/input';
@@ -55,13 +57,12 @@ function PublishedArticleListPage({ onSearchChange, search }: PublishedArticleLi
   }
 
   return (
-    <section aria-labelledby="published-articles-title" className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="type-page-title" id="published-articles-title">发布成果</h1>
-        <p className="max-w-3xl text-text-secondary">
-          查看首次核验通过后形成的只读发布成果、公开地址与内容健康状态。
-        </p>
-      </header>
+    <section aria-labelledby="published-articles-title" className="space-y-5">
+      <PageHeader
+        description="查看首次核验通过后形成的只读发布成果、公开地址与内容健康状态。"
+        title="发布成果"
+        titleId="published-articles-title"
+      />
 
       <PublishedArticleToolbar
         key={search.q ?? ''}
@@ -70,10 +71,12 @@ function PublishedArticleListPage({ onSearchChange, search }: PublishedArticleLi
       />
 
       {articles.data && articles.error && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-danger/30 bg-danger/5 p-4" role="alert">
-          <p className="text-sm text-danger">刷新失败，已保留当前发布成果列表：{errorMessage(articles.error)}</p>
-          <Button onClick={() => void articles.refetch()} size="sm" variant="outline">重试刷新</Button>
-        </div>
+        <InlineBanner
+          actions={<Button onClick={() => void articles.refetch()} size="sm" variant="outline">重试刷新</Button>}
+          tone="danger"
+        >
+          刷新失败，已保留当前发布成果列表：{errorMessage(articles.error)}
+        </InlineBanner>
       )}
 
       <PublishedArticleTable

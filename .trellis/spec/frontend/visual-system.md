@@ -34,10 +34,10 @@ PartSignal 是高密度、克制、可扫描的企业运营工作台：
 
 | 类别 | 变量 / Tailwind 角色 |
 | --- | --- |
-| 表面 | `surface-app`、`surface-panel`、`surface-raised`、`surface-overlay`、`surface-selected` |
-| 文字 | `text-primary`、`text-secondary`、`text-muted`、`text-disabled`、`text-danger` |
+| 表面 | `surface-app`、`surface-panel`、`surface-raised`、`surface-overlay`、`surface-selected`、`shadow-panel`、`shadow-raised` |
+| 文字 | `text-primary`、`text-secondary`、`text-tertiary`、`text-muted`、`text-disabled`、`text-danger` |
 | 边界 | `border-subtle`、`border-default`、`border-strong`、`border-focus` |
-| 状态 | `success`、`warning`、`danger`、`info` |
+| 状态 | `success`/`warning`/`danger`/`info` 及其柔和表面/边界色阶（`*-surface`、`*-border`） |
 | 交互 | `interaction-primary`、hover、active、foreground |
 | 圆角与焦点 | `radius-control`、`radius-panel`、`radius-overlay`、`focus-ring-*` |
 | 字体与字号 | `font-family-*`、`type-display/page-title/section-title/body/body-sm/label/mono` |
@@ -58,30 +58,31 @@ PartSignal 是高密度、克制、可扫描的企业运营工作台：
 
 ### 4.1 AppShell
 
-- `AppShell` 是唯一应用导航和主内容 owner：桌面侧栏 13rem，顶栏 4rem，主内容最大宽度 95rem，内容 padding 按 12/16/20px 响应式变化。
+- `AppShell` 是唯一应用导航和主内容 owner：桌面侧栏支持展开（15rem）与折叠（4rem 图标+Tooltip，偏好存于 localStorage），顶栏 3.5rem 承载面包屑与账户菜单，主内容最大宽度 96rem，内容 padding 按 12/20/24px 响应式变化。
+- GEO 分析视图（总览、回答洞察、报告预览、文章关系洞察）在侧栏收敛为“分析与报告”入口，页内通过 `SubNavTabs` 切换并透传筛选参数；所有既有 URL 路由保持兼容。
 - 移动导航使用 Base UI `Sheet`；业务页面不得创建第二个全局导航。
 - pathname 变化时由 `AppShell` 将焦点移到 `#main-content`；search 参数变化不得抢焦点。
 - 跳到主内容链接、面包屑、导航 `aria-current` 和账号菜单必须保留原生语义。
 
 ### 4.2 数据列表
 
-1. 页面标题、说明和唯一主操作位于内容顶部。
+1. 页面标题、说明、元信息和唯一主操作统一使用 `PageHeader` 位于内容顶部；错误、状态与只读提示统一使用 `InlineBanner`。
 2. 只有服务端提供真实聚合口径时才显示紧凑指标；无真实指标直接省略。
 3. 筛选、排序和分页等可恢复状态写入 URL。
-4. 数据表使用 `TableShell` 的命名、可聚焦局部滚动 region；不得制造页面级横向滚动。
-5. 行最多直出一个 Primary，其余动作使用 `RowActions`；详情 Sheet 只在存在真实选中对象时渲染。
+4. 数据表使用 `TableShell` 的命名、可聚焦局部滚动 region；不得制造页面级横向滚动。列响应降级优先使用 `data-column-priority` 通用规则。
+5. 行最多直出一个 Primary，其余动作使用 `RowActions`；详情使用带尺寸规格与粘性头尾的 `Sheet`（或桌面端右侧粘性停靠面板），只在存在真实选中对象时渲染。
 
 ### 4.3 编辑审核 Workspace
 
-- 对象/章节导航、主工作区和辅助证据按真实任务组合；不得为视觉统一强制所有页面使用同一三栏结构。
-- 主 artifact 必须始终可用；窄屏侧栏转换为 Tabs/Sheet，Sticky Action Bar 不遮挡正文。
+- `WorkspaceShell` 按实际传入槽位动态分配列宽（不再为缺失槽位保留空占位）；1280px+ 支持独立折叠左右辅助栏扩展主编辑区，1024–1279px 采用主区+单侧切换辅栏双栏对照，1024px 以下转为 Main-first `WorkspaceTabs`。
+- 主 artifact 必须始终可用；Sticky Action Bar 不遮挡正文。
 - 保存状态区分未修改、未保存、保存中、已保存和失败；审核决策保留确认、意见、revision 和服务端校验。
 - 不可变快照使用 readonly Detail，不提供原地编辑入口。
 
 ### 4.4 分析与打印
 
 - 图表、矩阵和结论必须能追溯到 API 数据、时间范围和统计口径；数据不足明确显示真实状态，不外推或补零。
-- 图表提供图例、数值和等价表格/文本读取，不只靠颜色区分序列。
+- 轻量可视化原语（`design-system/data-viz/`：`DeltaIndicator`、`ComparisonBar`、`ShareBar`、`CoverageProgress`）与技术元数据折叠（`MetadataDisclosure`）提供数值、状态徽标与等价表格/文本读取，不只靠颜色区分序列。
 - Print route 复用 `AppShell` 的 print layout 以及专用、可验证的打印 class，不把打印覆盖扩散到普通页面。
 
 ## 5. 组件与交互

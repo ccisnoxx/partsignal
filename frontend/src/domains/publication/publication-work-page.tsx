@@ -9,6 +9,8 @@ import { TableShell } from '@/design-system/data-table/table-shell';
 import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
 import { TableToolbar } from '@/design-system/data-table/table-toolbar';
 import type { ColumnRole } from '@/design-system/data-table/types';
+import { InlineBanner } from '@/design-system/feedback/inline-banner';
+import { PageHeader } from '@/design-system/layout/page-header';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
 import {
@@ -120,21 +122,17 @@ function PublicationWorkPage({
   }
 
   return (
-    <section className="space-y-8" aria-labelledby="publication-work-title">
-      <header className="space-y-1">
-        <h1 className="type-page-title" id="publication-work-title">发布工作</h1>
-        <p className="max-w-3xl text-text-secondary">
-          从已批准内容开始发布，并查看进行中或已关闭的发布工作与服务端任务。
-        </p>
-      </header>
+    <section className="space-y-6" aria-labelledby="publication-work-title">
+      <PageHeader
+        description="从已批准内容开始发布，并查看进行中或已关闭的发布工作与服务端任务。"
+        title="发布工作"
+        titleId="publication-work-title"
+      />
 
       {createdWorkId && (
-        <div
-          className="rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success"
-          role="status"
-        >
+        <InlineBanner tone="success">
           已创建发布工作：<span className="font-mono">{createdWorkId}</span>
-        </div>
+        </InlineBanner>
       )}
 
       <PublicationSummary query={summary} />
@@ -192,10 +190,12 @@ function PublicationSummary({ query }: { query: SummaryQuery }) {
           {[0, 1, 2, 3].map((item) => <Skeleton className="h-24 rounded-xl" key={item} />)}
         </div>
       ) : query.error && !query.data ? (
-        <p className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">
+        <InlineBanner
+          actions={<Button onClick={() => void query.refetch()} size="sm" type="button" variant="outline">重试</Button>}
+          tone="danger"
+        >
           {errorMessage(query.error)}
-          <Button className="ml-3" onClick={() => void query.refetch()} size="sm" type="button" variant="outline">重试</Button>
-        </p>
+        </InlineBanner>
       ) : (
         <>
           {query.data && query.error && (
@@ -203,9 +203,9 @@ function PublicationSummary({ query }: { query: SummaryQuery }) {
           )}
           <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {metrics.map(([label, value]) => (
-              <div className="rounded-xl border border-border-subtle bg-surface-panel p-4" key={label}>
-                <dt className="text-sm text-text-secondary">{label}</dt>
-                <dd className="mt-2 font-heading text-3xl font-semibold tabular-nums">{value}</dd>
+              <div className="rounded-xl border border-border-subtle bg-surface-panel p-4 shadow-[var(--shadow-panel)]" key={label}>
+                <dt className="text-xs font-medium text-text-secondary">{label}</dt>
+                <dd className="mt-1.5 font-mono text-2xl font-semibold tabular-nums text-text-primary">{value}</dd>
               </div>
             ))}
           </dl>

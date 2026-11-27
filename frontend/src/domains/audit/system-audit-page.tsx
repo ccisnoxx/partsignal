@@ -8,8 +8,10 @@ import { TablePagination } from '@/design-system/data-table/table-pagination';
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
 import type { ColumnRole } from '@/design-system/data-table/types';
+import { PageHeader } from '@/design-system/layout/page-header';
 import { Button } from '@/design-system/primitives/button';
 import { Input } from '@/design-system/primitives/input';
+import { MetadataDisclosure } from '@/design-system/primitives/metadata-disclosure';
 import {
   Select,
   SelectContent,
@@ -19,6 +21,7 @@ import {
 } from '@/design-system/primitives/select';
 import {
   Sheet,
+  SheetBody,
   SheetContent,
   SheetDescription,
   SheetHeader,
@@ -109,10 +112,7 @@ function SystemAuditPage({ onSearchChange, search }: SystemAuditPageProps) {
         search={search}
         targetTypes={options.data?.target_types ?? []}
       />
-      <div className="flex justify-end">
-        <Button onClick={() => void logs.refetch()} type="button" variant="outline">刷新当前页</Button>
-      </div>
-      <TableShell className="audit-list-table" regionLabel="系统审计日志">
+      <TableShell data-responsive-layout="mobile" regionLabel="系统审计日志">
         <thead>
           <tr>
             <th data-column-role="date" scope="col">时间</th>
@@ -155,17 +155,25 @@ function SystemAuditPage({ onSearchChange, search }: SystemAuditPageProps) {
 
   return (
     <section aria-labelledby="system-audit-title" className="min-w-0 space-y-4">
-      <header className="space-y-1">
-        <h1 className="type-page-title outline-none" id="system-audit-title" ref={heading} tabIndex={-1}>系统审计</h1>
-        <p className="max-w-3xl text-text-secondary">查询追加式业务审计，并按需查看服务端安全投影的单条详情。</p>
-      </header>
+      <PageHeader
+        actions={
+          <Button onClick={() => void logs.refetch()} size="sm" type="button" variant="outline">
+            刷新当前页
+          </Button>
+        }
+        description="查询追加式业务审计，并按需查看服务端安全投影的单条详情。"
+        title="系统审计"
+        titleId="system-audit-title"
+        titleRef={heading}
+        titleTabIndex={-1}
+      />
       {desktop ? (
         <div className={`grid min-w-0 items-start gap-4${search.logId ? ' grid-cols-[minmax(0,1fr)_28rem]' : ''}`}>
           {list}
           {search.logId && (
-            <aside aria-label="审计详情" className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl border border-border-subtle bg-surface-panel p-4">
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div><h2 className="type-section-title">审计详情</h2><p className="text-sm text-text-muted">只展示已登记的安全字段。</p></div>
+            <aside aria-label="审计详情" className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl border border-border-subtle bg-surface-panel p-4 shadow-[var(--shadow-panel)]">
+              <div className="mb-4 flex items-start justify-between gap-3 border-b border-border-subtle pb-3">
+                <div><h2 className="type-section-title">审计详情</h2><p className="text-xs text-text-muted">只展示已登记的安全字段。</p></div>
                 <Button aria-label="关闭审计详情" onClick={() => void onSearchChange({ ...search, logId: undefined })} size="sm" variant="ghost">关闭</Button>
               </div>
               <AuditDetailSurface auditLogId={search.logId} />
@@ -176,12 +184,12 @@ function SystemAuditPage({ onSearchChange, search }: SystemAuditPageProps) {
         <>
           {list}
           <Sheet onOpenChange={(open) => !open && void onSearchChange({ ...search, logId: undefined })} open={Boolean(search.logId)}>
-            <SheetContent className="w-full overflow-y-auto sm:max-w-xl" finalFocus={finalFocus}>
+            <SheetContent finalFocus={finalFocus} size="lg">
               <SheetHeader>
                 <SheetTitle>审计详情</SheetTitle>
                 <SheetDescription>只展示已登记的安全字段。</SheetDescription>
               </SheetHeader>
-              <div className="px-4 pb-6">{search.logId && <AuditDetailSurface auditLogId={search.logId} />}</div>
+              <SheetBody>{search.logId && <AuditDetailSurface auditLogId={search.logId} />}</SheetBody>
             </SheetContent>
           </Sheet>
         </>
@@ -292,16 +300,15 @@ function AuditFilters({ actions, onChange, search, targetTypes }: {
           </>
         )}
         moreFilters={(
-          <details className="w-full rounded-lg border border-border-subtle p-3">
-            <summary className="cursor-pointer text-sm font-medium">更多筛选</summary>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MetadataDisclosure className="w-full" summary="更多筛选">
+            <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <AuditInput label="操作者 ID" onChange={(actorId) => setDraft((current) => ({ ...current, actorId }))} value={draft.actorId} />
               <AuditSelect ariaLabel="动作" items={actionItems} onChange={(action) => setDraft((current) => ({ ...current, action }))} value={draft.action} />
               <AuditSelect ariaLabel="对象类型" items={[{ value: 'ALL', label: '全部对象类型' }, ...targetTypeOptions.map((value) => ({ value, label: value }))]} onChange={(targetType) => setDraft((current) => ({ ...current, targetType }))} value={draft.targetType} />
               <AuditInput label="对象 ID" onChange={(targetId) => setDraft((current) => ({ ...current, targetId }))} value={draft.targetId} />
               <AuditInput label="Request ID" onChange={(requestId) => setDraft((current) => ({ ...current, requestId }))} value={draft.requestId} />
             </div>
-          </details>
+          </MetadataDisclosure>
         )}
         onQueryChange={(keyword) => setDraft((current) => ({ ...current, keyword }))}
         onReset={() => onChange(auditResetSearch())}

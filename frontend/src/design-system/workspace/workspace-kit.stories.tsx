@@ -71,15 +71,20 @@ function ReferencePane({ empty = false }: { empty?: boolean }) {
   );
 }
 
-type WorkspaceStoryProps = { loading?: boolean; error?: boolean; emptyReference?: boolean };
+type WorkspaceStoryProps = {
+  loading?: boolean;
+  error?: boolean;
+  emptyReference?: boolean;
+  includeContext?: boolean;
+};
 
-function WorkspaceStory({ emptyReference, error, loading }: WorkspaceStoryProps) {
+function WorkspaceStory({ emptyReference, error, includeContext = true, loading }: WorkspaceStoryProps) {
   return (
     <main className="min-h-screen bg-surface-app p-4">
       <h1 className="sr-only">Workspace Kit</h1>
       <WorkspaceShell
         ariaLabel="Product Facts 工作区示例"
-        context={{ label: '上下文', content: <ContextPane /> }}
+        context={includeContext ? { label: '上下文', content: <ContextPane /> } : undefined}
         main={{ label: '正文', content: <ArtifactPane error={error} loading={loading} /> }}
         reference={{ label: '参考', content: <ReferencePane empty={emptyReference} /> }}
       />
@@ -99,6 +104,12 @@ type Story = StoryObj<typeof meta>;
 export const DefaultWorkspace: Story = {
   name: 'Default Workspace',
   args: {},
+  parameters: { viewport: { defaultViewport: 'desktop1440' } },
+};
+
+export const TwoPaneAdaptive: Story = {
+  name: 'Two Pane (No Context Slot)',
+  args: { includeContext: false },
   parameters: { viewport: { defaultViewport: 'desktop1440' } },
 };
 

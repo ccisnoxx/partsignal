@@ -7,6 +7,8 @@ import { capturePrincipalContinuation } from '@/app/auth/principal-epoch';
 import { EmptyTable } from '@/design-system/data-table/empty-table';
 import { RowActions } from '@/design-system/data-table/row-actions';
 import { TableShell } from '@/design-system/data-table/table-shell';
+import { InlineBanner } from '@/design-system/feedback/inline-banner';
+import { PageHeader } from '@/design-system/layout/page-header';
 import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
 import { FormField } from '@/design-system/forms/form-field';
 import { ErrorSummary, type ErrorSummaryItem } from '@/design-system/forms/form-layout';
@@ -176,21 +178,20 @@ function PlatformTypesPage({ csrfToken }: PlatformTypesPageProps) {
       >
         返回平台与账号
       </a>
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="type-page-title" id="platform-types-title">平台类型</h1>
-          <p className="max-w-3xl text-text-secondary">
-            管理平台与账号使用的分类；平台数量与可用操作均由服务端提供。
-          </p>
-        </div>
-        <Button
-          onClick={() => setEditor({ focusReturn: createButtonRef.current })}
-          ref={createButtonRef}
-          type="button"
-        >
-          新建平台类型
-        </Button>
-      </header>
+      <PageHeader
+        actions={
+          <Button
+            onClick={() => setEditor({ focusReturn: createButtonRef.current })}
+            ref={createButtonRef}
+            type="button"
+          >
+            新建平台类型
+          </Button>
+        }
+        description="管理平台与账号使用的分类；平台数量与可用操作均由服务端提供。"
+        title="平台类型"
+        titleId="platform-types-title"
+      />
 
       {types.data && types.error && (
         <Notice
@@ -658,10 +659,12 @@ function Notice({
   onAction: () => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
-      <span>{message}</span>
-      <Button onClick={onAction} size="sm" variant="outline">{actionLabel}</Button>
-    </div>
+    <InlineBanner
+      actions={<Button onClick={onAction} size="sm" variant="outline">{actionLabel}</Button>}
+      tone="danger"
+    >
+      {message}
+    </InlineBanner>
   );
 }
 

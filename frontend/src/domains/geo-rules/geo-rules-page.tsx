@@ -5,7 +5,11 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { capturePrincipalContinuation, type PrincipalContinuation } from '@/app/auth/principal-epoch';
 import { DirtyGuard } from '@/design-system/forms/dirty-guard';
 import { ErrorSummary, FormSection } from '@/design-system/forms/form-layout';
+import { InlineBanner } from '@/design-system/feedback/inline-banner';
+import { PageHeader } from '@/design-system/layout/page-header';
+import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
+import { Skeleton } from '@/design-system/primitives/skeleton';
 import { StickyActionBar } from '@/design-system/workspace/sticky-action-bar';
 import { GeoRulesRequestError, geoRulesErrorMessage, geoRulesKey, geoRulesQueryOptions, getGeoRules, previewGeoRules, updateGeoRules } from './geo-rules.api';
 import { RuleFields, SampleFields } from './geo-rules-fields';
@@ -16,13 +20,28 @@ function GeoRulesPage({ csrfToken }: { csrfToken: string | null }) {
   const query = useQuery(geoRulesQueryOptions());
   const unavailable = query.error instanceof GeoRulesRequestError && [401, 403].includes(query.error.status ?? 0);
   return <section aria-labelledby="geo-rules-title" className="min-w-0 space-y-5">
-    <header className="space-y-1"><h1 id="geo-rules-title" className="type-page-title">GEO 规则与阈值</h1>
-      <p className="max-w-3xl text-text-secondary">维护当前规则集的样本、阈值、去重窗口和复测恢复条件。保存仅影响未来评估，历史快照保持不变。</p></header>
-    {query.isPending && <p role="status">正在读取当前规则集…</p>}
-    {query.error && <section role="alert" className="space-y-2 rounded-lg border border-danger/30 p-4">
-      <p>{unavailable ? '当前会话无权读取或操作 GEO 规则，请使用有权限的管理员账号。' : geoRulesErrorMessage(query.error)}</p>
-      {!unavailable && <Button type="button" variant="outline" onClick={() => void query.refetch()}>重新读取规则</Button>}
-    </section>}
+    <PageHeader
+      description="维护当前规则集的样本、阈值、去重窗口和复测恢复条件。保存仅影响未来评估，历史快照保持不变。"
+      title="GEO 规则与阈值"
+      titleId="geo-rules-title"
+    />
+    {query.isPending && (
+      <div aria-busy="true" aria-label="正在读取当前规则集" className="space-y-4">
+        <p className="text-sm text-text-secondary" role="status">正在读取当前规则集…</p>
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
+          <Skeleton className="h-96 rounded-xl" />
+          <Skeleton className="h-72 rounded-xl" />
+        </div>
+      </div>
+    )}
+    {query.error && (
+      <InlineBanner
+        actions={!unavailable ? <Button type="button" variant="outline" size="sm" onClick={() => void query.refetch()}>重新读取规则</Button> : undefined}
+        tone="danger"
+      >
+        {unavailable ? '当前会话无权读取或操作 GEO 规则，请使用有权限的管理员账号。' : geoRulesErrorMessage(query.error)}
+      </InlineBanner>
+    )}
     {query.data && <GeoRulesEditor initial={query.data} csrfToken={csrfToken} unavailable={unavailable} actions={query.data.available_actions} />}
   </section>;
 }
@@ -169,24 +188,44 @@ function GeoRulesEditor({ initial, csrfToken, unavailable, actions }: {
   const sampleErrors = (['current_runs', 'previous_runs'] as const).flatMap((name) => samples.formState.errors[name]
     ? [{ id: name, fieldId: `geo-preview-${name}`, message: String(samples.formState.errors[name]?.message) }] : []);
   const status = busy ? phase === 'saving' ? '保存中…' : '正在重新加载基线…' : conflict ? '版本冲突，草稿已保留' : form.formState.isDirty ? '有未保存修改' : message ? '已保存 / 基线已加载' : '未修改';
-  return <div className="min-w-0 space-y-5 rounded-xl border border-border-default bg-surface-panel p-4">
-    <p className="break-words text-sm text-text-muted">当前编辑基线 revision {baseline.revision} · 更新时间 {baseline.updated_at} · 更新人 {baseline.updated_by ?? '系统初始化'}</p>
-    {(!canUpdate || !canPreview) && <p role="status" className="text-text-secondary">{blocked ? '当前会话无权操作 GEO 规则，草稿已保留。请重新登录或使用有权限的管理员账号。' : `服务端当前未授权${!canUpdate ? '保存' : ''}${!canUpdate && !canPreview ? '和' : ''}${!canPreview ? '预览' : ''}操作。`}</p>}
+  return <div className="min-w-0 space-y-5">
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border-subtle bg-surface-panel px-4 py-3 text-xs text-text-secondary shadow-[var(--shadow-panel)]">
+      <Badge variant="secondary">revision {baseline.revision}</Badge>
+      <span className="break-words">当前编辑基线 revision {baseline.revision} · 更新时间 {baseline.updated_at} · 更新人 {baseline.updated_by ?? '系统初始化'}</span>
+    </div>
+    {(!canUpdate || !canPreview) && (
+      <InlineBanner tone="warning">
+        {blocked ? '当前会话无权操作 GEO 规则，草稿已保留。请重新登录或使用有权限的管理员账号。' : `服务端当前未授权${!canUpdate ? '保存' : ''}${!canUpdate && !canPreview ? '和' : ''}${!canPreview ? '预览' : ''}操作。`}
+      </InlineBanner>
+    )}
     <ErrorSummary errors={[...formErrors, ...sampleErrors]} />
-    {Boolean(error) && <p role="alert" className="break-words text-danger">{geoRulesErrorMessage(error)}</p>}
-    {message && <p role="status" className="text-text-secondary">{message}</p>}
-    {conflict && <section role="alert" className="space-y-2 rounded-lg border border-warning/30 p-3"><p>规则版本已变化。本地草稿已保留；请显式加载最新基线并核对，系统不会自动覆盖草稿或重新提交。</p><Button type="button" variant="outline" disabled={busy || blocked} onClick={() => void reloadBaseline()}>加载最新基线并保留草稿</Button></section>}
-    <FormProvider {...form}><form onSubmit={(event) => void form.handleSubmit(save)(event)} noValidate>
-      <RuleFields disabled={!canUpdate || busy} onChange={() => { invalidatePreview(); setMessage(''); }} />
-    </form></FormProvider>
-    <FormSection title="服务端预览" description="输入当前与前期样本数，只预览配置和样本资格；不会创建或修改业务记录。">
-      <FormProvider {...samples}><SampleFields disabled={!canPreview || busy || conflict} onChange={invalidatePreview} /></FormProvider>
-      <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" disabled={!canPreview || busy || conflict || previewPending || !csrfToken}
-        onClick={() => void form.handleSubmit((configuration) => samples.handleSubmit((counts) => runPreview(configuration, counts))())()}> {previewPending ? '预览中…' : '预览配置与样本资格'}</Button>
-        {previewPending && <Button type="button" variant="outline" onClick={invalidatePreview}>取消预览</Button>}</div>
-      {previewPending && <p role="status">正在读取服务端预览…</p>}
-      {preview && canPreview && <GeoRulesPreview preview={preview} />}
-    </FormSection>
+    {Boolean(error) && <InlineBanner tone="danger">{geoRulesErrorMessage(error)}</InlineBanner>}
+    {message && <InlineBanner tone="success">{message}</InlineBanner>}
+    {conflict && (
+      <InlineBanner
+        actions={<Button type="button" variant="outline" size="sm" disabled={busy || blocked} onClick={() => void reloadBaseline()}>加载最新基线并保留草稿</Button>}
+        tone="warning"
+      >
+        规则版本已变化。本地草稿已保留；请显式加载最新基线并核对，系统不会自动覆盖草稿或重新提交。
+      </InlineBanner>
+    )}
+    <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
+      <div className="min-w-0 rounded-xl border border-border-subtle bg-surface-panel p-5 shadow-[var(--shadow-panel)]">
+        <FormProvider {...form}><form onSubmit={(event) => void form.handleSubmit(save)(event)} noValidate>
+          <RuleFields disabled={!canUpdate || busy} onChange={() => { invalidatePreview(); setMessage(''); }} />
+        </form></FormProvider>
+      </div>
+      <aside className="min-w-0 rounded-xl border border-border-subtle bg-surface-panel p-5 shadow-[var(--shadow-panel)] xl:sticky xl:top-20">
+        <FormSection title="服务端预览" description="输入当前与前期样本数，只预览配置和样本资格；不会创建或修改业务记录。">
+          <FormProvider {...samples}><SampleFields disabled={!canPreview || busy || conflict} onChange={invalidatePreview} /></FormProvider>
+          <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" disabled={!canPreview || busy || conflict || previewPending || !csrfToken}
+            onClick={() => void form.handleSubmit((configuration) => samples.handleSubmit((counts) => runPreview(configuration, counts))())()}> {previewPending ? '预览中…' : '预览配置与样本资格'}</Button>
+            {previewPending && <Button type="button" variant="outline" onClick={invalidatePreview}>取消预览</Button>}</div>
+          {previewPending && <p className="text-xs text-text-secondary" role="status">正在读取服务端预览…</p>}
+          {preview && canPreview && <GeoRulesPreview preview={preview} />}
+        </FormSection>
+      </aside>
+    </div>
     <StickyActionBar status={<span role="status">{status}</span>} actions={[
       { key: 'reload', label: '重新加载基线并保留草稿', intent: 'secondary', enabled: !busy && !blocked, onSelect: () => void reloadBaseline() },
       ...(canUpdate ? [{ key: 'save', label: '保存规则', intent: 'primary' as const, enabled: !busy && !conflict && Boolean(csrfToken) && form.formState.isDirty,

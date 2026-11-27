@@ -4,14 +4,17 @@ import { useMemo, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { canonicalUuidSchema } from '@/shared/lib/canonical-uuid';
 import { EmptyTable } from '@/design-system/data-table/empty-table';
+import { FilterChipsBar, type FilterChipItem } from '@/design-system/data-table/filter-chips';
 import { TablePagination } from '@/design-system/data-table/table-pagination';
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
+import { TableToolbar } from '@/design-system/data-table/table-toolbar';
 import { ColumnHeader } from '@/design-system/data-table/column-header';
 import type { ColumnRole } from '@/design-system/data-table/types';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button, buttonVariants } from '@/design-system/primitives/button';
 import { Input } from '@/design-system/primitives/input';
+import { MetadataDisclosure } from '@/design-system/primitives/metadata-disclosure';
 import { catalogListQueryOptions } from './catalog.api';
 import { catalogSearchSchema, stageLabels, subjectTypeLabels, type CatalogSearch, type Subject } from './catalog.model';
 import { CatalogNotice, CatalogSelect, catalogErrorMessage } from './catalog-controls';
@@ -59,22 +62,37 @@ function CatalogFilters({ search, onChange }: { search: CatalogSearch; onChange:
   const [parent, setParent] = useState(search.parent_subject_id ?? '');
   const [error, setError] = useState('');
   function change(changes: Partial<CatalogSearch>) { onChange(catalogSearchSchema.parse({ ...search, ...changes, page: 1 })); }
-  return <div className="space-y-3 rounded-xl border border-border-default bg-surface-panel p-3">
-    <form aria-label="搜索监测对象" className="space-y-3" onSubmit={(event) => {
-      event.preventDefault();
-      if ([product, parent].some((value) => value.trim() && !canonicalUuidSchema.safeParse(value.trim()).success)) { setError('产品 ID 和父级对象 ID 必须为 UUID，或留空。'); return; }
-      setError(''); change({ q, product_id: product, parent_subject_id: parent });
-    }}>
-      <div className="flex flex-wrap items-end gap-3"><label className="min-w-0 flex-1 space-y-1"><span className="text-sm">搜索名称、别名或域名</span><Input maxLength={240} onChange={(event) => setQ(event.target.value)} value={q} /></label><Button type="submit">应用搜索</Button></div>
-      <details><summary className="cursor-pointer text-sm text-text-secondary">按产品或父级 ID 筛选</summary><div className="mt-3 grid gap-3 sm:grid-cols-2"><label className="space-y-1 text-sm">产品 ID<Input onChange={(event) => setProduct(event.target.value)} value={product} /></label><label className="space-y-1 text-sm">父级对象 ID<Input onChange={(event) => setParent(event.target.value)} value={parent} /></label></div></details>
-      {error && <CatalogNotice error>{error}</CatalogNotice>}
-    </form>
-    <div className="grid gap-3 sm:grid-cols-3">
-      <CatalogSelect choices={[{ value: '', label: '全部类型' }, ...Object.entries(subjectTypeLabels).map(([value, label]) => ({ value, label }))]} label="筛选对象类型" onChange={(value) => change({ subject_type: value as CatalogSearch['subject_type'] })} value={search.subject_type ?? ''} />
-      <CatalogSelect choices={[{ value: '', label: '全部状态' }, { value: 'true', label: '已启用' }, { value: 'false', label: '已停用' }]} label="筛选启用状态" onChange={(value) => change({ is_active: value === '' ? undefined : value === 'true' })} value={search.is_active === undefined ? '' : String(search.is_active)} />
-      <CatalogSelect choices={[{ value: 'NAME_ASC', label: '名称升序' }, { value: 'UPDATED_DESC', label: '最近更新' }]} label="列表排序" onChange={(value) => change({ sort: value as CatalogSearch['sort'] })} value={search.sort ?? 'NAME_ASC'} />
-    </div>
-  </div>;
+  const chips: FilterChipItem[] = [
+    ...(search.q ? [{ key: 'q', label: `搜索：${search.q}`, onRemove: () => change({ q: undefined }) }] : []),
+    ...(search.subject_type ? [{ key: 'subject_type', label: `类型：${subjectTypeLabels[search.subject_type]}`, onRemove: () => change({ subject_type: undefined }) }] : []),
+    ...(search.is_active !== undefined ? [{ key: 'is_active', label: `状态：${search.is_active ? '已启用' : '已停用'}`, onRemove: () => change({ is_active: undefined }) }] : []),
+    ...(search.product_id ? [{ key: 'product_id', label: `产品 ID：${search.product_id.slice(0, 8)}…`, onRemove: () => change({ product_id: undefined }) }] : []),
+    ...(search.parent_subject_id ? [{ key: 'parent_subject_id', label: `父级 ID：${search.parent_subject_id.slice(0, 8)}…`, onRemove: () => change({ parent_subject_id: undefined }) }] : []),
+  ];
+  return (
+    <TableToolbar
+      chips={chips.length ? <FilterChipsBar items={chips} onClearAll={() => onChange(catalogSearchSchema.parse({ subject_id: search.subject_id, new: search.new }))} /> : undefined}
+    >
+      <div className="space-y-3">
+        <form aria-label="搜索监测对象" className="space-y-3" onSubmit={(event) => {
+          event.preventDefault();
+          if ([product, parent].some((value) => value.trim() && !canonicalUuidSchema.safeParse(value.trim()).success)) { setError('产品 ID 和父级对象 ID 必须为 UUID，或留空。'); return; }
+          setError(''); change({ q, product_id: product, parent_subject_id: parent });
+        }}>
+          <div className="flex flex-wrap items-end gap-3"><label className="min-w-0 flex-1 space-y-1"><span className="text-sm">搜索名称、别名或域名</span><Input maxLength={240} onChange={(event) => setQ(event.target.value)} value={q} /></label><Button type="submit">应用搜索</Button></div>
+          <MetadataDisclosure summary="按产品或父级 ID 筛选">
+            <div className="mt-1 grid gap-3 sm:grid-cols-2"><label className="space-y-1 text-sm">产品 ID<Input onChange={(event) => setProduct(event.target.value)} value={product} /></label><label className="space-y-1 text-sm">父级对象 ID<Input onChange={(event) => setParent(event.target.value)} value={parent} /></label></div>
+          </MetadataDisclosure>
+          {error && <CatalogNotice error>{error}</CatalogNotice>}
+        </form>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <CatalogSelect choices={[{ value: '', label: '全部类型' }, ...Object.entries(subjectTypeLabels).map(([value, label]) => ({ value, label }))]} label="筛选对象类型" onChange={(value) => change({ subject_type: value as CatalogSearch['subject_type'] })} value={search.subject_type ?? ''} />
+          <CatalogSelect choices={[{ value: '', label: '全部状态' }, { value: 'true', label: '已启用' }, { value: 'false', label: '已停用' }]} label="筛选启用状态" onChange={(value) => change({ is_active: value === '' ? undefined : value === 'true' })} value={search.is_active === undefined ? '' : String(search.is_active)} />
+          <CatalogSelect choices={[{ value: 'NAME_ASC', label: '名称升序' }, { value: 'UPDATED_DESC', label: '最近更新' }]} label="列表排序" onChange={(value) => change({ sort: value as CatalogSearch['sort'] })} value={search.sort ?? 'NAME_ASC'} />
+        </div>
+      </div>
+    </TableToolbar>
+  );
 }
 function assertNever(value: never): never { throw new Error(`Catalog 返回未知下一步：${String(value)}`); }
 export { CatalogList };

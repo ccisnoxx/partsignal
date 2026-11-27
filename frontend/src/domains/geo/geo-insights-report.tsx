@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { Button, buttonVariants } from '@/design-system/primitives/button';
+import { MetadataDisclosure } from '@/design-system/primitives/metadata-disclosure';
 import type { components } from '@/shared/api/generated/schema';
 import {
   contentInsightHref,
@@ -146,7 +147,7 @@ function TrendCard({ label, trend, variant }: { label: string; trend: GeoInsight
         })}
       </svg>
       {variant === 'screen'
-        ? <details><summary className="cursor-pointer text-sm">查看精确数据</summary>{exactTable}</details>
+        ? <MetadataDisclosure summary="查看精确数据">{exactTable}</MetadataDisclosure>
         : exactTable}
     </article>
   );

@@ -2,7 +2,7 @@ import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
 
 import { Button } from '@/design-system/primitives/button';
-import type { ColumnRole } from '@/design-system/data-table/types';
+import type { ColumnPriority, ColumnRole } from '@/design-system/data-table/types';
 import { cn } from '@/shared/lib/utils';
 
 type SortDirection = 'asc' | 'desc' | false;
@@ -10,6 +10,7 @@ type SortDirection = 'asc' | 'desc' | false;
 type ColumnHeaderProps = Omit<ComponentProps<'th'>, 'children' | 'onClick'> & {
   children: ReactNode;
   onSort?: () => void;
+  priority?: ColumnPriority;
   role: ColumnRole;
   sortDirection?: SortDirection;
 };
@@ -18,6 +19,7 @@ function ColumnHeader({
   children,
   className,
   onSort,
+  priority,
   role,
   sortDirection = false,
   ...props
@@ -29,6 +31,7 @@ function ColumnHeader({
     <th
       aria-sort={onSort ? ariaSort : undefined}
       className={cn(className)}
+      data-column-priority={priority}
       data-column-role={role}
       scope="col"
       {...props}

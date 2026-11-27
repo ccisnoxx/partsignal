@@ -3,10 +3,12 @@ import { createColumnHelper, metaHelper, rowPaginationFeature, tableFeatures, us
 import { useMemo, useState } from 'react';
 import { ColumnHeader } from '@/design-system/data-table/column-header';
 import { EmptyTable } from '@/design-system/data-table/empty-table';
+import { FilterChipsBar, type FilterChipItem } from '@/design-system/data-table/filter-chips';
 import { RowActions } from '@/design-system/data-table/row-actions';
 import { TablePagination } from '@/design-system/data-table/table-pagination';
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
+import { TableToolbar } from '@/design-system/data-table/table-toolbar';
 import type { ColumnRole } from '@/design-system/data-table/types';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
@@ -49,7 +51,21 @@ function PlanList({ search, onChange, onOpen }: { search: PlanSearch; onChange: 
 function PlanFilters({ search, onChange }: { search: PlanSearch; onChange: (next: PlanSearch) => void }) {
   const [q, setQ] = useState(search.q ?? '');
   function change(patch: Partial<PlanSearch>) { onChange(planSearchSchema.parse({ ...search, ...patch, page: 1 })); }
-  return <div className="space-y-3 rounded-xl border border-border-default bg-surface-panel p-3"><form aria-label="筛选监测计划" className="flex flex-wrap items-end gap-3" onSubmit={(event) => { event.preventDefault(); change({ q }); }}><label className="min-w-0 flex-1 space-y-1 text-sm">搜索计划名称<Input maxLength={200} onChange={(event) => setQ(event.target.value)} value={q} /></label><Button type="submit">应用筛选</Button></form><div className="grid min-w-0 gap-3 sm:grid-cols-3"><PlanSelect choices={[{ value: '', label: '全部状态' }, ...Object.entries(statusLabels).map(([value, label]) => ({ value, label }))]} label="筛选计划状态" onChange={(value) => change({ status: value as PlanSearch['status'] })} value={search.status ?? ''} /><PlanSelect choices={[{ value: '', label: '全部调度' }, ...Object.entries(scheduleLabels).map(([value, label]) => ({ value, label }))]} label="筛选调度" onChange={(value) => change({ schedule_kind: value as PlanSearch['schedule_kind'] })} value={search.schedule_kind ?? ''} /><PlanSelect choices={[{ value: 'UPDATED_DESC', label: '最近更新' }, { value: 'NAME_ASC', label: '名称升序' }]} label="计划排序" onChange={(value) => change({ sort: value as PlanSearch['sort'] })} value={search.sort ?? 'UPDATED_DESC'} /></div></div>;
+  const chips: FilterChipItem[] = [
+    ...(search.q ? [{ key: 'q', label: `搜索：${search.q}`, onRemove: () => change({ q: undefined }) }] : []),
+    ...(search.status ? [{ key: 'status', label: `状态：${statusLabels[search.status]}`, onRemove: () => change({ status: undefined }) }] : []),
+    ...(search.schedule_kind ? [{ key: 'schedule_kind', label: `调度：${scheduleLabels[search.schedule_kind]}`, onRemove: () => change({ schedule_kind: undefined }) }] : []),
+  ];
+  return (
+    <TableToolbar
+      chips={chips.length ? <FilterChipsBar items={chips} onClearAll={() => onChange(planSearchSchema.parse({ selected: search.selected, new: search.new, edit: search.edit }))} /> : undefined}
+    >
+      <div className="space-y-3">
+        <form aria-label="筛选监测计划" className="flex flex-wrap items-end gap-3" onSubmit={(event) => { event.preventDefault(); change({ q }); }}><label className="min-w-0 flex-1 space-y-1 text-sm">搜索计划名称<Input maxLength={200} onChange={(event) => setQ(event.target.value)} value={q} /></label><Button type="submit">应用筛选</Button></form>
+        <div className="grid min-w-0 gap-3 sm:grid-cols-3"><PlanSelect choices={[{ value: '', label: '全部状态' }, ...Object.entries(statusLabels).map(([value, label]) => ({ value, label }))]} label="筛选计划状态" onChange={(value) => change({ status: value as PlanSearch['status'] })} value={search.status ?? ''} /><PlanSelect choices={[{ value: '', label: '全部调度' }, ...Object.entries(scheduleLabels).map(([value, label]) => ({ value, label }))]} label="筛选调度" onChange={(value) => change({ schedule_kind: value as PlanSearch['schedule_kind'] })} value={search.schedule_kind ?? ''} /><PlanSelect choices={[{ value: 'UPDATED_DESC', label: '最近更新' }, { value: 'NAME_ASC', label: '名称升序' }]} label="计划排序" onChange={(value) => change({ sort: value as PlanSearch['sort'] })} value={search.sort ?? 'UPDATED_DESC'} /></div>
+      </div>
+    </TableToolbar>
+  );
 }
 export { PlanList };
 export type { OpenPlan };

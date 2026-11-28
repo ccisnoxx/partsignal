@@ -58,6 +58,8 @@ type AuthContextValue = {
   isSigningOut: boolean;
   error: unknown;
   isAdmin: boolean;
+  isViewer?: boolean;
+  canOperate?: boolean;
   refresh: () => Promise<void>;
   reconcileUnknownPrincipalResult: () => Promise<void>;
   runPrincipalBoundary: PrincipalBoundaryRunner;
@@ -125,7 +127,7 @@ const authUserSchema = z.strictObject({
   id: canonicalUuidSchema,
   username: z.string(),
   display_name: z.string(),
-  account_type: z.enum(['ADMIN', 'ENGINEER']),
+  account_type: z.enum(['ADMIN', 'ENGINEER', 'VIEWER']),
   is_active: z.boolean(),
   must_change_password: z.boolean(),
   workflow_stage: z.enum(['FIRST_PASSWORD_CHANGE', 'ACTIVE', 'DISABLED']),
@@ -823,6 +825,8 @@ function AuthProvider({ children }: { children: ReactNode }) {
     isSigningOut: logout.isPending,
     error: transitionError ?? session.error,
     isAdmin: user?.account_type === 'ADMIN',
+    isViewer: user?.account_type === 'VIEWER',
+    canOperate: user?.account_type === 'ADMIN' || user?.account_type === 'ENGINEER',
     refresh: async () => {
       if (authReadBlocked || transitionError !== null) {
         authTransitionChannelRef.current?.reconcile();

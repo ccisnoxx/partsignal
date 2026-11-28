@@ -651,11 +651,12 @@ function UserSummary({ data }: { data?: components['schemas']['UserSummary'] }) 
     ['已停用', data?.disabled_total],
     ['必须改密', data?.must_change_password_total],
     ['管理员', data?.admin_total],
+    ['领导只读', data?.viewer_total],
   ] as const;
   return (
     <section aria-label="用户统计" className="space-y-2">
       <p className="text-xs text-text-muted">全局统计，不受当前筛选影响。</p>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
         {items.map(([label, value]) => (
           <div className="rounded-lg border border-border-subtle bg-surface-raised p-3" key={label}>
             <span className="text-xs text-text-muted">{label}</span>

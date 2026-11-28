@@ -17194,6 +17194,7 @@ components:
       enum:
       - ADMIN
       - ENGINEER
+      - VIEWER
     UserStatus:
       type: string
       enum:
@@ -17382,6 +17383,7 @@ components:
       - disabled_total
       - must_change_password_total
       - admin_total
+      - viewer_total
       properties:
         user_total:
           type: integer
@@ -17396,6 +17398,9 @@ components:
           type: integer
           minimum: 0
         admin_total:
+          type: integer
+          minimum: 0
+        viewer_total:
           type: integer
           minimum: 0
     UserList:

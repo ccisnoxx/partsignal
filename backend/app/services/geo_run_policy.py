@@ -183,7 +183,8 @@ def run_workflow(
     AccountType(actor_type)
     actions: list[Action] = []
     manual_pending = state.collection_mode == GeoCollectionMode.MANUAL and cancellable(state)
-    if actor_active:
+    can_operate = actor_active and actor_type in {AccountType.ADMIN, AccountType.ENGINEER}
+    if can_operate:
         if manual_pending and collection_eligible and commands.manual_entry:
             actions.append(Action.ENTER_MANUAL_OBSERVATION)
         if cancellable(state) and commands.cancel:

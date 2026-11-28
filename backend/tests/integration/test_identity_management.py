@@ -372,6 +372,7 @@ def test_user_query_export_and_temporary_password_flow() -> None:
                 "disabled_total": 1,
                 "must_change_password_total": 1,
                 "admin_total": 1,
+                "viewer_total": 0,
             }
 
             literal = client.get("/api/v1/users", params={"q": "%"})

@@ -175,7 +175,7 @@ def generation_job_detail(db: DbSession, job: GenerationJob) -> GenerationJobDet
     responses=error_responses(401, 403, 404, 409, 422),
 )
 def get_generation_options(
-    content_task_id: uuid.UUID, db: DbSession, _user: CurrentUser
+    content_task_id: uuid.UUID, db: DbSession, _user: EngineerUser
 ) -> GenerationOptions:
     """返回任务锁定平台的当前 Prompt 和可选择模型。"""
     task = db.get(ContentTask, content_task_id)
@@ -300,7 +300,7 @@ def create_humanization_job(
     responses=error_responses(401, 403, 404, 422),
 )
 def list_generation_jobs(
-    content_task_id: uuid.UUID, db: DbSession, _user: CurrentUser
+    content_task_id: uuid.UUID, db: DbSession, _user: EngineerUser
 ) -> GenerationJobList:
     """返回任务全部生成作业，使刷新页面后仍可查看和重试。"""
     if db.get(ContentTask, content_task_id) is None:
@@ -322,7 +322,7 @@ def list_generation_jobs(
     responses=error_responses(401, 403, 404, 422),
 )
 def get_generation_job(
-    generation_job_id: uuid.UUID, db: DbSession, _user: CurrentUser
+    generation_job_id: uuid.UUID, db: DbSession, _user: EngineerUser
 ) -> GenerationJobDetail:
     job = db.get(GenerationJob, generation_job_id)
     if job is None:
@@ -362,7 +362,7 @@ def retry_generation_job(
     responses=error_responses(401, 403, 404, 422),
 )
 def list_content_task_versions(
-    content_task_id: uuid.UUID, db: DbSession, _user: CurrentUser
+    content_task_id: uuid.UUID, db: DbSession, _user: EngineerUser
 ) -> ContentVersionList:
     if db.get(ContentTask, content_task_id) is None:
         raise not_found("内容任务")
@@ -409,7 +409,7 @@ def create_manual_content_version(
     responses=error_responses(401, 403, 404, 422),
 )
 def get_content_version(
-    content_version_id: uuid.UUID, db: DbSession, _user: CurrentUser
+    content_version_id: uuid.UUID, db: DbSession, _user: EngineerUser
 ) -> ContentVersionOut:
     content = db.get(ContentVersion, content_version_id)
     if content is None:
@@ -425,7 +425,7 @@ def get_content_version(
     responses=error_responses(401, 403, 404, 409, 422),
 )
 def content_version_detail(
-    content_version_id: uuid.UUID, db: DbSession, _user: CurrentUser
+    content_version_id: uuid.UUID, db: DbSession, _user: EngineerUser
 ) -> ContentVersionDetail:
     """返回可由详情 route 单次绘制的一致只读快照。"""
     return get_content_version_detail(db, content_version_id)
@@ -488,7 +488,7 @@ def delete_content_draft(
     responses=error_responses(401, 403, 404, 409, 422),
 )
 def content_task_review_context(
-    content_task_id: uuid.UUID, db: DbSession, user: CurrentUser
+    content_task_id: uuid.UUID, db: DbSession, user: EngineerUser
 ) -> ContentReviewContext:
     """返回只按任务当前主线形成的一致内容审核快照。"""
     return get_content_task_review_context(
@@ -505,7 +505,7 @@ def content_task_review_context(
     responses=error_responses(401, 403, 404, 409, 422),
 )
 def content_review_context(
-    content_version_id: uuid.UUID, db: DbSession, user: CurrentUser
+    content_version_id: uuid.UUID, db: DbSession, user: EngineerUser
 ) -> ContentReviewContext:
     """返回不可变内容、锁定事实、证据、差异和追加式审核历史。"""
     return get_content_review_context(
@@ -650,7 +650,7 @@ def request_content_changes(
     responses=error_responses(401, 403, 404, 422),
 )
 def compare_content_versions(
-    content_version_id: uuid.UUID, other_version_id: uuid.UUID, db: DbSession, _user: CurrentUser
+    content_version_id: uuid.UUID, other_version_id: uuid.UUID, db: DbSession, _user: EngineerUser
 ) -> ContentDiff:
     left = db.get(ContentVersion, content_version_id)
     right = db.get(ContentVersion, other_version_id)

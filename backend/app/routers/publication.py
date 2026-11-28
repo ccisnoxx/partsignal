@@ -15,6 +15,7 @@ from app.deps import (
     CurrentUser,
     DbSession,
     EngineerUser,
+    ReaderUser,
     assert_account_types,
 )
 from app.errors import error_responses, not_found
@@ -148,7 +149,7 @@ def _publication_repeatable_read(db: DbSession) -> None:
     responses=error_responses(401, 403, 404, 409, 422),
 )
 def get_publication_package(
-    content_version_id: uuid.UUID, db: DbSession, _user: CurrentUser
+    content_version_id: uuid.UUID, db: DbSession, _user: EngineerUser
 ) -> PublicationPackage:
     return build_publication_package(db, content_version_id)
 
@@ -177,7 +178,7 @@ def pre_register_check_publication_work(
     operation_id="listPublicationReadyItems",
     responses=error_responses(401, 403),
 )
-def list_publication_ready_items(db: DbSession, user: CurrentUser) -> PublicationReadyItemList:
+def list_publication_ready_items(db: DbSession, user: EngineerUser) -> PublicationReadyItemList:
     return list_publication_ready_items_service(
         db,
         can_delete_accounts=user.account_type == AccountType.ADMIN.value,
@@ -191,7 +192,7 @@ def list_publication_ready_items(db: DbSession, user: CurrentUser) -> Publicatio
     responses=error_responses(401, 403),
 )
 def get_publication_workbench_summary(
-    db: DbSession, _user: CurrentUser
+    db: DbSession, _user: EngineerUser
 ) -> PublicationWorkbenchSummary:
     return publication_workbench_summary(db)
 
@@ -202,7 +203,7 @@ def get_publication_workbench_summary(
 )
 def list_platform_accounts(
     db: DbSession,
-    user: CurrentUser,
+    user: EngineerUser,
     platform_profile_id: uuid.UUID | None = None,
 ) -> PlatformAccountList:
     query = select(PlatformAccount)
@@ -396,7 +397,7 @@ def create_work(
 )
 def list_publication_works(
     db: DbSession,
-    _user: CurrentUser,
+    _user: EngineerUser,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     status_filter: Annotated[PublicationWorkStatus | None, Query(alias="status")] = None,
@@ -420,7 +421,7 @@ def list_publication_works(
     responses=error_responses(401, 403, 404, 409, 422),
 )
 def get_publication_work(
-    work_id: uuid.UUID, db: DbSession, _user: CurrentUser
+    work_id: uuid.UUID, db: DbSession, _user: EngineerUser
 ) -> PublicationWorkOut:
     work = db.get(PublicationWork, work_id)
     if work is None:
@@ -436,7 +437,7 @@ def get_publication_work(
     dependencies=[Depends(_publication_read_snapshot)],
 )
 def get_publication_workspace_context(
-    work_id: uuid.UUID, db: DbSession, _user: CurrentUser
+    work_id: uuid.UUID, db: DbSession, _user: EngineerUser
 ) -> PublicationWorkspaceContext:
     return publication_workspace_context(db, work_id)
 
@@ -606,7 +607,7 @@ def close_work(
 )
 def list_published_articles(
     db: DbSession,
-    user: CurrentUser,
+    user: ReaderUser,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     search: Annotated[str | None, Query(max_length=200)] = None,
@@ -632,7 +633,7 @@ def list_published_articles(
     dependencies=[Depends(_publication_read_snapshot)],
 )
 def get_published_article(
-    article_id: uuid.UUID, db: DbSession, user: CurrentUser
+    article_id: uuid.UUID, db: DbSession, user: ReaderUser
 ) -> PublishedArticleOut:
     article = db.get(PublishedArticle, article_id)
     if article is None:
@@ -715,7 +716,7 @@ def open_content_issue(
 )
 def list_published_content_issues(
     db: DbSession,
-    _user: CurrentUser,
+    _user: EngineerUser,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     status_filter: Annotated[PublishedContentIssueStatus | None, Query(alias="status")] = None,
@@ -736,7 +737,7 @@ def list_published_content_issues(
     dependencies=[Depends(_publication_read_snapshot)],
 )
 def get_published_content_issue(
-    issue_id: uuid.UUID, db: DbSession, _user: CurrentUser
+    issue_id: uuid.UUID, db: DbSession, _user: EngineerUser
 ) -> PublishedContentIssueOut:
     issue = db.get(PublishedContentIssue, issue_id)
     if issue is None:
@@ -752,7 +753,7 @@ def get_published_content_issue(
     dependencies=[Depends(_publication_read_snapshot)],
 )
 def get_published_content_issue_workspace_context(
-    issue_id: uuid.UUID, db: DbSession, _user: CurrentUser
+    issue_id: uuid.UUID, db: DbSession, _user: EngineerUser
 ) -> PublishedContentIssueWorkspaceContext:
     return published_content_issue_workspace_context(db, issue_id)
 
@@ -765,7 +766,7 @@ def get_published_content_issue_workspace_context(
     dependencies=[Depends(_publication_read_snapshot)],
 )
 def get_repair_context(
-    issue_id: uuid.UUID, db: DbSession, user: CurrentUser
+    issue_id: uuid.UUID, db: DbSession, user: EngineerUser
 ) -> PublishedContentRepairContext:
     return get_published_content_repair_context(
         db,

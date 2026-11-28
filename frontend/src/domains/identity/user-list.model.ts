@@ -19,12 +19,13 @@ type UserCommand =
   | 'show-deletion-blockers';
 type BadgeTone = 'secondary' | 'success' | 'warning' | 'destructive';
 
-const accountTypeValues = ['ADMIN', 'ENGINEER'] as const satisfies readonly AccountType[];
+const accountTypeValues = ['ADMIN', 'ENGINEER', 'VIEWER'] as const satisfies readonly AccountType[];
 const statusValues = ['ENABLED', 'DISABLED', 'ALL'] as const;
 
 const accountTypeRegistry = {
   ADMIN: { label: 'ADMIN', tone: 'warning' },
   ENGINEER: { label: 'ENGINEER', tone: 'secondary' },
+  VIEWER: { label: 'VIEWER', tone: 'secondary' },
 } satisfies Record<AccountType, { label: string; tone: BadgeTone }>;
 
 const userStatusRegistry = {

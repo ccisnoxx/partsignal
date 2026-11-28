@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, status
 from pydantic import BeforeValidator
 from sqlalchemy import select
 
-from app.deps import AdminUser, CsrfProtected, CurrentUser, DbSession, EngineerUser
+from app.deps import AdminUser, CsrfProtected, DbSession, EngineerUser, ReaderUser
 from app.errors import error_responses, not_found
 from app.models.configuration import QueryTopic
 from app.models.content import ContentTask
@@ -110,7 +110,7 @@ def _content_task_read_snapshot(db: DbSession) -> None:
 )
 def list_query_topics(
     db: DbSession,
-    user: CurrentUser,
+    user: ReaderUser,
     is_active: bool | None = None,
 ) -> QueryTopicList:
     query = select(QueryTopic)
@@ -130,7 +130,7 @@ def list_query_topics(
 )
 def list_query_topic_items(
     db: DbSession,
-    user: CurrentUser,
+    user: ReaderUser,
     q: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
     is_active: bool | None = None,
     sort: QueryTopicListSort = QueryTopicListSort.QUESTION_ASC,
@@ -225,7 +225,7 @@ def delete_query_topic(
 )
 def list_platform_profiles(
     db: DbSession,
-    user: CurrentUser,
+    user: ReaderUser,
     q: str | None = Query(None, max_length=200),
     platform_type_id: uuid.UUID | None = None,
     profile_status: Annotated[PlatformProfileStatus | None, Query(alias="status")] = None,
@@ -275,7 +275,7 @@ def create_platform_profile(
 )
 def list_content_tasks(
     db: DbSession,
-    user: CurrentUser,
+    user: EngineerUser,
     q: str | None = Query(None, max_length=200),
     workflow_stage: ContentTaskWorkflowStage | None = None,
     platform_profile_id: uuid.UUID | None = None,
@@ -399,7 +399,7 @@ def get_content_task_creation_options(
     responses=error_responses(401, 403, 404, 422),
 )
 def get_content_task(
-    content_task_id: uuid.UUID, db: DbSession, user: CurrentUser
+    content_task_id: uuid.UUID, db: DbSession, user: EngineerUser
 ) -> ContentTaskOut:
     task = db.get(ContentTask, content_task_id)
     if task is None:
@@ -417,7 +417,7 @@ def get_content_task(
 def get_content_task_detail(
     content_task_id: uuid.UUID,
     db: DbSession,
-    user: CurrentUser,
+    user: EngineerUser,
 ) -> ContentTaskDetail:
     return content_task_detail_out(db, content_task_id, actor=user)
 
@@ -432,7 +432,7 @@ def get_content_task_detail(
 def get_content_editor_context(
     content_task_id: uuid.UUID,
     db: DbSession,
-    user: CurrentUser,
+    user: EngineerUser,
 ) -> ContentEditorContext:
     """返回只按当前主线形成的 Content Editor 首屏快照。"""
     return content_editor_context_out(db, content_task_id, actor=user)

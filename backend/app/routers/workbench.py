@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from app.deps import CurrentUser, DbSession
+from app.deps import DbSession, EngineerUser
 from app.errors import error_responses
 from app.schemas.work_assignment import (
     WorkAssigneeOptionList,
@@ -34,7 +34,7 @@ def _workbench_read_snapshot(db: DbSession) -> None:
     responses=error_responses(401, 403, 409),
     dependencies=[Depends(_workbench_read_snapshot)],
 )
-def get_workbench(db: DbSession, _user: CurrentUser) -> WorkbenchAggregate:
+def get_workbench(db: DbSession, _user: EngineerUser) -> WorkbenchAggregate:
     """返回当前已认证操作者可读取的 Workbench 聚合。"""
     return get_workbench_aggregate(db)
 
@@ -48,7 +48,7 @@ def get_workbench(db: DbSession, _user: CurrentUser) -> WorkbenchAggregate:
 )
 def get_workbench_inbox_route(
     db: DbSession,
-    user: CurrentUser,
+    user: EngineerUser,
     bucket: WorkbenchInboxBucket = "assigned_to_me",
     timezone: Annotated[str, Query(min_length=1, max_length=64)] = "Asia/Shanghai",
 ) -> WorkbenchInbox:
@@ -68,6 +68,6 @@ def get_workbench_inbox_route(
     responses=error_responses(401, 403),
     dependencies=[Depends(_workbench_read_snapshot)],
 )
-def list_workbench_assignees(db: DbSession, _user: CurrentUser) -> WorkAssigneeOptionList:
+def list_workbench_assignees(db: DbSession, _user: EngineerUser) -> WorkAssigneeOptionList:
     """返回可供软归属分派的活跃成员列表。"""
     return list_assignable_users(db)

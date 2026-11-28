@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request, status
 
-from app.deps import CsrfProtected, CurrentUser, DbSession, EngineerUser
+from app.deps import CsrfProtected, DbSession, EngineerUser
 from app.errors import error_responses
 from app.schemas.geo_interventions import (
     GeoInterventionCancelRequest,
@@ -45,7 +45,7 @@ def _repeatable_read_snapshot(db: DbSession) -> None:
 )
 def list_geo_interventions_endpoint(
     db: DbSession,
-    _user: CurrentUser,
+    _user: EngineerUser,
     campaign_id: Annotated[uuid.UUID | None, Query()] = None,
     opportunity_id: Annotated[uuid.UUID | None, Query()] = None,
     intervention_status: Annotated[GeoInterventionStatus | None, Query(alias="status")] = None,
@@ -96,7 +96,7 @@ def create_geo_intervention_endpoint(
 def get_geo_intervention_endpoint(
     intervention_id: uuid.UUID,
     db: DbSession,
-    _user: CurrentUser,
+    _user: EngineerUser,
 ) -> GeoInterventionOut:
     return get_geo_intervention_detail(db, intervention_id)
 

@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
-from app.deps import CurrentUser, DbSession
+from app.deps import DbSession, EngineerUser
 from app.errors import error_responses
 from app.schemas.operations_dashboard import (
     CampaignAttributionDashboardOut,
@@ -37,7 +37,7 @@ def _repeatable_read_snapshot(db: DbSession) -> None:
 def get_campaign_attribution_dashboard_endpoint(
     campaign_id: uuid.UUID,
     db: DbSession,
-    _user: CurrentUser,
+    _user: EngineerUser,
     window_days: Annotated[int, Query(ge=7, le=365)] = 30,
 ) -> CampaignAttributionDashboardOut:
     return get_campaign_attribution_dashboard(db, campaign_id, window_days=window_days)
@@ -52,7 +52,7 @@ def get_campaign_attribution_dashboard_endpoint(
 )
 def get_workbench_operations_metrics_endpoint(
     db: DbSession,
-    _user: CurrentUser,
+    _user: EngineerUser,
     window_days: Annotated[int, Query(ge=7, le=365)] = 30,
 ) -> OperationsMetricsOut:
     return get_workbench_operations_metrics(db, window_days=window_days)

@@ -4377,7 +4377,7 @@ export interface components {
             csrf_token: string;
         };
         /** @enum {string} */
-        AccountType: "ADMIN" | "ENGINEER";
+        AccountType: "ADMIN" | "ENGINEER" | "VIEWER";
         /** @enum {string} */
         UserStatus: "ENABLED" | "DISABLED";
         /**
@@ -4438,6 +4438,7 @@ export interface components {
             disabled_total: number;
             must_change_password_total: number;
             admin_total: number;
+            viewer_total: number;
         };
         UserList: {
             items: components["schemas"]["User"][];

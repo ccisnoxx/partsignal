@@ -15,6 +15,7 @@ from app.deps import (
     CurrentUser,
     DbSession,
     EngineerUser,
+    ReaderUser,
     assert_account_types,
 )
 from app.errors import error_responses, not_found
@@ -92,7 +93,7 @@ def _product_read_snapshot(db: DbSession) -> None:
 )
 def list_products(
     db: DbSession,
-    user: CurrentUser,
+    user: ReaderUser,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     search: Annotated[str | None, Query(max_length=200)] = None,
@@ -140,7 +141,7 @@ def create_product(
     operation_id="getProduct",
     responses=error_responses(401, 403, 404, 422),
 )
-def get_product(product_id: uuid.UUID, db: DbSession, user: CurrentUser) -> ProductOut:
+def get_product(product_id: uuid.UUID, db: DbSession, user: ReaderUser) -> ProductOut:
     product = db.get(Product, product_id)
     if product is None:
         raise not_found("产品")
@@ -157,7 +158,7 @@ def get_product(product_id: uuid.UUID, db: DbSession, user: CurrentUser) -> Prod
 def get_product_detail(
     product_id: uuid.UUID,
     db: DbSession,
-    user: CurrentUser,
+    user: ReaderUser,
 ) -> ProductDetail:
     """返回可由单次请求完整绘制的 Product Detail。"""
     return product_detail_out(db, product_id, actor=user)
@@ -218,7 +219,7 @@ def delete_product(
     responses=error_responses(401, 403, 404, 422),
 )
 def get_product_facts(
-    product_id: uuid.UUID, db: DbSession, _user: CurrentUser
+    product_id: uuid.UUID, db: DbSession, _user: ReaderUser
 ) -> ProductFactsDraft:
     product = db.get(Product, product_id)
     if product is None:
@@ -282,7 +283,7 @@ def confirm_product_facts_review(
 def list_product_fact_history(
     product_id: uuid.UUID,
     db: DbSession,
-    _user: CurrentUser,
+    _user: ReaderUser,
     page: int = Query(1, ge=1),
     page_size: Annotated[Literal[10, 20, 50], BeforeValidator(int), Query()] = 20,
 ) -> ProductFactHistoryList:
@@ -301,7 +302,7 @@ def list_product_fact_history(
     operation_id="listFactVersions",
     responses=error_responses(401, 403, 404, 422),
 )
-def list_fact_versions(product_id: uuid.UUID, db: DbSession, user: CurrentUser) -> FactVersionList:
+def list_fact_versions(product_id: uuid.UUID, db: DbSession, user: ReaderUser) -> FactVersionList:
     if db.get(Product, product_id) is None:
         raise not_found("产品")
     versions = list(
@@ -350,7 +351,7 @@ def submit_product_fact_review(
     responses=error_responses(401, 403, 404, 422),
 )
 def product_fact_review_context(
-    product_id: uuid.UUID, db: DbSession, user: CurrentUser
+    product_id: uuid.UUID, db: DbSession, user: EngineerUser
 ) -> ProductFactReviewWorkspace:
     """返回可由单次请求完整绘制的事实审核工作台。"""
     return get_product_fact_review_context(
@@ -367,7 +368,7 @@ def product_fact_review_context(
     responses=error_responses(401, 403, 404, 422),
 )
 def get_fact_version(
-    fact_version_id: uuid.UUID, db: DbSession, user: CurrentUser
+    fact_version_id: uuid.UUID, db: DbSession, user: ReaderUser
 ) -> FactVersionOut:
     version = db.get(FactVersion, fact_version_id)
     if version is None:
@@ -404,7 +405,7 @@ def delete_fact_version(
     responses=error_responses(401, 403, 404, 422),
 )
 def fact_review_context(
-    fact_version_id: uuid.UUID, db: DbSession, user: CurrentUser
+    fact_version_id: uuid.UUID, db: DbSession, user: EngineerUser
 ) -> FactReviewContext:
     """返回不可变事实快照、差异和当前版本自身的审核历史。"""
     return get_fact_review_context(

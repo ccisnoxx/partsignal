@@ -58,7 +58,7 @@ def _audit_prepared(
             raise AppError("AUTH_REQUIRED", "账号已停用", 401)
         if user.must_change_password:
             raise AppError("PASSWORD_CHANGE_REQUIRED", "必须先修改临时密码", 403)
-        if user.account_type not in {"ADMIN", "ENGINEER"}:
+        if user.account_type not in {"ADMIN", "ENGINEER", "VIEWER"}:
             raise AppError("PERMISSION_DENIED", "当前账号没有执行此操作的权限", 403)
         append_audit(
             audit_db,

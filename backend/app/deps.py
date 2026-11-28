@@ -129,6 +129,10 @@ AdminUser = Annotated[User, Depends(require_account_types(AccountType.ADMIN))]
 EngineerUser = Annotated[
     User, Depends(require_account_types(AccountType.ADMIN, AccountType.ENGINEER))
 ]
+ReaderUser = Annotated[
+    User,
+    Depends(require_account_types(AccountType.ADMIN, AccountType.ENGINEER, AccountType.VIEWER)),
+]
 
 
 def request_id(request: Request) -> str:

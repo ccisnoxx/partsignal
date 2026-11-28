@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response
 
-from app.deps import DbSession, EngineerUser
+from app.deps import DbSession, ReaderUser
 from app.errors import error_responses
 from app.schemas.geo_read_filters import GeoBatchFilters, GeoGlobalRunFilters, GeoRunFilters
 from app.schemas.geo_read_models import (
@@ -27,7 +27,7 @@ router = APIRouter(prefix="/api/v1/geo", tags=["geo-reads"], dependencies=[Depen
     responses=error_responses(401, 403, 404, 409, 422),
 )
 def list_batches(
-    db: DbSession, user: EngineerUser, filters: Annotated[GeoBatchFilters, Query()]
+    db: DbSession, user: ReaderUser, filters: Annotated[GeoBatchFilters, Query()]
 ) -> GeoBatchListPage:
     return service.list_batches(db, filters=filters, actor=user)
 
@@ -38,7 +38,7 @@ def list_batches(
     operation_id="getGeoObservationBatch",
     responses=error_responses(401, 403, 404, 409, 422),
 )
-def get_batch(batch_id: UUID, db: DbSession, user: EngineerUser) -> GeoBatchDetail:
+def get_batch(batch_id: UUID, db: DbSession, user: ReaderUser) -> GeoBatchDetail:
     return service.get_batch(db, batch_id=batch_id, actor=user)
 
 
@@ -49,7 +49,7 @@ def get_batch(batch_id: UUID, db: DbSession, user: EngineerUser) -> GeoBatchDeta
     responses=error_responses(401, 403, 404, 409, 422),
 )
 def list_batch_runs(
-    batch_id: UUID, db: DbSession, user: EngineerUser, filters: Annotated[GeoRunFilters, Query()]
+    batch_id: UUID, db: DbSession, user: ReaderUser, filters: Annotated[GeoRunFilters, Query()]
 ) -> GeoRunListPage:
     return service.list_runs(db, filters=filters, actor=user, batch_id=batch_id)
 
@@ -61,7 +61,7 @@ def list_batch_runs(
     responses=error_responses(401, 403, 404, 409, 422),
 )
 def list_runs(
-    db: DbSession, user: EngineerUser, filters: Annotated[GeoGlobalRunFilters, Query()]
+    db: DbSession, user: ReaderUser, filters: Annotated[GeoGlobalRunFilters, Query()]
 ) -> GeoRunListPage:
     return service.list_runs(db, filters=filters, actor=user)
 
@@ -72,6 +72,6 @@ def list_runs(
     operation_id="getGeoObservationRun",
     responses=error_responses(401, 403, 404, 409, 422, 503),
 )
-def get_run(run_id: UUID, response: Response, db: DbSession, user: EngineerUser) -> GeoRunDetail:
+def get_run(run_id: UUID, response: Response, db: DbSession, user: ReaderUser) -> GeoRunDetail:
     response.headers["Cache-Control"] = "no-store"
     return service.get_run(db, run_id=run_id, actor=user)

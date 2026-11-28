@@ -13,6 +13,7 @@ from app.deps import (
     CsrfProtected,
     CurrentUser,
     DbSession,
+    ReaderUser,
     assert_account_types,
 )
 from app.errors import AppError, error_responses, not_found
@@ -190,7 +191,7 @@ def geo_observation_list_filters(
 )
 def list_geo_observations(
     db: DbSession,
-    user: CurrentUser,
+    user: ReaderUser,
     filters: Annotated[GeoObservationFilters, Depends(geo_observation_filters)],
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
@@ -215,7 +216,7 @@ def list_geo_observations(
 )
 def list_geo_observation_items(
     db: DbSession,
-    user: CurrentUser,
+    user: ReaderUser,
     filters: Annotated[GeoObservationListFilters, Depends(geo_observation_list_filters)],
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[GeoObservationPageSize, BeforeValidator(int), Query()] = 20,
@@ -239,7 +240,7 @@ def list_geo_observation_items(
     responses=error_responses(401, 403, 404, 409, 422),
 )
 def get_geo_observation(
-    observation_id: uuid.UUID, db: DbSession, user: CurrentUser
+    observation_id: uuid.UUID, db: DbSession, user: ReaderUser
 ) -> GeoObservationOut:
     """返回一条观测详情，纠正历史也可以直接读取。"""
     return get_geo_observation_service(db, observation_id, actor=user)
@@ -255,7 +256,7 @@ def get_geo_observation(
 def get_geo_observation_detail(
     observation_id: uuid.UUID,
     db: DbSession,
-    user: CurrentUser,
+    user: ReaderUser,
 ) -> GeoObservationDetail:
     """返回 Frontend V2 单请求可绘制的只读观测详情。"""
     return get_geo_observation_detail_service(db, observation_id, actor=user)
@@ -308,7 +309,7 @@ def delete_geo_observation(
     responses=error_responses(401, 403, 404, 422),
 )
 def list_geo_observation_publications(
-    product_id: uuid.UUID, db: DbSession, _user: CurrentUser
+    product_id: uuid.UUID, db: DbSession, _user: ReaderUser
 ) -> GeoPublicationCandidateList:
     """返回产品当前全部可由人工搜索核对的公开文章。"""
     if db.get(Product, product_id) is None:
@@ -346,7 +347,7 @@ def create_geo_observation(
 )
 def get_geo_insights(
     db: DbSession,
-    user: CurrentUser,
+    user: ReaderUser,
     filters: Annotated[GeoInsightFilters, Depends(geo_insight_filters)],
 ) -> GeoInsights:
     """返回同一筛选口径下的全部人工 GEO 洞察。"""

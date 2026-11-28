@@ -20,6 +20,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.schema import conv
 
 from app.db import Base
 from app.models.base import new_uuid
@@ -30,7 +31,10 @@ class User(Base):
 
     __tablename__ = "users"
     __table_args__ = (
-        CheckConstraint("account_type IN ('ADMIN', 'ENGINEER')", name="ck_users_account_type"),
+        CheckConstraint(
+            "account_type IN ('ADMIN', 'ENGINEER', 'VIEWER')",
+            name=conv("ck_users_account_type"),
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     username: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)

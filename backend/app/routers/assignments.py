@@ -6,7 +6,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, Request
 
-from app.deps import CsrfProtected, CurrentUser, DbSession, EngineerUser
+from app.deps import CsrfProtected, DbSession, EngineerUser
 from app.errors import error_responses
 from app.schemas.work_assignment import (
     WorkAssignmentDetail,
@@ -39,7 +39,7 @@ def get_work_assignment(
     target_type: WorkAssignmentTargetType,
     target_id: uuid.UUID,
     db: DbSession,
-    _user: CurrentUser,
+    _user: EngineerUser,
 ) -> WorkAssignmentDetail:
     """读取指定业务聚合的当前责任人与 SLA 状态。"""
     return get_work_assignment_query(db, target_type=target_type, target_id=target_id)

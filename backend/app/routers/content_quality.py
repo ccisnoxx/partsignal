@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Request, status
 
-from app.deps import CsrfProtected, CurrentUser, DbSession, EngineerUser
+from app.deps import CsrfProtected, DbSession, EngineerUser
 from app.errors import error_responses
 from app.schemas.content_quality import (
     ContentDuplicationAnalysisOut,
@@ -40,7 +40,7 @@ def _repeatable_read_snapshot(db: DbSession) -> None:
 def get_content_version_duplication_analysis_route(
     content_version_id: uuid.UUID,
     db: DbSession,
-    _user: CurrentUser,
+    _user: EngineerUser,
 ) -> ContentDuplicationAnalysisOut:
     """在单次只读快照下分析同活动/同产品内容相似度、重复段落与差异化建议。"""
     return analyze_content_duplication(db, content_version_id=content_version_id)
@@ -56,7 +56,7 @@ def get_content_version_duplication_analysis_route(
 def list_content_version_semantic_quality_checks_route(
     content_version_id: uuid.UUID,
     db: DbSession,
-    _user: CurrentUser,
+    _user: EngineerUser,
 ) -> SemanticQualityCheckJobList:
     """读取目标内容版本的 Layer 2 异步 AI 语义质量检查历史与可用模型。"""
     return list_semantic_quality_check_jobs(db, content_version_id)

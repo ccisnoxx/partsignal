@@ -6,13 +6,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, Query, Request
 
-from app.deps import (
-    AdminUser,
-    CsrfProtected,
-    CurrentUser,
-    DbSession,
-    EngineerUser,
-)
+from app.deps import AdminUser, CsrfProtected, DbSession, EngineerUser
 from app.errors import error_responses
 from app.schemas.page_health import (
     PlatformHealthCheckSettingsOut,
@@ -51,7 +45,7 @@ def _repeatable_read_snapshot(db: DbSession) -> None:
 def get_platform_health_check_settings_endpoint(
     platform_profile_id: uuid.UUID,
     db: DbSession,
-    _user: CurrentUser,
+    _user: EngineerUser,
 ) -> PlatformHealthCheckSettingsOut:
     return get_platform_health_check_settings(db, platform_profile_id)
 
@@ -89,7 +83,7 @@ def update_platform_health_check_settings_endpoint(
 def list_published_article_health_checks_endpoint(
     article_id: uuid.UUID,
     db: DbSession,
-    _user: CurrentUser,
+    _user: EngineerUser,
     limit: int = Query(default=30, ge=1, le=100),
 ) -> PublishedArticleHealthCheckList:
     return list_published_article_health_checks(db, article_id=article_id, limit=limit)

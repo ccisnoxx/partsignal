@@ -1541,3 +1541,8 @@ GET Run详情新增required nullable cancellation，返回真实reason/操作者
 - **`ai_models` 可选单价三元组**：新增 `input_price_per_1m_tokens NUMERIC(14, 6)`、`output_price_per_1m_tokens NUMERIC(14, 6)` 与 `price_currency VARCHAR(8)`（同空或同非空且价格 `>= 0`、币种匹配 `^[A-Z]{3}$`）；未配置保持 `NULL`，绝不补零伪装免费。
 - **`generation_jobs` 与 `content_quality_check_jobs` 冻结成本列**：均新增 `cost_amount NUMERIC(14, 6)`、`cost_currency VARCHAR(8)`（同空或同非空，口径与 `geo_observation_runs` 一致）；作业成功写入 Token 用量时按当时模型单价冻结计算，缺价或无 Token 显式保持 `NULL`。
 - **`operating_cost_entries`（追加式人工/外采费用台账）**：归属 `campaign_id` 或 `geo_intervention_id`（至少其一非空），记录 `category`（`LABOR | EXTERNAL_PLACEMENT | OTHER`）、`amount NUMERIC(14, 2)`、`currency`、`incurred_on`、`note` 及一次性作废字段 `voided_at/voided_by/void_reason`。触发器 `trg_operating_cost_entries_immutable` 禁止所有 `DELETE` 与除单次作废外的任意 `UPDATE`（`55000`）。`0079` 降级固定以 `55000` 拒绝。
+
+## 2026-11-28 Slice 1A：三级 RBAC 与领导只读角色（`0080_rbac_viewer_role`）
+
+- **`users.account_type` 扩展三级权限**：更新 `ck_users_account_type` 为 `CHECK (account_type IN ('ADMIN', 'ENGINEER', 'VIEWER'))`。`ADMIN` 拥有全局管理权限，`ENGINEER` 拥有日常运营读写权限，`VIEWER` 为领导只读账号。
+- **Fail-closed 服务端鉴权边界**：新增 `ReaderUser` 依赖（`ADMIN | ENGINEER | VIEWER`），仅显式开放给领导只读白名单 `GET` 接口（GEO 总览、洞察、报告、运行/证据下钻、旧观测只读视图、产品/平台/问题/已发布文章只读列表及证据文件下载）；所有非自助写接口与运营态 `GET` 接口统一要求 `EngineerUser` 或 `AdminUser`，并由 `test_rbac_viewer_fail_closed.py` 自动化遍历全部 FastAPI 路由校验。`UserSummary` 同步补充 `viewer_total`。`0080` 降级固定以 `55000` 拒绝。

@@ -15,6 +15,7 @@ from app.deps import (
     CsrfProtected,
     CurrentUser,
     DbSession,
+    ReaderUser,
     assert_account_types,
 )
 from app.errors import error_responses, not_found
@@ -476,7 +477,7 @@ def export_platform_profiles(
 def get_platform_profile(
     platform_profile_id: uuid.UUID,
     db: DbSession,
-    user: CurrentUser,
+    user: ReaderUser,
 ) -> PlatformProfileDetail:
     return get_platform_profile_detail_query(
         db,

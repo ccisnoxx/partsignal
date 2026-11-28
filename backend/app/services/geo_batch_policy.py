@@ -161,9 +161,10 @@ def batch_workflow(
         Status.BUDGET_BLOCKED,
     }:
         task = Task.VIEW_RESULTS
+    can_operate = actor_active and actor_type in {AccountType.ADMIN, AccountType.ENGINEER}
     actions = (
         [GeoBatchAction.CANCEL]
-        if actor_active and cancel_available and any(cancellable(run.state) for run in latest)
+        if can_operate and cancel_available and any(cancellable(run.state) for run in latest)
         else []
     )
     return GeoBatchWorkflowProjection(

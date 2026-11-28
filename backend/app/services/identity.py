@@ -315,6 +315,7 @@ def _user_summary(db: Session) -> UserSummary:
             func.count(User.id).filter(User.is_active.is_(False)),
             func.count(User.id).filter(User.must_change_password.is_(True)),
             func.count(User.id).filter(User.account_type == "ADMIN"),
+            func.count(User.id).filter(User.account_type == "VIEWER"),
         )
     ).one()
     return UserSummary(
@@ -323,6 +324,7 @@ def _user_summary(db: Session) -> UserSummary:
         disabled_total=int(totals[2]),
         must_change_password_total=int(totals[3]),
         admin_total=int(totals[4]),
+        viewer_total=int(totals[5]),
     )
 
 

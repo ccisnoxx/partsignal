@@ -11,7 +11,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import ClientDisconnect
 
 from app.config import settings
-from app.deps import CsrfProtected, CurrentUser, DbSession, EngineerUser
+from app.deps import CsrfProtected, DbSession, EngineerUser, ReaderUser
 from app.errors import AppError, error_responses, not_found
 from app.models.geo_files import FileRecord
 from app.schemas.common import SignedUrl
@@ -134,7 +134,7 @@ def complete_file_upload(
     responses=error_responses(401, 403, 404, 422),
     operation_id="getFileRecord",
 )
-def get_file_record(file_id: uuid.UUID, db: DbSession, _user: CurrentUser) -> FileRecordOut:
+def get_file_record(file_id: uuid.UUID, db: DbSession, _user: ReaderUser) -> FileRecordOut:
     file = db.get(FileRecord, file_id)
     if file is None:
         raise not_found("文件记录")
@@ -166,7 +166,7 @@ def abort_file_upload(
     responses=error_responses(401, 403, 404, 409, 422),
     operation_id="getFileDownloadUrl",
 )
-def get_file_download_url(file_id: uuid.UUID, db: DbSession, _user: CurrentUser) -> SignedUrl:
+def get_file_download_url(file_id: uuid.UUID, db: DbSession, _user: ReaderUser) -> SignedUrl:
     file = db.get(FileRecord, file_id)
     if file is None:
         raise not_found("文件记录")

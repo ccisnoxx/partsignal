@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query, Request, status
 from pydantic import BeforeValidator
 
-from app.deps import CsrfProtected, CurrentUser, DbSession, EngineerUser
+from app.deps import CsrfProtected, DbSession, EngineerUser
 from app.errors import error_responses
 from app.schemas.campaign import (
     ContentCampaignCreate,
@@ -55,7 +55,7 @@ router = APIRouter(prefix="/api/v1/content-campaigns", tags=["planning"])
 )
 def list_content_campaigns(
     db: DbSession,
-    _user: CurrentUser,
+    _user: EngineerUser,
     q: Annotated[str | None, Query(max_length=200)] = None,
     campaign_status: Annotated[ContentCampaignStatus | None, Query(alias="status")] = None,
     priority: WorkPriority | None = None,
@@ -124,7 +124,7 @@ def create_content_campaign(
 def get_content_campaign(
     campaign_id: uuid.UUID,
     db: DbSession,
-    _user: CurrentUser,
+    _user: EngineerUser,
 ) -> ContentCampaignDetail:
     return get_content_campaign_detail_query(db, campaign_id)
 

@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Response
 
-from app.deps import DbSession, EngineerUser
+from app.deps import DbSession, ReaderUser
 from app.errors import error_responses
 from app.schemas.geo_insights import (
     GeoOverview,
@@ -28,7 +28,7 @@ router = APIRouter(
 )
 def overview(
     db: DbSession,
-    user: EngineerUser,
+    user: ReaderUser,
     response: Response,
     filters: Annotated[GeoOverviewFilters, Query()],
 ) -> GeoOverview:
@@ -44,7 +44,7 @@ def overview(
 )
 def samples(
     db: DbSession,
-    user: EngineerUser,
+    user: ReaderUser,
     response: Response,
     filters: Annotated[GeoOverviewSampleFilters, Query()],
 ) -> GeoOverviewRunPage:

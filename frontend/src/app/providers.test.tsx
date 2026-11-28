@@ -235,6 +235,7 @@ describe('AppProviders', () => {
               disabled_total: 0,
               must_change_password_total: 0,
               admin_total: 1,
+              viewer_total: 0,
             },
           },
           response: Response.json({}),

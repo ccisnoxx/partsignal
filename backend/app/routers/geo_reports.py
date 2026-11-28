@@ -4,7 +4,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 
-from app.deps import DbSession, EngineerUser
+from app.deps import DbSession, ReaderUser
 from app.errors import error_responses
 from app.schemas.geo_answer_insights import GeoAnswerInsightFilters
 from app.schemas.geo_insights import GeoOverviewFilters
@@ -25,7 +25,7 @@ router = APIRouter(
 )
 def preview(
     db: DbSession,
-    user: EngineerUser,
+    user: ReaderUser,
     response: Response,
     filters: Annotated[GeoAnswerInsightFilters, Query()],
 ) -> GeoReportPreview:
@@ -42,7 +42,7 @@ def preview(
 def print_report(
     request: Request,
     db: DbSession,
-    user: EngineerUser,
+    user: ReaderUser,
     response: Response,
     filters: Annotated[GeoAnswerInsightFilters, Query()],
 ) -> GeoReportPreview:
@@ -74,7 +74,7 @@ OPPORTUNITY_CSV_RESPONSES = {key: value for key, value in CSV_RESPONSES.items() 
 def runs_csv(
     request: Request,
     db: DbSession,
-    user: EngineerUser,
+    user: ReaderUser,
     filters: Annotated[GeoOverviewFilters, Query()],
 ) -> Response:
     return service.prepare_csv(db, user, filters, "runs", request.state.request_id)
@@ -89,7 +89,7 @@ def runs_csv(
 def citations_csv(
     request: Request,
     db: DbSession,
-    user: EngineerUser,
+    user: ReaderUser,
     filters: Annotated[GeoOverviewFilters, Query()],
 ) -> Response:
     return service.prepare_csv(db, user, filters, "citations", request.state.request_id)
@@ -104,7 +104,7 @@ def citations_csv(
 def claims_csv(
     request: Request,
     db: DbSession,
-    user: EngineerUser,
+    user: ReaderUser,
     filters: Annotated[GeoOverviewFilters, Query()],
 ) -> Response:
     return service.prepare_csv(db, user, filters, "claims", request.state.request_id)
@@ -119,7 +119,7 @@ def claims_csv(
 def opportunities_csv(
     request: Request,
     db: DbSession,
-    user: EngineerUser,
+    user: ReaderUser,
     filters: Annotated[GeoOverviewFilters, Query()],
 ) -> Response:
     return service.prepare_csv(db, user, filters, "opportunities", request.state.request_id)

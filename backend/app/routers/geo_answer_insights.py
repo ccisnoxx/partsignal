@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Response
 
-from app.deps import DbSession, EngineerUser
+from app.deps import DbSession, ReaderUser
 from app.errors import error_responses
 from app.schemas.geo_answer_insights import (
     GeoAnswerInsightFilters,
@@ -39,7 +39,7 @@ router = APIRouter(
 )
 def insights(
     db: DbSession,
-    user: EngineerUser,
+    user: ReaderUser,
     response: Response,
     filters: Annotated[GeoAnswerInsightFilters, Query()],
 ) -> GeoAnswerInsights:
@@ -55,7 +55,7 @@ def insights(
 )
 def samples(
     db: DbSession,
-    user: EngineerUser,
+    user: ReaderUser,
     response: Response,
     filters: Annotated[GeoAnswerInsightSampleFilters, Query()],
 ) -> GeoAnswerInsightRunPage:
@@ -71,7 +71,7 @@ def samples(
 )
 def citations(
     db: DbSession,
-    user: EngineerUser,
+    user: ReaderUser,
     response: Response,
     filters: Annotated[GeoInsightCitationFilters, Query()],
 ) -> GeoInsightCitationPage:
@@ -87,7 +87,7 @@ def citations(
 )
 def claims(
     db: DbSession,
-    user: EngineerUser,
+    user: ReaderUser,
     response: Response,
     filters: Annotated[GeoInsightClaimFilters, Query()],
 ) -> GeoInsightClaimPage:
@@ -103,7 +103,7 @@ def claims(
 )
 def quality_runs(
     db: DbSession,
-    user: EngineerUser,
+    user: ReaderUser,
     response: Response,
     filters: Annotated[GeoInsightQualityFilters, Query()],
 ) -> GeoInsightQualityPage:

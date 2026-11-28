@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request, status
 
-from app.deps import AdminUser, CsrfProtected, CurrentUser, DbSession, EngineerUser
+from app.deps import AdminUser, CsrfProtected, DbSession, EngineerUser
 from app.errors import error_responses
 from app.schemas.cost_accounting import (
     AIModelPricingOut,
@@ -82,7 +82,7 @@ def update_ai_model_pricing_endpoint(
 )
 def list_operating_cost_entries_endpoint(
     db: DbSession,
-    _user: CurrentUser,
+    _user: EngineerUser,
     campaign_id: Annotated[uuid.UUID | None, Query()] = None,
     geo_intervention_id: Annotated[uuid.UUID | None, Query()] = None,
     category: Annotated[OperatingCostCategory | None, Query()] = None,

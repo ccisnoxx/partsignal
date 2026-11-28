@@ -16,6 +16,7 @@ from app.schemas.base import ContractModel, require_unique_items
 class AccountType(StrEnum):
     ADMIN = "ADMIN"
     ENGINEER = "ENGINEER"
+    VIEWER = "VIEWER"
 
 
 class UserStatus(StrEnum):
@@ -90,6 +91,7 @@ class UserSummary(ContractModel):
     disabled_total: int = Field(ge=0)
     must_change_password_total: int = Field(ge=0)
     admin_total: int = Field(ge=0)
+    viewer_total: int = Field(ge=0)
 
 
 class UserList(ContractModel):

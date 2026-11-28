@@ -26,7 +26,7 @@ const auditModuleValues = [
 ] as const satisfies readonly AuditModule[];
 const auditOutcomeValues = ['SUCCESS', 'FAILED', 'DENIED'] as const satisfies readonly AuditOutcome[];
 const auditPageSizeValues = [10, 20, 50] as const;
-const auditAccountTypeValues = ['ADMIN', 'ENGINEER'] as const;
+const auditAccountTypeValues = ['ADMIN', 'ENGINEER', 'VIEWER'] as const;
 const auditRelatedStatusValues = ['AVAILABLE', 'MISSING', 'UNSUPPORTED'] as const;
 // 与后端 audit_logs._related_entry 的登记类型及 parent_id 语义保持一一对应。
 const auditRelatedRegistry = new Map<string, 'NONE' | 'AVAILABLE' | 'MISSING'>([

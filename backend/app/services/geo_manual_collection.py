@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.audit import append_audit
 from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.errors import AppError, not_found
+from app.models.geo_analysis import GeoRunReview
 from app.models.geo_answers import GeoAnswerCitation, GeoAnswerSnapshot
 from app.models.geo_files import FileRecord
 from app.models.geo_manual_collection import GeoManualDraft, GeoManualSubmission
@@ -69,10 +70,15 @@ def canonical_draft(value: GeoManualObservationDraft) -> dict[str, Any]:
 
 
 def submission_hash(run_id: UUID, value: GeoManualObservationSubmit) -> str:
+    obs = canonical_draft(value)
+    if value.actual_prompt_text is not None:
+        obs["actual_prompt_text"] = value.actual_prompt_text
+    if value.inline_review is not None:
+        obs["inline_review"] = value.inline_review.model_dump(mode="json")
     data = {
         "run_id": str(run_id),
         "expected_draft_revision": value.expected_draft_revision,
-        "observation": canonical_draft(value),
+        "observation": obs,
     }
     return hashlib.sha256(
         json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
@@ -309,9 +315,28 @@ def save_manual_draft(
 
 
 def _receipt(db: Session, submission: GeoManualSubmission) -> GeoManualObservationSubmitted:
+    from app.services.geo_citation_matching import list_run_citation_links
+
     answer = db.get(GeoAnswerSnapshot, submission.answer_snapshot_id)
     if answer is None:
         raise ValueError("提交身份缺少不可变回答")
+    run = db.get(GeoObservationRun, submission.run_id)
+    run_status = GeoRunStatus(run.status) if run is not None else GeoRunStatus.COLLECTED
+    analysis_id = run.current_analysis_revision_id if run is not None else None
+    latest_review_id = db.scalar(
+        select(GeoRunReview.id)
+        .where(GeoRunReview.run_id == submission.run_id)
+        .order_by(GeoRunReview.created_at.desc(), GeoRunReview.id.desc())
+        .limit(1)
+    )
+    links = list_run_citation_links(db, submission.run_id)
+    dispatch_label: Any = (
+        "SYNC_COMPLETED"
+        if run_status == GeoRunStatus.COMPLETED
+        else "SYNC_NEEDS_REVIEW"
+        if run_status == GeoRunStatus.NEEDS_REVIEW
+        else "NOT_IMPLEMENTED"
+    )
     return GeoManualObservationSubmitted(
         run_id=submission.run_id,
         answer_snapshot_id=answer.id,
@@ -321,7 +346,11 @@ def _receipt(db: Session, submission: GeoManualSubmission) -> GeoManualObservati
         collected_at=answer.collected_at,
         submitted_at=submission.created_at,
         collection_status="COLLECTED",
-        analysis_dispatch="NOT_IMPLEMENTED",
+        run_status=run_status,
+        analysis_revision_id=analysis_id,
+        review_id=latest_review_id,
+        citation_links=links,
+        analysis_dispatch=dispatch_label,
     )
 
 
@@ -334,6 +363,8 @@ def submit_manual_observation(
     idempotency_key: str,
     request_id: str,
 ) -> GeoManualObservationSubmitted:
+    from app.services.geo_manual_sync_analysis import run_sync_analysis_after_manual_submit
+
     identity = submission_identity(actor.id, idempotency_key)
     digest = submission_hash(run_id, payload)
     with command(db, actor) as current:
@@ -353,29 +384,39 @@ def submit_manual_observation(
         _check_revision(draft, payload.expected_draft_revision)
         if not payload.answer_text.strip():
             raise AppError("GEO_ANSWER_EMPTY", "正式提交必须包含非空回答", 422)
-        if payload.screenshot_file_id is None and payload.raw_payload_file_id is None:
-            raise AppError("GEO_EVIDENCE_REQUIRED", "正式提交必须包含截图或原始证据", 422)
-        if (
+        require_screenshot = bool(
             run.input_snapshot["profile"]["settings"].get("require_screenshot", True)
-            and payload.screenshot_file_id is None
-        ):
+        )
+        if require_screenshot and payload.screenshot_file_id is None:
             raise AppError("GEO_SCREENSHOT_REQUIRED", "冻结的采集配置要求截图证据", 422)
         detached = _lock_files(db, draft, payload, current)
         now = db.scalar(select(func.clock_timestamp()))
         assert isinstance(now, datetime)
         collected = payload.collected_at.astimezone(UTC)
-        if not run.created_at <= collected <= now:
-            raise AppError("VALIDATION_ERROR", "采集时间必须在运行创建与当前提交时间之间", 422)
+        if collected > now:
+            raise AppError("VALIDATION_ERROR", "采集时间不能晚于当前提交时间", 422)
+        if not run.is_backfill and collected < run.created_at:
+            raise AppError("VALIDATION_ERROR", "非历史补录运行的采集时间不能早于运行创建时间", 422)
+        frozen_prompt = run.input_snapshot["prompt"]["prompt_text"]
+        actual_prompt = (
+            payload.actual_prompt_text.strip()
+            if payload.actual_prompt_text is not None and payload.actual_prompt_text.strip()
+            else None
+        )
+        query_modified = actual_prompt is not None and actual_prompt != frozen_prompt
+        if not query_modified:
+            actual_prompt = None
         citations = prepare_answer_citations(
             [GeoAnswerCitationInput.model_validate(v.model_dump()) for v in payload.citations]
         )
-        # 先解除临时引用，再创建答案；所有步骤仍受 Run 锁和同一事务保护。
         if draft is not None:
             db.delete(draft)
             db.flush()
         answer = GeoAnswerSnapshot(
             run_id=run.id,
-            prompt_text=run.input_snapshot["prompt"]["prompt_text"],
+            prompt_text=frozen_prompt,
+            actual_prompt_text=actual_prompt,
+            query_modified=query_modified,
             answer_text=payload.answer_text,
             answer_format=payload.answer_format,
             source_product=payload.source_product,
@@ -435,6 +476,25 @@ def submit_manual_observation(
             request_id=request_id,
         )
         db.flush()
-        result = _receipt(db, submission)
+        base_receipt = _receipt(db, submission)
         db.commit()
-        return result
+
+    # Phase 2: 原始证据已安全冻结提交；同步执行确定性分析、引用分级归因与可选同屏确认
+    run_status, analysis_id, review_id, links, dispatch_label = (
+        run_sync_analysis_after_manual_submit(
+            db,
+            run_id=run_id,
+            actor=actor,
+            inline_review=payload.inline_review,
+            request_id=request_id,
+        )
+    )
+    return base_receipt.model_copy(
+        update={
+            "run_status": run_status,
+            "analysis_revision_id": analysis_id,
+            "review_id": review_id,
+            "citation_links": links,
+            "analysis_dispatch": dispatch_label,
+        }
+    )

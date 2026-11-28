@@ -42,6 +42,11 @@ class GeoPlanSubjectRole(StrEnum):
     REFERENCE = "REFERENCE"
 
 
+class GeoPlanRole(StrEnum):
+    CORE_BASELINE = "CORE_BASELINE"
+    STANDARD = "STANDARD"
+
+
 def _cron_field_pattern(names: Iterable[str] = ()) -> str:
     literals = ["".join(f"[{char.lower()}{char.upper()}]" for char in name) for name in names]
     atom = "(?:" + "|".join(["[0-9]+", *literals]) + ")"
@@ -174,7 +179,8 @@ class GeoMonitoringPlanConfiguration(ContractModel):
 
 
 class GeoMonitoringPlanCreate(GeoMonitoringPlanConfiguration):
-    pass
+    plan_role: GeoPlanRole | None = None
+    default_assignee_id: UUID | None = None
 
 
 class GeoMonitoringPlanRevisionRequest(ContractModel):
@@ -185,6 +191,8 @@ class GeoMonitoringPlanUpdate(GeoMonitoringPlanConfiguration):
     """完整替换配置，避免 PATCH 集合片段绕过聚合完整性；不允许写状态或追溯。"""
 
     expected_revision: Revision
+    plan_role: GeoPlanRole | None = None
+    default_assignee_id: UUID | None = None
 
 
 class GeoMonitoringPlanOut(GeoMonitoringPlanConfiguration):
@@ -192,6 +200,8 @@ class GeoMonitoringPlanOut(GeoMonitoringPlanConfiguration):
 
     id: UUID
     status: GeoMonitoringPlanStatus
+    plan_role: GeoPlanRole | None = None
+    default_assignee_id: UUID | None = None
     revision: Revision
     created_by: UUID
     updated_by: UUID

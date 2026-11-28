@@ -204,9 +204,14 @@ def _eligibility(
 ) -> MetricEligibility:
     reasons = list(common)
     unbranded_only = metric == MetricCode.NATURAL_VISIBILITY or metric in SOV_METRICS
-    if (unbranded_only and dimensions.mention_mode != "UNBRANDED") or (
-        metric == MetricCode.BRANDED_ANSWER and dimensions.mention_mode != "BRANDED"
-    ):
+    if (
+        unbranded_only
+        and (
+            dimensions.mention_mode != "UNBRANDED"
+            or dimensions.prompt_category != "NATURAL_DEMAND"
+            or run.query_modified
+        )
+    ) or (metric == MetricCode.BRANDED_ANSWER and dimensions.mention_mode != "BRANDED"):
         reasons.append(MetricExclusion.MENTION_MODE_NOT_APPLICABLE)
     if metric == MetricCode.PRODUCT_MENTION and not scope.is_product:
         reasons.append(MetricExclusion.SUBJECT_NOT_APPLICABLE)

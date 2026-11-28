@@ -53,6 +53,7 @@ def variant_out(
             "query_topic_id",
             "prompt_text",
             "mention_mode",
+            "prompt_category",
             "language_code",
             "region_code",
             "priority",

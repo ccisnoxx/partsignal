@@ -161,14 +161,25 @@ def _changed(plan: GeoMonitoringPlan, actor: User) -> None:
 
 
 def _create(
-    db: Session, value: GeoMonitoringPlanConfiguration, actor: User, request_id: str, action: str
+    db: Session,
+    value: GeoMonitoringPlanConfiguration,
+    actor: User,
+    request_id: str,
+    action: str,
+    *,
+    plan_role: str = "STANDARD",
+    default_assignee_id: UUID | None = None,
 ) -> GeoMonitoringPlanDetail:
     require_supported_schedule(value.schedule_kind, registered=True)
+    if default_assignee_id is not None and db.get(User, default_assignee_id) is None:
+        raise AppError("VALIDATION_ERROR", "默认负责人用户不存在", 422)
     preview = previews(db, [value])[0]
     require_references(preview)
     plan = GeoMonitoringPlan(
         id=uuid4(),
         **{name: getattr(value, name) for name in CONFIGURATION_FIELDS},
+        plan_role=plan_role,
+        default_assignee_id=default_assignee_id,
         status="DISABLED",
         revision=0,
         created_by=actor.id,
@@ -187,7 +198,15 @@ def create_plan(
         value = canonical_configuration(payload)
         require_supported_schedule(value.schedule_kind, registered=True)
         lock_resources(db, [value])
-        return _create(db, value, current, request_id, "created")
+        return _create(
+            db,
+            value,
+            current,
+            request_id,
+            "created",
+            plan_role=(payload.plan_role.value if payload.plan_role else "STANDARD"),
+            default_assignee_id=payload.default_assignee_id,
+        )
 
 
 def update_plan(
@@ -201,14 +220,28 @@ def update_plan(
         if value.schedule_kind != before.schedule_kind:
             raise AppError("INVALID_STATE_TRANSITION", "调度方式创建后不可变，请新建计划", 409)
         require_mutable(Status(plan.status))
+        if (
+            payload.default_assignee_id is not None
+            and db.get(User, payload.default_assignee_id) is None
+        ):
+            raise AppError("VALIDATION_ERROR", "默认负责人用户不存在", 422)
         preview = previews(db, [value])[0]
         require_references(preview)
-        changed = value != before
+        role_changed = payload.plan_role is not None and payload.plan_role.value != plan.plan_role
+        assignee_changed = (
+            "default_assignee_id" in payload.model_fields_set
+            and payload.default_assignee_id != plan.default_assignee_id
+        )
+        changed = value != before or role_changed or assignee_changed
         if changed:
             if plan.status == Status.ACTIVE:
                 require_eligible(preview)
             for name in CONFIGURATION_FIELDS:
                 setattr(plan, name, getattr(value, name))
+            if payload.plan_role is not None:
+                plan.plan_role = payload.plan_role.value
+            if "default_assignee_id" in payload.model_fields_set:
+                plan.default_assignee_id = payload.default_assignee_id
             if any(
                 getattr(value, name) != getattr(before, name)
                 for name in ("subjects", "prompt_variant_ids", "collection_profile_ids")

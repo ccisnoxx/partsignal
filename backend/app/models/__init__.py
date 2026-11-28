@@ -13,6 +13,7 @@ import app.models.geo_answers  # noqa: F401
 import app.models.geo_batch_creation  # noqa: F401
 import app.models.geo_browser_sessions  # noqa: F401
 import app.models.geo_catalog  # noqa: F401
+import app.models.geo_citation_links  # noqa: F401
 import app.models.geo_collection_admission  # noqa: F401
 import app.models.geo_files  # noqa: F401
 import app.models.geo_interventions  # noqa: F401

@@ -112,6 +112,7 @@ def freeze_batch(
     scheduled_for: datetime | None,
     identity: str | None,
     request_id: str | None,
+    run_overrides: dict[str, object] | None = None,
 ) -> GeoObservationBatch:
     # 调用者已锁定并裁决人工/已登记定时入口；本函数只冻结批次。
     # 当前规则只在创建边界读取一次；幂等重放在进入本函数前返回原快照。
@@ -171,6 +172,7 @@ def freeze_batch(
         for p in selection.prompt_variant_ids
         for c in selection.collection_profile_ids
     }
+    extra_run_fields = dict(run_overrides or {})
     for cells in batched(matrix.cells(), 250):
         db.execute(
             insert(GeoObservationRun),
@@ -182,6 +184,7 @@ def freeze_batch(
                     "collection_profile_id": c.collection_profile_id,
                     "repeat_index": c.repeat_index,
                     "input_snapshot": snapshots[c.prompt_variant_id, c.collection_profile_id],
+                    **extra_run_fields,
                 }
                 for c in cells
             ],

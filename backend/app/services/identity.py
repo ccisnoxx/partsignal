@@ -47,6 +47,7 @@ from app.models.cost_accounting import OperatingCostEntry
 from app.models.geo_analysis import GeoRunReview
 from app.models.geo_browser_sessions import GeoBrowserSession
 from app.models.geo_catalog import GeoSubject
+from app.models.geo_citation_links import GeoCitationPublicationLink
 from app.models.geo_files import FileRecord, GeoObservation
 from app.models.geo_interventions import GeoIntervention
 from app.models.geo_manual_cancellation import GeoManualRunCancellation
@@ -63,7 +64,7 @@ from app.models.geo_opportunity_schedule import GeoOpportunitySchedule
 from app.models.geo_prompt_variants import GeoPromptVariant
 from app.models.geo_retests import GeoRetestBaseline, GeoRetestRequest
 from app.models.geo_rules import GeoRuleSetRevision
-from app.models.geo_runs import GeoObservationBatch
+from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
 from app.models.geo_surfaces import GeoCollectionProfile, GeoEngineSurface
 from app.models.identity import (
     SessionRecord,
@@ -170,6 +171,9 @@ def _user_business_reference_counts(
         GeoIntervention.assignee_id,
         GeoIntervention.created_by,
         GeoIntervention.updated_by,
+        GeoMonitoringPlan.default_assignee_id,
+        GeoObservationRun.assignee_id,
+        GeoCitationPublicationLink.confirmed_by,
         OperatingCostEntry.created_by,
         OperatingCostEntry.voided_by,
         FileRecord.uploader_id,

@@ -7,6 +7,7 @@ from typing import Any
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Computed,
     DateTime,
@@ -182,7 +183,9 @@ class GeoObservationRun(Base):
             "'PROVIDER_TIMEOUT','PROVIDER_UNAVAILABLE','PROVIDER_RESPONSE_INVALID',"
             "'PROVIDER_RESPONSE_TOO_LARGE','COLLECTOR_UNKNOWN_OUTCOME',"
             "'DATA_CLASSIFICATION_FORBIDDEN','PROFILE_NEEDS_REAUTH','WORKER_LOST',"
-            "'BUDGET_EXCEEDED','ANALYSIS_FAILED','REVIEW_FAILED') AND error_summary IS "
+            "'BUDGET_EXCEEDED','ANALYSIS_FAILED','REVIEW_FAILED','MANUAL_TIMEOUT',"
+            "'MANUAL_PLATFORM_UNAVAILABLE','MANUAL_ANSWER_UNAVAILABLE',"
+            "'MANUAL_ACCESS_BLOCKED','MANUAL_OTHER') AND error_summary IS "
             "NOT NULL AND length(btrim(error_summary)) > 0) OR (status NOT IN ('FAILED',"
             "'BUDGET_BLOCKED') AND error_stage IS NULL AND error_code IS NULL AND "
             "error_summary IS NULL)",
@@ -217,8 +220,8 @@ class GeoObservationRun(Base):
             name=conv("ck_geo_runs_usage"),
         ),
         CheckConstraint(
-            "(started_at IS NULL OR started_at >= created_at) AND (collected_at IS NULL "
-            "OR (started_at IS NOT NULL AND collected_at >= started_at)) AND "
+            "(started_at IS NULL OR is_backfill = TRUE OR started_at >= created_at) AND "
+            "(collected_at IS NULL OR (started_at IS NOT NULL AND collected_at >= started_at)) AND "
             "(finished_at IS NULL OR finished_at >= COALESCE(collected_at,started_at,"
             "created_at)) AND ((status IN ('COMPLETED','FAILED','CANCELLED',"
             "'BUDGET_BLOCKED')) = (finished_at IS NOT NULL)) AND (status NOT IN "
@@ -230,6 +233,20 @@ class GeoObservationRun(Base):
             "collected_at IS NULL)",
             name=conv("ck_geo_runs_time"),
         ),
+        CheckConstraint(
+            "entry_kind IN ('PLAN_STANDARD','BACKFILL','EXPLORATORY','ARTICLE_LOOKUP')",
+            name=conv("ck_geo_runs_entry_kind"),
+        ),
+        CheckConstraint(
+            "(is_backfill = FALSE AND backfill_source IS NULL AND entry_kind <> 'BACKFILL') OR "
+            "(is_backfill = TRUE AND entry_kind = 'BACKFILL' AND backfill_source IS NOT NULL "
+            "AND length(btrim(backfill_source)) BETWEEN 1 AND 160)",
+            name=conv("ck_geo_runs_backfill_pair"),
+        ),
+        CheckConstraint(
+            "target_article_publication_id IS NULL OR entry_kind = 'ARTICLE_LOOKUP'",
+            name=conv("ck_geo_runs_article_lookup_target"),
+        ),
         Index(
             "uq_geo_runs_successor",
             "previous_attempt_id",
@@ -237,6 +254,23 @@ class GeoObservationRun(Base):
             postgresql_where=text("previous_attempt_id IS NOT NULL"),
         ),
         Index("ix_geo_runs_status_created", "status", "created_at", "id"),
+        Index(
+            "ix_geo_runs_effective_time",
+            text("COALESCE(collected_at, created_at) DESC"),
+            "id",
+        ),
+        Index(
+            "ix_geo_runs_assignee_status",
+            "assignee_id",
+            "status",
+            text("created_at DESC"),
+            postgresql_where=text("assignee_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_geo_runs_target_article_pub",
+            "target_article_publication_id",
+            postgresql_where=text("target_article_publication_id IS NOT NULL"),
+        ),
         Index(
             "ix_geo_runs_pending_dispatch_due",
             text("COALESCE(last_dispatch_attempt_at, created_at)"),
@@ -314,6 +348,25 @@ class GeoObservationRun(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     collected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    entry_kind: Mapped[str] = mapped_column(
+        String(24), nullable=False, default="PLAN_STANDARD", server_default="PLAN_STANDARD"
+    )
+    is_backfill: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
+    backfill_source: Mapped[str | None] = mapped_column(String(160))
+    assignee_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", name="fk_geo_runs_assignee", ondelete="RESTRICT"),
+    )
+    target_article_publication_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "article_publications.id",
+            name="fk_geo_runs_target_article_pub",
+            ondelete="RESTRICT",
+        ),
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

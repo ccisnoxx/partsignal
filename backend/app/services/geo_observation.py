@@ -73,7 +73,7 @@ from app.services.content_planning import (
     add_locked_content_task,
     lock_content_task_creation_resources,
 )
-from app.services.file_records import schedule_unreferenced_file, verified_files
+from app.services.file_records import schedule_unreferenced_file
 from app.services.storage import get_evidence_storage
 
 
@@ -2474,109 +2474,13 @@ def _is_geo_observation_successor_integrity_error(error: IntegrityError) -> bool
 def create_geo_observation(
     *, db: Session, payload: GeoObservationCreate, actor: User, request_id: str
 ) -> GeoObservation:
-    """锁定完整文章集合，并以可选证据追加人工 GEO 观测。"""
-    product = db.scalar(select(Product).where(Product.id == payload.product_id).with_for_update())
-    if product is None:
-        raise not_found("产品")
-    if db.get(QueryTopic, payload.query_topic_id) is None:
-        raise not_found("问题主题")
-    candidates = geo_publication_candidates(db, payload.product_id, lock=True)
-    if not candidates:
-        raise AppError("VALIDATION_ERROR", "该产品暂无可观测的已发布文章", 422)
-    submitted_ids = {item.published_article_id for item in payload.article_results}
-    candidate_ids = {item.published_article_id for item in candidates}
-    if submitted_ids != candidate_ids:
-        raise AppError(
-            "GEO_PUBLICATIONS_CHANGED",
-            "产品的已发布文章集合已变化，请刷新后重新登记",
-            409,
-        )
-    files = verified_files(db, payload.attachment_file_ids)
-    if any(file.category != "OPERATION_SCREENSHOT" for file in files):
-        raise AppError("VALIDATION_ERROR", "GEO 观测附件必须是搜索结果截图", 422)
-    if payload.supersedes_id:
-        previous = db.scalar(
-            select(GeoObservation)
-            .where(GeoObservation.id == payload.supersedes_id)
-            .with_for_update()
-        )
-        if previous is None:
-            raise not_found("被纠正的 GEO 观测")
-        if (
-            previous.product_id != payload.product_id
-            or previous.observation_kind != "MANUAL_ARTICLE_SEARCH"
-        ):
-            raise AppError("VALIDATION_ERROR", "只能更正同一产品的人工 GEO 观测", 422)
-        if (
-            previous.search_platform != payload.search_platform
-            or previous.search_query != payload.search_query
-            # 补采前历史没有问题主题；首次追加更正必须补全真实关联。
-            or (
-                previous.query_topic_id is not None
-                and previous.query_topic_id != payload.query_topic_id
-            )
-        ):
-            raise AppError("VALIDATION_ERROR", "更正时不能改变问题主题、搜索平台或搜索词", 422)
-        if (
-            db.scalar(select(GeoObservation.id).where(GeoObservation.supersedes_id == previous.id))
-            is not None
-        ):
-            raise _geo_observation_has_successor_error()
-        if files:
-            ancestor_ids = [previous.id]
-            ancestor = previous
-            while ancestor.supersedes_id is not None:
-                parent = db.get(GeoObservation, ancestor.supersedes_id)
-                if parent is None:
-                    raise AppError(
-                        "GEO_OBSERVATION_CONTEXT_INCOMPLETE", "GEO 观测更正链不完整", 409
-                    )
-                ancestor = parent
-                ancestor_ids.append(ancestor.id)
-            reused_file_id = db.scalar(
-                select(GeoObservationAttachment.file_id)
-                .where(
-                    GeoObservationAttachment.observation_id.in_(ancestor_ids),
-                    GeoObservationAttachment.file_id.in_([file.id for file in files]),
-                )
-                .limit(1)
-            )
-            if reused_file_id is not None:
-                raise AppError("VALIDATION_ERROR", "新增证据不能重复关联更正链已有文件", 422)
-    observation = GeoObservation(
-        observation_kind="MANUAL_ARTICLE_SEARCH",
-        query_topic_id=payload.query_topic_id,
-        product_id=payload.product_id,
-        search_platform=payload.search_platform,
-        search_query=payload.search_query,
-        tested_at=payload.tested_at,
-        notes=payload.notes,
-        supersedes_id=payload.supersedes_id,
-        tested_by=actor.id,
+    """旧版文章搜索观测已冻结为历史只读视图；新建录入统一走回答级今日监测工作流。"""
+    _ = (db, payload, actor, request_id)
+    raise AppError(
+        "LEGACY_OBSERVATION_ENTRY_FROZEN",
+        "旧版人工观测录入已冻结为历史只读视图，请前往「今日监测」使用统一回答级录入入口",
+        410,
     )
-    db.add(observation)
-    try:
-        db.flush()
-    except IntegrityError as error:
-        if not _is_geo_observation_successor_integrity_error(error):
-            raise
-        db.rollback()
-        raise _geo_observation_has_successor_error() from error
-    db.add_all(
-        GeoObservationPublication(
-            observation_id=observation.id,
-            published_article_id=result.published_article_id,
-            discovered=result.discovered,
-            mentioned=result.mentioned,
-            accuracy=result.accuracy,
-        )
-        for result in payload.article_results
-    )
-    db.add_all(
-        GeoObservationAttachment(observation_id=observation.id, file_id=file.id) for file in files
-    )
-    db.commit()
-    return observation
 
 
 def _lock_manual_observation_chain(

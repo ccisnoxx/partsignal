@@ -17909,6 +17909,658 @@ paths:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '400':
           $ref: '#/components/responses/ErrorResponse'
+  /api/v1/geo/daily-checklist:
+    get:
+      tags:
+      - geo-daily-checklist
+      summary: Get Daily Checklist Route
+      operationId: getGeoDailyChecklist
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: target_date
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Target Date
+      - name: timezone
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 64
+          default: Asia/Shanghai
+          title: Timezone
+      - name: assignee_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Assignee Id
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/GeoRunStatus'
+          - type: 'null'
+          title: Status
+      - name: category
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/GeoPromptCategory'
+          - type: 'null'
+          title: Category
+      - $ref: '#/components/parameters/RequestIdHeader'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeoDailyChecklistOut'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/geo/daily-checklist/ensure:
+    post:
+      tags:
+      - geo-daily-checklist
+      summary: Ensure Daily Checklist Route
+      operationId: ensureGeoDailyChecklist
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      - $ref: '#/components/parameters/RequestIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeoDailyChecklistEnsureRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeoDailyChecklistEnsureOut'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '409':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/geo/direct-observations:
+    post:
+      tags:
+      - geo-daily-checklist
+      summary: Create Direct Manual Observation Route
+      operationId: createGeoDirectManualObservation
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      - $ref: '#/components/parameters/RequestIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeoDirectManualObservationCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeoDirectManualObservationOut'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '404':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '409':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/geo/citation-links/{link_id}:
+    patch:
+      tags:
+      - geo-daily-checklist
+      summary: Decide Citation Link Route
+      operationId: decideGeoCitationLink
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: link_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Link Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      - $ref: '#/components/parameters/RequestIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeoCitationLinkDecisionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeoCitationPublicationLinkOut'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '404':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '409':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/geo/citations/{citation_id}/links:
+    post:
+      tags:
+      - geo-daily-checklist
+      summary: Create Manual Citation Link Route
+      operationId: createManualGeoCitationLink
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: citation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Citation Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      - $ref: '#/components/parameters/RequestIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeoCitationManualLinkRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeoCitationPublicationLinkOut'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '404':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '409':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/geo/observation-runs/{run_id}/manual-preview:
+    post:
+      tags:
+      - geo-manual-collection
+      summary: Manual Preview
+      description: 只读规则预判：别名命中、推荐初判、URL 抽取与文章发布候选匹配。
+      operationId: previewGeoManualObservation
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Run Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      - $ref: '#/components/parameters/RequestIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeoManualPreviewRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeoManualPreviewOut'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '404':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/geo/observation-runs/{run_id}/manual-fail:
+    post:
+      tags:
+      - geo-manual-collection
+      summary: Manual Fail
+      description: 标记人工采集异常失败，绝不伪装为未命中。
+      operationId: failGeoManualObservationRun
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Run Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      - $ref: '#/components/parameters/RequestIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeoManualFailRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeoManualFailOut'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '404':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '409':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/geo/observation-runs/{run_id}/citation-links:
+    get:
+      tags:
+      - geo-manual-collection
+      summary: List Run Citation Links Route
+      description: 只读返回单次运行的回答引用到文章发布台账的分级归因列表。
+      operationId: listGeoRunCitationLinks
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Run Id
+      - $ref: '#/components/parameters/RequestIdHeader'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GeoCitationPublicationLinkOut'
+                title: Response Listgeoruncitationlinks
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '404':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
 components:
   securitySchemes:
     geoBrowserServiceKey:
@@ -28868,30 +29520,39 @@ components:
       - EXPLORATORY
       type: string
     GeoPromptVariantCreate:
-      additionalProperties: false
       properties:
         query_topic_id:
-          format: uuid
           type: string
+          format: uuid
+          title: Query Topic Id
         prompt_text:
+          type: string
           maxLength: 8000
           minLength: 1
           pattern: ^[^\x00]*[^\s\x00][^\x00]*$
-          type: string
+          title: Prompt Text
         mention_mode:
           $ref: '#/components/schemas/GeoPromptMentionMode'
+        prompt_category:
+          anyOf:
+          - $ref: '#/components/schemas/GeoPromptCategory'
+          - type: 'null'
         language_code:
+          type: string
           maxLength: 16
           minLength: 2
           pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
-          type: string
+          title: Language Code
         region_code:
+          type: string
           maxLength: 2
           minLength: 2
           pattern: ^[A-Za-z]{2}$
-          type: string
+          title: Region Code
         priority:
           $ref: '#/components/schemas/GeoPromptPriority'
+      additionalProperties: false
+      type: object
       required:
       - query_topic_id
       - prompt_text
@@ -28899,38 +29560,43 @@ components:
       - language_code
       - region_code
       - priority
-      type: object
-      description: GEO-201 组件，GEO-202 接线端点。语言/地区/模式/优先级必须显式提供；文本 NFKC 与 Unicode 空白折叠，保留大小写、标点与型号后缀。创建者由服务端身份确定。
+      title: GeoPromptVariantCreate
     GeoPromptVariantUpdate:
-      additionalProperties: false
-      minProperties: 2
       properties:
         expected_revision:
-          minimum: 0
           type: integer
+          minimum: 0.0
+          title: Expected Revision
         prompt_text:
+          type: string
           maxLength: 8000
           minLength: 1
           pattern: ^[^\x00]*[^\s\x00][^\x00]*$
-          type: string
+          title: Prompt Text
         mention_mode:
           $ref: '#/components/schemas/GeoPromptMentionMode'
+        prompt_category:
+          $ref: '#/components/schemas/GeoPromptCategory'
         language_code:
+          type: string
           maxLength: 16
           minLength: 2
           pattern: ^[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*$
-          type: string
+          title: Language Code
         region_code:
+          type: string
           maxLength: 2
           minLength: 2
           pattern: ^[A-Za-z]{2}$
-          type: string
+          title: Region Code
         priority:
           $ref: '#/components/schemas/GeoPromptPriority'
+      additionalProperties: false
+      type: object
+      minProperties: 2
       required:
       - expected_revision
-      type: object
-      description: 仅未引用变体允许编辑。PATCH 只写显式字段；必须携带 expected_revision。历史后只能停用，新语义创建新变体。
+      title: GeoPromptVariantUpdate
     GeoPromptVariantRevisionRequest:
       additionalProperties: false
       properties:
@@ -29011,52 +29677,66 @@ components:
       - REFERENCED
       type: string
     GeoPromptVariantOut:
-      additionalProperties: false
       properties:
         id:
-          format: uuid
           type: string
+          format: uuid
+          title: Id
         query_topic_id:
-          format: uuid
           type: string
+          format: uuid
+          title: Query Topic Id
         prompt_text:
+          type: string
           maxLength: 8000
           minLength: 1
           pattern: ^[^\x00]*[^\s\x00][^\x00]*$
-          type: string
+          title: Prompt Text
         mention_mode:
           $ref: '#/components/schemas/GeoPromptMentionMode'
+        prompt_category:
+          anyOf:
+          - $ref: '#/components/schemas/GeoPromptCategory'
+          - type: 'null'
         language_code:
+          type: string
           maxLength: 16
           minLength: 2
           pattern: ^[a-z]{2,8}(-[a-z0-9]{1,8})*$
-          type: string
+          title: Language Code
         region_code:
+          type: string
           maxLength: 2
           minLength: 2
           pattern: ^[A-Z]{2}$
-          type: string
+          title: Region Code
         priority:
           $ref: '#/components/schemas/GeoPromptPriority'
         is_active:
           type: boolean
+          title: Is Active
         revision:
-          minimum: 0
           type: integer
+          minimum: 0.0
+          title: Revision
         first_referenced_at:
           anyOf:
-          - format: date-time
-            type: string
+          - type: string
+            format: date-time
           - type: 'null'
+          title: First Referenced At
         created_by:
+          type: string
           format: uuid
-          type: string
+          title: Created By
         created_at:
-          format: date-time
           type: string
+          format: date-time
+          title: Created At
         updated_at:
-          format: date-time
           type: string
+          format: date-time
+          title: Updated At
         query_topic:
           $ref: '#/components/schemas/GeoPromptTopicSummary'
         workflow_stage:
@@ -29067,10 +29747,13 @@ components:
           items:
             $ref: '#/components/schemas/GeoPromptVariantAction'
           type: array
+          title: Available Actions
         deletion:
           $ref: '#/components/schemas/GeoPromptVariantDeletion'
         run_entry:
           $ref: '#/components/schemas/GeoPromptRunEntry'
+      additionalProperties: false
+      type: object
       required:
       - id
       - query_topic_id
@@ -29091,7 +29774,7 @@ components:
       - available_actions
       - deletion
       - run_entry
-      type: object
+      title: GeoPromptVariantOut
     GeoPromptVariantListPage:
       additionalProperties: false
       properties:
@@ -30667,13 +31350,8 @@ components:
       title: GeoPlanSubjectRole
       type: string
     GeoMonitoringPlanCreate:
-      additionalProperties: false
       allOf:
-      - else:
-          properties:
-            cron_expression:
-              type: 'null'
-        if:
+      - if:
           properties:
             schedule_kind:
               const: CRON
@@ -30685,104 +31363,112 @@ components:
               type: string
           required:
           - cron_expression
+        else:
+          properties:
+            cron_expression:
+              type: 'null'
       properties:
         name:
+          type: string
           maxLength: 200
           minLength: 1
           pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
           title: Name
-          type: string
         description:
-          default: ''
+          type: string
           pattern: ^[^\x00]*$
           title: Description
-          type: string
+          default: ''
         subjects:
+          items:
+            $ref: '#/components/schemas/GeoPlanSubject'
           contains:
             properties:
               role:
                 const: PRIMARY
             required:
             - role
-          description: subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
-          items:
-            $ref: '#/components/schemas/GeoPlanSubject'
-          minContains: 1
-          minItems: 1
-          title: Subjects
           type: array
+          minItems: 1
           uniqueItems: true
+          minContains: 1
+          title: Subjects
+          description: subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
         prompt_variant_ids:
           items:
-            format: uuid
             type: string
-          minItems: 1
-          title: Prompt Variant Ids
+            format: uuid
           type: array
+          minItems: 1
           uniqueItems: true
+          title: Prompt Variant Ids
         collection_profile_ids:
           items:
-            format: uuid
             type: string
-          minItems: 1
-          title: Collection Profile Ids
+            format: uuid
           type: array
+          minItems: 1
           uniqueItems: true
+          title: Collection Profile Ids
         repeat_count:
-          default: 3
-          maximum: 10
-          minimum: 1
-          title: Repeat Count
           type: integer
+          maximum: 10.0
+          minimum: 1.0
+          title: Repeat Count
+          default: 3
         schedule_kind:
           $ref: '#/components/schemas/GeoPlanScheduleKind'
           default: MANUAL_ONLY
         cron_expression:
           anyOf:
-          - maxLength: 120
+          - type: string
+            maxLength: 120
             minLength: 9
             pattern: ^(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))*
               (?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))*
               (?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))*
               (?:\*(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])-(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC]))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])-(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])))*
               (?:\*(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])-(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT]))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])-(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])))*$(?![\s\S])
-            type: string
           - type: 'null'
-          default: null
           title: Cron Expression
         timezone:
-          default: Asia/Shanghai
+          type: string
           maxLength: 64
           minLength: 1
           title: Timezone
-          type: string
+          default: Asia/Shanghai
         budget_limit:
           anyOf:
-          - pattern: ^(?:0|[1-9][0-9]{0,7})(?:\.[0-9]{1,6})?$(?![\s\S])
-            type: string
+          - type: string
+            pattern: ^(?:0|[1-9][0-9]{0,7})(?:\.[0-9]{1,6})?$(?![\s\S])
           - type: 'null'
-          default: null
           title: Budget Limit
         rule_set_revision:
-          default: 1
-          minimum: 1
-          title: Rule Set Revision
           type: integer
+          minimum: 1.0
+          title: Rule Set Revision
+          default: 1
+        plan_role:
+          anyOf:
+          - $ref: '#/components/schemas/GeoPlanRole'
+          - type: 'null'
+        default_assignee_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Default Assignee Id
+      additionalProperties: false
+      type: object
       required:
       - name
       - subjects
       - prompt_variant_ids
       - collection_profile_ids
       title: GeoMonitoringPlanCreate
-      type: object
     GeoMonitoringPlanUpdate:
-      additionalProperties: false
       allOf:
-      - else:
-          properties:
-            cron_expression:
-              type: 'null'
-        if:
+      - if:
           properties:
             schedule_kind:
               const: CRON
@@ -30794,94 +31480,107 @@ components:
               type: string
           required:
           - cron_expression
-      description: 完整替换配置，避免 PATCH 集合片段绕过聚合完整性；不允许写状态或追溯。
+        else:
+          properties:
+            cron_expression:
+              type: 'null'
       properties:
         name:
+          type: string
           maxLength: 200
           minLength: 1
           pattern: ^[^\s\x00](?:[^\x00]*[^\s\x00])?$
           title: Name
-          type: string
         description:
-          default: ''
+          type: string
           pattern: ^[^\x00]*$
           title: Description
-          type: string
+          default: ''
         subjects:
+          items:
+            $ref: '#/components/schemas/GeoPlanSubject'
           contains:
             properties:
               role:
                 const: PRIMARY
             required:
             - role
-          description: subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
-          items:
-            $ref: '#/components/schemas/GeoPlanSubject'
-          minContains: 1
-          minItems: 1
-          title: Subjects
           type: array
+          minItems: 1
           uniqueItems: true
+          minContains: 1
+          title: Subjects
+          description: subject_id 在集合内唯一；至少一个 PRIMARY，不由对象类型推断角色。
         prompt_variant_ids:
           items:
-            format: uuid
             type: string
-          minItems: 1
-          title: Prompt Variant Ids
+            format: uuid
           type: array
+          minItems: 1
           uniqueItems: true
+          title: Prompt Variant Ids
         collection_profile_ids:
           items:
-            format: uuid
             type: string
-          minItems: 1
-          title: Collection Profile Ids
+            format: uuid
           type: array
+          minItems: 1
           uniqueItems: true
+          title: Collection Profile Ids
         repeat_count:
-          default: 3
-          maximum: 10
-          minimum: 1
-          title: Repeat Count
           type: integer
+          maximum: 10.0
+          minimum: 1.0
+          title: Repeat Count
+          default: 3
         schedule_kind:
           $ref: '#/components/schemas/GeoPlanScheduleKind'
           default: MANUAL_ONLY
         cron_expression:
           anyOf:
-          - maxLength: 120
+          - type: string
+            maxLength: 120
             minLength: 9
             pattern: ^(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))*
               (?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))*
               (?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+)-(?:[0-9]+)(?:/[0-9]+)?|(?:[0-9]+)))*
               (?:\*(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])-(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC]))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])-(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])(?:/[0-9]+)?|(?:[0-9]+|[jJ][aA][nN]|[fF][eE][bB]|[mM][aA][rR]|[aA][pP][rR]|[mM][aA][yY]|[jJ][uU][nN]|[jJ][uU][lL]|[aA][uU][gG]|[sS][eE][pP]|[oO][cC][tT]|[nN][oO][vV]|[dD][eE][cC])))*
               (?:\*(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])-(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT]))(?:,(?:\*(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])-(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])(?:/[0-9]+)?|(?:[0-9]+|[sS][uU][nN]|[mM][oO][nN]|[tT][uU][eE]|[wW][eE][dD]|[tT][hH][uU]|[fF][rR][iI]|[sS][aA][tT])))*$(?![\s\S])
-            type: string
           - type: 'null'
-          default: null
           title: Cron Expression
         timezone:
-          default: Asia/Shanghai
+          type: string
           maxLength: 64
           minLength: 1
           title: Timezone
-          type: string
+          default: Asia/Shanghai
         budget_limit:
           anyOf:
-          - pattern: ^(?:0|[1-9][0-9]{0,7})(?:\.[0-9]{1,6})?$(?![\s\S])
-            type: string
+          - type: string
+            pattern: ^(?:0|[1-9][0-9]{0,7})(?:\.[0-9]{1,6})?$(?![\s\S])
           - type: 'null'
-          default: null
           title: Budget Limit
         rule_set_revision:
-          default: 1
-          minimum: 1
+          type: integer
+          minimum: 1.0
           title: Rule Set Revision
-          type: integer
+          default: 1
         expected_revision:
-          minimum: 0
-          title: Expected Revision
           type: integer
+          minimum: 0.0
+          title: Expected Revision
+        plan_role:
+          anyOf:
+          - $ref: '#/components/schemas/GeoPlanRole'
+          - type: 'null'
+        default_assignee_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Default Assignee Id
+      additionalProperties: false
+      type: object
       required:
       - name
       - subjects
@@ -30889,7 +31588,7 @@ components:
       - collection_profile_ids
       - expected_revision
       title: GeoMonitoringPlanUpdate
-      type: object
+      description: 完整替换配置，避免 PATCH 集合片段绕过聚合完整性；不允许写状态或追溯。
     GeoMonitoringPlanStatus:
       enum:
       - DISABLED
@@ -31452,6 +32151,16 @@ components:
           title: Id
         status:
           $ref: '#/components/schemas/GeoMonitoringPlanStatus'
+        plan_role:
+          anyOf:
+          - $ref: '#/components/schemas/GeoPlanRole'
+          - type: 'null'
+        default_assignee_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Default Assignee Id
         revision:
           type: integer
           minimum: 0.0
@@ -32053,6 +32762,7 @@ components:
       title: GeoRunDomainSnapshot
       type: object
     GeoRunErrorCode:
+      type: string
       enum:
       - COLLECTOR_CONFIGURATION_INVALID
       - COLLECTOR_DISABLED
@@ -32069,8 +32779,12 @@ components:
       - BUDGET_EXCEEDED
       - ANALYSIS_FAILED
       - REVIEW_FAILED
+      - MANUAL_TIMEOUT
+      - MANUAL_PLATFORM_UNAVAILABLE
+      - MANUAL_ANSWER_UNAVAILABLE
+      - MANUAL_ACCESS_BLOCKED
+      - MANUAL_OTHER
       title: GeoRunErrorCode
-      type: string
     GeoRunErrorStage:
       enum:
       - COLLECTION
@@ -33322,6 +34036,16 @@ components:
           type: integer
           minimum: 0.0
           title: Expected Draft Revision
+        actual_prompt_text:
+          anyOf:
+          - type: string
+            maxLength: 8000
+          - type: 'null'
+          title: Actual Prompt Text
+        inline_review:
+          anyOf:
+          - $ref: '#/components/schemas/GeoManualInlineReview'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -33448,9 +34172,36 @@ components:
           type: string
           const: COLLECTED
           title: Collection Status
+        run_status:
+          anyOf:
+          - $ref: '#/components/schemas/GeoRunStatus'
+          - type: 'null'
+        analysis_revision_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Analysis Revision Id
+        review_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Review Id
+        citation_links:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/GeoCitationPublicationLinkOut'
+            type: array
+          - type: 'null'
+          title: Citation Links
         analysis_dispatch:
           type: string
-          const: NOT_IMPLEMENTED
+          enum:
+          - NOT_IMPLEMENTED
+          - SYNC_COMPLETED
+          - SYNC_NEEDS_REVIEW
+          - DISPATCHED
           title: Analysis Dispatch
       additionalProperties: false
       type: object
@@ -33465,7 +34216,7 @@ components:
       - collection_status
       - analysis_dispatch
       title: GeoManualObservationSubmitted
-      description: 首次提交的稳定回执；不代表当前 Run 状态或已经执行分析。
+      description: 人工提交回执：记录原始回答冻结结果及同步确定性分析/复核状态。
     GeoBatchListItem:
       additionalProperties: false
       properties:
@@ -49210,3 +49961,944 @@ components:
       additionalProperties: false
       type: object
       title: ProductPromptCopyBundleRequest
+    GeoCitationLinkDecisionRequest:
+      properties:
+        expected_revision:
+          type: integer
+          minimum: 0.0
+          title: Expected Revision
+        link_status:
+          type: string
+          enum:
+          - CONFIRMED
+          - REJECTED
+          title: Link Status
+      additionalProperties: false
+      type: object
+      required:
+      - expected_revision
+      - link_status
+      title: GeoCitationLinkDecisionRequest
+    GeoCitationLinkStatus:
+      type: string
+      enum:
+      - AUTO_EXACT
+      - CANDIDATE
+      - CONFIRMED
+      - REJECTED
+      title: GeoCitationLinkStatus
+    GeoCitationManualLinkRequest:
+      properties:
+        article_publication_id:
+          type: string
+          format: uuid
+          title: Article Publication Id
+        match_reason:
+          type: string
+          maxLength: 500
+          title: Match Reason
+          default: 人工确认引用归属
+      additionalProperties: false
+      type: object
+      required:
+      - article_publication_id
+      title: GeoCitationManualLinkRequest
+    GeoCitationMatchMethod:
+      type: string
+      enum:
+      - EXACT_NORMALIZED_URL
+      - STRIPPED_TRACKING_CANDIDATE
+      - SAME_DOMAIN_CANDIDATE
+      - MANUAL_SELECTED
+      title: GeoCitationMatchMethod
+    GeoCitationPublicationLinkOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        citation_id:
+          type: string
+          format: uuid
+          title: Citation Id
+        citation_url:
+          type: string
+          title: Citation Url
+        article_publication_id:
+          type: string
+          format: uuid
+          title: Article Publication Id
+        article_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Article Id
+        article_title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Article Title
+        publication_title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Publication Title
+        publication_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Publication Url
+        platform_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Platform Name
+        match_method:
+          $ref: '#/components/schemas/GeoCitationMatchMethod'
+        link_status:
+          $ref: '#/components/schemas/GeoCitationLinkStatus'
+        match_reason:
+          type: string
+          title: Match Reason
+        confirmed_by:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Confirmed By
+        confirmed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Confirmed At
+        revision:
+          type: integer
+          title: Revision
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - citation_id
+      - citation_url
+      - article_publication_id
+      - match_method
+      - link_status
+      - match_reason
+      - confirmed_by
+      - confirmed_at
+      - revision
+      - created_at
+      - updated_at
+      title: GeoCitationPublicationLinkOut
+    GeoDailyChecklistEnsureOut:
+      properties:
+        target_date:
+          type: string
+          format: date
+          title: Target Date
+        created_batch_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          title: Created Batch Ids
+        reused_batch_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          title: Reused Batch Ids
+        created_run_count:
+          type: integer
+          title: Created Run Count
+      additionalProperties: false
+      type: object
+      required:
+      - target_date
+      - created_batch_ids
+      - reused_batch_ids
+      - created_run_count
+      title: GeoDailyChecklistEnsureOut
+    GeoDailyChecklistEnsureRequest:
+      properties:
+        target_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Target Date
+        plan_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Plan Id
+      additionalProperties: false
+      type: object
+      title: GeoDailyChecklistEnsureRequest
+    GeoDailyChecklistItem:
+      properties:
+        run_id:
+          type: string
+          format: uuid
+          title: Run Id
+        batch_id:
+          type: string
+          format: uuid
+          title: Batch Id
+        plan_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Plan Id
+        plan_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Plan Name
+        prompt_variant_id:
+          type: string
+          format: uuid
+          title: Prompt Variant Id
+        prompt_text:
+          type: string
+          title: Prompt Text
+        prompt_category:
+          $ref: '#/components/schemas/GeoPromptCategory'
+        prompt_priority:
+          type: string
+          title: Prompt Priority
+        collection_profile_id:
+          type: string
+          format: uuid
+          title: Collection Profile Id
+        profile_name:
+          type: string
+          title: Profile Name
+        platform_name:
+          type: string
+          title: Platform Name
+        web_search_policy:
+          type: string
+          title: Web Search Policy
+        require_screenshot:
+          type: boolean
+          title: Require Screenshot
+        status:
+          $ref: '#/components/schemas/GeoRunStatus'
+        revision:
+          type: integer
+          minimum: 0.0
+          title: Revision
+        entry_kind:
+          $ref: '#/components/schemas/GeoRunEntryKind'
+        is_backfill:
+          type: boolean
+          title: Is Backfill
+        backfill_source:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Backfill Source
+        assignee_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Assignee Id
+        assignee_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Assignee Name
+        target_article_publication_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Target Article Publication Id
+        effective_at:
+          type: string
+          format: date-time
+          title: Effective At
+        collected_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Collected At
+        query_modified:
+          type: boolean
+          title: Query Modified
+          default: false
+        error_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Code
+        error_summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Summary
+        has_answer:
+          type: boolean
+          title: Has Answer
+          default: false
+        has_brand_or_product_mention:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Has Brand Or Product Mention
+        linked_article_count:
+          type: integer
+          title: Linked Article Count
+          default: 0
+        pending_candidate_link_count:
+          type: integer
+          title: Pending Candidate Link Count
+          default: 0
+      additionalProperties: false
+      type: object
+      required:
+      - run_id
+      - batch_id
+      - plan_id
+      - plan_name
+      - prompt_variant_id
+      - prompt_text
+      - prompt_category
+      - prompt_priority
+      - collection_profile_id
+      - profile_name
+      - platform_name
+      - web_search_policy
+      - require_screenshot
+      - status
+      - revision
+      - entry_kind
+      - is_backfill
+      - backfill_source
+      - assignee_id
+      - assignee_name
+      - target_article_publication_id
+      - effective_at
+      - collected_at
+      title: GeoDailyChecklistItem
+    GeoDailyChecklistOption:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        label:
+          type: string
+          title: Label
+        meta:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Meta
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - label
+      title: GeoDailyChecklistOption
+    GeoDailyChecklistOut:
+      properties:
+        target_date:
+          type: string
+          format: date
+          title: Target Date
+        timezone:
+          type: string
+          title: Timezone
+        summary:
+          $ref: '#/components/schemas/GeoDailyChecklistSummary'
+        items:
+          items:
+            $ref: '#/components/schemas/GeoDailyChecklistItem'
+          type: array
+          title: Items
+        core_plans:
+          items:
+            $ref: '#/components/schemas/GeoDailyChecklistOption'
+          type: array
+          title: Core Plans
+        profiles:
+          items:
+            $ref: '#/components/schemas/GeoDailyChecklistOption'
+          type: array
+          title: Profiles
+        prompts:
+          items:
+            $ref: '#/components/schemas/GeoDailyChecklistOption'
+          type: array
+          title: Prompts
+        users:
+          items:
+            $ref: '#/components/schemas/GeoDailyChecklistOption'
+          type: array
+          title: Users
+        publications:
+          items:
+            $ref: '#/components/schemas/GeoDailyChecklistOption'
+          type: array
+          title: Publications
+      additionalProperties: false
+      type: object
+      required:
+      - target_date
+      - timezone
+      - summary
+      - items
+      - core_plans
+      - profiles
+      - prompts
+      - users
+      - publications
+      title: GeoDailyChecklistOut
+    GeoDailyChecklistSummary:
+      properties:
+        planned_total:
+          type: integer
+          title: Planned Total
+          default: 0
+        completed_count:
+          type: integer
+          title: Completed Count
+          default: 0
+        pending_count:
+          type: integer
+          title: Pending Count
+          default: 0
+        needs_review_count:
+          type: integer
+          title: Needs Review Count
+          default: 0
+        failed_count:
+          type: integer
+          title: Failed Count
+          default: 0
+        cancelled_count:
+          type: integer
+          title: Cancelled Count
+          default: 0
+      additionalProperties: false
+      type: object
+      title: GeoDailyChecklistSummary
+    GeoDirectManualObservationCreate:
+      properties:
+        entry_kind:
+          type: string
+          enum:
+          - BACKFILL
+          - EXPLORATORY
+          - ARTICLE_LOOKUP
+          title: Entry Kind
+        prompt_variant_id:
+          type: string
+          format: uuid
+          title: Prompt Variant Id
+        collection_profile_id:
+          type: string
+          format: uuid
+          title: Collection Profile Id
+        subject_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          maxItems: 50
+          title: Subject Ids
+        backfill_source:
+          anyOf:
+          - type: string
+            maxLength: 160
+          - type: 'null'
+          title: Backfill Source
+        target_article_publication_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Target Article Publication Id
+        assignee_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Assignee Id
+        answer_text:
+          anyOf:
+          - type: string
+            maxLength: 1048576
+          - type: 'null'
+          title: Answer Text
+        actual_prompt_text:
+          anyOf:
+          - type: string
+            maxLength: 8000
+          - type: 'null'
+          title: Actual Prompt Text
+        collected_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Collected At
+        web_search_observed:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Web Search Observed
+        source_product:
+          anyOf:
+          - type: string
+            maxLength: 160
+          - type: 'null'
+          title: Source Product
+        source_model:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Source Model
+        source_version:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Source Version
+        screenshot_file_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Screenshot File Id
+        citations:
+          items:
+            $ref: '#/components/schemas/GeoManualPreviewCitationInput'
+          type: array
+          maxItems: 1000
+          title: Citations
+        citation_observation:
+          anyOf:
+          - $ref: '#/components/schemas/GeoCitationObservation'
+          - type: 'null'
+        inline_review:
+          anyOf:
+          - $ref: '#/components/schemas/GeoManualInlineReview'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - entry_kind
+      - prompt_variant_id
+      - collection_profile_id
+      title: GeoDirectManualObservationCreate
+      description: 历史补录 / 探索性新问题 / 文章定位核查单条直录；支持创建并立即提交。
+    GeoDirectManualObservationOut:
+      properties:
+        batch_id:
+          type: string
+          format: uuid
+          title: Batch Id
+        run_id:
+          type: string
+          format: uuid
+          title: Run Id
+        entry_kind:
+          $ref: '#/components/schemas/GeoRunEntryKind'
+        is_backfill:
+          type: boolean
+          title: Is Backfill
+        run_status:
+          $ref: '#/components/schemas/GeoRunStatus'
+        answer_snapshot_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Answer Snapshot Id
+        analysis_revision_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Analysis Revision Id
+        review_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Review Id
+        citation_links:
+          items:
+            $ref: '#/components/schemas/GeoCitationPublicationLinkOut'
+          type: array
+          title: Citation Links
+      additionalProperties: false
+      type: object
+      required:
+      - batch_id
+      - run_id
+      - entry_kind
+      - is_backfill
+      - run_status
+      title: GeoDirectManualObservationOut
+    GeoManualFailCode:
+      type: string
+      enum:
+      - MANUAL_TIMEOUT
+      - MANUAL_PLATFORM_UNAVAILABLE
+      - MANUAL_ANSWER_UNAVAILABLE
+      - MANUAL_ACCESS_BLOCKED
+      - MANUAL_OTHER
+      title: GeoManualFailCode
+    GeoManualFailOut:
+      properties:
+        run_id:
+          type: string
+          format: uuid
+          title: Run Id
+        status:
+          type: string
+          const: FAILED
+          title: Status
+        revision:
+          type: integer
+          minimum: 0.0
+          title: Revision
+        error_stage:
+          type: string
+          const: COLLECTION
+          title: Error Stage
+        error_code:
+          $ref: '#/components/schemas/GeoManualFailCode'
+        error_summary:
+          type: string
+          title: Error Summary
+        finished_at:
+          type: string
+          format: date-time
+          title: Finished At
+      additionalProperties: false
+      type: object
+      required:
+      - run_id
+      - status
+      - revision
+      - error_stage
+      - error_code
+      - error_summary
+      - finished_at
+      title: GeoManualFailOut
+    GeoManualFailRequest:
+      properties:
+        expected_run_revision:
+          type: integer
+          minimum: 0.0
+          title: Expected Run Revision
+        error_code:
+          $ref: '#/components/schemas/GeoManualFailCode'
+        error_summary:
+          type: string
+          maxLength: 500
+          minLength: 1
+          title: Error Summary
+      additionalProperties: false
+      type: object
+      required:
+      - expected_run_revision
+      - error_code
+      - error_summary
+      title: GeoManualFailRequest
+    GeoManualInlineCitationDecision:
+      properties:
+        normalized_url:
+          type: string
+          maxLength: 2083
+          minLength: 1
+          title: Normalized Url
+        article_publication_id:
+          type: string
+          format: uuid
+          title: Article Publication Id
+        action:
+          type: string
+          enum:
+          - CONFIRM
+          - REJECT
+          title: Action
+      additionalProperties: false
+      type: object
+      required:
+      - normalized_url
+      - article_publication_id
+      - action
+      title: GeoManualInlineCitationDecision
+    GeoManualInlineReview:
+      properties:
+        confirm_all:
+          type: boolean
+          title: Confirm All
+          default: true
+        subject_decisions:
+          items:
+            $ref: '#/components/schemas/GeoManualInlineSubjectDecision'
+          type: array
+          maxItems: 100
+          title: Subject Decisions
+        citation_decisions:
+          items:
+            $ref: '#/components/schemas/GeoManualInlineCitationDecision'
+          type: array
+          maxItems: 200
+          title: Citation Decisions
+        comment:
+          type: string
+          maxLength: 2000
+          title: Comment
+          default: ''
+      additionalProperties: false
+      type: object
+      title: GeoManualInlineReview
+      description: 同屏人工确认；仅在明确选择确认/修正时写入 GeoRunReview 并完成 Run。
+    GeoManualInlineSubjectDecision:
+      properties:
+        subject_id:
+          type: string
+          format: uuid
+          title: Subject Id
+        mentioned:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Mentioned
+        recommendation:
+          anyOf:
+          - $ref: '#/components/schemas/GeoRecommendationKind'
+          - type: 'null'
+        rank:
+          anyOf:
+          - type: integer
+            maximum: 100.0
+            minimum: 1.0
+          - type: 'null'
+          title: Rank
+      additionalProperties: false
+      type: object
+      required:
+      - subject_id
+      title: GeoManualInlineSubjectDecision
+    GeoManualPreviewCitationInput:
+      properties:
+        original_url:
+          type: string
+          maxLength: 2083
+          minLength: 1
+          title: Original Url
+        title:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Title
+      additionalProperties: false
+      type: object
+      required:
+      - original_url
+      title: GeoManualPreviewCitationInput
+    GeoManualPreviewCitationSuggestion:
+      properties:
+        original_url:
+          type: string
+          title: Original Url
+        normalized_url:
+          type: string
+          title: Normalized Url
+        hostname:
+          type: string
+          title: Hostname
+        source:
+          type: string
+          enum:
+          - INPUT
+          - EXTRACTED_FROM_TEXT
+          title: Source
+        suggested_article_publication_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Suggested Article Publication Id
+        suggested_article_title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Suggested Article Title
+        suggested_publication_title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Suggested Publication Title
+        suggested_platform_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Suggested Platform Name
+        match_method:
+          anyOf:
+          - $ref: '#/components/schemas/GeoCitationMatchMethod'
+          - type: 'null'
+        suggested_link_status:
+          anyOf:
+          - $ref: '#/components/schemas/GeoCitationLinkStatus'
+          - type: 'null'
+        match_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Match Reason
+      additionalProperties: false
+      type: object
+      required:
+      - original_url
+      - normalized_url
+      - hostname
+      - source
+      title: GeoManualPreviewCitationSuggestion
+    GeoManualPreviewOut:
+      properties:
+        run_id:
+          type: string
+          format: uuid
+          title: Run Id
+        subjects:
+          items:
+            $ref: '#/components/schemas/GeoManualPreviewSubjectSuggestion'
+          type: array
+          title: Subjects
+        extracted_urls:
+          items:
+            type: string
+          type: array
+          title: Extracted Urls
+        citation_suggestions:
+          items:
+            $ref: '#/components/schemas/GeoManualPreviewCitationSuggestion'
+          type: array
+          title: Citation Suggestions
+        review_required_reasons:
+          items:
+            type: string
+          type: array
+          title: Review Required Reasons
+      additionalProperties: false
+      type: object
+      required:
+      - run_id
+      - subjects
+      - extracted_urls
+      - citation_suggestions
+      - review_required_reasons
+      title: GeoManualPreviewOut
+    GeoManualPreviewRequest:
+      properties:
+        answer_text:
+          type: string
+          maxLength: 1048576
+          title: Answer Text
+          default: ''
+        citations:
+          items:
+            $ref: '#/components/schemas/GeoManualPreviewCitationInput'
+          type: array
+          maxItems: 1000
+          title: Citations
+      additionalProperties: false
+      type: object
+      title: GeoManualPreviewRequest
+    GeoManualPreviewSubjectSuggestion:
+      properties:
+        subject_id:
+          type: string
+          format: uuid
+          title: Subject Id
+        subject_type:
+          type: string
+          title: Subject Type
+        display_name:
+          type: string
+          title: Display Name
+        product_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Product Id
+        mentioned:
+          type: boolean
+          title: Mentioned
+        mention_count:
+          type: integer
+          title: Mention Count
+        matched_aliases:
+          items:
+            type: string
+          type: array
+          title: Matched Aliases
+        recommendation:
+          $ref: '#/components/schemas/GeoRecommendationKind'
+        rank:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Rank
+      additionalProperties: false
+      type: object
+      required:
+      - subject_id
+      - subject_type
+      - display_name
+      - product_id
+      - mentioned
+      - mention_count
+      - matched_aliases
+      - recommendation
+      - rank
+      title: GeoManualPreviewSubjectSuggestion
+    GeoPlanRole:
+      type: string
+      enum:
+      - CORE_BASELINE
+      - STANDARD
+      title: GeoPlanRole
+    GeoPromptCategory:
+      type: string
+      enum:
+      - NATURAL_DEMAND
+      - BRAND_MODEL
+      - ARTICLE_LOOKUP
+      title: GeoPromptCategory
+    GeoRunEntryKind:
+      type: string
+      enum:
+      - PLAN_STANDARD
+      - BACKFILL
+      - EXPLORATORY
+      - ARTICLE_LOOKUP
+      title: GeoRunEntryKind

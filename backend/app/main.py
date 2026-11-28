@@ -35,6 +35,7 @@ from app.routers.geo_answer_insights import router as geo_answer_insights_router
 from app.routers.geo_batches import router as geo_batches_router
 from app.routers.geo_browser_sessions import router as geo_browser_sessions_router
 from app.routers.geo_catalog import router as geo_catalog_router
+from app.routers.geo_daily_checklist import router as geo_daily_checklist_router
 from app.routers.geo_interventions import router as geo_interventions_router
 from app.routers.geo_manual_collection import router as geo_manual_collection_router
 from app.routers.geo_monitoring_plans import router as geo_monitoring_plans_router
@@ -388,6 +389,7 @@ app.include_router(workbench_router)
 app.include_router(operations_dashboard_router)
 app.include_router(assignments_router)
 app.include_router(articles_router)
+app.include_router(geo_daily_checklist_router)
 app.include_router(files_router)
 
 

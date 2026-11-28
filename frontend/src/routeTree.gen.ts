@@ -34,6 +34,7 @@ import { Route as AppGeoOverviewRouteImport } from './routes/_app/geo/overview'
 import { Route as AppGeoPlansRouteImport } from './routes/_app/geo/plans'
 import { Route as AppGeoQuestionsRouteImport } from './routes/_app/geo/questions'
 import { Route as AppGeoRunsRouteImport } from './routes/_app/geo/runs'
+import { Route as AppGeoTodayRouteImport } from './routes/_app/geo/today'
 import { Route as AppGeoTopicsRouteRouteImport } from './routes/_app/geo/topics/route'
 import { Route as AppProductsIndexRouteImport } from './routes/_app/products/index'
 import { Route as AppProductsProductIdRouteImport } from './routes/_app/products/$productId'
@@ -206,6 +207,11 @@ const AppGeoQuestionsRoute = AppGeoQuestionsRouteImport.update({
 const AppGeoRunsRoute = AppGeoRunsRouteImport.update({
   id: '/runs',
   path: '/runs',
+  getParentRoute: () => AppGeoRouteRoute,
+} as any)
+const AppGeoTodayRoute = AppGeoTodayRouteImport.update({
+  id: '/today',
+  path: '/today',
   getParentRoute: () => AppGeoRouteRoute,
 } as any)
 const AppGeoTopicsRouteRoute = AppGeoTopicsRouteRouteImport.update({
@@ -489,6 +495,7 @@ export interface FileRoutesByFullPath {
   '/geo/plans': typeof AppGeoPlansRoute
   '/geo/questions': typeof AppGeoQuestionsRoute
   '/geo/runs': typeof AppGeoRunsRoute
+  '/geo/today': typeof AppGeoTodayRoute
   '/products/$productId': typeof AppProductsProductIdRoute
   '/products/new': typeof AppProductsNewRoute
   '/articles/': typeof AppArticlesIndexRoute
@@ -549,6 +556,7 @@ export interface FileRoutesByTo {
   '/geo/plans': typeof AppGeoPlansRoute
   '/geo/questions': typeof AppGeoQuestionsRoute
   '/geo/runs': typeof AppGeoRunsRoute
+  '/geo/today': typeof AppGeoTodayRoute
   '/products/$productId': typeof AppProductsProductIdRoute
   '/products/new': typeof AppProductsNewRoute
   '/articles': typeof AppArticlesIndexRoute
@@ -623,6 +631,7 @@ export interface FileRoutesById {
   '/_app/geo/plans': typeof AppGeoPlansRoute
   '/_app/geo/questions': typeof AppGeoQuestionsRoute
   '/_app/geo/runs': typeof AppGeoRunsRoute
+  '/_app/geo/today': typeof AppGeoTodayRoute
   '/_app/products/$productId': typeof AppProductsProductIdRoute
   '/_app/products/new': typeof AppProductsNewRoute
   '/_app/articles/': typeof AppArticlesIndexRoute
@@ -696,6 +705,7 @@ export interface FileRouteTypes {
     | '/geo/plans'
     | '/geo/questions'
     | '/geo/runs'
+    | '/geo/today'
     | '/products/$productId'
     | '/products/new'
     | '/articles/'
@@ -756,6 +766,7 @@ export interface FileRouteTypes {
     | '/geo/plans'
     | '/geo/questions'
     | '/geo/runs'
+    | '/geo/today'
     | '/products/$productId'
     | '/products/new'
     | '/articles'
@@ -829,6 +840,7 @@ export interface FileRouteTypes {
     | '/_app/geo/plans'
     | '/_app/geo/questions'
     | '/_app/geo/runs'
+    | '/_app/geo/today'
     | '/_app/products/$productId'
     | '/_app/products/new'
     | '/_app/articles/'
@@ -1054,6 +1066,13 @@ declare module '@tanstack/react-router' {
       path: '/runs'
       fullPath: '/geo/runs'
       preLoaderRoute: typeof AppGeoRunsRouteImport
+      parentRoute: typeof AppGeoRouteRoute
+    }
+    '/_app/geo/today': {
+      id: '/_app/geo/today'
+      path: '/today'
+      fullPath: '/geo/today'
+      preLoaderRoute: typeof AppGeoTodayRouteImport
       parentRoute: typeof AppGeoRouteRoute
     }
     '/_app/geo/topics': {
@@ -1527,6 +1546,7 @@ interface AppGeoRouteRouteChildren {
   AppGeoPlansRoute: typeof AppGeoPlansRoute
   AppGeoQuestionsRoute: typeof AppGeoQuestionsRoute
   AppGeoRunsRoute: typeof AppGeoRunsRoute
+  AppGeoTodayRoute: typeof AppGeoTodayRoute
   AppGeoReportsPrintRoute: typeof AppGeoReportsPrintRoute
   AppGeoReportsIndexRoute: typeof AppGeoReportsIndexRoute
 }
@@ -1540,6 +1560,7 @@ const AppGeoRouteRouteChildren: AppGeoRouteRouteChildren = {
   AppGeoPlansRoute: AppGeoPlansRoute,
   AppGeoQuestionsRoute: AppGeoQuestionsRoute,
   AppGeoRunsRoute: AppGeoRunsRoute,
+  AppGeoTodayRoute: AppGeoTodayRoute,
   AppGeoReportsPrintRoute: AppGeoReportsPrintRoute,
   AppGeoReportsIndexRoute: AppGeoReportsIndexRoute,
 }

@@ -49,13 +49,38 @@ class GeoPromptVariantErrorCode(StrEnum):
     GEO_PROMPT_VARIANT_IMMUTABLE = "GEO_PROMPT_VARIANT_IMMUTABLE"
 
 
+class GeoPromptCategory(StrEnum):
+    NATURAL_DEMAND = "NATURAL_DEMAND"
+    BRAND_MODEL = "BRAND_MODEL"
+    ARTICLE_LOOKUP = "ARTICLE_LOOKUP"
+
+
 class GeoPromptVariantCreate(ContractModel):
     query_topic_id: UUID
     prompt_text: PromptText
     mention_mode: GeoPromptMentionMode
+    prompt_category: GeoPromptCategory | None = None
     language_code: PromptLanguage
     region_code: PromptRegion
     priority: GeoPromptPriority
+
+    @model_validator(mode="after")
+    def resolve_and_validate_category(self) -> Self:
+        category = self.prompt_category or (
+            GeoPromptCategory.BRAND_MODEL
+            if self.mention_mode == GeoPromptMentionMode.BRANDED
+            else GeoPromptCategory.NATURAL_DEMAND
+        )
+        if (
+            category == GeoPromptCategory.NATURAL_DEMAND
+            and self.mention_mode != GeoPromptMentionMode.UNBRANDED
+        ) or (
+            category == GeoPromptCategory.BRAND_MODEL
+            and self.mention_mode != GeoPromptMentionMode.BRANDED
+        ):
+            raise ValueError("问题分类与提及模式（BRANDED/UNBRANDED）不一致")
+        self.prompt_category = category
+        return self
 
 
 class GeoPromptVariantRevisionRequest(ContractModel):
@@ -68,6 +93,9 @@ class GeoPromptVariantUpdate(GeoPromptVariantRevisionRequest):
     # PATCH 占位值不是写入意图，消费者必须使用 exclude_unset。
     prompt_text: PromptText = Field(default_factory=str)
     mention_mode: GeoPromptMentionMode = Field(default_factory=lambda: GeoPromptMentionMode.BRANDED)
+    prompt_category: GeoPromptCategory = Field(
+        default_factory=lambda: GeoPromptCategory.NATURAL_DEMAND
+    )
     language_code: PromptLanguage = Field(default_factory=str)
     region_code: PromptRegion = Field(default_factory=str)
     priority: GeoPromptPriority = Field(default_factory=lambda: GeoPromptPriority.STANDARD)
@@ -121,6 +149,7 @@ class GeoPromptVariantOut(ContractModel):
         min_length=1, max_length=PROMPT_MAX_LENGTH, pattern=r"^[^\x00]*[^\s\x00][^\x00]*$"
     )
     mention_mode: GeoPromptMentionMode
+    prompt_category: GeoPromptCategory | None = None
     language_code: str = Field(
         min_length=2, max_length=16, pattern=r"^[a-z]{2,8}(-[a-z0-9]{1,8})*$"
     )

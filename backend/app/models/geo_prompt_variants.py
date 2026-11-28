@@ -63,7 +63,15 @@ class GeoPromptVariant(Base):
             "first_referenced_at IS NULL OR first_referenced_at >= created_at",
             name=conv("ck_geo_prompt_variants_reference_time"),
         ),
+        CheckConstraint(
+            "prompt_category IN ('NATURAL_DEMAND', 'BRAND_MODEL', 'ARTICLE_LOOKUP') AND ("
+            "(prompt_category = 'NATURAL_DEMAND' AND mention_mode = 'UNBRANDED') OR "
+            "(prompt_category = 'BRAND_MODEL' AND mention_mode = 'BRANDED') OR "
+            "(prompt_category = 'ARTICLE_LOOKUP'))",
+            name=conv("ck_geo_prompt_variants_category"),
+        ),
         Index("ix_geo_prompt_variants_topic_active", "query_topic_id", "is_active"),
+        Index("ix_geo_prompt_variants_category_active", "prompt_category", "is_active"),
         Index("ix_geo_prompt_variants_created_by", "created_by"),
     )
 
@@ -80,6 +88,9 @@ class GeoPromptVariant(Base):
         nullable=False,
     )
     mention_mode: Mapped[str] = mapped_column(String(16), nullable=False)
+    prompt_category: Mapped[str] = mapped_column(
+        String(24), nullable=False, default="NATURAL_DEMAND", server_default="NATURAL_DEMAND"
+    )
     language_code: Mapped[str] = mapped_column(String(16), nullable=False)
     region_code: Mapped[str] = mapped_column(String(16), nullable=False)
     priority: Mapped[str] = mapped_column(String(16), nullable=False)

@@ -6,7 +6,7 @@ from app.schemas.geo_monitoring_plans import GeoMonitoringPlanConfiguration
 def canonical_configuration(
     value: GeoMonitoringPlanConfiguration,
 ) -> GeoMonitoringPlanConfiguration:
-    fields = value.model_dump(exclude={"expected_revision"})
+    fields = value.model_dump(exclude={"expected_revision", "plan_role", "default_assignee_id"})
     fields["subjects"] = sorted(fields["subjects"], key=lambda s: s["subject_id"])
     for name in ("prompt_variant_ids", "collection_profile_ids"):
         fields[name] = sorted(fields[name])

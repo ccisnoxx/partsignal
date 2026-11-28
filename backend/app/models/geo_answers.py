@@ -16,6 +16,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -59,6 +60,13 @@ class GeoAnswerSnapshot(Base):
             "geo_citation_observation_valid(citation_observation, citation_count)",
             name=conv("ck_geo_answers_citation_observation"),
         ),
+        CheckConstraint(
+            "(query_modified = FALSE AND actual_prompt_text IS NULL) OR "
+            "(query_modified = TRUE AND actual_prompt_text IS NOT NULL AND "
+            "actual_prompt_text ~ '[^[:space:]]' AND length(actual_prompt_text) <= 8000 "
+            "AND actual_prompt_text <> prompt_text)",
+            name=conv("ck_geo_answers_actual_prompt"),
+        ),
         Index("ix_geo_answers_raw_file", "raw_payload_file_id"),
         Index("ix_geo_answers_screenshot_file", "screenshot_file_id"),
     )
@@ -69,6 +77,10 @@ class GeoAnswerSnapshot(Base):
         nullable=False,
     )
     prompt_text: Mapped[str] = mapped_column(Text, nullable=False)
+    actual_prompt_text: Mapped[str | None] = mapped_column(Text)
+    query_modified: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
     answer_text: Mapped[str] = mapped_column(Text, nullable=False)
     answer_sha256: Mapped[str] = mapped_column(
         String(64),

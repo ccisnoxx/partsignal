@@ -78,11 +78,12 @@ _VIEWER_READ_ALLOWLIST = frozenset(
         "getPublishedArticle",
         "getFileRecord",
         "getFileDownloadUrl",
-        # 统一文章与多 URL 发布台账、产品资料只读查看（Slice 1B）
+        # 统一文章与多 URL 发布台账、产品资料及引用归因只读查看（Slice 1B / 1C）
         "listArticles",
         "getArticle",
         "listArticlePublications",
         "listProductMaterials",
+        "listGeoRunCitationLinks",
     }
 )
 

@@ -48,6 +48,8 @@ CONFIGURATION_FIELDS = (
 METADATA_FIELDS = (
     "id",
     "status",
+    "plan_role",
+    "default_assignee_id",
     "revision",
     "created_by",
     "updated_by",

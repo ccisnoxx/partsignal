@@ -56,7 +56,17 @@ class GeoMonitoringPlan(Base):
         CheckConstraint(
             "rule_set_revision >= 1", name=conv("ck_geo_monitoring_plans_rule_revision")
         ),
+        CheckConstraint(
+            "plan_role IN ('CORE_BASELINE', 'STANDARD')",
+            name=conv("ck_geo_monitoring_plans_role"),
+        ),
         Index("ix_geo_monitoring_plans_status_updated", "status", "updated_at", "id"),
+        Index("ix_geo_monitoring_plans_role", "plan_role", "status"),
+        Index(
+            "ix_geo_monitoring_plans_default_assignee",
+            "default_assignee_id",
+            postgresql_where=text("default_assignee_id IS NOT NULL"),
+        ),
         Index("ix_geo_monitoring_plans_creator", "created_by"),
         Index("ix_geo_monitoring_plans_updater", "updated_by"),
     )
@@ -83,6 +93,15 @@ class GeoMonitoringPlan(Base):
     )
     revision: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default=text("0")
+    )
+    plan_role: Mapped[str] = mapped_column(
+        String(24), nullable=False, default="STANDARD", server_default="STANDARD"
+    )
+    default_assignee_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "users.id", name="fk_geo_monitoring_plans_default_assignee", ondelete="RESTRICT"
+        ),
     )
     created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

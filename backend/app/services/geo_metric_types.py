@@ -61,6 +61,7 @@ class MetricDimensions:
     subject_versions: tuple[tuple[UUID, int], ...]
     fact_version_bindings: tuple[tuple[UUID, UUID], ...]
     window_key: str
+    prompt_category: str = "NATURAL_DEMAND"
 
 
 @dataclass(frozen=True)
@@ -121,6 +122,7 @@ class MetricRun:
     citation_observation_status: GeoCitationObservationStatus | None
     citation_absence_observable: bool
     citation_classification_complete: bool
+    query_modified: bool = False
 
     def __post_init__(self) -> None:
         if self.repeat_index < 1:

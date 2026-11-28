@@ -12,9 +12,13 @@ from app.schemas.geo_answers import (
     GeoCitationObservation,
     GeoRawPayloadSummary,
 )
+from app.schemas.geo_daily_checklist import (
+    GeoCitationPublicationLinkOut,
+    GeoManualInlineReview,
+)
 from app.schemas.geo_prompt_variants import Revision
 from app.schemas.geo_run_workflow import GeoRunWorkflowProjection
-from app.schemas.geo_runs import GeoRunInputSnapshot, Sha256
+from app.schemas.geo_runs import GeoRunInputSnapshot, GeoRunStatus, Sha256
 from app.schemas.geo_surface_management import GeoProfileActivationBlocker
 
 DraftText = Annotated[str, Field(strict=True, max_length=1048576, pattern=r"^[^\x00]*$")]
@@ -67,6 +71,8 @@ class GeoManualObservationSubmit(GeoManualObservationDraft):
     expected_draft_revision: Revision
     answer_text: DraftText
     collected_at: AwareDatetime
+    actual_prompt_text: str | None = Field(default=None, max_length=8000)
+    inline_review: GeoManualInlineReview | None = None
 
 
 class GeoManualDraftOut(ContractModel):
@@ -89,7 +95,7 @@ class GeoManualEntryContext(GeoRunWorkflowProjection):
 
 
 class GeoManualObservationSubmitted(ContractModel):
-    """首次提交的稳定回执；不代表当前 Run 状态或已经执行分析。"""
+    """人工提交回执：记录原始回答冻结结果及同步确定性分析/复核状态。"""
 
     run_id: UUID
     answer_snapshot_id: UUID
@@ -99,4 +105,10 @@ class GeoManualObservationSubmitted(ContractModel):
     collected_at: AwareDatetime
     submitted_at: AwareDatetime
     collection_status: Literal["COLLECTED"]
-    analysis_dispatch: Literal["NOT_IMPLEMENTED"]
+    run_status: GeoRunStatus | None = None
+    analysis_revision_id: UUID | None = None
+    review_id: UUID | None = None
+    citation_links: list[GeoCitationPublicationLinkOut] | None = None
+    analysis_dispatch: Literal[
+        "NOT_IMPLEMENTED", "SYNC_COMPLETED", "SYNC_NEEDS_REVIEW", "DISPATCHED"
+    ]

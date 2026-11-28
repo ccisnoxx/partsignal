@@ -152,14 +152,52 @@ ALTER TABLE geo_observation_runs
         AND (status NOT IN ('PENDING', 'RUNNING', 'CANCELLED', 'BUDGET_BLOCKED') OR collected_at IS NULL)
     );
 
+-- 保留 0056 全部当前分析指针与人工复核发布防线，并追加 0082 补录/直录字段不可变保护。
 CREATE OR REPLACE FUNCTION geo_guard_observation_run() RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE parent geo_observation_runs%ROWTYPE; batch_state text;
+DECLARE parent geo_observation_runs%ROWTYPE; batch_state text; target geo_analysis_revisions%ROWTYPE; previous integer;
 BEGIN
     IF TG_OP = 'DELETE' THEN
         RAISE EXCEPTION '运行历史必须保留'
             USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_immutable';
     END IF;
     IF TG_OP = 'UPDATE' THEN
+        IF NEW.current_analysis_revision_id IS DISTINCT FROM OLD.current_analysis_revision_id THEN
+            IF NEW.current_analysis_revision_id IS NULL OR NEW.revision <> OLD.revision + 1 OR
+                (to_jsonb(NEW) - ARRAY['run_cell_key','revision','current_analysis_revision_id']) IS DISTINCT FROM
+                (to_jsonb(OLD) - ARRAY['run_cell_key','revision','current_analysis_revision_id']) THEN
+                RAISE EXCEPTION '当前分析发布只能前进指针并递增运行 revision'
+                    USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_analysis_publication';
+            END IF;
+            SELECT * INTO target FROM geo_analysis_revisions WHERE id=NEW.current_analysis_revision_id;
+            SELECT revision INTO previous FROM geo_analysis_revisions WHERE id=OLD.current_analysis_revision_id;
+            IF target.id IS NULL OR target.run_id <> OLD.id OR target.status <> 'COMPLETED'
+                OR target.revision <= COALESCE(previous,0) OR target.revision <
+                    (SELECT max(revision) FROM geo_analysis_revisions WHERE run_id=OLD.id AND status='COMPLETED') THEN
+                RAISE EXCEPTION '当前分析必须是本运行最新成功版本，不得倒退'
+                    USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_current_analysis';
+            END IF;
+            RETURN NEW;
+        END IF;
+        IF OLD.status IN ('NEEDS_REVIEW','COMPLETED','FAILED') AND
+            NEW.status = (CASE WHEN OLD.status='NEEDS_REVIEW' THEN 'COMPLETED' ELSE OLD.status END) THEN
+            IF NEW.revision = OLD.revision + 1 AND EXISTS (
+                SELECT 1 FROM geo_run_reviews review WHERE review.run_id=OLD.id
+                    AND review.analysis_revision_id=OLD.current_analysis_revision_id
+                    AND review.xmin=pg_current_xact_id()::xid
+            ) AND (
+                (OLD.status='NEEDS_REVIEW' AND NEW.finished_at IS NOT NULL AND
+                    (to_jsonb(NEW)-ARRAY['run_cell_key','revision','status','finished_at']) IS NOT DISTINCT FROM
+                    (to_jsonb(OLD)-ARRAY['run_cell_key','revision','status','finished_at'])) OR
+                (OLD.status<>'NEEDS_REVIEW' AND
+                    (to_jsonb(NEW)-ARRAY['run_cell_key','revision']) IS NOT DISTINCT FROM
+                    (to_jsonb(OLD)-ARRAY['run_cell_key','revision']))
+            ) THEN RETURN NEW; END IF;
+            IF OLD.status='NEEDS_REVIEW' OR
+                (to_jsonb(NEW)-'run_cell_key') IS DISTINCT FROM (to_jsonb(OLD)-'run_cell_key') THEN
+                RAISE EXCEPTION '复核发布必须同事务追加当前分析Review且只更新允许字段'
+                    USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_review_publication';
+            END IF;
+        END IF;
         IF ROW(NEW.id,NEW.batch_id,NEW.prompt_variant_id,NEW.collection_profile_id,
                 NEW.repeat_index,NEW.attempt_no,NEW.previous_attempt_id,NEW.input_snapshot,
                 NEW.created_at,NEW.entry_kind,NEW.is_backfill,NEW.backfill_source,
@@ -188,7 +226,7 @@ BEGIN
         END IF;
         RETURN NEW;
     END IF;
-    IF NEW.status <> 'PENDING' OR NEW.revision <> 0 OR NEW.external_call_state <> 'NOT_STARTED'
+    IF NEW.current_analysis_revision_id IS NOT NULL OR NEW.status <> 'PENDING' OR NEW.revision <> 0 OR NEW.external_call_state <> 'NOT_STARTED'
         OR NEW.lease_token IS NOT NULL OR NEW.lease_expires_at IS NOT NULL
         OR NEW.started_at IS NOT NULL OR NEW.collected_at IS NOT NULL OR NEW.finished_at IS NOT NULL
         OR NEW.error_stage IS NOT NULL OR NEW.error_code IS NOT NULL OR NEW.error_summary IS NOT NULL

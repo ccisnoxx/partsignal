@@ -18561,6 +18561,477 @@ paths:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '400':
           $ref: '#/components/responses/ErrorResponse'
+  /api/v1/geo/leadership-dashboard/filter-options:
+    get:
+      tags:
+      - geo-leadership-dashboard
+      summary: Get Filter Options Route
+      operationId: getGeoLeadershipFilterOptions
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeoLeadershipFilterOptionsOut'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+      security:
+      - sessionCookie: []
+      parameters:
+      - $ref: '#/components/parameters/RequestIdHeader'
+  /api/v1/geo/leadership-dashboard:
+    get:
+      tags:
+      - geo-leadership-dashboard
+      summary: Get Leadership Dashboard Route
+      operationId: getGeoLeadershipDashboard
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: period_from
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Period From
+      - name: period_to
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Period To
+      - name: bucket_granularity
+        in: query
+        required: false
+        schema:
+          enum:
+          - DAY
+          - WEEK
+          type: string
+          default: DAY
+          title: Bucket Granularity
+      - name: product_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Product Id
+      - name: surface_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Surface Id
+      - name: collection_mode
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - MANUAL
+            - API
+            - BROWSER
+            type: string
+          - type: 'null'
+          title: Collection Mode
+      - name: timezone
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 64
+          default: Asia/Shanghai
+          title: Timezone
+      - $ref: '#/components/parameters/RequestIdHeader'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeoLeadershipDashboardOut'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/geo/leadership-dashboard/evidence:
+    get:
+      tags:
+      - geo-leadership-dashboard
+      summary: List Leadership Evidence Route
+      operationId: listGeoLeadershipEvidence
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: run_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: array
+            items:
+              type: string
+              format: uuid
+          - type: 'null'
+          title: Run Id
+      - name: prompt_variant_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Prompt Variant Id
+      - name: surface_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Surface Id
+      - name: article_publication_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Article Publication Id
+      - name: period_from
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Period From
+      - name: period_to
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Period To
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 50
+          title: Limit
+      - $ref: '#/components/parameters/RequestIdHeader'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeoLeadershipEvidenceList'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/geo/report-snapshots:
+    get:
+      tags:
+      - geo-leadership-dashboard
+      summary: List Report Snapshots Route
+      operationId: listGeoReportSnapshots
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 50
+          title: Limit
+      - $ref: '#/components/parameters/RequestIdHeader'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeoReportSnapshotList'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+    post:
+      tags:
+      - geo-leadership-dashboard
+      summary: Create Report Snapshot Route
+      operationId: createGeoReportSnapshot
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      - $ref: '#/components/parameters/RequestIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeoReportSnapshotCreateRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeoReportSnapshotDetail'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '404':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '409':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/geo/report-snapshots/{snapshot_id}:
+    get:
+      tags:
+      - geo-leadership-dashboard
+      summary: Get Report Snapshot Route
+      operationId: getGeoReportSnapshot
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: snapshot_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Snapshot Id
+      - $ref: '#/components/parameters/RequestIdHeader'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeoReportSnapshotDetail'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '404':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
 components:
   securitySchemes:
     geoBrowserServiceKey:
@@ -50902,3 +51373,1066 @@ components:
       - EXPLORATORY
       - ARTICLE_LOOKUP
       title: GeoRunEntryKind
+    GeoArticlePerformanceOut:
+      properties:
+        article_publication_id:
+          type: string
+          format: uuid
+          title: Article Publication Id
+        article_id:
+          type: string
+          format: uuid
+          title: Article Id
+        article_title:
+          type: string
+          title: Article Title
+        publication_title:
+          type: string
+          title: Publication Title
+        platform_name:
+          type: string
+          title: Platform Name
+        final_url:
+          type: string
+          title: Final Url
+        verification_status:
+          type: string
+          title: Verification Status
+        cited_run_count:
+          type: integer
+          minimum: 0.0
+          title: Cited Run Count
+        first_cited_at:
+          type: string
+          format: date-time
+          title: First Cited At
+        is_first_cited_in_period:
+          type: boolean
+          title: Is First Cited In Period
+        sample_run_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          title: Sample Run Ids
+      additionalProperties: false
+      type: object
+      required:
+      - article_publication_id
+      - article_id
+      - article_title
+      - publication_title
+      - platform_name
+      - final_url
+      - verification_status
+      - cited_run_count
+      - first_cited_at
+      - is_first_cited_in_period
+      title: GeoArticlePerformanceOut
+    GeoCategorySeparateSummaryOut:
+      properties:
+        category:
+          $ref: '#/components/schemas/GeoPromptCategory'
+        total_runs:
+          type: integer
+          minimum: 0.0
+          title: Total Runs
+        valid_completed_runs:
+          type: integer
+          minimum: 0.0
+          title: Valid Completed Runs
+        mention_hit_runs:
+          type: integer
+          minimum: 0.0
+          title: Mention Hit Runs
+        citation_hit_runs:
+          type: integer
+          minimum: 0.0
+          title: Citation Hit Runs
+        needs_review_runs:
+          type: integer
+          minimum: 0.0
+          title: Needs Review Runs
+        failed_runs:
+          type: integer
+          minimum: 0.0
+          title: Failed Runs
+      additionalProperties: false
+      type: object
+      required:
+      - category
+      - total_runs
+      - valid_completed_runs
+      - mention_hit_runs
+      - citation_hit_runs
+      - needs_review_runs
+      - failed_runs
+      title: GeoCategorySeparateSummaryOut
+    GeoCoreCoverageCard:
+      properties:
+        hit_questions:
+          type: integer
+          minimum: 0.0
+          title: Hit Questions
+        sampled_questions:
+          type: integer
+          minimum: 0.0
+          title: Sampled Questions
+        total_core_questions:
+          type: integer
+          minimum: 0.0
+          title: Total Core Questions
+        unsampled_questions:
+          type: integer
+          minimum: 0.0
+          title: Unsampled Questions
+        coverage_rate:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Coverage Rate
+      additionalProperties: false
+      type: object
+      required:
+      - hit_questions
+      - sampled_questions
+      - total_core_questions
+      - unsampled_questions
+      title: GeoCoreCoverageCard
+    GeoDashboardFilterOption:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        label:
+          type: string
+          title: Label
+        meta:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Meta
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - label
+      title: GeoDashboardFilterOption
+    GeoDataQualityOut:
+      properties:
+        planned_total:
+          type: integer
+          minimum: 0.0
+          title: Planned Total
+        completed_valid_count:
+          type: integer
+          minimum: 0.0
+          title: Completed Valid Count
+        needs_review_count:
+          type: integer
+          minimum: 0.0
+          title: Needs Review Count
+        pending_count:
+          type: integer
+          minimum: 0.0
+          title: Pending Count
+        failed_count:
+          type: integer
+          minimum: 0.0
+          title: Failed Count
+        cancelled_count:
+          type: integer
+          minimum: 0.0
+          title: Cancelled Count
+        query_modified_excluded_count:
+          type: integer
+          minimum: 0.0
+          title: Query Modified Excluded Count
+        exploratory_excluded_count:
+          type: integer
+          minimum: 0.0
+          title: Exploratory Excluded Count
+        backfill_count:
+          type: integer
+          minimum: 0.0
+          title: Backfill Count
+        citation_partial_or_unknown_count:
+          type: integer
+          minimum: 0.0
+          title: Citation Partial Or Unknown Count
+        pending_candidate_links_count:
+          type: integer
+          minimum: 0.0
+          title: Pending Candidate Links Count
+      additionalProperties: false
+      type: object
+      required:
+      - planned_total
+      - completed_valid_count
+      - needs_review_count
+      - pending_count
+      - failed_count
+      - cancelled_count
+      - query_modified_excluded_count
+      - exploratory_excluded_count
+      - backfill_count
+      - citation_partial_or_unknown_count
+      - pending_candidate_links_count
+      title: GeoDataQualityOut
+    GeoDiffCiOut:
+      properties:
+        lower_pp:
+          type: number
+          title: Lower Pp
+        upper_pp:
+          type: number
+          title: Upper Pp
+        excludes_zero:
+          type: boolean
+          title: Excludes Zero
+        method:
+          type: string
+          const: NEWCOMBE_WILSON_95
+          title: Method
+          default: NEWCOMBE_WILSON_95
+      additionalProperties: false
+      type: object
+      required:
+      - lower_pp
+      - upper_pp
+      - excludes_zero
+      title: GeoDiffCiOut
+    GeoFirstCitedCard:
+      properties:
+        first_cited_count:
+          type: integer
+          minimum: 0.0
+          title: First Cited Count
+        total_cited_publications_in_period:
+          type: integer
+          minimum: 0.0
+          title: Total Cited Publications In Period
+        note:
+          type: string
+          title: Note
+          default: 系统观测历史内首次观察到被引用，不代表全网历史首次
+      additionalProperties: false
+      type: object
+      required:
+      - first_cited_count
+      - total_cited_publications_in_period
+      title: GeoFirstCitedCard
+    GeoLeadershipDashboardOut:
+      properties:
+        as_of:
+          type: string
+          format: date-time
+          title: As Of
+        period_from:
+          type: string
+          format: date-time
+          title: Period From
+        period_to:
+          type: string
+          format: date-time
+          title: Period To
+        bucket_granularity:
+          type: string
+          enum:
+          - DAY
+          - WEEK
+          title: Bucket Granularity
+        comparability_warnings:
+          items:
+            type: string
+          type: array
+          title: Comparability Warnings
+        summary_cards:
+          $ref: '#/components/schemas/GeoLeadershipSummaryCards'
+        trend_series:
+          items:
+            $ref: '#/components/schemas/GeoTrendBucketOut'
+          type: array
+          title: Trend Series
+        platform_comparisons:
+          items:
+            $ref: '#/components/schemas/GeoPlatformComparisonOut'
+          type: array
+          title: Platform Comparisons
+        question_platform_matrix:
+          items:
+            $ref: '#/components/schemas/GeoQuestionMatrixRowOut'
+          type: array
+          title: Question Platform Matrix
+        article_performance:
+          items:
+            $ref: '#/components/schemas/GeoArticlePerformanceOut'
+          type: array
+          title: Article Performance
+        brand_model_section:
+          $ref: '#/components/schemas/GeoCategorySeparateSummaryOut'
+        article_lookup_section:
+          $ref: '#/components/schemas/GeoCategorySeparateSummaryOut'
+        data_quality:
+          $ref: '#/components/schemas/GeoDataQualityOut'
+        evidence_run_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          title: Evidence Run Ids
+      additionalProperties: false
+      type: object
+      required:
+      - as_of
+      - period_from
+      - period_to
+      - bucket_granularity
+      - comparability_warnings
+      - summary_cards
+      - trend_series
+      - platform_comparisons
+      - question_platform_matrix
+      - article_performance
+      - brand_model_section
+      - article_lookup_section
+      - data_quality
+      - evidence_run_ids
+      title: GeoLeadershipDashboardOut
+    GeoLeadershipEvidenceItem:
+      properties:
+        run_id:
+          type: string
+          format: uuid
+          title: Run Id
+        effective_at:
+          type: string
+          format: date-time
+          title: Effective At
+        collected_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Collected At
+        registered_at:
+          type: string
+          format: date-time
+          title: Registered At
+        status:
+          $ref: '#/components/schemas/GeoRunStatus'
+        entry_kind:
+          $ref: '#/components/schemas/GeoRunEntryKind'
+        is_backfill:
+          type: boolean
+          title: Is Backfill
+        backfill_source:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Backfill Source
+        platform_name:
+          type: string
+          title: Platform Name
+        collection_mode:
+          type: string
+          title: Collection Mode
+        prompt_category:
+          $ref: '#/components/schemas/GeoPromptCategory'
+        prompt_text:
+          type: string
+          title: Prompt Text
+        actual_prompt_text:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actual Prompt Text
+        query_modified:
+          type: boolean
+          title: Query Modified
+        answer_text:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Answer Text
+        screenshot_file_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Screenshot File Id
+        web_search_observed:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Web Search Observed
+        citation_observation_status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Citation Observation Status
+        recorder_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Recorder Name
+        mentioned_brand:
+          type: boolean
+          title: Mentioned Brand
+        mentioned_product:
+          type: boolean
+          title: Mentioned Product
+        recommended:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Recommended
+        citation_links:
+          items:
+            $ref: '#/components/schemas/GeoCitationPublicationLinkOut'
+          type: array
+          title: Citation Links
+        error_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Code
+        error_summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Summary
+      additionalProperties: false
+      type: object
+      required:
+      - run_id
+      - effective_at
+      - collected_at
+      - registered_at
+      - status
+      - entry_kind
+      - is_backfill
+      - backfill_source
+      - platform_name
+      - collection_mode
+      - prompt_category
+      - prompt_text
+      - actual_prompt_text
+      - query_modified
+      - answer_text
+      - screenshot_file_id
+      - web_search_observed
+      - citation_observation_status
+      - recorder_name
+      - mentioned_brand
+      - mentioned_product
+      - recommended
+      - citation_links
+      - error_code
+      - error_summary
+      title: GeoLeadershipEvidenceItem
+    GeoLeadershipEvidenceList:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/GeoLeadershipEvidenceItem'
+          type: array
+          title: Items
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      - total
+      title: GeoLeadershipEvidenceList
+    GeoLeadershipFilterOptionsOut:
+      properties:
+        products:
+          items:
+            $ref: '#/components/schemas/GeoDashboardFilterOption'
+          type: array
+          title: Products
+        platforms:
+          items:
+            $ref: '#/components/schemas/GeoDashboardFilterOption'
+          type: array
+          title: Platforms
+        core_plans:
+          items:
+            $ref: '#/components/schemas/GeoDashboardFilterOption'
+          type: array
+          title: Core Plans
+      additionalProperties: false
+      type: object
+      required:
+      - products
+      - platforms
+      - core_plans
+      title: GeoLeadershipFilterOptionsOut
+    GeoLeadershipSummaryCards:
+      properties:
+        perspective:
+          type: string
+          enum:
+          - COMPANY
+          - SINGLE_PRODUCT
+          title: Perspective
+        selected_product_label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Selected Product Label
+        natural_mention_rate:
+          $ref: '#/components/schemas/GeoRateMetricOut'
+        brand_mention_breakdown:
+          $ref: '#/components/schemas/GeoRateMetricOut'
+        product_mention_breakdown:
+          $ref: '#/components/schemas/GeoRateMetricOut'
+        article_citation_hit_rate:
+          $ref: '#/components/schemas/GeoRateMetricOut'
+        citation_unobserved_count:
+          type: integer
+          minimum: 0.0
+          title: Citation Unobserved Count
+        core_question_coverage:
+          $ref: '#/components/schemas/GeoCoreCoverageCard'
+        first_cited_articles:
+          $ref: '#/components/schemas/GeoFirstCitedCard'
+        recommendation_rate:
+          $ref: '#/components/schemas/GeoRateMetricOut'
+        recommendation_unknown_count:
+          type: integer
+          minimum: 0.0
+          title: Recommendation Unknown Count
+      additionalProperties: false
+      type: object
+      required:
+      - perspective
+      - natural_mention_rate
+      - brand_mention_breakdown
+      - product_mention_breakdown
+      - article_citation_hit_rate
+      - citation_unobserved_count
+      - core_question_coverage
+      - first_cited_articles
+      - recommendation_rate
+      - recommendation_unknown_count
+      title: GeoLeadershipSummaryCards
+    GeoMatrixCellOut:
+      properties:
+        surface_id:
+          type: string
+          format: uuid
+          title: Surface Id
+        platform_name:
+          type: string
+          title: Platform Name
+        valid_count:
+          type: integer
+          minimum: 0.0
+          title: Valid Count
+        mention_hit_count:
+          type: integer
+          minimum: 0.0
+          title: Mention Hit Count
+        citation_hit_count:
+          type: integer
+          minimum: 0.0
+          title: Citation Hit Count
+        needs_review_count:
+          type: integer
+          minimum: 0.0
+          title: Needs Review Count
+        failed_count:
+          type: integer
+          minimum: 0.0
+          title: Failed Count
+        run_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          title: Run Ids
+      additionalProperties: false
+      type: object
+      required:
+      - surface_id
+      - platform_name
+      - valid_count
+      - mention_hit_count
+      - citation_hit_count
+      - needs_review_count
+      - failed_count
+      title: GeoMatrixCellOut
+    GeoPlatformComparisonOut:
+      properties:
+        surface_id:
+          type: string
+          format: uuid
+          title: Surface Id
+        platform_name:
+          type: string
+          title: Platform Name
+        collection_mode:
+          type: string
+          title: Collection Mode
+        mention_numerator:
+          type: integer
+          minimum: 0.0
+          title: Mention Numerator
+        mention_denominator:
+          type: integer
+          minimum: 0.0
+          title: Mention Denominator
+        natural_mention_rate:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Natural Mention Rate
+        mention_ci_95:
+          anyOf:
+          - $ref: '#/components/schemas/GeoRateCiOut'
+          - type: 'null'
+        citation_numerator:
+          type: integer
+          minimum: 0.0
+          title: Citation Numerator
+        citation_denominator:
+          type: integer
+          minimum: 0.0
+          title: Citation Denominator
+        citation_hit_rate:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Citation Hit Rate
+        needs_review_count:
+          type: integer
+          minimum: 0.0
+          title: Needs Review Count
+        failed_count:
+          type: integer
+          minimum: 0.0
+          title: Failed Count
+      additionalProperties: false
+      type: object
+      required:
+      - surface_id
+      - platform_name
+      - collection_mode
+      - mention_numerator
+      - mention_denominator
+      - citation_numerator
+      - citation_denominator
+      - needs_review_count
+      - failed_count
+      title: GeoPlatformComparisonOut
+    GeoQuestionMatrixRowOut:
+      properties:
+        prompt_variant_id:
+          type: string
+          format: uuid
+          title: Prompt Variant Id
+        prompt_text:
+          type: string
+          title: Prompt Text
+        prompt_priority:
+          type: string
+          title: Prompt Priority
+        cells:
+          items:
+            $ref: '#/components/schemas/GeoMatrixCellOut'
+          type: array
+          title: Cells
+      additionalProperties: false
+      type: object
+      required:
+      - prompt_variant_id
+      - prompt_text
+      - prompt_priority
+      - cells
+      title: GeoQuestionMatrixRowOut
+    GeoRateCiOut:
+      properties:
+        lower:
+          type: number
+          title: Lower
+        upper:
+          type: number
+          title: Upper
+        sample_size:
+          type: integer
+          title: Sample Size
+        method:
+          type: string
+          const: WILSON_95
+          title: Method
+          default: WILSON_95
+      additionalProperties: false
+      type: object
+      required:
+      - lower
+      - upper
+      - sample_size
+      title: GeoRateCiOut
+    GeoRateMetricOut:
+      properties:
+        numerator:
+          type: integer
+          minimum: 0.0
+          title: Numerator
+        denominator:
+          type: integer
+          minimum: 0.0
+          title: Denominator
+        rate:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Rate
+        ci_95:
+          anyOf:
+          - $ref: '#/components/schemas/GeoRateCiOut'
+          - type: 'null'
+        previous_numerator:
+          type: integer
+          minimum: 0.0
+          title: Previous Numerator
+          default: 0
+        previous_denominator:
+          type: integer
+          minimum: 0.0
+          title: Previous Denominator
+          default: 0
+        previous_rate:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Previous Rate
+        delta_pp:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Delta Pp
+        delta_ci_95:
+          anyOf:
+          - $ref: '#/components/schemas/GeoDiffCiOut'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - numerator
+      - denominator
+      title: GeoRateMetricOut
+    GeoReportSnapshotCreateRequest:
+      properties:
+        report_kind:
+          $ref: '#/components/schemas/GeoReportSnapshotKind'
+          default: WEEKLY
+        title:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Title
+        period_from:
+          type: string
+          format: date-time
+          title: Period From
+        period_to:
+          type: string
+          format: date-time
+          title: Period To
+        bucket_granularity:
+          type: string
+          enum:
+          - DAY
+          - WEEK
+          title: Bucket Granularity
+          default: DAY
+        product_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Product Id
+        surface_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Surface Id
+        collection_mode:
+          anyOf:
+          - type: string
+            enum:
+            - MANUAL
+            - API
+            - BROWSER
+          - type: 'null'
+          title: Collection Mode
+        summary_notes:
+          type: string
+          maxLength: 8000
+          title: Summary Notes
+          default: ''
+        supersedes_snapshot_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Supersedes Snapshot Id
+        correction_reason:
+          anyOf:
+          - type: string
+            maxLength: 1000
+          - type: 'null'
+          title: Correction Reason
+      additionalProperties: false
+      type: object
+      required:
+      - title
+      - period_from
+      - period_to
+      title: GeoReportSnapshotCreateRequest
+    GeoReportSnapshotDetail:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        report_kind:
+          $ref: '#/components/schemas/GeoReportSnapshotKind'
+        title:
+          type: string
+          title: Title
+        period_from:
+          type: string
+          format: date-time
+          title: Period From
+        period_to:
+          type: string
+          format: date-time
+          title: Period To
+        data_cutoff_at:
+          type: string
+          format: date-time
+          title: Data Cutoff At
+        revision_no:
+          type: integer
+          title: Revision No
+        supersedes_snapshot_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Supersedes Snapshot Id
+        correction_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Correction Reason
+        summary_notes:
+          type: string
+          title: Summary Notes
+        evidence_run_count:
+          type: integer
+          minimum: 0.0
+          title: Evidence Run Count
+        created_by:
+          type: string
+          format: uuid
+          title: Created By
+        created_by_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created By Name
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        filter_scope:
+          additionalProperties: true
+          type: object
+          title: Filter Scope
+        core_cohort_snapshot:
+          additionalProperties: true
+          type: object
+          title: Core Cohort Snapshot
+        dashboard_payload:
+          additionalProperties: true
+          type: object
+          title: Dashboard Payload
+        evidence_run_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          title: Evidence Run Ids
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - report_kind
+      - title
+      - period_from
+      - period_to
+      - data_cutoff_at
+      - revision_no
+      - supersedes_snapshot_id
+      - correction_reason
+      - summary_notes
+      - evidence_run_count
+      - created_by
+      - created_at
+      - filter_scope
+      - core_cohort_snapshot
+      - dashboard_payload
+      - evidence_run_ids
+      title: GeoReportSnapshotDetail
+    GeoReportSnapshotKind:
+      type: string
+      enum:
+      - WEEKLY
+      - MONTHLY
+      - CUSTOM
+      title: GeoReportSnapshotKind
+    GeoReportSnapshotList:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/GeoReportSnapshotOut'
+          type: array
+          title: Items
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      - total
+      title: GeoReportSnapshotList
+    GeoReportSnapshotOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        report_kind:
+          $ref: '#/components/schemas/GeoReportSnapshotKind'
+        title:
+          type: string
+          title: Title
+        period_from:
+          type: string
+          format: date-time
+          title: Period From
+        period_to:
+          type: string
+          format: date-time
+          title: Period To
+        data_cutoff_at:
+          type: string
+          format: date-time
+          title: Data Cutoff At
+        revision_no:
+          type: integer
+          title: Revision No
+        supersedes_snapshot_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Supersedes Snapshot Id
+        correction_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Correction Reason
+        summary_notes:
+          type: string
+          title: Summary Notes
+        evidence_run_count:
+          type: integer
+          minimum: 0.0
+          title: Evidence Run Count
+        created_by:
+          type: string
+          format: uuid
+          title: Created By
+        created_by_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created By Name
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - report_kind
+      - title
+      - period_from
+      - period_to
+      - data_cutoff_at
+      - revision_no
+      - supersedes_snapshot_id
+      - correction_reason
+      - summary_notes
+      - evidence_run_count
+      - created_by
+      - created_at
+      title: GeoReportSnapshotOut
+    GeoTrendBucketOut:
+      properties:
+        bucket_key:
+          type: string
+          title: Bucket Key
+        label:
+          type: string
+          title: Label
+        mention_numerator:
+          type: integer
+          minimum: 0.0
+          title: Mention Numerator
+        mention_denominator:
+          type: integer
+          minimum: 0.0
+          title: Mention Denominator
+        natural_mention_rate:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Natural Mention Rate
+        citation_numerator:
+          type: integer
+          minimum: 0.0
+          title: Citation Numerator
+        citation_denominator:
+          type: integer
+          minimum: 0.0
+          title: Citation Denominator
+        citation_hit_rate:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Citation Hit Rate
+      additionalProperties: false
+      type: object
+      required:
+      - bucket_key
+      - label
+      - mention_numerator
+      - mention_denominator
+      - citation_numerator
+      - citation_denominator
+      title: GeoTrendBucketOut

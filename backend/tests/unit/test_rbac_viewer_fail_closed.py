@@ -84,6 +84,12 @@ _VIEWER_READ_ALLOWLIST = frozenset(
         "listArticlePublications",
         "listProductMaterials",
         "listGeoRunCitationLinks",
+        # 领导效果看板、友好筛选项、统一下钻证据与冻结周报快照只读查看（Slice 1D）
+        "getGeoLeadershipFilterOptions",
+        "getGeoLeadershipDashboard",
+        "listGeoLeadershipEvidence",
+        "listGeoReportSnapshots",
+        "getGeoReportSnapshot",
     }
 )
 

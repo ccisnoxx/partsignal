@@ -123,6 +123,8 @@ RETAINED_AUDIT_ACTIONS = frozenset(
         "geo_citation_link.manual_linked",
         "geo_daily_checklist.ensured",
         "geo_direct_observation.created",
+        "geo_report_snapshot.created",
+        "geo_report_snapshot.revised",
         "geo_monitoring_plan.created",
         "geo_monitoring_plan.updated",
         "geo_monitoring_plan.activated",
@@ -338,6 +340,8 @@ AUDIT_FACT_KEYS: dict[AuditModule, frozenset[str]] = {
             "entry_kind",
             "target_date",
             "created_run_count",
+            "snapshot_id",
+            "report_kind",
         }
     ),
     AuditModule.CONFIGURATION: frozenset(

@@ -4636,6 +4636,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/geo/leadership-dashboard/filter-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Filter Options Route */
+        get: operations["getGeoLeadershipFilterOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/leadership-dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Leadership Dashboard Route */
+        get: operations["getGeoLeadershipDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/leadership-dashboard/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Leadership Evidence Route */
+        get: operations["listGeoLeadershipEvidence"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/report-snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Report Snapshots Route */
+        get: operations["listGeoReportSnapshots"];
+        put?: never;
+        /** Create Report Snapshot Route */
+        post: operations["createGeoReportSnapshot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/geo/report-snapshots/{snapshot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Report Snapshot Route */
+        get: operations["getGeoReportSnapshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -19019,6 +19105,552 @@ export interface components {
          * @enum {string}
          */
         GeoRunEntryKind: "PLAN_STANDARD" | "BACKFILL" | "EXPLORATORY" | "ARTICLE_LOOKUP";
+        /** GeoArticlePerformanceOut */
+        GeoArticlePerformanceOut: {
+            /**
+             * Article Publication Id
+             * Format: uuid
+             */
+            article_publication_id: string;
+            /**
+             * Article Id
+             * Format: uuid
+             */
+            article_id: string;
+            /** Article Title */
+            article_title: string;
+            /** Publication Title */
+            publication_title: string;
+            /** Platform Name */
+            platform_name: string;
+            /** Final Url */
+            final_url: string;
+            /** Verification Status */
+            verification_status: string;
+            /** Cited Run Count */
+            cited_run_count: number;
+            /**
+             * First Cited At
+             * Format: date-time
+             */
+            first_cited_at: string;
+            /** Is First Cited In Period */
+            is_first_cited_in_period: boolean;
+            /** Sample Run Ids */
+            sample_run_ids?: string[];
+        };
+        /** GeoCategorySeparateSummaryOut */
+        GeoCategorySeparateSummaryOut: {
+            category: components["schemas"]["GeoPromptCategory"];
+            /** Total Runs */
+            total_runs: number;
+            /** Valid Completed Runs */
+            valid_completed_runs: number;
+            /** Mention Hit Runs */
+            mention_hit_runs: number;
+            /** Citation Hit Runs */
+            citation_hit_runs: number;
+            /** Needs Review Runs */
+            needs_review_runs: number;
+            /** Failed Runs */
+            failed_runs: number;
+        };
+        /** GeoCoreCoverageCard */
+        GeoCoreCoverageCard: {
+            /** Hit Questions */
+            hit_questions: number;
+            /** Sampled Questions */
+            sampled_questions: number;
+            /** Total Core Questions */
+            total_core_questions: number;
+            /** Unsampled Questions */
+            unsampled_questions: number;
+            /** Coverage Rate */
+            coverage_rate?: number | null;
+        };
+        /** GeoDashboardFilterOption */
+        GeoDashboardFilterOption: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Label */
+            label: string;
+            /** Meta */
+            meta?: string | null;
+        };
+        /** GeoDataQualityOut */
+        GeoDataQualityOut: {
+            /** Planned Total */
+            planned_total: number;
+            /** Completed Valid Count */
+            completed_valid_count: number;
+            /** Needs Review Count */
+            needs_review_count: number;
+            /** Pending Count */
+            pending_count: number;
+            /** Failed Count */
+            failed_count: number;
+            /** Cancelled Count */
+            cancelled_count: number;
+            /** Query Modified Excluded Count */
+            query_modified_excluded_count: number;
+            /** Exploratory Excluded Count */
+            exploratory_excluded_count: number;
+            /** Backfill Count */
+            backfill_count: number;
+            /** Citation Partial Or Unknown Count */
+            citation_partial_or_unknown_count: number;
+            /** Pending Candidate Links Count */
+            pending_candidate_links_count: number;
+        };
+        /** GeoDiffCiOut */
+        GeoDiffCiOut: {
+            /** Lower Pp */
+            lower_pp: number;
+            /** Upper Pp */
+            upper_pp: number;
+            /** Excludes Zero */
+            excludes_zero: boolean;
+            /**
+             * Method
+             * @default NEWCOMBE_WILSON_95
+             * @constant
+             */
+            method: "NEWCOMBE_WILSON_95";
+        };
+        /** GeoFirstCitedCard */
+        GeoFirstCitedCard: {
+            /** First Cited Count */
+            first_cited_count: number;
+            /** Total Cited Publications In Period */
+            total_cited_publications_in_period: number;
+            /**
+             * Note
+             * @default 系统观测历史内首次观察到被引用，不代表全网历史首次
+             */
+            note: string;
+        };
+        /** GeoLeadershipDashboardOut */
+        GeoLeadershipDashboardOut: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /**
+             * Period From
+             * Format: date-time
+             */
+            period_from: string;
+            /**
+             * Period To
+             * Format: date-time
+             */
+            period_to: string;
+            /**
+             * Bucket Granularity
+             * @enum {string}
+             */
+            bucket_granularity: "DAY" | "WEEK";
+            /** Comparability Warnings */
+            comparability_warnings: string[];
+            summary_cards: components["schemas"]["GeoLeadershipSummaryCards"];
+            /** Trend Series */
+            trend_series: components["schemas"]["GeoTrendBucketOut"][];
+            /** Platform Comparisons */
+            platform_comparisons: components["schemas"]["GeoPlatformComparisonOut"][];
+            /** Question Platform Matrix */
+            question_platform_matrix: components["schemas"]["GeoQuestionMatrixRowOut"][];
+            /** Article Performance */
+            article_performance: components["schemas"]["GeoArticlePerformanceOut"][];
+            brand_model_section: components["schemas"]["GeoCategorySeparateSummaryOut"];
+            article_lookup_section: components["schemas"]["GeoCategorySeparateSummaryOut"];
+            data_quality: components["schemas"]["GeoDataQualityOut"];
+            /** Evidence Run Ids */
+            evidence_run_ids: string[];
+        };
+        /** GeoLeadershipEvidenceItem */
+        GeoLeadershipEvidenceItem: {
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /**
+             * Effective At
+             * Format: date-time
+             */
+            effective_at: string;
+            /** Collected At */
+            collected_at: string | null;
+            /**
+             * Registered At
+             * Format: date-time
+             */
+            registered_at: string;
+            status: components["schemas"]["GeoRunStatus"];
+            entry_kind: components["schemas"]["GeoRunEntryKind"];
+            /** Is Backfill */
+            is_backfill: boolean;
+            /** Backfill Source */
+            backfill_source: string | null;
+            /** Platform Name */
+            platform_name: string;
+            /** Collection Mode */
+            collection_mode: string;
+            prompt_category: components["schemas"]["GeoPromptCategory"];
+            /** Prompt Text */
+            prompt_text: string;
+            /** Actual Prompt Text */
+            actual_prompt_text: string | null;
+            /** Query Modified */
+            query_modified: boolean;
+            /** Answer Text */
+            answer_text: string | null;
+            /** Screenshot File Id */
+            screenshot_file_id: string | null;
+            /** Web Search Observed */
+            web_search_observed: boolean | null;
+            /** Citation Observation Status */
+            citation_observation_status: string | null;
+            /** Recorder Name */
+            recorder_name: string | null;
+            /** Mentioned Brand */
+            mentioned_brand: boolean;
+            /** Mentioned Product */
+            mentioned_product: boolean;
+            /** Recommended */
+            recommended: boolean | null;
+            /** Citation Links */
+            citation_links: components["schemas"]["GeoCitationPublicationLinkOut"][];
+            /** Error Code */
+            error_code: string | null;
+            /** Error Summary */
+            error_summary: string | null;
+        };
+        /** GeoLeadershipEvidenceList */
+        GeoLeadershipEvidenceList: {
+            /** Items */
+            items: components["schemas"]["GeoLeadershipEvidenceItem"][];
+            /** Total */
+            total: number;
+        };
+        /** GeoLeadershipFilterOptionsOut */
+        GeoLeadershipFilterOptionsOut: {
+            /** Products */
+            products: components["schemas"]["GeoDashboardFilterOption"][];
+            /** Platforms */
+            platforms: components["schemas"]["GeoDashboardFilterOption"][];
+            /** Core Plans */
+            core_plans: components["schemas"]["GeoDashboardFilterOption"][];
+        };
+        /** GeoLeadershipSummaryCards */
+        GeoLeadershipSummaryCards: {
+            /**
+             * Perspective
+             * @enum {string}
+             */
+            perspective: "COMPANY" | "SINGLE_PRODUCT";
+            /** Selected Product Label */
+            selected_product_label?: string | null;
+            natural_mention_rate: components["schemas"]["GeoRateMetricOut"];
+            brand_mention_breakdown: components["schemas"]["GeoRateMetricOut"];
+            product_mention_breakdown: components["schemas"]["GeoRateMetricOut"];
+            article_citation_hit_rate: components["schemas"]["GeoRateMetricOut"];
+            /** Citation Unobserved Count */
+            citation_unobserved_count: number;
+            core_question_coverage: components["schemas"]["GeoCoreCoverageCard"];
+            first_cited_articles: components["schemas"]["GeoFirstCitedCard"];
+            recommendation_rate: components["schemas"]["GeoRateMetricOut"];
+            /** Recommendation Unknown Count */
+            recommendation_unknown_count: number;
+        };
+        /** GeoMatrixCellOut */
+        GeoMatrixCellOut: {
+            /**
+             * Surface Id
+             * Format: uuid
+             */
+            surface_id: string;
+            /** Platform Name */
+            platform_name: string;
+            /** Valid Count */
+            valid_count: number;
+            /** Mention Hit Count */
+            mention_hit_count: number;
+            /** Citation Hit Count */
+            citation_hit_count: number;
+            /** Needs Review Count */
+            needs_review_count: number;
+            /** Failed Count */
+            failed_count: number;
+            /** Run Ids */
+            run_ids?: string[];
+        };
+        /** GeoPlatformComparisonOut */
+        GeoPlatformComparisonOut: {
+            /**
+             * Surface Id
+             * Format: uuid
+             */
+            surface_id: string;
+            /** Platform Name */
+            platform_name: string;
+            /** Collection Mode */
+            collection_mode: string;
+            /** Mention Numerator */
+            mention_numerator: number;
+            /** Mention Denominator */
+            mention_denominator: number;
+            /** Natural Mention Rate */
+            natural_mention_rate?: number | null;
+            mention_ci_95?: components["schemas"]["GeoRateCiOut"] | null;
+            /** Citation Numerator */
+            citation_numerator: number;
+            /** Citation Denominator */
+            citation_denominator: number;
+            /** Citation Hit Rate */
+            citation_hit_rate?: number | null;
+            /** Needs Review Count */
+            needs_review_count: number;
+            /** Failed Count */
+            failed_count: number;
+        };
+        /** GeoQuestionMatrixRowOut */
+        GeoQuestionMatrixRowOut: {
+            /**
+             * Prompt Variant Id
+             * Format: uuid
+             */
+            prompt_variant_id: string;
+            /** Prompt Text */
+            prompt_text: string;
+            /** Prompt Priority */
+            prompt_priority: string;
+            /** Cells */
+            cells: components["schemas"]["GeoMatrixCellOut"][];
+        };
+        /** GeoRateCiOut */
+        GeoRateCiOut: {
+            /** Lower */
+            lower: number;
+            /** Upper */
+            upper: number;
+            /** Sample Size */
+            sample_size: number;
+            /**
+             * Method
+             * @default WILSON_95
+             * @constant
+             */
+            method: "WILSON_95";
+        };
+        /** GeoRateMetricOut */
+        GeoRateMetricOut: {
+            /** Numerator */
+            numerator: number;
+            /** Denominator */
+            denominator: number;
+            /** Rate */
+            rate?: number | null;
+            ci_95?: components["schemas"]["GeoRateCiOut"] | null;
+            /**
+             * Previous Numerator
+             * @default 0
+             */
+            previous_numerator: number;
+            /**
+             * Previous Denominator
+             * @default 0
+             */
+            previous_denominator: number;
+            /** Previous Rate */
+            previous_rate?: number | null;
+            /** Delta Pp */
+            delta_pp?: number | null;
+            delta_ci_95?: components["schemas"]["GeoDiffCiOut"] | null;
+        };
+        /** GeoReportSnapshotCreateRequest */
+        GeoReportSnapshotCreateRequest: {
+            /** @default WEEKLY */
+            report_kind: components["schemas"]["GeoReportSnapshotKind"];
+            /** Title */
+            title: string;
+            /**
+             * Period From
+             * Format: date-time
+             */
+            period_from: string;
+            /**
+             * Period To
+             * Format: date-time
+             */
+            period_to: string;
+            /**
+             * Bucket Granularity
+             * @default DAY
+             * @enum {string}
+             */
+            bucket_granularity: "DAY" | "WEEK";
+            /** Product Id */
+            product_id?: string | null;
+            /** Surface Id */
+            surface_id?: string | null;
+            /** Collection Mode */
+            collection_mode?: ("MANUAL" | "API" | "BROWSER") | null;
+            /**
+             * Summary Notes
+             * @default
+             */
+            summary_notes: string;
+            /** Supersedes Snapshot Id */
+            supersedes_snapshot_id?: string | null;
+            /** Correction Reason */
+            correction_reason?: string | null;
+        };
+        /** GeoReportSnapshotDetail */
+        GeoReportSnapshotDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            report_kind: components["schemas"]["GeoReportSnapshotKind"];
+            /** Title */
+            title: string;
+            /**
+             * Period From
+             * Format: date-time
+             */
+            period_from: string;
+            /**
+             * Period To
+             * Format: date-time
+             */
+            period_to: string;
+            /**
+             * Data Cutoff At
+             * Format: date-time
+             */
+            data_cutoff_at: string;
+            /** Revision No */
+            revision_no: number;
+            /** Supersedes Snapshot Id */
+            supersedes_snapshot_id: string | null;
+            /** Correction Reason */
+            correction_reason: string | null;
+            /** Summary Notes */
+            summary_notes: string;
+            /** Evidence Run Count */
+            evidence_run_count: number;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /** Created By Name */
+            created_by_name?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Filter Scope */
+            filter_scope: {
+                [key: string]: unknown;
+            };
+            /** Core Cohort Snapshot */
+            core_cohort_snapshot: {
+                [key: string]: unknown;
+            };
+            /** Dashboard Payload */
+            dashboard_payload: {
+                [key: string]: unknown;
+            };
+            /** Evidence Run Ids */
+            evidence_run_ids: string[];
+        };
+        /**
+         * GeoReportSnapshotKind
+         * @enum {string}
+         */
+        GeoReportSnapshotKind: "WEEKLY" | "MONTHLY" | "CUSTOM";
+        /** GeoReportSnapshotList */
+        GeoReportSnapshotList: {
+            /** Items */
+            items: components["schemas"]["GeoReportSnapshotOut"][];
+            /** Total */
+            total: number;
+        };
+        /** GeoReportSnapshotOut */
+        GeoReportSnapshotOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            report_kind: components["schemas"]["GeoReportSnapshotKind"];
+            /** Title */
+            title: string;
+            /**
+             * Period From
+             * Format: date-time
+             */
+            period_from: string;
+            /**
+             * Period To
+             * Format: date-time
+             */
+            period_to: string;
+            /**
+             * Data Cutoff At
+             * Format: date-time
+             */
+            data_cutoff_at: string;
+            /** Revision No */
+            revision_no: number;
+            /** Supersedes Snapshot Id */
+            supersedes_snapshot_id: string | null;
+            /** Correction Reason */
+            correction_reason: string | null;
+            /** Summary Notes */
+            summary_notes: string;
+            /** Evidence Run Count */
+            evidence_run_count: number;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /** Created By Name */
+            created_by_name?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** GeoTrendBucketOut */
+        GeoTrendBucketOut: {
+            /** Bucket Key */
+            bucket_key: string;
+            /** Label */
+            label: string;
+            /** Mention Numerator */
+            mention_numerator: number;
+            /** Mention Denominator */
+            mention_denominator: number;
+            /** Natural Mention Rate */
+            natural_mention_rate?: number | null;
+            /** Citation Numerator */
+            citation_numerator: number;
+            /** Citation Denominator */
+            citation_denominator: number;
+            /** Citation Hit Rate */
+            citation_hit_rate?: number | null;
+        };
     };
     responses: {
         /** @description 业务或校验错误 */
@@ -31258,6 +31890,375 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GeoCitationPublicationLinkOut"][];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            /** @description 业务或校验错误 */
+            401: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            403: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            404: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getGeoLeadershipFilterOptions: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoLeadershipFilterOptionsOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            /** @description 业务或校验错误 */
+            401: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            403: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getGeoLeadershipDashboard: {
+        parameters: {
+            query?: {
+                period_from?: string | null;
+                period_to?: string | null;
+                bucket_granularity?: "DAY" | "WEEK";
+                product_id?: string | null;
+                surface_id?: string | null;
+                collection_mode?: ("MANUAL" | "API" | "BROWSER") | null;
+                timezone?: string;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoLeadershipDashboardOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            /** @description 业务或校验错误 */
+            401: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            403: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            422: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listGeoLeadershipEvidence: {
+        parameters: {
+            query?: {
+                run_id?: string[] | null;
+                prompt_variant_id?: string | null;
+                surface_id?: string | null;
+                article_publication_id?: string | null;
+                period_from?: string | null;
+                period_to?: string | null;
+                limit?: number;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoLeadershipEvidenceList"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            /** @description 业务或校验错误 */
+            401: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            403: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            422: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listGeoReportSnapshots: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoReportSnapshotList"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            /** @description 业务或校验错误 */
+            401: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            403: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    createGeoReportSnapshot: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoReportSnapshotCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoReportSnapshotDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            /** @description 业务或校验错误 */
+            401: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            403: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            404: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            409: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            422: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getGeoReportSnapshot: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                snapshot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoReportSnapshotDetail"];
                 };
             };
             400: components["responses"]["ErrorResponse"];

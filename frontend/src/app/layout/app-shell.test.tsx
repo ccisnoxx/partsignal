@@ -101,6 +101,14 @@ const admin: AuthUser = {
   primary_task: 'MANAGE_USER',
 };
 
+const viewer: AuthUser = {
+  ...engineer,
+  id: '00000000-0000-4000-8000-000000000003',
+  username: 'leader',
+  display_name: '领导只读',
+  account_type: 'VIEWER',
+};
+
 function authValue(user: AuthUser | null): AuthContextValue {
   return {
     user,
@@ -155,7 +163,7 @@ describe('AppShell', () => {
 
     expect(await screen.findByRole('heading', { name: productDetail.product.part_number })).toBeInTheDocument();
     const mainNavigation = screen.getByRole('navigation', { name: '主导航' });
-    expect(within(mainNavigation).getByRole('link', { name: '产品' })).toHaveAttribute('aria-current', 'page');
+    expect(within(mainNavigation).getByRole('link', { name: '产品资料' })).toHaveAttribute('aria-current', 'page');
     const breadcrumb = screen.getByRole('navigation', { name: '面包屑' });
     expect(breadcrumb).toHaveTextContent('产品');
     expect(breadcrumb).toHaveTextContent('产品详情');
@@ -192,12 +200,26 @@ describe('AppShell', () => {
     renderRoute('/', auth);
     const user = userEvent.setup();
 
+    await user.click(await screen.findByRole('button', { name: '系统管理' }));
     expect(await screen.findByRole('link', { name: '用户管理' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /系统管理员/ }));
     expect(await screen.findByRole('menuitem', { name: '修改密码' })).toHaveAttribute('href', '/account/security');
     await user.click(await screen.findByRole('menuitem', { name: '退出登录' }));
 
     expect(auth.signOut).toHaveBeenCalledOnce();
+  });
+
+  it('VIEWER 仅显示 3 个只读日常入口并在首页自动跳转至效果总览', async () => {
+    vi.spyOn(api, 'GET').mockImplementation(() => new Promise(() => undefined));
+    const router = renderRoute('/', authValue(viewer));
+
+    const mainNavigation = await screen.findByRole('navigation', { name: '主导航' });
+    expect(within(mainNavigation).getByRole('link', { name: '效果总览' })).toBeInTheDocument();
+    expect(within(mainNavigation).getByRole('link', { name: '文章与发布' })).toBeInTheDocument();
+    expect(within(mainNavigation).getByRole('link', { name: '产品资料' })).toBeInTheDocument();
+    expect(within(mainNavigation).queryByRole('link', { name: '今日监测' })).not.toBeInTheDocument();
+    expect(within(mainNavigation).queryByRole('link', { name: '设置' })).not.toBeInTheDocument();
+    await waitFor(() => expect(router.state.location.pathname).toBe('/geo/dashboard'));
   });
 
   it('pathname 导航聚焦主内容，search-only 更新不抢焦点', async () => {
@@ -212,7 +234,7 @@ describe('AppShell', () => {
     });
     const router = renderRoute('/');
     const user = userEvent.setup();
-    const productLink = await screen.findByRole('link', { name: '产品' });
+    const productLink = await screen.findByRole('link', { name: '产品资料' });
     await user.click(productLink);
     await screen.findByRole('heading', { name: '产品事实' });
     const tableRegion = await screen.findByRole('region', { name: '产品事实列表' });
@@ -243,12 +265,12 @@ describe('AppShell', () => {
     const user = userEvent.setup();
 
     const mainNavigation = await screen.findByRole('navigation', { name: '主导航' });
-    expect(within(mainNavigation).getByRole('link', { name: '分析与报告' })).toHaveAttribute('aria-current', 'page');
+    expect(within(mainNavigation).getByRole('link', { name: '效果总览' })).toHaveAttribute('aria-current', 'page');
 
     const toggle = screen.getByRole('button', { name: '收起侧边栏' });
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await user.click(toggle);
     expect(screen.getByRole('button', { name: '展开侧边栏' })).toHaveAttribute('aria-expanded', 'false');
-    expect(within(mainNavigation).getByRole('link', { name: '分析与报告' })).toHaveAttribute('aria-current', 'page');
+    expect(within(mainNavigation).getByRole('link', { name: '效果总览' })).toHaveAttribute('aria-current', 'page');
   });
 });

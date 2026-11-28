@@ -62,6 +62,7 @@ from app.models.geo_opportunity_decisions import GeoOpportunityDecision
 from app.models.geo_opportunity_evaluation import GeoOpportunityEvaluationRun
 from app.models.geo_opportunity_schedule import GeoOpportunitySchedule
 from app.models.geo_prompt_variants import GeoPromptVariant
+from app.models.geo_report_snapshots import GeoReportSnapshot
 from app.models.geo_retests import GeoRetestBaseline, GeoRetestRequest
 from app.models.geo_rules import GeoRuleSetRevision
 from app.models.geo_runs import GeoObservationBatch, GeoObservationRun
@@ -174,6 +175,7 @@ def _user_business_reference_counts(
         GeoMonitoringPlan.default_assignee_id,
         GeoObservationRun.assignee_id,
         GeoCitationPublicationLink.confirmed_by,
+        GeoReportSnapshot.created_by,
         OperatingCostEntry.created_by,
         OperatingCostEntry.voided_by,
         FileRecord.uploader_id,

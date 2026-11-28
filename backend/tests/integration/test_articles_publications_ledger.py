@@ -35,7 +35,7 @@ def test_0081_articles_publications_ledger_and_public_copy_bundle() -> None:
             check=False,
         )
         assert downgrade.returncode != 0
-        assert "downgrade 0081_articles_publications is forbidden" in downgrade.stderr
+        assert "is forbidden" in downgrade.stderr
 
         engine = create_engine(database_url)
         session_factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)

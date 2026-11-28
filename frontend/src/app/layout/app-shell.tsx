@@ -19,6 +19,7 @@ import {
   resolveBreadcrumbs,
   visibleNavigationSections,
   type BreadcrumbItem,
+  type NavAccountRole,
   type NavId,
   type NavigationItem,
 } from '@/app/navigation';
@@ -128,9 +129,9 @@ function AppShell({ auth, children }: AppShellProps) {
         <Brand collapsed={sidebarCollapsed} />
         <div className="min-h-0 flex-1 overflow-y-auto">
           <Navigation
+            accountType={auth.user?.account_type ?? (auth.isAdmin ? 'ADMIN' : 'ENGINEER')}
             activeNavId={activeNavId}
             collapsed={sidebarCollapsed}
-            isAdmin={auth.isAdmin}
           />
         </div>
         <div className="shrink-0 border-t border-border-subtle p-2">
@@ -168,8 +169,8 @@ function AppShell({ auth, children }: AppShellProps) {
       <div className="flex min-h-screen min-w-0 flex-col">
         <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-border-subtle bg-surface-panel/95 px-3 backdrop-blur-sm md:px-5 lg:px-6">
           <MobileNavigation
+            accountType={auth.user?.account_type ?? (auth.isAdmin ? 'ADMIN' : 'ENGINEER')}
             activeNavId={activeNavId}
-            isAdmin={auth.isAdmin}
             open={mobileNavigationOpen}
             onOpenChange={setMobileNavigationOpen}
           />
@@ -222,18 +223,24 @@ function Brand({ collapsed }: { collapsed: boolean }) {
 }
 
 function Navigation({
+  accountType,
   activeNavId,
   collapsed = false,
-  isAdmin,
   onNavigate,
 }: {
+  accountType: NavAccountRole;
   activeNavId?: NavId;
   collapsed?: boolean;
-  isAdmin: boolean;
   onNavigate?: () => void;
 }) {
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
-  const sections = visibleNavigationSections(isAdmin);
+  const sections = visibleNavigationSections(accountType);
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(
+      sections
+        .filter((section) => section.collapsible && section.defaultCollapsed)
+        .map((section) => [section.id, true]),
+    ),
+  );
 
   function toggleSection(sectionId: string) {
     setCollapsedSections((prev) => ({
@@ -358,13 +365,13 @@ function NavListItem({
 }
 
 function MobileNavigation({
+  accountType,
   activeNavId,
-  isAdmin,
   open,
   onOpenChange,
 }: {
+  accountType: NavAccountRole;
   activeNavId?: NavId;
-  isAdmin: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -380,8 +387,8 @@ function MobileNavigation({
         </SheetHeader>
         <SheetBody className="p-0">
           <Navigation
+            accountType={accountType}
             activeNavId={activeNavId}
-            isAdmin={isAdmin}
             onNavigate={() => onOpenChange(false)}
           />
         </SheetBody>
@@ -468,7 +475,11 @@ function AccountMenu({ auth }: { auth: AuthContextValue }) {
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate text-text-primary">{auth.user.display_name}</span>
                 <Badge variant={auth.isAdmin ? 'info' : 'secondary'}>
-                  {auth.isAdmin ? '管理员' : '工程师'}
+                  {auth.user.account_type === 'ADMIN'
+                    ? '管理员'
+                    : auth.user.account_type === 'VIEWER'
+                      ? '只读查看'
+                      : '工程师'}
                 </Badge>
               </div>
               <span className="block truncate font-normal text-text-tertiary">@{auth.user.username}</span>

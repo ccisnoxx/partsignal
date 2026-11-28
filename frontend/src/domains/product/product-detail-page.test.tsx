@@ -198,7 +198,7 @@ describe('ProductDetailPage', () => {
     const breadcrumb = screen.getByRole('navigation', { name: '面包屑' });
     expect(breadcrumb).toHaveTextContent('产品');
     expect(breadcrumb).toHaveTextContent('产品详情');
-    expect(within(screen.getByRole('navigation', { name: '主导航' })).getByRole('link', { name: '产品' }))
+    expect(within(screen.getByRole('navigation', { name: '主导航' })).getByRole('link', { name: '产品资料' }))
       .toHaveAttribute('aria-current', 'page');
   });
 

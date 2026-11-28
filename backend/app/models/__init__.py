@@ -27,6 +27,7 @@ import app.models.geo_opportunity_evaluation  # noqa: F401
 import app.models.geo_opportunity_schedule  # noqa: F401
 import app.models.geo_plan_schedules  # noqa: F401
 import app.models.geo_prompt_variants  # noqa: F401
+import app.models.geo_report_snapshots  # noqa: F401
 import app.models.geo_retention  # noqa: F401
 import app.models.geo_retests  # noqa: F401
 import app.models.geo_rules  # noqa: F401

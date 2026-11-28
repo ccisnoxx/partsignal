@@ -27,6 +27,7 @@ import { Route as AppConfigurationGeoRulesRouteImport } from './routes/_app/conf
 import { Route as AppConfigurationGeoSurfacesRouteImport } from './routes/_app/configuration/geo-surfaces'
 import { Route as AppContentCampaignsRouteRouteImport } from './routes/_app/content/campaigns/route'
 import { Route as AppContentTasksRouteRouteImport } from './routes/_app/content/tasks/route'
+import { Route as AppGeoDashboardRouteImport } from './routes/_app/geo/dashboard'
 import { Route as AppGeoInsightsRouteRouteImport } from './routes/_app/geo/insights/route'
 import { Route as AppGeoObservationsRouteRouteImport } from './routes/_app/geo/observations/route'
 import { Route as AppGeoOpportunitiesRouteImport } from './routes/_app/geo/opportunities'
@@ -55,6 +56,8 @@ import { Route as AppContentTasksTaskIdRouteImport } from './routes/_app/content
 import { Route as AppContentTasksBatchRouteImport } from './routes/_app/content/tasks/batch'
 import { Route as AppContentTasksNewRouteImport } from './routes/_app/content/tasks/new'
 import { Route as AppContentVersionsVersionIdRouteImport } from './routes/_app/content/versions_.$versionId'
+import { Route as AppGeoDashboardPrintRouteImport } from './routes/_app/geo/dashboard_.print'
+import { Route as AppGeoDashboardSnapshotsRouteImport } from './routes/_app/geo/dashboard_.snapshots'
 import { Route as AppGeoInsightsIndexRouteImport } from './routes/_app/geo/insights/index'
 import { Route as AppGeoInsightsAnswersRouteImport } from './routes/_app/geo/insights/answers'
 import { Route as AppGeoInsightsPrintRouteImport } from './routes/_app/geo/insights/print'
@@ -173,6 +176,11 @@ const AppContentTasksRouteRoute = AppContentTasksRouteRouteImport.update({
   id: '/tasks',
   path: '/tasks',
   getParentRoute: () => AppContentRouteRoute,
+} as any)
+const AppGeoDashboardRoute = AppGeoDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AppGeoRouteRoute,
 } as any)
 const AppGeoInsightsRouteRoute = AppGeoInsightsRouteRouteImport.update({
   id: '/insights',
@@ -319,6 +327,17 @@ const AppContentVersionsVersionIdRoute =
     id: '/versions_/$versionId',
     path: '/versions/$versionId',
     getParentRoute: () => AppContentRouteRoute,
+  } as any)
+const AppGeoDashboardPrintRoute = AppGeoDashboardPrintRouteImport.update({
+  id: '/dashboard_/print',
+  path: '/dashboard/print',
+  getParentRoute: () => AppGeoRouteRoute,
+} as any)
+const AppGeoDashboardSnapshotsRoute =
+  AppGeoDashboardSnapshotsRouteImport.update({
+    id: '/dashboard_/snapshots',
+    path: '/dashboard/snapshots',
+    getParentRoute: () => AppGeoRouteRoute,
   } as any)
 const AppGeoInsightsIndexRoute = AppGeoInsightsIndexRouteImport.update({
   id: '/',
@@ -490,6 +509,7 @@ export interface FileRoutesByFullPath {
   '/configuration/geo-entities': typeof AppConfigurationGeoEntitiesRoute
   '/configuration/geo-rules': typeof AppConfigurationGeoRulesRoute
   '/configuration/geo-surfaces': typeof AppConfigurationGeoSurfacesRoute
+  '/geo/dashboard': typeof AppGeoDashboardRoute
   '/geo/opportunities': typeof AppGeoOpportunitiesRoute
   '/geo/overview': typeof AppGeoOverviewRoute
   '/geo/plans': typeof AppGeoPlansRoute
@@ -510,6 +530,8 @@ export interface FileRoutesByFullPath {
   '/content/tasks/batch': typeof AppContentTasksBatchRoute
   '/content/tasks/new': typeof AppContentTasksNewRoute
   '/content/versions/$versionId': typeof AppContentVersionsVersionIdRoute
+  '/geo/dashboard/print': typeof AppGeoDashboardPrintRoute
+  '/geo/dashboard/snapshots': typeof AppGeoDashboardSnapshotsRoute
   '/geo/insights/answers': typeof AppGeoInsightsAnswersRoute
   '/geo/insights/print': typeof AppGeoInsightsPrintRoute
   '/geo/observations/$observationId': typeof AppGeoObservationsObservationIdRoute
@@ -551,6 +573,7 @@ export interface FileRoutesByTo {
   '/configuration/geo-entities': typeof AppConfigurationGeoEntitiesRoute
   '/configuration/geo-rules': typeof AppConfigurationGeoRulesRoute
   '/configuration/geo-surfaces': typeof AppConfigurationGeoSurfacesRoute
+  '/geo/dashboard': typeof AppGeoDashboardRoute
   '/geo/opportunities': typeof AppGeoOpportunitiesRoute
   '/geo/overview': typeof AppGeoOverviewRoute
   '/geo/plans': typeof AppGeoPlansRoute
@@ -571,6 +594,8 @@ export interface FileRoutesByTo {
   '/content/tasks/batch': typeof AppContentTasksBatchRoute
   '/content/tasks/new': typeof AppContentTasksNewRoute
   '/content/versions/$versionId': typeof AppContentVersionsVersionIdRoute
+  '/geo/dashboard/print': typeof AppGeoDashboardPrintRoute
+  '/geo/dashboard/snapshots': typeof AppGeoDashboardSnapshotsRoute
   '/geo/insights/answers': typeof AppGeoInsightsAnswersRoute
   '/geo/insights/print': typeof AppGeoInsightsPrintRoute
   '/geo/observations/$observationId': typeof AppGeoObservationsObservationIdRoute
@@ -626,6 +651,7 @@ export interface FileRoutesById {
   '/_app/configuration/geo-entities': typeof AppConfigurationGeoEntitiesRoute
   '/_app/configuration/geo-rules': typeof AppConfigurationGeoRulesRoute
   '/_app/configuration/geo-surfaces': typeof AppConfigurationGeoSurfacesRoute
+  '/_app/geo/dashboard': typeof AppGeoDashboardRoute
   '/_app/geo/opportunities': typeof AppGeoOpportunitiesRoute
   '/_app/geo/overview': typeof AppGeoOverviewRoute
   '/_app/geo/plans': typeof AppGeoPlansRoute
@@ -646,6 +672,8 @@ export interface FileRoutesById {
   '/_app/content/tasks/batch': typeof AppContentTasksBatchRoute
   '/_app/content/tasks/new': typeof AppContentTasksNewRoute
   '/_app/content/versions_/$versionId': typeof AppContentVersionsVersionIdRoute
+  '/_app/geo/dashboard_/print': typeof AppGeoDashboardPrintRoute
+  '/_app/geo/dashboard_/snapshots': typeof AppGeoDashboardSnapshotsRoute
   '/_app/geo/insights/answers': typeof AppGeoInsightsAnswersRoute
   '/_app/geo/insights/print': typeof AppGeoInsightsPrintRoute
   '/_app/geo/observations/$observationId': typeof AppGeoObservationsObservationIdRoute
@@ -700,6 +728,7 @@ export interface FileRouteTypes {
     | '/configuration/geo-entities'
     | '/configuration/geo-rules'
     | '/configuration/geo-surfaces'
+    | '/geo/dashboard'
     | '/geo/opportunities'
     | '/geo/overview'
     | '/geo/plans'
@@ -720,6 +749,8 @@ export interface FileRouteTypes {
     | '/content/tasks/batch'
     | '/content/tasks/new'
     | '/content/versions/$versionId'
+    | '/geo/dashboard/print'
+    | '/geo/dashboard/snapshots'
     | '/geo/insights/answers'
     | '/geo/insights/print'
     | '/geo/observations/$observationId'
@@ -761,6 +792,7 @@ export interface FileRouteTypes {
     | '/configuration/geo-entities'
     | '/configuration/geo-rules'
     | '/configuration/geo-surfaces'
+    | '/geo/dashboard'
     | '/geo/opportunities'
     | '/geo/overview'
     | '/geo/plans'
@@ -781,6 +813,8 @@ export interface FileRouteTypes {
     | '/content/tasks/batch'
     | '/content/tasks/new'
     | '/content/versions/$versionId'
+    | '/geo/dashboard/print'
+    | '/geo/dashboard/snapshots'
     | '/geo/insights/answers'
     | '/geo/insights/print'
     | '/geo/observations/$observationId'
@@ -835,6 +869,7 @@ export interface FileRouteTypes {
     | '/_app/configuration/geo-entities'
     | '/_app/configuration/geo-rules'
     | '/_app/configuration/geo-surfaces'
+    | '/_app/geo/dashboard'
     | '/_app/geo/opportunities'
     | '/_app/geo/overview'
     | '/_app/geo/plans'
@@ -855,6 +890,8 @@ export interface FileRouteTypes {
     | '/_app/content/tasks/batch'
     | '/_app/content/tasks/new'
     | '/_app/content/versions_/$versionId'
+    | '/_app/geo/dashboard_/print'
+    | '/_app/geo/dashboard_/snapshots'
     | '/_app/geo/insights/answers'
     | '/_app/geo/insights/print'
     | '/_app/geo/observations/$observationId'
@@ -1018,6 +1055,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/content/tasks'
       preLoaderRoute: typeof AppContentTasksRouteRouteImport
       parentRoute: typeof AppContentRouteRoute
+    }
+    '/_app/geo/dashboard': {
+      id: '/_app/geo/dashboard'
+      path: '/dashboard'
+      fullPath: '/geo/dashboard'
+      preLoaderRoute: typeof AppGeoDashboardRouteImport
+      parentRoute: typeof AppGeoRouteRoute
     }
     '/_app/geo/insights': {
       id: '/_app/geo/insights'
@@ -1214,6 +1258,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/content/versions/$versionId'
       preLoaderRoute: typeof AppContentVersionsVersionIdRouteImport
       parentRoute: typeof AppContentRouteRoute
+    }
+    '/_app/geo/dashboard_/print': {
+      id: '/_app/geo/dashboard_/print'
+      path: '/dashboard/print'
+      fullPath: '/geo/dashboard/print'
+      preLoaderRoute: typeof AppGeoDashboardPrintRouteImport
+      parentRoute: typeof AppGeoRouteRoute
+    }
+    '/_app/geo/dashboard_/snapshots': {
+      id: '/_app/geo/dashboard_/snapshots'
+      path: '/dashboard/snapshots'
+      fullPath: '/geo/dashboard/snapshots'
+      preLoaderRoute: typeof AppGeoDashboardSnapshotsRouteImport
+      parentRoute: typeof AppGeoRouteRoute
     }
     '/_app/geo/insights/': {
       id: '/_app/geo/insights/'
@@ -1541,12 +1599,15 @@ interface AppGeoRouteRouteChildren {
   AppGeoInsightsRouteRoute: typeof AppGeoInsightsRouteRouteWithChildren
   AppGeoObservationsRouteRoute: typeof AppGeoObservationsRouteRouteWithChildren
   AppGeoTopicsRouteRoute: typeof AppGeoTopicsRouteRouteWithChildren
+  AppGeoDashboardRoute: typeof AppGeoDashboardRoute
   AppGeoOpportunitiesRoute: typeof AppGeoOpportunitiesRoute
   AppGeoOverviewRoute: typeof AppGeoOverviewRoute
   AppGeoPlansRoute: typeof AppGeoPlansRoute
   AppGeoQuestionsRoute: typeof AppGeoQuestionsRoute
   AppGeoRunsRoute: typeof AppGeoRunsRoute
   AppGeoTodayRoute: typeof AppGeoTodayRoute
+  AppGeoDashboardPrintRoute: typeof AppGeoDashboardPrintRoute
+  AppGeoDashboardSnapshotsRoute: typeof AppGeoDashboardSnapshotsRoute
   AppGeoReportsPrintRoute: typeof AppGeoReportsPrintRoute
   AppGeoReportsIndexRoute: typeof AppGeoReportsIndexRoute
 }
@@ -1555,12 +1616,15 @@ const AppGeoRouteRouteChildren: AppGeoRouteRouteChildren = {
   AppGeoInsightsRouteRoute: AppGeoInsightsRouteRouteWithChildren,
   AppGeoObservationsRouteRoute: AppGeoObservationsRouteRouteWithChildren,
   AppGeoTopicsRouteRoute: AppGeoTopicsRouteRouteWithChildren,
+  AppGeoDashboardRoute: AppGeoDashboardRoute,
   AppGeoOpportunitiesRoute: AppGeoOpportunitiesRoute,
   AppGeoOverviewRoute: AppGeoOverviewRoute,
   AppGeoPlansRoute: AppGeoPlansRoute,
   AppGeoQuestionsRoute: AppGeoQuestionsRoute,
   AppGeoRunsRoute: AppGeoRunsRoute,
   AppGeoTodayRoute: AppGeoTodayRoute,
+  AppGeoDashboardPrintRoute: AppGeoDashboardPrintRoute,
+  AppGeoDashboardSnapshotsRoute: AppGeoDashboardSnapshotsRoute,
   AppGeoReportsPrintRoute: AppGeoReportsPrintRoute,
   AppGeoReportsIndexRoute: AppGeoReportsIndexRoute,
 }

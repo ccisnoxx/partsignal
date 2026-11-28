@@ -11,7 +11,7 @@ import {
 
 const matches = (...items: MetadataMatch[]) => items;
 
-describe('路由导航元数据', () => {
+describe('路由导航元数据与 5 入口收敛', () => {
   it('从最深显式声明的路由继承 navId，不依赖 pathname 前缀', () => {
     expect(resolveActiveNavId(matches(
       { pathname: '/products', staticData: { navId: 'products', breadcrumb: '产品' } },
@@ -24,7 +24,7 @@ describe('路由导航元数据', () => {
     ))).toBe('users');
   });
 
-  it('按匹配链顺序生成面包屑，并收敛 GEO 分析入口且按角色过滤系统管理入口', () => {
+  it('默认日常导航收敛为 5 入口，VIEWER 仅见 3 个只读入口，高级配置默认折叠', () => {
     expect(resolveBreadcrumbs(matches(
       { pathname: '/', staticData: {} },
       { pathname: '/products', staticData: { breadcrumb: '产品' } },
@@ -34,65 +34,48 @@ describe('路由导航元数据', () => {
       { label: '产品详情', pathname: '/products/part-1' },
     ]);
 
-    expect(visibleNavigationSections(false).flatMap((section) => section.items.map((item) => item.id)))
-      .toEqual([
-        'workbench',
-        'products',
-        'content-tasks',
-        'publishing-work',
-        'publishing-articles',
-        'publishing-issues',
-        'geo-overview',
-        'geo-plans',
-        'geo-runs',
-        'geo-opportunities',
-        'geo-questions',
-        'geo-topics',
-        'geo-observations',
-        'platforms',
-      ]);
+    const viewerSections = visibleNavigationSections('VIEWER');
+    expect(viewerSections.map((s) => s.id)).toEqual(['daily']);
+    expect(viewerSections[0]?.items.map((item) => item.id)).toEqual([
+      'geo-dashboard',
+      'articles',
+      'products',
+    ]);
 
-    expect(visibleNavigationSections(true).flatMap((section) => section.items.map((item) => item.id)))
-      .toEqual([
-        'workbench',
-        'products',
-        'content-tasks',
-        'publishing-work',
-        'publishing-articles',
-        'publishing-issues',
-        'geo-overview',
-        'geo-plans',
-        'geo-runs',
-        'geo-opportunities',
-        'geo-questions',
-        'geo-topics',
-        'geo-observations',
-        'platforms',
-        'geo-surfaces',
-        'geo-entities',
-        'geo-rules',
-        'prompts',
-        'ai-channels',
-        'users',
-        'audit',
-      ]);
+    const engineerSections = visibleNavigationSections('ENGINEER');
+    expect(engineerSections.map((s) => s.id)).toEqual(['daily', 'advanced-ops']);
+    expect(engineerSections[0]?.items.map((item) => item.id)).toEqual([
+      'geo-dashboard',
+      'geo-today',
+      'articles',
+      'products',
+      'platforms',
+    ]);
+    expect(engineerSections[1]?.defaultCollapsed).toBe(true);
+    expect(engineerSections[1]?.items.some((item) => item.id === 'users')).toBe(false);
 
-    const analyticsItem = visibleNavigationSections(false)
+    const adminSections = visibleNavigationSections('ADMIN');
+    expect(adminSections.map((s) => s.id)).toEqual(['daily', 'advanced-ops', 'system']);
+    expect(adminSections[2]?.defaultCollapsed).toBe(true);
+    expect(adminSections[2]?.items.map((item) => item.id)).toEqual(['users', 'audit']);
+
+    const dashboardItem = visibleNavigationSections(false)
       .flatMap((section) => section.items)
-      .find((item) => item.id === 'geo-overview');
-    expect(analyticsItem).toBeDefined();
-    expect(isNavItemActive(analyticsItem!, 'geo-overview')).toBe(true);
-    expect(isNavItemActive(analyticsItem!, 'geo-answer-insights')).toBe(true);
-    expect(isNavItemActive(analyticsItem!, 'geo-reports')).toBe(true);
-    expect(isNavItemActive(analyticsItem!, 'geo-insights')).toBe(true);
-    expect(isNavItemActive(analyticsItem!, 'geo-runs')).toBe(false);
+      .find((item) => item.id === 'geo-dashboard');
+    expect(dashboardItem).toBeDefined();
+    expect(isNavItemActive(dashboardItem!, 'geo-dashboard')).toBe(true);
+    expect(isNavItemActive(dashboardItem!, 'geo-overview')).toBe(true);
+    expect(isNavItemActive(dashboardItem!, 'geo-answer-insights')).toBe(true);
+    expect(isNavItemActive(dashboardItem!, 'geo-reports')).toBe(true);
+    expect(isNavItemActive(dashboardItem!, 'geo-insights')).toBe(true);
+    expect(isNavItemActive(dashboardItem!, 'geo-today')).toBe(false);
   });
 
   it('只由最深显式路由切换打印布局', () => {
     expect(resolveAppLayout(matches(
-      { pathname: '/geo/insights', staticData: {} },
-      { pathname: '/geo/insights/print', staticData: { layout: 'print' } },
+      { pathname: '/geo/dashboard', staticData: {} },
+      { pathname: '/geo/dashboard/print', staticData: { layout: 'print' } },
     ))).toBe('print');
-    expect(resolveAppLayout(matches({ pathname: '/geo/insights', staticData: {} }))).toBe('app');
+    expect(resolveAppLayout(matches({ pathname: '/geo/dashboard', staticData: {} }))).toBe('app');
   });
 });

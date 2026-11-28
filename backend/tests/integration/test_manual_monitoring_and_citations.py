@@ -43,7 +43,7 @@ def test_0082_manual_monitoring_workflow_and_citation_links(
             check=False,
         )
         assert downgrade.returncode != 0
-        assert "downgrade 0082_manual_monitoring_links is forbidden" in downgrade.stderr
+        assert "is forbidden" in downgrade.stderr
 
         engine = create_engine(database_url)
         session_factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)

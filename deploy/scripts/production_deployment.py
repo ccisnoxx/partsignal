@@ -241,11 +241,12 @@ def runtime_identity(owner: Any, candidate: dict[str, Any], *, healthy: bool = F
         ], check=True, capture_output=True, text=True, timeout=30).stdout.split()
         if len(identifiers) != 1 or not re.fullmatch(r"[0-9a-f]{64}", identifiers[0]):
             raise owner.DataStateError(f"Production {service} 必须恰有一个完整 ID 容器")
+        # 使用 {{json .State}} 而非 {{if .State.Health}}：Docker 29 inspect 对无 HEALTHCHECK 的容器（如 frontend）缺键报错。
         safe_format = "|".join((
             "{{.Id}}", "{{.Image}}", "{{.Config.Image}}", "{{.State.Running}}",
             '{{index .Config.Labels "com.docker.compose.project"}}',
             '{{index .Config.Labels "com.docker.compose.service"}}',
-            "{{json .Mounts}}", "{{if .State.Health}}{{.State.Health.Status}}{{end}}",
+            "{{json .Mounts}}", "{{json .State}}",
         ))
         fields = subprocess.run([
             "docker", "inspect", "--format", safe_format, identifiers[0],
@@ -262,7 +263,15 @@ def runtime_identity(owner: Any, candidate: dict[str, Any], *, healthy: bool = F
         if any(target == root or target in root.parents or root in target.parents
                for mount in mounts for target in (PurePosixPath(mount["Destination"]),) for root in roots):
             raise owner.DataStateError(f"Production {service} 容器存在覆盖应用内容的挂载")
-        if healthy and service != "frontend" and fields[7] != "healthy":
+        try:
+            state = json.loads(fields[7])
+        except json.JSONDecodeError as error:
+            raise owner.DataStateError(f"Production {service} 状态 metadata 无效") from error
+        if not isinstance(state, dict):
+            raise owner.DataStateError(f"Production {service} 状态 metadata 无效")
+        health = state.get("Health")
+        health_status = health.get("Status") if isinstance(health, dict) else ""
+        if healthy and service != "frontend" and health_status != "healthy":
             raise owner.DataStateError(f"Production {service} 尚未 healthy")
         containers[service] = identifiers[0]
     return containers

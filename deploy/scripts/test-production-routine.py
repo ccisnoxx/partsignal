@@ -95,8 +95,14 @@ elif args[0] == 'inspect':
     service = next(key for key, value in ids.items() if value == args[-1])
     role = 'frontend' if service == 'frontend' else 'backend'
     image = active['images'][role]
+    state = {'Status': 'running', 'Running': True}
+    if service != 'frontend':
+        state['Health'] = {'Status': 'healthy'}
+    if '.State.Health' in args[2] and 'Health' not in state:
+        print('template parsing error: executing "" at <.State.Health>: map has no entry for key "Health"', file=sys.stderr)
+        raise SystemExit(1)
     fields = [ids[service], image['image_id'], image['reference'], 'true',
-              'partsignal-staging', service, '[{"Type":"tmpfs","Destination":"/tmp"}]', 'healthy']
+              'partsignal-staging', service, '[{"Type":"tmpfs","Destination":"/tmp"}]', json.dumps(state)]
     changes = json.loads(os.environ.get('FAKE_CONTAINER_CHANGES', '{}')).get(service, {})
     for index, value in changes.items(): fields[int(index)] = value
     if '{{.State.Status}}' in args[2]:
@@ -388,7 +394,14 @@ class RoutineTests(unittest.TestCase):
             self.scenario[field] = value
             self.rejected("smoke", message)
             self.scenario.pop(field)
-        self.rejected("smoke", "尚未 healthy", FAKE_CONTAINER_CHANGES=json.dumps({"worker": {"7": "unhealthy"}}))
+        for bad_state, message in (
+            (json.dumps({"Running": True, "Health": {"Status": "unhealthy"}}), "尚未 healthy"),
+            (json.dumps({"Running": True}), "尚未 healthy"),
+            (json.dumps({"Running": True, "Health": None}), "尚未 healthy"),
+            ("not-json", "状态 metadata 无效"),
+            ("[]", "状态 metadata 无效"),
+        ):
+            self.rejected("smoke", message, FAKE_CONTAINER_CHANGES=json.dumps({"worker": {"7": bad_state}}))
         session = self.root / "session.cookie"
         secret = "partsignal_session=existing_private_session_123"
         session.write_text(secret + "\n")

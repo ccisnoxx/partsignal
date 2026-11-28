@@ -3,7 +3,7 @@
   "name": "phase1c-manual-monitoring-citation-links",
   "title": "Phase 1C: 统一回答级人工监测闭环、历史补录与引用分级归因",
   "description": "数据库 0082_unified_manual_monitoring_and_citation_links 落地三类问题分类、CORE_BASELINE 计划、历史补录时间轴放宽、人工失败码、实际改问隔离与 geo_citation_publication_links 分级归因；交付今日待监测、单条直录、一屏规则预判与同屏确认。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

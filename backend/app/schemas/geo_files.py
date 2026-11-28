@@ -579,7 +579,13 @@ class GeoQuestionCoverageGapBasis(ContractModel):
 
 
 class UploadIntentCreate(ContractModel):
-    category: Literal["EVIDENCE", "OPERATION_SCREENSHOT", "PUBLICATION_ASSET", "PLATFORM_LOGO"]
+    category: Literal[
+        "EVIDENCE",
+        "OPERATION_SCREENSHOT",
+        "PUBLICATION_ASSET",
+        "PLATFORM_LOGO",
+        "PRODUCT_DATASHEET",
+    ]
     original_filename: str
     content_type: str
     size: int = Field(ge=1)

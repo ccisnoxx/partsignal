@@ -1546,3 +1546,10 @@ GET Run详情新增required nullable cancellation，返回真实reason/操作者
 
 - **`users.account_type` 扩展三级权限**：更新 `ck_users_account_type` 为 `CHECK (account_type IN ('ADMIN', 'ENGINEER', 'VIEWER'))`。`ADMIN` 拥有全局管理权限，`ENGINEER` 拥有日常运营读写权限，`VIEWER` 为领导只读账号。
 - **Fail-closed 服务端鉴权边界**：新增 `ReaderUser` 依赖（`ADMIN | ENGINEER | VIEWER`），仅显式开放给领导只读白名单 `GET` 接口（GEO 总览、洞察、报告、运行/证据下钻、旧观测只读视图、产品/平台/问题/已发布文章只读列表及证据文件下载）；所有非自助写接口与运营态 `GET` 接口统一要求 `EngineerUser` 或 `AdminUser`，并由 `test_rbac_viewer_fail_closed.py` 自动化遍历全部 FastAPI 路由校验。`UserSummary` 同步补充 `viewer_total`。`0080` 降级固定以 `55000` 拒绝。
+
+## 2026-11-28 Slice 1B：统一文章与多 URL 发布台账及产品轻量资料（`0081_articles_publications`）
+
+- **`products` 轻量资料扩展与 `product_material_attachments`**：`products` 新增 `summary`、`datasheet_url`、`facts_updated_at/by`；`product_material_attachments` 关联已校验 `PRODUCT_DATASHEET / EVIDENCE` 文件记录。
+- **`articles` 与不可变 `article_revisions`**：统一承载外部 AI 粘贴（`EXTERNAL_AI` + 可选 `external_model_name`）、人工编写（`HUMAN`）、其他来源（`OTHER`）及系统 AI 生成（`SYSTEM_AI`），不要求前置已批准 `FactVersion` / `Brief` / `Campaign`，绝不伪造 `GenerationJob`。`article_revisions` 由 `trg_article_revisions_immutable` 禁止更新/删除/截断（`55000`）。
+- **1:N 发布台账 `article_publications` 与不可变 `article_publication_events`**：同一篇文章可登记多个不同平台 URL，持久化 `normalized_url`（保留 query 参数）与 `hostname`；显式分离 `registration_status ('REGISTERED'|'REMOVED')` 与 `verification_status ('UNVERIFIED'|'VERIFIED'|'ISSUE_OPEN')`，`ck_article_publications_verified_fact` 强制仅存在真实核验时间与核验人时方为 `VERIFIED`。`0081` 自动回填存量 `published_articles`，且后续 `verify_publication_work(PASSED)` 在同事务内单向同步至台账。
+- **`article_ai_generation_snapshots`（不可变）**：支持直接基于 `Product.facts_classification = 'PUBLIC'` 工作区 Markdown 调用系统 AI 生稿或一键复制给外部 AI（自动剥离 `source_owner` / `facts_source_reference` 等内部字段），后台不可变记录资料、提示词、渠道/模型及冻结成本快照。所有新增用户外键均接入 `USER_IN_USE` 预检，`0081` 降级以 `55000` 拒绝。

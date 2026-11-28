@@ -75,6 +75,21 @@ class Product(Base):
             "last_reviewed_by",
             postgresql_where=text("last_reviewed_by IS NOT NULL"),
         ),
+        CheckConstraint("length(summary) <= 2000", name="summary_len"),
+        CheckConstraint(
+            "datasheet_url IS NULL OR (length(datasheet_url) <= 2000 "
+            "AND datasheet_url ~ '^https?://[^[:space:]]+$')",
+            name="datasheet_url",
+        ),
+        CheckConstraint(
+            "(facts_updated_at IS NULL) = (facts_updated_by IS NULL)",
+            name="facts_updated_pair",
+        ),
+        Index(
+            "ix_products_facts_updated_by",
+            "facts_updated_by",
+            postgresql_where=text("facts_updated_by IS NOT NULL"),
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     part_number: Mapped[str] = mapped_column(String(160), nullable=False)
@@ -100,6 +115,14 @@ class Product(Base):
     facts_applicable_region: Mapped[str | None] = mapped_column(String(160))
     facts_content_restrictions: Mapped[str | None] = mapped_column(Text)
     facts_approved_claims_summary: Mapped[str | None] = mapped_column(Text)
+    summary: Mapped[str] = mapped_column(
+        Text, nullable=False, default="", server_default=text("''")
+    )
+    datasheet_url: Mapped[str | None] = mapped_column(Text)
+    facts_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    facts_updated_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

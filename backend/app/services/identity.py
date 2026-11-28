@@ -20,6 +20,14 @@ from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.config import settings
 from app.errors import AppError, in_use, not_found
 from app.models.ai_generation import AIChannel, AIModel, GenerationJob
+from app.models.articles import (
+    Article,
+    ArticleAiGenerationSnapshot,
+    ArticlePublication,
+    ArticlePublicationEvent,
+    ArticleRevision,
+    ProductMaterialAttachment,
+)
 from app.models.campaign import ContentCampaign
 from app.models.configuration import (
     ContentHumanizationPrompt,
@@ -166,6 +174,16 @@ def _user_business_reference_counts(
         OperatingCostEntry.voided_by,
         FileRecord.uploader_id,
         Product.last_reviewed_by,
+        Product.facts_updated_by,
+        ProductMaterialAttachment.created_by,
+        Article.owner_id,
+        Article.created_by,
+        Article.updated_by,
+        ArticleRevision.created_by,
+        ArticlePublication.registered_by,
+        ArticlePublication.verified_by,
+        ArticlePublicationEvent.actor_id,
+        ArticleAiGenerationSnapshot.created_by,
         FactVersion.created_by,
         FactVersion.approved_by,
         FactVersion.assignee_id,

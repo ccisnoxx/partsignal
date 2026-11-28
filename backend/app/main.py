@@ -24,6 +24,7 @@ from app.errors import (
     error_responses,
     validation_error_handler,
 )
+from app.routers.articles import router as articles_router
 from app.routers.assignments import router as assignments_router
 from app.routers.campaigns import router as campaigns_router
 from app.routers.configuration import router as configuration_router
@@ -386,6 +387,7 @@ app.include_router(observation_router)
 app.include_router(workbench_router)
 app.include_router(operations_dashboard_router)
 app.include_router(assignments_router)
+app.include_router(articles_router)
 app.include_router(files_router)
 
 

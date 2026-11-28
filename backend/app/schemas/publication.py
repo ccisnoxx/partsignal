@@ -278,7 +278,13 @@ class PublishedContentRepairTaskCreate(ContractModel):
 
 class FileRecordOut(ContractModel):
     id: uuid.UUID
-    category: Literal["EVIDENCE", "OPERATION_SCREENSHOT", "PUBLICATION_ASSET", "PLATFORM_LOGO"]
+    category: Literal[
+        "EVIDENCE",
+        "OPERATION_SCREENSHOT",
+        "PUBLICATION_ASSET",
+        "PLATFORM_LOGO",
+        "PRODUCT_DATASHEET",
+    ]
     original_filename: str
     object_key: str
     content_type: str

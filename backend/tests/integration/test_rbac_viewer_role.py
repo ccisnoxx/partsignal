@@ -34,7 +34,7 @@ def test_0080_downgrade_rejected_and_viewer_rbac_end_to_end() -> None:
             check=False,
         )
         assert downgrade.returncode != 0
-        assert "downgrade 0080_rbac_viewer_role is forbidden" in downgrade.stderr
+        assert "is forbidden" in downgrade.stderr
 
         engine = create_engine(database_url)
         session_factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)

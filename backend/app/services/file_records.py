@@ -64,6 +64,7 @@ MAX_SIZES = {
     "OPERATION_SCREENSHOT": 10 * 1024 * 1024,
     "PUBLICATION_ASSET": 20 * 1024 * 1024,
     "PLATFORM_LOGO": 2 * 1024 * 1024,
+    "PRODUCT_DATASHEET": 50 * 1024 * 1024,
 }
 ALLOWED_TYPES = {
     "EVIDENCE": {"application/pdf", "image/png", "image/jpeg", "text/plain"},
@@ -75,6 +76,12 @@ ALLOWED_TYPES = {
         "image/webp",
         "image/x-icon",
         "image/vnd.microsoft.icon",
+    },
+    "PRODUCT_DATASHEET": {
+        "application/pdf",
+        "text/plain",
+        "text/markdown",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     },
 }
 

@@ -2722,8 +2722,7 @@ paths:
       - $ref: '#/components/parameters/RequestIdHeader'
       responses:
         '200':
-          description: Prompt 当前可用于真实首稿生成的任务上下文与模型；deterministic 模式 contexts 和 models
-            为空
+          description: Prompt 当前可用于真实首稿生成的任务上下文与模型；deterministic 模式 contexts 和 models 为空
           headers:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
@@ -4793,8 +4792,7 @@ paths:
       tags:
       - production
       operationId: createGenerationJob
-      description: CONTENT_GENERATOR=deterministic 时以 409 AI_GENERATION_DISABLED 拒绝，包含幂等重放；不创建或提交作业，也不投递
-        Redis。
+      description: CONTENT_GENERATOR=deterministic 时以 409 AI_GENERATION_DISABLED 拒绝，包含幂等重放；不创建或提交作业，也不投递 Redis。
       parameters:
       - $ref: '#/components/parameters/ContentTaskId'
       - $ref: '#/components/parameters/CsrfHeader'
@@ -4898,8 +4896,7 @@ paths:
       tags:
       - production
       operationId: createHumanizationJob
-      description: CONTENT_GENERATOR=deterministic 时以 409 AI_GENERATION_DISABLED 拒绝，包含幂等重放；不创建或提交作业，也不投递
-        Redis。
+      description: CONTENT_GENERATOR=deterministic 时以 409 AI_GENERATION_DISABLED 拒绝，包含幂等重放；不创建或提交作业，也不投递 Redis。
       parameters:
       - $ref: '#/components/parameters/ContentVersionId'
       - $ref: '#/components/parameters/CsrfHeader'
@@ -4966,8 +4963,7 @@ paths:
       tags:
       - production
       operationId: retryGenerationJob
-      description: CONTENT_GENERATOR=deterministic 时以 409 AI_GENERATION_DISABLED 拒绝，包含幂等重放；不创建或提交作业，也不投递
-        Redis。
+      description: CONTENT_GENERATOR=deterministic 时以 409 AI_GENERATION_DISABLED 拒绝，包含幂等重放；不创建或提交作业，也不投递 Redis。
       parameters:
       - $ref: '#/components/parameters/GenerationJobId'
       - $ref: '#/components/parameters/CsrfHeader'
@@ -7243,8 +7239,7 @@ paths:
       tags:
       - files
       operationId: uploadFileContent
-      description: 浏览器将原始字节上传至应用后端；仅意图创建者可在有效期内传输 PENDING 文件，后端校验字节数与 SHA-256 后写入对象存储。仍需调用
-        complete 执行 HEAD 确认。
+      description: 浏览器将原始字节上传至应用后端；仅意图创建者可在有效期内传输 PENDING 文件，后端校验字节数与 SHA-256 后写入对象存储。仍需调用 complete 执行 HEAD 确认。
       parameters:
       - $ref: '#/components/parameters/FileId'
       - $ref: '#/components/parameters/CsrfHeader'
@@ -8756,8 +8751,7 @@ paths:
       tags:
       - geo-plans
       operationId: listGeoMonitoringPlans
-      description: 支持按 CRON 查询只读历史；其存储 ACTIVE 不表示 V1.0 调度可用，读模型投影为 UNSUPPORTED_SCHEDULE
-        且无写动作。
+      description: 支持按 CRON 查询只读历史；其存储 ACTIVE 不表示 V1.0 调度可用，读模型投影为 UNSUPPORTED_SCHEDULE 且无写动作。
       parameters:
       - name: q
         in: query
@@ -8918,8 +8912,8 @@ paths:
       tags:
       - geo-plans
       operationId: getGeoMonitoringPlan
-      description: 历史 CRON 保留原始 status，workflow_stage 为 UNSUPPORTED_SCHEDULE，primary_task
-        为 VIEW_HISTORY，available_actions 为空；run_entry.reason_code 为 GEO_PLAN_CRON_UNSUPPORTED。不承诺自动运行。
+      description: 历史 CRON 保留原始 status，workflow_stage 为 UNSUPPORTED_SCHEDULE，primary_task 为 VIEW_HISTORY，available_actions
+        为空；run_entry.reason_code 为 GEO_PLAN_CRON_UNSUPPORTED。不承诺自动运行。
       parameters:
       - &id003
         name: plan_id
@@ -9233,8 +9227,8 @@ paths:
       - geo-plans
       summary: Run Now
       operationId: runGeoMonitoringPlanNow
-      description: V1.0 首次运行仅支持 MANUAL_ONLY；历史 CRON 首次 run 返回 409 GEO_PLAN_CRON_UNSUPPORTED，配置与快照只读保留。已有幂等回执只读重放，不创建
-        Batch/Run 或重新投递。
+      description: V1.0 首次运行仅支持 MANUAL_ONLY；历史 CRON 首次 run 返回 409 GEO_PLAN_CRON_UNSUPPORTED，配置与快照只读保留。已有幂等回执只读重放，不创建 Batch/Run
+        或重新投递。
       security:
       - sessionCookie: []
       parameters:
@@ -9419,8 +9413,7 @@ paths:
       - geo-batches
       summary: Create Batch
       operationId: createGeoObservationBatch
-      description: V1.0 首次 PLAN 批次仅接受 MANUAL_ONLY，历史 CRON 返回 409 GEO_PLAN_CRON_UNSUPPORTED；AD_HOC
-        仅人工配置。已提交幂等回执只读重放，不创建或重新投递。
+      description: V1.0 首次 PLAN 批次仅接受 MANUAL_ONLY，历史 CRON 返回 409 GEO_PLAN_CRON_UNSUPPORTED；AD_HOC 仅人工配置。已提交幂等回执只读重放，不创建或重新投递。
       security:
       - sessionCookie: []
       parameters:
@@ -10178,8 +10171,8 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
-      description: 管理员固定连接及 answer_text 能力诊断。先预留 revision 并停用，事务外 pinned 出网，完成时重验依赖版本；不创建业务
-        Run，成功不自动启用。provider 失败以安全 test_error 和 FAILED 返回200，过期结果409。诊断仅支持 openai-compatible-chat，采集仍未批准。
+      description: 管理员固定连接及 answer_text 能力诊断。先预留 revision 并停用，事务外 pinned 出网，完成时重验依赖版本；不创建业务 Run，成功不自动启用。provider 失败以安全 test_error
+        和 FAILED 返回200，过期结果409。诊断仅支持 openai-compatible-chat，采集仍未批准。
   /api/v1/geo/observation-runs/{run_id}/retry:
     post:
       tags:
@@ -10235,8 +10228,7 @@ paths:
       x-required-account-types:
       - ADMIN
       - ENGINEER
-      description: 显式追加同输入采集 attempt；required expected_revision。原尝试不变，已有后继返回409 GEO_RUN_HAS_SUCCESSOR；无自动命令重放。提交后投递稳定Run
-        ID，Broker失败由PENDING扫描恢复。
+      description: 显式追加同输入采集 attempt；required expected_revision。原尝试不变，已有后继返回409 GEO_RUN_HAS_SUCCESSOR；无自动命令重放。提交后投递稳定Run ID，Broker失败由PENDING扫描恢复。
   /api/v1/geo/observation-runs/{run_id}/review:
     post:
       tags:
@@ -10248,8 +10240,7 @@ paths:
       x-required-account-types:
       - ADMIN
       - ENGINEER
-      description: 复核只追加到当前成功分析；expected_run_revision 必填。CONFIRMED 无修正，CORRECTED 有说明与四栏结构化修正。latest
-        Review 整体替换旧修正，原始证据与机器结果保留。
+      description: 复核只追加到当前成功分析；expected_run_revision 必填。CONFIRMED 无修正，CORRECTED 有说明与四栏结构化修正。latest Review 整体替换旧修正，原始证据与机器结果保留。
       x-error-codes:
         '401':
         - AUTH_REQUIRED
@@ -13269,9 +13260,8 @@ paths:
       operationId: evaluateGeoOpportunities
       x-required-account-types:
       - ADMIN
-      description: ADMIN 显式运行一次规则机会评估；UTC 半开窗口最多31天，ALL 禁止实体过滤，FILTERED 至少指定一类实体过滤。规则
-        revision 显式固定，缺候选不造机会。相同用户同幂等键重放冻结回执，不创建行动或复测，不注册周期调度。evaluated_cells 按规则×范围评估结果计数（包括无候选结果），created/existing_reused/skipped
-        为互斥分区；unavailable reason count 按结果计数。
+      description: ADMIN 显式运行一次规则机会评估；UTC 半开窗口最多31天，ALL 禁止实体过滤，FILTERED 至少指定一类实体过滤。规则 revision 显式固定，缺候选不造机会。相同用户同幂等键重放冻结回执，不创建行动或复测，不注册周期调度。evaluated_cells
+        按规则×范围评估结果计数（包括无候选结果），created/existing_reused/skipped 为互斥分区；unavailable reason count 按结果计数。
       security:
       - sessionCookie: []
       parameters:
@@ -13767,8 +13757,7 @@ paths:
       - geo-opportunities
       summary: Create Retest
       operationId: createGeoOpportunityRetest
-      description: 人工独立复测从已提交的不可变基线复制严格矩阵并创建 RETEST；历史 plan_id/CRON 快照仅作来源追溯，不执行或修改当前
-        Plan，继续受可比性、权限与外发门禁约束。
+      description: 人工独立复测从已提交的不可变基线复制严格矩阵并创建 RETEST；历史 plan_id/CRON 快照仅作来源追溯，不执行或修改当前 Plan，继续受可比性、权限与外发门禁约束。
       security:
       - sessionCookie: []
       parameters:
@@ -14087,8 +14076,8 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '503':
           $ref: '#/components/responses/ErrorResponse'
-      description: 管理员经 CSRF、当前 revision、合规与人工账号授权导入 storage_state。API 仅持公钥，受保护卷保存
-        AES-GCM/RSA-OAEP 密文；数据库仅保存引用。替换会撤销旧引用、停用 Profile 并失效测试事实，不自动采集。
+      description: 管理员经 CSRF、当前 revision、合规与人工账号授权导入 storage_state。API 仅持公钥，受保护卷保存 AES-GCM/RSA-OAEP 密文；数据库仅保存引用。替换会撤销旧引用、停用
+        Profile 并失效测试事实，不自动采集。
       x-required-account-types:
       - ADMIN
       x-error-codes:
@@ -14237,8 +14226,7 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '503':
           $ref: '#/components/responses/ErrorResponse'
-      description: 管理员永久撤销当前引用。数据库墓碑与审计先提交，再删除受保护卷密文；删除失败以 cleanup_pending_count 显式返回，可通过
-        purge 恢复。相同 revision 重复撤销幂等。
+      description: 管理员永久撤销当前引用。数据库墓碑与审计先提交，再删除受保护卷密文；删除失败以 cleanup_pending_count 显式返回，可通过 purge 恢复。相同 revision 重复撤销幂等。
       x-required-account-types:
       - ADMIN
       x-error-codes:
@@ -14377,8 +14365,8 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '503':
           $ref: '#/components/responses/ErrorResponse'
-      description: 专用服务能力凭据绑定现有管理员身份，仅授权此端点。每次检查当前身份、开关、Profile/Surface 资格、引用归属与过期/撤销状态，成功访问审计提交后返回密文；仅独立
-        Collector 私钥可在内存解密。本端点不授权 Run SEND。
+      description: 专用服务能力凭据绑定现有管理员身份，仅授权此端点。每次检查当前身份、开关、Profile/Surface 资格、引用归属与过期/撤销状态，成功访问审计提交后返回密文；仅独立 Collector 私钥可在内存解密。本端点不授权
+        Run SEND。
       x-error-codes:
         '401':
         - AUTH_REQUIRED
@@ -16906,6 +16894,1021 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
+  /api/v1/products/{product_id}/materials:
+    get:
+      tags:
+      - articles
+      summary: List Product Materials Route
+      operationId: listProductMaterials
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: product_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Product Id
+      - $ref: '#/components/parameters/RequestIdHeader'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductMaterialAttachmentList'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '404':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+    post:
+      tags:
+      - articles
+      summary: Attach Product Material Route
+      operationId: attachProductMaterial
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: product_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Product Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      - $ref: '#/components/parameters/RequestIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductMaterialAttachRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductMaterialAttachmentOut'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '404':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/products/{product_id}/materials/{file_id}:
+    delete:
+      tags:
+      - articles
+      summary: Detach Product Material Route
+      operationId: detachProductMaterial
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: product_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Product Id
+      - name: file_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: File Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      - $ref: '#/components/parameters/RequestIdHeader'
+      responses:
+        '204':
+          description: Successful Response
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '404':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/products/{product_id}/prompt-copy-bundle:
+    post:
+      tags:
+      - articles
+      summary: Build Product Prompt Copy Bundle Route
+      operationId: buildProductPromptCopyBundle
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: product_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Product Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      - $ref: '#/components/parameters/RequestIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductPromptCopyBundleRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductPromptCopyBundleOut'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '404':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '409':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/articles:
+    get:
+      tags:
+      - articles
+      summary: List Articles Route
+      operationId: listArticles
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: product_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Product Id
+      - name: origin_type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/ArticleOriginType'
+          - type: 'null'
+          title: Origin Type
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/ArticleStatus'
+          - type: 'null'
+          title: Status
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Q
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Page Size
+      - $ref: '#/components/parameters/RequestIdHeader'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticleList'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+    post:
+      tags:
+      - articles
+      summary: Create Article Route
+      operationId: createArticle
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      - $ref: '#/components/parameters/RequestIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArticleCreateRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticleDetail'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '404':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/articles/generate-draft:
+    post:
+      tags:
+      - articles
+      summary: Generate Article Draft Route
+      operationId: generateArticleDraftFromProduct
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+          pattern: ^[\x21-\x7E]+$
+          title: Idempotency-Key
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      - $ref: '#/components/parameters/RequestIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArticleGenerateDraftRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticleDetail'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '404':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '409':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '502':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/articles/{article_id}:
+    get:
+      tags:
+      - articles
+      summary: Get Article Route
+      operationId: getArticle
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: article_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Article Id
+      - $ref: '#/components/parameters/RequestIdHeader'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticleDetail'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '404':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+    patch:
+      tags:
+      - articles
+      summary: Update Article Route
+      operationId: updateArticle
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: article_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Article Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      - $ref: '#/components/parameters/RequestIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArticleUpdateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticleDetail'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '404':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '409':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/article-publications:
+    get:
+      tags:
+      - articles
+      summary: List Article Publications Route
+      operationId: listArticlePublications
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: article_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Article Id
+      - name: product_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Product Id
+      - name: platform_profile_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Platform Profile Id
+      - name: registration_status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/ArticlePublicationRegistrationStatus'
+          - type: 'null'
+          title: Registration Status
+      - name: verification_status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/ArticlePublicationVerificationStatus'
+          - type: 'null'
+          title: Verification Status
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Q
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Page Size
+      - $ref: '#/components/parameters/RequestIdHeader'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticlePublicationList'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/articles/{article_id}/publications:
+    post:
+      tags:
+      - articles
+      summary: Create Article Publication Route
+      operationId: createArticlePublication
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: article_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Article Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      - $ref: '#/components/parameters/RequestIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArticlePublicationCreateRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticlePublicationOut'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '404':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '409':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/article-publications/{publication_id}:
+    patch:
+      tags:
+      - articles
+      summary: Update Article Publication Route
+      operationId: updateArticlePublication
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: publication_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Publication Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      - $ref: '#/components/parameters/RequestIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArticlePublicationUpdateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticlePublicationOut'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '401':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '403':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '404':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '409':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '422':
+          description: 业务或校验错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestIdResponseHeader'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
 components:
   securitySchemes:
     geoBrowserServiceKey:
@@ -17828,6 +18831,22 @@ components:
         updated_at:
           type: string
           format: date-time
+        summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Summary
+        datasheet_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Datasheet Url
+        facts_updated_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Facts Updated At
     ProductCreate:
       type: object
       additionalProperties: false
@@ -17848,6 +18867,18 @@ components:
           type: string
           minLength: 1
           maxLength: 160
+        summary:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Summary
+        datasheet_url:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Datasheet Url
     ProductUpdate:
       type: object
       additionalProperties: false
@@ -17875,6 +18906,18 @@ components:
           maxLength: 160
         status:
           $ref: '#/components/schemas/ProductStatus'
+        summary:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Summary
+        datasheet_url:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Datasheet Url
     ProductDetailApprovedFact:
       type: object
       additionalProperties: false
@@ -18228,6 +19271,22 @@ components:
           anyOf:
           - $ref: '#/components/schemas/ProductFactSummary'
           - type: 'null'
+        summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Summary
+        datasheet_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Datasheet Url
+        facts_updated_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Facts Updated At
     ProductList:
       type: object
       additionalProperties: false
@@ -21953,8 +23012,7 @@ components:
       - HUMANIZE
     GenerationJob:
       type: object
-      description: deterministic Worker 将 PENDING 作业原子标记 FAILED/AI_GENERATION_DISABLED，不调用供应商或创建内容；重复投递不改变终态。已
-        RUNNING 请求沿用租约及迟到结果合同。
+      description: deterministic Worker 将 PENDING 作业原子标记 FAILED/AI_GENERATION_DISABLED，不调用供应商或创建内容；重复投递不改变终态。已 RUNNING 请求沿用租约及迟到结果合同。
       additionalProperties: false
       required:
       - id
@@ -25305,8 +26363,8 @@ components:
     GeoOptimizationContentTaskCreate:
       type: object
       additionalProperties: false
-      description: 内容规则只携带 published_article_id；覆盖规则只携带 query_topic_id 与 geo_platform。目标
-        Product、Platform Profile 与 Fact Version 由命令端重新校验。
+      description: 内容规则只携带 published_article_id；覆盖规则只携带 query_topic_id 与 geo_platform。目标 Product、Platform Profile 与 Fact Version
+        由命令端重新校验。
       required:
       - rule_code
       - date_from
@@ -26838,6 +27896,7 @@ components:
       - OPERATION_SCREENSHOT
       - PUBLICATION_ASSET
       - PLATFORM_LOGO
+      - PRODUCT_DATASHEET
     UploadIntentCreate:
       type: object
       additionalProperties: false
@@ -27237,8 +28296,7 @@ components:
           type: string
           maxLength: 4000
       minProperties: 3
-      description: PATCH：至少一个可编辑字段；省略保留原值，parent=null 清空父级。subject_type 仅作判别且必须与目标相同，不能改变类型或
-        product_id。
+      description: PATCH：至少一个可编辑字段；省略保留原值，parent=null 清空父级。subject_type 仅作判别且必须与目标相同，不能改变类型或 product_id。
     GeoNamedSubjectUpdate:
       type: object
       additionalProperties: false
@@ -27275,8 +28333,7 @@ components:
           maxLength: 240
           pattern: \S
       minProperties: 3
-      description: PATCH：至少一个可编辑字段；省略保留原值，parent=null 清空父级。subject_type 仅作判别且必须与目标相同，不能改变类型或
-        product_id。
+      description: PATCH：至少一个可编辑字段；省略保留原值，parent=null 清空父级。subject_type 仅作判别且必须与目标相同，不能改变类型或 product_id。
       allOf:
       - if:
           properties:
@@ -27441,8 +28498,7 @@ components:
         created_at:
           type: string
           format: date-time
-      description: Subject 聚合子实体，无独立 revision。修改请求使用外层 Subject revision；ADMIN 的子动作由服务端投影，ENGINEER
-        为空数组。
+      description: Subject 聚合子实体，无独立 revision。修改请求使用外层 Subject revision；ADMIN 的子动作由服务端投影，ENGINEER 为空数组。
     GeoSubjectDomainOut:
       type: object
       additionalProperties: false
@@ -27475,8 +28531,7 @@ components:
         created_at:
           type: string
           format: date-time
-      description: Subject 聚合子实体，无独立 revision。修改请求使用外层 Subject revision；ADMIN 的子动作由服务端投影，ENGINEER
-        为空数组。
+      description: Subject 聚合子实体，无独立 revision。修改请求使用外层 Subject revision；ADMIN 的子动作由服务端投影，ENGINEER 为空数组。
     GeoOwnProductSubjectOut:
       type: object
       additionalProperties: false
@@ -27763,8 +28818,7 @@ components:
           COMPETITOR_BRAND: '#/components/schemas/GeoNamedSubjectOut'
           COMPETITOR_PRODUCT: '#/components/schemas/GeoNamedSubjectOut'
           REFERENCE_PART: '#/components/schemas/GeoNamedSubjectOut'
-      description: 列表、详情和所有非删除命令共用完整一致投影。ADMIN deletion 为真实 blocker 集合；ENGINEER 为
-        null 且所有写动作为空。projection 不构成授权。
+      description: 列表、详情和所有非删除命令共用完整一致投影。ADMIN deletion 为真实 blocker 集合；ENGINEER 为 null 且所有写动作为空。projection 不构成授权。
     GeoSubjectListPage:
       type: object
       additionalProperties: false
@@ -47173,3 +48227,986 @@ components:
       - decay_alerts
       title: OperationsMetricsOut
       description: 全局纯 GEO 内容运营经营看板与衰退预警。
+    ArticleAiGenerationSnapshotOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        article_revision_id:
+          type: string
+          format: uuid
+          title: Article Revision Id
+        product_facts_classification:
+          type: string
+          const: PUBLIC
+          title: Product Facts Classification
+        prompt_template_version_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Prompt Template Version Id
+        provider_model_snapshot:
+          type: string
+          title: Provider Model Snapshot
+        cost_amount:
+          anyOf:
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: 'null'
+          title: Cost Amount
+        cost_currency:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cost Currency
+        created_by:
+          type: string
+          format: uuid
+          title: Created By
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - article_revision_id
+      - product_facts_classification
+      - prompt_template_version_id
+      - provider_model_snapshot
+      - cost_amount
+      - cost_currency
+      - created_by
+      - created_at
+      title: ArticleAiGenerationSnapshotOut
+    ArticleCreateRequest:
+      properties:
+        product_id:
+          type: string
+          format: uuid
+          title: Product Id
+        parent_article_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Parent Article Id
+        title:
+          type: string
+          maxLength: 300
+          minLength: 1
+          title: Title
+        summary:
+          type: string
+          maxLength: 2000
+          title: Summary
+          default: ''
+        body_markdown:
+          type: string
+          maxLength: 524288
+          minLength: 1
+          title: Body Markdown
+        target_keywords:
+          items:
+            type: string
+          type: array
+          maxItems: 50
+          title: Target Keywords
+        origin_type:
+          $ref: '#/components/schemas/ArticleOriginType'
+          default: EXTERNAL_AI
+        external_model_name:
+          anyOf:
+          - type: string
+            maxLength: 160
+          - type: 'null'
+          title: External Model Name
+        status:
+          $ref: '#/components/schemas/ArticleStatus'
+          default: DRAFT
+        change_summary:
+          type: string
+          maxLength: 500
+          title: Change Summary
+          default: 初始录入
+      additionalProperties: false
+      type: object
+      required:
+      - product_id
+      - title
+      - body_markdown
+      title: ArticleCreateRequest
+    ArticleDetail:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        product_id:
+          type: string
+          format: uuid
+          title: Product Id
+        product_label:
+          type: string
+          title: Product Label
+        parent_article_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Parent Article Id
+        title:
+          type: string
+          title: Title
+        summary:
+          type: string
+          title: Summary
+        body_markdown:
+          type: string
+          title: Body Markdown
+        target_keywords:
+          items:
+            type: string
+          type: array
+          title: Target Keywords
+        origin_type:
+          $ref: '#/components/schemas/ArticleOriginType'
+        external_model_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: External Model Name
+        status:
+          $ref: '#/components/schemas/ArticleStatus'
+        current_revision:
+          type: integer
+          title: Current Revision
+        revision:
+          type: integer
+          title: Revision
+        owner_id:
+          type: string
+          format: uuid
+          title: Owner Id
+        owner_name:
+          type: string
+          title: Owner Name
+        created_by:
+          type: string
+          format: uuid
+          title: Created By
+        updated_by:
+          type: string
+          format: uuid
+          title: Updated By
+        source_content_task_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Source Content Task Id
+        source_content_version_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Source Content Version Id
+        publication_count:
+          type: integer
+          minimum: 0.0
+          title: Publication Count
+        verified_publication_count:
+          type: integer
+          minimum: 0.0
+          title: Verified Publication Count
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        revisions:
+          items:
+            $ref: '#/components/schemas/ArticleRevisionOut'
+          type: array
+          title: Revisions
+        publications:
+          items:
+            $ref: '#/components/schemas/ArticlePublicationOut'
+          type: array
+          title: Publications
+        ai_generation_snapshots:
+          items:
+            $ref: '#/components/schemas/ArticleAiGenerationSnapshotOut'
+          type: array
+          title: Ai Generation Snapshots
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - product_id
+      - product_label
+      - parent_article_id
+      - title
+      - summary
+      - body_markdown
+      - target_keywords
+      - origin_type
+      - external_model_name
+      - status
+      - current_revision
+      - revision
+      - owner_id
+      - owner_name
+      - created_by
+      - updated_by
+      - source_content_task_id
+      - source_content_version_id
+      - publication_count
+      - verified_publication_count
+      - created_at
+      - updated_at
+      - revisions
+      - publications
+      - ai_generation_snapshots
+      title: ArticleDetail
+    ArticleGenerateDraftRequest:
+      properties:
+        product_id:
+          type: string
+          format: uuid
+          title: Product Id
+        ai_model_id:
+          type: string
+          format: uuid
+          title: Ai Model Id
+        platform_prompt_version_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Platform Prompt Version Id
+        platform_profile_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Platform Profile Id
+        writing_goal:
+          type: string
+          maxLength: 1000
+          title: Writing Goal
+          default: ''
+        target_audience:
+          type: string
+          maxLength: 500
+          title: Target Audience
+          default: ''
+        target_question:
+          type: string
+          maxLength: 1000
+          title: Target Question
+          default: ''
+        target_keywords:
+          items:
+            type: string
+          type: array
+          maxItems: 50
+          title: Target Keywords
+      additionalProperties: false
+      type: object
+      required:
+      - product_id
+      - ai_model_id
+      title: ArticleGenerateDraftRequest
+    ArticleList:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/ArticleOut'
+          type: array
+          title: Items
+        page:
+          type: integer
+          title: Page
+        page_size:
+          type: integer
+          title: Page Size
+        total:
+          type: integer
+          title: Total
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      title: ArticleList
+    ArticleOriginType:
+      type: string
+      enum:
+      - EXTERNAL_AI
+      - HUMAN
+      - SYSTEM_AI
+      - OTHER
+      title: ArticleOriginType
+    ArticleOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        product_id:
+          type: string
+          format: uuid
+          title: Product Id
+        product_label:
+          type: string
+          title: Product Label
+        parent_article_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Parent Article Id
+        title:
+          type: string
+          title: Title
+        summary:
+          type: string
+          title: Summary
+        body_markdown:
+          type: string
+          title: Body Markdown
+        target_keywords:
+          items:
+            type: string
+          type: array
+          title: Target Keywords
+        origin_type:
+          $ref: '#/components/schemas/ArticleOriginType'
+        external_model_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: External Model Name
+        status:
+          $ref: '#/components/schemas/ArticleStatus'
+        current_revision:
+          type: integer
+          title: Current Revision
+        revision:
+          type: integer
+          title: Revision
+        owner_id:
+          type: string
+          format: uuid
+          title: Owner Id
+        owner_name:
+          type: string
+          title: Owner Name
+        created_by:
+          type: string
+          format: uuid
+          title: Created By
+        updated_by:
+          type: string
+          format: uuid
+          title: Updated By
+        source_content_task_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Source Content Task Id
+        source_content_version_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Source Content Version Id
+        publication_count:
+          type: integer
+          minimum: 0.0
+          title: Publication Count
+        verified_publication_count:
+          type: integer
+          minimum: 0.0
+          title: Verified Publication Count
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - product_id
+      - product_label
+      - parent_article_id
+      - title
+      - summary
+      - body_markdown
+      - target_keywords
+      - origin_type
+      - external_model_name
+      - status
+      - current_revision
+      - revision
+      - owner_id
+      - owner_name
+      - created_by
+      - updated_by
+      - source_content_task_id
+      - source_content_version_id
+      - publication_count
+      - verified_publication_count
+      - created_at
+      - updated_at
+      title: ArticleOut
+    ArticlePublicationCreateRequest:
+      properties:
+        platform_profile_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Platform Profile Id
+        platform_name:
+          anyOf:
+          - type: string
+            maxLength: 160
+            minLength: 1
+          - type: 'null'
+          title: Platform Name
+        platform_account_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Platform Account Id
+        platform_account_label:
+          anyOf:
+          - type: string
+            maxLength: 160
+          - type: 'null'
+          title: Platform Account Label
+        actual_title:
+          type: string
+          maxLength: 300
+          minLength: 1
+          title: Actual Title
+        final_url:
+          type: string
+          maxLength: 2083
+          minLength: 1
+          title: Final Url
+        published_at:
+          type: string
+          format: date-time
+          title: Published At
+        screenshot_file_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Screenshot File Id
+        notes:
+          type: string
+          maxLength: 2000
+          title: Notes
+          default: ''
+      additionalProperties: false
+      type: object
+      required:
+      - actual_title
+      - final_url
+      - published_at
+      title: ArticlePublicationCreateRequest
+    ArticlePublicationList:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/ArticlePublicationOut'
+          type: array
+          title: Items
+        page:
+          type: integer
+          title: Page
+        page_size:
+          type: integer
+          title: Page Size
+        total:
+          type: integer
+          title: Total
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      title: ArticlePublicationList
+    ArticlePublicationOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        article_id:
+          type: string
+          format: uuid
+          title: Article Id
+        article_title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Article Title
+        product_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Product Id
+        product_label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Product Label
+        article_revision_id:
+          type: string
+          format: uuid
+          title: Article Revision Id
+        platform_profile_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Platform Profile Id
+        platform_name_snapshot:
+          type: string
+          title: Platform Name Snapshot
+        platform_account_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Platform Account Id
+        platform_account_label_snapshot:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Platform Account Label Snapshot
+        actual_title:
+          type: string
+          title: Actual Title
+        final_url:
+          type: string
+          title: Final Url
+        normalized_url:
+          type: string
+          title: Normalized Url
+        hostname:
+          type: string
+          title: Hostname
+        published_at:
+          type: string
+          format: date-time
+          title: Published At
+        registration_status:
+          $ref: '#/components/schemas/ArticlePublicationRegistrationStatus'
+        verification_status:
+          $ref: '#/components/schemas/ArticlePublicationVerificationStatus'
+        verified_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Verified At
+        verified_by:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Verified By
+        source_published_article_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Source Published Article Id
+        screenshot_file_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Screenshot File Id
+        notes:
+          type: string
+          title: Notes
+        revision:
+          type: integer
+          title: Revision
+        registered_by:
+          type: string
+          format: uuid
+          title: Registered By
+        registered_by_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Registered By Name
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - article_id
+      - article_revision_id
+      - platform_profile_id
+      - platform_name_snapshot
+      - platform_account_id
+      - platform_account_label_snapshot
+      - actual_title
+      - final_url
+      - normalized_url
+      - hostname
+      - published_at
+      - registration_status
+      - verification_status
+      - verified_at
+      - verified_by
+      - source_published_article_id
+      - screenshot_file_id
+      - notes
+      - revision
+      - registered_by
+      - created_at
+      - updated_at
+      title: ArticlePublicationOut
+    ArticlePublicationRegistrationStatus:
+      type: string
+      enum:
+      - REGISTERED
+      - REMOVED
+      title: ArticlePublicationRegistrationStatus
+    ArticlePublicationUpdateRequest:
+      properties:
+        expected_revision:
+          type: integer
+          minimum: 0.0
+          title: Expected Revision
+        actual_title:
+          anyOf:
+          - type: string
+            maxLength: 300
+            minLength: 1
+          - type: 'null'
+          title: Actual Title
+        registration_status:
+          anyOf:
+          - $ref: '#/components/schemas/ArticlePublicationRegistrationStatus'
+          - type: 'null'
+        screenshot_file_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Screenshot File Id
+        notes:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Notes
+        comment:
+          type: string
+          maxLength: 500
+          title: Comment
+          default: ''
+      additionalProperties: false
+      type: object
+      required:
+      - expected_revision
+      title: ArticlePublicationUpdateRequest
+    ArticlePublicationVerificationStatus:
+      type: string
+      enum:
+      - UNVERIFIED
+      - VERIFIED
+      - ISSUE_OPEN
+      title: ArticlePublicationVerificationStatus
+    ArticleRevisionOut:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        article_id:
+          type: string
+          format: uuid
+          title: Article Id
+        revision_no:
+          type: integer
+          title: Revision No
+        title:
+          type: string
+          title: Title
+        summary:
+          type: string
+          title: Summary
+        body_markdown:
+          type: string
+          title: Body Markdown
+        content_hash:
+          type: string
+          title: Content Hash
+        change_summary:
+          type: string
+          title: Change Summary
+        created_by:
+          type: string
+          format: uuid
+          title: Created By
+        created_by_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created By Name
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - article_id
+      - revision_no
+      - title
+      - summary
+      - body_markdown
+      - content_hash
+      - change_summary
+      - created_by
+      - created_at
+      title: ArticleRevisionOut
+    ArticleStatus:
+      type: string
+      enum:
+      - DRAFT
+      - READY
+      - PUBLISHED
+      - ARCHIVED
+      title: ArticleStatus
+    ArticleUpdateRequest:
+      properties:
+        expected_revision:
+          type: integer
+          minimum: 0.0
+          title: Expected Revision
+        title:
+          anyOf:
+          - type: string
+            maxLength: 300
+            minLength: 1
+          - type: 'null'
+          title: Title
+        summary:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Summary
+        body_markdown:
+          anyOf:
+          - type: string
+            maxLength: 524288
+            minLength: 1
+          - type: 'null'
+          title: Body Markdown
+        target_keywords:
+          anyOf:
+          - items:
+              type: string
+            type: array
+            maxItems: 50
+          - type: 'null'
+          title: Target Keywords
+        status:
+          anyOf:
+          - $ref: '#/components/schemas/ArticleStatus'
+          - type: 'null'
+        change_summary:
+          type: string
+          maxLength: 500
+          title: Change Summary
+          default: ''
+      additionalProperties: false
+      type: object
+      required:
+      - expected_revision
+      title: ArticleUpdateRequest
+    ProductMaterialAttachRequest:
+      properties:
+        file_id:
+          type: string
+          format: uuid
+          title: File Id
+        display_label:
+          type: string
+          maxLength: 200
+          title: Display Label
+          default: ''
+      additionalProperties: false
+      type: object
+      required:
+      - file_id
+      title: ProductMaterialAttachRequest
+    ProductMaterialAttachmentList:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/ProductMaterialAttachmentOut'
+          type: array
+          title: Items
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      title: ProductMaterialAttachmentList
+    ProductMaterialAttachmentOut:
+      properties:
+        product_id:
+          type: string
+          format: uuid
+          title: Product Id
+        file_id:
+          type: string
+          format: uuid
+          title: File Id
+        display_label:
+          type: string
+          title: Display Label
+        original_filename:
+          type: string
+          title: Original Filename
+        content_type:
+          type: string
+          title: Content Type
+        size:
+          type: integer
+          title: Size
+        created_by:
+          type: string
+          format: uuid
+          title: Created By
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - product_id
+      - file_id
+      - display_label
+      - original_filename
+      - content_type
+      - size
+      - created_by
+      - created_at
+      title: ProductMaterialAttachmentOut
+    ProductPromptCopyBundleOut:
+      properties:
+        product_id:
+          type: string
+          format: uuid
+          title: Product Id
+        product_label:
+          type: string
+          title: Product Label
+        facts_classification:
+          type: string
+          const: PUBLIC
+          title: Facts Classification
+        prompt_template_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Prompt Template Name
+        prompt_version_number:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Prompt Version Number
+        system_prompt:
+          type: string
+          title: System Prompt
+        user_prompt:
+          type: string
+          title: User Prompt
+        combined_copy_text:
+          type: string
+          title: Combined Copy Text
+      additionalProperties: false
+      type: object
+      required:
+      - product_id
+      - product_label
+      - facts_classification
+      - prompt_template_name
+      - prompt_version_number
+      - system_prompt
+      - user_prompt
+      - combined_copy_text
+      title: ProductPromptCopyBundleOut
+    ProductPromptCopyBundleRequest:
+      properties:
+        platform_prompt_version_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Platform Prompt Version Id
+        platform_profile_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Platform Profile Id
+        writing_goal:
+          type: string
+          maxLength: 1000
+          title: Writing Goal
+          default: ''
+        target_audience:
+          type: string
+          maxLength: 500
+          title: Target Audience
+          default: ''
+        target_question:
+          type: string
+          maxLength: 1000
+          title: Target Question
+          default: ''
+      additionalProperties: false
+      type: object
+      title: ProductPromptCopyBundleRequest

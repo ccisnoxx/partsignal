@@ -4335,6 +4335,162 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/products/{product_id}/materials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Product Materials Route */
+        get: operations["listProductMaterials"];
+        put?: never;
+        /** Attach Product Material Route */
+        post: operations["attachProductMaterial"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/products/{product_id}/materials/{file_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Detach Product Material Route */
+        delete: operations["detachProductMaterial"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/products/{product_id}/prompt-copy-bundle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Build Product Prompt Copy Bundle Route */
+        post: operations["buildProductPromptCopyBundle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Articles Route */
+        get: operations["listArticles"];
+        put?: never;
+        /** Create Article Route */
+        post: operations["createArticle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/articles/generate-draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate Article Draft Route */
+        post: operations["generateArticleDraftFromProduct"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/articles/{article_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Article Route */
+        get: operations["getArticle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Article Route */
+        patch: operations["updateArticle"];
+        trace?: never;
+    };
+    "/api/v1/article-publications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Article Publications Route */
+        get: operations["listArticlePublications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/articles/{article_id}/publications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Article Publication Route */
+        post: operations["createArticlePublication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/article-publications/{publication_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Article Publication Route */
+        patch: operations["updateArticlePublication"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4575,11 +4731,21 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+            /** Summary */
+            summary?: string | null;
+            /** Datasheet Url */
+            datasheet_url?: string | null;
+            /** Facts Updated At */
+            facts_updated_at?: string | null;
         };
         ProductCreate: {
             part_number: string;
             brand: string;
             category: string;
+            /** Summary */
+            summary?: string | null;
+            /** Datasheet Url */
+            datasheet_url?: string | null;
         };
         ProductUpdate: {
             expected_revision: number;
@@ -4587,6 +4753,10 @@ export interface components {
             brand: string;
             category: string;
             status: components["schemas"]["ProductStatus"];
+            /** Summary */
+            summary?: string | null;
+            /** Datasheet Url */
+            datasheet_url?: string | null;
         };
         ProductDetailApprovedFact: {
             /** Format: uuid */
@@ -4696,6 +4866,12 @@ export interface components {
             updated_at: string;
             fact_status: components["schemas"]["ProductFactStatus"];
             current_fact: components["schemas"]["ProductFactSummary"] | null;
+            /** Summary */
+            summary?: string | null;
+            /** Datasheet Url */
+            datasheet_url?: string | null;
+            /** Facts Updated At */
+            facts_updated_at?: string | null;
         };
         ProductList: {
             items: components["schemas"]["ProductListItem"][];
@@ -7837,7 +8013,7 @@ export interface components {
             recent_attention_items: components["schemas"]["WorkbenchAttentionItem"][];
         };
         /** @enum {string} */
-        FileCategory: "EVIDENCE" | "OPERATION_SCREENSHOT" | "PUBLICATION_ASSET" | "PLATFORM_LOGO";
+        FileCategory: "EVIDENCE" | "OPERATION_SCREENSHOT" | "PUBLICATION_ASSET" | "PLATFORM_LOGO" | "PRODUCT_DATASHEET";
         UploadIntentCreate: {
             category: components["schemas"]["FileCategory"];
             original_filename: string;
@@ -17577,6 +17753,564 @@ export interface components {
             unit_economics_by_currency: components["schemas"]["UnitEconomicsByCurrencyOut"][];
             /** Decay Alerts */
             decay_alerts: components["schemas"]["ContentDecayAlertItem"][];
+        };
+        /** ArticleAiGenerationSnapshotOut */
+        ArticleAiGenerationSnapshotOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Article Revision Id
+             * Format: uuid
+             */
+            article_revision_id: string;
+            /**
+             * Product Facts Classification
+             * @constant
+             */
+            product_facts_classification: "PUBLIC";
+            /** Prompt Template Version Id */
+            prompt_template_version_id: string | null;
+            /** Provider Model Snapshot */
+            provider_model_snapshot: string;
+            /** Cost Amount */
+            cost_amount: string | null;
+            /** Cost Currency */
+            cost_currency: string | null;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ArticleCreateRequest */
+        ArticleCreateRequest: {
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /** Parent Article Id */
+            parent_article_id?: string | null;
+            /** Title */
+            title: string;
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
+            /** Body Markdown */
+            body_markdown: string;
+            /** Target Keywords */
+            target_keywords?: string[];
+            /** @default EXTERNAL_AI */
+            origin_type: components["schemas"]["ArticleOriginType"];
+            /** External Model Name */
+            external_model_name?: string | null;
+            /** @default DRAFT */
+            status: components["schemas"]["ArticleStatus"];
+            /**
+             * Change Summary
+             * @default 初始录入
+             */
+            change_summary: string;
+        };
+        /** ArticleDetail */
+        ArticleDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /** Product Label */
+            product_label: string;
+            /** Parent Article Id */
+            parent_article_id: string | null;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /** Body Markdown */
+            body_markdown: string;
+            /** Target Keywords */
+            target_keywords: string[];
+            origin_type: components["schemas"]["ArticleOriginType"];
+            /** External Model Name */
+            external_model_name: string | null;
+            status: components["schemas"]["ArticleStatus"];
+            /** Current Revision */
+            current_revision: number;
+            /** Revision */
+            revision: number;
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /** Owner Name */
+            owner_name: string;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Updated By
+             * Format: uuid
+             */
+            updated_by: string;
+            /** Source Content Task Id */
+            source_content_task_id: string | null;
+            /** Source Content Version Id */
+            source_content_version_id: string | null;
+            /** Publication Count */
+            publication_count: number;
+            /** Verified Publication Count */
+            verified_publication_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Revisions */
+            revisions: components["schemas"]["ArticleRevisionOut"][];
+            /** Publications */
+            publications: components["schemas"]["ArticlePublicationOut"][];
+            /** Ai Generation Snapshots */
+            ai_generation_snapshots: components["schemas"]["ArticleAiGenerationSnapshotOut"][];
+        };
+        /** ArticleGenerateDraftRequest */
+        ArticleGenerateDraftRequest: {
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /**
+             * Ai Model Id
+             * Format: uuid
+             */
+            ai_model_id: string;
+            /** Platform Prompt Version Id */
+            platform_prompt_version_id?: string | null;
+            /** Platform Profile Id */
+            platform_profile_id?: string | null;
+            /**
+             * Writing Goal
+             * @default
+             */
+            writing_goal: string;
+            /**
+             * Target Audience
+             * @default
+             */
+            target_audience: string;
+            /**
+             * Target Question
+             * @default
+             */
+            target_question: string;
+            /** Target Keywords */
+            target_keywords?: string[];
+        };
+        /** ArticleList */
+        ArticleList: {
+            /** Items */
+            items: components["schemas"]["ArticleOut"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /**
+         * ArticleOriginType
+         * @enum {string}
+         */
+        ArticleOriginType: "EXTERNAL_AI" | "HUMAN" | "SYSTEM_AI" | "OTHER";
+        /** ArticleOut */
+        ArticleOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /** Product Label */
+            product_label: string;
+            /** Parent Article Id */
+            parent_article_id: string | null;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /** Body Markdown */
+            body_markdown: string;
+            /** Target Keywords */
+            target_keywords: string[];
+            origin_type: components["schemas"]["ArticleOriginType"];
+            /** External Model Name */
+            external_model_name: string | null;
+            status: components["schemas"]["ArticleStatus"];
+            /** Current Revision */
+            current_revision: number;
+            /** Revision */
+            revision: number;
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /** Owner Name */
+            owner_name: string;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Updated By
+             * Format: uuid
+             */
+            updated_by: string;
+            /** Source Content Task Id */
+            source_content_task_id: string | null;
+            /** Source Content Version Id */
+            source_content_version_id: string | null;
+            /** Publication Count */
+            publication_count: number;
+            /** Verified Publication Count */
+            verified_publication_count: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ArticlePublicationCreateRequest */
+        ArticlePublicationCreateRequest: {
+            /** Platform Profile Id */
+            platform_profile_id?: string | null;
+            /** Platform Name */
+            platform_name?: string | null;
+            /** Platform Account Id */
+            platform_account_id?: string | null;
+            /** Platform Account Label */
+            platform_account_label?: string | null;
+            /** Actual Title */
+            actual_title: string;
+            /** Final Url */
+            final_url: string;
+            /**
+             * Published At
+             * Format: date-time
+             */
+            published_at: string;
+            /** Screenshot File Id */
+            screenshot_file_id?: string | null;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+        };
+        /** ArticlePublicationList */
+        ArticlePublicationList: {
+            /** Items */
+            items: components["schemas"]["ArticlePublicationOut"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** ArticlePublicationOut */
+        ArticlePublicationOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Article Id
+             * Format: uuid
+             */
+            article_id: string;
+            /** Article Title */
+            article_title?: string | null;
+            /** Product Id */
+            product_id?: string | null;
+            /** Product Label */
+            product_label?: string | null;
+            /**
+             * Article Revision Id
+             * Format: uuid
+             */
+            article_revision_id: string;
+            /** Platform Profile Id */
+            platform_profile_id: string | null;
+            /** Platform Name Snapshot */
+            platform_name_snapshot: string;
+            /** Platform Account Id */
+            platform_account_id: string | null;
+            /** Platform Account Label Snapshot */
+            platform_account_label_snapshot: string | null;
+            /** Actual Title */
+            actual_title: string;
+            /** Final Url */
+            final_url: string;
+            /** Normalized Url */
+            normalized_url: string;
+            /** Hostname */
+            hostname: string;
+            /**
+             * Published At
+             * Format: date-time
+             */
+            published_at: string;
+            registration_status: components["schemas"]["ArticlePublicationRegistrationStatus"];
+            verification_status: components["schemas"]["ArticlePublicationVerificationStatus"];
+            /** Verified At */
+            verified_at: string | null;
+            /** Verified By */
+            verified_by: string | null;
+            /** Source Published Article Id */
+            source_published_article_id: string | null;
+            /** Screenshot File Id */
+            screenshot_file_id: string | null;
+            /** Notes */
+            notes: string;
+            /** Revision */
+            revision: number;
+            /**
+             * Registered By
+             * Format: uuid
+             */
+            registered_by: string;
+            /** Registered By Name */
+            registered_by_name?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * ArticlePublicationRegistrationStatus
+         * @enum {string}
+         */
+        ArticlePublicationRegistrationStatus: "REGISTERED" | "REMOVED";
+        /** ArticlePublicationUpdateRequest */
+        ArticlePublicationUpdateRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Actual Title */
+            actual_title?: string | null;
+            registration_status?: components["schemas"]["ArticlePublicationRegistrationStatus"] | null;
+            /** Screenshot File Id */
+            screenshot_file_id?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /**
+             * Comment
+             * @default
+             */
+            comment: string;
+        };
+        /**
+         * ArticlePublicationVerificationStatus
+         * @enum {string}
+         */
+        ArticlePublicationVerificationStatus: "UNVERIFIED" | "VERIFIED" | "ISSUE_OPEN";
+        /** ArticleRevisionOut */
+        ArticleRevisionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Article Id
+             * Format: uuid
+             */
+            article_id: string;
+            /** Revision No */
+            revision_no: number;
+            /** Title */
+            title: string;
+            /** Summary */
+            summary: string;
+            /** Body Markdown */
+            body_markdown: string;
+            /** Content Hash */
+            content_hash: string;
+            /** Change Summary */
+            change_summary: string;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /** Created By Name */
+            created_by_name?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * ArticleStatus
+         * @enum {string}
+         */
+        ArticleStatus: "DRAFT" | "READY" | "PUBLISHED" | "ARCHIVED";
+        /** ArticleUpdateRequest */
+        ArticleUpdateRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Title */
+            title?: string | null;
+            /** Summary */
+            summary?: string | null;
+            /** Body Markdown */
+            body_markdown?: string | null;
+            /** Target Keywords */
+            target_keywords?: string[] | null;
+            status?: components["schemas"]["ArticleStatus"] | null;
+            /**
+             * Change Summary
+             * @default
+             */
+            change_summary: string;
+        };
+        /** ProductMaterialAttachRequest */
+        ProductMaterialAttachRequest: {
+            /**
+             * File Id
+             * Format: uuid
+             */
+            file_id: string;
+            /**
+             * Display Label
+             * @default
+             */
+            display_label: string;
+        };
+        /** ProductMaterialAttachmentList */
+        ProductMaterialAttachmentList: {
+            /** Items */
+            items: components["schemas"]["ProductMaterialAttachmentOut"][];
+        };
+        /** ProductMaterialAttachmentOut */
+        ProductMaterialAttachmentOut: {
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /**
+             * File Id
+             * Format: uuid
+             */
+            file_id: string;
+            /** Display Label */
+            display_label: string;
+            /** Original Filename */
+            original_filename: string;
+            /** Content Type */
+            content_type: string;
+            /** Size */
+            size: number;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ProductPromptCopyBundleOut */
+        ProductPromptCopyBundleOut: {
+            /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /** Product Label */
+            product_label: string;
+            /**
+             * Facts Classification
+             * @constant
+             */
+            facts_classification: "PUBLIC";
+            /** Prompt Template Name */
+            prompt_template_name: string | null;
+            /** Prompt Version Number */
+            prompt_version_number: number | null;
+            /** System Prompt */
+            system_prompt: string;
+            /** User Prompt */
+            user_prompt: string;
+            /** Combined Copy Text */
+            combined_copy_text: string;
+        };
+        /** ProductPromptCopyBundleRequest */
+        ProductPromptCopyBundleRequest: {
+            /** Platform Prompt Version Id */
+            platform_prompt_version_id?: string | null;
+            /** Platform Profile Id */
+            platform_profile_id?: string | null;
+            /**
+             * Writing Goal
+             * @default
+             */
+            writing_goal: string;
+            /**
+             * Target Audience
+             * @default
+             */
+            target_audience: string;
+            /**
+             * Target Question
+             * @default
+             */
+            target_question: string;
         };
     };
     responses: {
@@ -28396,6 +29130,882 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listProductMaterials: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductMaterialAttachmentList"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            /** @description 业务或校验错误 */
+            401: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            403: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            404: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            422: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    attachProductMaterial: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductMaterialAttachRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductMaterialAttachmentOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            /** @description 业务或校验错误 */
+            401: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            403: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            404: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            422: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    detachProductMaterial: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                product_id: string;
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ErrorResponse"];
+            /** @description 业务或校验错误 */
+            401: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            403: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            404: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            422: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    buildProductPromptCopyBundle: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                product_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProductPromptCopyBundleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductPromptCopyBundleOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            /** @description 业务或校验错误 */
+            401: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            403: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            404: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            409: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            422: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listArticles: {
+        parameters: {
+            query?: {
+                product_id?: string | null;
+                origin_type?: components["schemas"]["ArticleOriginType"] | null;
+                status?: components["schemas"]["ArticleStatus"] | null;
+                q?: string | null;
+                page?: number;
+                page_size?: number;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleList"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            /** @description 业务或校验错误 */
+            401: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            403: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            422: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    createArticle: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            /** @description 业务或校验错误 */
+            401: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            403: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            404: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            422: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    generateArticleDraftFromProduct: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleGenerateDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            /** @description 业务或校验错误 */
+            401: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            403: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            404: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            409: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            422: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            502: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    getArticle: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            /** @description 业务或校验错误 */
+            401: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            403: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            404: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            422: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    updateArticle: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleDetail"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            /** @description 业务或校验错误 */
+            401: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            403: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            404: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            409: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            422: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    listArticlePublications: {
+        parameters: {
+            query?: {
+                article_id?: string | null;
+                product_id?: string | null;
+                platform_profile_id?: string | null;
+                registration_status?: components["schemas"]["ArticlePublicationRegistrationStatus"] | null;
+                verification_status?: components["schemas"]["ArticlePublicationVerificationStatus"] | null;
+                q?: string | null;
+                page?: number;
+                page_size?: number;
+            };
+            header?: {
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticlePublicationList"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            /** @description 业务或校验错误 */
+            401: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            403: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            422: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    createArticlePublication: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticlePublicationCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticlePublicationOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            /** @description 业务或校验错误 */
+            401: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            403: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            404: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            409: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            422: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    updateArticlePublication: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "X-Request-ID"?: components["parameters"]["RequestIdHeader"];
+            };
+            path: {
+                publication_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticlePublicationUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticlePublicationOut"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            /** @description 业务或校验错误 */
+            401: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            403: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            404: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            409: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description 业务或校验错误 */
+            422: {
+                headers: {
+                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
     };
 }

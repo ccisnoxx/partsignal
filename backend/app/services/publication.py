@@ -852,18 +852,25 @@ def verify_publication_work(
     db.flush()
     if payload.outcome.value == "FAILED":
         work.status = "ACTION_REQUIRED"
+        work.revision += 1
         action = "VERIFICATION_FAILED"
         message = "首次核验失败，发布工作继续待处理"
     else:
         if task.status != "OPEN":
             raise AppError("INVALID_STATE_TRANSITION", "来源内容任务已终止，不能完成发布", 409)
         work.status = "COMPLETED"
+        work.revision += 1
         task.status = "COMPLETED"
         task.revision += 1
         db.add(PublishedArticle(id=work.id, verification_id=verification.id))
+        db.flush()
+        from app.services.article_publications import sync_verified_publication_to_ledger
+
+        sync_verified_publication_to_ledger(
+            db, work=work, task=task, verification=verification, actor=actor
+        )
         action = "COMPLETED"
         message = "首次核验成功，已形成发布成果"
-    work.revision += 1
     _work_event(
         db,
         work=work,

@@ -91,6 +91,14 @@ RETAINED_AUDIT_ACTIONS = frozenset(
         "content_campaign.completed",
         "content_campaign.archived",
         "content_campaign.deleted",
+        "article.created",
+        "article.updated",
+        "article.ai_draft_generated",
+        "article_publication.registered",
+        "article_publication.updated",
+        "article_publication.removed",
+        "product_material.attached",
+        "product_material.detached",
         "operating_cost_entry.created",
         "operating_cost_entry.voided",
         "query_topic.created",
@@ -178,6 +186,7 @@ AUDIT_FACT_KEYS: dict[AuditModule, frozenset[str]] = {
     AuditModule.PRODUCT_FACTS: frozenset(
         {
             "assignee_id",
+            "file_id",
             "has_blocked_reason",
             "has_due_at",
             "priority",
@@ -226,9 +235,15 @@ AUDIT_FACT_KEYS: dict[AuditModule, frozenset[str]] = {
         {
             "based_on_id",
             "content_version_id",
+            "current_revision",
             "model_id",
+            "origin_type",
+            "product_id",
             "retry_of_id",
+            "revision",
+            "snapshot_id",
             "source_content_version_id",
+            "status",
             "task_id",
             "version",
         }
@@ -236,6 +251,7 @@ AUDIT_FACT_KEYS: dict[AuditModule, frozenset[str]] = {
     AuditModule.CONTENT_REVIEW: frozenset({"revision", "status"}),
     AuditModule.PUBLICATION: frozenset(
         {
+            "article_id",
             "assignee_id",
             "attachment_count",
             "auto_opened_issue_count",
@@ -244,17 +260,20 @@ AUDIT_FACT_KEYS: dict[AuditModule, frozenset[str]] = {
             "fact_version_id",
             "has_blocked_reason",
             "has_due_at",
+            "hostname",
             "platform_profile_id",
             "platform_profile_version_id",
             "priority",
             "publication_id",
             "publication_reference_count",
+            "registration_status",
             "repair_task_id",
             "revision",
             "status",
             "status_event_count",
             "task_id",
             "trigger_status",
+            "verification_status",
         }
     ),
     AuditModule.GEO_OBSERVATION: frozenset(

@@ -13,12 +13,15 @@ import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAdminRouteRouteImport } from './routes/_app/_admin/route'
+import { Route as AppArticlesRouteRouteImport } from './routes/_app/articles/route'
 import { Route as AppContentRouteRouteImport } from './routes/_app/content/route'
 import { Route as AppGeoRouteRouteImport } from './routes/_app/geo/route'
 import { Route as AppProductsRouteRouteImport } from './routes/_app/products/route'
 import { Route as AppPublishingRouteRouteImport } from './routes/_app/publishing/route'
 import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/route'
 import { Route as AccountSecurityRouteImport } from './routes/account/security'
+import { Route as AppArticlesIndexRouteImport } from './routes/_app/articles/index'
+import { Route as AppArticlesArticleIdRouteImport } from './routes/_app/articles/$articleId'
 import { Route as AppConfigurationGeoEntitiesRouteImport } from './routes/_app/configuration/geo-entities'
 import { Route as AppConfigurationGeoRulesRouteImport } from './routes/_app/configuration/geo-rules'
 import { Route as AppConfigurationGeoSurfacesRouteImport } from './routes/_app/configuration/geo-surfaces'
@@ -96,6 +99,11 @@ const AppAdminRouteRoute = AppAdminRouteRouteImport.update({
   id: '/_admin',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppArticlesRouteRoute = AppArticlesRouteRouteImport.update({
+  id: '/articles',
+  path: '/articles',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppContentRouteRoute = AppContentRouteRouteImport.update({
   id: '/content',
   path: '/content',
@@ -125,6 +133,16 @@ const AccountSecurityRoute = AccountSecurityRouteImport.update({
   id: '/account/security',
   path: '/account/security',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppArticlesIndexRoute = AppArticlesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppArticlesRouteRoute,
+} as any)
+const AppArticlesArticleIdRoute = AppArticlesArticleIdRouteImport.update({
+  id: '/$articleId',
+  path: '/$articleId',
+  getParentRoute: () => AppArticlesRouteRoute,
 } as any)
 const AppConfigurationGeoEntitiesRoute =
   AppConfigurationGeoEntitiesRouteImport.update({
@@ -446,6 +464,7 @@ const AppProductsProductIdFactsVersionsVersionIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/login': typeof LoginRoute
+  '/articles': typeof AppArticlesRouteRouteWithChildren
   '/content': typeof AppContentRouteRouteWithChildren
   '/geo': typeof AppGeoRouteRouteWithChildren
   '/products': typeof AppProductsRouteRouteWithChildren
@@ -461,6 +480,7 @@ export interface FileRoutesByFullPath {
   '/publishing/issues': typeof AppPublishingIssuesRouteRouteWithChildren
   '/publishing/work': typeof AppPublishingWorkRouteRouteWithChildren
   '/settings/platforms': typeof AppSettingsPlatformsRouteRouteWithChildren
+  '/articles/$articleId': typeof AppArticlesArticleIdRoute
   '/configuration/geo-entities': typeof AppConfigurationGeoEntitiesRoute
   '/configuration/geo-rules': typeof AppConfigurationGeoRulesRoute
   '/configuration/geo-surfaces': typeof AppConfigurationGeoSurfacesRoute
@@ -471,6 +491,7 @@ export interface FileRoutesByFullPath {
   '/geo/runs': typeof AppGeoRunsRoute
   '/products/$productId': typeof AppProductsProductIdRoute
   '/products/new': typeof AppProductsNewRoute
+  '/articles/': typeof AppArticlesIndexRoute
   '/products/': typeof AppProductsIndexRoute
   '/settings/ai': typeof AppAdminSettingsAiRoute
   '/settings/prompts': typeof AppAdminSettingsPromptsRoute
@@ -519,6 +540,7 @@ export interface FileRoutesByTo {
   '/publishing': typeof AppPublishingRouteRouteWithChildren
   '/settings': typeof AppSettingsRouteRouteWithChildren
   '/account/security': typeof AccountSecurityRoute
+  '/articles/$articleId': typeof AppArticlesArticleIdRoute
   '/configuration/geo-entities': typeof AppConfigurationGeoEntitiesRoute
   '/configuration/geo-rules': typeof AppConfigurationGeoRulesRoute
   '/configuration/geo-surfaces': typeof AppConfigurationGeoSurfacesRoute
@@ -529,6 +551,7 @@ export interface FileRoutesByTo {
   '/geo/runs': typeof AppGeoRunsRoute
   '/products/$productId': typeof AppProductsProductIdRoute
   '/products/new': typeof AppProductsNewRoute
+  '/articles': typeof AppArticlesIndexRoute
   '/products': typeof AppProductsIndexRoute
   '/settings/ai': typeof AppAdminSettingsAiRoute
   '/settings/prompts': typeof AppAdminSettingsPromptsRoute
@@ -574,6 +597,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/_app/_admin': typeof AppAdminRouteRouteWithChildren
+  '/_app/articles': typeof AppArticlesRouteRouteWithChildren
   '/_app/content': typeof AppContentRouteRouteWithChildren
   '/_app/geo': typeof AppGeoRouteRouteWithChildren
   '/_app/products': typeof AppProductsRouteRouteWithChildren
@@ -590,6 +614,7 @@ export interface FileRoutesById {
   '/_app/publishing/issues': typeof AppPublishingIssuesRouteRouteWithChildren
   '/_app/publishing/work': typeof AppPublishingWorkRouteRouteWithChildren
   '/_app/settings/platforms': typeof AppSettingsPlatformsRouteRouteWithChildren
+  '/_app/articles/$articleId': typeof AppArticlesArticleIdRoute
   '/_app/configuration/geo-entities': typeof AppConfigurationGeoEntitiesRoute
   '/_app/configuration/geo-rules': typeof AppConfigurationGeoRulesRoute
   '/_app/configuration/geo-surfaces': typeof AppConfigurationGeoSurfacesRoute
@@ -600,6 +625,7 @@ export interface FileRoutesById {
   '/_app/geo/runs': typeof AppGeoRunsRoute
   '/_app/products/$productId': typeof AppProductsProductIdRoute
   '/_app/products/new': typeof AppProductsNewRoute
+  '/_app/articles/': typeof AppArticlesIndexRoute
   '/_app/products/': typeof AppProductsIndexRoute
   '/_app/_admin/settings/ai': typeof AppAdminSettingsAiRoute
   '/_app/_admin/settings/prompts': typeof AppAdminSettingsPromptsRoute
@@ -645,6 +671,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/articles'
     | '/content'
     | '/geo'
     | '/products'
@@ -660,6 +687,7 @@ export interface FileRouteTypes {
     | '/publishing/issues'
     | '/publishing/work'
     | '/settings/platforms'
+    | '/articles/$articleId'
     | '/configuration/geo-entities'
     | '/configuration/geo-rules'
     | '/configuration/geo-surfaces'
@@ -670,6 +698,7 @@ export interface FileRouteTypes {
     | '/geo/runs'
     | '/products/$productId'
     | '/products/new'
+    | '/articles/'
     | '/products/'
     | '/settings/ai'
     | '/settings/prompts'
@@ -718,6 +747,7 @@ export interface FileRouteTypes {
     | '/publishing'
     | '/settings'
     | '/account/security'
+    | '/articles/$articleId'
     | '/configuration/geo-entities'
     | '/configuration/geo-rules'
     | '/configuration/geo-surfaces'
@@ -728,6 +758,7 @@ export interface FileRouteTypes {
     | '/geo/runs'
     | '/products/$productId'
     | '/products/new'
+    | '/articles'
     | '/products'
     | '/settings/ai'
     | '/settings/prompts'
@@ -772,6 +803,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/login'
     | '/_app/_admin'
+    | '/_app/articles'
     | '/_app/content'
     | '/_app/geo'
     | '/_app/products'
@@ -788,6 +820,7 @@ export interface FileRouteTypes {
     | '/_app/publishing/issues'
     | '/_app/publishing/work'
     | '/_app/settings/platforms'
+    | '/_app/articles/$articleId'
     | '/_app/configuration/geo-entities'
     | '/_app/configuration/geo-rules'
     | '/_app/configuration/geo-surfaces'
@@ -798,6 +831,7 @@ export interface FileRouteTypes {
     | '/_app/geo/runs'
     | '/_app/products/$productId'
     | '/_app/products/new'
+    | '/_app/articles/'
     | '/_app/products/'
     | '/_app/_admin/settings/ai'
     | '/_app/_admin/settings/prompts'
@@ -875,6 +909,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminRouteRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/_app/articles': {
+      id: '/_app/articles'
+      path: '/articles'
+      fullPath: '/articles'
+      preLoaderRoute: typeof AppArticlesRouteRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/_app/content': {
       id: '/_app/content'
       path: '/content'
@@ -916,6 +957,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/account/security'
       preLoaderRoute: typeof AccountSecurityRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/articles/': {
+      id: '/_app/articles/'
+      path: '/'
+      fullPath: '/articles/'
+      preLoaderRoute: typeof AppArticlesIndexRouteImport
+      parentRoute: typeof AppArticlesRouteRoute
+    }
+    '/_app/articles/$articleId': {
+      id: '/_app/articles/$articleId'
+      path: '/$articleId'
+      fullPath: '/articles/$articleId'
+      preLoaderRoute: typeof AppArticlesArticleIdRouteImport
+      parentRoute: typeof AppArticlesRouteRoute
     }
     '/_app/configuration/geo-entities': {
       id: '/_app/configuration/geo-entities'
@@ -1348,6 +1403,19 @@ const AppAdminRouteRouteWithChildren = AppAdminRouteRoute._addFileChildren(
   AppAdminRouteRouteChildren,
 )
 
+interface AppArticlesRouteRouteChildren {
+  AppArticlesArticleIdRoute: typeof AppArticlesArticleIdRoute
+  AppArticlesIndexRoute: typeof AppArticlesIndexRoute
+}
+
+const AppArticlesRouteRouteChildren: AppArticlesRouteRouteChildren = {
+  AppArticlesArticleIdRoute: AppArticlesArticleIdRoute,
+  AppArticlesIndexRoute: AppArticlesIndexRoute,
+}
+
+const AppArticlesRouteRouteWithChildren =
+  AppArticlesRouteRoute._addFileChildren(AppArticlesRouteRouteChildren)
+
 interface AppContentCampaignsRouteRouteChildren {
   AppContentCampaignsCampaignIdRoute: typeof AppContentCampaignsCampaignIdRoute
   AppContentCampaignsNewRoute: typeof AppContentCampaignsNewRoute
@@ -1597,6 +1665,7 @@ const AppSettingsRouteRouteWithChildren =
 
 interface AppRouteRouteChildren {
   AppAdminRouteRoute: typeof AppAdminRouteRouteWithChildren
+  AppArticlesRouteRoute: typeof AppArticlesRouteRouteWithChildren
   AppContentRouteRoute: typeof AppContentRouteRouteWithChildren
   AppGeoRouteRoute: typeof AppGeoRouteRouteWithChildren
   AppProductsRouteRoute: typeof AppProductsRouteRouteWithChildren
@@ -1610,6 +1679,7 @@ interface AppRouteRouteChildren {
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppAdminRouteRoute: AppAdminRouteRouteWithChildren,
+  AppArticlesRouteRoute: AppArticlesRouteRouteWithChildren,
   AppContentRouteRoute: AppContentRouteRouteWithChildren,
   AppGeoRouteRoute: AppGeoRouteRouteWithChildren,
   AppProductsRouteRoute: AppProductsRouteRouteWithChildren,

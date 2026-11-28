@@ -25,6 +25,7 @@ import {
 type NavId =
   | 'workbench'
   | 'products'
+  | 'articles'
   | 'content-campaigns'
   | 'content-tasks'
   | 'publishing-work'
@@ -58,6 +59,7 @@ type NavigationItem = {
   to:
     | '/'
     | '/products'
+    | '/articles'
     | '/content/campaigns'
     | '/content/tasks'
     | '/publishing/work'

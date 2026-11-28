@@ -1,6 +1,7 @@
 """导入全部 ORM 模块以向共享 metadata 注册映射。"""
 
 import app.models.ai_generation  # noqa: F401
+import app.models.articles  # noqa: F401
 import app.models.campaign  # noqa: F401
 import app.models.configuration  # noqa: F401
 import app.models.content  # noqa: F401

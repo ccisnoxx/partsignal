@@ -496,6 +496,8 @@ def create_product(*, db: Session, payload: ProductCreate, actor: User, request_
         brand=payload.brand,
         normalized_brand=normalize_identity(payload.brand),
         category=payload.category,
+        summary=(payload.summary or "").strip(),
+        datasheet_url=payload.datasheet_url.strip() if payload.datasheet_url else None,
     )
     db.add(product)
     try:
@@ -558,6 +560,10 @@ def update_product(
     product.normalized_brand = normalize_identity(payload.brand)
     product.category = payload.category.strip()
     product.status = payload.status.value
+    if payload.summary is not None:
+        product.summary = payload.summary.strip()
+    if payload.datasheet_url is not None:
+        product.datasheet_url = payload.datasheet_url.strip() or None
     product.revision += 1
     try:
         db.flush()
@@ -776,6 +782,8 @@ def replace_product_facts(
     product.facts_applicable_region = payload.applicable_region
     product.facts_content_restrictions = payload.content_restrictions
     product.facts_approved_claims_summary = payload.approved_claims_summary
+    product.facts_updated_at = db_utc_now(db)
+    product.facts_updated_by = actor.id
     product.facts_revision += 1
     db.flush()
     result = product_facts_draft_out(db, product, now=db_utc_now(db))

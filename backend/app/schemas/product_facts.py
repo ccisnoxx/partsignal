@@ -68,12 +68,15 @@ class _ProductIdentity(ContractModel):
 
 
 class ProductCreate(_ProductIdentity):
-    pass
+    summary: str | None = Field(default=None, max_length=2000)
+    datasheet_url: str | None = Field(default=None, max_length=2000)
 
 
 class ProductUpdate(_ProductIdentity):
     expected_revision: int = Field(ge=0)
     status: ProductStatus
+    summary: str | None = Field(default=None, max_length=2000)
+    datasheet_url: str | None = Field(default=None, max_length=2000)
 
 
 class ProductOut(ContractModel):
@@ -96,6 +99,9 @@ class ProductOut(ContractModel):
     source_owner: str | None
     next_review_at: datetime | None
     facts_freshness: ProductFactsFreshness
+    summary: str | None = None
+    datasheet_url: str | None = None
+    facts_updated_at: datetime | None = None
     revision: int
     created_at: datetime
     updated_at: datetime

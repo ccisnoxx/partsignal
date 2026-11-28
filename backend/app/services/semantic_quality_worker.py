@@ -28,7 +28,11 @@ from app.services.ai_configuration import (
     request_credentials,
     require_supported_protocol,
 )
-from app.services.ai_provider import AIProvider, ChatCompletionResult
+from app.services.ai_provider import (
+    DEFAULT_DISCOVER_MODELS_MAX_BYTES,
+    AIProvider,
+    ChatCompletionResult,
+)
 from app.services.cost_accounting import compute_frozen_ai_cost
 from app.services.generation import (
     ensure_generation_sources_public,
@@ -129,6 +133,7 @@ def _execute_semantic_model_call(
             {"role": "system", "content": system_message},
             {"role": "user", "content": user_message},
         ],
+        max_response_bytes=DEFAULT_DISCOVER_MODELS_MAX_BYTES,
     )
     try:
         parsed = json.loads(result.content)

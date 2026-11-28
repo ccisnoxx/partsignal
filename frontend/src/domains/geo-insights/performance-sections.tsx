@@ -6,7 +6,14 @@ import { Badge } from '@/design-system/primitives/badge';
 import { MetadataDisclosure } from '@/design-system/primitives/metadata-disclosure';
 import type { components } from '@/shared/api/generated/schema';
 import { CellIdentity, InsightSection, MetricReadout } from './insights-components';
-import { formatPoints, formatRate, formatTime, type AnswerInsights, type OnDrilldown } from './insights.model';
+import {
+  formatDeltaConfidenceInterval,
+  formatPoints,
+  formatRate,
+  formatTime,
+  type AnswerInsights,
+  type OnDrilldown,
+} from './insights.model';
 
 type Cell = components['schemas']['GeoAnswerInsightCell'];
 type MetricCode = components['schemas']['GeoAnswerInsightMetric']['metric_code'];
@@ -181,6 +188,14 @@ function Trends({ insights, onDrilldown }: Props) {
               <p className="text-xs text-text-secondary tabular-nums">
                 变化：{deltaText} · 相对变化：{trend.relative_change === null ? '不可比较' : formatRate(trend.relative_change)} · 每窗最低运行数：{trend.minimum_run_count}
               </p>
+              {trend.delta_confidence_interval && (
+                <div className="flex flex-wrap items-center gap-2 text-xs text-text-tertiary tabular-nums">
+                  <span className="font-mono">{formatDeltaConfidenceInterval(trend.delta_confidence_interval)}</span>
+                  <Badge variant={trend.delta_confidence_interval.excludes_zero ? 'info' : 'secondary'}>
+                    {trend.delta_confidence_interval.excludes_zero ? '超出 95% 抽样噪声' : '区间跨零'}
+                  </Badge>
+                </div>
+              )}
 
               {trend.unavailable_reasons.length > 0 && (
                 <InlineBanner role="status" tone="info">

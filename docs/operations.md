@@ -44,7 +44,7 @@
 
 GEO Profile 连接诊断使用官方 `openai` Python SDK，发送最小 `hi` 消息，保留凭据加密、调用边界解密、测试预留与调用后资格/revision 复核。诊断结果不创建业务 Run、不启用 Profile，失败只保存安全错误摘要。
 
-AI 配置管理的模型发现/连接测试、正式生成/自然化、GEO Profile 连接诊断及 GEO API Collector 使用官方同步 SDK，显式关闭自动重试、重定向与环境代理；生产保持 HTTPS，只做 URL 输入结构校验，不承诺旧栈的 DNS/IP/peer 固定或传输期间响应字节上限。GEO API 在 SDK 方法前执行授权/预算回调，成功即持久化 SENT 并进入外部窗口；明确 HTTP 状态按 COMPLETED，方法开始后的 timeout/connection 按 UNKNOWN，不能自动重放同 attempt。max_response_bytes 使用公开 raw-response 原始字节做接收后检查，不能限制接收内存。SDK/HTTP 传输日志不传播到应用日志；业务响应和持久化摘要只包含固定错误信息，不含供应商错误正文、API Key 或 Header 值。`CredentialCipher` 保留；配置管理的事务外模型测试、revision 复核与测试后停用模型合同保留，生成/自然化仍按 Job lease 和调用后任务/事实/源资格复核收尾。迁移范围见 [SDK 维护工作流](./maintenance/openai-sdk-refactor/README.md)。
+AI 配置管理的模型发现/连接测试、正式生成/自然化、GEO Profile 连接诊断及 GEO API Collector 使用官方同步 SDK，显式关闭自动重试、重定向与环境代理；生产强制 HTTPS（允许自定义 HTTPS 端口），静态拒绝非公网字面量与保留主机名，并在每次真实公网出站前经 `outbound_url_guard` 单次解析全量 A/AAAA 校验公网单播 IP、通过 `GuardedAITransport(httpx2.BaseTransport)` 绑定已校验公网 IP 与 `sni_hostname`、固定 `Accept-Encoding: identity`、执行分阶段超时和传输期流式字节上限（含压缩响应受限解压防炸弹）。GEO API 在 `before_send` 授权/预算回调前完成 URL/DNS/SSRF 校验，授权成功持久化 SENT 并进入外部窗口；明确 HTTP 状态或流式超限按 COMPLETED（`PROVIDER_RESPONSE_TOO_LARGE`），方法开始后的 timeout/connection 按 UNKNOWN，不能自动重放同 attempt。SDK/HTTP 传输日志不传播到应用日志；业务响应和持久化摘要只包含固定错误信息，不含供应商错误正文、API Key 或 Header 值。部署层宿主机 `DOCKER-USER` 出站防火墙作为纵深防御按需另行配置。`CredentialCipher` 保留；配置管理的事务外模型测试、revision 复核与测试后停用模型合同保留，生成/自然化仍按 Job lease 和调用后任务/事实/源资格复核收尾。历史 SDK 迁移基线见 [SDK 维护工作流](./maintenance/openai-sdk-refactor/README.md)。
 
 只有作业输入完整且绑定 `FactVersion` 与作业事实快照均明确为 `PUBLIC` 时才允许出站。供应商已接收但 Worker 丢失的作业只标记失败，不自动再次调用。
 

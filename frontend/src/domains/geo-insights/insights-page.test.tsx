@@ -36,6 +36,7 @@ describe('回答洞察组件与异步边界', () => {
     render(<MetricReadout metric={{ ...metric(), sample_level: level }} onDrilldown={vi.fn()}/>);
     expect(screen.getByText('67%')).toBeInTheDocument();
     expect(screen.getByText(/分子 1 \/ 分母 17/)).toBeInTheDocument();
+    expect(screen.getByText(/95% CI 1%–27% \(n=17\)/)).toBeInTheDocument();
     expect(screen.getByText(level === 'NONE' ? /无样本/ : level === 'OBSERVED' ? /仅观测/ : level === 'REPORTABLE' ? /可报告/ : /稳定样本/)).toBeInTheDocument();
   });
   it('同一汇总提供全部分析区块与图表替代表，点击明细保持全筛选', async () => {
@@ -49,6 +50,8 @@ describe('回答洞察组件与异步边界', () => {
     expect(screen.getByRole('region', { name: '产品矩阵表格替代' })).toHaveAttribute('tabindex', '0');
     expect(screen.getByRole('region', { name: '竞品 SOV 表格替代' })).toBeInTheDocument();
     expect(screen.getByText(/变化：\+2 个百分点/)).toBeInTheDocument();
+    expect(screen.getByText(/95% 差值区间 \[-25, \+29\] 个百分点/)).toBeInTheDocument();
+    expect(screen.getByText('区间跨零')).toBeInTheDocument();
     expect(screen.getByText(/目标主题覆盖率 45%/)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '引用分析' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '事实风险' })).toBeInTheDocument();

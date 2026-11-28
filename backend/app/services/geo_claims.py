@@ -101,7 +101,10 @@ def extract_claims(answer_text: str, subjects: Sequence[GeoRunSubjectSnapshot]) 
     for start, end in _sentences(answer_text):
         text = answer_text[start:end]
         hits = [row for row in occurrences if start <= row.start < end]
+        consumed_relation_end = start
         for index, hit in enumerate(hits):
+            if hit.start < consumed_relation_end:
+                continue
             if len(hit.candidate_subject_ids) != 1:
                 reasons.add(ALIAS_AMBIGUOUS)
                 continue
@@ -115,12 +118,13 @@ def extract_claims(answer_text: str, subjects: Sequence[GeoRunSubjectSnapshot]) 
             prefix = answer_text[prefix_start : hit.start]
             relation = parse_assertions(prefix + answer_text[hit.end : relation_end])
             relationships = [row for row in relation if row.kind == Kind.REPLACEMENT_RELATION]
-            if relationships and re.search(r"替代|replace", body, re.I):
+            if relationships and re.search(r"替代|replace|可作为", body, re.I):
                 assertions = tuple(relationships)
                 claim_start = prefix_start
                 while claim_start < hit.start and answer_text[claim_start] in " ,，":
                     claim_start += 1
                 claim_end = relation_end
+                consumed_relation_end = max(consumed_relation_end, claim_end)
             else:
                 assertions = parse_assertions(body)
                 claim_start, claim_end = start, end

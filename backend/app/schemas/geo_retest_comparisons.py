@@ -8,7 +8,7 @@ from pydantic import AwareDatetime, Field, model_validator
 
 from app.schemas.base import ContractModel
 from app.schemas.geo_insights import GeoOverviewDimensions, GeoOverviewExclusion
-from app.schemas.geo_metric_values import SampleLevel
+from app.schemas.geo_metric_values import GeoConfidenceInterval, SampleLevel
 from app.schemas.geo_opportunities import GeoOpportunitySourceSnapshot
 from app.schemas.geo_opportunity_workbench import (
     GeoOpportunityListItem,
@@ -79,6 +79,7 @@ class GeoRetestComparisonMetric(ContractModel):
     unjudgeable_claim_count: int = Field(ge=0)
     dimensions: GeoOverviewDimensions | None
     unavailable_reasons: list[str]
+    confidence_interval: GeoConfidenceInterval | None = None
 
 
 class GeoRetestComparisonEnvironment(ContractModel):

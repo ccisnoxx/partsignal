@@ -7,7 +7,14 @@ import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
 import { MetadataDisclosure, MetadataList } from '@/design-system/primitives/metadata-disclosure';
 import type { components } from '@/shared/api/generated/schema';
-import { formatRate, modeLabels, sampleLabels, type Metric, type OnDrilldown } from './insights.model';
+import {
+  formatConfidenceInterval,
+  formatRate,
+  modeLabels,
+  sampleLabels,
+  type Metric,
+  type OnDrilldown,
+} from './insights.model';
 import { InsightRequestError } from './insights.api';
 
 function sampleBadgeVariant(level: Metric['sample_level']): 'success' | 'info' | 'warning' | 'secondary' {
@@ -59,6 +66,11 @@ export function MetricReadout({
       <p className="text-xs tabular-nums text-text-secondary">
         分子 {metric.numerator} / 分母 {metric.denominator}
       </p>
+      {metric.confidence_interval && (
+        <p className="font-mono text-[11px] tabular-nums text-text-tertiary">
+          {formatConfidenceInterval(metric.confidence_interval)}
+        </p>
+      )}
       {metric.unavailable_reason && (
         <p className="text-xs text-text-tertiary">不可计算原因：无可用分母（{metric.unavailable_reason}）</p>
       )}
@@ -70,6 +82,11 @@ export function MetricReadout({
       <MetadataDisclosure summary="口径与排除原因">
         <div className="space-y-1.5 break-all">
           <p>合格运行 {metric.eligible_run_count} · 排除运行 {metric.excluded_run_count} · 不可判断声明 {metric.unjudgeable_claim_count}</p>
+          {metric.cross_run_dispersion && (
+            <p className="tabular-nums">
+              跨运行标准差 {metric.cross_run_dispersion.sample_std_dev.toFixed(3)}（方差 {metric.cross_run_dispersion.sample_variance.toFixed(4)}，{metric.cross_run_dispersion.run_count} 次运行）
+            </p>
+          )}
           <p>公式版本：<code className="type-mono text-xs">{metric.formula_version}</code></p>
           {metric.exclusion_reason_counts.length > 0 && (
             <ul className="list-inside list-disc space-y-0.5">

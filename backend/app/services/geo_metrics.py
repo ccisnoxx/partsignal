@@ -19,6 +19,11 @@ from app.services.geo_metric_types import (
     SamplePolicy,
 )
 from app.services.geo_metric_views import ComparisonReason, MetricComparison
+from app.services.geo_statistics import (
+    cross_run_dispersion,
+    newcombe_wilson_diff_ci,
+    wilson_confidence_interval,
+)
 
 FORMULA_VERSION = "geo-answer-v1"
 DEFAULT_SAMPLE_POLICY = SamplePolicy()
@@ -106,12 +111,22 @@ def compare_metric_windows(
     reasons = list(dict.fromkeys(reasons))
     delta = None
     relative = None
+    delta_ci = None
     if not reasons:
         current_value, previous_value = current[0].value, previous[0].value
         assert current_value is not None and previous_value is not None
         delta = current_value - previous_value
         relative = delta / previous_value if previous_value else None
-    return MetricComparison(delta, relative, tuple(reasons), changed, tuple(warnings), minimum)
+        if metric != MetricCode.AVERAGE_RECOMMENDATION_RANK:
+            delta_ci = newcombe_wilson_diff_ci(
+                previous[0].numerator,
+                previous[0].denominator,
+                current[0].numerator,
+                current[0].denominator,
+            )
+    return MetricComparison(
+        delta, relative, tuple(reasons), changed, tuple(warnings), minimum, delta_ci
+    )
 
 
 def coverage_classification(
@@ -385,6 +400,13 @@ def _calculate_metric(
     denominator = sum(item[1] for item in events)
     if metric in STABILITY_METRICS:
         numerator = max(numerator, denominator - numerator)
+    ci = (
+        None
+        if metric == MetricCode.AVERAGE_RECOMMENDATION_RANK
+        else wilson_confidence_interval(numerator, denominator)
+    )
+    run_values = [item[0] / item[1] for item in events if item[1] > 0]
+    dispersion = cross_run_dispersion(run_values)
     return MetricResult(
         metric_code=metric,
         formula_version=FORMULA_VERSION,
@@ -399,4 +421,6 @@ def _calculate_metric(
         exclusion_reason_counts=tuple(sorted(reasons.items())),
         eligible_run_ids=tuple(sorted(run.run_id for run in eligible)),
         unjudgeable_claim_count=unjudgeable,
+        confidence_interval=ci,
+        cross_run_dispersion=dispersion,
     )

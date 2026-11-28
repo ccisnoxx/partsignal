@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from collections import defaultdict
+from dataclasses import asdict
 from typing import Any, Literal
 
 from sqlalchemy import func, select
@@ -27,8 +28,13 @@ from app.schemas.geo_interventions import (
     GeoInterventionOut,
     GeoInterventionTargetMetrics,
 )
+from app.schemas.geo_metric_values import GeoConfidenceInterval, GeoDeltaConfidenceInterval
+from app.services.geo_statistics import newcombe_wilson_diff_ci, wilson_confidence_interval
 
 TERMINAL_INTERVENTION_STATUSES = frozenset({"CONCLUDED", "CANCELLED"})
+_COUNT_METRIC_CODES = frozenset(
+    {"same_fact_error_count", "owned_citation_count", "consecutive_failed_count"}
+)
 
 # 仅映射同向（越高越好）的真实 ComparisonMetric，严禁把反向错误率误判为正向准确率达标。
 _POSITIVE_TARGET_METRIC_MAP: dict[str, str] = {
@@ -72,9 +78,19 @@ def _batch_run_counts_map(
     return {bid: (totals[bid], completed[bid]) for bid in batch_ids}
 
 
-def _window_metric_map(window: Any) -> tuple[list[str], dict[str, float | None]]:
+def _nonnegative_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int) and value >= 0:
+        return value
+    return None
+
+
+def _window_metric_map(
+    window: Any,
+) -> tuple[list[str], dict[str, tuple[float | None, int | None, int | None]]]:
     order: list[str] = []
-    values: dict[str, float | None] = {}
+    values: dict[str, tuple[float | None, int | None, int | None]] = {}
     if not isinstance(window, dict):
         return order, values
     raw_metrics = window.get("metrics")
@@ -88,15 +104,34 @@ def _window_metric_map(window: Any) -> tuple[list[str], dict[str, float | None]]
             continue
         if code not in values:
             order.append(code)
-        values[code] = _numeric_float(item.get("value"))
+        values[code] = (
+            _numeric_float(item.get("value")),
+            _nonnegative_int(item.get("numerator")),
+            _nonnegative_int(item.get("denominator")),
+        )
     return order, values
+
+
+def _proportion_ci_for(
+    code: str, numerator: int | None, denominator: int | None
+) -> GeoConfidenceInterval | None:
+    if (
+        code in _COUNT_METRIC_CODES
+        or numerator is None
+        or denominator is None
+        or denominator <= 0
+        or numerator > denominator
+    ):
+        return None
+    ci = wilson_confidence_interval(numerator, denominator)
+    return GeoConfidenceInterval(**asdict(ci)) if ci is not None else None
 
 
 def _extract_comparison_deltas(
     decision: GeoOpportunityDecision | None,
     target_metrics: GeoInterventionTargetMetrics,
 ) -> tuple[bool | None, list[str], list[GeoInterventionMetricDeltaOut]]:
-    """按真实 R6 GeoRetestComparison 结构提取可比性原因与前后窗口指标差值。"""
+    """按真实 R6 GeoRetestComparison 结构提取可比性原因、前后指标差值及 95% 统计置信区间。"""
     if decision is None or not isinstance(decision.comparison_snapshot, dict):
         return None, [], []
     snap: dict[str, Any] = decision.comparison_snapshot
@@ -131,12 +166,26 @@ def _extract_comparison_deltas(
 
     deltas: list[GeoInterventionMetricDeltaOut] = []
     for code in ordered_codes:
-        bf = b_map.get(code)
-        rf = r_map.get(code)
+        bf, b_num, b_den = b_map.get(code, (None, None, None))
+        rf, r_num, r_den = r_map.get(code, (None, None, None))
         df = round(rf - bf, 6) if (bf is not None and rf is not None) else None
         target_field = _POSITIVE_TARGET_METRIC_MAP.get(code)
         tf = getattr(target_metrics, target_field, None) if target_field else None
         target_met = (rf >= tf) if (rf is not None and tf is not None) else None
+        baseline_ci = _proportion_ci_for(code, b_num, b_den)
+        retest_ci = _proportion_ci_for(code, r_num, r_den)
+        delta_ci: GeoDeltaConfidenceInterval | None = None
+        if (
+            baseline_ci is not None
+            and retest_ci is not None
+            and b_num is not None
+            and b_den is not None
+            and r_num is not None
+            and r_den is not None
+        ):
+            diff_ci = newcombe_wilson_diff_ci(b_num, b_den, r_num, r_den)
+            if diff_ci is not None:
+                delta_ci = GeoDeltaConfidenceInterval(**asdict(diff_ci))
         deltas.append(
             GeoInterventionMetricDeltaOut(
                 metric_code=code,
@@ -145,6 +194,11 @@ def _extract_comparison_deltas(
                 delta=df,
                 target_value=tf,
                 target_met=target_met,
+                baseline_sample_size=b_den,
+                retest_sample_size=r_den,
+                baseline_ci=baseline_ci,
+                retest_ci=retest_ci,
+                delta_ci=delta_ci,
             )
         )
     return comparable, reasons, deltas

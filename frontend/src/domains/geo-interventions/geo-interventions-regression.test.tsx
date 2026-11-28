@@ -56,6 +56,15 @@ describe('GeoIntervention 审查回归保护', () => {
             delta: 0.3,
             target_value: null,
             target_met: null,
+            baseline_sample_size: 10,
+            retest_sample_size: 10,
+            delta_ci: {
+              lower: -0.1045,
+              upper: 0.6149,
+              confidence_level: 0.95,
+              method: 'NEWCOMBE_WILSON_95',
+              excludes_zero: false,
+            },
           },
         ],
       },
@@ -86,6 +95,9 @@ describe('GeoIntervention 审查回归保护', () => {
     expect(screen.getByText('(+3)')).toBeInTheDocument();
     expect(screen.getByText('提及稳定性')).toBeInTheDocument();
     expect(screen.getByText('50.0% → 80.0%')).toBeInTheDocument();
+    expect(screen.getByText('95% CI [-10.4%, +61.5%]')).toBeInTheDocument();
+    expect(screen.getByText('n=10→10')).toBeInTheDocument();
+    expect(screen.getByText('区间跨零')).toBeInTheDocument();
   });
 
   it('新建提交在 invalidate 列表重拉期间保持锁定不重复 POST，且弹窗具备 sm:max-w-2xl 桌面宽度', async () => {

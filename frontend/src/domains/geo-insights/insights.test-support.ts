@@ -7,6 +7,8 @@ export const search = normalizeBase({ date_from: '2026-09-01T00:00:00Z', date_to
 export const filters = baseParams(search) as Schema['GeoOverviewFilters'];
 export function metric(code: Schema['GeoAnswerInsightMetric']['metric_code'] = 'natural_visibility', key = 'current', period: 'CURRENT' | 'PREVIOUS' = 'CURRENT'): Schema['GeoAnswerInsightMetric'] {
   return { metric_code: code, formula_version: 'server-metric-v1', value: 0.67, numerator: 1, denominator: 17, sample_level: 'OBSERVED', eligible_run_count: 3, excluded_run_count: 2, exclusion_reason_counts: [{ code: 'CURRENT_REVIEW_REQUIRED', run_count: 2 }], unjudgeable_claim_count: 1, unavailable_reason: null,
+    confidence_interval: { lower: 0.010467, upper: 0.269799, confidence_level: 0.95, method: 'WILSON_95', sample_size: 17 },
+    cross_run_dispersion: { run_count: 3, sample_variance: 0.333333, sample_std_dev: 0.57735 },
     drilldown: { operation_id: 'listGeoAnswerInsightRuns', filters, cell_key: key, metric_code: code, period, cohort: 'DENOMINATOR' } };
 }
 export function card(): Schema['GeoOverviewCard'] {
@@ -20,7 +22,7 @@ export function cell(key = 'current', period: 'CURRENT' | 'PREVIOUS' = 'CURRENT'
 export function answerInsights(): AnswerInsights {
   const quality = (code: Schema['GeoInsightQualityDrilldown']['quality_code']): Schema['GeoInsightQualityDrilldown'] => ({ operation_id: 'listGeoInsightQualityRuns', filters, quality_code: code, cohort: 'DENOMINATOR', exclusion_reason: null, version_key: null, currency: null });
   return { as_of: filters.date_to, filters, current_window: { date_from: filters.date_from, date_to: filters.date_to }, previous_window: { date_from: '2026-08-02T00:00:00Z', date_to: filters.date_from }, current_cells: [cell()], previous_cells: [cell('previous', 'PREVIOUS')],
-    trends: [{ subject_id: id, prompt_variant_id: id, collection_profile_id: id, metric_code: 'natural_visibility', current_cell_keys: ['current'], previous_cell_keys: ['previous'], change_points: 0.02, relative_change: 0.05, minimum_run_count: 5, unavailable_reasons: [], changed_dimensions: [], version_warnings: ['MODEL_VERSION_UNKNOWN'] }],
+    trends: [{ subject_id: id, prompt_variant_id: id, collection_profile_id: id, metric_code: 'natural_visibility', current_cell_keys: ['current'], previous_cell_keys: ['previous'], change_points: 0.02, relative_change: 0.05, minimum_run_count: 5, unavailable_reasons: [], changed_dimensions: [], version_warnings: ['MODEL_VERSION_UNKNOWN'], delta_confidence_interval: { lower: -0.25, upper: 0.29, confidence_level: 0.95, method: 'NEWCOMBE_WILSON_95', excludes_zero: false } }],
     product_matrix_cell_keys: ['current'], competitor_sov_cell_keys: ['current'], platform_performance: [{ engine_surface_id: id, cell_keys: ['current'] }],
     question_coverage: [{ subject_id: id, stratum_key: 'server-stratum', variant_results: [{ cell_key: 'current', classification: 'OCCASIONAL', unavailable_reason: null, target_reached: false }], monitored_topic_ids: [id], eligible_topic_ids: [id], reached_topic_ids: [], target_topic_coverage: 0.45, positive_topic_coverage: null, numerator: 0, monitored_denominator: 8, eligible_denominator: 0, target_rate: 0.7, reportable_minimum: 3, stable_minimum: 5 }],
     citation_insights: [], fact_risks: [], unavailable_sections: ['OPPORTUNITIES'],

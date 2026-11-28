@@ -16,6 +16,7 @@ import { GeoInterventionCancelDialog } from './geo-intervention-cancel-dialog';
 import { GeoInterventionConcludeDialog } from './geo-intervention-conclude-dialog';
 import { GeoInterventionFormDialog } from './geo-intervention-form-dialog';
 import {
+  formatDeltaConfidenceRange,
   formatMetricValue,
   formatRatePercent,
   formatSignedMetricDelta,
@@ -319,21 +320,35 @@ function GeoInterventionCard({
 
       {attr.metric_deltas.length > 0 && (
         <div className="flex flex-wrap gap-1.5 pt-0.5">
-          {attr.metric_deltas.map((delta) => (
-            <span
-              className="inline-flex items-center gap-1 rounded border border-border-subtle bg-surface-subtle/40 px-1.5 py-0.5 font-mono text-[11px]"
-              key={delta.metric_code}
-            >
-              <span>{geoInterventionMetricLabel(delta.metric_code)}</span>
-              <span>
-                {formatMetricValue(delta.metric_code, delta.baseline_value)} →{' '}
-                {formatMetricValue(delta.metric_code, delta.retest_value)}
+          {attr.metric_deltas.map((delta) => {
+            const ciText = formatDeltaConfidenceRange(delta.delta_ci);
+            return (
+              <span
+                className="inline-flex flex-wrap items-center gap-1 rounded border border-border-subtle bg-surface-subtle/40 px-1.5 py-0.5 font-mono text-[11px]"
+                key={delta.metric_code}
+              >
+                <span>{geoInterventionMetricLabel(delta.metric_code)}</span>
+                <span>
+                  {formatMetricValue(delta.metric_code, delta.baseline_value)} →{' '}
+                  {formatMetricValue(delta.metric_code, delta.retest_value)}
+                </span>
+                <span>({formatSignedMetricDelta(delta.metric_code, delta.delta)})</span>
+                {ciText && <span className="text-text-muted">{ciText}</span>}
+                {delta.baseline_sample_size != null && delta.retest_sample_size != null && (
+                  <span className="text-text-muted">
+                    n={delta.baseline_sample_size}→{delta.retest_sample_size}
+                  </span>
+                )}
+                {delta.delta_ci && (
+                  <Badge variant={delta.delta_ci.excludes_zero ? 'info' : 'secondary'}>
+                    {delta.delta_ci.excludes_zero ? '非零分离' : '区间跨零'}
+                  </Badge>
+                )}
+                {delta.target_met === true && <Badge variant="success">达标</Badge>}
+                {delta.target_met === false && <Badge variant="warning">未达标</Badge>}
               </span>
-              <span>({formatSignedMetricDelta(delta.metric_code, delta.delta)})</span>
-              {delta.target_met === true && <Badge variant="success">达标</Badge>}
-              {delta.target_met === false && <Badge variant="warning">未达标</Badge>}
-            </span>
-          ))}
+            );
+          })}
         </div>
       )}
 

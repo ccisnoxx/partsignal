@@ -89,6 +89,23 @@ export function formatPoints(value: number | null) {
   const parts = new Intl.NumberFormat('zh-CN', { style: 'percent', maximumFractionDigits: 1, signDisplay: 'always' }).formatToParts(value);
   return `${parts.filter((part) => part.type !== 'percentSign').map((part) => part.value).join('')} 个百分点`;
 }
+export function formatConfidenceInterval(
+  ci: Schema['GeoConfidenceInterval'] | null | undefined,
+): string | null {
+  if (!ci) return null;
+  const fmt = new Intl.NumberFormat('zh-CN', { style: 'percent', maximumFractionDigits: 1 });
+  return `95% CI ${fmt.format(ci.lower)}–${fmt.format(ci.upper)} (n=${ci.sample_size})`;
+}
+export function formatDeltaConfidenceInterval(
+  ci: Schema['GeoDeltaConfidenceInterval'] | null | undefined,
+): string | null {
+  if (!ci) return null;
+  const fmt = (value: number) => {
+    const parts = new Intl.NumberFormat('zh-CN', { style: 'percent', maximumFractionDigits: 1, signDisplay: 'always' }).formatToParts(value);
+    return parts.filter((part) => part.type !== 'percentSign').map((part) => part.value).join('');
+  };
+  return `95% 差值区间 [${fmt(ci.lower)}, ${fmt(ci.upper)}] 个百分点`;
+}
 export function formatTime(value: string) {
   return new Date(value).toLocaleString('zh-CN', { timeZone: 'UTC', hour12: false }) + ' UTC';
 }

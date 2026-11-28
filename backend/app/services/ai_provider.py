@@ -1,4 +1,4 @@
-"""官方同步 SDK 的薄业务边界；不拥有数据库或网络协议实现。"""
+"""官方同步 SDK 的薄业务边界，组合出站 SSRF 校验与流式响应大小上限。"""
 
 from __future__ import annotations
 
@@ -23,9 +23,23 @@ from openai import (
     OpenAI,
 )
 from openai.types.chat import ChatCompletionMessageParam
-from pydantic import BaseModel, HttpUrl, ValidationError
+from pydantic import BaseModel, ValidationError
 
 from app.errors import AppError
+from app.services.ai_http_transport import (
+    AIResponseEncodingError,
+    AIResponseTooLargeError,
+    GuardedAITransport,
+    staged_timeout,
+)
+from app.services.outbound_url_guard import (
+    OutboundTarget,
+    OutboundUrlError,
+    PinnedOutboundTarget,
+    ResolveHost,
+    resolve_outbound_target,
+    validate_outbound_url_syntax,
+)
 
 HEADER_NAME_PATTERN = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
 RESERVED_HEADERS = {
@@ -34,7 +48,14 @@ RESERVED_HEADERS = {
     "content-length",
     "connection",
     "transfer-encoding",
+    "accept-encoding",
 }
+_ALLOWED_AI_SCHEMES = frozenset({"https"})
+
+DEFAULT_DISCOVER_MODELS_MAX_BYTES = 2 * 1024 * 1024  # 2 MiB
+DEFAULT_TEST_CONNECTION_MAX_BYTES = 1 * 1024 * 1024  # 1 MiB
+DEFAULT_CHAT_COMPLETION_MAX_BYTES = 4 * 1024 * 1024  # 4 MiB
+DEFAULT_RAW_COMPLETION_MAX_BYTES = 2 * 1024 * 1024  # 2 MiB
 
 # SDK/传输调试日志不属于业务诊断边界，不能让敏感 Header 或供应商正文进入日志。
 for _namespace in ("openai", "httpx2", "httpcore2"):
@@ -56,27 +77,33 @@ def validate_header(name: str, value: str) -> str:
     return normalized
 
 
-def validate_base_url(value: str, *, allow_local_http: bool) -> str:
-    """只校验 URL 输入；生产 HTTPS，不解析 DNS 或分类目标 IP。"""
+def _parse_ai_base_url(value: str, *, allow_local_http: bool) -> OutboundTarget:
+    """执行无 DNS 的 AI 渠道静态 URL 校验；生产强制 HTTPS（允许自定义端口）并拒绝非公网字面量。"""
     if any(ord(character) < 32 or ord(character) == 127 for character in value):
         raise AppError("AI_URL_FORBIDDEN", "AI 渠道地址包含非法字符", 422)
     try:
         parts = urlsplit(value)
-        url = HttpUrl(value)
-    except (ValidationError, ValueError):
+    except ValueError:
         raise AppError("AI_URL_FORBIDDEN", "AI 渠道地址必须是有效 HTTP(S) 根地址", 422) from None
-    if (
-        parts.username is not None
-        or parts.password is not None
-        or url.query is not None
-        or (url.fragment is not None)
-    ):
+    if parts.username is not None or parts.password is not None:
         raise AppError("AI_URL_FORBIDDEN", "AI 渠道地址不能包含凭据、查询或片段", 422)
-    if url.scheme == "http" and not (
-        allow_local_http and url.host in {"localhost", "127.0.0.1", "[::1]"}
-    ):
-        raise AppError("AI_URL_FORBIDDEN", "HTTP AI 渠道只允许开发环境本机地址", 422)
-    return str(url).rstrip("/")
+    try:
+        return validate_outbound_url_syntax(
+            value,
+            allowed_schemes=_ALLOWED_AI_SCHEMES,
+            allowed_ports=None,
+            allow_query_or_fragment=False,
+            allow_local_http=allow_local_http,
+            strip_trailing_slash=True,
+            reject_outer_whitespace=True,
+        )
+    except OutboundUrlError:
+        raise AppError("AI_URL_FORBIDDEN", "AI 渠道地址不符合公网 HTTPS 安全要求", 422) from None
+
+
+def validate_base_url(value: str, *, allow_local_http: bool) -> str:
+    """静态校验 AI 渠道根地址（不解析 DNS，拒非公网字面量与保留主机，允许自定义 HTTPS 端口）。"""
+    return _parse_ai_base_url(value, allow_local_http=allow_local_http).normalized_url
 
 
 @dataclass(frozen=True)
@@ -93,7 +120,7 @@ class ChatCompletionResult:
 
 @dataclass(frozen=True, repr=False)
 class RawChatCompletionResult:
-    """仅驻留请求内存的原始响应；业务解析器拥有载荷与大小校验。"""
+    """仅驻留请求内存的原始响应；传输层已执行流式大小上限，业务解析器继续校验载荷。"""
 
     body: bytes
     status_code: int
@@ -113,6 +140,10 @@ def _response_payload(response: object) -> dict[str, Any]:
 def _sdk_errors() -> Iterator[None]:
     try:
         yield
+    except AIResponseTooLargeError:
+        raise AppError("AI_RESPONSE_TOO_LARGE", "AI 渠道响应体超过允许大小上限", 502) from None
+    except AIResponseEncodingError:
+        raise AppError("AI_RESPONSE_INVALID", "AI 渠道响应编码不受支持", 502) from None
     except APITimeoutError:
         raise AppError("AI_PROVIDER_TIMEOUT", "AI 渠道请求超时", 504) from None
     except APIConnectionError:
@@ -133,19 +164,32 @@ def _sdk_errors() -> Iterator[None]:
 
 
 class AIProvider:
-    """每次调用独立创建并关闭客户端；不重试、不跟随重定向。"""
+    """每次调用独立创建并关闭客户端；不重试、不跟随重定向，内置 SSRF 防护与流式上限。"""
 
     def __init__(
-        self, *, allow_local_http: bool, transport: httpx2.BaseTransport | None = None
+        self,
+        *,
+        allow_local_http: bool,
+        transport: httpx2.BaseTransport | None = None,
+        resolve_host: ResolveHost | None = None,
     ) -> None:
         self._allow_local_http = allow_local_http
         self._transport = transport
+        self._resolve_host = resolve_host
 
     @contextmanager
     def _client(
-        self, *, base_url: str, api_key: str, headers: dict[str, str], timeout_seconds: int
+        self,
+        *,
+        base_url: str,
+        api_key: str,
+        headers: dict[str, str],
+        timeout_seconds: int,
+        max_response_bytes: int,
     ) -> Iterator[OpenAI]:
-        url = validate_base_url(base_url, allow_local_http=self._allow_local_http)
+        if max_response_bytes <= 0:
+            raise AppError("VALIDATION_ERROR", "AI 响应大小上限必须为正整数", 422)
+        target = _parse_ai_base_url(base_url, allow_local_http=self._allow_local_http)
         if not api_key or any(
             ord(character) < 32 or ord(character) == 127 or ord(character) > 255
             for character in api_key
@@ -162,30 +206,66 @@ class AIProvider:
             if normalized in normalized_names:
                 raise AppError("INVALID_HEADER", "Header 名称不能重复", 422)
             normalized_names.add(normalized)
-        # 公共 HTTP 客户端 hook 保留既有 Latin-1 Header 合同，且管理员值覆盖 SDK 默认值。
+
+        pinned_target: PinnedOutboundTarget | None = None
+        if not target.is_local_http and (self._transport is None or self._resolve_host is not None):
+            try:
+                pinned_target = resolve_outbound_target(target, resolve_host=self._resolve_host)
+            except OutboundUrlError as error:
+                if error.code == "DNS_RESOLUTION_FAILED":
+                    raise AppError("AI_PROVIDER_UNAVAILABLE", "AI 渠道域名解析失败", 502) from None
+                raise AppError(
+                    "AI_URL_FORBIDDEN", "AI 渠道地址解析到禁止访问的非公网地址", 422
+                ) from None
+
+        # 公共 HTTP 客户端 hook 保留既有 Latin-1 Header 合同，且固定 Accept-Encoding: identity。
         encoded_headers = httpx2.Headers(
-            {"Authorization": f"Bearer {api_key}", **headers}, encoding="latin-1"
+            {
+                "Authorization": f"Bearer {api_key}",
+                "Accept-Encoding": "identity",
+                **headers,
+            },
+            encoding="latin-1",
         )
 
         def apply_headers(request: httpx2.Request) -> None:
             request.headers.update(encoded_headers)
 
+        owns_inner = self._transport is None
+        inner_transport: httpx2.BaseTransport = (
+            self._transport
+            if self._transport is not None
+            else httpx2.HTTPTransport(
+                trust_env=False,
+                retries=0,
+                limits=httpx2.Limits(max_keepalive_connections=0),
+            )
+        )
+        guarded_transport = GuardedAITransport(
+            inner=inner_transport,
+            owns_inner=owns_inner,
+            pinned_target=pinned_target,
+            max_response_bytes=max_response_bytes,
+            timeout_seconds=timeout_seconds,
+        )
+        timeout = staged_timeout(timeout_seconds)
+
         with (
             DefaultHttpxClient(
-                timeout=timeout_seconds,
+                timeout=timeout,
                 follow_redirects=False,
                 trust_env=False,
-                transport=self._transport,
+                transport=guarded_transport,
                 event_hooks={"request": [apply_headers]},
             ) as http_client,
             OpenAI(
-                base_url=url,
+                base_url=target.normalized_url,
                 api_key=api_key,
                 organization="",
                 project="",
                 # SDK 默认以 ASCII 构造 Header；真正的 Latin-1 凭据由公开 hook 设置。
                 default_headers={"Authorization": ""},
-                timeout=timeout_seconds,
+                timeout=timeout,
                 max_retries=0,
                 http_client=http_client,
             ) as client,
@@ -193,11 +273,21 @@ class AIProvider:
             yield client
 
     def discover_models(
-        self, *, base_url: str, api_key: str, headers: dict[str, str], timeout_seconds: int
+        self,
+        *,
+        base_url: str,
+        api_key: str,
+        headers: dict[str, str],
+        timeout_seconds: int,
+        max_response_bytes: int = DEFAULT_DISCOVER_MODELS_MAX_BYTES,
     ) -> list[str]:
         """只返回去重后的远端 ID，不创建本地模型。"""
         with _sdk_errors(), self._client(
-            base_url=base_url, api_key=api_key, headers=headers, timeout_seconds=timeout_seconds
+            base_url=base_url,
+            api_key=api_key,
+            headers=headers,
+            timeout_seconds=timeout_seconds,
+            max_response_bytes=max_response_bytes,
         ) as client:
             try:
                 page = client.models.list()
@@ -222,12 +312,17 @@ class AIProvider:
         model_id: str,
         messages: Sequence[ChatCompletionMessageParam],
         request_parameters: dict[str, Any],
+        max_response_bytes: int = DEFAULT_CHAT_COMPLETION_MAX_BYTES,
     ) -> ChatCompletionResult:
         """公开 Chat Completions 入口；业务正文解析继续由各调用者拥有。"""
         if {"model", "messages", "stream"}.intersection(request_parameters):
             raise AppError("VALIDATION_ERROR", "模型参数包含系统保留字段", 422)
         with _sdk_errors(), self._client(
-            base_url=base_url, api_key=api_key, headers=headers, timeout_seconds=timeout_seconds
+            base_url=base_url,
+            api_key=api_key,
+            headers=headers,
+            timeout_seconds=timeout_seconds,
+            max_response_bytes=max_response_bytes,
         ) as client:
             started = time.monotonic()
             response = client.chat.completions.with_raw_response.create(
@@ -272,12 +367,17 @@ class AIProvider:
         messages: Sequence[ChatCompletionMessageParam],
         request_parameters: dict[str, Any],
         before_send: Callable[[], None],
+        max_response_bytes: int = DEFAULT_RAW_COMPLETION_MAX_BYTES,
     ) -> RawChatCompletionResult:
-        """授权成功即进入外部窗口；公开 raw-response 保留业务严格解析的原始字节。"""
+        """授权前完成 URL/DNS/SSRF 校验；授权成功进入外部窗口并由传输层执行流式字节上限。"""
         if {"model", "messages", "stream"}.intersection(request_parameters):
             raise AppError("VALIDATION_ERROR", "模型参数包含系统保留字段", 422)
         with self._client(
-            base_url=base_url, api_key=api_key, headers=headers, timeout_seconds=timeout_seconds
+            base_url=base_url,
+            api_key=api_key,
+            headers=headers,
+            timeout_seconds=timeout_seconds,
+            max_response_bytes=max_response_bytes,
         ) as client:
             started = time.monotonic()
             # 回调在 SDK 异常映射之外，失败原样返回 owner，SDK 方法不会启动。
@@ -286,6 +386,12 @@ class AIProvider:
                 response = client.chat.completions.with_raw_response.create(
                     model=model_id, messages=messages, stream=False, extra_body=request_parameters
                 )
+            except AIResponseTooLargeError:
+                raise AppError(
+                    "AI_RESPONSE_TOO_LARGE", "AI 渠道响应体超过允许大小上限", 502
+                ) from None
+            except AIResponseEncodingError:
+                raise AppError("AI_RESPONSE_INVALID", "AI 渠道响应编码不受支持", 502) from None
             except APIStatusError as error:
                 http_response = error.response
                 status, body = error.status_code, http_response.content
@@ -306,8 +412,11 @@ class AIProvider:
                 provider_request_id=request_id,
                 retry_after_seconds=(
                     int(retry_after)
-                    if status == 429 and retry_after.isascii() and retry_after.isdecimal()
-                    and len(retry_after) <= 9 else None
+                    if status == 429
+                    and retry_after.isascii()
+                    and retry_after.isdecimal()
+                    and len(retry_after) <= 9
+                    else None
                 ),
                 duration_ms=max(0, round((time.monotonic() - started) * 1000)),
             )
@@ -321,6 +430,7 @@ class AIProvider:
         timeout_seconds: int,
         model_id: str,
         request_parameters: dict[str, Any],
+        max_response_bytes: int = DEFAULT_TEST_CONNECTION_MAX_BYTES,
     ) -> str:
         """一条 hi 用户消息足以验证连接，不套用生成草稿 Schema。"""
         return self.chat_completion(
@@ -331,4 +441,5 @@ class AIProvider:
             model_id=model_id,
             messages=[{"role": "user", "content": "hi"}],
             request_parameters=request_parameters,
+            max_response_bytes=max_response_bytes,
         ).content

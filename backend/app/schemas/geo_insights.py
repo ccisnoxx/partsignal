@@ -9,7 +9,12 @@ from pydantic import AwareDatetime, BeforeValidator, Field, model_validator
 from app.geo_prompt_variants import GeoPromptMentionMode
 from app.schemas.base import ContractModel
 from app.schemas.configuration import IntentType
-from app.schemas.geo_metric_values import MetricExclusion, SampleLevel
+from app.schemas.geo_metric_values import (
+    GeoConfidenceInterval,
+    GeoCrossRunDispersion,
+    MetricExclusion,
+    SampleLevel,
+)
 from app.schemas.geo_opportunities import GeoOpportunityPriority, GeoOpportunityStatus
 from app.schemas.geo_prompt_variants import PromptLanguage, PromptRegion
 from app.schemas.geo_runs import GeoRunStatus
@@ -111,6 +116,8 @@ class GeoOverviewCard(ContractModel):
     exclusion_reason_counts: list[GeoOverviewExclusion]
     unjudgeable_claim_count: int = Field(ge=0)
     unavailable_reason: Literal["NO_DENOMINATOR"] | None
+    confidence_interval: GeoConfidenceInterval | None = None
+    cross_run_dispersion: GeoCrossRunDispersion | None = None
     drilldown: GeoOverviewDrilldown
 
 

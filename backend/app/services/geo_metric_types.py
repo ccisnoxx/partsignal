@@ -10,6 +10,7 @@ from app.schemas.geo_answers import GeoCitationObservationStatus
 from app.schemas.geo_metric_values import MetricExclusion as MetricExclusion
 from app.schemas.geo_metric_values import SampleLevel as SampleLevel
 from app.schemas.geo_runs import GeoRunStatus
+from app.services.geo_statistics import CrossRunDispersion, ProportionConfidenceInterval
 
 
 class MetricCode(StrEnum):
@@ -185,3 +186,5 @@ class MetricResult:
     exclusion_reason_counts: tuple[tuple[MetricExclusion, int], ...]
     eligible_run_ids: tuple[UUID, ...]
     unjudgeable_claim_count: int
+    confidence_interval: ProportionConfidenceInterval | None = None
+    cross_run_dispersion: CrossRunDispersion | None = None

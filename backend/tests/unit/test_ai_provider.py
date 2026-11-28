@@ -43,7 +43,13 @@ def test_model_list_uses_sdk_path_credentials_timeout_and_stable_deduplication(
     assert (b"X-Latin", b"caf\xe9") in request.headers.raw
     assert not request.headers.get("OpenAI-Organization")
     assert not request.headers.get("OpenAI-Project")
-    assert request.extensions["timeout"] == dict.fromkeys(("connect", "read", "write", "pool"), 13)
+    assert request.headers["Accept-Encoding"] == "identity"
+    assert request.extensions["timeout"] == {
+        "connect": 10.0,
+        "read": 13.0,
+        "write": 13.0,
+        "pool": 5.0,
+    }
 
 
 def test_connection_uses_one_hi_message_and_preserves_provider_parameters() -> None:
@@ -237,6 +243,16 @@ def test_url_validation_is_syntactic_and_local_http_is_explicit(
     assert validate_base_url("https://provider.invalid/v1/", allow_local_http=False) == (
         "https://provider.invalid/v1"
     )
+    assert (
+        validate_base_url("https://gateway.example.com:8443/v1/", allow_local_http=False)
+        == "https://gateway.example.com:8443/v1"
+    )
+    assert (
+        validate_base_url(
+            "https://[2606:2800:220:1:248:1893:25c8:1946]:8443/v1/", allow_local_http=False
+        )
+        == "https://[2606:2800:220:1:248:1893:25c8:1946]:8443/v1"
+    )
     for host in ("localhost", "127.0.0.1", "[::1]"):
         url = f"http://{host}:12345/v1"
         assert validate_base_url(url, allow_local_http=True) == url
@@ -245,7 +261,13 @@ def test_url_validation_is_syntactic_and_local_http_is_explicit(
 
 
 @pytest.mark.parametrize(
-    "headers", [{"Authorization": "other"}, {"X-Test": "a\r\nb"}, {"X-Test": "a", "x-test": "b"}]
+    "headers",
+    [
+        {"Authorization": "other"},
+        {"Accept-Encoding": "gzip"},
+        {"X-Test": "a\r\nb"},
+        {"X-Test": "a", "x-test": "b"},
+    ],
 )
 def test_headers_are_validated_before_sdk_request(headers: dict[str, str]) -> None:
     def forbid_request(request: httpx2.Request) -> httpx2.Response:

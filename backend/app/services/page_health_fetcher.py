@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import ipaddress
 import re
-import socket
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -13,14 +11,21 @@ from typing import Protocol
 from urllib.parse import urljoin, urlsplit
 
 import httpx
-from pydantic import HttpUrl, TypeAdapter, ValidationError
+
+from app.services.outbound_url_guard import (
+    OutboundUrlError,
+    resolve_outbound_target,
+    validate_outbound_url_syntax,
+)
+from app.services.outbound_url_guard import (
+    build_pinned_request_url as _build_pinned_request_url,
+)
 
 MAX_REDIRECTS = 3
 FETCH_TIMEOUT_SECONDS = 10.0
 MAX_BODY_BYTES = 1_048_576  # 1 MiB 上限，防止大响应耗尽内存
 ALLOWED_PUBLIC_PORTS = frozenset({80, 443})
-_CGNAT_NET = ipaddress.ip_network("100.64.0.0/10")
-_HTTP_URL_ADAPTER: TypeAdapter[HttpUrl] = TypeAdapter(HttpUrl)
+_ALLOWED_PUBLIC_SCHEMES = frozenset({"http", "https"})
 _USER_AGENT = "PartSignal-PublicPageHealthCheck/1.0 (+read-only; no-auth)"
 
 _REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
@@ -92,37 +97,6 @@ def _decode_html_bytes(raw_body: bytes, encoding: str | None) -> str:
         return raw_body.decode("utf-8", errors="replace")
 
 
-def _is_public_global_ip(raw_ip: str) -> bool:
-    """严格判定 IP 是否为公网单播地址（拆包 IPv4-mapped IPv6，阻断内网/链路/CGNAT/环回）。"""
-    try:
-        addr = ipaddress.ip_address(raw_ip)
-    except ValueError:
-        return False
-    if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped is not None:
-        addr = addr.ipv4_mapped
-    if isinstance(addr, ipaddress.IPv4Address) and addr in _CGNAT_NET:
-        return False
-    return bool(
-        addr.is_global
-        and not addr.is_private
-        and not addr.is_loopback
-        and not addr.is_link_local
-        and not addr.is_multicast
-        and not addr.is_reserved
-        and not addr.is_unspecified
-    )
-
-
-def _default_resolve_host(hostname: str, port: int) -> list[str]:
-    infos = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
-    ips: list[str] = []
-    for _family, _socktype, _proto, _canonname, sockaddr in infos:
-        ip_str = str(sockaddr[0])
-        if ip_str not in ips:
-            ips.append(ip_str)
-    return ips
-
-
 def validate_public_http_url(
     raw_url: str,
     *,
@@ -132,58 +106,18 @@ def validate_public_http_url(
 
     抛出 ValueError(error_code) 供上层稳定映射为 SSRF_BLOCKED / DNS_RESOLUTION_FAILED。
     """
-    cleaned = raw_url.strip()
-    if not cleaned or any(ord(ch) <= 32 or ord(ch) == 127 for ch in cleaned):
-        raise ValueError("SSRF_BLOCKED")
     try:
-        parsed_pydantic = _HTTP_URL_ADAPTER.validate_python(cleaned)
-    except ValidationError as exc:
-        raise ValueError("SSRF_BLOCKED") from exc
-
-    normalized_url = str(parsed_pydantic)
-    parts = urlsplit(normalized_url)
-    if parts.scheme not in {"http", "https"}:
-        raise ValueError("SSRF_BLOCKED")
-    if parts.username is not None or parts.password is not None:
-        raise ValueError("SSRF_BLOCKED")
-    hostname = (parts.hostname or "").strip().rstrip(".")
-    if not hostname:
-        raise ValueError("SSRF_BLOCKED")
-    port = parts.port or (443 if parts.scheme == "https" else 80)
-    if port not in ALLOWED_PUBLIC_PORTS:
-        raise ValueError("SSRF_BLOCKED")
-
-    try:
-        ascii_hostname = hostname.encode("idna").decode("ascii").lower()
-    except UnicodeError as exc:
-        raise ValueError("SSRF_BLOCKED") from exc
-
-    # 若主机本身是 IP 字面量，直接按公网 IP 校验；否则拒绝本地/内网保留主机名后再解析 DNS
-    try:
-        ipaddress.ip_address(ascii_hostname)
-    except ValueError:
-        if (
-            ascii_hostname == "localhost"
-            or ascii_hostname.endswith((".localhost", ".local", ".internal"))
-            or "." not in ascii_hostname
-        ):
-            raise ValueError("SSRF_BLOCKED") from None
-        resolver = resolve_host or _default_resolve_host
-        try:
-            resolved_ips = resolver(ascii_hostname, port)
-        except OSError as exc:
-            raise ValueError("DNS_RESOLUTION_FAILED") from exc
-        if not resolved_ips:
-            raise ValueError("DNS_RESOLUTION_FAILED") from None
-        if not all(_is_public_global_ip(ip) for ip in resolved_ips):
-            raise ValueError("SSRF_BLOCKED") from None
-        pinned_ip = resolved_ips[0]
-    else:
-        if not _is_public_global_ip(ascii_hostname):
-            raise ValueError("SSRF_BLOCKED")
-        pinned_ip = ascii_hostname
-
-    return normalized_url, ascii_hostname, port, pinned_ip
+        target = validate_outbound_url_syntax(
+            raw_url,
+            allowed_schemes=_ALLOWED_PUBLIC_SCHEMES,
+            allowed_ports=ALLOWED_PUBLIC_PORTS,
+            allow_query_or_fragment=True,
+            allow_local_http=False,
+        )
+        pinned = resolve_outbound_target(target, resolve_host=resolve_host)
+    except OutboundUrlError as exc:
+        raise ValueError(exc.code) from None
+    return pinned.normalized_url, pinned.ascii_host, pinned.port, pinned.pinned_ip
 
 
 class _PublicPageHtmlParser(HTMLParser):
@@ -264,21 +198,6 @@ def parse_public_html(
     ) or any(phrase in title_lower for phrase in _SOFT_LOGIN_PHRASES)
     login_path = bool(final_url and _LOGIN_PATH_RE.search(urlsplit(final_url).path))
     return title, body_text, has_noindex, canonical, (strong_waf or soft_login or login_path)
-
-
-def _build_pinned_request_url(
-    logical_url: str, ascii_host: str, pinned_ip: str, port: int
-) -> tuple[str, str]:
-    """构造绑定已校验公网 IP 的请求 URL 与 RFC 9110 合规 Host 头（消除 DNS Rebinding）。"""
-    parts = urlsplit(logical_url)
-    ip_host = f"[{pinned_ip}]" if ":" in pinned_ip else pinned_ip
-    default_port = 443 if parts.scheme == "https" else 80
-    path = parts.path or "/"
-    query = f"?{parts.query}" if parts.query else ""
-    pinned_url = f"{parts.scheme}://{ip_host}:{port}{path}{query}"
-    host_literal = f"[{ascii_host}]" if ":" in ascii_host else ascii_host
-    host_header = host_literal if port == default_port else f"{host_literal}:{port}"
-    return pinned_url, host_header
 
 
 class PublicPageHttpFetcher:

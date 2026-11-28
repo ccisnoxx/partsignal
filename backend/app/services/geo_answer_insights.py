@@ -32,6 +32,7 @@ from app.schemas.geo_insights import (
     GeoOverviewFilters,
     GeoOverviewRunSample,
 )
+from app.schemas.geo_metric_values import GeoConfidenceInterval, GeoCrossRunDispersion
 from app.services.geo_metric_inputs import metric_scope_from_snapshot
 from app.services.geo_metric_types import MetricCode, MetricDimensions, MetricResult, MetricScope
 from app.services.geo_metric_views import CoveragePolicy, MetricWindow
@@ -143,6 +144,16 @@ def _cells(
                 ],
                 unjudgeable_claim_count=result.unjudgeable_claim_count,
                 unavailable_reason=None if result.denominator else "NO_DENOMINATOR",
+                confidence_interval=(
+                    GeoConfidenceInterval(**asdict(result.confidence_interval))
+                    if result.confidence_interval is not None
+                    else None
+                ),
+                cross_run_dispersion=(
+                    GeoCrossRunDispersion(**asdict(result.cross_run_dispersion))
+                    if result.cross_run_dispersion is not None
+                    else None
+                ),
                 drilldown=GeoAnswerInsightDrilldown(
                     filters=filters,
                     cell_key=key,

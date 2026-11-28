@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GEO Analyzer End-to-End Golden Evaluation Dataset v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["fixture_version", "dataset_id", "synthetic", "gold_version", "source_category_rules", "cases"],
+  "properties": {
+    "fixture_version": { "const": "1.0.0" },
+    "dataset_id": { "const": "geo-eval-golden-v1" },
+    "synthetic": { "const": true },
+    "gold_version": { "const": "1.0.0" },
+    "source_category_rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["hostname", "source_category"],
+        "properties": {
+          "hostname": { "type": "string", "minLength": 1 },
+          "source_category": {
+            "enum": ["DISTRIBUTOR", "INDUSTRY_MEDIA", "COMMUNITY", "ACADEMIC", "OTHER", "UNKNOWN"]
+          }
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "category", "subject_ids", "text", "citations", "fact_overrides", "expected"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "category": { "type": "string", "minLength": 1 },
+          "subject_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "text": { "type": "string", "minLength": 1 },
+          "citations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["url", "title", "position"],
+              "properties": {
+                "url": { "type": "string", "minLength": 1 },
+                "title": { "type": ["string", "null"] },
+                "position": { "type": "integer", "minimum": 1 }
+              }
+            }
+          },
+          "fact_overrides": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["status", "markdown"],
+              "properties": {
+                "status": { "enum": ["APPROVED", "PENDING_REVIEW", "CHANGES_REQUESTED", "RETIRED"] },
+                "markdown": { "type": "string" }
+              }
+            }
+          },
+          "expected": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mentions", "ambiguities", "recommendations", "citations", "claims", "review_required"],
+            "properties": {
+              "mentions": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
+              },
+              "ambiguities": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["subject_ids", "excerpt"],
+                  "properties": {
+                    "subject_ids": {
+                      "type": "array",
+                      "minItems": 2,
+                      "items": { "type": "string", "minLength": 1 }
+                    },
+                    "excerpt": { "type": "string", "minLength": 1 }
+                  }
+                }
+              },
+              "recommendations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["subject_id", "recommendation", "rank"],
+                  "properties": {
+                    "subject_id": { "type": "string", "minLength": 1 },
+                    "recommendation": { "enum": ["RECOMMENDED", "CONSIDERED", "NOT_RECOMMENDED", "UNKNOWN"] },
+                    "rank": { "type": ["integer", "null"], "minimum": 1 }
+                  }
+                }
+              },
+              "citations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["normalized_url", "source_category"],
+                  "properties": {
+                    "normalized_url": { "type": "string", "minLength": 1 },
+                    "source_category": {
+                      "enum": ["OWNED", "COMPETITOR", "DISTRIBUTOR", "INDUSTRY_MEDIA", "COMMUNITY", "ACADEMIC", "OTHER", "UNKNOWN"]
+                    }
+                  }
+                }
+              },
+              "claims": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["subject_id", "claim_kind", "excerpt", "verdict", "severity"],
+                  "properties": {
+                    "subject_id": { "type": "string", "minLength": 1 },
+                    "claim_kind": {
+                      "enum": [
+                        "IDENTITY",
+                        "PARAMETER",
+                        "PACKAGE",
+                        "TEMPERATURE_GRADE",
+                        "CERTIFICATION",
+                        "LIFECYCLE_STATUS",
+                        "APPLICATION",
+                        "REPLACEMENT_RELATION",
+                        "COMPATIBILITY_CONDITION",
+                        "OTHER"
+                      ]
+                    },
+                    "excerpt": { "type": "string", "minLength": 1 },
+                    "verdict": { "enum": ["ACCURATE", "PARTIAL", "INCORRECT", "UNJUDGEABLE"] },
+                    "severity": { "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] }
+                  }
+                }
+              },
+              "review_required": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

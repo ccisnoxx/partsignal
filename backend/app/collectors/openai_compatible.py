@@ -223,17 +223,30 @@ class OpenAICompatibleGeoCollector:
                 messages=[{"role": "user", "content": request.prompt_text}],
                 request_parameters=params,
                 before_send=authorize,
+                max_response_bytes=request.max_response_bytes,
             )
-        except AppError:
+        except AppError as error:
             if authorizing:
                 raise
+            if authorized and error.code == "AI_RESPONSE_TOO_LARGE":
+                raise CollectorError(
+                    Code.PROVIDER_RESPONSE_TOO_LARGE,
+                    stage=CollectorStage.RECEIVE,
+                    external_call_state=State.COMPLETED,
+                ) from None
+            if authorized and error.code == "AI_RESPONSE_INVALID":
+                raise CollectorError(
+                    Code.PROVIDER_RESPONSE_INVALID,
+                    stage=CollectorStage.RECEIVE,
+                    external_call_state=State.COMPLETED,
+                ) from None
             raise CollectorError(
                 (Code.COLLECTOR_UNKNOWN_OUTCOME if authorized
                  else Code.COLLECTOR_CONFIGURATION_INVALID),
                 stage=CollectorStage.RECEIVE if authorized else CollectorStage.CONFIGURATION,
                 external_call_state=State.UNKNOWN if authorized else State.NOT_STARTED,
             ) from None
-        # 官方 raw-response 已完整接收；大小上限保护业务解析/落库，不能限制接收内存。
+        # 传输层已在流式接收期间强制截断；此处保留二次防线保护业务解析与落库。
         if len(response.body) > request.max_response_bytes:
             raise CollectorError(
                 Code.PROVIDER_RESPONSE_TOO_LARGE,

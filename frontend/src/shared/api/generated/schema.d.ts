@@ -11299,6 +11299,8 @@ export interface components {
             /** Unavailable Reason */
             unavailable_reason: "NO_DENOMINATOR" | null;
             drilldown: components["schemas"]["GeoOverviewDrilldown"];
+            confidence_interval?: components["schemas"]["GeoConfidenceInterval"] | null;
+            cross_run_dispersion?: components["schemas"]["GeoCrossRunDispersion"] | null;
         };
         /** GeoOverviewCell */
         GeoOverviewCell: {
@@ -11493,6 +11495,64 @@ export interface components {
          * @enum {string}
          */
         SampleLevel: "NONE" | "OBSERVED" | "REPORTABLE" | "STABLE";
+        /**
+         * GeoConfidenceInterval
+         * @description 比率指标的 95% Wilson 置信区间。
+         */
+        GeoConfidenceInterval: {
+            /** Lower */
+            lower: number;
+            /** Upper */
+            upper: number;
+            /**
+             * Confidence Level
+             * @default 0.95
+             */
+            confidence_level: number;
+            /**
+             * Method
+             * @default WILSON_95
+             * @constant
+             */
+            method: "WILSON_95";
+            /** Sample Size */
+            sample_size: number;
+        };
+        /**
+         * GeoDeltaConfidenceInterval
+         * @description 两窗口比率差值的 95% Newcombe-Wilson 置信区间（excludes_zero 不代表因果成立）。
+         */
+        GeoDeltaConfidenceInterval: {
+            /** Lower */
+            lower: number;
+            /** Upper */
+            upper: number;
+            /**
+             * Confidence Level
+             * @default 0.95
+             */
+            confidence_level: number;
+            /**
+             * Method
+             * @default NEWCOMBE_WILSON_95
+             * @constant
+             */
+            method: "NEWCOMBE_WILSON_95";
+            /** Excludes Zero */
+            excludes_zero: boolean;
+        };
+        /**
+         * GeoCrossRunDispersion
+         * @description 同维度 cell 跨合格运行的样本方差与标准差（ddof=1）。
+         */
+        GeoCrossRunDispersion: {
+            /** Run Count */
+            run_count: number;
+            /** Sample Variance */
+            sample_variance: number;
+            /** Sample Std Dev */
+            sample_std_dev: number;
+        };
         /** GeoOverviewRunPage */
         GeoOverviewRunPage: {
             /**
@@ -11682,6 +11742,8 @@ export interface components {
             /** Unavailable Reason */
             unavailable_reason: "NO_DENOMINATOR" | null;
             drilldown: components["schemas"]["GeoAnswerInsightDrilldown"];
+            confidence_interval?: components["schemas"]["GeoConfidenceInterval"] | null;
+            cross_run_dispersion?: components["schemas"]["GeoCrossRunDispersion"] | null;
         };
         /** GeoAnswerInsightTrend */
         GeoAnswerInsightTrend: {
@@ -11721,6 +11783,7 @@ export interface components {
             changed_dimensions: string[];
             /** Version Warnings */
             version_warnings: ("MODEL_VERSION_CHANGED" | "MODEL_VERSION_UNKNOWN" | "PRODUCT_VERSION_CHANGED" | "PRODUCT_VERSION_UNKNOWN")[];
+            delta_confidence_interval?: components["schemas"]["GeoDeltaConfidenceInterval"] | null;
         };
         /** GeoInsightWindow */
         GeoInsightWindow: {
@@ -14685,6 +14748,7 @@ export interface components {
             dimensions: components["schemas"]["GeoOverviewDimensions"] | null;
             /** Unavailable Reasons */
             unavailable_reasons: string[];
+            confidence_interval?: components["schemas"]["GeoConfidenceInterval"] | null;
         };
         /** GeoRetestComparisonWindow */
         GeoRetestComparisonWindow: {
@@ -16950,7 +17014,7 @@ export interface components {
         };
         /**
          * GeoInterventionMetricDeltaOut
-         * @description 基线与复测窗口间的单项指标变化与达标状态。
+         * @description 基线与复测窗口间的单项指标变化、样本量、95% 统计置信区间与达标状态。
          */
         GeoInterventionMetricDeltaOut: {
             /** Metric Code */
@@ -16965,6 +17029,13 @@ export interface components {
             target_value: number | null;
             /** Target Met */
             target_met: boolean | null;
+            /** Baseline Sample Size */
+            baseline_sample_size?: number | null;
+            /** Retest Sample Size */
+            retest_sample_size?: number | null;
+            baseline_ci?: components["schemas"]["GeoConfidenceInterval"] | null;
+            retest_ci?: components["schemas"]["GeoConfidenceInterval"] | null;
+            delta_ci?: components["schemas"]["GeoDeltaConfidenceInterval"] | null;
         };
         /**
          * GeoInterventionAttributionOut

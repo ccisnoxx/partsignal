@@ -35,7 +35,7 @@ _TEMPERATURE = re.compile(
 _IDENTITY = re.compile(r"(?:品牌|brand)\s*(?:为|是|[:：=]|is)\s*([^,，。;；\n]+)", re.I)
 _CERTIFICATE = re.compile(
     r"(?:(未获得|未通过|没有获得)|已获得|已通过|获得|通过|认证[:：])"
-    r"[^,，。;；\n]{0,30}?(?:认证\s*)?([A-Z][A-Z0-9-]*\d[A-Z0-9-]*)\b",
+    r"[^,，。;；\n]{0,30}?(?:认证\s*)?([A-Z][A-Z0-9-]*\d[A-Z0-9-]*)\b(?:\s*认证)?",
     re.I,
 )
 _CERT_UNKNOWN = re.compile(r"未提供.*认证|认证.*(?:未知|未确认)|certification.*unknown", re.I)
@@ -79,6 +79,25 @@ def _volts(value: str, unit: str) -> str:
     return str(volts.normalize())
 
 
+_SCALAR_PREFIXES = (
+    "该器件的",
+    "该产品的",
+    "本产品的",
+    "是独立的",
+    "的",
+    "-",
+    "*",
+    "+",
+)
+
+
+def _strip_allowed_scalar_prefix(clause: str) -> str:
+    for prefix in _SCALAR_PREFIXES:
+        if clause.startswith(prefix):
+            return clause[len(prefix) :].strip()
+    return clause
+
+
 def _explicit_scalar(text: str, match: re.Match[str]) -> bool:
     # 只接受闭合标量句法；不能从计划/要求、未知型号或备选值内部截出一个真值。
     clauses = [row.strip() for row in re.split(r"[,，]", text[: match.start()])]
@@ -88,21 +107,15 @@ def _explicit_scalar(text: str, match: re.Match[str]) -> bool:
     scalar_patterns = (_VOLTAGE, _PACKAGE, _TEMPERATURE, _CERTIFICATE, _LIFECYCLE, _PIN)
     if any(
         row != "该后缀型号是独立产品"
-        and not any(pattern.fullmatch(row) for pattern in scalar_patterns)
+        and not any(
+            pattern.fullmatch(_strip_allowed_scalar_prefix(row)) for pattern in scalar_patterns
+        )
         for row in clauses[:-1]
     ):
         return False
-    return prefix in {
-        "",
-        "的",
-        "该器件的",
-        "该产品的",
-        "本产品的",
-        "是独立的",
-        "-",
-        "*",
-        "+",
-    } and bool(re.match(r"\s*(?:$|[。;；,，.!])", text[match.end() :]))
+    return prefix in {"", *_SCALAR_PREFIXES} and bool(
+        re.match(r"\s*(?:$|[。;；,，.!])", text[match.end() :])
+    )
 
 
 def _relation_conditions(prefix: str) -> tuple[tuple[str, ...], bool]:

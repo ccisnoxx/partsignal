@@ -9,6 +9,7 @@ from typing import Literal, Self
 from pydantic import AwareDatetime, Field, field_validator, model_validator
 
 from app.schemas.base import ContractModel
+from app.schemas.geo_metric_values import GeoConfidenceInterval, GeoDeltaConfidenceInterval
 
 GeoInterventionActionType = Literal[
     "FACT_REVISION",
@@ -154,7 +155,7 @@ class GeoInterventionLinkedActionOut(ContractModel):
 
 
 class GeoInterventionMetricDeltaOut(ContractModel):
-    """基线与复测窗口间的单项指标变化与达标状态。"""
+    """基线与复测窗口间的单项指标变化、样本量、95% 统计置信区间与达标状态。"""
 
     metric_code: str
     baseline_value: float | None
@@ -162,6 +163,11 @@ class GeoInterventionMetricDeltaOut(ContractModel):
     delta: float | None
     target_value: float | None
     target_met: bool | None
+    baseline_sample_size: int | None = Field(default=None, ge=0)
+    retest_sample_size: int | None = Field(default=None, ge=0)
+    baseline_ci: GeoConfidenceInterval | None = None
+    retest_ci: GeoConfidenceInterval | None = None
+    delta_ci: GeoDeltaConfidenceInterval | None = None
 
 
 class GeoInterventionAttributionOut(ContractModel):

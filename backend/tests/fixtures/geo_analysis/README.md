@@ -90,3 +90,13 @@ REPLACEMENT_RELATION，不重写共享语料。
 校验入口仍为 `tests/geo_fixtures.py` 和 `make test-geo-fixtures`：闭合 schema、对象范围、
 不合格事实的 UNJUDGEABLE 预期、fixture .test URL 和敏感标记。算法是否符合人工期望
 由独立行为测试验证，不由 schema 或数据生成工具证明。
+
+## 端到端分析器黄金评估集（`eval-golden-v1`）
+
+`eval-golden-v1.json` / `eval-golden-v1.schema.json` 提供 16 条覆盖电子元器件 GEO 全链路（品牌/型号后缀提及、歧义消歧、四分类推荐与排序、多来源引用归属、参数/封装/温度/认证/生命周期/条件替代声明准确性、未批准事实门禁、单位换算、Prompt 注入与并列作用域）的端到端人工金标。离线评估引擎位于 `backend/app/services/geo_analyzer_eval.py`，提供量化指标（Precision/Recall/F1、四分类 Macro F1、Cohen's κ、Span F1、高严重度漏检门禁）：
+
+```bash
+make test-geo-fixtures
+UV_CACHE_DIR=.cache/uv uv run --project backend python -m app.tools.geo_analyzer_eval
+UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/unit/test_geo_analyzer_golden_eval.py
+```

@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend" / "tests"
 from geo_fixtures import (  # noqa: E402
     GeoFixtureError,
     load_geo_claim_fixtures,
+    load_geo_eval_golden_fixtures,
     load_geo_fixtures,
     load_geo_mention_fixtures,
     load_geo_recommendation_fixtures,
@@ -23,6 +24,7 @@ def main() -> int:
         mentions = load_geo_mention_fixtures()
         recommendations = load_geo_recommendation_fixtures()
         claims = load_geo_claim_fixtures()
+        eval_golden = load_geo_eval_golden_fixtures()
     except GeoFixtureError as error:
         print(str(error), file=sys.stderr)
         return 1
@@ -32,6 +34,7 @@ def main() -> int:
     print(f"GEO-502 提及金标 v1 校验通过：场景={len(mentions['cases'])}；外部调用=0")
     print(f"GEO-503 推荐金标 v1 校验通过：场景={len(recommendations['cases'])}；外部调用=0")
     print(f"GEO-505 声明金标 v1 校验通过：场景={len(claims['cases'])}；外部调用=0")
+    print(f"GEO 分析器评估黄金集 v1 校验通过：场景={len(eval_golden['cases'])}；外部调用=0")
     return 0
 
 

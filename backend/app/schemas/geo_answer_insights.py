@@ -18,7 +18,12 @@ from app.schemas.geo_insights import (
     GeoOverviewFilters,
     GeoOverviewRunSample,
 )
-from app.schemas.geo_metric_values import SampleLevel
+from app.schemas.geo_metric_values import (
+    GeoConfidenceInterval,
+    GeoCrossRunDispersion,
+    GeoDeltaConfidenceInterval,
+    SampleLevel,
+)
 
 InsightMetric = Literal[
     "natural_visibility",
@@ -80,6 +85,8 @@ class GeoAnswerInsightMetric(ContractModel):
     exclusion_reason_counts: list[GeoOverviewExclusion]
     unjudgeable_claim_count: int = Field(ge=0)
     unavailable_reason: Literal["NO_DENOMINATOR"] | None
+    confidence_interval: GeoConfidenceInterval | None = None
+    cross_run_dispersion: GeoCrossRunDispersion | None = None
     drilldown: GeoAnswerInsightDrilldown
 
 
@@ -124,6 +131,7 @@ class GeoAnswerInsightTrend(ContractModel):
             "PRODUCT_VERSION_UNKNOWN",
         ]
     ]
+    delta_confidence_interval: GeoDeltaConfidenceInterval | None = None
 
 
 class GeoQuestionVariantCoverage(ContractModel):

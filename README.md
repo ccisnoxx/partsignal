@@ -66,6 +66,6 @@ make verify-release      # 准备部署指定 commit；make verify 是完整兼�
 
 具体范围、前置条件与其他领域过滤示例见 [测试策略](./docs/testing.md#手工分层命令)。GitHub 只用于代码备份与服务器拉取，仓库不运行 Actions 工作流；Docker 交付可按 commit SHA 追踪，不要求 GitHub Release 或 Git tag。已有独立契约、静态、单元、集成、构建和 E2E 入口继续可用。
 
-HTTP 契约位于 `contracts/openapi.yaml`，数据库和状态机契约位于 `contracts/database.md`。AI 调用使用官方 `openai` Python SDK，继续 OpenAI-compatible Chat Completions，SDK 自动重试关闭（`max_retries=0`）；Base URL、模型、API Key 和受支持 Header 由管理员配置。应用负责凭据加密、业务快照、`PUBLIC` 数据门禁、严格输出 Schema、状态机、审计和指标；不实现自研 DNS pinning、TCP peer、TLS 或 HTTP/1.1 传输。详细边界见 [实现架构](./docs/architecture.md#外部适配器) 和 [SDK 维护记录](./docs/maintenance/openai-sdk-refactor/README.md)。本地测试使用显式替身；真实调用失败不会自动回退。生产 OSS 仍只有在显式配置 `OBJECT_STORAGE_BACKEND=aliyun_oss` 时启用。
+HTTP 契约位于 `contracts/openapi.yaml`，数据库和状态机契约位于 `contracts/database.md`。AI 调用使用官方 `openai` Python SDK，继续 OpenAI-compatible Chat Completions，SDK 自动重试关闭（`max_retries=0`）；Base URL、模型、API Key 和受支持 Header 由管理员配置。应用负责凭据加密、业务快照、`PUBLIC` 数据门禁、严格输出 Schema、状态机、审计和指标，并在官方 SDK 外层通过 `httpx2.BaseTransport` 统一实施公网 IP/DNS 单次解析与 IP 绑定+SNI（生产允许自定义 HTTPS 端口）、禁用压缩炸弹与传输期流式响应字节上限，不自研底层 HTTP/1.1 或 TLS 协议栈。详细边界见 [实现架构](./docs/architecture.md#外部适配器) 和 [SDK 维护记录](./docs/maintenance/openai-sdk-refactor/README.md)。本地测试使用显式替身；真实调用失败不会自动回退。生产 OSS 仍只有在显式配置 `OBJECT_STORAGE_BACKEND=aliyun_oss` 时启用。
 
 当前仍处于开发阶段。2026-08-29 起，原 Frontend V2 已提升为 canonical `frontend/`，旧 V1 源码与双前端构建/测试入口已退役；Production 发布、Hostdzire 流量切换和生产观察不由这次仓库切换触发。

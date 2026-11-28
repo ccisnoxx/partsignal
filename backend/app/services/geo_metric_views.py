@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 
+from app.services.geo_statistics import DifferenceConfidenceInterval
+
 
 class ComparisonReason(StrEnum):
     MISSING_WINDOW = "MISSING_WINDOW"
@@ -45,6 +47,7 @@ class MetricComparison:
     changed_dimensions: tuple[str, ...]
     version_warnings: tuple[str, ...]
     minimum_run_count: int
+    delta_confidence_interval: DifferenceConfidenceInterval | None = None
 
 
 @dataclass(frozen=True)

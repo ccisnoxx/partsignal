@@ -26,11 +26,13 @@ from app.schemas.geo_insights import (
     GeoOverviewSampleFilters,
     OverviewMetric,
 )
+from app.schemas.geo_metric_values import GeoConfidenceInterval, GeoCrossRunDispersion
 from app.services.geo_metric_inputs import metric_scope_from_snapshot
 from app.services.geo_metric_types import MetricCode, MetricDimensions, MetricExclusion
 from app.services.geo_metrics import DEFAULT_SAMPLE_POLICY, calculate_metric, metric_eligibility
 from app.services.geo_opportunity_summary import get_opportunity_summary
 from app.services.geo_overview_queries import OverviewInput, load_inputs, selected_subjects
+from app.services.geo_statistics import cross_run_dispersion, wilson_confidence_interval
 
 BUSINESS_CODES = (
     MetricCode.ANSWER_COVERAGE,
@@ -133,6 +135,10 @@ def _quality_card(
     numerator, denominator = sum(p.numerator for p in parts), sum(p.denominator for p in parts)
     reasons = Counter(reason for part in parts for reason in part.reasons)
     eligible = numerator if code == "eligible_runs" else denominator
+    ci = wilson_confidence_interval(numerator, denominator)
+    dispersion = cross_run_dispersion(
+        [p.numerator / p.denominator for p in parts if p.denominator > 0]
+    )
     return GeoOverviewCard(
         metric_code=code,
         formula_version=QUALITY_VERSION,
@@ -148,6 +154,12 @@ def _quality_card(
         ],
         unjudgeable_claim_count=0,
         unavailable_reason=None if denominator else "NO_DENOMINATOR",
+        confidence_interval=(
+            GeoConfidenceInterval(**asdict(ci)) if ci is not None else None
+        ),
+        cross_run_dispersion=(
+            GeoCrossRunDispersion(**asdict(dispersion)) if dispersion is not None else None
+        ),
         drilldown=_drill(filters, code),
     )
 
@@ -214,6 +226,16 @@ def _cells(
                     ],
                     unjudgeable_claim_count=result.unjudgeable_claim_count,
                     unavailable_reason=None if result.denominator else "NO_DENOMINATOR",
+                    confidence_interval=(
+                        GeoConfidenceInterval(**asdict(result.confidence_interval))
+                        if result.confidence_interval is not None
+                        else None
+                    ),
+                    cross_run_dispersion=(
+                        GeoCrossRunDispersion(**asdict(result.cross_run_dispersion))
+                        if result.cross_run_dispersion is not None
+                        else None
+                    ),
                     drilldown=_drill(filters, code, key=key),
                 )
             )

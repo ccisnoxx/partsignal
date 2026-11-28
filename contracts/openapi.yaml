@@ -34690,6 +34690,14 @@ components:
           title: Unavailable Reason
         drilldown:
           $ref: '#/components/schemas/GeoOverviewDrilldown'
+        confidence_interval:
+          anyOf:
+          - $ref: '#/components/schemas/GeoConfidenceInterval'
+          - type: 'null'
+        cross_run_dispersion:
+          anyOf:
+          - $ref: '#/components/schemas/GeoCrossRunDispersion'
+          - type: 'null'
       required:
       - metric_code
       - formula_version
@@ -35132,6 +35140,97 @@ components:
       - STABLE
       title: SampleLevel
       type: string
+    GeoConfidenceInterval:
+      properties:
+        lower:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Lower
+        upper:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Upper
+        confidence_level:
+          type: number
+          maximum: 0.95
+          minimum: 0.95
+          title: Confidence Level
+          default: 0.95
+        method:
+          type: string
+          const: WILSON_95
+          title: Method
+          default: WILSON_95
+        sample_size:
+          type: integer
+          minimum: 1.0
+          title: Sample Size
+      additionalProperties: false
+      type: object
+      required:
+      - lower
+      - upper
+      - sample_size
+      title: GeoConfidenceInterval
+      description: 比率指标的 95% Wilson 置信区间。
+    GeoDeltaConfidenceInterval:
+      properties:
+        lower:
+          type: number
+          maximum: 1.0
+          minimum: -1.0
+          title: Lower
+        upper:
+          type: number
+          maximum: 1.0
+          minimum: -1.0
+          title: Upper
+        confidence_level:
+          type: number
+          maximum: 0.95
+          minimum: 0.95
+          title: Confidence Level
+          default: 0.95
+        method:
+          type: string
+          const: NEWCOMBE_WILSON_95
+          title: Method
+          default: NEWCOMBE_WILSON_95
+        excludes_zero:
+          type: boolean
+          title: Excludes Zero
+      additionalProperties: false
+      type: object
+      required:
+      - lower
+      - upper
+      - excludes_zero
+      title: GeoDeltaConfidenceInterval
+      description: 两窗口比率差值的 95% Newcombe-Wilson 置信区间（excludes_zero 不代表因果成立）。
+    GeoCrossRunDispersion:
+      properties:
+        run_count:
+          type: integer
+          minimum: 2.0
+          title: Run Count
+        sample_variance:
+          type: number
+          minimum: 0.0
+          title: Sample Variance
+        sample_std_dev:
+          type: number
+          minimum: 0.0
+          title: Sample Std Dev
+      additionalProperties: false
+      type: object
+      required:
+      - run_count
+      - sample_variance
+      - sample_std_dev
+      title: GeoCrossRunDispersion
+      description: 同维度 cell 跨合格运行的样本方差与标准差（ddof=1）。
     GeoOverviewRunPage:
       additionalProperties: false
       properties:
@@ -35532,6 +35631,14 @@ components:
           title: Unavailable Reason
         drilldown:
           $ref: '#/components/schemas/GeoAnswerInsightDrilldown'
+        confidence_interval:
+          anyOf:
+          - $ref: '#/components/schemas/GeoConfidenceInterval'
+          - type: 'null'
+        cross_run_dispersion:
+          anyOf:
+          - $ref: '#/components/schemas/GeoCrossRunDispersion'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -35627,6 +35734,10 @@ components:
             - PRODUCT_VERSION_UNKNOWN
           type: array
           title: Version Warnings
+        delta_confidence_interval:
+          anyOf:
+          - $ref: '#/components/schemas/GeoDeltaConfidenceInterval'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -41589,6 +41700,10 @@ components:
             type: string
           type: array
           title: Unavailable Reasons
+        confidence_interval:
+          anyOf:
+          - $ref: '#/components/schemas/GeoConfidenceInterval'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -45976,6 +46091,30 @@ components:
           - type: boolean
           - type: 'null'
           title: Target Met
+        baseline_sample_size:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Baseline Sample Size
+        retest_sample_size:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Retest Sample Size
+        baseline_ci:
+          anyOf:
+          - $ref: '#/components/schemas/GeoConfidenceInterval'
+          - type: 'null'
+        retest_ci:
+          anyOf:
+          - $ref: '#/components/schemas/GeoConfidenceInterval'
+          - type: 'null'
+        delta_ci:
+          anyOf:
+          - $ref: '#/components/schemas/GeoDeltaConfidenceInterval'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -45986,7 +46125,7 @@ components:
       - target_value
       - target_met
       title: GeoInterventionMetricDeltaOut
-      description: 基线与复测窗口间的单项指标变化与达标状态。
+      description: 基线与复测窗口间的单项指标变化、样本量、95% 统计置信区间与达标状态。
     GeoInterventionAttributionOut:
       properties:
         causal_claim:

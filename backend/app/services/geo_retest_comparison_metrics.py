@@ -7,7 +7,7 @@ from uuid import UUID
 
 from app.schemas.geo_analysis import GeoClaimKind
 from app.schemas.geo_insights import GeoOverviewDimensions, GeoOverviewExclusion, GeoOverviewFilters
-from app.schemas.geo_metric_values import MetricExclusion
+from app.schemas.geo_metric_values import GeoConfidenceInterval, MetricExclusion
 from app.schemas.geo_retest_comparisons import (
     ComparisonMetric,
     DifferenceCode,
@@ -25,6 +25,11 @@ from app.services.geo_opportunity_quality_rules import environment_key, failure_
 from app.services.geo_overview import QUALITY_VERSION, _quality
 from app.services.geo_overview_queries import OverviewInput
 from app.services.geo_rule_policy import FrozenRuleSet
+from app.services.geo_statistics import wilson_confidence_interval
+
+_COUNT_COMPARISON_METRICS = frozenset(
+    {"owned_citation_count", "same_fact_error_count", "consecutive_failed_count"}
+)
 
 RULE_METRICS = {
     Code.VISIBILITY_DROP: MetricCode.NATURAL_VISIBILITY,
@@ -232,6 +237,11 @@ def metrics(
             unjudgeable_claim_count=result.unjudgeable_claim_count,
             dimensions=GeoOverviewDimensions.model_validate(asdict(result.dimensions)),
             unavailable_reasons=[] if result.value is not None else ["NO_DENOMINATOR"],
+            confidence_interval=(
+                GeoConfidenceInterval(**asdict(result.confidence_interval))
+                if result.confidence_interval is not None
+                else None
+            ),
         )
         values.append(metric)
         eligible = [s for s in parts if s.metric.run_id in result.eligible_run_ids]
@@ -256,6 +266,7 @@ def metrics(
                         "value": float(count) if metric.value is not None else None,
                         "numerator": count,
                         "denominator": result.eligible_run_count,
+                        "confidence_interval": None,
                     }
                 )
             )
@@ -282,6 +293,7 @@ def metrics(
                         "value": float(count) if metric.value is not None and signatures else None,
                         "numerator": count,
                         "denominator": result.eligible_run_count,
+                        "confidence_interval": None,
                     }
                 )
             )
@@ -298,6 +310,11 @@ def _count_metric(
     policy: SamplePolicy,
     version: str,
 ) -> GeoRetestComparisonMetric:
+    ci = (
+        wilson_confidence_interval(numerator, denominator)
+        if code not in _COUNT_COMPARISON_METRICS and 0 <= numerator <= denominator
+        else None
+    )
     return GeoRetestComparisonMetric(
         metric_code=cast(ComparisonMetric, code),
         formula_version=version,
@@ -318,6 +335,7 @@ def _count_metric(
         unjudgeable_claim_count=0,
         dimensions=None,
         unavailable_reasons=[] if value is not None else ["NO_DENOMINATOR"],
+        confidence_interval=GeoConfidenceInterval(**asdict(ci)) if ci is not None else None,
     )
 
 

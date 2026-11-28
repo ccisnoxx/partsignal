@@ -30,6 +30,7 @@ ERROR_SUMMARIES = {
     "AI_PROVIDER_TIMEOUT": "连接测试超时，请检查服务状态后重新测试",
     "AI_PROVIDER_UNAVAILABLE": "网络连接或 TLS 验证失败",
     "AI_PROVIDER_ERROR": "服务拒绝了诊断请求，请检查模型和凭据配置",
+    "AI_RESPONSE_TOO_LARGE": "服务返回内容超出允许大小上限",
     "AI_RESPONSE_INVALID": "服务未返回有效的非空回答正文",
     "AI_CREDENTIAL_INVALID": "渠道凭据格式无效",
     "CREDENTIAL_DECRYPTION_FAILED": "渠道凭据无法读取，请重新配置",

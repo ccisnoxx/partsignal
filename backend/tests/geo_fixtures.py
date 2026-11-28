@@ -323,3 +323,62 @@ def load_geo_claim_fixtures() -> dict[str, Any]:
         raise GeoFixtureError("GEO 声明金标无法读取：文件缺失或 JSON 无效") from error
     validate_geo_claim_fixtures(bundle)
     return bundle
+
+
+def validate_geo_eval_golden_fixtures(bundle: dict[str, Any]) -> None:
+    """端到端分析器黄金基准数据集校验：闭合 Schema、引用一致性与脱敏边界。"""
+    schema = json.loads((FIXTURE_ROOT / "eval-golden-v1.schema.json").read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(schema)
+    error = next(Draft202012Validator(schema).iter_errors(bundle), None)
+    if error is not None:
+        path = "/".join(str(part) for part in error.absolute_path) or "root"
+        raise GeoFixtureError(f"GEO 评估黄金集格式错误：{path}：{error.validator}")
+    _scan_strings(bundle, "eval_golden")
+    shared = load_geo_fixtures()["corpus"]
+    known_subjects = {row["id"] for row in shared["subjects"]}
+    known_products = {row["id"] for row in shared["products"]}
+    for rule in bundle["source_category_rules"]:
+        _validate_url(f"https://{rule['hostname']}/", "eval_golden/source_category_rules")
+    for case in _index(bundle["cases"], "eval_golden/cases").values():
+        scope = set(case["subject_ids"])
+        _require(scope <= known_subjects, "eval_golden/scope", "监测对象引用不存在")
+        _require(
+            set(case["fact_overrides"]) <= known_products,
+            "eval_golden/fact_overrides",
+            "事实覆盖产品引用不存在",
+        )
+        positions = [row["position"] for row in case["citations"]]
+        _require(
+            positions == list(range(1, len(positions) + 1)),
+            "eval_golden/citations",
+            "引用顺序必须从 1 连续递增",
+        )
+        for row in case["citations"]:
+            _validate_url(row["url"], "eval_golden/citations/url")
+        expected = case["expected"]
+        text = case["text"]
+        _require(set(expected["mentions"]) <= scope, "eval_golden/mentions", "提及对象越界")
+        for amb in expected["ambiguities"]:
+            _require(set(amb["subject_ids"]) <= scope, "eval_golden/ambiguities", "歧义对象越界")
+            _require(amb["excerpt"] in text, "eval_golden/ambiguities", "歧义摘录须来自原文")
+        for rec in expected["recommendations"]:
+            _require(rec["subject_id"] in scope, "eval_golden/recommendations", "推荐对象越界")
+            _require(
+                rec["rank"] is None or rec["recommendation"] == "RECOMMENDED",
+                "eval_golden/recommendations",
+                "仅 RECOMMENDED 可有可靠排名",
+            )
+        for cit in expected["citations"]:
+            _validate_url(cit["normalized_url"], "eval_golden/expected/citations")
+        for claim in expected["claims"]:
+            _require(claim["subject_id"] in scope, "eval_golden/claims", "声明对象越界")
+            _require(claim["excerpt"] in text, "eval_golden/claims", "声明摘录须来自原文")
+
+
+def load_geo_eval_golden_fixtures() -> dict[str, Any]:
+    try:
+        bundle = json.loads((FIXTURE_ROOT / "eval-golden-v1.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise GeoFixtureError("GEO 评估黄金集无法读取：文件缺失或 JSON 无效") from error
+    validate_geo_eval_golden_fixtures(bundle)
+    return bundle

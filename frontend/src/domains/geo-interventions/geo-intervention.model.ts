@@ -198,6 +198,17 @@ export function formatSignedMetricDelta(code: string, value: number | null | und
   return value > 0 ? `+${pct}%` : `${pct}%`;
 }
 
+export function formatDeltaConfidenceRange(
+  ci: components['schemas']['GeoDeltaConfidenceInterval'] | null | undefined,
+): string | null {
+  if (!ci) return null;
+  const bound = (value: number) => {
+    const pct = (value * 100).toFixed(1);
+    return value > 0 ? `+${pct}%` : `${pct}%`;
+  };
+  return `95% CI [${bound(ci.lower)}, ${bound(ci.upper)}]`;
+}
+
 export type BaselineChoice = {
   id: string;
   label: string;

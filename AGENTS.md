@@ -26,10 +26,10 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 
 - 系统采用 contract-first modular monolith。`contracts/openapi.yaml` 是 API 权威，`contracts/database.md` 是数据库权威；根级合同由主代理维护。
 - `backend/` 与 `frontend/` 是并行修改边界。被限定在单侧目录的子代理不得修改根级合同、部署文件或执行 Git 操作。
-- PostgreSQL 是业务状态唯一来源；Redis 只作 Celery broker。服务端最终裁决状态转换、权限和输入校验，前端隐藏入口不构成安全控制。
+- PostgreSQL 是业务状态唯一来源；Redis 只作 Celery broker。服务端最终裁决状态转换、权限和输入校验，前端隐藏入口不构成安全控制。系统采用三级账号角色（`ADMIN` 管理员、`ENGINEER` 运营/工程人员、`VIEWER` 领导只读），所有非只读与写接口对 `VIEWER` 默认 fail-closed 拒绝。
 - Markdown 是内容正文唯一可编辑来源，不保存可独立编辑的 HTML 或 editor JSON。
-- AI 只能创建草稿；未知产品事实显式失败，不猜测、补零或增加模糊兼容。
-- 已批准事实与内容不可原地修改。Publishing 与 GEO 记录在保留期间不可变；唯一跨历史删除例外是管理员永久删除已明确归档的 content-task aggregate。
+- AI 只能创建草稿；未知产品事实显式失败，不猜测、补零或增加模糊兼容。第三方 AI 出站与一键复制给外部 AI 严格保持 `PUBLIC` 分级底线并剥离内部溯源字段；轻量文章/发布台账（`Article` + 1:N `ArticlePublication`）支持外部成稿免前置审批直录与一稿多平台 URL 登记，显式区分“已登记”与“已核验”，绝不伪造 `GenerationJob` 或 `PublicationVerification`。
+- 已批准事实与内容不可原地修改。Publishing、冻结周报快照与 GEO 记录在保留期间不可变；旧 `GeoObservation`（`MANUAL_ARTICLE_SEARCH`）冻结为只读历史视图，新人工监测统一写入回答级 `GeoObservationRun`；唯一跨历史删除例外是管理员永久删除已明确归档的 content-task aggregate。
 - 开发适配器和真实外部服务在代码与测试中明确区分，未实现业务行为不得以固定成功路径伪装。
 
 ## 项目工作流

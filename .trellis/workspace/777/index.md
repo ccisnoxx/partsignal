@@ -7,9 +7,9 @@
 ## Current Status
 
 <!-- @@@auto:current-status -->
-- **Active File**: `journal-4.md`
-- **Total Sessions**: 236
-- **Last Active**: 2026-10-06
+- **Active File**: `journal-5.md`
+- **Total Sessions**: 237
+- **Last Active**: 2026-11-28
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,8 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-4.md` | ~1961 | Active |
+| `journal-5.md` | ~53 | Active |
+| `journal-4.md` | ~1961 | Archived |
 | `journal-3.md` | ~1983 | Archived |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
@@ -32,6 +33,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 237 | 2026-11-28 | 阶段一人工运营与 GEO 效果看板交付、Hostdzire Production 上线与 Docker 29 兼容修复 | `5e9cbc67`, `5f0e2199`, `7e37070f`, `ab741c81`, `46b8cded`, `bff5cd6e`, `d357920f`, `b50607ea` | `main` |
 | 236 | 2026-10-06 | 整分支阻断修复、本地单次完整门禁与CI入口纠正 | `aa7f3db8`, `d43695e5` | `geo/GEO-906` |
 | 235 | 2026-10-06 | GEO-1007严格恢复修复接受与整分支待修复收尾 | `baea420fb8a479d66d578d3f4fd91d38086b8c29`, `d2aefec7ced564d70d2961f7855755a6f17b6b2d` | `geo/GEO-906` |
 | 234 | 2026-10-06 | GEO-1007 严格失败恢复修复提交与收尾 | `d431e51894c0574928fee3bcc25bce9fec0725d1` | `geo/GEO-906` |

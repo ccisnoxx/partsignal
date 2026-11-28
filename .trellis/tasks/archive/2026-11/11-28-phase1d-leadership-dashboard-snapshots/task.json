@@ -15,12 +15,12 @@
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "bff5cd6e",
   "pr_url": null,
   "subtasks": [],
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "",
+  "notes": "阶段一候选 d357920f 验证通过并已部署 Hostdzire Production (phase1-20261128-d357920f, schema 0083_report_snapshots)。",
   "meta": {}
 }

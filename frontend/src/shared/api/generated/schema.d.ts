@@ -9576,6 +9576,13 @@ export interface components {
              */
             id: string;
             status: components["schemas"]["GeoMonitoringPlanStatus"];
+            /** @default null */
+            plan_role: components["schemas"]["GeoPlanRole"] | null;
+            /**
+             * Default Assignee Id
+             * @default null
+             */
+            default_assignee_id: string | null;
             /** Revision */
             revision: number;
             /**
@@ -30495,46 +30502,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     attachProductMaterial: {
@@ -30566,46 +30537,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     detachProductMaterial: {
@@ -30632,46 +30567,10 @@ export interface operations {
                 content?: never;
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     buildProductPromptCopyBundle: {
@@ -30703,56 +30602,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listArticles: {
@@ -30784,36 +30638,9 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     createArticle: {
@@ -30843,46 +30670,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     generateArticleDraftFromProduct: {
@@ -30913,66 +30704,12 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            502: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            502: components["responses"]["ErrorResponse"];
         };
     };
     getArticle: {
@@ -30999,46 +30736,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     updateArticle: {
@@ -31070,56 +30771,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listArticlePublications: {
@@ -31153,36 +30809,9 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     createArticlePublication: {
@@ -31214,56 +30843,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     updateArticlePublication: {
@@ -31295,56 +30879,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     getGeoDailyChecklist: {
@@ -31375,36 +30914,9 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     ensureGeoDailyChecklist: {
@@ -31434,46 +30946,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     createGeoDirectManualObservation: {
@@ -31503,56 +30979,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     decideGeoCitationLink: {
@@ -31584,56 +31015,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     createManualGeoCitationLink: {
@@ -31665,56 +31051,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     previewGeoManualObservation: {
@@ -31746,46 +31087,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     failGeoManualObservationRun: {
@@ -31817,56 +31122,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listGeoRunCitationLinks: {
@@ -31893,46 +31153,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     getGeoLeadershipFilterOptions: {
@@ -31957,26 +31181,8 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
         };
     };
     getGeoLeadershipDashboard: {
@@ -32009,36 +31215,9 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listGeoLeadershipEvidence: {
@@ -32071,36 +31250,9 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listGeoReportSnapshots: {
@@ -32127,36 +31279,9 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     createGeoReportSnapshot: {
@@ -32186,56 +31311,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     getGeoReportSnapshot: {
@@ -32262,46 +31342,10 @@ export interface operations {
                 };
             };
             400: components["responses"]["ErrorResponse"];
-            /** @description 业务或校验错误 */
-            401: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            403: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description 业务或校验错误 */
-            404: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    "X-Request-ID": components["headers"]["RequestIdResponseHeader"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
 }

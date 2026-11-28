@@ -189,7 +189,7 @@ const navigationSections: readonly NavigationSection[] = [
       { id: 'geo-opportunities', label: '机会工作台', to: '/geo/opportunities', icon: TargetIcon },
       { id: 'geo-questions', label: '问题库', to: '/geo/questions', icon: HelpCircleIcon },
       { id: 'geo-topics', label: '问题主题', to: '/geo/topics', icon: TagsIcon },
-      { id: 'geo-observations', label: '历史观测（只读）', to: '/geo/observations', icon: EyeIcon },
+      { id: 'geo-observations', label: '历史观测', to: '/geo/observations', icon: EyeIcon },
       { id: 'geo-surfaces', label: 'GEO 观测面与采集', to: '/configuration/geo-surfaces', icon: BotIcon, adminOnly: true },
       { id: 'geo-entities', label: '监测对象与竞品', to: '/configuration/geo-entities', icon: BoxesIcon, adminOnly: true },
       { id: 'geo-rules', label: 'GEO 规则与阈值', to: '/configuration/geo-rules', icon: SlidersHorizontalIcon, adminOnly: true },

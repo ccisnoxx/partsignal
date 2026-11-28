@@ -52,5 +52,8 @@ END;
 $$;
 
 CREATE TRIGGER trg_geo_report_snapshots_immutable
-    BEFORE UPDATE OR DELETE OR TRUNCATE ON geo_report_snapshots
+    BEFORE UPDATE OR DELETE ON geo_report_snapshots
+    FOR EACH ROW EXECUTE FUNCTION partsignal_guard_report_snapshot_immutable();
+CREATE TRIGGER trg_geo_report_snapshots_no_truncate
+    BEFORE TRUNCATE ON geo_report_snapshots
     FOR EACH STATEMENT EXECUTE FUNCTION partsignal_guard_report_snapshot_immutable();

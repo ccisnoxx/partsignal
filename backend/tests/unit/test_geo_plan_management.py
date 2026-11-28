@@ -66,7 +66,7 @@ def test_new_components_match_public_shape():
         actual.pop("$defs", None)
         expected = contract["components"]["schemas"][model.__name__]
         # FastAPI的公开响应移除可空字段的None默认值，206未接线组件仍保留它。
-        for name in ("cron_expression", "budget_limit"):
+        for name in ("cron_expression", "budget_limit", "plan_role", "default_assignee_id"):
             if name in actual["properties"]:
                 actual["properties"][name].pop("default", None)
         assert actual == expected

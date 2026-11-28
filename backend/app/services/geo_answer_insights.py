@@ -87,8 +87,8 @@ def _cells(
     for source in inputs:
         dimension_json = serialized.get(source.metric.dimensions)
         if dimension_json is None:
-            dimension_json = GeoOverviewDimensions.model_validate(
-                asdict(source.metric.dimensions)
+            dimension_json = GeoOverviewDimensions.from_metric_dimensions(
+                source.metric.dimensions
             ).model_dump_json()
             serialized[source.metric.dimensions] = dimension_json
         # snapshot对象只读且由完整输入指纹复用，整个inputs持有它们，id不会被回收重用。
@@ -171,8 +171,8 @@ def _cells(
                 product_id=subject.product_id,
                 display_name=subject.display_name,
                 selected_subject=selected,
-                dimensions=GeoOverviewDimensions.model_validate(
-                    asdict(sources[0].metric.dimensions)
+                dimensions=GeoOverviewDimensions.from_metric_dimensions(
+                    sources[0].metric.dimensions
                 ),
                 sov_subject_ids=sorted(scope.sov_subject_ids),
                 metrics=cards,

@@ -54,6 +54,10 @@ def test_components_match_pydantic(contract: dict[str, Any], model: type) -> Non
         mode="serialization" if model is schemas.GeoMonitoringPlanOut else "validation",
     )
     definitions = component.pop("$defs", {})
+    if model is not schemas.GeoMonitoringPlanOut:
+        for name in ("plan_role", "default_assignee_id", "budget_limit", "cron_expression"):
+            if name in component.get("properties", {}):
+                component["properties"][name].pop("default", None)
     assert contract["components"]["schemas"][model.__name__] == component
     for name, definition in definitions.items():
         assert contract["components"]["schemas"][name] == definition

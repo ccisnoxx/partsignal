@@ -8,8 +8,8 @@ import uuid
 from pathlib import Path
 
 import sqlalchemy as sa
-from alembic import op
 
+from alembic import op
 from app.geo_citation_urls import normalize_citation_url
 
 revision = "0081_articles_publications"

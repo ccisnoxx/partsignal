@@ -64,10 +64,7 @@ class GeoPromptVariant(Base):
             name=conv("ck_geo_prompt_variants_reference_time"),
         ),
         CheckConstraint(
-            "prompt_category IN ('NATURAL_DEMAND', 'BRAND_MODEL', 'ARTICLE_LOOKUP') AND ("
-            "(prompt_category = 'NATURAL_DEMAND' AND mention_mode = 'UNBRANDED') OR "
-            "(prompt_category = 'BRAND_MODEL' AND mention_mode = 'BRANDED') OR "
-            "(prompt_category = 'ARTICLE_LOOKUP'))",
+            "prompt_category IN ('NATURAL_DEMAND', 'BRAND_MODEL', 'ARTICLE_LOOKUP')",
             name=conv("ck_geo_prompt_variants_category"),
         ),
         Index("ix_geo_prompt_variants_topic_active", "query_topic_id", "is_active"),

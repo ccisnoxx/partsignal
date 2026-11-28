@@ -110,7 +110,10 @@ END;
 $$;
 
 CREATE TRIGGER trg_article_revisions_immutable
-    BEFORE UPDATE OR DELETE OR TRUNCATE ON article_revisions
+    BEFORE UPDATE OR DELETE ON article_revisions
+    FOR EACH ROW EXECUTE FUNCTION partsignal_guard_article_append_only();
+CREATE TRIGGER trg_article_revisions_no_truncate
+    BEFORE TRUNCATE ON article_revisions
     FOR EACH STATEMENT EXECUTE FUNCTION partsignal_guard_article_append_only();
 
 CREATE TABLE article_publications (
@@ -189,7 +192,10 @@ CREATE INDEX ix_article_pub_events_pub_created
 CREATE INDEX ix_article_pub_events_actor ON article_publication_events (actor_id);
 
 CREATE TRIGGER trg_article_publication_events_immutable
-    BEFORE UPDATE OR DELETE OR TRUNCATE ON article_publication_events
+    BEFORE UPDATE OR DELETE ON article_publication_events
+    FOR EACH ROW EXECUTE FUNCTION partsignal_guard_article_append_only();
+CREATE TRIGGER trg_article_publication_events_no_truncate
+    BEFORE TRUNCATE ON article_publication_events
     FOR EACH STATEMENT EXECUTE FUNCTION partsignal_guard_article_append_only();
 
 CREATE TABLE article_ai_generation_snapshots (
@@ -227,6 +233,43 @@ CREATE TABLE article_ai_generation_snapshots (
 CREATE INDEX ix_article_ai_snap_article ON article_ai_generation_snapshots (article_id);
 CREATE INDEX ix_article_ai_snap_creator ON article_ai_generation_snapshots (created_by);
 
+CREATE OR REPLACE FUNCTION partsignal_guard_article_ai_snapshot_row() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION 'append-only ledger table % cannot be modified or deleted', TG_TABLE_NAME
+            USING ERRCODE = '55000';
+    END IF;
+    IF ROW(
+        NEW.id, NEW.article_id, NEW.article_revision_id, NEW.product_id, NEW.idempotency_key,
+        NEW.product_facts_classification, NEW.product_facts_markdown_snapshot,
+        NEW.rendered_messages_snapshot, NEW.provider_model_snapshot,
+        NEW.cost_amount, NEW.cost_currency, NEW.created_by, NEW.created_at
+    ) IS DISTINCT FROM ROW(
+        OLD.id, OLD.article_id, OLD.article_revision_id, OLD.product_id, OLD.idempotency_key,
+        OLD.product_facts_classification, OLD.product_facts_markdown_snapshot,
+        OLD.rendered_messages_snapshot, OLD.provider_model_snapshot,
+        OLD.cost_amount, OLD.cost_currency, OLD.created_by, OLD.created_at
+    ) OR (
+        NEW.prompt_template_version_id IS DISTINCT FROM OLD.prompt_template_version_id
+        AND NEW.prompt_template_version_id IS NOT NULL
+    ) OR (
+        NEW.ai_channel_id IS DISTINCT FROM OLD.ai_channel_id
+        AND NEW.ai_channel_id IS NOT NULL
+    ) OR (
+        NEW.ai_model_id IS DISTINCT FROM OLD.ai_model_id
+        AND NEW.ai_model_id IS NOT NULL
+    ) THEN
+        RAISE EXCEPTION 'append-only ledger table % cannot be modified or deleted', TG_TABLE_NAME
+            USING ERRCODE = '55000';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
 CREATE TRIGGER trg_article_ai_gen_snapshots_immutable
-    BEFORE UPDATE OR DELETE OR TRUNCATE ON article_ai_generation_snapshots
+    BEFORE UPDATE OR DELETE ON article_ai_generation_snapshots
+    FOR EACH ROW EXECUTE FUNCTION partsignal_guard_article_ai_snapshot_row();
+CREATE TRIGGER trg_article_ai_gen_snapshots_no_truncate
+    BEFORE TRUNCATE ON article_ai_generation_snapshots
     FOR EACH STATEMENT EXECUTE FUNCTION partsignal_guard_article_append_only();

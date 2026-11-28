@@ -187,12 +187,13 @@ def test_workflow_uses_same_qualification(status: Status, mode: Mode, actor: Acc
         current, actor_type=actor, actor_active=True, collection_eligible=True, commands=COMMANDS
     )
     expected = []
-    if status == Status.PENDING:
-        if mode == Mode.MANUAL:
-            expected.append("ENTER_MANUAL_OBSERVATION")
-        expected.append("CANCEL")
-    if status in {Status.FAILED, Status.BUDGET_BLOCKED}:
-        expected.append("RETRY")
+    if actor != AccountType.VIEWER:
+        if status == Status.PENDING:
+            if mode == Mode.MANUAL:
+                expected.append("ENTER_MANUAL_OBSERVATION")
+            expected.append("CANCEL")
+        if status in {Status.FAILED, Status.BUDGET_BLOCKED}:
+            expected.append("RETRY")
     assert projection.available_actions == expected
     if GeoRunAction.CANCEL in projection.available_actions:
         require_cancellable(current)

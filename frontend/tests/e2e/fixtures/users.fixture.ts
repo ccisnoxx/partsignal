@@ -101,6 +101,7 @@ function listUsers(items: User[], url: URL): UserList {
       disabled_total: items.filter((item) => !item.is_active).length,
       must_change_password_total: items.filter((item) => item.must_change_password).length,
       admin_total: items.filter((item) => item.account_type === 'ADMIN').length,
+      viewer_total: items.filter((item) => item.account_type === 'VIEWER').length,
     },
   };
 }

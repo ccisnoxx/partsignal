@@ -14,6 +14,7 @@ import { aiChannelKeys } from '@/domains/configuration/ai-channel.api';
 
 type AuthUser = components['schemas']['User'];
 type WorkbenchAggregate = components['schemas']['WorkbenchAggregate'];
+type WorkbenchInbox = components['schemas']['WorkbenchInbox'];
 type AIChannel = components['schemas']['AIChannel'];
 
 const admin: AuthUser = {
@@ -124,6 +125,23 @@ const emptyWorkbenchAggregate = {
   recent_attention_items: [],
 } satisfies WorkbenchAggregate;
 
+const emptyWorkbenchInbox = {
+  generated_at: '2026-08-23T08:00:00Z',
+  timezone: 'Asia/Shanghai',
+  active_bucket: 'assigned_to_me',
+  bucket_counts: {
+    assigned_to_me: 0,
+    due_today: 0,
+    overdue: 0,
+    pending_review: 0,
+    awaiting_publication: 0,
+    awaiting_verification: 0,
+    needs_fix: 0,
+    high_priority_geo_opportunities: 0,
+  },
+  items: [],
+} satisfies WorkbenchInbox;
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((resolvePromise) => {
@@ -155,16 +173,20 @@ describe('AppProviders', () => {
   });
 
   it('有效会话才渲染根业务页面', async () => {
-    vi.spyOn(api, 'GET').mockImplementation((path) => (
-      path === '/api/v1/auth/session'
-        ? Promise.resolve(authSnapshot(admin, 'admin-csrf'))
-        : Promise.resolve(success(emptyWorkbenchAggregate))
-    ));
+    vi.spyOn(api, 'GET').mockImplementation((path) => {
+      if (path === '/api/v1/auth/session') {
+        return Promise.resolve(authSnapshot(admin, 'admin-csrf'));
+      }
+      if (path === '/api/v1/workbench/inbox') {
+        return Promise.resolve(success(emptyWorkbenchInbox));
+      }
+      return Promise.resolve(success(emptyWorkbenchAggregate));
+    });
     window.history.replaceState(null, '', '/');
 
     render(<AppProviders />);
 
-    expect(await screen.findByRole('heading', { name: '工作台' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '运营工作台' })).toBeInTheDocument();
     expect(window.location.pathname).toBe('/');
     await waitFor(() => expect(screen.queryByLabelText('正在读取账户信息')).not.toBeInTheDocument());
   });
@@ -275,6 +297,7 @@ describe('AppProviders', () => {
         data: emptyWorkbenchAggregate,
         response: Response.json(emptyWorkbenchAggregate),
       } as never);
+      if (path === '/api/v1/workbench/inbox') return Promise.resolve(success(emptyWorkbenchInbox));
       if (path === '/api/v1/auth/session') {
         authSessionCalls += 1;
         if (authSessionCalls === 1) return Promise.resolve({
@@ -302,7 +325,7 @@ describe('AppProviders', () => {
     await act(async () => {
       loginResult.resolve(authSnapshot(engineer, 'canonical-login-csrf'));
     });
-    expect(await screen.findByRole('heading', { name: '工作台' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '运营工作台' })).toBeInTheDocument();
     expect(window.location.pathname).toBe('/');
     expect(queryClient.getQueryData(['audit', 'sensitive-race'])).toBeUndefined();
 
@@ -327,6 +350,7 @@ describe('AppProviders', () => {
         data: emptyWorkbenchAggregate,
         response: Response.json(emptyWorkbenchAggregate),
       } as never);
+      if (path === '/api/v1/workbench/inbox') return Promise.resolve(success(emptyWorkbenchInbox));
       if (path === '/api/v1/auth/session') {
         authSessionCalls += 1;
         return authSessionCalls === 1
@@ -339,7 +363,7 @@ describe('AppProviders', () => {
     window.history.replaceState(null, '', '/');
     render(<AppProviders />);
     const user = userEvent.setup();
-    await screen.findByRole('heading', { name: '工作台' });
+    await screen.findByRole('heading', { name: '运营工作台' });
 
     queryClient.setQueryData(['users', 'sensitive-race'], { value: '旧用户' });
     const staleRefetch = queryClient.refetchQueries({ queryKey: authSessionQueryKey, exact: true });
@@ -378,6 +402,7 @@ describe('AppProviders', () => {
         data: emptyWorkbenchAggregate,
         response: Response.json(emptyWorkbenchAggregate),
       } as never);
+      if (path === '/api/v1/workbench/inbox') return Promise.resolve(success(emptyWorkbenchInbox));
       if (path === '/api/v1/auth/session') {
         authSessionCalls += 1;
         if (authSessionCalls === 1) {
@@ -406,7 +431,7 @@ describe('AppProviders', () => {
     await act(async () => {
       changeResult.resolve({ response: new Response(null, { status: 204 }) } as never);
     });
-    expect(await screen.findByRole('heading', { name: '工作台' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '运营工作台' })).toBeInTheDocument();
     expect(window.location.pathname).toBe('/');
     expect(queryClient.getQueryData(['audit', 'must-change-race'])).toBeUndefined();
 

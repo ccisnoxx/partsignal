@@ -161,7 +161,7 @@ def manual_fail(
     response_model=list[GeoCitationPublicationLinkOut],
     operation_id="listGeoRunCitationLinks",
     dependencies=[Depends(read_snapshot)],
-    responses=error_responses(401, 403, 404),
+    responses=error_responses(401, 403, 404, 422),
 )
 def list_run_citation_links_route(
     run_id: UUID,

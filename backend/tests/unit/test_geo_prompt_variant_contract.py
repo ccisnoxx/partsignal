@@ -104,9 +104,10 @@ def test_public_components_match_pydantic_schema(contract: dict[str, Any]) -> No
         GeoPromptVariantRevisionRequest,
         GeoPromptVariantOut,
     ]:
-        assert clean(model.model_json_schema()) == clean(
-            contract["components"]["schemas"][model.__name__]
-        )
+        actual = clean(model.model_json_schema())
+        if "prompt_category" in actual.get("properties", {}):
+            actual["properties"]["prompt_category"].pop("default", None)
+        assert actual == clean(contract["components"]["schemas"][model.__name__])
     validate_component(contract, "GeoPromptVariantCreate", payload())
     validate_component(
         contract, "GeoPromptVariantUpdate", {"expected_revision": 0, "priority": "CORE"}

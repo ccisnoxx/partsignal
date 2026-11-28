@@ -15,11 +15,6 @@ ALTER TABLE geo_prompt_variants
     ALTER COLUMN prompt_category SET DEFAULT 'NATURAL_DEMAND',
     ADD CONSTRAINT ck_geo_prompt_variants_category CHECK (
         prompt_category IN ('NATURAL_DEMAND', 'BRAND_MODEL', 'ARTICLE_LOOKUP')
-        AND (
-            (prompt_category = 'NATURAL_DEMAND' AND mention_mode = 'UNBRANDED')
-            OR (prompt_category = 'BRAND_MODEL' AND mention_mode = 'BRANDED')
-            OR (prompt_category = 'ARTICLE_LOOKUP')
-        )
     );
 
 CREATE INDEX ix_geo_prompt_variants_category_active
@@ -161,6 +156,17 @@ BEGIN
             USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_immutable';
     END IF;
     IF TG_OP = 'UPDATE' THEN
+        IF ROW(NEW.id,NEW.batch_id,NEW.prompt_variant_id,NEW.collection_profile_id,
+                NEW.repeat_index,NEW.attempt_no,NEW.previous_attempt_id,NEW.input_snapshot,
+                NEW.created_at,NEW.entry_kind,NEW.is_backfill,NEW.backfill_source,
+                NEW.target_article_publication_id)
+            IS DISTINCT FROM ROW(OLD.id,OLD.batch_id,OLD.prompt_variant_id,OLD.collection_profile_id,
+                OLD.repeat_index,OLD.attempt_no,OLD.previous_attempt_id,OLD.input_snapshot,
+                OLD.created_at,OLD.entry_kind,OLD.is_backfill,OLD.backfill_source,
+                OLD.target_article_publication_id) THEN
+            RAISE EXCEPTION '运行输入和身份不可变'
+                USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_immutable';
+        END IF;
         IF NEW.current_analysis_revision_id IS DISTINCT FROM OLD.current_analysis_revision_id THEN
             IF NEW.current_analysis_revision_id IS NULL OR NEW.revision <> OLD.revision + 1 OR
                 (to_jsonb(NEW) - ARRAY['run_cell_key','revision','current_analysis_revision_id']) IS DISTINCT FROM
@@ -197,17 +203,6 @@ BEGIN
                 RAISE EXCEPTION '复核发布必须同事务追加当前分析Review且只更新允许字段'
                     USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_review_publication';
             END IF;
-        END IF;
-        IF ROW(NEW.id,NEW.batch_id,NEW.prompt_variant_id,NEW.collection_profile_id,
-                NEW.repeat_index,NEW.attempt_no,NEW.previous_attempt_id,NEW.input_snapshot,
-                NEW.created_at,NEW.entry_kind,NEW.is_backfill,NEW.backfill_source,
-                NEW.target_article_publication_id)
-            IS DISTINCT FROM ROW(OLD.id,OLD.batch_id,OLD.prompt_variant_id,OLD.collection_profile_id,
-                OLD.repeat_index,OLD.attempt_no,OLD.previous_attempt_id,OLD.input_snapshot,
-                OLD.created_at,OLD.entry_kind,OLD.is_backfill,OLD.backfill_source,
-                OLD.target_article_publication_id) THEN
-            RAISE EXCEPTION '运行输入和身份不可变'
-                USING ERRCODE='23514', CONSTRAINT='ck_geo_runs_immutable';
         END IF;
         IF to_jsonb(NEW) - 'run_cell_key' IS NOT DISTINCT FROM to_jsonb(OLD) - 'run_cell_key'
             THEN RETURN NEW; END IF;

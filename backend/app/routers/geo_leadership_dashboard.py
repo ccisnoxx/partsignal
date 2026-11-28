@@ -107,7 +107,7 @@ def list_leadership_evidence_route(
     response_model=GeoReportSnapshotList,
     operation_id="listGeoReportSnapshots",
     dependencies=[Depends(read_snapshot)],
-    responses=error_responses(401, 403),
+    responses=error_responses(401, 403, 422),
 )
 def list_report_snapshots_route(
     db: DbSession,
@@ -122,7 +122,7 @@ def list_report_snapshots_route(
     response_model=GeoReportSnapshotDetail,
     operation_id="getGeoReportSnapshot",
     dependencies=[Depends(read_snapshot)],
-    responses=error_responses(401, 403, 404),
+    responses=error_responses(401, 403, 404, 422),
 )
 def get_report_snapshot_route(
     snapshot_id: UUID,

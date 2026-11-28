@@ -22,6 +22,8 @@ from app.models.geo_analysis import (
 from app.models.geo_analysis_worker import GeoAnalysisJob
 from app.models.geo_answers import GeoAnswerCitation, GeoAnswerSnapshot
 from app.models.geo_citation_links import GeoCitationPublicationLink
+from app.models.geo_runs import GeoObservationRun
+from app.models.geo_surfaces import GeoCollectionProfile
 from app.models.identity import User
 from app.schemas.geo_analysis import (
     GeoMentionCorrection,
@@ -224,7 +226,18 @@ def run_sync_analysis_after_manual_submit(
 ]:
     """人工回答冻结提交后同步完成确定性分析、引用分级归因与可选同屏人工确认。"""
     db.rollback()
+    profile_id = db.scalar(
+        select(GeoObservationRun.collection_profile_id).where(GeoObservationRun.id == run_id)
+    )
+    db.rollback()
     db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
+    if profile_id is not None:
+        # 与 _lock_entry 保持相同锁序（profile -> batch -> run），消除并发提交与分析间 AB-BA 死锁。
+        db.execute(
+            select(GeoCollectionProfile.id)
+            .where(GeoCollectionProfile.id == profile_id)
+            .with_for_update()
+        ).all()
     locked = lock_run(db, run_id)
     if locked is None:
         raise not_found("GEO 运行")
@@ -233,6 +246,12 @@ def run_sync_analysis_after_manual_submit(
     db.commit()
 
     db.connection(execution_options={"isolation_level": "READ COMMITTED"})
+    if profile_id is not None:
+        db.execute(
+            select(GeoCollectionProfile.id)
+            .where(GeoCollectionProfile.id == profile_id)
+            .with_for_update()
+        ).all()
     locked2 = lock_run(db, run_id)
     assert locked2 is not None
     batch, run = locked2

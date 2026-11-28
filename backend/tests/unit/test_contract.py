@@ -53,9 +53,9 @@ def test_static_request_context_metadata_covers_all_operations_and_responses() -
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
     document = yaml.safe_load(contract.read_text(encoding="utf-8"))
     operations = operation_map(document)
-    assert len(operations) == 316
-    assert len({operation["operationId"] for operation in operations.values()}) == 316
-    assert sum(len(operation["responses"]) for operation in operations.values()) == 2057
+    assert len(operations) == 342
+    assert len({operation["operationId"] for operation in operations.values()}) == 342
+    assert sum(len(operation["responses"]) for operation in operations.values()) == 2216
 
     expected_parameter = {
         "name": "X-Request-ID",
@@ -115,6 +115,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
         ("200", "401", "403"): (
             "getAuditLogFilterOptions",
             "getCsrfToken",
+            "getGeoLeadershipFilterOptions",
             "getPublicationWorkbenchSummary",
             "listPlatformPrompts",
             "listPlatformTypes",
@@ -135,19 +136,25 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "exportUsers",
             "getContentCampaignOptions",
             "getContentTaskCreationOptions",
+            "getGeoDailyChecklist",
+            "getGeoLeadershipDashboard",
             "getGeoOpportunityEvaluationSchedule",
             "getWorkbenchInbox",
             "getWorkbenchOperationsMetrics",
             "listAIChannels",
+            "listArticlePublications",
+            "listArticles",
             "listAuditLogs",
             "listContentCampaigns",
             "listContentTasks",
             "listGeoCollectionProfiles",
             "listGeoEngineSurfaces",
             "listGeoInterventions",
+            "listGeoLeadershipEvidence",
             "listGeoMonitoringPlans",
             "listGeoOpportunities",
             "listGeoPromptVariants",
+            "listGeoReportSnapshots",
             "listGeoSubjects",
             "listOperatingCostEntries",
             "listPlatformAccounts",
@@ -171,6 +178,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "getAIChannel",
             "getAIChannelUsageSummary",
             "getAIModelPricing",
+            "getArticle",
             "getCampaignAttributionDashboard",
             "getContentCampaign",
             "getContentTask",
@@ -187,6 +195,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "getGeoMonitoringPlan",
             "getGeoOpportunityFactRevisionOptions",
             "getGeoPromptVariant",
+            "getGeoReportSnapshot",
             "getGeoSubject",
             "getPlatformHealthCheckSettings",
             "getPlatformProfile",
@@ -205,9 +214,12 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "listFactVersions",
             "listGenerationJobs",
             "listGeoObservationPublications",
+            "listGeoRunCitationLinks",
             "listPlatformPromptVersions",
             "listProductFactHistory",
+            "listProductMaterials",
             "listPublishedArticleHealthChecks",
+            "previewGeoManualObservation",
         ),
         ("200", "401", "403", "409", "422", "501"): (
             "exportGeoCitationsCsv",
@@ -215,6 +227,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "exportGeoRunsCsv",
         ),
         ("200", "401", "403", "409", "422"): (
+            "ensureGeoDailyChecklist",
             "exportGeoOpportunitiesCsv",
             "exportGeoOpportunityWorkbenchCsv",
             "getGeoAnswerInsights",
@@ -251,6 +264,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "archiveGeoMonitoringPlan",
             "archivePlatformPromptVersion",
             "bindPlatformPromptVersion",
+            "buildProductPromptCopyBundle",
             "cancelContentTask",
             "cancelGeoIntervention",
             "cancelGeoManualObservationRun",
@@ -263,6 +277,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "createGeoSubjectAlias",
             "createGeoSubjectDomain",
             "createPublicationRepairFromGeoOpportunity",
+            "decideGeoCitationLink",
             "deleteGeoSubjectAlias",
             "deleteGeoSubjectDomain",
             "disableAIChannel",
@@ -282,6 +297,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "enableGeoSubject",
             "enablePlatformAccount",
             "enablePlatformProfile",
+            "failGeoManualObservationRun",
             "getAuditLog",
             "getContentEditorContext",
             "getContentReviewContext",
@@ -346,6 +362,8 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "updateAIChannelHeader",
             "updateAIModel",
             "updateAIModelPricing",
+            "updateArticle",
+            "updateArticlePublication",
             "updateContentCampaign",
             "updateContentDraft",
             "updateContentTaskAssignment",
@@ -373,14 +391,20 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "verifyPublicationWork",
             "voidOperatingCostEntry",
         ),
+        ("201", "401", "403", "404", "422"): (
+            "attachProductMaterial",
+            "createArticle",
+        ),
         ("201", "401", "403", "404", "409", "422"): (
             "copyGeoMonitoringPlan",
             "createAIChannelHeader",
             "createAIModel",
+            "createArticlePublication",
             "createContentCampaign",
             "createContentRevision",
             "createContentTask",
             "createGeoCollectionProfile",
+            "createGeoDirectManualObservation",
             "createGeoEngineSurface",
             "createGeoIntervention",
             "createGeoObservation",
@@ -388,8 +412,10 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "createGeoOpportunityRetest",
             "createGeoOptimizationContentTask",
             "createGeoPromptVariant",
+            "createGeoReportSnapshot",
             "createGeoSubject",
             "createManualContentVersion",
+            "createManualGeoCitationLink",
             "createOperatingCostEntry",
             "createPlatformAccount",
             "createPlatformProfile",
@@ -401,6 +427,9 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "reviewGeoObservationRun",
             "runGeoMonitoringPlanNow",
             "submitProductFactReview",
+        ),
+        ("201", "401", "403", "404", "409", "422", "502"): (
+            "generateArticleDraftFromProduct",
         ),
         ("201", "401", "403", "409", "422", "503"): ("createPlatformLogoCandidate",),
         ("202", "401", "403", "404", "409", "422"): (
@@ -433,6 +462,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
             "permanentlyDeleteContentTask",
             "permanentlyDeletePublishedArticle",
         ),
+        ("204", "401", "403", "404", "422"): ("detachProductMaterial",),
         ("204", "401", "403", "404", "408", "409", "413", "422", "503"): ("uploadFileContent",),
         ("200", "401", "403", "404", "409", "422", "503"): (
             "accessGeoBrowserSession",
@@ -462,7 +492,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
         if isinstance(operation, dict) and "operationId" in operation
     }
 
-    assert len(expected) == 316
+    assert len(expected) == 342
     assert set(operations) == set(expected)
     for operation_id, operation in operations.items():
         responses = operation["responses"]
@@ -479,6 +509,7 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
         "getReadyHealth",
         "getAuditLogFilterOptions",
         "getCsrfToken",
+        "getGeoLeadershipFilterOptions",
         "getAuthSession",
         "getCurrentUser",
         "getContentHumanizationPrompt",
@@ -489,8 +520,8 @@ def test_frozen_response_status_signatures_cover_every_operation() -> None:
         "listWorkbenchAssignees",
         "getWorkbench",
     }
-    assert len(validation_free) == 14
-    assert sum("422" in statuses for statuses in expected.values()) == 302
+    assert len(validation_free) == 15
+    assert sum("422" in statuses for statuses in expected.values()) == 327
     assert {
         operation_id for operation_id, statuses in expected.items() if "422" not in statuses
     } == validation_free

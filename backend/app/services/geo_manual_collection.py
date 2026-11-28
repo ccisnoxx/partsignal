@@ -384,6 +384,12 @@ def submit_manual_observation(
         _check_revision(draft, payload.expected_draft_revision)
         if not payload.answer_text.strip():
             raise AppError("GEO_ANSWER_EMPTY", "正式提交必须包含非空回答", 422)
+        if (
+            payload.inline_review is None
+            and payload.screenshot_file_id is None
+            and payload.raw_payload_file_id is None
+        ):
+            raise AppError("GEO_EVIDENCE_REQUIRED", "正式提交必须包含截图或原始证据", 422)
         require_screenshot = bool(
             run.input_snapshot["profile"]["settings"].get("require_screenshot", True)
         )
@@ -479,7 +485,10 @@ def submit_manual_observation(
         base_receipt = _receipt(db, submission)
         db.commit()
 
-    # Phase 2: 原始证据已安全冻结提交；同步执行确定性分析、引用分级归因与可选同屏确认
+    if payload.inline_review is None:
+        return base_receipt
+
+    # Phase 2: 原始证据已安全冻结提交；同屏录入模式下同步执行确定性分析、引用分级归因与确认
     run_status, analysis_id, review_id, links, dispatch_label = (
         run_sync_analysis_after_manual_submit(
             db,

@@ -16922,41 +16922,13 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '404':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
     post:
@@ -16999,41 +16971,13 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '404':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/products/{product_id}/materials/{file_id}:
@@ -17074,41 +17018,13 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '404':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/products/{product_id}/prompt-copy-bundle:
@@ -17152,50 +17068,15 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '404':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '409':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/articles:
@@ -17270,32 +17151,11 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
     post:
@@ -17331,41 +17191,13 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '404':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/articles/generate-draft:
@@ -17411,59 +17243,17 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '404':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '409':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '502':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/articles/{article_id}:
@@ -17494,41 +17284,13 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '404':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
     patch:
@@ -17571,50 +17333,15 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '404':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '409':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/article-publications:
@@ -17707,32 +17434,11 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/articles/{article_id}/publications:
@@ -17776,50 +17482,15 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '404':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '409':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/article-publications/{publication_id}:
@@ -17863,50 +17534,15 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '404':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '409':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/geo/daily-checklist:
@@ -17972,32 +17608,11 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/geo/daily-checklist/ensure:
@@ -18034,41 +17649,13 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '409':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/geo/direct-observations:
@@ -18105,50 +17692,15 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '404':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '409':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/geo/citation-links/{link_id}:
@@ -18192,50 +17744,15 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '404':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '409':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/geo/citations/{citation_id}/links:
@@ -18279,50 +17796,15 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '404':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '409':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/geo/observation-runs/{run_id}/manual-preview:
@@ -18367,41 +17849,13 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '404':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/geo/observation-runs/{run_id}/manual-fail:
@@ -18446,50 +17900,15 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '404':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '409':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/geo/observation-runs/{run_id}/citation-links:
@@ -18524,41 +17943,13 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '404':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/geo/leadership-dashboard/filter-options:
@@ -18578,23 +17969,9 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
       security:
@@ -18688,32 +18065,11 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/geo/leadership-dashboard/evidence:
@@ -18802,32 +18158,11 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/geo/report-snapshots:
@@ -18860,32 +18195,11 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
     post:
@@ -18921,50 +18235,15 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '404':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '409':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/geo/report-snapshots/{snapshot_id}:
@@ -18995,41 +18274,13 @@ paths:
             X-Request-ID:
               $ref: '#/components/headers/RequestIdResponseHeader'
         '401':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '403':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '404':
-          description: 业务或校验错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-          headers:
-            X-Request-ID:
-              $ref: '#/components/headers/RequestIdResponseHeader'
+          $ref: '#/components/responses/ErrorResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
 components:
@@ -32177,6 +31428,18 @@ components:
           type: string
         status:
           $ref: '#/components/schemas/GeoMonitoringPlanStatus'
+        plan_role:
+          anyOf:
+          - $ref: '#/components/schemas/GeoPlanRole'
+          - type: 'null'
+          default: null
+        default_assignee_id:
+          anyOf:
+          - format: uuid
+            type: string
+          - type: 'null'
+          default: null
+          title: Default Assignee Id
         revision:
           minimum: 0
           title: Revision

@@ -177,7 +177,7 @@ def _cells(
     for source in inputs:
         value = serialized.get(source.metric.dimensions)
         if value is None:
-            dimensions = GeoOverviewDimensions.model_validate(asdict(source.metric.dimensions))
+            dimensions = GeoOverviewDimensions.from_metric_dimensions(source.metric.dimensions)
             value = dimensions, dimensions.model_dump_json()
             serialized[source.metric.dimensions] = value
         dimensions, dimension_json = value

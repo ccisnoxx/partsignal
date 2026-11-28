@@ -1,7 +1,8 @@
 """回答级 Overview 公共读合同；旧文章关系洞察保持独立。"""
 
+from dataclasses import asdict
 from datetime import UTC
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 from uuid import UUID
 
 from pydantic import AwareDatetime, BeforeValidator, Field, model_validator
@@ -145,6 +146,13 @@ class GeoOverviewDimensions(ContractModel):
     subject_versions: list[tuple[UUID, int]]
     fact_version_bindings: list[tuple[UUID, UUID]]
     window_key: str
+
+    @classmethod
+    def from_metric_dimensions(cls, dimensions: Any) -> Self:
+        """将内部 MetricDimensions 投影为既有 Overview API 维度，不泄露内部 prompt_category。"""
+        data = asdict(dimensions)
+        data.pop("prompt_category", None)
+        return cls.model_validate(data)
 
 
 class GeoOverviewCell(ContractModel):

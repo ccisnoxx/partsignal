@@ -642,9 +642,9 @@ def test_runtime_request_context_covers_all_operations_and_responses() -> None:
     runtime = app.openapi()
     operations = _operation_map(runtime)
 
-    assert len(operations) == 316
-    assert len(set(operations)) == 316
-    assert sum(len(operation["responses"]) for operation in operations.values()) == 2057
+    assert len(operations) == 342
+    assert len(set(operations)) == 342
+    assert sum(len(operation["responses"]) for operation in operations.values()) == 2216
     parameter_ref = {"$ref": "#/components/parameters/RequestIdHeader"}
     header_ref = {"$ref": "#/components/headers/RequestIdResponseHeader"}
     parameter_schema = {
@@ -683,9 +683,9 @@ def test_runtime_request_context_merge_does_not_change_route_metadata() -> None:
     augmented = app.openapi()
     stripped = _strip_request_context_metadata(augmented)
 
-    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1741
+    assert sum(len(operation["responses"]) for operation in _operation_map(raw).values()) == 1874
     assert (
-        sum(len(operation["responses"]) for operation in _operation_map(stripped).values()) == 1741
+        sum(len(operation["responses"]) for operation in _operation_map(stripped).values()) == 1874
     )
     # 安装版本的 FastAPI 省略 None 默认；这里只移除已声明且显式恢复的 nullable annotation。
     raw_settings = raw["components"]["schemas"]["GeoApiSettings"]["properties"]

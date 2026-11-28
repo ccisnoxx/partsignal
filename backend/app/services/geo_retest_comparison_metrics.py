@@ -52,7 +52,7 @@ def environments(inputs: list[OverviewInput]) -> list[GeoRetestComparisonEnviron
             source_product=s.evidence.source_product,
             source_model=s.evidence.source_model,
             source_version=s.evidence.source_version,
-            dimensions=GeoOverviewDimensions.model_validate(asdict(s.metric.dimensions)),
+            dimensions=GeoOverviewDimensions.from_metric_dimensions(s.metric.dimensions),
         )
         for s in sorted(inputs, key=lambda s: s.metric.run_id)
     ]
@@ -235,7 +235,7 @@ def metrics(
                 GeoOverviewExclusion(code=c, run_count=n) for c, n in result.exclusion_reason_counts
             ],
             unjudgeable_claim_count=result.unjudgeable_claim_count,
-            dimensions=GeoOverviewDimensions.model_validate(asdict(result.dimensions)),
+            dimensions=GeoOverviewDimensions.from_metric_dimensions(result.dimensions),
             unavailable_reasons=[] if result.value is not None else ["NO_DENOMINATOR"],
             confidence_interval=(
                 GeoConfidenceInterval(**asdict(result.confidence_interval))
